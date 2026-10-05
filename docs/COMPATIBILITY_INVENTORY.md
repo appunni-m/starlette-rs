@@ -1,6 +1,6 @@
 # Compatibility inventory
 
-**Atlas state: source-mapping milestone complete; full Starlette replacement remains active and incomplete.** The source authority is Starlette 1.6.0 at
+**Atlas state: public-surface review complete; full Starlette replacement remains active and incomplete.** The source authority is Starlette 1.6.0 at
 `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The inventory deliberately keeps
 source candidates separate from the reviewed compatibility surface; an
 importable name alone does not establish public status. The atlas is a source
@@ -17,7 +17,7 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest uses `parity-input@43` and indexes 942 input-only cases across 94 files (940 oracle parity cases and two target-only fault contracts), covering 105 operations and 909 unique parity requirements. The latest inputs map static and path-parameter WebSocketRoute dispatch through TestClient, alongside direct Request and WebSocket constructor scope checks. The pinned `test_router_add_websocket_route` uses a preconfigured module-level Router and does not invoke `Router.add_websocket_route`; the method candidate remains `uncertain` while the observed dispatch behavior is mapped. The preceding batch exercises URL-encoded `Request.form` field-count and part-size errors with each request body delivered in one ASGI chunk. The earlier batch maps `routing.test_partial_async_ws_endpoint`, comparing async function and bound class-method WebSocketRoute endpoints wrapped in `functools.partial` through a mounted Router. Recent parity inputs
+The active parity manifest uses `parity-input@43` and indexes 974 input-only cases across 97 files (972 oracle parity cases and two target-only fault contracts), covering 107 operations and 933 unique parity requirements. The latest inputs compare constructor headers without HTTP requests and middleware startup exceptions during TestClient context entry, including exception identity and thread cleanup on asyncio and Trio. Earlier inputs map static and path-parameter WebSocketRoute dispatch through TestClient, alongside direct Request and WebSocket constructor scope checks. The pinned `test_router_add_websocket_route` uses a preconfigured module-level Router and does not invoke `Router.add_websocket_route`; the method candidate remains `uncertain` while the observed dispatch behavior is mapped. The preceding batch exercises URL-encoded `Request.form` field-count and part-size errors with each request body delivered in one ASGI chunk. The earlier batch maps `routing.test_partial_async_ws_endpoint`, comparing async function and bound class-method WebSocketRoute endpoints wrapped in `functools.partial` through a mounted Router. Recent parity inputs
 include outer BaseHTTPMiddleware request-body transformation and replay, map the pinned WebSocket scope Mapping and identity behavior, and correct the
 StaticFiles HEAD fixture to use the upstream `<file content>` asset and its
 14-byte length. The upstream one-chunk URL-encoded limit test directly inspects private `FormParser` counters/messages and a 50 MiB stress bound, so that implementation-local assertion is source-backed `not_applicable`; the public `Request.form` error behavior is covered by the two live source/package inputs. Schema inputs map the pinned route graph, including missing
@@ -171,8 +171,8 @@ The correctness-gated Router/GZip benchmark is recorded in
 workload-specific measurements do not establish full Starlette compatibility.
 
 The latest source inventory check dispositioned all 999 API candidate rows.
-The generated coverage matrix currently has 806 source rows: 683 input mappings,
-52 reasoned `not_applicable` rows, and 71 fixture backlog rows. Derive these
+The generated coverage matrix currently has 806 source rows: 685 input mappings,
+52 reasoned `not_applicable` rows, and 69 fixture backlog rows. Derive these
 changing counts from the generated atlas CSV files.
 
 Historical integrated run `af914b8c-5933-4ced-9e1d-c60b23263e1a` started at
@@ -742,3 +742,11 @@ Check for catalog drift without writing it by adding `--check`. The
 `make source-inventory-check` target runs that check, then validates the full
 fixture/documentation atlas against the same pinned checkout; source-parity CI
 runs the target before behavioral comparisons.
+
+### Unresolved TestClient implementation-state candidate
+
+The pinned `TestClient.portal` attribute appears only in its implementation
+(`starlette/testclient.py:380,681-685`); the pinned docs and tests contain no
+consumer reference. Its public status remains unresolved. Public lifespan
+parity inputs observe the user application's recorded thread and exception
+propagation rather than requiring this implementation-state attribute.

@@ -484,6 +484,18 @@ SCHEMA_OPERATIONS = {
     ("starlette.schemas.OpenAPIResponse", "schema-endpoint-asgi-call"),
 }
 TEMPLATING_OPERATION = ("starlette.templating.Jinja2Templates", "template-response")
+TESTCLIENT_PUBLIC_OPERATION = (TESTCLIENT_SURFACE, "public-client-workflow")
+TESTCLIENT_PUBLIC_REQUIREMENTS = {
+    name: f"{TESTCLIENT_SURFACE}.public-client-workflow.{name}"
+    for name in (
+        "constructor-default-headers",
+        "constructor-user-agent-override",
+        "constructor-additional-header",
+        "middleware-lifespan-startup-error",
+        "portal-cleanup-after-startup-error",
+    )
+}
+
 TEMPLATING_PUBLIC_OPERATION = ("starlette.templating.Jinja2Templates", "template-public-workflow")
 TEMPLATING_PUBLIC_REQUIREMENTS = {
     name: f"starlette.templating.Jinja2Templates.template-public-workflow.{name}"
@@ -737,6 +749,7 @@ RUST_OWNED_PYTHON_OPERATIONS = (
     | {
         TEMPLATING_OPERATION,
         TEMPLATING_PUBLIC_OPERATION,
+        TESTCLIENT_PUBLIC_OPERATION,
         URL_QUERY_OPERATION,
         URL_SCOPE_OPERATION,
         URL_COMPONENTS_OPERATION,
@@ -15748,6 +15761,7 @@ def validate_case(
                 "requests",
                 "processor_additions",
             },
+            TESTCLIENT_PUBLIC_OPERATION: {"application", "consumer"},
             TEMPLATING_PUBLIC_OPERATION: {
                 "template_directories",
                 "template_files",
@@ -16264,6 +16278,8 @@ def validate_case(
             _validate_schema_case(case)
         elif (case["surface"], case["operation"]) == TEMPLATING_OPERATION:
             _validate_templating_case(case)
+        elif (case["surface"], case["operation"]) == TESTCLIENT_PUBLIC_OPERATION:
+            _validate_testclient_public_case(case)
         elif (case["surface"], case["operation"]) == TEMPLATING_PUBLIC_OPERATION:
             _validate_templating_public_case(case)
         elif (case["surface"], case["operation"]) == URL_QUERY_OPERATION:
@@ -22521,6 +22537,100 @@ def _validate_schema_case(case: dict[str, Any]) -> None:
         "starlette.schemas.BaseSchemaGenerator.OpenAPIResponse",
     }:
         raise ContractError("OpenAPIResponse coverage must match render and generator response")
+
+
+def _validate_testclient_public_case(case: dict[str, Any]) -> None:
+    if case["target_profiles"] != ["python-package-cpython312"]:
+        raise ContractError("Public TestClient workflows require the installed-package profile")
+    if case["assets"] != [] or case["observations"] != [TESTCLIENT_PUBLIC_OPERATION[1]]:
+        raise ContractError(
+            "Public TestClient workflows have one consumer observation and no assets"
+        )
+    application = case["application"]
+    consumer = case["consumer"]
+    if not isinstance(application, dict) or not isinstance(consumer, dict):
+        raise ContractError("Public TestClient application and consumer must be records")
+    coverage: set[str] = set()
+    if consumer.get("kind") == "constructor-headers":
+        _exact(consumer, {"kind", "samples"}, "TestClient header consumer")
+        _exact(application, {"kind", "route"}, "TestClient constructor application")
+        if application["kind"] != "routed-json":
+            raise ContractError("TestClient header consumer requires a routed JSON application")
+        route = _exact(application["route"], {"path", "response"}, "TestClient constructor route")
+        if not _string(route["path"], "TestClient constructor route path").startswith("/"):
+            raise ContractError("TestClient constructor route path must be absolute")
+        if not isinstance(route["response"], dict):
+            raise ContractError("TestClient constructor endpoint payload must be a record")
+        samples = consumer["samples"]
+        if not isinstance(samples, list) or not samples:
+            raise ContractError("TestClient header consumer needs constructor samples")
+        for index, value in enumerate(samples):
+            context = f"TestClient constructor sample[{index}]"
+            sample = _exact(value, {"kwargs", "lookups"}, context)
+            kwargs = sample["kwargs"]
+            if not isinstance(kwargs, dict) or not set(kwargs) <= {"headers"}:
+                raise ContractError(f"{context}.kwargs may only supply public headers")
+            headers = kwargs.get("headers", {})
+            if not isinstance(headers, dict) or any(
+                not isinstance(key, str) or not isinstance(value, str)
+                for key, value in headers.items()
+            ):
+                raise ContractError(f"{context}.headers must map strings to strings")
+            lookups = sample["lookups"]
+            if (
+                not isinstance(lookups, list)
+                or any(not isinstance(name, str) for name in lookups)
+                or len(set(lookups)) != len(lookups)
+            ):
+                raise ContractError(f"{context}.lookups must be unique header names")
+            supplied = {name.lower() for name in headers}
+            observed = {name.lower() for name in lookups}
+            if not supplied | {"user-agent"} <= observed:
+                raise ContractError(
+                    f"{context} must observe the default agent and all supplied headers"
+                )
+            coverage.add(
+                TESTCLIENT_PUBLIC_REQUIREMENTS[
+                    "constructor-user-agent-override"
+                    if "user-agent" in supplied
+                    else "constructor-default-headers"
+                ]
+            )
+            if supplied - {"user-agent"}:
+                coverage.add(TESTCLIENT_PUBLIC_REQUIREMENTS["constructor-additional-header"])
+    elif consumer.get("kind") == "lifespan-context":
+        _exact(consumer, {"kind", "kwargs"}, "TestClient middleware context consumer")
+        kwargs = _exact(
+            consumer["kwargs"], {"backend", "backend_options"}, "TestClient context options"
+        )
+        if kwargs["backend"] not in {"asyncio", "trio"} or kwargs["backend_options"] != {}:
+            raise ContractError(
+                "TestClient middleware context requires a default asyncio or Trio backend"
+            )
+        _exact(application, {"kind", "exception"}, "TestClient raising middleware application")
+        if application["kind"] != "raising-middleware":
+            raise ContractError("TestClient context consumer requires a raising ASGI middleware")
+        exception = _exact(application["exception"], {"name", "args"}, "Middleware exception input")
+        name = _string(exception["name"], "Middleware exception name")
+        if not name.isidentifier() or name.startswith("_"):
+            raise ContractError("Middleware exception name must be a public Python identifier")
+        if not isinstance(exception["args"], list) or any(
+            value is not None and not isinstance(value, (str, bool, int, float))
+            for value in exception["args"]
+        ):
+            raise ContractError("Middleware exception args must contain JSON scalar values")
+        coverage.update(
+            {
+                TESTCLIENT_PUBLIC_REQUIREMENTS["middleware-lifespan-startup-error"],
+                TESTCLIENT_PUBLIC_REQUIREMENTS["portal-cleanup-after-startup-error"],
+            }
+        )
+    else:
+        raise ContractError("Unsupported public TestClient consumer")
+    if set(case["covers"]) != coverage:
+        raise ContractError(
+            "Public TestClient requirements must follow the supplied consumer inputs"
+        )
 
 
 def _validate_templating_public_case(case: dict[str, Any]) -> None:

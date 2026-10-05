@@ -59,6 +59,16 @@ through public APIs and supplies no expected outputs. The concurrency input
 also supplies explicit client disconnect and close-drain actions to make
 the captured cleanup tape deterministic.
 
+The inputs in
+[`testclient-public.yaml`](tests/fixtures/sources/parity/testclient-public.yaml)
+are independently authored from `tests/test_testclient.py` at the pinned
+revision. The mock JSON, user-agent value, authentication header, and custom
+exception name reproduce source stimuli, Copyright © 2018 Encode OSS Ltd.,
+under BSD-3-Clause; the complete notice is in [`LICENSE.md`](LICENSE.md).
+[`testclient_public.py`](scripts/parity/adapters/testclient_public.py) invokes
+each implementation through public constructors and context management. It
+contains user application code and observations, with no expected outputs.
+
 ## Dependency notices
 
 The upstream direct and transitive package metadata snapshot is maintained in

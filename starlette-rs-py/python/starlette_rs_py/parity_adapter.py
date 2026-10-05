@@ -12897,6 +12897,13 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         )
 
         return _run_application_routes_property_case(case)
+    if (
+        case.get("surface") == TESTCLIENT_SURFACE
+        and case.get("operation") == "public-client-workflow"
+    ):
+        from scripts.parity.adapters.testclient_public import run_testclient_public_case
+
+        return run_testclient_public_case(case)
     if case.get("surface") == TESTCLIENT_SURFACE and case.get("operation") in {
         TESTCLIENT_OPERATION,
         TESTCLIENT_WEBSOCKET_OPERATION,

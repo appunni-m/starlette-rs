@@ -710,6 +710,10 @@
         {
           "operation_id": "lifespan-context",
           "source_path": "starlette.testclient.TestClient.__enter__, TestClient.__exit__, TestClient.lifespan, TestClient.wait_startup, and TestClient.wait_shutdown"
+        },
+        {
+          "operation_id": "public-client-workflow",
+          "source_path": "starlette.testclient.TestClient.__init__, headers, __enter__, __exit__, and close; starlette.applications.Starlette; starlette.middleware.Middleware"
         }
       ]
     },

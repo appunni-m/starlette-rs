@@ -121,6 +121,25 @@ exceptions. They require no runtime fault hook and no Python facade behavior.
 The separate target-only route-cache poison contracts exercise internal Rust
 failures through public 500-response and exception outcomes.
 
+## Constructor headers and middleware startup failure
+
+[`testclient-public.yaml`](../tests/fixtures/sources/parity/testclient-public.yaml)
+compares three client constructions over one routed application, inspecting
+public header mappings without issuing a request. Rust selects the default
+User-Agent policy; HTTPX owns its documented header representation.
+
+The middleware cases enter the public context manager for an application
+whose user-defined ASGI middleware raises a custom exception. The exception
+has empty or message-bearing arguments, and both asyncio and Trio are checked.
+The recorded object identity, class, arguments, message, cause, and user-app
+thread lifetime match the live source. No runtime facade behavior was added.
+
+The first harness attempted to read `TestClient.portal`. This attribute has
+implementation references but no pinned docs/test consumer evidence. Its
+public status remains unresolved in [Compatibility inventory](COMPATIBILITY_INVENTORY.md).
+Cleanup is observed through the thread recorded by the user application,
+without depending on the source's internal portal storage.
+
 ## Evidence and remaining work
 
 Each slice is authored as input-only YAML under `tests/fixtures/sources/` and

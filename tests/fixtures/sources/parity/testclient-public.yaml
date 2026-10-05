@@ -1,0 +1,187 @@
+{
+  "schema": "migration-parity/parity-input@43",
+  "cases": [
+    {
+      "surface": "starlette.testclient.TestClient",
+      "operation": "public-client-workflow",
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "public-client-workflow"
+      ],
+      "case_id": "starlette.testclient.TestClient.public-client-workflow.constructor-header-samples",
+      "covers": [
+        "starlette.testclient.TestClient.public-client-workflow.constructor-default-headers",
+        "starlette.testclient.TestClient.public-client-workflow.constructor-user-agent-override",
+        "starlette.testclient.TestClient.public-client-workflow.constructor-additional-header"
+      ],
+      "application": {
+        "kind": "routed-json",
+        "route": {
+          "path": "/",
+          "response": {
+            "mock": "example"
+          }
+        }
+      },
+      "consumer": {
+        "kind": "constructor-headers",
+        "samples": [
+          {
+            "kwargs": {},
+            "lookups": [
+              "user-agent"
+            ]
+          },
+          {
+            "kwargs": {
+              "headers": {
+                "user-agent": "non-default-agent"
+              }
+            },
+            "lookups": [
+              "user-agent"
+            ]
+          },
+          {
+            "kwargs": {
+              "headers": {
+                "Authentication": "Bearer 123"
+              }
+            },
+            "lookups": [
+              "user-agent",
+              "Authentication"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "surface": "starlette.testclient.TestClient",
+      "operation": "public-client-workflow",
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "public-client-workflow"
+      ],
+      "case_id": "starlette.testclient.TestClient.public-client-workflow.middleware-startup-error.empty-args.asyncio",
+      "covers": [
+        "starlette.testclient.TestClient.public-client-workflow.middleware-lifespan-startup-error",
+        "starlette.testclient.TestClient.public-client-workflow.portal-cleanup-after-startup-error"
+      ],
+      "application": {
+        "kind": "raising-middleware",
+        "exception": {
+          "name": "MiddlewareException",
+          "args": []
+        }
+      },
+      "consumer": {
+        "kind": "lifespan-context",
+        "kwargs": {
+          "backend": "asyncio",
+          "backend_options": {}
+        }
+      }
+    },
+    {
+      "surface": "starlette.testclient.TestClient",
+      "operation": "public-client-workflow",
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "public-client-workflow"
+      ],
+      "case_id": "starlette.testclient.TestClient.public-client-workflow.middleware-startup-error.empty-args.trio",
+      "covers": [
+        "starlette.testclient.TestClient.public-client-workflow.middleware-lifespan-startup-error",
+        "starlette.testclient.TestClient.public-client-workflow.portal-cleanup-after-startup-error"
+      ],
+      "application": {
+        "kind": "raising-middleware",
+        "exception": {
+          "name": "MiddlewareException",
+          "args": []
+        }
+      },
+      "consumer": {
+        "kind": "lifespan-context",
+        "kwargs": {
+          "backend": "trio",
+          "backend_options": {}
+        }
+      }
+    },
+    {
+      "surface": "starlette.testclient.TestClient",
+      "operation": "public-client-workflow",
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "public-client-workflow"
+      ],
+      "case_id": "starlette.testclient.TestClient.public-client-workflow.middleware-startup-error.message-arg.asyncio",
+      "covers": [
+        "starlette.testclient.TestClient.public-client-workflow.middleware-lifespan-startup-error",
+        "starlette.testclient.TestClient.public-client-workflow.portal-cleanup-after-startup-error"
+      ],
+      "application": {
+        "kind": "raising-middleware",
+        "exception": {
+          "name": "MiddlewareException",
+          "args": [
+            "startup fault"
+          ]
+        }
+      },
+      "consumer": {
+        "kind": "lifespan-context",
+        "kwargs": {
+          "backend": "asyncio",
+          "backend_options": {}
+        }
+      }
+    },
+    {
+      "surface": "starlette.testclient.TestClient",
+      "operation": "public-client-workflow",
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "public-client-workflow"
+      ],
+      "case_id": "starlette.testclient.TestClient.public-client-workflow.middleware-startup-error.message-arg.trio",
+      "covers": [
+        "starlette.testclient.TestClient.public-client-workflow.middleware-lifespan-startup-error",
+        "starlette.testclient.TestClient.public-client-workflow.portal-cleanup-after-startup-error"
+      ],
+      "application": {
+        "kind": "raising-middleware",
+        "exception": {
+          "name": "MiddlewareException",
+          "args": [
+            "startup fault"
+          ]
+        }
+      },
+      "consumer": {
+        "kind": "lifespan-context",
+        "kwargs": {
+          "backend": "trio",
+          "backend_options": {}
+        }
+      }
+    }
+  ]
+}

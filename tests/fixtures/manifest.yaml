@@ -363,7 +363,8 @@
       "build/parity/inputs/parity/websocket-scope-interface.json",
       "build/parity/inputs/parity/exception-middleware-typing.json",
       "build/parity/inputs/parity/testclient-redirect-policy.json",
-      "build/parity/inputs/parity/templating-public.json"
+      "build/parity/inputs/parity/templating-public.json",
+      "build/parity/inputs/parity/testclient-public.json"
     ],
     "coverage": [],
     "benchmark": [
@@ -24863,6 +24864,173 @@
           "benchmark": {
             "applicability": "not_applicable",
             "reason": "This first TestClient lifespan contract has no benchmark workload."
+          }
+        },
+        {
+          "id": "public-client-workflow",
+          "kind": "protocol_operation",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.testclient.TestClient.__init__, headers, __enter__, __exit__, and close; starlette.applications.Starlette; starlette.middleware.Middleware",
+            "signature": "TestClient(app, **kwargs); client.headers.get(name), client.headers.multi_items(); with TestClient(app, backend=backend): ...; client.close()",
+            "parameters": [
+              {
+                "id": "application",
+                "style": "keyword",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "consumer",
+                "style": "keyword",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "protocol",
+              "observations": [
+                {
+                  "path": "samples",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "application_trace",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "context",
+                  "value_types": [
+                    "record",
+                    "null"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "The Rust-native crate does not expose Python TestClient construction and context management.",
+                "blocker": "TestClient is a Python consumer interface driven by HTTPX and the caller-selected AnyIO backend."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.testclient.TestClient",
+              "signature": "TestClient(app, **kwargs); client.headers.get(name), client.headers.multi_items(); with TestClient(app, backend=backend): ...; client.close()",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.testclient.TestClient.public-client-workflow.constructor-default-headers",
+              "dimension": "success_path",
+              "description": "Construct TestClient using its public header defaults and inspect its HTTPX header mapping without sending a request. Pinned source: tests/test_testclient.py::test_testclient_headers_behavior; starlette/testclient.py::TestClient.__init__.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.public-client-workflow.constructor-user-agent-override",
+              "dimension": "parameter",
+              "description": "Construct TestClient with input user-agent headers and compare the live mapping plus requested lookups before any HTTP request. Pinned source: tests/test_testclient.py::test_testclient_headers_behavior.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.public-client-workflow.constructor-additional-header",
+              "dimension": "parameter_combination",
+              "description": "Supply an additional input header while leaving user-agent at its public default; inspect both through client.headers. Pinned source: tests/test_testclient.py::test_testclient_headers_behavior.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.public-client-workflow.middleware-lifespan-startup-error",
+              "dimension": "error_path",
+              "description": "Enter TestClient context for Starlette with an input-defined raising middleware, without any HTTP request. Compare custom exception class, args, message, identity, cause, and observed lifespan scope on asyncio and Trio. Pinned source: tests/test_testclient.py::test_exception_in_middleware; tests/conftest.py::test_client_factory.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.public-client-workflow.portal-cleanup-after-startup-error",
+              "dimension": "boundary",
+              "description": "After middleware raises during context entry, inspect recorded portal-thread lifetime and public client close state. This exception is reachable from normal input on both implementations. Pinned source: starlette/testclient.py::TestClient.__enter__ and lifespan; tests/test_testclient.py::test_exception_in_middleware.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "These input-only consumer definitions make no standalone coverage claim; instrumented measurements are recorded separately."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "This construction and startup-error contract has no timing workload."
           }
         }
       ]
