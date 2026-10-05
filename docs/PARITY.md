@@ -14,6 +14,12 @@ Coverage MCP verified 27 additional Rust lines with matching source/build receip
 
 The generated atlas has 809 source rows: 694 existing mappings, 52 source-backed not_applicable rows, and 63 backlog rows. Fixed denominators remain 514 upstream test functions and 24 documentation pages. `Response.init_headers` remains uncertain; complete response and Starlette parity remain unproven. See [response boundary](RESPONSE_RENDER_BOUNDARY.md).
 
+### Clean full constructor regression and benchmark gate
+
+Clean commit `fb0210c6c0a0ecc67572c0b491641fcc9e896de9` passed full preflight `bc712157-2daf-43d4-950a-67ed70028b2d`: 1,350/1,350 Python-package comparisons, 246/250 Rust-native comparisons, and both fault contracts. There were zero failures or infrastructure errors. Four existing native callable cases remain not_run. Result SHA-256: `c40cd486bb5091c5ba322c8ef8fdca8c04904bbc37958bdfc0622b816119a486`. Normal package tree `29cbc8f9b188bc02383d451aea70605502ff577ca12eadb3956dd134cc0d7170` matches the selected run.
+
+Benchmark `fab7a6a6-da8c-4f06-8c24-860ae83438dc` matched and timed all 74 source/package workloads. All 74 native timings remain not_run. Median source/package latency ratios were 0.766 for Router and 0.959 for GZip; the source was faster in 5/6 Router and 59/68 GZip workloads. Result SHA-256: `32287fc2e00e5486444af0a583d2d9e1210f6938d86c1dfecfff64fb8cd6c980`. See [benchmark evidence](BENCHMARKS.md). These bounded comparisons do not establish full replacement parity or general speed superiority.
+
 ## Live response ASGI callbacks and ownership evidence
 
 The 92 new input-only consumers include 40 callback mutation/alias workflows, 32 public ownership graphs, 12 StopAsyncIteration/cancellation cases, and eight attribute-read probes. Initial reproduction `f0decca4-ccf3-4a00-9908-01ee0a315693` exposed divergences in all 72 initial inputs; its normal cache control and both fault contracts passed, with no infrastructure errors. Source messages alias raw headers and read body/background values after preceding sends. The former target copied headers, captured those values too early, and hid callback/header references from GC.

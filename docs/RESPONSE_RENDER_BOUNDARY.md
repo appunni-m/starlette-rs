@@ -136,3 +136,16 @@ Normal selection `6de84f15-3fb2-489a-8bd8-d06195f65d6b` passed 434/434 ordinary 
 Coverage MCP verified 27 additional Rust lines with matching source/build receipts: baseline 3,278/25,179, batch 2,882/25,179, union 3,305/25,179. Baseline `a971621e-957e-4366-a602-6c8a7c476478` passed 178 ordinary comparisons; batch `b24af4a4-8bea-467a-b4bf-5c78c3144cf9` passed 133. Both passed both fault contracts. Instrumented package tree: `4a5c520948883a92183b654d412c3e35b3aa61124f087dd2de1b8c26d830f2ab`; wheel SHA-256: `40d05a57c4a2c49b5fb4b9a9a67c52a946997b709947fad5e453ce5ee8826367`. Reports/receipts remain ignored under `build/parity/coverage/response-construction-20261005/`. This selected incremental union does not establish full-suite coverage regression status.
 
 The generated atlas has 809 source rows: 694 existing mappings, 52 source-backed not_applicable rows, and 63 backlog rows. Fixed denominators remain 514 upstream test functions and 24 documentation pages. `Response.init_headers` remains uncertain; complete response and Starlette parity remain unproven. See [response boundary](RESPONSE_RENDER_BOUNDARY.md).
+
+### Clean full constructor regression and benchmark gate
+
+Clean commit `fb0210c6c0a0ecc67572c0b491641fcc9e896de9` passed full preflight `bc712157-2daf-43d4-950a-67ed70028b2d`: 1,350/1,350 Python-package comparisons, 246/250 Rust-native comparisons, and both fault contracts. There were zero failures or infrastructure errors. Four existing native callable cases remain not_run. Result SHA-256: `c40cd486bb5091c5ba322c8ef8fdca8c04904bbc37958bdfc0622b816119a486`. Normal package tree `29cbc8f9b188bc02383d451aea70605502ff577ca12eadb3956dd134cc0d7170` matches the selected run.
+
+Benchmark `fab7a6a6-da8c-4f06-8c24-860ae83438dc` matched and timed all 74 source/package workloads. All 74 native timings remain not_run. Median source/package latency ratios were 0.766 for Router and 0.959 for GZip; the source was faster in 5/6 Router and 59/68 GZip workloads. Result SHA-256: `32287fc2e00e5486444af0a583d2d9e1210f6938d86c1dfecfff64fb8cd6c980`. See [benchmark evidence](BENCHMARKS.md). These bounded comparisons do not establish full replacement parity or general speed superiority.
+
+## Remaining constructor boundary work
+
+User-defined raw-header accessors, public header-view cache changes, and
+constructor attribute interception need further input-only comparisons.
+`Response.init_headers` remains uncertain in the inventory. The current
+workflows do not establish all Python subclass boundary behavior.
