@@ -8,6 +8,12 @@ One input-only case maps the pinned `tests/test_testclient.py::test_raw_path_wit
 
 Selected run `519470b2-1d83-4316-8ed5-8f9c2a9d608f` passed the source/package comparison (1/1) and the unpoisoned route-cache control (1/1), plus both target-only route-cache fault contracts (2/2). The fault rows remain `not_applicable` to the source oracle. Result SHA-256: `9b4b11b51cb2ef0018659b4358aa25bd8380c050767bf64e1536a31b504f767b`; manifest SHA-256: `88e613991f2474adb680bd7f92b716864aa51300435e4a3a7dc92955c772b6e5`. This selected run does not claim full-slice parity or a coverage delta.
 
+## Latest clean full-slice correctness preflight
+
+The benchmark-gated preflight `3b12efe1-c3cc-421f-b9b6-196af2241fc1` used the current 943-case manifest: 939 Python-package comparisons passed, 246/250 Rust-native comparisons passed, and four Rust-native rows were `not_run`; there were zero failures or infrastructure errors. Both target-only route-cache fault contracts passed (2/2) and remain `not_applicable` to the source oracle. The run selected 1,189 profile comparisons, with 1,185 executed and passed.
+
+The preflight result SHA-256 is `6a6526f16d3cc34d8f47713595c8cfaa02bdf56d2f130d84b721f5814a417cd3`. It used manifest SHA-256 `88e613991f2474adb680bd7f92b716864aa51300435e4a3a7dc92955c772b6e5`, clean target revision `6de305ecd07c37b0efeed1b5f0731ca9624861a3`, target package tree SHA-256 `1ada9c03c40f828754761c2dfdeee90cb81ac5bbb6ed64527e462d1b84c195dc`, and installed wheel SHA-256 `f5366f9aadd49f5b2ae48ecdb707355cd4cb1abb926ca12cd63403e41aaa7cce`. This verifies the active slice only; the pinned Starlette denominator remains 514 upstream test functions and 24 documented pages, so full replacement parity is not established.
+
 ## Previous incremental batch: Router WebSocket route matching
 
 Two input-only cases map the pinned `tests/test_routing.py::test_router_add_websocket_route`: TestClient connects to an input-defined Router with a static `/ws` WebSocketRoute and a parameterized `/ws/{room}` WebSocketRoute, then observes each endpoint's text frame. The source test uses the module-level Router setup; it does not call `Router.add_websocket_route`, so that method's API candidate remains `uncertain`.
