@@ -31,7 +31,7 @@ from .fault_contracts import (
 )
 
 MANIFEST_SCHEMA = "migration-parity/manifest@4"
-INPUT_SCHEMA = "migration-parity/parity-input@43"
+INPUT_SCHEMA = "migration-parity/parity-input@44"
 BENCHMARK_INPUT_SCHEMA = "migration-parity/benchmark-input@1"
 RESULT_SCHEMA = "migration-parity/parity-result@6"
 BENCHMARK_RESULT_SCHEMA = "migration-parity/benchmark-result@1"
@@ -31400,6 +31400,8 @@ def _validate_response_consumer_case(case: dict[str, Any]) -> None:
         if {"callbacks", "ownership", "construction_boundary", "subclass_protocol"} & case.keys():
             raise ContractError("Response cookie protocols require their own input workflow")
         _validate_response_cookie_protocol(case["cookie_protocol"])
+        for suffix in _response_cookie_boundaries(case["cookie_protocol"]):
+            expected_requirements.append(case["surface"] + ".consumer-construction." + suffix)
     if case["covers"] != expected_requirements:
         raise ContractError("Response consumer coverage must match its declared surface")
     spec = _exact(
@@ -31513,18 +31515,42 @@ def _validate_response_attribute_error(value: Any) -> None:
         raise ContractError("Response attribute callbacks require an exception class and text")
 
 
+def _response_cookie_boundaries(actions: list[Any]) -> list[str]:
+    values = [spec for action in actions for spec in action["arguments"].values()]
+    boundaries = []
+    if any(spec.get("owned_result") for spec in values):
+        boundaries.append("cookie-owned-result-lifetimes")
+    if any(spec.get("table_callback") for spec in values):
+        boundaries.append("cookie-shared-translation-state")
+    texts = [
+        text
+        for spec in values
+        for text in (
+            spec.get("value"),
+            spec.get("str_text"),
+            (spec.get("owned_result") or {}).get("text"),
+        )
+        if isinstance(text, str)
+    ]
+    if any(any(0xD800 <= ord(character) <= 0xDFFF for character in text) for text in texts):
+        boundaries.append("cookie-surrogate-encoding-order")
+    return boundaries
+
+
 def _validate_response_cookie_protocol(value: Any) -> None:
     if not isinstance(value, list) or not value:
         raise ContractError("Response cookie protocol requires nonempty actions")
-    methods = {"str", "repr", "bool", "eq", "lower", "translate"}
+    methods = {"str", "repr", "bool", "eq", "lower", "translate", "hash"}
     for action in value:
         _exact(
             action,
-            {"operation", "arguments", "clock_unix_seconds"},
+            {"operation", "arguments", "clock_unix_seconds", "observe_raw_reads"},
             "Response cookie protocol action",
         )
         if type(action["clock_unix_seconds"]) is not int:
             raise ContractError("Response cookie protocol clock requires integer seconds")
+        if type(action["observe_raw_reads"]) is not bool:
+            raise ContractError("Response cookie raw-header observation requires a boolean")
         if action["operation"] not in {"set_cookie", "delete_cookie"}:
             raise ContractError("Response cookie protocol requires a public cookie operation")
         arguments = action["arguments"]
@@ -31554,6 +31580,9 @@ def _validate_response_cookie_protocol(value: Any) -> None:
                     "failure",
                     "reentry",
                     "translation",
+                    "owned_result",
+                    "table_callback",
+                    "hash_result",
                 },
                 "Response cookie protocol value",
             )
@@ -31576,6 +31605,52 @@ def _validate_response_cookie_protocol(value: Any) -> None:
             _validate_threadpool_json(spec["lower"], "Response cookie lower result")
             if spec["translation"] is not None and not isinstance(spec["translation"], str):
                 raise ContractError("Response cookie translation requires text or delegation")
+            if spec["hash_result"] is not None and type(spec["hash_result"]) is not int:
+                raise ContractError("Response cookie hash result requires an integer or null")
+            owned = spec["owned_result"]
+            if owned is not None:
+                _exact(owned, {"text", "label", "reentry", "failure"}, "Cookie owned text")
+                if any(not isinstance(owned[key], str) for key in ("text", "label")):
+                    raise ContractError("Cookie owned text requires a label and text")
+                _validate_response_construction_failure(owned["failure"])
+                if owned["reentry"] is not None:
+                    _exact(owned["reentry"], {"key", "value"}, "Cookie finalizer reentry")
+                    if any(not isinstance(item, str) for item in owned["reentry"].values()):
+                        raise ContractError("Cookie finalizer reentry requires text arguments")
+            table = spec["table_callback"]
+            if table is not None:
+                _exact(
+                    table,
+                    {"observe_codepoints", "mutations", "stdlib_cookie"},
+                    "Cookie translation callback",
+                )
+                if spec["kind"] != "text" or not spec["str_self"] or owned is not None:
+                    raise ContractError("Cookie table callbacks require a self-returning text")
+                points = table["observe_codepoints"]
+                if (
+                    not isinstance(points, list)
+                    or any(type(point) is not int or not 0 <= point <= 0x10FFFF for point in points)
+                    or len(set(points)) != len(points)
+                ):
+                    raise ContractError("Cookie table observations require unique code points")
+                if not isinstance(table["mutations"], list):
+                    raise ContractError("Cookie table mutations require a list")
+                for mutation in table["mutations"]:
+                    _exact(mutation, {"action", "codepoint", "value"}, "Cookie table mutation")
+                    if (
+                        mutation["action"] not in {"set", "delete"}
+                        or type(mutation["codepoint"]) is not int
+                        or not 0 <= mutation["codepoint"] <= 0x10FFFF
+                        or (mutation["action"] == "set" and not isinstance(mutation["value"], str))
+                        or (mutation["action"] == "delete" and mutation["value"] is not None)
+                    ):
+                        raise ContractError("Cookie table mutations require a code point and text")
+                if table["stdlib_cookie"] is not None:
+                    nested = _exact(
+                        table["stdlib_cookie"], {"key", "value"}, "Standard library cookie input"
+                    )
+                    if any(not isinstance(item, str) for item in nested.values()):
+                        raise ContractError("Standard library cookie input requires text")
             for name in ("failure", "reentry"):
                 event = spec[name]
                 if event is None:

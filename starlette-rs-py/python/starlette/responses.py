@@ -86,11 +86,10 @@ class Response:
         partitioned: bool = False,
     ) -> None:
         """Append a cookie header through the Rust response implementation."""
-        _core.Response.cookie_call(
-            self,
-            "set_cookie",
-            (key, value, max_age, expires, path, domain, secure, httponly, samesite, partitioned),
+        cookie = _core.Response.cookie_state(
+            (key, value, max_age, expires, path, domain, secure, httponly, samesite, partitioned)
         )
+        cookie.apply(self)
 
     def delete_cookie(
         self,
