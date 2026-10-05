@@ -145,7 +145,41 @@ Benchmark `fab7a6a6-da8c-4f06-8c24-860ae83438dc` matched and timed all 74 source
 
 ## Remaining constructor boundary work
 
-User-defined raw-header accessors, public header-view cache changes, and
-constructor attribute interception need further input-only comparisons.
-`Response.init_headers` remains uncertain in the inventory. The current
+The attribute workflow below covers user raw-header accessors, public header-view
+cache changes, and constructor attribute interception for the four documented
+base response classes. Streaming/File/Redirect subclass interception and other
+cookie conversion/type protocols still need input-only comparisons.
+`Response.init_headers` remains uncertain in the inventory; the current
 workflows do not establish all Python subclass boundary behavior.
+
+## Attribute interception and public header-view inputs
+
+`response-attributes.yaml` supplies user-defined attribute read/write hooks and
+raw-header properties to the four documented response classes. Public consumer
+actions read `headers`, replace `raw_headers`, or delete `raw_headers`; they
+never read or modify native state or directly manipulate a private cache.
+User hooks observe names that the source itself accesses, including its cache
+field, and can reject names outside an input allow-list or raise an original
+input-defined exception on a selected attribute access. The hooks are ordinary
+Python user code, run independently against source and target.
+
+The source's public header property is established by
+`docs/middleware.md:299-301,613-632` and `tests/test_responses.py:188-199`.
+Python must invoke arbitrary user attribute hooks and preserve ordinary public
+attribute storage and deletion. Rust owns cache selection, raw-view construction,
+callback ordering, and error propagation. Native
+storage access must avoid exposing implementation-only fields to those hooks.
+Base rendering must read charset only when encoding requires it. These
+workflows do not promote `init_headers` from its uncertain inventory status.
+
+## Response attribute and header-cache evidence
+
+The 136 new input-only consumers cover attribute interception, conditional charset reads, public header-view caching and aliasing, raw-header replacement/deletion, finalizer reentry, constructor header hooks, cookie override dispatch, and cookie conversion reentry/control characters across four documented response classes. Initial reproduction `7dc3041f-f0d7-4304-b686-50b7b5a3158b` exposed 70 divergences with 19 ordinary passes; a separate eight-case finalizer reproduction `59bb16ff-55de-45e8-9bd8-5431969adf7e` exposed eight divergences with one ordinary control pass. Both runs passed both fault contracts without infrastructure errors. The former raw-header setter held a native mutable borrow while dropping user values, so their finalizers could encounter a PyO3 borrow panic.
+
+The facade invokes the user's constructor header hook as required calling glue. Rust selects the header cache through source-ordered user attribute accesses, forwards cookie deletion to the user's method, and reads charset only when encoding content. Public values use ordinary Python attribute storage, which preserves their dictionary presence, deletion, and finalizer callbacks without a Python semantic algorithm. Rust accesses its storage holder without invoking user attribute hooks. Cookie construction uses temporary native storage, preserves both max-age string conversion boundaries, and appends to the current public raw-header list after conversion. No runtime Python branching, loops, unsafe Rust, or unit tests were added.
+
+Normal selection `b91ac23e-b116-43a8-be87-2a58c562d7d2` passed 570/570 ordinary comparisons and both fault contracts, including prior rendering, ASGI callback/ownership, construction-protocol, redirect, streaming, file, body-limit and route-limit controls. Result SHA-256: `c43934997a80e3aae1f7d9d0dcf9acc8fd7d7255be2a171b101fb9372f2c224d`; manifest SHA-256: `7fbf5a69322f70e9f5297606adb108c907e7f4f0022cbc90ae12e054fe5f5163`; normal package tree: `f39c1c88aec7a7f3a2e60b825eaa68ba0442e07dfb2b86fdacbcb0bbce533187`.
+
+Coverage MCP verified 10 additional Rust lines with matching source/build receipts: baseline 3,235/25,239, batch 3,041/25,239, union 3,245/25,239. Baseline `829844f5-ce76-4ca4-b1e8-3432a7063f48` passed 310 ordinary comparisons; batch `4dd9209a-7635-4bfe-8eff-2f1b49433b95` passed 137. Both passed both fault contracts. Instrumented package tree: `4772847b93f269e0ee61bf25b8a554f4dae30b4e35c2c88d3c00102ca0e15cc4`; wheel SHA-256: `03117b1709b60f9da7d572a1eecc0e03c391bbf84697242bc0cb1d97b2541b08`. Reports and receipts remain ignored under `build/parity/coverage/response-attributes-20261005/`. This selected incremental union does not establish full-suite coverage regression status.
+
+The generated atlas remains 809 source rows: 694 existing mappings, 52 source-backed not_applicable rows, and 63 backlog rows. Fixed denominators remain 514 upstream test functions and 24 documentation pages. `Response.init_headers` remains uncertain; forwarding the constructor hook does not establish its public status. Streaming/File/Redirect subclass interception and other cookie conversion/type protocols need further comparisons. Complete response and Starlette parity remain unproven. See [response boundary](RESPONSE_RENDER_BOUNDARY.md).

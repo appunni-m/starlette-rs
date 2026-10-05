@@ -2,7 +2,7 @@
 
 use pyo3::exceptions::{PyAssertionError, PyValueError};
 use pyo3::prelude::*;
-use pyo3::types::PyDict;
+use pyo3::types::{PyDict, PyString};
 use starlette_rs::{CookieOptions, ResponseError};
 
 /// Converts Starlette cookie arguments at the PyO3 boundary.
@@ -23,6 +23,9 @@ pub(crate) fn options_from_python(
     samesite: Option<String>,
     partitioned: bool,
 ) -> PyResult<CookieOptions> {
+    if let Some(value) = max_age.as_ref() {
+        validate_python_attribute(py, "max-age", value.bind(py))?;
+    }
     validate_partitioned_version(py, partitioned)?;
 
     Ok(CookieOptions {
@@ -39,6 +42,30 @@ pub(crate) fn options_from_python(
         samesite,
         partitioned,
     })
+}
+
+fn validate_python_attribute(py: Python<'_>, name: &str, value: &Bound<'_, PyAny>) -> PyResult<()> {
+    // CPython 3.12.13 validates an attribute when it is assigned to a
+    // Morsel, before formatting it for output. Each str() call can run
+    // arbitrary user code; conversion must preserve both boundaries.
+    let text = value.str()?;
+    if text
+        .to_str()?
+        .chars()
+        .any(|character| character.is_ascii_control())
+    {
+        let message = format!(
+            "Control characters are not allowed in cookies {} {}",
+            PyString::new(py, name).repr()?,
+            value.repr()?
+        );
+        let error = py
+            .import("http.cookies")?
+            .getattr("CookieError")?
+            .call1((message,))?;
+        return Err(PyErr::from_value(error));
+    }
+    Ok(())
 }
 
 /// Converts deletion attributes and Python's current-time expires value.

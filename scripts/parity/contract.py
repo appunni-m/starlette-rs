@@ -15915,7 +15915,7 @@ def validate_case(
         expected_case_keys = expected_case_keys | (REQUEST_FORM_OPTIONAL_KEYS.intersection(case))
     elif is_response_consumer:
         expected_case_keys = RESPONSE_CONSUMER_CASE_KEYS | (
-            {"callbacks", "ownership", "construction_boundary"} & case.keys()
+            {"callbacks", "ownership", "construction_boundary", "subclass_protocol"} & case.keys()
         )
     elif is_value_lifetime:
         expected_case_keys = VALUE_LIFETIME_CASE_KEYS
@@ -31379,6 +31379,13 @@ def _validate_response_consumer_case(case: dict[str, Any]) -> None:
             case["surface"] + ".consumer-construction.body-and-header-protocols"
         )
         _validate_response_construction_boundary(case["construction_boundary"])
+    if "subclass_protocol" in case:
+        expected_requirements.append(
+            case["surface"] + ".consumer-construction.attribute-and-header-cache-protocols"
+        )
+        if {"callbacks", "ownership", "construction_boundary"} & case.keys():
+            raise ContractError("Response attribute protocols require their own input workflow")
+        _validate_response_attribute_protocol(case["subclass_protocol"])
     if case["covers"] != expected_requirements:
         raise ContractError("Response consumer coverage must match its declared surface")
     spec = _exact(
@@ -31480,6 +31487,160 @@ def _validate_response_consumer_case(case: dict[str, Any]) -> None:
     if case["background_label"] is not None and not isinstance(case["background_label"], str):
         raise ContractError("Response background label must be text or null")
     _validate_response_callbacks(case)
+
+
+def _validate_response_attribute_error(value: Any) -> None:
+    if value is None:
+        return
+    error = _exact(value, {"class", "message"}, "Response attribute callback error")
+    if error["class"] not in ("AttributeError", "OSError", "RuntimeError") or not isinstance(
+        error["message"], str
+    ):
+        raise ContractError("Response attribute callbacks require an exception class and text")
+
+
+def _validate_response_attribute_protocol(value: Any) -> None:
+    protocol = _exact(
+        value,
+        {
+            "get_watch",
+            "dict_fields",
+            "override_cookie",
+            "header_hook",
+            "set_watch",
+            "get_allowed",
+            "set_allowed",
+            "rejected_read",
+            "rejected_write",
+            "failure",
+            "raw_accessor",
+            "actions",
+        },
+        "Response attribute protocol",
+    )
+    for name in ("get_watch", "set_watch", "get_allowed", "set_allowed"):
+        names = protocol[name]
+        if names is None and name.endswith("allowed"):
+            continue
+        if (
+            not isinstance(names, list)
+            or any(not isinstance(item, str) or not item for item in names)
+            or len(set(names)) != len(names)
+        ):
+            raise ContractError("Response attribute selectors require unique nonempty names")
+    for selector, error_name in (
+        ("get_allowed", "rejected_read"),
+        ("set_allowed", "rejected_write"),
+    ):
+        _validate_response_attribute_error(protocol[error_name])
+        if (protocol[selector] is None) != (protocol[error_name] is None):
+            raise ContractError("Response attribute allow-lists require a rejection exception")
+    fields = protocol["dict_fields"]
+    if fields is not None and (
+        not isinstance(fields, list)
+        or any(not isinstance(item, str) or not item for item in fields)
+        or len(set(fields)) != len(fields)
+    ):
+        raise ContractError("Response dictionary probes require unique attribute names")
+    if type(protocol["override_cookie"]) is not bool:
+        raise ContractError("Response cookie override flag must be boolean")
+    hook = protocol["header_hook"]
+    if hook is not None:
+        _exact(hook, {"mutations", "failure", "delegate"}, "Response constructor header hook")
+        _validate_response_consumer_attributes(hook["mutations"], body=True)
+        _validate_response_attribute_error(hook["failure"])
+        if type(hook["delegate"]) is not bool:
+            raise ContractError("Response header hook delegation must be boolean")
+    if protocol["failure"] is not None:
+        failure = _exact(
+            protocol["failure"],
+            {"operation", "name", "at_call", "error"},
+            "Response attribute failure",
+        )
+        if (
+            failure["operation"] not in ("get", "set")
+            or not isinstance(failure["name"], str)
+            or not failure["name"]
+            or type(failure["at_call"]) is not int
+            or failure["at_call"] < 1
+        ):
+            raise ContractError(
+                "Response attribute failure requires an operation, name and positive call count"
+            )
+        _validate_response_attribute_error(failure["error"])
+        if failure["error"] is None:
+            raise ContractError("Response attribute failure requires an exception")
+    accessor = protocol["raw_accessor"]
+    if accessor is not None:
+        _exact(
+            accessor,
+            {"mode", "pairs", "getter_failure", "setter_failure"},
+            "Response raw-header accessor",
+        )
+        if accessor["mode"] not in ("stored", "fixed"):
+            raise ContractError("Response raw-header accessor requires a storage policy")
+        _validate_response_attribute_pairs(accessor["pairs"])
+        _validate_response_attribute_error(accessor["getter_failure"])
+        _validate_response_attribute_error(accessor["setter_failure"])
+    if not isinstance(protocol["actions"], list):
+        raise ContractError("Response header actions require a list")
+    keys = {
+        "read": {"kind", "inspect_raw_alias"},
+        "replace-raw": {"kind", "pairs"},
+        "replace-owned-raw": {"kind", "pairs", "read_on_finalize"},
+        "delete-raw": {"kind"},
+        "cookie": {"kind", "cookie"},
+        "cookie-reentry": {
+            "kind",
+            "outer_key",
+            "outer_value",
+            "inner_key",
+            "inner_value",
+            "age_text",
+        },
+    }
+    for action in protocol["actions"]:
+        if (
+            not isinstance(action, dict)
+            or not isinstance(action.get("kind"), str)
+            or action["kind"] not in keys
+        ):
+            raise ContractError("Response header action is unsupported")
+        _exact(action, keys[action["kind"]], "Response header action")
+        if action["kind"] == "read" and type(action["inspect_raw_alias"]) is not bool:
+            raise ContractError("Response header alias probe must be boolean")
+        if action["kind"] in {"replace-raw", "replace-owned-raw"}:
+            _validate_response_attribute_pairs(action["pairs"])
+        if action["kind"] == "replace-owned-raw" and action["read_on_finalize"] not in (
+            "raw_headers",
+            "body",
+            "status_code",
+        ):
+            raise ContractError(
+                "Response raw-value finalizers must read a public response attribute"
+            )
+        if action["kind"] == "cookie":
+            _validate_cookie_actions({"cookie_actions": [action["cookie"]]})
+        if action["kind"] == "cookie-reentry" and any(
+            not isinstance(action[field], str) for field in keys["cookie-reentry"] - {"kind"}
+        ):
+            raise ContractError("Response cookie reentry requires text arguments")
+
+
+def _validate_response_attribute_pairs(value: Any) -> None:
+    if not isinstance(value, list) or any(
+        not isinstance(pair, list)
+        or len(pair) != 2
+        or any(not isinstance(item, str) for item in pair)
+        for pair in value
+    ):
+        raise ContractError("Response raw-header accessor/actions require text pairs")
+    try:
+        for pair in value:
+            for item in pair:
+                item.encode("latin-1")
+    except UnicodeEncodeError as error:
+        raise ContractError("Response raw-header consumer data requires Latin-1 text") from error
 
 
 def _validate_response_construction_failure(value: Any) -> None:

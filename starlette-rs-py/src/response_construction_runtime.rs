@@ -3,7 +3,7 @@
 use pyo3::basic::CompareOp;
 use pyo3::exceptions::PyAttributeError;
 use pyo3::prelude::*;
-use pyo3::types::{PyBytes, PyDict, PyList, PyString, PyTuple};
+use pyo3::types::{PyBytes, PyList, PyString, PyTuple};
 
 pub(crate) fn initialize_headers(
     py: Python<'_>,
@@ -66,18 +66,4 @@ pub(crate) fn initialize_headers(
     // User callbacks run before installing the completed list. Do not borrow
     // the native response across any of those reentrant Python calls.
     response.setattr("raw_headers", raw)
-}
-
-pub(crate) fn missing_raw_headers(py: Python<'_>, response: &Bound<'_, PyAny>) -> PyResult<PyErr> {
-    let kwargs = PyDict::new(py);
-    kwargs.set_item("name", "raw_headers")?;
-    kwargs.set_item("obj", response)?;
-    let message = format!(
-        "'{}' object has no attribute 'raw_headers'",
-        response.get_type().name()?
-    );
-    let error = py
-        .get_type::<PyAttributeError>()
-        .call((message,), Some(&kwargs))?;
-    Ok(PyErr::from_value(error))
 }

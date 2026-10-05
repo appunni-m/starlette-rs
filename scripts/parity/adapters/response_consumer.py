@@ -89,6 +89,12 @@ def run_response_consumer_case(case: dict[str, Any]) -> dict[str, Any]:
 
     if "attribute_probe" in callbacks:
         attributes["__getattribute__"] = get_attribute
+    subclass_probe = None
+    if "subclass_protocol" in case:
+        from scripts.parity.adapters.response_attributes import AttributeProbe
+
+        subclass_probe = AttributeProbe(case["subclass_protocol"], trace, callback_errors)
+        attributes.update(subclass_probe.attributes(base))
 
     def render_content(self: Any, content: Any) -> Any:
         if boundary is not None:
@@ -153,6 +159,10 @@ def run_response_consumer_case(case: dict[str, Any]) -> dict[str, Any]:
             else constructor(_content(spec["content"], trace, callback_errors), **kwargs)
         )
         outcome["constructed"] = True
+        if subclass_probe is not None:
+            phase = "header-actions"
+            subclass_probe.actions(response)
+            phase = "constructor-observations"
         if boundary is not None:
             outcome["construction_boundary"] = boundary.observe(response)
         outcome["after_constructor"] = {
@@ -241,6 +251,10 @@ def run_response_consumer_case(case: dict[str, Any]) -> dict[str, Any]:
         if boundary is not None and boundary.spec["early_headers_read"] is not None:
             outcome["error"]["attribute_name"] = getattr(error, "name", None)
             outcome["error"]["attribute_owner"] = getattr(error, "obj", None) is boundary.response
+        if subclass_probe is not None and isinstance(error, AttributeError):
+            outcome["error"]["attribute_name"] = error.name
+            owner = locals().get("response")
+            outcome["error"]["attribute_owner"] = owner is not None and error.obj is owner
     attribute_probe["enabled"] = False
     if callbacks and outcome["constructed"]:
         outcome["retained_messages"] = _observe(retained_messages)

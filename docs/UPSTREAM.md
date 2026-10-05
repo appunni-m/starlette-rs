@@ -79,3 +79,11 @@ pinned `starlette/responses.py:29-101` and documented constructors in
 authored consumer callbacks. No upstream test file or expected output is
 copied. The upstream BSD-3-Clause provenance above applies to reused behavior
 specifications.
+
+The input-only `response-attributes.yaml` definitions derive documented response
+and public header-view behavior from pinned `starlette/responses.py:29-101`,
+`docs/responses.md:10-118`, `docs/middleware.md:299-301,613-632`, and the header
+consumer in `tests/test_responses.py:188-199`. Attribute hooks and raw-header
+properties are independently authored user callbacks, without copied upstream
+test files or expected outputs. The pinned upstream BSD-3-Clause notice above
+remains applicable to reused behavior specifications.

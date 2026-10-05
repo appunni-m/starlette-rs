@@ -737,33 +737,93 @@ impl PyResponse {
     }
 
     #[staticmethod]
-    fn raw_headers_for(py: Python<'_>, response: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
-        let inner = response.getattr("_inner")?;
-        if let Ok(native) = inner.cast::<Self>() {
-            if native.borrow().raw_headers.is_none() {
-                return Err(response_construction_runtime::missing_raw_headers(
-                    py, response,
-                )?);
-            }
-        }
-        inner.getattr("raw_headers").map(Bound::unbind)
+    fn prepare(py: Python<'_>, response: &Bound<'_, PyAny>) -> PyResult<()> {
+        let native = Py::new(py, Self::uninitialized())?;
+        py.get_type::<PyAny>()
+            .call_method1("__setattr__", (response, "_inner", native))?;
+        Ok(())
     }
 
     #[staticmethod]
     fn headers_for(py: Python<'_>, response: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
-        let inner = response.getattr("_inner")?;
-        if let Ok(native) = inner.cast::<Self>() {
-            let missing = {
-                let native = native.borrow();
-                native.raw_headers.is_none() && native.headers_view.is_none()
-            };
-            if missing {
-                return Err(response_construction_runtime::missing_raw_headers(
-                    py, response,
-                )?);
-            }
+        let missing = match response.getattr("_headers") {
+            Ok(_) => false,
+            Err(error) if error.is_instance_of::<pyo3::exceptions::PyAttributeError>(py) => true,
+            Err(error) => return Err(error),
+        };
+        if missing {
+            let headers = response_headers_runtime::view(py, &response.getattr("raw_headers")?)?;
+            response.setattr("_headers", headers)?;
         }
-        inner.getattr("headers").map(Bound::unbind)
+        response.getattr("_headers").map(Bound::unbind)
+    }
+
+    #[staticmethod]
+    fn asgi_call_for(
+        py: Python<'_>,
+        response: &Bound<'_, PyAny>,
+        scope: &Bound<'_, PyDict>,
+        receive: Py<PyAny>,
+        send: Py<PyAny>,
+    ) -> PyResult<Py<PyAny>> {
+        // Native storage is representation glue, not a user attribute access.
+        // Release its borrow before evaluating scope or invoking callbacks.
+        let native = py
+            .get_type::<PyAny>()
+            .call_method1("__getattribute__", (response, "_inner"))?;
+        let call = native.cast::<Self>()?.try_borrow()?.inner.call_state(true);
+        runtime_calls::response_object_call(
+            py,
+            call,
+            response.clone().unbind(),
+            scope,
+            receive,
+            send,
+        )
+    }
+
+    #[staticmethod]
+    fn cookie_call(
+        py: Python<'_>,
+        response: &Bound<'_, PyAny>,
+        operation: &str,
+        args: &Bound<'_, PyTuple>,
+    ) -> PyResult<()> {
+        if operation == "delete_cookie" {
+            let kwargs = PyDict::new(py);
+            kwargs.set_item("max_age", 0)?;
+            kwargs.set_item("expires", 0)?;
+            for (index, name) in ["path", "domain", "secure", "httponly", "samesite"]
+                .into_iter()
+                .enumerate()
+            {
+                kwargs.set_item(name, args.get_item(index + 1)?)?;
+            }
+            response
+                .getattr("set_cookie")?
+                .call((args.get_item(0)?,), Some(&kwargs))?;
+            return Ok(());
+        }
+        if operation != "set_cookie" {
+            return Err(PyValueError::new_err(
+                "unsupported response cookie operation",
+            ));
+        }
+        // Cookie generation is independent of existing headers. A temporary
+        // Rust value permits user conversion callbacks to reenter the response.
+        let native = Py::new(py, Self::uninitialized())?;
+        native.bind(py).getattr("set_cookie")?.call(args, None)?;
+        let headers = native.borrow(py).inner.headers().to_vec();
+        for (name, value) in headers {
+            response.getattr("raw_headers")?.call_method1(
+                "append",
+                (PyTuple::new(
+                    py,
+                    [PyBytes::new(py, &name), PyBytes::new(py, &value)],
+                )?,),
+            )?;
+        }
+        Ok(())
     }
 
     fn __traverse__(
@@ -807,7 +867,11 @@ impl PyResponse {
     /// provided its own `render` override. Python bytes and memoryview values
     /// are returned unchanged; other values use their Python `encode` method.
     #[staticmethod]
-    fn render_content(py: Python<'_>, content: Py<PyAny>, charset: &str) -> PyResult<Py<PyAny>> {
+    fn render_content(
+        py: Python<'_>,
+        content: Py<PyAny>,
+        response: &Bound<'_, PyAny>,
+    ) -> PyResult<Py<PyAny>> {
         let content = content.bind(py);
         if content.is_none() {
             return Ok(PyBytes::new(py, &[]).into_any().unbind());
@@ -817,7 +881,7 @@ impl PyResponse {
             return Ok(content.clone().unbind());
         }
         content
-            .call_method1("encode", (charset,))
+            .call_method1("encode", (response.getattr("charset")?,))
             .map(Bound::unbind)
     }
 

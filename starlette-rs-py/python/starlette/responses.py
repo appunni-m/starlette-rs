@@ -18,7 +18,8 @@ _ContentStream = Iterable[_ContentChunk] | AsyncIterable[_ContentChunk]
 class Response:
     """Wrap a Rust response and await ASGI ``send`` on the caller's loop."""
 
-    __slots__ = ("__dict__", "__weakref__", "_inner", "background", "body", "status_code")
+    __slots__ = ("__dict__", "__weakref__", "_inner")
+    raw_headers: list[tuple[bytes, bytes]]
     media_type = None
     charset = "utf-8"
 
@@ -30,11 +31,14 @@ class Response:
         media_type: str | None = None,
         background: Any = None,
     ) -> None:
-        self._inner = _core.Response.uninitialized()
+        _core.Response.prepare(self)
         self.status_code = status_code
         _core.Response.set_media_type(self, media_type)
         self.background = background
         self.body = self.render(content)
+        self.init_headers(headers)
+
+    def init_headers(self, headers: Mapping[str, str] | None = None) -> None:
         _core.Response.initialize_headers(self, headers)
 
     @classmethod
@@ -45,6 +49,7 @@ class Response:
         response.background = None
         response.body = inner.body
         response.status_code = inner.status_code
+        response.raw_headers = inner.raw_headers
         return response
 
     def render(self, content: Any) -> bytes | memoryview:
@@ -53,16 +58,7 @@ class Response:
         Subclasses may override this method with Python code; construction
         invokes that override before handing the result to the Rust response.
         """
-        return _core.Response.render_content(content, self.charset)
-
-    @property
-    def raw_headers(self) -> list[tuple[bytes, bytes]]:
-        """Return the response's mutable raw header list."""
-        return _core.Response.raw_headers_for(self)
-
-    @raw_headers.setter
-    def raw_headers(self, value: list[tuple[bytes, bytes]]) -> None:
-        self._inner.raw_headers = value
+        return _core.Response.render_content(content, self)
 
     @property
     def headers(self) -> MutableHeaders:
@@ -70,6 +66,7 @@ class Response:
         return _core.Response.headers_for(self)
 
     def _sync_raw_headers(self) -> None:
+        self._inner.raw_headers = self.raw_headers
         self._inner._header_replace_raw(self.raw_headers)
 
     def _refresh_raw_headers(self) -> None:
@@ -89,11 +86,11 @@ class Response:
         partitioned: bool = False,
     ) -> None:
         """Append a cookie header through the Rust response implementation."""
-        self._sync_raw_headers()
-        self._inner.set_cookie(
-            key, value, max_age, expires, path, domain, secure, httponly, samesite, partitioned
+        _core.Response.cookie_call(
+            self,
+            "set_cookie",
+            (key, value, max_age, expires, path, domain, secure, httponly, samesite, partitioned),
         )
-        self._refresh_raw_headers()
 
     def delete_cookie(
         self,
@@ -105,14 +102,14 @@ class Response:
         samesite: Literal["lax", "strict", "none"] | None = "lax",
     ) -> None:
         """Delete a cookie through the Rust response implementation."""
-        self._sync_raw_headers()
-        self._inner.delete_cookie(key, path, domain, secure, httponly, samesite)
-        self._refresh_raw_headers()
+        _core.Response.cookie_call(
+            self, "delete_cookie", (key, path, domain, secure, httponly, samesite)
+        )
 
     async def __call__(
         self, scope: dict[str, Any], receive: Callable[..., Any], send: Callable[..., Any]
     ) -> None:
-        await self._inner.asgi_call(scope, receive, send, self)
+        await _core.Response.asgi_call_for(self, scope, receive, send)
 
 
 class PlainTextResponse(Response):
@@ -149,6 +146,7 @@ class StreamingResponse(Response):
         self._inner = _core.StreamingResponse(
             content, status_code, headers, media_type, self.charset
         )
+        self.raw_headers = self._inner.raw_headers
 
     async def __call__(
         self, scope: dict[str, Any], receive: Callable[..., Any], send: Callable[..., Any]
@@ -191,6 +189,7 @@ class FileResponse(Response):
             self.max_ranges,
         )
         self.media_type = self._inner.media_type
+        self.raw_headers = self._inner.raw_headers
 
     async def __call__(
         self, scope: dict[str, Any], receive: Callable[..., Any], send: Callable[..., Any]
@@ -219,6 +218,7 @@ class RedirectResponse(Response):
         background: Any = None,
     ) -> None:
         self._inner = _core.Response.redirect(str(url), status_code, headers)
+        self.raw_headers = self._inner.raw_headers
         self.background = background
         self.body = b""
         self.status_code = status_code

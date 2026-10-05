@@ -373,7 +373,8 @@
       "build/parity/inputs/parity/public-value-lifetime.json",
       "build/parity/inputs/parity/response-consumers.json",
       "build/parity/inputs/parity/response-asgi-callbacks.json",
-      "build/parity/inputs/parity/response-construction-protocols.json"
+      "build/parity/inputs/parity/response-construction-protocols.json",
+      "build/parity/inputs/parity/response-attributes.json"
     ],
     "coverage": [],
     "benchmark": [
@@ -16040,7 +16041,7 @@
           },
           "source": {
             "oracle_id": "starlette-python",
-            "path": "starlette.responses.JSONResponse.__init__, Response.render, JSONResponse.render, Response.__call__; public raw_headers, body, background and returned coroutine lifetime; constructor body length and header mapping/encoding protocols",
+            "path": "starlette.responses.JSONResponse.__init__, Response.render, JSONResponse.render, Response.__call__; public raw_headers, body, background and returned coroutine lifetime; constructor body length and header mapping/encoding protocols; Python attribute interception and public header-view access",
             "signature": "Construct a documented response or input-defined render subclass; observe constructor attributes, rendering errors, and public ASGI events after caller attribute changes.",
             "parameters": [
               {
@@ -16130,6 +16131,18 @@
                   "kind": "literal",
                   "value": null
                 }
+              },
+              {
+                "id": "subclass_protocol",
+                "style": "option",
+                "value_types": [
+                  "record",
+                  "null"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": null
+                }
               }
             ],
             "result": {
@@ -16168,7 +16181,7 @@
             },
             {
               "target_id": "python-package",
-              "path": "starlette.responses.JSONResponse.__init__, Response.render, JSONResponse.render, Response.__call__; public raw_headers, body, background and returned coroutine lifetime; constructor body length and header mapping/encoding protocols",
+              "path": "starlette.responses.JSONResponse.__init__, Response.render, JSONResponse.render, Response.__call__; public raw_headers, body, background and returned coroutine lifetime; constructor body length and header mapping/encoding protocols; Python attribute interception and public header-view access",
               "signature": "Construct a documented response or input-defined render subclass; observe constructor attributes, rendering errors, and public ASGI events after caller attribute changes.",
               "support": {
                 "status": "supported"
@@ -16202,6 +16215,17 @@
               "id": "starlette.responses.JSONResponse.consumer-construction.body-and-header-protocols",
               "dimension": "boundary",
               "description": "Compare Python body length protocols, formatted/strided/released memoryviews, header mapping/lower/encode callbacks and original exceptions, explicit media object identity, callback-driven live attribute changes, early header access, cached raw header views, and direct weak references through documented response construction. Source: starlette/responses.py:29-101; docs/responses.md:10-118. All stimuli are input-derived.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.JSONResponse.consumer-construction.attribute-and-header-cache-protocols",
+              "dimension": "boundary",
+              "description": "Compare user-defined Python attribute access/assignment during documented response construction, rendering and ASGI calls, plus public headers view caching, overridden raw-header accessors, raw-header replacement/deletion and original callback exceptions. All stimuli are input-derived. Source: starlette/responses.py:29-101,149-179; docs/middleware.md:299-301,613-632; docs/responses.md:10-118; tests/test_responses.py:188-199. Cache field names are observed only by user attribute callbacks; consumer actions use public headers/raw_headers.",
               "lanes": [
                 "parity"
               ],
@@ -16992,7 +17016,7 @@
           },
           "source": {
             "oracle_id": "starlette-python",
-            "path": "starlette.responses.Response.__init__, Response.render, JSONResponse.render, Response.__call__; public raw_headers, body, background and returned coroutine lifetime; constructor body length and header mapping/encoding protocols",
+            "path": "starlette.responses.Response.__init__, Response.render, JSONResponse.render, Response.__call__; public raw_headers, body, background and returned coroutine lifetime; constructor body length and header mapping/encoding protocols; Python attribute interception and public header-view access",
             "signature": "Construct a documented response or input-defined render subclass; observe constructor attributes, rendering errors, and public ASGI events after caller attribute changes.",
             "parameters": [
               {
@@ -17082,6 +17106,18 @@
                   "kind": "literal",
                   "value": null
                 }
+              },
+              {
+                "id": "subclass_protocol",
+                "style": "option",
+                "value_types": [
+                  "record",
+                  "null"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": null
+                }
               }
             ],
             "result": {
@@ -17120,7 +17156,7 @@
             },
             {
               "target_id": "python-package",
-              "path": "starlette.responses.Response.__init__, Response.render, JSONResponse.render, Response.__call__; public raw_headers, body, background and returned coroutine lifetime; constructor body length and header mapping/encoding protocols",
+              "path": "starlette.responses.Response.__init__, Response.render, JSONResponse.render, Response.__call__; public raw_headers, body, background and returned coroutine lifetime; constructor body length and header mapping/encoding protocols; Python attribute interception and public header-view access",
               "signature": "Construct a documented response or input-defined render subclass; observe constructor attributes, rendering errors, and public ASGI events after caller attribute changes.",
               "support": {
                 "status": "supported"
@@ -17154,6 +17190,17 @@
               "id": "starlette.responses.Response.consumer-construction.body-and-header-protocols",
               "dimension": "boundary",
               "description": "Compare Python body length protocols, formatted/strided/released memoryviews, header mapping/lower/encode callbacks and original exceptions, explicit media object identity, callback-driven live attribute changes, early header access, cached raw header views, and direct weak references through documented response construction. Source: starlette/responses.py:29-101; docs/responses.md:10-118. All stimuli are input-derived.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.Response.consumer-construction.attribute-and-header-cache-protocols",
+              "dimension": "boundary",
+              "description": "Compare user-defined Python attribute access/assignment during documented response construction, rendering and ASGI calls, plus public headers view caching, overridden raw-header accessors, raw-header replacement/deletion and original callback exceptions. All stimuli are input-derived. Source: starlette/responses.py:29-101,149-179; docs/middleware.md:299-301,613-632; docs/responses.md:10-118; tests/test_responses.py:188-199. Cache field names are observed only by user attribute callbacks; consumer actions use public headers/raw_headers.",
               "lanes": [
                 "parity"
               ],
@@ -27333,7 +27380,7 @@
           },
           "source": {
             "oracle_id": "starlette-python",
-            "path": "starlette.responses.HTMLResponse.__init__, Response.render, JSONResponse.render, Response.__call__; public raw_headers, body, background and returned coroutine lifetime; constructor body length and header mapping/encoding protocols",
+            "path": "starlette.responses.HTMLResponse.__init__, Response.render, JSONResponse.render, Response.__call__; public raw_headers, body, background and returned coroutine lifetime; constructor body length and header mapping/encoding protocols; Python attribute interception and public header-view access",
             "signature": "Construct a documented response or input-defined render subclass; observe constructor attributes, rendering errors, and public ASGI events after caller attribute changes.",
             "parameters": [
               {
@@ -27423,6 +27470,18 @@
                   "kind": "literal",
                   "value": null
                 }
+              },
+              {
+                "id": "subclass_protocol",
+                "style": "option",
+                "value_types": [
+                  "record",
+                  "null"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": null
+                }
               }
             ],
             "result": {
@@ -27461,7 +27520,7 @@
             },
             {
               "target_id": "python-package",
-              "path": "starlette.responses.HTMLResponse.__init__, Response.render, JSONResponse.render, Response.__call__; public raw_headers, body, background and returned coroutine lifetime; constructor body length and header mapping/encoding protocols",
+              "path": "starlette.responses.HTMLResponse.__init__, Response.render, JSONResponse.render, Response.__call__; public raw_headers, body, background and returned coroutine lifetime; constructor body length and header mapping/encoding protocols; Python attribute interception and public header-view access",
               "signature": "Construct a documented response or input-defined render subclass; observe constructor attributes, rendering errors, and public ASGI events after caller attribute changes.",
               "support": {
                 "status": "supported"
@@ -27495,6 +27554,17 @@
               "id": "starlette.responses.HTMLResponse.consumer-construction.body-and-header-protocols",
               "dimension": "boundary",
               "description": "Compare Python body length protocols, formatted/strided/released memoryviews, header mapping/lower/encode callbacks and original exceptions, explicit media object identity, callback-driven live attribute changes, early header access, cached raw header views, and direct weak references through documented response construction. Source: starlette/responses.py:29-101; docs/responses.md:10-118. All stimuli are input-derived.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.HTMLResponse.consumer-construction.attribute-and-header-cache-protocols",
+              "dimension": "boundary",
+              "description": "Compare user-defined Python attribute access/assignment during documented response construction, rendering and ASGI calls, plus public headers view caching, overridden raw-header accessors, raw-header replacement/deletion and original callback exceptions. All stimuli are input-derived. Source: starlette/responses.py:29-101,149-179; docs/middleware.md:299-301,613-632; docs/responses.md:10-118; tests/test_responses.py:188-199. Cache field names are observed only by user attribute callbacks; consumer actions use public headers/raw_headers.",
               "lanes": [
                 "parity"
               ],
@@ -27535,7 +27605,7 @@
           },
           "source": {
             "oracle_id": "starlette-python",
-            "path": "starlette.responses.PlainTextResponse.__init__, Response.render, JSONResponse.render, Response.__call__; public raw_headers, body, background and returned coroutine lifetime; constructor body length and header mapping/encoding protocols",
+            "path": "starlette.responses.PlainTextResponse.__init__, Response.render, JSONResponse.render, Response.__call__; public raw_headers, body, background and returned coroutine lifetime; constructor body length and header mapping/encoding protocols; Python attribute interception and public header-view access",
             "signature": "Construct a documented response or input-defined render subclass; observe constructor attributes, rendering errors, and public ASGI events after caller attribute changes.",
             "parameters": [
               {
@@ -27625,6 +27695,18 @@
                   "kind": "literal",
                   "value": null
                 }
+              },
+              {
+                "id": "subclass_protocol",
+                "style": "option",
+                "value_types": [
+                  "record",
+                  "null"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": null
+                }
               }
             ],
             "result": {
@@ -27663,7 +27745,7 @@
             },
             {
               "target_id": "python-package",
-              "path": "starlette.responses.PlainTextResponse.__init__, Response.render, JSONResponse.render, Response.__call__; public raw_headers, body, background and returned coroutine lifetime; constructor body length and header mapping/encoding protocols",
+              "path": "starlette.responses.PlainTextResponse.__init__, Response.render, JSONResponse.render, Response.__call__; public raw_headers, body, background and returned coroutine lifetime; constructor body length and header mapping/encoding protocols; Python attribute interception and public header-view access",
               "signature": "Construct a documented response or input-defined render subclass; observe constructor attributes, rendering errors, and public ASGI events after caller attribute changes.",
               "support": {
                 "status": "supported"
@@ -27697,6 +27779,17 @@
               "id": "starlette.responses.PlainTextResponse.consumer-construction.body-and-header-protocols",
               "dimension": "boundary",
               "description": "Compare Python body length protocols, formatted/strided/released memoryviews, header mapping/lower/encode callbacks and original exceptions, explicit media object identity, callback-driven live attribute changes, early header access, cached raw header views, and direct weak references through documented response construction. Source: starlette/responses.py:29-101; docs/responses.md:10-118. All stimuli are input-derived.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.PlainTextResponse.consumer-construction.attribute-and-header-cache-protocols",
+              "dimension": "boundary",
+              "description": "Compare user-defined Python attribute access/assignment during documented response construction, rendering and ASGI calls, plus public headers view caching, overridden raw-header accessors, raw-header replacement/deletion and original callback exceptions. All stimuli are input-derived. Source: starlette/responses.py:29-101,149-179; docs/middleware.md:299-301,613-632; docs/responses.md:10-118; tests/test_responses.py:188-199. Cache field names are observed only by user attribute callbacks; consumer actions use public headers/raw_headers.",
               "lanes": [
                 "parity"
               ],
