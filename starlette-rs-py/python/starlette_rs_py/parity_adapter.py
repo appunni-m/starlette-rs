@@ -12944,6 +12944,14 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
     if (
         isinstance(case, dict)
         and case.get("surface") == "starlette.templating.Jinja2Templates"
+        and case.get("operation") == "template-public-workflow"
+    ):
+        from scripts.parity.adapters.templating import run_template_public_case
+
+        return run_template_public_case(case)
+    if (
+        isinstance(case, dict)
+        and case.get("surface") == "starlette.templating.Jinja2Templates"
         and case.get("operation") == "template-response"
     ):
         from scripts.parity.adapters.templating import run_template_response_case

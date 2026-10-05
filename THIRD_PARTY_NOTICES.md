@@ -37,6 +37,17 @@ copyright notice, conditions, and disclaimer. Independently authored fixtures
 and later implementation code must record their provenance and applicable
 licenses.
 
+The input definitions in
+[`templating-public.yaml`](tests/fixtures/sources/parity/templating-public.yaml)
+are independently authored from `tests/test_templates.py` and
+`docs/templates.md` at the pinned Starlette revision. Their short template
+strings reproduce the public stimuli, including the homepage URL link,
+context-processor greeting, and script-like autoescape input. That reused
+material is Copyright © 2018 Encode OSS Ltd., under BSD-3-Clause; the complete
+notice is in [`LICENSE.md`](LICENSE.md). The shared live adapter in
+[`templating.py`](scripts/parity/adapters/templating.py) executes each side's
+public API and does not contain expected outputs.
+
 ## Dependency notices
 
 The upstream direct and transitive package metadata snapshot is maintained in

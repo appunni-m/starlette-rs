@@ -1,0 +1,650 @@
+{
+  "schema": "migration-parity/parity-input@43",
+  "cases": [
+    {
+      "case_id": "starlette.templating.Jinja2Templates.template-public-workflow.neither-directory-nor-environment",
+      "surface": "starlette.templating.Jinja2Templates",
+      "operation": "template-public-workflow",
+      "covers": [
+        "starlette.templating.Jinja2Templates.template-public-workflow.construction",
+        "starlette.templating.Jinja2Templates.template-public-workflow.missing-configuration"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "template-public-workflow"
+      ],
+      "template_directories": [],
+      "template_files": [],
+      "constructor": {
+        "directory": null,
+        "environment": null
+      },
+      "processor_additions": [],
+      "consumer": {
+        "kind": "construction"
+      }
+    },
+    {
+      "case_id": "starlette.templating.Jinja2Templates.template-public-workflow.both-directory-and-environment",
+      "surface": "starlette.templating.Jinja2Templates",
+      "operation": "template-public-workflow",
+      "covers": [
+        "starlette.templating.Jinja2Templates.template-public-workflow.construction",
+        "starlette.templating.Jinja2Templates.template-public-workflow.conflicting-configuration"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "template-public-workflow"
+      ],
+      "template_directories": [
+        {
+          "id": "dir",
+          "path": "dir"
+        }
+      ],
+      "template_files": [],
+      "constructor": {
+        "directory": {
+          "kind": "string",
+          "directory_ids": [
+            "dir"
+          ]
+        },
+        "environment": {
+          "directory_ids": [
+            "dir"
+          ],
+          "autoescape": false
+        }
+      },
+      "processor_additions": [],
+      "consumer": {
+        "kind": "construction"
+      }
+    },
+    {
+      "case_id": "starlette.templating.Jinja2Templates.template-public-workflow.directory-string-direct-render",
+      "surface": "starlette.templating.Jinja2Templates",
+      "operation": "template-public-workflow",
+      "covers": [
+        "starlette.templating.Jinja2Templates.template-public-workflow.construction",
+        "starlette.templating.Jinja2Templates.template-public-workflow.direct-render"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "template-public-workflow"
+      ],
+      "template_directories": [
+        {
+          "id": "templates",
+          "path": "templates"
+        }
+      ],
+      "template_files": [
+        {
+          "directory_id": "templates",
+          "path": "index.html",
+          "text": "Hello"
+        }
+      ],
+      "constructor": {
+        "directory": {
+          "kind": "string",
+          "directory_ids": [
+            "templates"
+          ]
+        },
+        "environment": null
+      },
+      "processor_additions": [],
+      "consumer": {
+        "kind": "template-render",
+        "renders": [
+          {
+            "name": "index.html",
+            "context": {}
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.templating.Jinja2Templates.template-public-workflow.directory-path-autoescape-html",
+      "surface": "starlette.templating.Jinja2Templates",
+      "operation": "template-public-workflow",
+      "covers": [
+        "starlette.templating.Jinja2Templates.template-public-workflow.construction",
+        "starlette.templating.Jinja2Templates.template-public-workflow.direct-render",
+        "starlette.templating.Jinja2Templates.template-public-workflow.default-autoescape"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "template-public-workflow"
+      ],
+      "template_directories": [
+        {
+          "id": "templates",
+          "path": "templates"
+        }
+      ],
+      "template_files": [
+        {
+          "directory_id": "templates",
+          "path": "index.html",
+          "text": "Hello, {{ name }}"
+        }
+      ],
+      "constructor": {
+        "directory": {
+          "kind": "path",
+          "directory_ids": [
+            "templates"
+          ]
+        },
+        "environment": null
+      },
+      "processor_additions": [],
+      "consumer": {
+        "kind": "template-render",
+        "renders": [
+          {
+            "name": "index.html",
+            "context": {
+              "name": "<script>alert('XSS')</script>"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.templating.Jinja2Templates.template-public-workflow.directory-path-autoescape-htm",
+      "surface": "starlette.templating.Jinja2Templates",
+      "operation": "template-public-workflow",
+      "covers": [
+        "starlette.templating.Jinja2Templates.template-public-workflow.construction",
+        "starlette.templating.Jinja2Templates.template-public-workflow.direct-render",
+        "starlette.templating.Jinja2Templates.template-public-workflow.default-autoescape"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "template-public-workflow"
+      ],
+      "template_directories": [
+        {
+          "id": "templates",
+          "path": "templates"
+        }
+      ],
+      "template_files": [
+        {
+          "directory_id": "templates",
+          "path": "index.htm",
+          "text": "Hello, {{ name }}"
+        }
+      ],
+      "constructor": {
+        "directory": {
+          "kind": "path",
+          "directory_ids": [
+            "templates"
+          ]
+        },
+        "environment": null
+      },
+      "processor_additions": [],
+      "consumer": {
+        "kind": "template-render",
+        "renders": [
+          {
+            "name": "index.htm",
+            "context": {
+              "name": "<script>alert('XSS')</script>"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.templating.Jinja2Templates.template-public-workflow.directory-path-autoescape-xml",
+      "surface": "starlette.templating.Jinja2Templates",
+      "operation": "template-public-workflow",
+      "covers": [
+        "starlette.templating.Jinja2Templates.template-public-workflow.construction",
+        "starlette.templating.Jinja2Templates.template-public-workflow.direct-render",
+        "starlette.templating.Jinja2Templates.template-public-workflow.default-autoescape"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "template-public-workflow"
+      ],
+      "template_directories": [
+        {
+          "id": "templates",
+          "path": "templates"
+        }
+      ],
+      "template_files": [
+        {
+          "directory_id": "templates",
+          "path": "index.xml",
+          "text": "Hello, {{ name }}"
+        }
+      ],
+      "constructor": {
+        "directory": {
+          "kind": "path",
+          "directory_ids": [
+            "templates"
+          ]
+        },
+        "environment": null
+      },
+      "processor_additions": [],
+      "consumer": {
+        "kind": "template-render",
+        "renders": [
+          {
+            "name": "index.xml",
+            "context": {
+              "name": "<script>alert('XSS')</script>"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.templating.Jinja2Templates.template-public-workflow.named-homepage-client",
+      "surface": "starlette.templating.Jinja2Templates",
+      "operation": "template-public-workflow",
+      "covers": [
+        "starlette.templating.Jinja2Templates.template-public-workflow.construction",
+        "starlette.templating.Jinja2Templates.template-public-workflow.client-debug-metadata",
+        "starlette.templating.Jinja2Templates.template-public-workflow.url-for"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "template-public-workflow"
+      ],
+      "template_directories": [
+        {
+          "id": "templates",
+          "path": "templates"
+        }
+      ],
+      "template_files": [
+        {
+          "directory_id": "templates",
+          "path": "index.html",
+          "text": "<html>Hello, <a href='{{ url_for('homepage') }}'>world</a></html>"
+        }
+      ],
+      "constructor": {
+        "directory": {
+          "kind": "string",
+          "directory_ids": [
+            "templates"
+          ]
+        },
+        "environment": null
+      },
+      "processor_additions": [],
+      "consumer": {
+        "kind": "testclient",
+        "debug": true,
+        "routes": [
+          {
+            "path": "/",
+            "name": "homepage",
+            "template_name": "index.html",
+            "context": {}
+          }
+        ],
+        "middleware": [],
+        "requests": [
+          {
+            "method": "GET",
+            "url": "/"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.templating.Jinja2Templates.template-public-workflow.context-processors-client",
+      "surface": "starlette.templating.Jinja2Templates",
+      "operation": "template-public-workflow",
+      "covers": [
+        "starlette.templating.Jinja2Templates.template-public-workflow.construction",
+        "starlette.templating.Jinja2Templates.template-public-workflow.client-debug-metadata",
+        "starlette.templating.Jinja2Templates.template-public-workflow.context-processors"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "template-public-workflow"
+      ],
+      "template_directories": [
+        {
+          "id": "templates",
+          "path": "templates"
+        }
+      ],
+      "template_files": [
+        {
+          "directory_id": "templates",
+          "path": "index.html",
+          "text": "<html>Hello {{ username }}</html>"
+        }
+      ],
+      "constructor": {
+        "directory": {
+          "kind": "path",
+          "directory_ids": [
+            "templates"
+          ]
+        },
+        "environment": null
+      },
+      "processor_additions": [
+        {
+          "username": "World"
+        }
+      ],
+      "consumer": {
+        "kind": "testclient",
+        "debug": true,
+        "routes": [
+          {
+            "path": "/",
+            "name": "homepage",
+            "template_name": "index.html",
+            "context": {}
+          }
+        ],
+        "middleware": [],
+        "requests": [
+          {
+            "method": "GET",
+            "url": "/"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.templating.Jinja2Templates.template-public-workflow.base-http-middleware-client",
+      "surface": "starlette.templating.Jinja2Templates",
+      "operation": "template-public-workflow",
+      "covers": [
+        "starlette.templating.Jinja2Templates.template-public-workflow.construction",
+        "starlette.templating.Jinja2Templates.template-public-workflow.client-debug-metadata",
+        "starlette.templating.Jinja2Templates.template-public-workflow.url-for",
+        "starlette.templating.Jinja2Templates.template-public-workflow.base-http-middleware"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "template-public-workflow"
+      ],
+      "template_directories": [
+        {
+          "id": "templates",
+          "path": "templates"
+        }
+      ],
+      "template_files": [
+        {
+          "directory_id": "templates",
+          "path": "index.html",
+          "text": "<html>Hello, <a href='{{ url_for('homepage') }}'>world</a></html>"
+        }
+      ],
+      "constructor": {
+        "directory": {
+          "kind": "string",
+          "directory_ids": [
+            "templates"
+          ]
+        },
+        "environment": null
+      },
+      "processor_additions": [],
+      "consumer": {
+        "kind": "testclient",
+        "debug": true,
+        "routes": [
+          {
+            "path": "/",
+            "name": "homepage",
+            "template_name": "index.html",
+            "context": {}
+          }
+        ],
+        "middleware": [
+          {
+            "kind": "base-http-pass-through"
+          }
+        ],
+        "requests": [
+          {
+            "method": "GET",
+            "url": "/"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.templating.Jinja2Templates.template-public-workflow.supplied-environment-client",
+      "surface": "starlette.templating.Jinja2Templates",
+      "operation": "template-public-workflow",
+      "covers": [
+        "starlette.templating.Jinja2Templates.template-public-workflow.construction",
+        "starlette.templating.Jinja2Templates.template-public-workflow.supplied-environment",
+        "starlette.templating.Jinja2Templates.template-public-workflow.client-debug-metadata",
+        "starlette.templating.Jinja2Templates.template-public-workflow.url-for"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "template-public-workflow"
+      ],
+      "template_directories": [
+        {
+          "id": "templates",
+          "path": "templates"
+        }
+      ],
+      "template_files": [
+        {
+          "directory_id": "templates",
+          "path": "index.html",
+          "text": "<html>Hello, <a href='{{ url_for('homepage') }}'>world</a></html>"
+        }
+      ],
+      "constructor": {
+        "directory": null,
+        "environment": {
+          "directory_ids": [
+            "templates"
+          ],
+          "autoescape": false
+        }
+      },
+      "processor_additions": [],
+      "consumer": {
+        "kind": "testclient",
+        "debug": true,
+        "routes": [
+          {
+            "path": "/",
+            "name": "homepage",
+            "template_name": "index.html",
+            "context": {}
+          }
+        ],
+        "middleware": [],
+        "requests": [
+          {
+            "method": "GET",
+            "url": "/"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.templating.Jinja2Templates.template-public-workflow.supplied-environment-autoescape-disabled",
+      "surface": "starlette.templating.Jinja2Templates",
+      "operation": "template-public-workflow",
+      "covers": [
+        "starlette.templating.Jinja2Templates.template-public-workflow.construction",
+        "starlette.templating.Jinja2Templates.template-public-workflow.supplied-environment",
+        "starlette.templating.Jinja2Templates.template-public-workflow.direct-render"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "template-public-workflow"
+      ],
+      "template_directories": [
+        {
+          "id": "templates",
+          "path": "templates"
+        }
+      ],
+      "template_files": [
+        {
+          "directory_id": "templates",
+          "path": "index.html",
+          "text": "Hello, {{ name }}"
+        }
+      ],
+      "constructor": {
+        "directory": null,
+        "environment": {
+          "directory_ids": [
+            "templates"
+          ],
+          "autoescape": false
+        }
+      },
+      "processor_additions": [],
+      "consumer": {
+        "kind": "template-render",
+        "renders": [
+          {
+            "name": "index.html",
+            "context": {
+              "name": "<strong>name</strong>"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.templating.Jinja2Templates.template-public-workflow.directory-sequence-client",
+      "surface": "starlette.templating.Jinja2Templates",
+      "operation": "template-public-workflow",
+      "covers": [
+        "starlette.templating.Jinja2Templates.template-public-workflow.construction",
+        "starlette.templating.Jinja2Templates.template-public-workflow.client-debug-metadata",
+        "starlette.templating.Jinja2Templates.template-public-workflow.url-for",
+        "starlette.templating.Jinja2Templates.template-public-workflow.directory-sequence"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "template-public-workflow"
+      ],
+      "template_directories": [
+        {
+          "id": "a",
+          "path": "a"
+        },
+        {
+          "id": "b",
+          "path": "b"
+        }
+      ],
+      "template_files": [
+        {
+          "directory_id": "a",
+          "path": "template_a.html",
+          "text": "<html><a href='{{ url_for('page_a') }}'></a> a</html>"
+        },
+        {
+          "directory_id": "b",
+          "path": "template_b.html",
+          "text": "<html><a href='{{ url_for('page_b') }}'></a> b</html>"
+        }
+      ],
+      "constructor": {
+        "directory": {
+          "kind": "sequence",
+          "directory_ids": [
+            "a",
+            "b"
+          ]
+        },
+        "environment": null
+      },
+      "processor_additions": [],
+      "consumer": {
+        "kind": "testclient",
+        "debug": true,
+        "routes": [
+          {
+            "path": "/a",
+            "name": "page_a",
+            "template_name": "template_a.html",
+            "context": {}
+          },
+          {
+            "path": "/b",
+            "name": "page_b",
+            "template_name": "template_b.html",
+            "context": {}
+          }
+        ],
+        "middleware": [],
+        "requests": [
+          {
+            "method": "GET",
+            "url": "/a"
+          },
+          {
+            "method": "GET",
+            "url": "/b"
+          }
+        ]
+      }
+    }
+  ]
+}

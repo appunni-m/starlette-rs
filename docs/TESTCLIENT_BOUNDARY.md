@@ -74,6 +74,32 @@ Python branch, loop, `raise`, or `assert` implements TestClient policy. Any
 additional Python-only behavior must have a pinned-source rationale here and
 an input-only oracle comparison before it is accepted.
 
+## Template objects across the portal boundary
+
+The pinned `tests/test_templates.py` constructs `Jinja2Templates` on the
+client's calling thread and closes over that object in an async route. The
+route renders on TestClient's AnyIO portal thread. The template service and
+its `url_for` global must support that public usage without thread affinity.
+
+The Rust service contains owned `Py<PyAny>` references to the environment and
+processors; its URL global is stateless. Both use PyO3's ordinary thread-safe
+class storage, Python attachment for object access, and checked borrows. No
+unsafe thread-trait implementation or Python scheduling policy is added.
+Jinja remains the optional Python template engine, and user processors remain
+Python callables. Rust owns Starlette's constructor decisions, environment
+selection, processor merge, route URL lookup, and debug-event policy.
+
+The input-only
+[`templating-public.yaml`](../tests/fixtures/sources/parity/templating-public.yaml)
+exercises main-thread construction followed by portal-thread rendering,
+including a supplied environment, context processors, directory sequences,
+and pass-through BaseHTTPMiddleware. Its consumers inspect TestClient's
+public template/context attributes and ordered response events. The separate
+direct-render cases check constructor errors and autoescape without a portal.
+These inputs exposed the earlier `unsendable` class annotations as a PyO3
+panic on valid public usage. This boundary does not establish free-threaded
+CPython or simultaneous template mutation behavior.
+
 ## Evidence and remaining work
 
 Each slice is authored as input-only YAML under `tests/fixtures/sources/` and

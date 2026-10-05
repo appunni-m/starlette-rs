@@ -480,6 +480,23 @@ SCHEMA_OPERATIONS = {
     ("starlette.schemas.OpenAPIResponse", "schema-endpoint-asgi-call"),
 }
 TEMPLATING_OPERATION = ("starlette.templating.Jinja2Templates", "template-response")
+TEMPLATING_PUBLIC_OPERATION = ("starlette.templating.Jinja2Templates", "template-public-workflow")
+TEMPLATING_PUBLIC_REQUIREMENTS = {
+    name: f"starlette.templating.Jinja2Templates.template-public-workflow.{name}"
+    for name in (
+        "construction",
+        "missing-configuration",
+        "conflicting-configuration",
+        "direct-render",
+        "default-autoescape",
+        "supplied-environment",
+        "context-processors",
+        "base-http-middleware",
+        "url-for",
+        "directory-sequence",
+        "client-debug-metadata",
+    )
+}
 TEMPLATING_REQUIREMENTS = {
     "starlette.templating.Jinja2Templates.constructor-directory-autoescape",
     "starlette.templating.Jinja2Templates.context-processors",
@@ -715,6 +732,7 @@ RUST_OWNED_PYTHON_OPERATIONS = (
     | SCHEMA_OPERATIONS
     | {
         TEMPLATING_OPERATION,
+        TEMPLATING_PUBLIC_OPERATION,
         URL_QUERY_OPERATION,
         URL_SCOPE_OPERATION,
         URL_COMPONENTS_OPERATION,
@@ -15590,6 +15608,13 @@ def validate_case(
                 "requests",
                 "processor_additions",
             },
+            TEMPLATING_PUBLIC_OPERATION: {
+                "template_directories",
+                "template_files",
+                "constructor",
+                "consumer",
+                "processor_additions",
+            },
             URL_QUERY_OPERATION: {"url", "actions"},
             URL_SCOPE_OPERATION: {"scope"},
             URL_COMPONENTS_OPERATION: {"url", "actions"},
@@ -16099,6 +16124,8 @@ def validate_case(
             _validate_schema_case(case)
         elif (case["surface"], case["operation"]) == TEMPLATING_OPERATION:
             _validate_templating_case(case)
+        elif (case["surface"], case["operation"]) == TEMPLATING_PUBLIC_OPERATION:
+            _validate_templating_public_case(case)
         elif (case["surface"], case["operation"]) == URL_QUERY_OPERATION:
             _validate_url_query_case(case)
         elif (case["surface"], case["operation"]) == URL_SCOPE_OPERATION:
@@ -22354,6 +22381,192 @@ def _validate_schema_case(case: dict[str, Any]) -> None:
         "starlette.schemas.BaseSchemaGenerator.OpenAPIResponse",
     }:
         raise ContractError("OpenAPIResponse coverage must match render and generator response")
+
+
+def _validate_templating_public_case(case: dict[str, Any]) -> None:
+    if case["target_profiles"] != ["python-package-cpython312"]:
+        raise ContractError("Template public workflows select the Python-package consumer")
+    if case["assets"] != [] or case["observations"] != [TEMPLATING_PUBLIC_OPERATION[1]]:
+        raise ContractError("Template public workflows use authored files and one observation")
+
+    def relative_path(value: Any, context: str) -> str:
+        path = _string(value, context)
+        if (
+            path.startswith("/")
+            or "\\" in path
+            or any(part in {"", ".", ".."} for part in path.split("/"))
+        ):
+            raise ContractError(f"{context} must be a safe relative POSIX path")
+        return path
+
+    directories = case["template_directories"]
+    if not isinstance(directories, list):
+        raise ContractError("Template directories must be an array")
+    roots: dict[str, str] = {}
+    for index, item in enumerate(directories):
+        item = _exact(item, {"id", "path"}, f"Template directory {index}")
+        identity = _string(item["id"], "Template directory ID")
+        path = relative_path(item["path"], "Template directory path")
+        if identity in roots or path in roots.values():
+            raise ContractError("Template directory IDs and paths must be unique")
+        roots[identity] = path
+    files = case["template_files"]
+    if not isinstance(files, list):
+        raise ContractError("Template files must be an array")
+    texts: dict[tuple[str, str], str] = {}
+    for index, item in enumerate(files):
+        item = _exact(item, {"directory_id", "path", "text"}, f"Template file {index}")
+        directory_id = _string(item["directory_id"], "Template file directory ID")
+        if directory_id not in roots:
+            raise ContractError("Template files must reference a declared directory")
+        path = relative_path(item["path"], "Template file path")
+        key = (directory_id, path)
+        if key in texts:
+            raise ContractError("Template files must have unique paths within a root")
+        texts[key] = _string(item["text"], "Template file text")
+
+    def directory_selection(value: Any) -> list[str]:
+        if (
+            not isinstance(value, list)
+            or not value
+            or any(not isinstance(item, str) or item not in roots for item in value)
+            or len(value) != len(set(value))
+        ):
+            raise ContractError("Template loader roots must be unique declared directory IDs")
+        return value
+
+    constructor = _exact(case["constructor"], {"directory", "environment"}, "Template constructor")
+    directory = constructor["directory"]
+    selected_roots: list[str] = []
+    if directory is not None:
+        directory = _exact(directory, {"kind", "directory_ids"}, "Template directory argument")
+        if directory["kind"] not in {"string", "path", "sequence"}:
+            raise ContractError("Template directory argument must select string, path, or sequence")
+        selected_roots = directory_selection(directory["directory_ids"])
+        if directory["kind"] != "sequence" and len(selected_roots) != 1:
+            raise ContractError("Scalar template directory arguments must select one root")
+    environment = constructor["environment"]
+    if environment is not None:
+        environment = _exact(environment, {"directory_ids", "autoescape"}, "Template environment")
+        selected_roots = directory_selection(environment["directory_ids"])
+        if type(environment["autoescape"]) is not bool:
+            raise ContractError("Supplied template environment autoescape must be boolean")
+    additions = case["processor_additions"]
+    if not isinstance(additions, list) or any(
+        not isinstance(item, dict) or not item or "request" in item for item in additions
+    ):
+        raise ContractError("Template processors must supply non-empty context mappings")
+    consumer = case["consumer"]
+    if not isinstance(consumer, dict) or consumer.get("kind") not in {
+        "construction",
+        "template-render",
+        "testclient",
+    }:
+        raise ContractError("Template consumer must select construction, rendering, or TestClient")
+    coverage = {TEMPLATING_PUBLIC_REQUIREMENTS["construction"]}
+    if directory is None and environment is None:
+        coverage.add(TEMPLATING_PUBLIC_REQUIREMENTS["missing-configuration"])
+    elif directory is not None and environment is not None:
+        coverage.add(TEMPLATING_PUBLIC_REQUIREMENTS["conflicting-configuration"])
+    elif environment is not None:
+        coverage.add(TEMPLATING_PUBLIC_REQUIREMENTS["supplied-environment"])
+    if (directory is None) == (environment is None) and consumer["kind"] != "construction":
+        raise ContractError("Invalid template constructor stimuli must select construction only")
+
+    def template_text(name: Any, context: Any) -> str:
+        name = relative_path(name, "Template lookup name")
+        text = next((texts[(root, name)] for root in selected_roots if (root, name) in texts), None)
+        if text is None:
+            raise ContractError("Template consumer must resolve an input-defined template")
+        if not isinstance(context, dict) or "request" in context:
+            raise ContractError("Template context must be a mapping without a synthetic Request")
+        if any(key not in text for key in context):
+            raise ContractError("Template stimulus must render each supplied context key")
+        if (
+            environment is None
+            and name.lower().endswith((".html", ".htm", ".xml"))
+            and any(
+                isinstance(value, str) and ("<" in value or ">" in value)
+                for value in context.values()
+            )
+        ):
+            coverage.add(TEMPLATING_PUBLIC_REQUIREMENTS["default-autoescape"])
+        return text
+
+    if consumer["kind"] == "construction":
+        _exact(consumer, {"kind"}, "Template construction consumer")
+        if additions:
+            raise ContractError("Construction-only inputs cannot claim processor invocation")
+    elif consumer["kind"] == "template-render":
+        _exact(consumer, {"kind", "renders"}, "Direct template rendering consumer")
+        if additions or not isinstance(consumer["renders"], list) or not consumer["renders"]:
+            raise ContractError("Direct rendering requires render calls and no response processors")
+        for item in consumer["renders"]:
+            item = _exact(item, {"name", "context"}, "Direct template render")
+            template_text(item["name"], item["context"])
+        coverage.add(TEMPLATING_PUBLIC_REQUIREMENTS["direct-render"])
+    else:
+        _exact(
+            consumer,
+            {"kind", "debug", "routes", "middleware", "requests"},
+            "Template client consumer",
+        )
+        if type(consumer["debug"]) is not bool:
+            raise ContractError("Template app debug must be boolean")
+        if not isinstance(consumer["middleware"], list):
+            raise ContractError("Template middleware must be an array")
+        for item in consumer["middleware"]:
+            _exact(item, {"kind"}, "Template middleware")
+            if item["kind"] != "base-http-pass-through":
+                raise ContractError("Template middleware must select the pass-through boundary")
+        if not isinstance(consumer["routes"], list) or not consumer["routes"]:
+            raise ContractError("Template client requires routes")
+        route_paths: set[str] = set()
+        route_names: set[str] = set()
+        used_texts: list[str] = []
+        for item in consumer["routes"]:
+            item = _exact(
+                item, {"path", "name", "template_name", "context"}, "Template client route"
+            )
+            path = _string(item["path"], "Template route path")
+            name = _string(item["name"], "Template route name")
+            if (
+                not path.startswith("/")
+                or "{" in path
+                or path in route_paths
+                or name in route_names
+            ):
+                raise ContractError(
+                    "Template client routes must have unique literal paths and names"
+                )
+            route_paths.add(path)
+            route_names.add(name)
+            used_texts.append(template_text(item["template_name"], item["context"]))
+        if not isinstance(consumer["requests"], list) or not consumer["requests"]:
+            raise ContractError("Template client requires request inputs")
+        requested_paths: set[str] = set()
+        for item in consumer["requests"]:
+            item = _exact(item, {"method", "url"}, "Template client request")
+            if item["method"] != "GET" or item["url"] not in route_paths:
+                raise ContractError("Template client requests must GET an input-defined route")
+            requested_paths.add(item["url"])
+        if requested_paths != route_paths:
+            raise ContractError("Template client must request every declared endpoint")
+        if any(key not in text for values in additions for key in values for text in used_texts):
+            raise ContractError("Template response inputs must render each processor context key")
+        coverage.add(TEMPLATING_PUBLIC_REQUIREMENTS["client-debug-metadata"])
+        if len(selected_roots) > 1:
+            coverage.add(TEMPLATING_PUBLIC_REQUIREMENTS["directory-sequence"])
+        if additions:
+            coverage.add(TEMPLATING_PUBLIC_REQUIREMENTS["context-processors"])
+        if consumer["middleware"]:
+            coverage.add(TEMPLATING_PUBLIC_REQUIREMENTS["base-http-middleware"])
+        if any("url_for" in text for text in used_texts):
+            coverage.add(TEMPLATING_PUBLIC_REQUIREMENTS["url-for"])
+    if set(case["covers"]) != coverage:
+        raise ContractError(
+            "Template public workflow covers must follow the supplied consumer inputs"
+        )
 
 
 def _validate_templating_case(case: dict[str, Any]) -> None:

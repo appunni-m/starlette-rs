@@ -361,7 +361,8 @@
       "build/parity/inputs/parity/concurrency.json",
       "build/parity/inputs/parity/websocket-scope-interface.json",
       "build/parity/inputs/parity/exception-middleware-typing.json",
-      "build/parity/inputs/parity/testclient-redirect-policy.json"
+      "build/parity/inputs/parity/testclient-redirect-policy.json",
+      "build/parity/inputs/parity/templating-public.json"
     ],
     "coverage": [],
     "benchmark": [
@@ -25038,6 +25039,292 @@
           "coverage": {
             "applicability": "not_applicable",
             "reason": "This input-only Jinja2 workflow makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "This Jinja2 behavior is outside the declared benchmark workloads."
+          }
+        },
+        {
+          "id": "template-public-workflow",
+          "kind": "protocol_operation",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.templating.Jinja2Templates.__init__, get_template, TemplateResponse; starlette.testclient.TestClient",
+            "signature": "Jinja2Templates(directory=None, *, context_processors=None, env=None); get_template(name); TemplateResponse(request, name, context=None, status_code=200, headers=None, media_type=None, background=None)",
+            "parameters": [
+              {
+                "id": "directory",
+                "style": "keyword",
+                "value_types": [
+                  "path",
+                  "sequence",
+                  "null"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": null
+                }
+              },
+              {
+                "id": "context_processors",
+                "style": "keyword",
+                "value_types": [
+                  "sequence",
+                  "null"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": null
+                }
+              },
+              {
+                "id": "env",
+                "style": "keyword",
+                "value_types": [
+                  "handle",
+                  "null"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": null
+                }
+              }
+            ],
+            "result": {
+              "shape": "protocol",
+              "observations": [
+                {
+                  "path": "construction",
+                  "value_types": [
+                    "mapping"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                },
+                {
+                  "path": "environment",
+                  "value_types": [
+                    "mapping",
+                    "null"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                },
+                {
+                  "path": "rendered_templates",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "responses",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "processor_trace",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "middleware_trace",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "asgi_events",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "The Rust-native consumer surface does not yet expose this Python templating operation.",
+                "blocker": "The native crate has no Jinja-compatible template-engine interface."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.templating.Jinja2Templates",
+              "signature": "Jinja2Templates(directory=None, *, context_processors=None, env=None); get_template(name); TemplateResponse(request, name, context=None, status_code=200, headers=None, media_type=None, background=None)",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.templating.Jinja2Templates.template-public-workflow.construction",
+              "dimension": "success_path",
+              "description": "Construct public Jinja2Templates from input-selected directory and environment arguments and compare initialization. Pinned source: starlette/templating.py:79-100.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.templating.Jinja2Templates.template-public-workflow.missing-configuration",
+              "dimension": "error_path",
+              "description": "Omit both directory and environment and compare the public exception class and exact message. Pinned source: tests/test_templates.py:138-140.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.templating.Jinja2Templates.template-public-workflow.conflicting-configuration",
+              "dimension": "error_path",
+              "description": "Pass both a directory and a supplied Jinja2 environment and compare the public exception class and exact message. Pinned source: tests/test_templates.py:143-145.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.templating.Jinja2Templates.template-public-workflow.direct-render",
+              "dimension": "success_path",
+              "description": "Resolve a template through public get_template and render the input context without a Request or response. Pinned source: tests/test_templates.py:37-46,148-155; starlette/templating.py:112-113.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.templating.Jinja2Templates.template-public-workflow.default-autoescape",
+              "dimension": "input_family",
+              "description": "Render markup through HTML, HTM, or XML templates using directory constructor defaults; observe environment policy and rendered text. Pinned source: tests/test_templates.py:37-46; docs/templates.md:78; starlette/templating.py:94.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.templating.Jinja2Templates.template-public-workflow.supplied-environment",
+              "dimension": "input_family",
+              "description": "Supply a FileSystemLoader environment and compare its identity, preserved autoescape policy, rendering, and url_for installation. Pinned source: tests/test_templates.py:158-181; starlette/templating.py:95-100.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.templating.Jinja2Templates.template-public-workflow.context-processors",
+              "dimension": "success_path",
+              "description": "Render through a named route and TestClient after synchronous processors supply input mappings; compare processor calls, merged context, metadata, and response events. Pinned source: tests/test_templates.py:49-74; starlette/templating.py:142-151.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.templating.Jinja2Templates.template-public-workflow.base-http-middleware",
+              "dimension": "protocol_variant",
+              "description": "Render a named template route through pass-through BaseHTTPMiddleware and TestClient; compare body bytes, public template/context metadata, middleware trace, and events. Pinned source: tests/test_templates.py:77-100; starlette/middleware/base.py.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.templating.Jinja2Templates.template-public-workflow.url-for",
+              "dimension": "success_path",
+              "description": "Reverse an input-defined route through the default url_for template global on a live Starlette app and TestClient. Pinned source: tests/test_templates.py:19-35,158-181; starlette/templating.py:101-110.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.templating.Jinja2Templates.template-public-workflow.directory-sequence",
+              "dimension": "input_family",
+              "description": "Pass ordered directory roots and render one template from each through named routes on one TestClient. Pinned source: tests/test_templates.py:103-135.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.templating.Jinja2Templates.template-public-workflow.client-debug-metadata",
+              "dimension": "protocol_variant",
+              "description": "Observe public TestClient response template and request context from the live template debug extension alongside response events. Pinned source: tests/test_templates.py:19-35,49-74,77-100,103-135,158-181; starlette/testclient.py:345-373.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This input-only public template workflow makes no code-coverage claim."
           },
           "benchmark": {
             "applicability": "not_applicable",

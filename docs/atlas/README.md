@@ -98,8 +98,8 @@ dispatch. Full run and wheel identities are recorded in
 [Migration parity contract and evidence](../PARITY.md); this bounded evidence
 does not establish full Starlette parity or release readiness.
 
-The generated coverage matrix currently has 806 source rows: 671 input
-mappings, 52 reasoned `not_applicable` rows, and 83 fixture-backlog rows.
+The generated coverage matrix currently has 806 source rows: 679 input
+mappings, 52 reasoned `not_applicable` rows, and 75 fixture-backlog rows.
 Derive these changing counts from the generated atlas CSV files.
 
 The latest correctness-gated Router/GZip benchmark is recorded in
@@ -300,7 +300,7 @@ for a different public invocation shape.
 
 The crosswalk maps each source behavior only when an input directly stimulates
 and observes it. The checked-in generated `coverage-matrix.csv` has 806 source rows:
-671 `existing` mappings, 83 `backlog` rows, and 52 reasoned `not_applicable`
+679 `existing` mappings, 75 `backlog` rows, and 52 reasoned `not_applicable`
 rows. It maps exception, registered-handler, and direct
 `ServerErrorMiddleware` custom-handler behavior to input-only fixtures; the
 matrix is not a one-to-one index of active parity

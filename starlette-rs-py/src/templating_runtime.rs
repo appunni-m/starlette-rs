@@ -36,7 +36,10 @@ fn templating_require_jinja2(py: Python<'_>) -> PyResult<Py<PyAny>> {
     }
 }
 
-#[pyclass(name = "_Jinja2Templates", unsendable)]
+// Templates are commonly configured on the caller thread and then used by
+// TestClient's portal. The fields are owned Python references; access remains
+// under Python attachment and PyO3's borrow checks rather than thread affinity.
+#[pyclass(name = "_Jinja2Templates")]
 pub(crate) struct PyJinja2Templates {
     env: Py<PyAny>,
     context_processors: Py<PyAny>,
@@ -185,7 +188,8 @@ impl PyJinja2Templates {
     }
 }
 
-#[pyclass(name = "_TemplateUrlFor", unsendable, dict)]
+// The stateless global travels with its environment to the ASGI portal thread.
+#[pyclass(name = "_TemplateUrlFor", dict)]
 struct PyTemplateUrlFor;
 
 #[pymethods]
