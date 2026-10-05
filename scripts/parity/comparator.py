@@ -499,6 +499,22 @@ def _normalize_anyio_cancel_scope_message(value: Any) -> Any:
         return value
 
     normalized = {key: _normalize_anyio_cancel_scope_message(item) for key, item in value.items()}
+    if value.get("class") == "asyncio.exceptions.CancelledError":
+        # Scope IDs are addresses, as confirmed by repeated live oracle runs.
+        # Preserve the cancellation node, arguments, and remaining message text.
+        def scope_address(message: Any) -> Any:
+            if not isinstance(message, str):
+                return message
+            return re.sub(
+                r"\ACancelled via cancel scope [0-9a-f]+\Z",
+                "Cancelled via cancel scope <runtime-address>",
+                message,
+            )
+
+        if "message" in normalized:
+            normalized["message"] = scope_address(normalized["message"])
+        if isinstance(normalized.get("args"), list):
+            normalized["args"] = [scope_address(item) for item in normalized["args"]]
     exception = value.get("exception")
     if (
         isinstance(exception, dict)
@@ -1057,13 +1073,21 @@ def compare_workflows(
                             observation_path=path,
                         )
                     elif kind == "anyio-cancel-scope-message":
-                        if (
-                            case.get("surface") != "starlette.concurrency"
-                            or case.get("operation") != "run_until_first_complete"
-                            or path != "event_trace"
-                        ):
+                        cancellation_observation = (
+                            case.get("surface"),
+                            case.get("operation"),
+                            path,
+                        )
+                        if cancellation_observation not in {
+                            ("starlette.concurrency", "run_until_first_complete", "event_trace"),
+                            (
+                                "starlette.testclient.TestClient",
+                                "public-client-workflow",
+                                "responses",
+                            ),
+                        }:
                             raise ContractError(
-                                "AnyIO cancellation-message normalization is only allowed for run_until_first_complete event traces"
+                                "AnyIO cancellation-message normalization requires a declared cancellation observation"
                             )
                         left_field = _normalize_anyio_cancel_scope_message(left_field)
                         right_field = _normalize_anyio_cancel_scope_message(right_field)

@@ -713,7 +713,7 @@
         },
         {
           "operation_id": "public-client-workflow",
-          "source_path": "starlette.testclient.TestClient.__init__, headers, __enter__, __exit__, and close; starlette.applications.Starlette; starlette.middleware.Middleware; starlette.routing.Router, Route, Mount, and WebSocketRoute"
+          "source_path": "starlette.testclient.TestClient.__init__, headers, __enter__, __exit__, and close; starlette.applications.Starlette; starlette.middleware.Middleware; starlette.routing.Router, Route, Mount, and WebSocketRoute; starlette.middleware.base.BaseHTTPMiddleware; starlette.responses.PlainTextResponse and StreamingResponse"
         }
       ]
     },

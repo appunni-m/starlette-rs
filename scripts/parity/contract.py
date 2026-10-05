@@ -494,6 +494,7 @@ TESTCLIENT_PUBLIC_REQUIREMENTS = {
         "middleware-lifespan-startup-error",
         "portal-cleanup-after-startup-error",
         "router-managed-request-sequence",
+        "custom-middleware-http-websocket-sequence",
     )
 }
 
@@ -2267,13 +2268,12 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                             )
                     elif normalization_kind == "anyio-cancel-scope-message":
                         _exact(normalization_spec, {"kind"}, f"{octx}.normalization")
-                        if (
-                            key != RUN_UNTIL_FIRST_COMPLETE_OPERATION_KEY
-                            or observation["path"] != "event_trace"
-                            or comparison["kind"] != "ordered"
-                        ):
+                        if (key, observation["path"]) not in {
+                            (RUN_UNTIL_FIRST_COMPLETE_OPERATION_KEY, "event_trace"),
+                            (TESTCLIENT_PUBLIC_OPERATION, "responses"),
+                        } or comparison["kind"] != "ordered":
                             raise ContractError(
-                                f"{octx} permits AnyIO cancellation-message normalization only for run_until_first_complete event traces"
+                                f"{octx} permits AnyIO cancellation-message normalization only for declared cancellation observations"
                             )
                     elif normalization_kind == "starlette-lifespan-router-frame":
                         _exact(normalization_spec, {"kind"}, f"{octx}.normalization")
@@ -22658,6 +22658,128 @@ def _validate_router_client_consumer(application: Any, consumer: Any) -> None:
         _string(specification["module"], "Router warning module pattern")
 
 
+def _validate_middleware_client_consumer(application: Any, consumer: Any) -> None:
+    _exact(application, {"kind", "routes", "middleware", "scope_fields"}, "Middleware client app")
+    if application["kind"] != "base-http-route-graph":
+        raise ContractError("Middleware client requires a BaseHTTPMiddleware route graph")
+    middleware = _exact(application["middleware"], {"response_headers"}, "User middleware input")
+    headers = middleware["response_headers"]
+    if (
+        not isinstance(headers, dict)
+        or not headers
+        or any(
+            not isinstance(name, str) or not isinstance(value, str)
+            for name, value in headers.items()
+        )
+    ):
+        raise ContractError("User middleware response headers must be a nonempty string mapping")
+    scope_fields = application["scope_fields"]
+    if (
+        not isinstance(scope_fields, list)
+        or any(not isinstance(name, str) for name in scope_fields)
+        or len(set(scope_fields)) != len(scope_fields)
+        or not {"type", "path", "root_path"} <= set(scope_fields)
+        or not set(scope_fields)
+        <= {"type", "path", "root_path", "raw_path", "query_string", "method", "scheme"}
+    ):
+        raise ContractError("Middleware client scope fields must observe public routing inputs")
+
+    def validate_exception(value: Any, context: str) -> None:
+        if not isinstance(value, dict):
+            raise ContractError(f"{context} must be an exception constructor record")
+        if value.get("class") == "ExceptionGroup":
+            _exact(value, {"class", "message", "exceptions"}, context)
+            _string(value["message"], f"{context}.message")
+            children = value["exceptions"]
+            if not isinstance(children, list) or not children:
+                raise ContractError(f"{context}.exceptions must contain exception inputs")
+            for child in children:
+                validate_exception(child, f"{context}.exceptions")
+        else:
+            _exact(value, {"class", "args"}, context)
+            if _string(value["class"], f"{context}.class") not in {"Exception", "ValueError"}:
+                raise ContractError(f"{context}.class must select a declared builtin exception")
+            if not isinstance(value["args"], list) or any(
+                item is not None and not isinstance(item, (str, bool, int, float))
+                for item in value["args"]
+            ):
+                raise ContractError(
+                    f"{context}.args must contain JSON scalar constructor arguments"
+                )
+
+    routes = application["routes"]
+    if not isinstance(routes, list) or not routes:
+        raise ContractError("Middleware client requires route definitions")
+    for index, value in enumerate(routes):
+        context = f"Middleware client route[{index}]"
+        route = _exact(value, {"kind", "path", "name", "endpoint"}, context)
+        if not _string(route["path"], f"{context}.path").startswith("/"):
+            raise ContractError(f"{context}.path must be absolute")
+        _string(route["name"], f"{context}.name")
+        endpoint = route["endpoint"]
+        if not isinstance(endpoint, dict):
+            raise ContractError(f"{context}.endpoint must be a record")
+        kind = endpoint.get("kind")
+        if route["kind"] == "websocket-route" and kind == "websocket-text":
+            _exact(endpoint, {"kind", "text"}, context)
+            _string(endpoint["text"], f"{context}.text")
+        elif route["kind"] == "route":
+            if kind == "text-response":
+                _exact(endpoint, {"kind", "text"}, context)
+                _string(endpoint["text"], f"{context}.text")
+            elif kind == "exception":
+                _exact(endpoint, {"kind", "exception"}, context)
+                validate_exception(endpoint["exception"], f"{context}.exception")
+            elif kind == "faulty-sync-stream":
+                _exact(endpoint, {"kind", "chunks_base64", "exception"}, context)
+                chunks = endpoint["chunks_base64"]
+                if not isinstance(chunks, list) or not chunks:
+                    raise ContractError(f"{context}.chunks_base64 must supply stream input")
+                for chunk in chunks:
+                    try:
+                        base64.b64decode(chunk, validate=True)
+                    except (TypeError, ValueError) as error:
+                        raise ContractError(f"{context} has invalid base64 stream input") from error
+                validate_exception(endpoint["exception"], f"{context}.exception")
+            elif kind == "awaitable-asgi-no-response":
+                _exact(endpoint, {"kind"}, context)
+            else:
+                raise ContractError(f"{context} has an unsupported HTTP endpoint kind")
+        else:
+            raise ContractError(f"{context} has an unsupported route or endpoint kind")
+    _exact(consumer, {"kind", "kwargs", "steps"}, "Middleware TestClient consumer")
+    kwargs = _exact(consumer["kwargs"], {"backend", "backend_options"}, "Middleware client options")
+    if kwargs["backend"] not in {"asyncio", "trio"} or kwargs["backend_options"] != {}:
+        raise ContractError("Middleware client requires a default supported backend")
+    steps = consumer["steps"]
+    if not isinstance(steps, list) or not steps:
+        raise ContractError("Middleware client requires an ordered consumer sequence")
+    for index, value in enumerate(steps):
+        context = f"Middleware client step[{index}]"
+        if not isinstance(value, dict):
+            raise ContractError(f"{context} must be a consumer record")
+        if value.get("kind") == "http-request":
+            _exact(value, {"kind", "method", "url"}, context)
+            method = _string(value["method"], f"{context}.method")
+            if not method.isalpha() or method != method.upper():
+                raise ContractError(f"{context} HTTP method must be uppercase")
+        elif value.get("kind") == "websocket-connect":
+            _exact(value, {"kind", "url", "actions"}, context)
+            actions = value["actions"]
+            if not isinstance(actions, list) or not actions:
+                raise ContractError(f"{context}.actions must supply public session calls")
+            for action in actions:
+                _exact(action, {"method", "args"}, f"{context}.actions")
+                if action["method"] != "receive_text" or action["args"] != []:
+                    raise ContractError(
+                        "Middleware session calls must receive text without arguments"
+                    )
+        else:
+            raise ContractError(f"{context} has an unsupported public call kind")
+        if not _string(value["url"], f"{context}.url").startswith("/"):
+            raise ContractError(f"{context}.url must be a relative absolute-path URL")
+
+
 def _validate_testclient_public_case(case: dict[str, Any]) -> None:
     if case["target_profiles"] != ["python-package-cpython312"]:
         raise ContractError("Public TestClient workflows require the installed-package profile")
@@ -22720,6 +22842,9 @@ def _validate_testclient_public_case(case: dict[str, Any]) -> None:
     elif consumer.get("kind") == "managed-router-requests":
         _validate_router_client_consumer(application, consumer)
         coverage.add(TESTCLIENT_PUBLIC_REQUIREMENTS["router-managed-request-sequence"])
+    elif consumer.get("kind") == "client-http-websocket-sequence":
+        _validate_middleware_client_consumer(application, consumer)
+        coverage.add(TESTCLIENT_PUBLIC_REQUIREMENTS["custom-middleware-http-websocket-sequence"])
     elif consumer.get("kind") == "lifespan-context":
         _exact(consumer, {"kind", "kwargs"}, "TestClient middleware context consumer")
         kwargs = _exact(

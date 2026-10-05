@@ -1,0 +1,315 @@
+{
+  "schema": "migration-parity/parity-input@43",
+  "cases": [
+    {
+      "case_id": "starlette.testclient.TestClient.public-client-workflow.custom-middleware.asyncio",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "public-client-workflow",
+      "covers": [
+        "starlette.testclient.TestClient.public-client-workflow.custom-middleware-http-websocket-sequence"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "public-client-workflow"
+      ],
+      "application": {
+        "kind": "base-http-route-graph",
+        "routes": [
+          {
+            "kind": "route",
+            "path": "/",
+            "name": "homepage",
+            "endpoint": {
+              "kind": "text-response",
+              "text": "Homepage"
+            }
+          },
+          {
+            "kind": "route",
+            "path": "/exc",
+            "name": "exc",
+            "endpoint": {
+              "kind": "exception",
+              "exception": {
+                "class": "Exception",
+                "args": [
+                  "Exc"
+                ]
+              }
+            }
+          },
+          {
+            "kind": "route",
+            "path": "/exc-group",
+            "name": "exc_group",
+            "endpoint": {
+              "kind": "exception",
+              "exception": {
+                "class": "ExceptionGroup",
+                "message": "my exception group",
+                "exceptions": [
+                  {
+                    "class": "ValueError",
+                    "args": [
+                      "TEST"
+                    ]
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "kind": "route",
+            "path": "/exc-stream",
+            "name": "exc_stream",
+            "endpoint": {
+              "kind": "faulty-sync-stream",
+              "chunks_base64": [
+                "T2s="
+              ],
+              "exception": {
+                "class": "Exception",
+                "args": [
+                  "Faulty Stream"
+                ]
+              }
+            }
+          },
+          {
+            "kind": "route",
+            "path": "/no-response",
+            "name": "NoResponse",
+            "endpoint": {
+              "kind": "awaitable-asgi-no-response"
+            }
+          },
+          {
+            "kind": "websocket-route",
+            "path": "/ws",
+            "name": "websocket_endpoint",
+            "endpoint": {
+              "kind": "websocket-text",
+              "text": "Hello, world!"
+            }
+          }
+        ],
+        "middleware": {
+          "response_headers": {
+            "Custom-Header": "Example"
+          }
+        },
+        "scope_fields": [
+          "type",
+          "method",
+          "path",
+          "root_path",
+          "raw_path",
+          "query_string",
+          "scheme"
+        ]
+      },
+      "consumer": {
+        "kind": "client-http-websocket-sequence",
+        "kwargs": {
+          "backend": "asyncio",
+          "backend_options": {}
+        },
+        "steps": [
+          {
+            "kind": "http-request",
+            "method": "GET",
+            "url": "/"
+          },
+          {
+            "kind": "http-request",
+            "method": "GET",
+            "url": "/exc"
+          },
+          {
+            "kind": "http-request",
+            "method": "GET",
+            "url": "/exc-stream"
+          },
+          {
+            "kind": "http-request",
+            "method": "GET",
+            "url": "/exc-group"
+          },
+          {
+            "kind": "http-request",
+            "method": "GET",
+            "url": "/no-response"
+          },
+          {
+            "kind": "websocket-connect",
+            "url": "/ws",
+            "actions": [
+              {
+                "method": "receive_text",
+                "args": []
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.testclient.TestClient.public-client-workflow.custom-middleware.trio",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "public-client-workflow",
+      "covers": [
+        "starlette.testclient.TestClient.public-client-workflow.custom-middleware-http-websocket-sequence"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "public-client-workflow"
+      ],
+      "application": {
+        "kind": "base-http-route-graph",
+        "routes": [
+          {
+            "kind": "route",
+            "path": "/",
+            "name": "homepage",
+            "endpoint": {
+              "kind": "text-response",
+              "text": "Homepage"
+            }
+          },
+          {
+            "kind": "route",
+            "path": "/exc",
+            "name": "exc",
+            "endpoint": {
+              "kind": "exception",
+              "exception": {
+                "class": "Exception",
+                "args": [
+                  "Exc"
+                ]
+              }
+            }
+          },
+          {
+            "kind": "route",
+            "path": "/exc-group",
+            "name": "exc_group",
+            "endpoint": {
+              "kind": "exception",
+              "exception": {
+                "class": "ExceptionGroup",
+                "message": "my exception group",
+                "exceptions": [
+                  {
+                    "class": "ValueError",
+                    "args": [
+                      "TEST"
+                    ]
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "kind": "route",
+            "path": "/exc-stream",
+            "name": "exc_stream",
+            "endpoint": {
+              "kind": "faulty-sync-stream",
+              "chunks_base64": [
+                "T2s="
+              ],
+              "exception": {
+                "class": "Exception",
+                "args": [
+                  "Faulty Stream"
+                ]
+              }
+            }
+          },
+          {
+            "kind": "route",
+            "path": "/no-response",
+            "name": "NoResponse",
+            "endpoint": {
+              "kind": "awaitable-asgi-no-response"
+            }
+          },
+          {
+            "kind": "websocket-route",
+            "path": "/ws",
+            "name": "websocket_endpoint",
+            "endpoint": {
+              "kind": "websocket-text",
+              "text": "Hello, world!"
+            }
+          }
+        ],
+        "middleware": {
+          "response_headers": {
+            "Custom-Header": "Example"
+          }
+        },
+        "scope_fields": [
+          "type",
+          "method",
+          "path",
+          "root_path",
+          "raw_path",
+          "query_string",
+          "scheme"
+        ]
+      },
+      "consumer": {
+        "kind": "client-http-websocket-sequence",
+        "kwargs": {
+          "backend": "trio",
+          "backend_options": {}
+        },
+        "steps": [
+          {
+            "kind": "http-request",
+            "method": "GET",
+            "url": "/"
+          },
+          {
+            "kind": "http-request",
+            "method": "GET",
+            "url": "/exc"
+          },
+          {
+            "kind": "http-request",
+            "method": "GET",
+            "url": "/exc-stream"
+          },
+          {
+            "kind": "http-request",
+            "method": "GET",
+            "url": "/exc-group"
+          },
+          {
+            "kind": "http-request",
+            "method": "GET",
+            "url": "/no-response"
+          },
+          {
+            "kind": "websocket-connect",
+            "url": "/ws",
+            "actions": [
+              {
+                "method": "receive_text",
+                "args": []
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

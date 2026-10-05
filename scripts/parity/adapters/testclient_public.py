@@ -7,6 +7,11 @@ from typing import Any
 
 
 def run_testclient_public_case(case: dict[str, Any]) -> dict[str, Any]:
+    if case["consumer"]["kind"] == "client-http-websocket-sequence":
+        from scripts.parity.adapters.testclient_middleware import run_middleware_client_case
+
+        return run_middleware_client_case(case)
+
     if case["consumer"]["kind"] == "managed-router-requests":
         from scripts.parity.adapters.testclient_router import run_router_client_case
 

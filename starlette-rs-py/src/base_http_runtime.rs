@@ -751,7 +751,11 @@ impl CallNextMachine {
             Err(preserve_application_exception(py, app_error, &error)?)
         } else {
             let _ = receive_stream;
-            Err(PyRuntimeError::new_err("No response returned."))
+            let missing_response = PyRuntimeError::new_err("No response returned.");
+            // Python raises this error inside `except EndOfStream`; preserve
+            // that implicit context so task-group collapse retains its cause.
+            missing_response.set_context(py, Some(error));
+            Err(missing_response)
         }
     }
 }

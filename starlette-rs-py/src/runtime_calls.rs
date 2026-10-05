@@ -2,6 +2,7 @@
 
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::sync::{Arc, Mutex, MutexGuard};
 
 use pyo3::exceptions::{
     PyAttributeError, PyImportError, PyOSError, PyRuntimeError, PyStopAsyncIteration,
@@ -23,6 +24,19 @@ use crate::awaitable::{
     AwaitableStateMachine, MachineAction, MachineResume, into_python_awaitable,
 };
 use crate::cookie_runtime;
+
+// Response objects may be constructed in a sync endpoint worker and later used
+// on the ASGI portal. Only owned Python references cross that boundary; iterator
+// state is synchronized and no Python callback runs while its mutex is held.
+type SharedSyncIterator = Arc<Mutex<Option<Py<PyAny>>>>;
+
+fn sync_iterator_state(
+    iterator: &SharedSyncIterator,
+) -> PyResult<MutexGuard<'_, Option<Py<PyAny>>>> {
+    iterator
+        .lock()
+        .map_err(|_| PyRuntimeError::new_err("stream iterator state mutex was poisoned"))
+}
 
 pub(crate) fn header_pairs(
     py: Python<'_>,
@@ -157,7 +171,7 @@ impl ResponseCallMachine {
     }
 }
 
-#[pyclass(name = "StreamingResponse", unsendable)]
+#[pyclass(name = "StreamingResponse")]
 pub(crate) struct PyStreamingResponse {
     inner: NativeStreamingResponse,
     raw_headers: Py<PyAny>,
@@ -165,7 +179,7 @@ pub(crate) struct PyStreamingResponse {
     content: Py<PyAny>,
     async_iterable: bool,
     charset: String,
-    sync_iterator: Rc<RefCell<Option<Py<PyAny>>>>,
+    sync_iterator: SharedSyncIterator,
 }
 
 #[pymethods]
@@ -200,7 +214,7 @@ impl PyStreamingResponse {
             content,
             async_iterable,
             charset: charset.to_owned(),
-            sync_iterator: Rc::new(RefCell::new(None)),
+            sync_iterator: Arc::new(Mutex::new(None)),
         })
     }
 
@@ -364,6 +378,7 @@ impl PyStreamingResponse {
                     ))),
                     listener: StreamingResponseDisconnectListener::new(),
                     task_group: None,
+                    exit_error_context: None,
                     pending: None,
                 },
             );
@@ -408,7 +423,7 @@ struct StreamingCallMachine {
     sentinel: Option<Py<PyAny>>,
     async_iterable: bool,
     charset: String,
-    sync_iterator: Rc<RefCell<Option<Py<PyAny>>>>,
+    sync_iterator: SharedSyncIterator,
     send: Py<PyAny>,
     _receive: Py<PyAny>,
     background: Option<Py<PyAny>>,
@@ -519,9 +534,7 @@ impl StreamingCallMachine {
             let iterator = if self.async_iterable {
                 self.content.bind(py).call_method0("__aiter__")?
             } else {
-                let existing = self
-                    .sync_iterator
-                    .borrow()
+                let existing = sync_iterator_state(&self.sync_iterator)?
                     .as_ref()
                     .map(|iterator| iterator.clone_ref(py));
                 match existing {
@@ -531,7 +544,9 @@ impl StreamingCallMachine {
                             .import("builtins")?
                             .getattr("iter")?
                             .call1((self.content.bind(py),))?;
-                        *self.sync_iterator.borrow_mut() = Some(iterator.clone().unbind());
+                        let previous = sync_iterator_state(&self.sync_iterator)?
+                            .replace(iterator.clone().unbind());
+                        drop(previous);
                         iterator
                     }
                 }
@@ -624,13 +639,14 @@ struct StreamingDisconnectCallMachine {
     content: Py<PyAny>,
     async_iterable: bool,
     charset: String,
-    sync_iterator: Rc<RefCell<Option<Py<PyAny>>>>,
+    sync_iterator: SharedSyncIterator,
     send: Py<PyAny>,
     receive: Py<PyAny>,
     background: Option<Py<PyAny>>,
     call: Rc<RefCell<StreamingResponseDisconnectCall<PyErr>>>,
     listener: StreamingResponseDisconnectListener,
     task_group: Option<Py<PyAny>>,
+    exit_error_context: Option<PyErr>,
     pending: Option<StreamingDisconnectPending>,
 }
 
@@ -648,6 +664,7 @@ impl AwaitableStateMachine for StreamingDisconnectCallMachine {
                 }
                 Some(StreamingDisconnectPending::ListenerReceive) => self.finish_receive(py, value),
                 Some(StreamingDisconnectPending::TaskGroupExit) => {
+                    self.exit_error_context = None;
                     self.advance(StreamingResponseDisconnectCallInput::ConcurrentFinished(
                         Ok(()),
                     ))?;
@@ -862,6 +879,21 @@ impl StreamingDisconnectCallMachine {
         py: Python<'_>,
         body_error: Option<&PyErr>,
     ) -> PyResult<MachineAction> {
+        self.exit_error_context = match body_error {
+            Some(error) => {
+                let cancellation_class = py
+                    .import("anyio")?
+                    .getattr("get_cancelled_exc_class")?
+                    .call0()?;
+                let asyncio_cancellation = py.import("asyncio")?.getattr("CancelledError")?;
+                // Trio's nursery restores the group's prior __context__, even
+                // when it is None. Asyncio exposes the active body exception.
+                cancellation_class
+                    .is(&asyncio_cancellation)
+                    .then(|| error.clone_ref(py))
+            }
+            None => None,
+        };
         let task_group = self.task_group_ref(py)?;
         let awaitable = match body_error {
             Some(error) => {
@@ -880,6 +912,15 @@ impl StreamingDisconnectCallMachine {
     }
 
     fn finish_task_group_error(&mut self, py: Python<'_>, error: PyErr) -> PyResult<MachineAction> {
+        if let Some(context) = self.exit_error_context.take() {
+            // Rust awaits __aexit__ outside a Python `except` frame. Python
+            // would attach its active body error to the group raised on exit.
+            if error.value(py).getattr("__context__")?.is_none()
+                && !error.value(py).is(context.value(py))
+            {
+                error.set_context(py, Some(context));
+            }
+        }
         let error = collapse_single_task_group_error(py, error)?;
         let step = self.call.borrow().step();
         if is_anyio_cancellation(py, &error)?

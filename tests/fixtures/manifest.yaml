@@ -365,7 +365,8 @@
       "build/parity/inputs/parity/testclient-redirect-policy.json",
       "build/parity/inputs/parity/templating-public.json",
       "build/parity/inputs/parity/testclient-public.json",
-      "build/parity/inputs/parity/testclient-router.json"
+      "build/parity/inputs/parity/testclient-router.json",
+      "build/parity/inputs/parity/testclient-middleware.json"
     ],
     "coverage": [],
     "benchmark": [
@@ -2295,7 +2296,7 @@
             {
               "id": "starlette.request.path-param-int-digit-limit",
               "dimension": "error_path",
-              "description": "A 5001-digit path parameter matches the int regex but exceeds CPython’s configured integer-string conversion limit when Starlette converts Request.path_params. Observe the live exception boundary in the source and installed Python package. Upstream: starlette/convertors.py::IntegerConvertor.convert and starlette/routing.py::Route.matches.",
+              "description": "A 5001-digit path parameter matches the int regex but exceeds CPython\u2019s configured integer-string conversion limit when Starlette converts Request.path_params. Observe the live exception boundary in the source and installed Python package. Upstream: starlette/convertors.py::IntegerConvertor.convert and starlette/routing.py::Route.matches.",
               "lanes": [
                 "parity"
               ],
@@ -2306,7 +2307,7 @@
             {
               "id": "starlette.request.receive-worker-access",
               "dimension": "boundary",
-              "description": "Read Request.receive from a synchronous routed endpoint running in AnyIO’s worker thread and observe that the callback is callable without invoking it. Upstream: starlette/requests.py:231-232; starlette/routing.py::request_response; tests/test_requests.py.",
+              "description": "Read Request.receive from a synchronous routed endpoint running in AnyIO\u2019s worker thread and observe that the callback is callable without invoking it. Upstream: starlette/requests.py:231-232; starlette/routing.py::request_response; tests/test_requests.py.",
               "lanes": [
                 "parity"
               ],
@@ -2317,7 +2318,7 @@
             {
               "id": "starlette.request.stream-construction-worker",
               "dimension": "boundary",
-              "description": "Construct Request.stream() in a synchronous routed endpoint running in AnyIO’s worker thread and observe its live async-iterator methods without consuming the receive callback. Upstream: starlette/requests.py:234-252; starlette/routing.py::request_response; tests/test_requests.py::test_request_stream.",
+              "description": "Construct Request.stream() in a synchronous routed endpoint running in AnyIO\u2019s worker thread and observe its live async-iterator methods without consuming the receive callback. Upstream: starlette/requests.py:234-252; starlette/routing.py::request_response; tests/test_requests.py::test_request_stream.",
               "lanes": [
                 "parity"
               ],
@@ -2328,7 +2329,7 @@
             {
               "id": "starlette.request.body-awaitable-construction-worker",
               "dimension": "boundary",
-              "description": "Construct Request.body() in a synchronous routed endpoint running in AnyIO’s worker thread and observe the returned awaitable; close it before execution so the ASGI receive callback is not consumed. Upstream: starlette/requests.py:254-260; starlette/routing.py::request_response; tests/test_requests.py::test_request_body.",
+              "description": "Construct Request.body() in a synchronous routed endpoint running in AnyIO\u2019s worker thread and observe the returned awaitable; close it before execution so the ASGI receive callback is not consumed. Upstream: starlette/requests.py:254-260; starlette/routing.py::request_response; tests/test_requests.py::test_request_body.",
               "lanes": [
                 "parity"
               ],
@@ -2339,7 +2340,7 @@
             {
               "id": "starlette.request.json-awaitable-construction-worker",
               "dimension": "boundary",
-              "description": "Construct Request.json() in a synchronous routed endpoint running in AnyIO’s worker thread and observe the returned awaitable; close it before execution so the ASGI receive callback is not consumed. Upstream: starlette/requests.py:262-266; starlette/routing.py::request_response; tests/test_requests.py::test_request_json.",
+              "description": "Construct Request.json() in a synchronous routed endpoint running in AnyIO\u2019s worker thread and observe the returned awaitable; close it before execution so the ASGI receive callback is not consumed. Upstream: starlette/requests.py:262-266; starlette/routing.py::request_response; tests/test_requests.py::test_request_json.",
               "lanes": [
                 "parity"
               ],
@@ -14578,7 +14579,7 @@
             {
               "id": "starlette.responses.FileResponse.asgi-call.range-inverted-single-byte",
               "dimension": "error_path",
-              "description": "Submit `bytes=5-4` and compare Starlette’s malformed-range response. Upstream: starlette/responses.py::FileResponse._parse_range_header; tests/test_responses.py::test_file_response_inverted_single_byte_range.",
+              "description": "Submit `bytes=5-4` and compare Starlette\u2019s malformed-range response. Upstream: starlette/responses.py::FileResponse._parse_range_header; tests/test_responses.py::test_file_response_inverted_single_byte_range.",
               "lanes": [
                 "parity"
               ],
@@ -14590,7 +14591,7 @@
             {
               "id": "starlette.responses.FileResponse.asgi-call.range-start-after-end",
               "dimension": "error_path",
-              "description": "Submit `bytes=100-0` and compare Starlette’s malformed-range response. Upstream: starlette/responses.py::FileResponse._parse_range_header; tests/test_responses.py::test_file_response_start_must_be_less_than_end.",
+              "description": "Submit `bytes=100-0` and compare Starlette\u2019s malformed-range response. Upstream: starlette/responses.py::FileResponse._parse_range_header; tests/test_responses.py::test_file_response_start_must_be_less_than_end.",
               "lanes": [
                 "parity"
               ],
@@ -14686,7 +14687,7 @@
             {
               "id": "starlette.responses.FileResponse.asgi-call.range-count-limit-exceeded",
               "dimension": "parameter_combination",
-              "description": "Submit 101 valid ranges and compare Starlette’s full-file fallback. Upstream: starlette/responses.py::FileResponse._parse_range_header; tests/test_responses.py::test_file_response_range_count_limit_exceeded.",
+              "description": "Submit 101 valid ranges and compare Starlette\u2019s full-file fallback. Upstream: starlette/responses.py::FileResponse._parse_range_header; tests/test_responses.py::test_file_response_range_count_limit_exceeded.",
               "lanes": [
                 "parity"
               ],
@@ -14698,7 +14699,7 @@
             {
               "id": "starlette.responses.FileResponse.asgi-call.range-max-ranges-override",
               "dimension": "parameter_combination",
-              "description": "Change the response instance’s `max_ranges` before ASGI dispatch and compare the configured fallback behavior. Upstream: starlette/responses.py::FileResponse.max_ranges and FileResponse._parse_range_header.",
+              "description": "Change the response instance\u2019s `max_ranges` before ASGI dispatch and compare the configured fallback behavior. Upstream: starlette/responses.py::FileResponse.max_ranges and FileResponse._parse_range_header.",
               "lanes": [
                 "parity"
               ],
@@ -18583,7 +18584,7 @@
             {
               "id": "starlette.routing.Router.route-dispatch.http-endpoint-sync-handler",
               "dimension": "boundary",
-              "description": "HTTPEndpoint dispatches a synchronous HTTP verb handler through Starlette’s worker-thread boundary.",
+              "description": "HTTPEndpoint dispatches a synchronous HTTP verb handler through Starlette\u2019s worker-thread boundary.",
               "lanes": [
                 "parity"
               ],
@@ -24876,8 +24877,8 @@
           },
           "source": {
             "oracle_id": "starlette-python",
-            "path": "starlette.testclient.TestClient.__init__, headers, __enter__, __exit__, and close; starlette.applications.Starlette; starlette.middleware.Middleware; starlette.routing.Router, Route, Mount, and WebSocketRoute",
-            "signature": "TestClient(app, **kwargs); client.headers.get(name), client.headers.multi_items(); with TestClient(app, backend=backend): ...; client.close(); with TestClient(Router(routes)): client.request(method, url)",
+            "path": "starlette.testclient.TestClient.__init__, headers, __enter__, __exit__, and close; starlette.applications.Starlette; starlette.middleware.Middleware; starlette.routing.Router, Route, Mount, and WebSocketRoute; starlette.middleware.base.BaseHTTPMiddleware; starlette.responses.PlainTextResponse and StreamingResponse",
+            "signature": "TestClient(app, **kwargs); client.headers.get(name), client.headers.multi_items(); with TestClient(app, backend=backend): ...; client.close(); with TestClient(Router(routes)): client.request(method, url); client.request(method, url); with client.websocket_connect(url) as session: session.receive_text()",
             "parameters": [
               {
                 "id": "application",
@@ -24938,6 +24939,9 @@
                   ],
                   "comparison": {
                     "kind": "ordered"
+                  },
+                  "normalization": {
+                    "kind": "anyio-cancel-scope-message"
                   }
                 },
                 {
@@ -24983,7 +24987,7 @@
             {
               "target_id": "python-package",
               "path": "starlette.testclient.TestClient",
-              "signature": "TestClient(app, **kwargs); client.headers.get(name), client.headers.multi_items(); with TestClient(app, backend=backend): ...; client.close(); with TestClient(Router(routes)): client.request(method, url)",
+              "signature": "TestClient(app, **kwargs); client.headers.get(name), client.headers.multi_items(); with TestClient(app, backend=backend): ...; client.close(); with TestClient(Router(routes)): client.request(method, url); client.request(method, url); with client.websocket_connect(url) as session: session.receive_text()",
               "support": {
                 "status": "supported"
               }
@@ -25055,6 +25059,17 @@
               "target_profiles": [
                 "python-package-cpython312"
               ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.public-client-workflow.custom-middleware-http-websocket-sequence",
+              "dimension": "protocol_variant",
+              "description": "Construct the pinned Starlette application with one custom BaseHTTPMiddleware and six routes. Use one client outside a lifespan context for the input-ordered HTTP and WebSocket calls. Observe response headers and bytes, original exceptions and group structure, causes and contexts, missing-response error, ordered ASGI scopes/events, and thread cleanup on asyncio and Trio. Pinned source: tests/middleware/test_base.py:29-120; tests/conftest.py::test_client_factory. The declared normalization replaces only the hexadecimal AnyIO cancel-scope address in asyncio CancelledError message/arguments; exception nodes, group structure, all other text, and chain links remain exact.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
             }
           ],
           "parity": {
@@ -25069,7 +25084,7 @@
           },
           "benchmark": {
             "applicability": "not_applicable",
-            "reason": "This construction and startup-error contract has no timing workload."
+            "reason": "These public consumer workflows have no declared timing workload."
           }
         }
       ]

@@ -156,6 +156,40 @@ response construction, method handling, scope projection, and lifespan
 decisions through the existing forwarding facades. No runtime facade behavior
 was added. Both source/package comparisons pass with exact observations.
 
+## Composite custom BaseHTTPMiddleware workflow
+
+[`testclient-middleware.yaml`](../tests/fixtures/sources/parity/testclient-middleware.yaml)
+constructs the pinned six-route application and its header-setting middleware.
+One client, outside a lifespan context, sends the five ordered HTTP requests
+and enters a WebSocket session on asyncio and Trio. The consumer records
+complete responses, original exception identity, group children and arguments,
+cause/context links, partial ASGI event tapes, and the user-app thread lifetime.
+The only declared normalization replaces the hexadecimal cancel-scope address
+in an asyncio CancelledError message and its arguments. Repeated oracle runs
+showed that address varying; cancellation nodes and every chain link stay exact.
+
+The first comparison exposed StreamingResponse's unsendable PyO3 annotation:
+a sync endpoint constructed it in a worker, then the ASGI portal called it.
+Its shared iterator now uses Arc/Mutex with owned Python references. The mutex
+protects reference cloning/replacement; iter(), next(), callbacks, and replaced
+reference drops run after the guard is released. PyO3 checks object borrows,
+and Rust returns a typed error if the iterator mutex is poisoned. No unsafe
+thread-trait implementation or runtime Python behavior was added.
+
+The subsequent comparisons exposed missing exception links. Rust now attaches
+EndOfStream as the implicit context of the missing-response error, allowing
+task-group collapse to preserve its cause. Rust also retains asyncio's active
+body error when a streaming task group's __aexit__ raises. Trio explicitly
+restores its nursery group's previous context, including None; the native
+boundary respects that behavior. Both workflows now pass live comparisons.
+
+The initial crash also logged a traceback-retained call-next object being
+deallocated on another thread. A separate lifecycle comparison must retain
+and release exception tracebacks and observe sys.unraisablehook plus user
+finalizers. This unresolved requirement remains in the generated atlas as
+`testclient.runtime-traceback-garbage-collection`; stopped portal threads do
+not establish correct garbage collection of every retained runtime object.
+
 ## Evidence and remaining work
 
 Each slice is authored as input-only YAML under `tests/fixtures/sources/` and

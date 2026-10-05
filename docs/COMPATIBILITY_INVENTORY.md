@@ -17,7 +17,7 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest uses `parity-input@43` and indexes 976 input-only cases across 98 files (974 oracle parity cases and two target-only fault contracts), covering 107 operations and 934 unique parity requirements. The latest inputs compare the pinned composite Router graph and ten ordered requests through one managed TestClient on asyncio and Trio, including complete responses, redirect history, ASGI events, lifespan, and thread cleanup. The preceding inputs compare constructor headers without HTTP requests and middleware startup exceptions during TestClient context entry, including exception identity and thread cleanup. Earlier inputs map static and path-parameter WebSocketRoute dispatch through TestClient, alongside direct Request and WebSocket constructor scope checks. The pinned `test_router_add_websocket_route` uses a preconfigured module-level Router and does not invoke `Router.add_websocket_route`; the method candidate remains `uncertain` while the observed dispatch behavior is mapped. The preceding batch exercises URL-encoded `Request.form` field-count and part-size errors with each request body delivered in one ASGI chunk. The earlier batch maps `routing.test_partial_async_ws_endpoint`, comparing async function and bound class-method WebSocketRoute endpoints wrapped in `functools.partial` through a mounted Router. Recent parity inputs
+The active parity manifest uses `parity-input@43` and indexes 978 input-only cases across 99 files (976 oracle parity cases and two target-only fault contracts), covering 107 operations and 935 unique parity requirements. The latest inputs compare the complete custom BaseHTTPMiddleware application through one client on asyncio and Trio: five ordered HTTP requests followed by a WebSocket session, with exception identity, arguments, group children, cause/context links, partial ASGI events, and thread cleanup. These exposed and fixed worker-to-portal StreamingResponse ownership, missing EndOfStream context, and asyncio streaming cancellation context in Rust. The declared normalization replaces only the hexadecimal cancel-scope address in typed asyncio CancelledError messages and arguments. A traceback-retained native callback cleanup warning remains a separate lifecycle backlog item. The preceding inputs compare the pinned composite Router graph and ten ordered requests through one managed TestClient on asyncio and Trio, including complete responses, redirect history, ASGI events, lifespan, and thread cleanup. The preceding inputs compare constructor headers without HTTP requests and middleware startup exceptions during TestClient context entry, including exception identity and thread cleanup. Earlier inputs map static and path-parameter WebSocketRoute dispatch through TestClient, alongside direct Request and WebSocket constructor scope checks. The pinned `test_router_add_websocket_route` uses a preconfigured module-level Router and does not invoke `Router.add_websocket_route`; the method candidate remains `uncertain` while the observed dispatch behavior is mapped. The preceding batch exercises URL-encoded `Request.form` field-count and part-size errors with each request body delivered in one ASGI chunk. The earlier batch maps `routing.test_partial_async_ws_endpoint`, comparing async function and bound class-method WebSocketRoute endpoints wrapped in `functools.partial` through a mounted Router. Recent parity inputs
 include outer BaseHTTPMiddleware request-body transformation and replay, map the pinned WebSocket scope Mapping and identity behavior, and correct the
 StaticFiles HEAD fixture to use the upstream `<file content>` asset and its
 14-byte length. The upstream one-chunk URL-encoded limit test directly inspects private `FormParser` counters/messages and a 50 MiB stress bound, so that implementation-local assertion is source-backed `not_applicable`; the public `Request.form` error behavior is covered by the two live source/package inputs. Schema inputs map the pinned route graph, including missing
@@ -129,9 +129,9 @@ input maps `test_duplicated_param_names`; it observes live constructor results
 for both one repeated name and multiple repeated names, and passed source/package
 comparison.
 
-The latest clean full-slice correctness preflight
+A previous clean full-slice correctness preflight
 `4d9a1935-b216-449f-aa60-53421675afd3` ran against Starlette 1.6.0 at
-`4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the then-active 940-case contract, before the two latest routed WebSocket cases were added.
+`4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the then-active 940-case contract.
 It selected 1,186 profile comparisons: 1,182 passed, zero failed, zero
 infrastructure errors, and four Rust-native callable-boundary rows were
 `not_run`. The installed Python package passed 936/936; Rust-native passed
@@ -147,7 +147,7 @@ installed wheel SHA-256
 results cover the active package slice and do not establish full Starlette
 parity.
 
-The latest clean Router/GZip benchmark run
+A previous clean Router/GZip benchmark run
 `e8fb3ceb-f397-4f6b-99b2-1499e9861d22` measured all 74 source/package workloads:
 six Router and 68 GZip. It recorded zero failures and matching normalized
 observations for all 74 workloads; all 74 Rust-native workload boundaries
@@ -167,13 +167,15 @@ comparison covers direct parsing, sequence values, and a subclass `__repr__`
 containing a lone surrogate.
 
 The correctness-gated Router/GZip benchmark is recorded in
-[Benchmark mapping](BENCHMARKS.md). The latest run is summarized above;
+[Benchmark mapping](BENCHMARKS.md). The historical run above records its snapshot;
 workload-specific measurements do not establish full Starlette compatibility.
 
+The current normal full-slice run `6895f13b-e664-4483-8f65-0e41ba813619` passed 974/974 Python-package comparisons, 246/250 Rust-native comparisons, and both target-only fault contracts. Four existing native Python-callable boundaries remain `not_run`, with zero failures or infrastructure errors. Result SHA-256: `9fc7e36e1a51cbde88a593a2951c3891f573b4ef70552baec8dc1579489ffce7`; manifest SHA-256: `6cd44406888e57fa77cbfdaf26cff0ff2f723e55b63d9b6822a5010b4c5854d8`; package tree SHA-256: `8f4c85f689b289c014f9c8b38a2aed68dcc7519a28c36696c889c2d83f8f030e`. This measured an uncommitted worktree. Coverage MCP verified 2,521 additional Rust lines over the selected composite Router baseline, with passing cases and matching source/build receipts. Incremental union coverage does not assess full-suite coverage regressions. See [Parity evidence](PARITY.md) for receipts and failed-run history.
+
 The latest source inventory check dispositioned all 999 API candidate rows.
-The generated coverage matrix currently has 806 source rows: 686 input mappings,
+The generated coverage matrix currently has 807 source rows: 687 input mappings,
 52 reasoned `not_applicable` rows, and 68 fixture backlog rows. Derive these
-changing counts from the generated atlas CSV files.
+changing counts from the generated atlas CSV files. No upstream test-function row remains in the backlog; 68 other source rows remain open, including traceback-retained runtime callback garbage collection. The pinned denominators are 514 upstream test functions and 24 documented pages. The bundled generic Open Source auditor rejects the existing manifest extensions and generated-input layout before parsing inputs; that audit did not pass. Repository-native contract, inventory, and policy checks remain compatible. Full replacement parity is not established.
 
 Historical integrated run `af914b8c-5933-4ced-9e1d-c60b23263e1a` started at
 `2026-09-29T23:48:10.322Z` and finished at `2026-09-29T23:49:31.637Z`. It

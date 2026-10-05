@@ -79,6 +79,18 @@ under BSD-3-Clause; the full notice is in [`LICENSE.md`](LICENSE.md). The live
 constructs public routes and user callbacks from input fields on both sides.
 No source assertions or expected responses are copied into input definitions.
 
+The application graph and stimuli in
+[`testclient-middleware.yaml`](tests/fixtures/sources/parity/testclient-middleware.yaml)
+are adapted from `tests/middleware/test_base.py:29-120` at the pinned revision,
+Copyright © 2018 Encode OSS Ltd., under BSD-3-Clause; the complete notice is
+in [`LICENSE.md`](LICENSE.md). The endpoint text, exception constructor inputs,
+stream chunk, response-header mutation, awaitable ASGI class shape, and ordered
+HTTP/WebSocket calls preserve the source workflow. The independent
+[`testclient_middleware.py`](scripts/parity/adapters/testclient_middleware.py)
+consumer constructs both live applications through public APIs and records
+their actual responses, exceptions, ASGI callbacks, and cleanup. No upstream
+assertions or expected outputs are included.
+
 ## Dependency notices
 
 The upstream direct and transitive package metadata snapshot is maintained in
