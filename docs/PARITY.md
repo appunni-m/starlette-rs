@@ -14,6 +14,12 @@ Coverage MCP verified 20 additional Rust lines with matching source/build receip
 
 The generated atlas remains 809 source rows: 694 existing mappings, 52 source-backed not_applicable rows, and 63 backlog rows. Fixed denominators remain 514 upstream test functions and 24 documentation pages. Arbitrary cookie key objects, supplied Morsel values, other interpreter versions, and Streaming/File/Redirect subclass interception need further comparisons. `Response.init_headers` remains uncertain. Complete response and Starlette parity remain unproven. See [response boundary](RESPONSE_RENDER_BOUNDARY.md).
 
+### Clean full cookie regression and benchmark gate
+
+Clean commit `e83cb743223ca332e3650713424ff79225e1d33d` passed full preflight `95c16ff3-05c1-478b-a759-2a97f5d7dd6f`: 1,584/1,584 Python-package comparisons, 246/250 Rust-native comparisons, and both fault contracts. There were zero failures or infrastructure errors. Four existing native callable cases remain not_run. Result SHA-256: `7d2db21ccbefcd7f0971ea239cb2d7f0a4e36d44e0b722f5c9d81c6ed207d90d`. Normal package tree `0d606843ce84425833aa38790784a5fef20173dfc6fa8837587e03fe2161eba4` matches the selected run.
+
+Benchmark `7b617ac7-8af2-42c5-8d52-4c0a9e8aac78` matched and timed all 74 source/package workloads. All 74 native timings remain not_run. Median source/package latency ratios were 0.771 for Router and 0.979 for GZip; the source was faster in 5/6 Router and 45/68 GZip workloads. Result SHA-256: `b0f666021fd4a6056787f76fd5193a0fe56e90998fba2474aee9372edd0d9fa9`. See [benchmark evidence](BENCHMARKS.md). These bounded comparisons do not establish full replacement parity or general speed superiority.
+
 ## Response attribute and header-cache evidence
 
 The 136 new input-only consumers cover attribute interception, conditional charset reads, public header-view caching and aliasing, raw-header replacement/deletion, finalizer reentry, constructor header hooks, cookie override dispatch, and cookie conversion reentry/control characters across four documented response classes. Initial reproduction `7dc3041f-f0d7-4304-b686-50b7b5a3158b` exposed 70 divergences with 19 ordinary passes; a separate eight-case finalizer reproduction `59bb16ff-55de-45e8-9bd8-5431969adf7e` exposed eight divergences with one ordinary control pass. Both runs passed both fault contracts without infrastructure errors. The former raw-header setter held a native mutable borrow while dropping user values, so their finalizers could encounter a PyO3 borrow panic.
