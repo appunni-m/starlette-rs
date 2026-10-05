@@ -7,6 +7,11 @@ from typing import Any
 
 
 def run_testclient_public_case(case: dict[str, Any]) -> dict[str, Any]:
+    if case["consumer"]["kind"] == "managed-router-requests":
+        from scripts.parity.adapters.testclient_router import run_router_client_case
+
+        return run_router_client_case(case)
+
     from starlette.applications import Starlette
     from starlette.middleware import Middleware
     from starlette.responses import JSONResponse
@@ -106,6 +111,9 @@ def run_testclient_public_case(case: dict[str, Any]) -> dict[str, Any]:
                     "samples": samples,
                     "application_trace": trace,
                     "context": context_result,
+                    "responses": [],
+                    "asgi_scopes": [],
+                    "asgi_events": [],
                 },
             }
         ],

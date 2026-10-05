@@ -493,6 +493,7 @@ TESTCLIENT_PUBLIC_REQUIREMENTS = {
         "constructor-additional-header",
         "middleware-lifespan-startup-error",
         "portal-cleanup-after-startup-error",
+        "router-managed-request-sequence",
     )
 }
 
@@ -22539,6 +22540,124 @@ def _validate_schema_case(case: dict[str, Any]) -> None:
         raise ContractError("OpenAPIResponse coverage must match render and generator response")
 
 
+def _validate_router_client_consumer(application: Any, consumer: Any) -> None:
+    _exact(application, {"kind", "routes", "scope_fields"}, "Router client application")
+    if application["kind"] != "router-graph":
+        raise ContractError("Managed Router consumer requires an input route graph")
+    scope_fields = application["scope_fields"]
+    if (
+        not isinstance(scope_fields, list)
+        or any(not isinstance(name, str) for name in scope_fields)
+        or len(set(scope_fields)) != len(scope_fields)
+        or not {"type", "path", "root_path"} <= set(scope_fields)
+        or not set(scope_fields)
+        <= {"type", "path", "root_path", "raw_path", "query_string", "method", "scheme"}
+    ):
+        raise ContractError("Router client scope fields must observe public routing inputs")
+
+    def validate_routes(values: Any, context: str) -> None:
+        if not isinstance(values, list) or not values:
+            raise ContractError(f"{context} must contain routes")
+        for index, value in enumerate(values):
+            context_item = f"{context}[{index}]"
+            if not isinstance(value, dict) or not isinstance(value.get("kind"), str):
+                raise ContractError(f"{context_item} must declare a route kind")
+            kind = value["kind"]
+            if kind == "mount":
+                _exact(value, {"kind", "path", "routes"}, context_item)
+                validate_routes(value["routes"], f"{context_item}.routes")
+            elif kind == "response-mount":
+                _exact(value, {"kind", "path", "response"}, context_item)
+                response = _exact(value["response"], {"content", "media_type"}, context_item)
+                _string(response["content"], f"{context_item}.content")
+                _string(response["media_type"], f"{context_item}.media_type")
+            elif kind in {"route", "websocket-route"}:
+                optional = value.keys() & ({"name", "methods"} if kind == "route" else {"name"})
+                _exact(value, {"kind", "path", "endpoint"} | optional, context_item)
+                if "name" in value:
+                    _string(value["name"], f"{context_item}.name")
+                if "methods" in value:
+                    methods = value["methods"]
+                    if (
+                        not isinstance(methods, list)
+                        or not methods
+                        or any(
+                            not isinstance(method, str)
+                            or not method.isalpha()
+                            or method != method.upper()
+                            for method in methods
+                        )
+                    ):
+                        raise ContractError(f"{context_item}.methods must supply HTTP method names")
+                endpoint = value["endpoint"]
+                if not isinstance(endpoint, dict):
+                    raise ContractError(f"{context_item}.endpoint must be a record")
+                endpoint_kind = endpoint.get("kind")
+                if endpoint_kind == "text-response" and kind == "route":
+                    _exact(endpoint, {"kind", "text", "media_type"}, context_item)
+                    _string(endpoint["text"], f"{context_item}.text")
+                    _string(endpoint["media_type"], f"{context_item}.media_type")
+                elif endpoint_kind == "converter-json" and kind == "route":
+                    _exact(endpoint, {"kind", "parameter", "key", "stringify"}, context_item)
+                    _string(endpoint["parameter"], f"{context_item}.parameter")
+                    _string(endpoint["key"], f"{context_item}.key")
+                    if type(endpoint["stringify"]) is not bool:
+                        raise ContractError(f"{context_item}.stringify must be boolean")
+                elif endpoint_kind == "partial-json" and kind == "route":
+                    _exact(endpoint, {"kind", "shape", "argument", "key"}, context_item)
+                    if endpoint["shape"] not in {"function", "bound-classmethod"}:
+                        raise ContractError(f"{context_item}.shape must select a partial callable")
+                    _string(endpoint["argument"], f"{context_item}.argument")
+                    _string(endpoint["key"], f"{context_item}.key")
+                elif endpoint_kind == "websocket-url" and kind == "websocket-route":
+                    _exact(endpoint, {"kind", "shape", "key"}, context_item)
+                    if endpoint["shape"] not in {"function", "bound-classmethod"}:
+                        raise ContractError(f"{context_item}.shape must select a partial callable")
+                    _string(endpoint["key"], f"{context_item}.key")
+                elif endpoint_kind == "websocket-text" and kind == "websocket-route":
+                    _exact(endpoint, {"kind", "text"}, context_item)
+                    _string(endpoint["text"], f"{context_item}.text")
+                else:
+                    raise ContractError(f"{context_item} has an unsupported endpoint kind")
+            else:
+                raise ContractError(f"{context_item} has an unsupported route kind")
+            if not _string(value["path"], f"{context_item}.path").startswith("/"):
+                raise ContractError(f"{context_item}.path must be absolute")
+
+    validate_routes(application["routes"], "Router client graph")
+    _exact(
+        consumer,
+        {"kind", "kwargs", "requests", "response_warning_filters"},
+        "Router client consumer",
+    )
+    kwargs = _exact(consumer["kwargs"], {"backend", "backend_options"}, "Router client options")
+    if kwargs["backend"] not in {"asyncio", "trio"} or kwargs["backend_options"] != {}:
+        raise ContractError("Router client requires a default supported backend")
+    requests = consumer["requests"]
+    if not isinstance(requests, list) or not requests:
+        raise ContractError("Router client needs an ordered request sequence")
+    for index, value in enumerate(requests):
+        request = _exact(value, {"method", "url"}, f"Router client request[{index}]")
+        method = _string(request["method"], "Router client HTTP method")
+        if not method.isalpha() or method != method.upper():
+            raise ContractError("Router client methods must be uppercase HTTP names")
+        if not _string(request["url"], "Router client URL").startswith("/"):
+            raise ContractError("Router client requests must use relative absolute-path URLs")
+    filters = consumer["response_warning_filters"]
+    if not isinstance(filters, list):
+        raise ContractError("Router client warning filters must be an array")
+    for value in filters:
+        specification = _exact(
+            value, {"action", "message", "category", "module"}, "Router warning filter"
+        )
+        if specification["action"] != "ignore" or specification["category"] != "UserWarning":
+            raise ContractError(
+                "Router warning filters may only suppress input UserWarning patterns"
+            )
+        _string(specification["message"], "Router warning message pattern")
+        _string(specification["module"], "Router warning module pattern")
+
+
 def _validate_testclient_public_case(case: dict[str, Any]) -> None:
     if case["target_profiles"] != ["python-package-cpython312"]:
         raise ContractError("Public TestClient workflows require the installed-package profile")
@@ -22598,6 +22717,9 @@ def _validate_testclient_public_case(case: dict[str, Any]) -> None:
             )
             if supplied - {"user-agent"}:
                 coverage.add(TESTCLIENT_PUBLIC_REQUIREMENTS["constructor-additional-header"])
+    elif consumer.get("kind") == "managed-router-requests":
+        _validate_router_client_consumer(application, consumer)
+        coverage.add(TESTCLIENT_PUBLIC_REQUIREMENTS["router-managed-request-sequence"])
     elif consumer.get("kind") == "lifespan-context":
         _exact(consumer, {"kind", "kwargs"}, "TestClient middleware context consumer")
         kwargs = _exact(

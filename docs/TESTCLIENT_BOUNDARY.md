@@ -140,6 +140,22 @@ public status remains unresolved in [Compatibility inventory](COMPATIBILITY_INVE
 Cleanup is observed through the thread recorded by the user application,
 without depending on the source's internal portal storage.
 
+## Composite Router in a managed client
+
+[`testclient-router.yaml`](../tests/fixtures/sources/parity/testclient-router.yaml)
+constructs the complete pinned Router graph and issues its ten HTTP requests
+in one TestClient context on asyncio and Trio. The user application records
+endpoint path parameters and ordered ASGI receive/send events; the public
+client exposes response headers, bytes, decoded text, URLs, and redirect
+history. Lifespan context entry/exit and the user application's thread lifetime
+are observed directly. Source-equivalent route names and the source's narrow
+charset warning filter are supplied by the input definition.
+
+The builder lives in development-only parity tooling. Rust owns routing,
+response construction, method handling, scope projection, and lifespan
+decisions through the existing forwarding facades. No runtime facade behavior
+was added. Both source/package comparisons pass with exact observations.
+
 ## Evidence and remaining work
 
 Each slice is authored as input-only YAML under `tests/fixtures/sources/` and

@@ -364,7 +364,8 @@
       "build/parity/inputs/parity/exception-middleware-typing.json",
       "build/parity/inputs/parity/testclient-redirect-policy.json",
       "build/parity/inputs/parity/templating-public.json",
-      "build/parity/inputs/parity/testclient-public.json"
+      "build/parity/inputs/parity/testclient-public.json",
+      "build/parity/inputs/parity/testclient-router.json"
     ],
     "coverage": [],
     "benchmark": [
@@ -24875,8 +24876,8 @@
           },
           "source": {
             "oracle_id": "starlette-python",
-            "path": "starlette.testclient.TestClient.__init__, headers, __enter__, __exit__, and close; starlette.applications.Starlette; starlette.middleware.Middleware",
-            "signature": "TestClient(app, **kwargs); client.headers.get(name), client.headers.multi_items(); with TestClient(app, backend=backend): ...; client.close()",
+            "path": "starlette.testclient.TestClient.__init__, headers, __enter__, __exit__, and close; starlette.applications.Starlette; starlette.middleware.Middleware; starlette.routing.Router, Route, Mount, and WebSocketRoute",
+            "signature": "TestClient(app, **kwargs); client.headers.get(name), client.headers.multi_items(); with TestClient(app, backend=backend): ...; client.close(); with TestClient(Router(routes)): client.request(method, url)",
             "parameters": [
               {
                 "id": "application",
@@ -24929,6 +24930,33 @@
                   "comparison": {
                     "kind": "exact"
                   }
+                },
+                {
+                  "path": "responses",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "asgi_scopes",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "asgi_events",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
                 }
               ],
               "error": {
@@ -24955,7 +24983,7 @@
             {
               "target_id": "python-package",
               "path": "starlette.testclient.TestClient",
-              "signature": "TestClient(app, **kwargs); client.headers.get(name), client.headers.multi_items(); with TestClient(app, backend=backend): ...; client.close()",
+              "signature": "TestClient(app, **kwargs); client.headers.get(name), client.headers.multi_items(); with TestClient(app, backend=backend): ...; client.close(); with TestClient(Router(routes)): client.request(method, url)",
               "support": {
                 "status": "supported"
               }
@@ -25010,6 +25038,17 @@
               "id": "starlette.testclient.TestClient.public-client-workflow.portal-cleanup-after-startup-error",
               "dimension": "boundary",
               "description": "After middleware raises during context entry, inspect recorded portal-thread lifetime and public client close state. This exception is reachable from normal input on both implementations. Pinned source: starlette/testclient.py::TestClient.__enter__ and lifespan; tests/test_testclient.py::test_exception_in_middleware.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.public-client-workflow.router-managed-request-sequence",
+              "dimension": "protocol_variant",
+              "description": "Construct the full pinned Router route graph and use one managed TestClient for the supplied ordered HTTP requests, following redirects. Observe status, URL, headers, bytes, decoded text, response history, endpoint path parameters, ordered ASGI events, lifespan entry/exit, and portal-thread cleanup on asyncio and Trio. The input carries the source test warning filter. Pinned source: tests/test_routing.py:119-164,168-176,181-225; tests/conftest.py::test_client_factory.",
               "lanes": [
                 "parity"
               ],

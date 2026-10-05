@@ -69,6 +69,16 @@ under BSD-3-Clause; the complete notice is in [`LICENSE.md`](LICENSE.md).
 each implementation through public constructors and context management. It
 contains user application code and observations, with no expected outputs.
 
+The route graph and stimuli in
+[`testclient-router.yaml`](tests/fixtures/sources/parity/testclient-router.yaml)
+are independently authored from `tests/test_routing.py` at the pinned revision.
+The endpoint text, partial argument, static response body, route order, and
+warning filter reproduce source stimuli, Copyright © 2018 Encode OSS Ltd.,
+under BSD-3-Clause; the full notice is in [`LICENSE.md`](LICENSE.md). The live
+[`testclient_router.py`](scripts/parity/adapters/testclient_router.py) builder
+constructs public routes and user callbacks from input fields on both sides.
+No source assertions or expected responses are copied into input definitions.
+
 ## Dependency notices
 
 The upstream direct and transitive package metadata snapshot is maintained in

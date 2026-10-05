@@ -1,0 +1,631 @@
+{
+  "schema": "migration-parity/parity-input@43",
+  "cases": [
+    {
+      "case_id": "starlette.testclient.TestClient.public-client-workflow.composite-router.asyncio",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "public-client-workflow",
+      "covers": [
+        "starlette.testclient.TestClient.public-client-workflow.router-managed-request-sequence"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "public-client-workflow"
+      ],
+      "application": {
+        "kind": "router-graph",
+        "routes": [
+          {
+            "kind": "route",
+            "path": "/",
+            "endpoint": {
+              "kind": "text-response",
+              "text": "Hello, world",
+              "media_type": "text/plain"
+            },
+            "methods": [
+              "GET"
+            ],
+            "name": "homepage"
+          },
+          {
+            "kind": "mount",
+            "path": "/users",
+            "routes": [
+              {
+                "kind": "route",
+                "path": "/",
+                "endpoint": {
+                  "kind": "text-response",
+                  "text": "All users",
+                  "media_type": "text/plain"
+                },
+                "name": "users"
+              },
+              {
+                "kind": "route",
+                "path": "/me",
+                "endpoint": {
+                  "kind": "text-response",
+                  "text": "User fixed me",
+                  "media_type": "text/plain"
+                },
+                "name": "user_me"
+              },
+              {
+                "kind": "route",
+                "path": "/{username}",
+                "endpoint": {
+                  "kind": "text-response",
+                  "text": "User {username}",
+                  "media_type": "text/plain"
+                },
+                "name": "user"
+              },
+              {
+                "kind": "route",
+                "path": "/{username}:disable",
+                "endpoint": {
+                  "kind": "text-response",
+                  "text": "User {username} disabled",
+                  "media_type": "text/plain"
+                },
+                "methods": [
+                  "PUT"
+                ],
+                "name": "disable_user"
+              },
+              {
+                "kind": "route",
+                "path": "/nomatch",
+                "endpoint": {
+                  "kind": "text-response",
+                  "text": "User fixed no match",
+                  "media_type": "text/plain"
+                },
+                "name": "user_no_match"
+              }
+            ]
+          },
+          {
+            "kind": "mount",
+            "path": "/partial",
+            "routes": [
+              {
+                "kind": "route",
+                "path": "/",
+                "endpoint": {
+                  "kind": "partial-json",
+                  "shape": "function",
+                  "argument": "foo",
+                  "key": "arg"
+                },
+                "name": "partial_endpoint"
+              },
+              {
+                "kind": "route",
+                "path": "/cls",
+                "endpoint": {
+                  "kind": "partial-json",
+                  "shape": "bound-classmethod",
+                  "argument": "foo",
+                  "key": "arg"
+                },
+                "name": "async_endpoint"
+              },
+              {
+                "kind": "websocket-route",
+                "path": "/ws",
+                "endpoint": {
+                  "kind": "websocket-url",
+                  "shape": "function",
+                  "key": "url"
+                },
+                "name": "partial_ws_endpoint"
+              },
+              {
+                "kind": "websocket-route",
+                "path": "/ws/cls",
+                "endpoint": {
+                  "kind": "websocket-url",
+                  "shape": "bound-classmethod",
+                  "key": "url"
+                },
+                "name": "async_ws_endpoint"
+              }
+            ]
+          },
+          {
+            "kind": "response-mount",
+            "path": "/static",
+            "response": {
+              "content": "xxxxx",
+              "media_type": "image/png"
+            }
+          },
+          {
+            "kind": "route",
+            "path": "/func",
+            "endpoint": {
+              "kind": "text-response",
+              "text": "Hello, world!",
+              "media_type": "text/plain"
+            },
+            "methods": [
+              "GET"
+            ],
+            "name": "func_homepage"
+          },
+          {
+            "kind": "route",
+            "path": "/func",
+            "endpoint": {
+              "kind": "text-response",
+              "text": "Hello, POST!",
+              "media_type": "text/plain"
+            },
+            "methods": [
+              "POST"
+            ],
+            "name": "contact"
+          },
+          {
+            "kind": "route",
+            "path": "/int/{param:int}",
+            "endpoint": {
+              "kind": "converter-json",
+              "parameter": "param",
+              "key": "int",
+              "stringify": false
+            },
+            "name": "int-convertor"
+          },
+          {
+            "kind": "route",
+            "path": "/float/{param:float}",
+            "endpoint": {
+              "kind": "converter-json",
+              "parameter": "param",
+              "key": "float",
+              "stringify": false
+            },
+            "name": "float-convertor"
+          },
+          {
+            "kind": "route",
+            "path": "/path/{param:path}",
+            "endpoint": {
+              "kind": "converter-json",
+              "parameter": "param",
+              "key": "path",
+              "stringify": false
+            },
+            "name": "path-convertor"
+          },
+          {
+            "kind": "route",
+            "path": "/uuid/{param:uuid}",
+            "endpoint": {
+              "kind": "converter-json",
+              "parameter": "param",
+              "key": "uuid",
+              "stringify": true
+            },
+            "name": "uuid-convertor"
+          },
+          {
+            "kind": "route",
+            "path": "/path-with-parentheses({param:int})",
+            "endpoint": {
+              "kind": "converter-json",
+              "parameter": "param",
+              "key": "int",
+              "stringify": false
+            },
+            "name": "path-with-parentheses"
+          },
+          {
+            "kind": "websocket-route",
+            "path": "/ws",
+            "endpoint": {
+              "kind": "websocket-text",
+              "text": "Hello, world!"
+            },
+            "name": "websocket_endpoint"
+          },
+          {
+            "kind": "websocket-route",
+            "path": "/ws/{room}",
+            "endpoint": {
+              "kind": "websocket-text",
+              "text": "Hello, {room}!"
+            },
+            "name": "websocket_params"
+          }
+        ],
+        "scope_fields": [
+          "type",
+          "method",
+          "path",
+          "root_path",
+          "raw_path",
+          "query_string",
+          "scheme"
+        ]
+      },
+      "consumer": {
+        "kind": "managed-router-requests",
+        "kwargs": {
+          "backend": "asyncio",
+          "backend_options": {}
+        },
+        "requests": [
+          {
+            "method": "GET",
+            "url": "/"
+          },
+          {
+            "method": "POST",
+            "url": "/"
+          },
+          {
+            "method": "GET",
+            "url": "/foo"
+          },
+          {
+            "method": "GET",
+            "url": "/users"
+          },
+          {
+            "method": "GET",
+            "url": "/users/tomchristie"
+          },
+          {
+            "method": "GET",
+            "url": "/users/me"
+          },
+          {
+            "method": "GET",
+            "url": "/users/tomchristie/"
+          },
+          {
+            "method": "PUT",
+            "url": "/users/tomchristie:disable"
+          },
+          {
+            "method": "GET",
+            "url": "/users/nomatch"
+          },
+          {
+            "method": "GET",
+            "url": "/static/123"
+          }
+        ],
+        "response_warning_filters": [
+          {
+            "action": "ignore",
+            "message": "Trying to detect encoding from a tiny portion of \\(5\\) byte\\(s\\)\\.",
+            "category": "UserWarning",
+            "module": "charset_normalizer.api"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.testclient.TestClient.public-client-workflow.composite-router.trio",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "public-client-workflow",
+      "covers": [
+        "starlette.testclient.TestClient.public-client-workflow.router-managed-request-sequence"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "public-client-workflow"
+      ],
+      "application": {
+        "kind": "router-graph",
+        "routes": [
+          {
+            "kind": "route",
+            "path": "/",
+            "endpoint": {
+              "kind": "text-response",
+              "text": "Hello, world",
+              "media_type": "text/plain"
+            },
+            "methods": [
+              "GET"
+            ],
+            "name": "homepage"
+          },
+          {
+            "kind": "mount",
+            "path": "/users",
+            "routes": [
+              {
+                "kind": "route",
+                "path": "/",
+                "endpoint": {
+                  "kind": "text-response",
+                  "text": "All users",
+                  "media_type": "text/plain"
+                },
+                "name": "users"
+              },
+              {
+                "kind": "route",
+                "path": "/me",
+                "endpoint": {
+                  "kind": "text-response",
+                  "text": "User fixed me",
+                  "media_type": "text/plain"
+                },
+                "name": "user_me"
+              },
+              {
+                "kind": "route",
+                "path": "/{username}",
+                "endpoint": {
+                  "kind": "text-response",
+                  "text": "User {username}",
+                  "media_type": "text/plain"
+                },
+                "name": "user"
+              },
+              {
+                "kind": "route",
+                "path": "/{username}:disable",
+                "endpoint": {
+                  "kind": "text-response",
+                  "text": "User {username} disabled",
+                  "media_type": "text/plain"
+                },
+                "methods": [
+                  "PUT"
+                ],
+                "name": "disable_user"
+              },
+              {
+                "kind": "route",
+                "path": "/nomatch",
+                "endpoint": {
+                  "kind": "text-response",
+                  "text": "User fixed no match",
+                  "media_type": "text/plain"
+                },
+                "name": "user_no_match"
+              }
+            ]
+          },
+          {
+            "kind": "mount",
+            "path": "/partial",
+            "routes": [
+              {
+                "kind": "route",
+                "path": "/",
+                "endpoint": {
+                  "kind": "partial-json",
+                  "shape": "function",
+                  "argument": "foo",
+                  "key": "arg"
+                },
+                "name": "partial_endpoint"
+              },
+              {
+                "kind": "route",
+                "path": "/cls",
+                "endpoint": {
+                  "kind": "partial-json",
+                  "shape": "bound-classmethod",
+                  "argument": "foo",
+                  "key": "arg"
+                },
+                "name": "async_endpoint"
+              },
+              {
+                "kind": "websocket-route",
+                "path": "/ws",
+                "endpoint": {
+                  "kind": "websocket-url",
+                  "shape": "function",
+                  "key": "url"
+                },
+                "name": "partial_ws_endpoint"
+              },
+              {
+                "kind": "websocket-route",
+                "path": "/ws/cls",
+                "endpoint": {
+                  "kind": "websocket-url",
+                  "shape": "bound-classmethod",
+                  "key": "url"
+                },
+                "name": "async_ws_endpoint"
+              }
+            ]
+          },
+          {
+            "kind": "response-mount",
+            "path": "/static",
+            "response": {
+              "content": "xxxxx",
+              "media_type": "image/png"
+            }
+          },
+          {
+            "kind": "route",
+            "path": "/func",
+            "endpoint": {
+              "kind": "text-response",
+              "text": "Hello, world!",
+              "media_type": "text/plain"
+            },
+            "methods": [
+              "GET"
+            ],
+            "name": "func_homepage"
+          },
+          {
+            "kind": "route",
+            "path": "/func",
+            "endpoint": {
+              "kind": "text-response",
+              "text": "Hello, POST!",
+              "media_type": "text/plain"
+            },
+            "methods": [
+              "POST"
+            ],
+            "name": "contact"
+          },
+          {
+            "kind": "route",
+            "path": "/int/{param:int}",
+            "endpoint": {
+              "kind": "converter-json",
+              "parameter": "param",
+              "key": "int",
+              "stringify": false
+            },
+            "name": "int-convertor"
+          },
+          {
+            "kind": "route",
+            "path": "/float/{param:float}",
+            "endpoint": {
+              "kind": "converter-json",
+              "parameter": "param",
+              "key": "float",
+              "stringify": false
+            },
+            "name": "float-convertor"
+          },
+          {
+            "kind": "route",
+            "path": "/path/{param:path}",
+            "endpoint": {
+              "kind": "converter-json",
+              "parameter": "param",
+              "key": "path",
+              "stringify": false
+            },
+            "name": "path-convertor"
+          },
+          {
+            "kind": "route",
+            "path": "/uuid/{param:uuid}",
+            "endpoint": {
+              "kind": "converter-json",
+              "parameter": "param",
+              "key": "uuid",
+              "stringify": true
+            },
+            "name": "uuid-convertor"
+          },
+          {
+            "kind": "route",
+            "path": "/path-with-parentheses({param:int})",
+            "endpoint": {
+              "kind": "converter-json",
+              "parameter": "param",
+              "key": "int",
+              "stringify": false
+            },
+            "name": "path-with-parentheses"
+          },
+          {
+            "kind": "websocket-route",
+            "path": "/ws",
+            "endpoint": {
+              "kind": "websocket-text",
+              "text": "Hello, world!"
+            },
+            "name": "websocket_endpoint"
+          },
+          {
+            "kind": "websocket-route",
+            "path": "/ws/{room}",
+            "endpoint": {
+              "kind": "websocket-text",
+              "text": "Hello, {room}!"
+            },
+            "name": "websocket_params"
+          }
+        ],
+        "scope_fields": [
+          "type",
+          "method",
+          "path",
+          "root_path",
+          "raw_path",
+          "query_string",
+          "scheme"
+        ]
+      },
+      "consumer": {
+        "kind": "managed-router-requests",
+        "kwargs": {
+          "backend": "trio",
+          "backend_options": {}
+        },
+        "requests": [
+          {
+            "method": "GET",
+            "url": "/"
+          },
+          {
+            "method": "POST",
+            "url": "/"
+          },
+          {
+            "method": "GET",
+            "url": "/foo"
+          },
+          {
+            "method": "GET",
+            "url": "/users"
+          },
+          {
+            "method": "GET",
+            "url": "/users/tomchristie"
+          },
+          {
+            "method": "GET",
+            "url": "/users/me"
+          },
+          {
+            "method": "GET",
+            "url": "/users/tomchristie/"
+          },
+          {
+            "method": "PUT",
+            "url": "/users/tomchristie:disable"
+          },
+          {
+            "method": "GET",
+            "url": "/users/nomatch"
+          },
+          {
+            "method": "GET",
+            "url": "/static/123"
+          }
+        ],
+        "response_warning_filters": [
+          {
+            "action": "ignore",
+            "message": "Trying to detect encoding from a tiny portion of \\(5\\) byte\\(s\\)\\.",
+            "category": "UserWarning",
+            "module": "charset_normalizer.api"
+          }
+        ]
+      }
+    }
+  ]
+}
