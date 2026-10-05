@@ -125,3 +125,13 @@ Crichton and the Tokio authors). The resolved transitive parser crates are
 listed in [`docs/DEPENDENCIES.md`](docs/DEPENDENCIES.md). Preserve the complete
 notices in any distributed artifact that includes these dependencies; the
 repository does not copy their source files.
+## TestClient traceback lifetime comparisons
+
+`tests/fixtures/sources/parity/testclient-traceback-cleanup.yaml` extends the
+input-derived custom middleware application from pinned Starlette 1.6.0,
+`tests/middleware/test_base.py:29-120`, with public Python exception retention,
+garbage collection, unraisable-hook observations, and user finalizers required
+by this project's lifetime boundary. Upstream material is BSD-3-Clause,
+copyright Encode OSS Ltd. and contributors. The lifecycle stimuli and consumer
+instrumentation are authored here; no expected outputs or upstream assertions
+are copied.

@@ -5,8 +5,8 @@
 //! Rust owns middleware order, application startup dispatch, exception-handler
 //! lookup, response-start tracking, and the order in which callbacks are run.
 
-use std::cell::Cell;
-use std::rc::Rc;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use pyo3::class::gc::{PyTraverseError, PyVisit};
 use pyo3::exceptions::{PyAssertionError, PyException, PyRuntimeError, PyStopAsyncIteration};
@@ -15,7 +15,7 @@ use pyo3::types::{PyDict, PyInt, PyList, PyModule, PyTuple};
 use starlette_rs::ExceptionHandlerTable;
 
 use crate::awaitable::{
-    AwaitableStateMachine, MachineAction, MachineResume, into_python_awaitable,
+    AwaitableStateMachine, MachineAction, MachineResume, into_sendable_python_awaitable,
 };
 
 pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
@@ -164,7 +164,7 @@ impl PyStarletteRuntime {
         receive: Py<PyAny>,
         send: Py<PyAny>,
     ) -> PyResult<Py<PyAny>> {
-        into_python_awaitable(
+        into_sendable_python_awaitable(
             py,
             StarletteCall {
                 runtime: slf,
@@ -424,7 +424,7 @@ impl PyExceptionMiddlewareRuntime {
         send: Py<PyAny>,
     ) -> PyResult<Py<PyAny>> {
         let runtime = slf.borrow(py);
-        into_python_awaitable(
+        into_sendable_python_awaitable(
             py,
             ExceptionMiddlewareCall {
                 app: runtime.app.clone_ref(py),
@@ -450,7 +450,7 @@ impl PyExceptionMiddlewareRuntime {
                 send,
                 sender: None,
                 connection: None,
-                response_started: Rc::new(Cell::new(false)),
+                response_started: Arc::new(AtomicBool::new(false)),
                 pending: None,
                 original_exception: None,
             },
@@ -584,16 +584,18 @@ impl PyExceptionMiddlewareRuntime {
     }
 }
 
-#[pyclass(name = "_ExceptionSendProxy", unsendable)]
+#[pyclass(name = "_ExceptionSendProxy")]
 struct PyExceptionSendProxy {
     send: Py<PyAny>,
-    response_started: Rc<Cell<bool>>,
+    // Tracebacks may retain this callback after its event-loop thread exits.
+    // The flag is shared without imposing thread affinity on owned Py references.
+    response_started: Arc<AtomicBool>,
 }
 
 pub(crate) fn exception_send_proxy(
     py: Python<'_>,
     send: Py<PyAny>,
-    response_started: Rc<Cell<bool>>,
+    response_started: Arc<AtomicBool>,
 ) -> PyResult<Py<PyAny>> {
     Py::new(
         py,
@@ -607,9 +609,17 @@ pub(crate) fn exception_send_proxy(
 
 #[pymethods]
 impl PyExceptionSendProxy {
+    fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.send)
+    }
+
+    fn __clear__(&mut self, py: Python<'_>) {
+        self.send = py.None();
+    }
+
     fn __call__(slf: Py<Self>, py: Python<'_>, message: Py<PyAny>) -> PyResult<Py<PyAny>> {
         let proxy = slf.borrow(py);
-        into_python_awaitable(
+        into_sendable_python_awaitable(
             py,
             ExceptionSendCall {
                 send: proxy.send.clone_ref(py),
@@ -623,7 +633,7 @@ impl PyExceptionSendProxy {
 
 struct ExceptionSendCall {
     send: Py<PyAny>,
-    response_started: Rc<Cell<bool>>,
+    response_started: Arc<AtomicBool>,
     message: Py<PyAny>,
     pending: bool,
 }
@@ -638,7 +648,7 @@ impl AwaitableStateMachine for ExceptionSendCall {
                     .get_item("type")?
                     .extract::<String>()?;
                 if message_type == "http.response.start" {
-                    self.response_started.set(true);
+                    self.response_started.store(true, Ordering::Relaxed);
                 }
                 let awaitable = self.send.bind(py).call1((self.message.bind(py),))?;
                 self.pending = true;
@@ -682,7 +692,7 @@ struct ExceptionMiddlewareCall {
     send: Py<PyAny>,
     sender: Option<Py<PyAny>>,
     connection: Option<Py<PyAny>>,
-    response_started: Rc<Cell<bool>>,
+    response_started: Arc<AtomicBool>,
     pending: Option<ExceptionPending>,
     original_exception: Option<Py<PyAny>>,
 }
@@ -799,7 +809,7 @@ impl ExceptionMiddlewareCall {
         let Some(handler_index) = self.table.select(status_key.as_deref(), &exception_mro) else {
             return Err(error);
         };
-        if self.response_started.get() {
+        if self.response_started.load(Ordering::Relaxed) {
             let handled_error =
                 PyRuntimeError::new_err("Caught handled exception, but response already started.");
             handled_error.set_cause(py, Some(error));

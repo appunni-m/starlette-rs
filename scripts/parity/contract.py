@@ -495,6 +495,7 @@ TESTCLIENT_PUBLIC_REQUIREMENTS = {
         "portal-cleanup-after-startup-error",
         "router-managed-request-sequence",
         "custom-middleware-http-websocket-sequence",
+        "traceback-retained-callback-cleanup",
     )
 }
 
@@ -2348,10 +2349,20 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                             and step_kinds
                             == ["multipart-range-boundary", "file-response-temp-path"]
                         )
+                        anyio_exception_sequence = (
+                            key == TESTCLIENT_PUBLIC_OPERATION
+                            and observation["path"] == "responses"
+                            and step_kinds
+                            == [
+                                "anyio-cancel-scope-message",
+                                "anyio-memory-stream-eof-context",
+                            ]
+                        )
                         if comparison["kind"] != "ordered" or not (
                             standard_sequence
                             or direct_server_error_traceback
                             or file_response_sequence
+                            or anyio_exception_sequence
                         ):
                             raise ContractError(
                                 f"{octx} permits only the declared ordered header or ASGI event normalization sequence"
@@ -22747,7 +22758,27 @@ def _validate_middleware_client_consumer(application: Any, consumer: Any) -> Non
                 raise ContractError(f"{context} has an unsupported HTTP endpoint kind")
         else:
             raise ContractError(f"{context} has an unsupported route or endpoint kind")
-    _exact(consumer, {"kind", "kwargs", "steps"}, "Middleware TestClient consumer")
+    consumer_fields = {"kind", "kwargs", "steps"}
+    if "exception_cleanup" in consumer:
+        consumer_fields.add("exception_cleanup")
+        cleanup = _exact(
+            consumer["exception_cleanup"],
+            {"automatic_gc", "collect_generations"},
+            "Public exception cleanup input",
+        )
+        if cleanup["automatic_gc"] is not False:
+            raise ContractError("Exception cleanup requires explicitly disabled automatic GC")
+        generations = cleanup["collect_generations"]
+        if (
+            not isinstance(generations, list)
+            or not generations
+            or any(
+                type(generation) is not int or generation not in {0, 1, 2}
+                for generation in generations
+            )
+        ):
+            raise ContractError("Exception cleanup needs public GC generation arguments")
+    _exact(consumer, consumer_fields, "Middleware TestClient consumer")
     kwargs = _exact(consumer["kwargs"], {"backend", "backend_options"}, "Middleware client options")
     if kwargs["backend"] not in {"asyncio", "trio"} or kwargs["backend_options"] != {}:
         raise ContractError("Middleware client requires a default supported backend")
@@ -22845,6 +22876,8 @@ def _validate_testclient_public_case(case: dict[str, Any]) -> None:
     elif consumer.get("kind") == "client-http-websocket-sequence":
         _validate_middleware_client_consumer(application, consumer)
         coverage.add(TESTCLIENT_PUBLIC_REQUIREMENTS["custom-middleware-http-websocket-sequence"])
+        if "exception_cleanup" in consumer:
+            coverage.add(TESTCLIENT_PUBLIC_REQUIREMENTS["traceback-retained-callback-cleanup"])
     elif consumer.get("kind") == "lifespan-context":
         _exact(consumer, {"kind", "kwargs"}, "TestClient middleware context consumer")
         kwargs = _exact(

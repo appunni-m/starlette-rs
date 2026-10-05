@@ -183,12 +183,45 @@ body error when a streaming task group's __aexit__ raises. Trio explicitly
 restores its nursery group's previous context, including None; the native
 boundary respects that behavior. Both workflows now pass live comparisons.
 
-The initial crash also logged a traceback-retained call-next object being
-deallocated on another thread. A separate lifecycle comparison must retain
-and release exception tracebacks and observe sys.unraisablehook plus user
-finalizers. This unresolved requirement remains in the generated atlas as
-`testclient.runtime-traceback-garbage-collection`; stopped portal threads do
-not establish correct garbage collection of every retained runtime object.
+### Traceback-retained callback cleanup
+
+[`testclient-traceback-cleanup.yaml`](../tests/fixtures/sources/parity/testclient-traceback-cleanup.yaml)
+extends that public workflow with explicit exception and traceback retention.
+Automatic GC is disabled; the consumer collects using the input's generation
+arguments while all four exceptions remain retained, releases those references,
+and collects again on the caller thread. Exceptions, cause/context links, and
+tracebacks are never cleared or rewritten. User-owned locals in the raising
+endpoints and stream record finalizer completion and thread. Their completions
+are sorted without dropping duplicates because GC has no portable finalizer
+order. `sys.unraisablehook` records every reported error without filtering.
+
+The initial comparisons reported thread-affinity errors for native call-next
+and exception send callbacks. Correcting ownership exposed the outer server-error
+send callback as well. Shared call and cached-request state now use GC-visible
+PyO3 nodes; callbacks visit the shared node once, and that node visits each
+owned Python reference once. Stored exception objects retain their public
+tracebacks and are converted back to PyErr at the propagation boundary.
+Exception response-start flags use atomics; server-error policy state uses an
+Arc/Mutex with no Python callback under its guard. Compiler-checked Send/Sync
+awaitable drivers are used for the converted machines. No unsafe thread-trait
+implementation or runtime Python behavior was introduced.
+
+Normal selected run `69b6022c-209b-4e43-8595-a867b2f88419` passes both backend
+cleanup workflows, both original middleware controls, the unpoisoned-cache
+control, and both target-only fault contracts. Both live implementations retain
+the four original tracebacks without finalizing the three user locals, then
+finalize all three on the caller thread after release, with no unraisable errors.
+This establishes the finished TestClient workflow's lifetime boundary; active
+or unawaited continuations and other callback graphs need their own comparisons.
+
+Twenty-four repetitions of the same pinned-source Trio input exposed both
+AnyIO memory-stream EOF paths: immediate EOF and queued EOF. Queued EOF carries
+a suppressed receiver-internal AttributeError/WouldBlock context. The manifest
+now declares a separate `anyio-memory-stream-eof-context` normalization alongside
+cancel-scope address normalization. It recognizes only that exact internal
+chain, retaining EndOfStream and every caller link. User exception chains and
+all unraisable observations remain exact. Recomparison of historical live
+failures still rejects missing EndOfStream links and the callback cleanup faults.
 
 ## Evidence and remaining work
 

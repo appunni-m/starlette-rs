@@ -51,6 +51,16 @@ def _safe(value: Any) -> Any:
 
 
 def run_middleware_client_case(case: dict[str, Any]) -> dict[str, Any]:
+    from scripts.parity.adapters.traceback_cleanup import TracebackCleanup
+
+    specification = case["consumer"].get("exception_cleanup")
+    if specification is not None:
+        with TracebackCleanup(specification) as observer:
+            return _run_middleware_client_case(case, observer)
+    return _run_middleware_client_case(case, None)
+
+
+def _run_middleware_client_case(case: dict[str, Any], lifetime: Any) -> dict[str, Any]:
     from starlette.applications import Starlette
     from starlette.middleware import Middleware
     from starlette.middleware.base import BaseHTTPMiddleware
@@ -75,7 +85,7 @@ def run_middleware_client_case(case: dict[str, Any]) -> dict[str, Any]:
             )
         return getattr(builtins, specification["class"])(*specification["args"])
 
-    def endpoint(specification: dict[str, Any]) -> Any:
+    def endpoint(specification: dict[str, Any], path: str) -> Any:
         kind = specification["kind"]
 
         def record(path: str) -> None:
@@ -92,6 +102,8 @@ def run_middleware_client_case(case: dict[str, Any]) -> dict[str, Any]:
 
             def raising_endpoint(request: Any) -> None:
                 nonlocal injected_error
+                # This user-owned local remains in the propagated traceback.
+                _lifetime_guard = None if lifetime is None else lifetime.guard(path)
                 record(request.url.path)
                 injected_error = exception(specification["exception"])
                 raise injected_error
@@ -101,6 +113,7 @@ def run_middleware_client_case(case: dict[str, Any]) -> dict[str, Any]:
 
             def chunks() -> Any:
                 nonlocal injected_error
+                _lifetime_guard = None if lifetime is None else lifetime.guard(path)
                 for chunk in specification["chunks_base64"]:
                     yield base64.b64decode(chunk, validate=True)
                 injected_error = exception(specification["exception"])
@@ -148,7 +161,7 @@ def run_middleware_client_case(case: dict[str, Any]) -> dict[str, Any]:
         routes.append(
             route_type(
                 specification["path"],
-                endpoint=endpoint(specification["endpoint"]),
+                endpoint=endpoint(specification["endpoint"], specification["path"]),
                 name=specification["name"],
             )
         )
@@ -199,6 +212,8 @@ def run_middleware_client_case(case: dict[str, Any]) -> dict[str, Any]:
                             frames.append(getattr(session, action["method"])(*action["args"]))
                     value["response"] = {"frames": _safe(frames)}
             except Exception as error:
+                if lifetime is not None:
+                    lifetime.capture(error)
                 value["error"] = _exception_snapshot(error)
                 value["is_injected_exception"] = (
                     None if injected_error is None else error is injected_error
@@ -206,6 +221,12 @@ def run_middleware_client_case(case: dict[str, Any]) -> dict[str, Any]:
             responses.append(value)
     finally:
         client.close()
+    context = {
+        "is_closed": client.is_closed,
+        "portal_threads_alive_after_exit": [thread.is_alive() for thread in portal_threads],
+    }
+    if lifetime is not None:
+        context["exception_cleanup"] = lifetime.cleanup()
     return {
         "case_id": case["case_id"],
         "status": "completed",
@@ -216,12 +237,7 @@ def run_middleware_client_case(case: dict[str, Any]) -> dict[str, Any]:
                 "value": {
                     "samples": [],
                     "application_trace": trace,
-                    "context": {
-                        "is_closed": client.is_closed,
-                        "portal_threads_alive_after_exit": [
-                            thread.is_alive() for thread in portal_threads
-                        ],
-                    },
+                    "context": context,
                     "responses": responses,
                     "asgi_scopes": scopes,
                     "asgi_events": events,

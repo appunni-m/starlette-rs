@@ -5,19 +5,26 @@
 //! event loop, constructing the public Request facade, and extracting CPython
 //! traceback/source context for Rust's renderer.
 
-use std::cell::RefCell;
-use std::rc::Rc;
+use std::sync::{Arc, Mutex, MutexGuard};
 
+use pyo3::class::gc::{PyTraverseError, PyVisit};
 use pyo3::exceptions::{PyAttributeError, PyException, PyRuntimeError, PyStopAsyncIteration};
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList, PyModule, PyString, PyTuple};
 use starlette_rs::ServerErrorState;
 
 use crate::awaitable::{
-    AwaitableStateMachine, MachineAction, MachineResume, into_python_awaitable,
+    AwaitableStateMachine, MachineAction, MachineResume, into_sendable_python_awaitable,
 };
 
-type SharedErrorState = Rc<RefCell<ServerErrorState>>;
+type SharedErrorState = Arc<Mutex<ServerErrorState>>;
+
+// Only native policy state is locked; Python callbacks run after guard release.
+fn error_state(state: &SharedErrorState) -> PyResult<MutexGuard<'_, ServerErrorState>> {
+    state
+        .lock()
+        .map_err(|_| PyRuntimeError::new_err("server error state mutex was poisoned"))
+}
 type TracebackFrame = (String, usize, String, Vec<String>, usize);
 type HtmlTracebackInputs = (String, String, Vec<TracebackFrame>);
 
@@ -77,7 +84,7 @@ impl PyServerErrorMiddlewareRuntime {
         send: Py<PyAny>,
     ) -> PyResult<Py<PyAny>> {
         let runtime = slf.borrow(py);
-        into_python_awaitable(
+        into_sendable_python_awaitable(
             py,
             ServerErrorCall {
                 middleware,
@@ -88,7 +95,7 @@ impl PyServerErrorMiddlewareRuntime {
                 receive,
                 send,
                 send_proxy: None,
-                state: Rc::new(RefCell::new(ServerErrorState::new())),
+                state: Arc::new(Mutex::new(ServerErrorState::new())),
                 pending: None,
                 original_exception: None,
             },
@@ -148,7 +155,7 @@ fn server_error_middleware_runtime_with_policy(
     .map(|runtime| runtime.into_any())
 }
 
-#[pyclass(name = "_ServerErrorSendProxy", unsendable)]
+#[pyclass(name = "_ServerErrorSendProxy")]
 struct PyServerErrorSendProxy {
     send: Py<PyAny>,
     state: SharedErrorState,
@@ -156,9 +163,17 @@ struct PyServerErrorSendProxy {
 
 #[pymethods]
 impl PyServerErrorSendProxy {
+    fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.send)
+    }
+
+    fn __clear__(&mut self, py: Python<'_>) {
+        self.send = py.None();
+    }
+
     fn __call__(slf: Py<Self>, py: Python<'_>, message: Py<PyAny>) -> PyResult<Py<PyAny>> {
         let proxy = slf.borrow(py);
-        into_python_awaitable(
+        into_sendable_python_awaitable(
             py,
             ServerErrorSendCall {
                 send: proxy.send.clone_ref(py),
@@ -186,7 +201,7 @@ impl AwaitableStateMachine for ServerErrorSendCall {
                     .bind(py)
                     .get_item("type")?
                     .extract::<String>()?;
-                self.state.borrow_mut().observe_send(&message_type);
+                error_state(&self.state)?.observe_send(&message_type);
                 let awaitable = self.send.bind(py).call1((self.message.bind(py),))?;
                 self.pending = true;
                 Ok(MachineAction::Await(awaitable.unbind()))
@@ -429,7 +444,7 @@ impl ServerErrorCall {
         py: Python<'_>,
         response: Bound<'_, PyAny>,
     ) -> PyResult<MachineAction> {
-        let should_send = self.state.borrow().should_send_response();
+        let should_send = error_state(&self.state)?.should_send_response();
         if !should_send {
             return self.reraise_application_exception(py);
         }

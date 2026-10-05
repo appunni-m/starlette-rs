@@ -528,6 +528,49 @@ def _normalize_anyio_cancel_scope_message(value: Any) -> Any:
     return normalized
 
 
+def _normalize_anyio_memory_stream_eof_context(value: Any) -> Any:
+    """Remove only the memory receiver's scheduling-dependent internal EOF chain."""
+    if isinstance(value, list):
+        return [_normalize_anyio_memory_stream_eof_context(item) for item in value]
+    if not isinstance(value, dict):
+        return value
+    normalized = {
+        key: _normalize_anyio_memory_stream_eof_context(item) for key, item in value.items()
+    }
+    empty_exception = {
+        "args": [],
+        "cause": None,
+        "context": None,
+        "exceptions": None,
+        "message": "",
+        "suppress_context": False,
+    }
+    blocked = {**empty_exception, "class": "anyio.WouldBlock"}
+    message = "'_MemoryObjectItemReceiver' object has no attribute 'item'"
+    receiver_context = {
+        "class": "builtins.AttributeError",
+        "message": message,
+        "args": [message],
+        "cause": None,
+        "context": blocked,
+        "exceptions": None,
+        "suppress_context": False,
+    }
+    eof_after_wait = {
+        **empty_exception,
+        "class": "anyio.EndOfStream",
+        "context": receiver_context,
+        "suppress_context": True,
+    }
+    # Live oracle repetitions reach both receive_nowait() EOF and queued EOF.
+    # Keep the EndOfStream node and its caller's cause/context link intact.
+    # Unrecognized contexts, user exceptions, and all unraisable events stay exact.
+    if value == eof_after_wait:
+        normalized["context"] = None
+        normalized["suppress_context"] = False
+    return normalized
+
+
 _MULTIPART_RANGE_CONTENT_TYPE = re.compile(
     rb"multipart/byteranges;\s*boundary=([0-9a-f]{26})", re.IGNORECASE
 )
@@ -1091,6 +1134,21 @@ def compare_workflows(
                             )
                         left_field = _normalize_anyio_cancel_scope_message(left_field)
                         right_field = _normalize_anyio_cancel_scope_message(right_field)
+                    elif kind == "anyio-memory-stream-eof-context":
+                        if (
+                            case.get("surface"),
+                            case.get("operation"),
+                            path,
+                        ) != (
+                            "starlette.testclient.TestClient",
+                            "public-client-workflow",
+                            "responses",
+                        ):
+                            raise ContractError(
+                                "AnyIO EOF context normalization requires a declared response observation"
+                            )
+                        left_field = _normalize_anyio_memory_stream_eof_context(left_field)
+                        right_field = _normalize_anyio_memory_stream_eof_context(right_field)
                     elif kind == "starlette-lifespan-router-frame":
                         if (
                             case.get("surface") != "starlette.testclient.TestClient"

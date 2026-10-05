@@ -4,9 +4,9 @@
 //! middleware constructors, and endpoint adapters. Route ordering, scope
 //! decisions, and path formatting live here.
 
-use std::cell::Cell;
 use std::collections::HashSet;
-use std::rc::Rc;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use pyo3::class::basic::CompareOp;
 use pyo3::exceptions::{
@@ -2799,7 +2799,7 @@ fn request_response(py: Python<'_>, args: RequestResponseArgs) -> PyResult<Py<Py
             run_in_threadpool: args.run_in_threadpool,
             request: None,
             sender: None,
-            response_started: Rc::new(Cell::new(false)),
+            response_started: Arc::new(AtomicBool::new(false)),
             original_exception: None,
             pending: None,
         },
@@ -2836,7 +2836,7 @@ struct RequestResponseMachine {
     run_in_threadpool: Py<PyAny>,
     request: Option<Py<PyAny>>,
     sender: Option<Py<PyAny>>,
-    response_started: Rc<Cell<bool>>,
+    response_started: Arc<AtomicBool>,
     original_exception: Option<Py<PyAny>>,
     pending: Option<RequestResponsePending>,
 }
@@ -2967,7 +2967,7 @@ impl RequestResponseMachine {
         if handler.bind(py).is_none() {
             return self.preserve_request_and_raise(py, error);
         }
-        if self.response_started.get() {
+        if self.response_started.load(Ordering::Relaxed) {
             let handled_error =
                 PyRuntimeError::new_err("Caught handled exception, but response already started.");
             handled_error.set_cause(py, Some(error));
