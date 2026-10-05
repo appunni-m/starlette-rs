@@ -1786,6 +1786,242 @@
       }
     },
     {
+      "case_id": "starlette.testclient.TestClient.request-response.cookie-domain-matching.testserver",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "request-response",
+      "covers": [
+        "starlette.testclient.TestClient.request-response.scope-projection",
+        "starlette.testclient.TestClient.request-response.response-and-debug",
+        "starlette.testclient.TestClient.request-response.follow-up-request-sequence",
+        "starlette.testclient.TestClient.request-response.cookie-persistence-round-trip",
+        "starlette.testclient.TestClient.request-response.cookie-domain-matching"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "request-response"
+      ],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": [
+          "testclient",
+          50000
+        ],
+        "headers": []
+      },
+      "request": {
+        "method": "GET",
+        "client_method": "get",
+        "url": "/",
+        "headers_base64_pairs": [],
+        "body_base64": ""
+      },
+      "followup_requests": [
+        {
+          "method": "GET",
+          "client_method": "get",
+          "url": "/",
+          "headers_base64_pairs": [],
+          "body_base64": ""
+        }
+      ],
+      "asgi_app": {
+        "kind": "request-cookie-round-trip",
+        "cookie_name": "mycookie",
+        "cookie_value": "Hello, cookies!",
+        "fallback_content": "Hello, world!",
+        "media_type": "text/plain",
+        "scope_fields": [
+          "type",
+          "method",
+          "path",
+          "headers"
+        ],
+        "cookie_domain": "testserver"
+      }
+    },
+    {
+      "case_id": "starlette.testclient.TestClient.request-response.cookie-domain-matching.testserver-local",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "request-response",
+      "covers": [
+        "starlette.testclient.TestClient.request-response.scope-projection",
+        "starlette.testclient.TestClient.request-response.response-and-debug",
+        "starlette.testclient.TestClient.request-response.follow-up-request-sequence",
+        "starlette.testclient.TestClient.request-response.cookie-persistence-round-trip",
+        "starlette.testclient.TestClient.request-response.cookie-domain-matching"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "request-response"
+      ],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": [
+          "testclient",
+          50000
+        ],
+        "headers": []
+      },
+      "request": {
+        "method": "GET",
+        "client_method": "get",
+        "url": "/",
+        "headers_base64_pairs": [],
+        "body_base64": ""
+      },
+      "followup_requests": [
+        {
+          "method": "GET",
+          "client_method": "get",
+          "url": "/",
+          "headers_base64_pairs": [],
+          "body_base64": ""
+        }
+      ],
+      "asgi_app": {
+        "kind": "request-cookie-round-trip",
+        "cookie_name": "mycookie",
+        "cookie_value": "Hello, cookies!",
+        "fallback_content": "Hello, world!",
+        "media_type": "text/plain",
+        "scope_fields": [
+          "type",
+          "method",
+          "path",
+          "headers"
+        ],
+        "cookie_domain": "testserver.local"
+      }
+    },
+    {
+      "case_id": "starlette.testclient.TestClient.request-response.cookie-domain-matching.localhost",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "request-response",
+      "covers": [
+        "starlette.testclient.TestClient.request-response.scope-projection",
+        "starlette.testclient.TestClient.request-response.response-and-debug",
+        "starlette.testclient.TestClient.request-response.follow-up-request-sequence",
+        "starlette.testclient.TestClient.request-response.cookie-persistence-round-trip",
+        "starlette.testclient.TestClient.request-response.cookie-domain-matching"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "request-response"
+      ],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": [
+          "testclient",
+          50000
+        ],
+        "headers": []
+      },
+      "request": {
+        "method": "GET",
+        "client_method": "get",
+        "url": "/",
+        "headers_base64_pairs": [],
+        "body_base64": ""
+      },
+      "followup_requests": [
+        {
+          "method": "GET",
+          "client_method": "get",
+          "url": "/",
+          "headers_base64_pairs": [],
+          "body_base64": ""
+        }
+      ],
+      "asgi_app": {
+        "kind": "request-cookie-round-trip",
+        "cookie_name": "mycookie",
+        "cookie_value": "Hello, cookies!",
+        "fallback_content": "Hello, world!",
+        "media_type": "text/plain",
+        "scope_fields": [
+          "type",
+          "method",
+          "path",
+          "headers"
+        ],
+        "cookie_domain": "localhost"
+      }
+    },
+    {
+      "case_id": "starlette.testclient.TestClient.request-response.cookie-domain-matching.example-com",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "request-response",
+      "covers": [
+        "starlette.testclient.TestClient.request-response.scope-projection",
+        "starlette.testclient.TestClient.request-response.response-and-debug",
+        "starlette.testclient.TestClient.request-response.follow-up-request-sequence",
+        "starlette.testclient.TestClient.request-response.cookie-persistence-round-trip",
+        "starlette.testclient.TestClient.request-response.cookie-domain-matching"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "request-response"
+      ],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": [
+          "testclient",
+          50000
+        ],
+        "headers": []
+      },
+      "request": {
+        "method": "GET",
+        "client_method": "get",
+        "url": "/",
+        "headers_base64_pairs": [],
+        "body_base64": ""
+      },
+      "followup_requests": [
+        {
+          "method": "GET",
+          "client_method": "get",
+          "url": "/",
+          "headers_base64_pairs": [],
+          "body_base64": ""
+        }
+      ],
+      "asgi_app": {
+        "kind": "request-cookie-round-trip",
+        "cookie_name": "mycookie",
+        "cookie_value": "Hello, cookies!",
+        "fallback_content": "Hello, world!",
+        "media_type": "text/plain",
+        "scope_fields": [
+          "type",
+          "method",
+          "path",
+          "headers"
+        ],
+        "cookie_domain": "example.com"
+      }
+    },
+    {
       "case_id": "starlette.testclient.TestClient.request-response.request-url-relative-and-absolute-sequence",
       "surface": "starlette.testclient.TestClient",
       "operation": "request-response",

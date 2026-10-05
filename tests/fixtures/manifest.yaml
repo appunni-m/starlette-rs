@@ -23466,6 +23466,17 @@
               ]
             },
             {
+              "id": "starlette.testclient.TestClient.request-response.cookie-domain-matching",
+              "dimension": "protocol_variant",
+              "description": "Keep only response cookies whose Domain matches the TestClient base URL, including effective-domain handling of single-label testserver hosts. Input-derived source/package observations include each HTTPX response cookie view, the client cookie jar, the next request's Cookie header, and response events. Pinned source: tests/test_testclient.py::test_domain_restricted_cookies; starlette/testclient.py:377-420; Python 3.12 http.cookiejar behavior is the selected runtime contract.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.testclient.TestClient.request-response.mounted-static-files",
               "dimension": "feature",
               "description": "Mount input-defined StaticFiles beneath a Starlette app and compare the TestClient file GET and method-not-allowed POST responses through the app middleware stack. Upstream: tests/test_applications.py::test_app_mount; starlette/applications.py:78-83; starlette/routing.py:147-190; starlette/staticfiles.py:130-141.",

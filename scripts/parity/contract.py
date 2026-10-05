@@ -216,6 +216,7 @@ TESTCLIENT_REQUIREMENTS = {
     "starlette_trusted_host": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.starlette-trusted-host-middleware",
     "request_sequence": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.follow-up-request-sequence",
     "cookie_round_trip": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.cookie-persistence-round-trip",
+    "cookie_domain_matching": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.cookie-domain-matching",
     "mounted_static_files": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.mounted-static-files",
     "static_files_head_middleware": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.static-files-head-through-middleware",
     "static_files_relative_directory": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.static-files-relative-directory",
@@ -11996,16 +11997,19 @@ def _validate_testclient_case(
         exception_spec = None
         messages = []
     elif is_cookie_round_trip:
+        cookie_app_keys = {
+            "kind",
+            "cookie_name",
+            "cookie_value",
+            "fallback_content",
+            "media_type",
+            "scope_fields",
+        }
+        if isinstance(raw_asgi_app, dict) and "cookie_domain" in raw_asgi_app:
+            cookie_app_keys.add("cookie_domain")
         asgi_app = _exact(
             raw_asgi_app,
-            {
-                "kind",
-                "cookie_name",
-                "cookie_value",
-                "fallback_content",
-                "media_type",
-                "scope_fields",
-            },
+            cookie_app_keys,
             "TestClient Request cookie round-trip app",
         )
         if not _string(asgi_app["cookie_name"], "TestClient cookie name"):
@@ -12013,6 +12017,8 @@ def _validate_testclient_case(
         _string(asgi_app["cookie_value"], "TestClient cookie value")
         _string(asgi_app["fallback_content"], "TestClient cookie fallback content")
         _string(asgi_app["media_type"], "TestClient cookie response media type")
+        if "cookie_domain" in asgi_app:
+            _string(asgi_app["cookie_domain"], "TestClient cookie domain")
         requests = [request, *followup_requests]
         if len(followup_requests) != 1 or any(
             item["method"] != "GET"
@@ -12591,6 +12597,8 @@ def _validate_testclient_case(
         expected_covers.add(TESTCLIENT_REQUIREMENTS["cookie_round_trip"])
         expected_covers.add(TESTCLIENT_REQUIREMENTS["request_sequence"])
         expected_covers.add(TESTCLIENT_REQUIREMENTS["response"])
+        if "cookie_domain" in asgi_app:
+            expected_covers.add(TESTCLIENT_REQUIREMENTS["cookie_domain_matching"])
     if is_request_observer:
         raw_path_requirement = (
             "raw_path_query"

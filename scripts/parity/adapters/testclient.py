@@ -739,7 +739,11 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
                 response = Response(
                     app_input["fallback_content"], media_type=app_input["media_type"]
                 )
-                response.set_cookie(app_input["cookie_name"], app_input["cookie_value"])
+                response.set_cookie(
+                    app_input["cookie_name"],
+                    app_input["cookie_value"],
+                    domain=app_input.get("cookie_domain"),
+                )
 
             async def observed_send(message: dict[str, Any]) -> None:
                 asgi_events.append(_safe(message))
@@ -996,6 +1000,8 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
             "extensions": _safe(value.extensions),
             "template": _safe(getattr(value, "template", None)),
             "context": _safe(getattr(value, "context", None)),
+            "cookies": dict(value.cookies),
+            "client_cookies": dict(client.cookies),
         }
 
     def request_content(current_request: dict[str, Any]) -> Any:
