@@ -210,7 +210,7 @@
   ],
   "interfaces": {
     "parity": {
-      "input_schema": "migration-parity/parity-input@43",
+      "input_schema": "migration-parity/parity-input@44",
       "result_schema": "migration-parity/parity-result@6",
       "command_id": "parity"
     },
@@ -375,7 +375,8 @@
       "build/parity/inputs/parity/response-asgi-callbacks.json",
       "build/parity/inputs/parity/response-construction-protocols.json",
       "build/parity/inputs/parity/response-attributes.json",
-      "build/parity/inputs/parity/response-cookie-protocols.json"
+      "build/parity/inputs/parity/response-cookie-protocols.json",
+      "build/parity/inputs/parity/response-cookie-ownership.json"
     ],
     "coverage": [],
     "benchmark": [
@@ -16042,7 +16043,7 @@
           },
           "source": {
             "oracle_id": "starlette-python",
-            "path": "starlette.responses.JSONResponse.__init__, Response.render, JSONResponse.render, Response.__call__; public raw_headers, body, background and returned coroutine lifetime; constructor body length and header mapping/encoding protocols; Python attribute interception and public header-view access; public set_cookie/delete_cookie Python argument protocols",
+            "path": "starlette.responses.JSONResponse.__init__, Response.render, JSONResponse.render, Response.__call__; public raw_headers, body, background and returned coroutine lifetime; constructor body length and header mapping/encoding protocols; Python attribute interception and public header-view access; public set_cookie/delete_cookie Python argument protocols; public cookie returned-value lifetime, translation state and surrogate encoding",
             "signature": "Construct a documented response or input-defined render subclass; observe constructor attributes, rendering errors, and public ASGI events after caller attribute changes.",
             "parameters": [
               {
@@ -16250,6 +16251,39 @@
               "id": "starlette.responses.JSONResponse.consumer-construction.cookie-argument-protocols",
               "dimension": "boundary",
               "description": "Compare input-defined cookie value and attribute str/eq/lower/translate protocols, truth testing, integer subclasses, original callback errors and callback reentry through documented set_cookie/delete_cookie and raw_headers, in source assignment and serialization order. Integer expiry/deletion use a supplied fixed clock on both sides. Source: starlette/responses.py:90-160; docs/responses.md:29-52; CPython 3.12.13 http.cookies SimpleCookie/Morsel. Every argument and callback stimulus comes from input definitions; no expected output is stored.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.JSONResponse.consumer-construction.cookie-owned-result-lifetimes",
+              "dimension": "boundary",
+              "description": "Retain newly returned Python string values through successful raw-header append, original errors, traceback lifetime, finalizer reentry and unraisable finalizer exceptions. Observe public headers, weak references and Python exception identity; source Starlette responses.py:90-160 and interpreter SimpleCookie ownership.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.JSONResponse.consumer-construction.cookie-shared-translation-state",
+              "dimension": "boundary",
+              "description": "Preserve translation-table identity, user callback mutation across sequential public cookie calls, and aliasing with standard-library cookie consumers. Observe only callback-provided tables and public cookie output. Source Starlette responses.py:90-160 and CPython http.cookies representation boundary.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.JSONResponse.consumer-construction.cookie-surrogate-encoding-order",
+              "dimension": "boundary",
+              "description": "Preserve lone-surrogate values and attribute strings until source-ordered key/control validation and final Latin-1 encoding, including public raw-header selection and exact Unicode error details. Source Starlette responses.py:90-160 and CPython cookie/string representation protocols.",
               "lanes": [
                 "parity"
               ],
@@ -17040,7 +17074,7 @@
           },
           "source": {
             "oracle_id": "starlette-python",
-            "path": "starlette.responses.Response.__init__, Response.render, JSONResponse.render, Response.__call__; public raw_headers, body, background and returned coroutine lifetime; constructor body length and header mapping/encoding protocols; Python attribute interception and public header-view access; public set_cookie/delete_cookie Python argument protocols",
+            "path": "starlette.responses.Response.__init__, Response.render, JSONResponse.render, Response.__call__; public raw_headers, body, background and returned coroutine lifetime; constructor body length and header mapping/encoding protocols; Python attribute interception and public header-view access; public set_cookie/delete_cookie Python argument protocols; public cookie returned-value lifetime, translation state and surrogate encoding",
             "signature": "Construct a documented response or input-defined render subclass; observe constructor attributes, rendering errors, and public ASGI events after caller attribute changes.",
             "parameters": [
               {
@@ -17248,6 +17282,39 @@
               "id": "starlette.responses.Response.consumer-construction.cookie-argument-protocols",
               "dimension": "boundary",
               "description": "Compare input-defined cookie value and attribute str/eq/lower/translate protocols, truth testing, integer subclasses, original callback errors and callback reentry through documented set_cookie/delete_cookie and raw_headers, in source assignment and serialization order. Integer expiry/deletion use a supplied fixed clock on both sides. Source: starlette/responses.py:90-160; docs/responses.md:29-52; CPython 3.12.13 http.cookies SimpleCookie/Morsel. Every argument and callback stimulus comes from input definitions; no expected output is stored.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.Response.consumer-construction.cookie-owned-result-lifetimes",
+              "dimension": "boundary",
+              "description": "Retain newly returned Python string values through successful raw-header append, original errors, traceback lifetime, finalizer reentry and unraisable finalizer exceptions. Observe public headers, weak references and Python exception identity; source Starlette responses.py:90-160 and interpreter SimpleCookie ownership.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.Response.consumer-construction.cookie-shared-translation-state",
+              "dimension": "boundary",
+              "description": "Preserve translation-table identity, user callback mutation across sequential public cookie calls, and aliasing with standard-library cookie consumers. Observe only callback-provided tables and public cookie output. Source Starlette responses.py:90-160 and CPython http.cookies representation boundary.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.Response.consumer-construction.cookie-surrogate-encoding-order",
+              "dimension": "boundary",
+              "description": "Preserve lone-surrogate values and attribute strings until source-ordered key/control validation and final Latin-1 encoding, including public raw-header selection and exact Unicode error details. Source Starlette responses.py:90-160 and CPython cookie/string representation protocols.",
               "lanes": [
                 "parity"
               ],
@@ -27427,7 +27494,7 @@
           },
           "source": {
             "oracle_id": "starlette-python",
-            "path": "starlette.responses.HTMLResponse.__init__, Response.render, JSONResponse.render, Response.__call__; public raw_headers, body, background and returned coroutine lifetime; constructor body length and header mapping/encoding protocols; Python attribute interception and public header-view access; public set_cookie/delete_cookie Python argument protocols",
+            "path": "starlette.responses.HTMLResponse.__init__, Response.render, JSONResponse.render, Response.__call__; public raw_headers, body, background and returned coroutine lifetime; constructor body length and header mapping/encoding protocols; Python attribute interception and public header-view access; public set_cookie/delete_cookie Python argument protocols; public cookie returned-value lifetime, translation state and surrogate encoding",
             "signature": "Construct a documented response or input-defined render subclass; observe constructor attributes, rendering errors, and public ASGI events after caller attribute changes.",
             "parameters": [
               {
@@ -27641,6 +27708,39 @@
               "target_profiles": [
                 "python-package-cpython312"
               ]
+            },
+            {
+              "id": "starlette.responses.HTMLResponse.consumer-construction.cookie-owned-result-lifetimes",
+              "dimension": "boundary",
+              "description": "Retain newly returned Python string values through successful raw-header append, original errors, traceback lifetime, finalizer reentry and unraisable finalizer exceptions. Observe public headers, weak references and Python exception identity; source Starlette responses.py:90-160 and interpreter SimpleCookie ownership.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.HTMLResponse.consumer-construction.cookie-shared-translation-state",
+              "dimension": "boundary",
+              "description": "Preserve translation-table identity, user callback mutation across sequential public cookie calls, and aliasing with standard-library cookie consumers. Observe only callback-provided tables and public cookie output. Source Starlette responses.py:90-160 and CPython http.cookies representation boundary.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.HTMLResponse.consumer-construction.cookie-surrogate-encoding-order",
+              "dimension": "boundary",
+              "description": "Preserve lone-surrogate values and attribute strings until source-ordered key/control validation and final Latin-1 encoding, including public raw-header selection and exact Unicode error details. Source Starlette responses.py:90-160 and CPython cookie/string representation protocols.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
             }
           ],
           "parity": {
@@ -27675,7 +27775,7 @@
           },
           "source": {
             "oracle_id": "starlette-python",
-            "path": "starlette.responses.PlainTextResponse.__init__, Response.render, JSONResponse.render, Response.__call__; public raw_headers, body, background and returned coroutine lifetime; constructor body length and header mapping/encoding protocols; Python attribute interception and public header-view access; public set_cookie/delete_cookie Python argument protocols",
+            "path": "starlette.responses.PlainTextResponse.__init__, Response.render, JSONResponse.render, Response.__call__; public raw_headers, body, background and returned coroutine lifetime; constructor body length and header mapping/encoding protocols; Python attribute interception and public header-view access; public set_cookie/delete_cookie Python argument protocols; public cookie returned-value lifetime, translation state and surrogate encoding",
             "signature": "Construct a documented response or input-defined render subclass; observe constructor attributes, rendering errors, and public ASGI events after caller attribute changes.",
             "parameters": [
               {
@@ -27883,6 +27983,39 @@
               "id": "starlette.responses.PlainTextResponse.consumer-construction.cookie-argument-protocols",
               "dimension": "boundary",
               "description": "Compare input-defined cookie value and attribute str/eq/lower/translate protocols, truth testing, integer subclasses, original callback errors and callback reentry through documented set_cookie/delete_cookie and raw_headers, in source assignment and serialization order. Integer expiry/deletion use a supplied fixed clock on both sides. Source: starlette/responses.py:90-160; docs/responses.md:29-52; CPython 3.12.13 http.cookies SimpleCookie/Morsel. Every argument and callback stimulus comes from input definitions; no expected output is stored.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.PlainTextResponse.consumer-construction.cookie-owned-result-lifetimes",
+              "dimension": "boundary",
+              "description": "Retain newly returned Python string values through successful raw-header append, original errors, traceback lifetime, finalizer reentry and unraisable finalizer exceptions. Observe public headers, weak references and Python exception identity; source Starlette responses.py:90-160 and interpreter SimpleCookie ownership.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.PlainTextResponse.consumer-construction.cookie-shared-translation-state",
+              "dimension": "boundary",
+              "description": "Preserve translation-table identity, user callback mutation across sequential public cookie calls, and aliasing with standard-library cookie consumers. Observe only callback-provided tables and public cookie output. Source Starlette responses.py:90-160 and CPython http.cookies representation boundary.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.PlainTextResponse.consumer-construction.cookie-surrogate-encoding-order",
+              "dimension": "boundary",
+              "description": "Preserve lone-surrogate values and attribute strings until source-ordered key/control validation and final Latin-1 encoding, including public raw-header selection and exact Unicode error details. Source Starlette responses.py:90-160 and CPython cookie/string representation protocols.",
               "lanes": [
                 "parity"
               ],

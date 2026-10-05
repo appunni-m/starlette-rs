@@ -783,6 +783,11 @@ impl PyResponse {
     }
 
     #[staticmethod]
+    fn cookie_state(args: &Bound<'_, PyTuple>) -> cookie_runtime::PyCookieCall {
+        cookie_runtime::PyCookieCall::new(args)
+    }
+
+    #[staticmethod]
     fn cookie_call(
         py: Python<'_>,
         response: &Bound<'_, PyAny>,
@@ -809,11 +814,11 @@ impl PyResponse {
                 "unsupported response cookie operation",
             ));
         }
-        let header = cookie_runtime::header_from_arguments(py, args)?;
+        let header = cookie_runtime::header_from_arguments(py, args, None)?;
         // Source selects the current append callable before encoding the final
         // header. Neither user conversions nor this selection hold a native borrow.
         let append = response.getattr("raw_headers")?.getattr("append")?;
-        let encoded = header.call_method1("encode", ("latin-1",))?;
+        let encoded = header.text.call_method1("encode", ("latin-1",))?;
         append.call1((PyTuple::new(
             py,
             [PyBytes::new(py, b"set-cookie").into_any(), encoded],

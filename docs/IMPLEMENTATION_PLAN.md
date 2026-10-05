@@ -32,9 +32,14 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The active parity contract uses `parity-input@43` and contains 942 input-only
-cases in 94 indexed files (940 oracle parity cases and two target-only fault
-contracts), covering 105 operations and 909 requirements. The latest addition
+The active parity contract uses `parity-input@44` and contains 1744 input-only
+cases in 109 indexed files (1742 oracle parity cases and two target-only fault
+contracts), covering 121 operations and 978 parity requirements. The newest
+156 cases cover cookie returned-value ownership, translation state, key hash
+callbacks and surrogate encoding. The current generated atlas has 809 source
+rows: 694 input mappings, 52 reasoned not_applicable rows and 63 backlog rows.
+The full working-tree matrix and instrumented coverage run passed with four
+unsupported native cases retained; clean-revision benchmarks are next. The earlier addition
 maps static and path-parameter WebSocketRoute matching through TestClient for
 `tests/test_routing.py::test_router_add_websocket_route`; that test does not call
 `Router.add_websocket_route`, so the method candidate remains uncertain. The

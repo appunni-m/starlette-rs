@@ -521,7 +521,7 @@ impl PyCommaSeparatedStrings {
     }
 }
 
-fn python_string_to_codepoints(value: &Bound<'_, PyAny>) -> PyResult<Vec<u32>> {
+pub(crate) fn python_string_to_codepoints(value: &Bound<'_, PyAny>) -> PyResult<Vec<u32>> {
     let py = value.py();
     let encode = py.get_type::<PyString>().getattr("encode")?;
     let encoded = encode
@@ -543,7 +543,7 @@ fn python_string_to_codepoints(value: &Bound<'_, PyAny>) -> PyResult<Vec<u32>> {
         .collect()
 }
 
-fn codepoints_to_python_string<'py>(
+pub(crate) fn codepoints_to_python_string<'py>(
     py: Python<'py>,
     codepoints: &[u32],
 ) -> PyResult<Bound<'py, PyString>> {

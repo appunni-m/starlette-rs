@@ -6,6 +6,36 @@ and `JSONResponse`, including the custom JSON render example in
 `docs/responses.md:96-118`. Their constructor and ASGI implementation are in
 `starlette/responses.py:29-200` in the pinned checkout.
 
+## Cookie ownership and translation boundary
+
+The `response-cookie-ownership.yaml` consumers extend the public cookie calls
+with newly returned string subclasses, weak references, finalizer reentry and
+errors, callback-provided translation tables, arbitrary key hash callbacks,
+and lone-surrogate values. Results remain live source/package comparisons;
+the definitions contain no expected output.
+
+Rust retains cookie conversion state in a GC-visible native holder. The Python
+forwarding frame constructs and holds that object and calls its native method.
+This is required lifetime glue: an exception traceback retains the forwarding
+frame, so the converted values must remain reachable there just as the source
+frame retains its cookie. Python makes no cookie decision and contains no
+branching or iteration. The holder releases native borrows before invoking
+user code and reports its Python references to cyclic GC.
+
+Rust selects quoting, validates keys and attributes, and serializes Unicode
+code points without an early UTF-8 conversion. Python's final Latin-1 encoding
+provides the interpreter's faithful error representation. For the user
+`str.translate(table)` boundary, Rust passes the interpreter-owned standard
+library translation dictionary. That representation metadata is observable
+through user callbacks, including public standard-library cookie consumers;
+copying it would lose aliasing and shared mutation. No standard-library
+SimpleCookie or Morsel algorithm runs in the target implementation.
+
+The input contract advances to `parity-input@44`; the maintained migrator
+preserves existing stimuli and supplies neutral values for the new callback
+options. The complete working-tree parity and coverage runs are recorded below; the
+clean-revision benchmark gate is the next step.
+
 ## Cookie argument protocol boundary
 
 `response-cookie-protocols.yaml` supplies 98 input-only consumers of the four
@@ -230,3 +260,35 @@ The generated atlas remains 809 source rows: 694 existing mappings, 52 source-ba
 Clean commit `e83cb743223ca332e3650713424ff79225e1d33d` passed full preflight `95c16ff3-05c1-478b-a759-2a97f5d7dd6f`: 1,584/1,584 Python-package comparisons, 246/250 Rust-native comparisons, and both fault contracts. There were zero failures or infrastructure errors. Four existing native callable cases remain not_run. Result SHA-256: `7d2db21ccbefcd7f0971ea239cb2d7f0a4e36d44e0b722f5c9d81c6ed207d90d`. Normal package tree `0d606843ce84425833aa38790784a5fef20173dfc6fa8837587e03fe2161eba4` matches the selected run.
 
 Benchmark `7b617ac7-8af2-42c5-8d52-4c0a9e8aac78` matched and timed all 74 source/package workloads. All 74 native timings remain not_run. Median source/package latency ratios were 0.771 for Router and 0.979 for GZip; the source was faster in 5/6 Router and 45/68 GZip workloads. Result SHA-256: `b0f666021fd4a6056787f76fd5193a0fe56e90998fba2474aee9372edd0d9fa9`. See [benchmark evidence](BENCHMARKS.md). These bounded comparisons do not establish full replacement parity or general speed superiority.
+
+## Cookie returned-value ownership and shared translation evidence
+
+The 156 new input-only cases compare returned string lifetimes, original errors,
+finalizer reentry and unraisable errors, shared translation-table mutation and
+standard-library aliasing, key hash callbacks, and surrogate encoding order
+across Response, HTMLResponse, PlainTextResponse and JSONResponse. Implementation
+was completed before running the entire matrix, as requested. No reproduction
+against the previous target is claimed for this batch.
+
+Rust owns conversion state, validation, quoting and serialization. The Python
+forwarding frame holds a GC-visible Rust object so exception tracebacks retain
+converted values. This adds only object/lifetime forwarding; no runtime Python
+branching, iteration, unit tests, unsafe Rust or lint weakening was added.
+
+Full working-tree run `82b73937-71cb-40e9-b45e-a98186ed86a3` passed 1740/1740 package comparisons, 246/250 native comparisons, and both fault contracts, with zero failures or infrastructure errors. Four unsupported native callable cases remain not_run, so the full CLI returns exit status 2. This is working-tree evidence, not a clean-revision release claim. Result SHA-256: `08d58b4452fa673762e1ed9db594b8681674896083b4c6217255822325c66f85`.
+
+Instrumented full run `fb13c949-fb6a-4ed7-8f73-b203bed180bd` retained the same counts. Coverage MCP verified 19714/25453 Rust lines with matching source/build receipts; 5739 lines remain uncovered. Instrumented tree: `7ce86e79c5fcbe1b6871925b2f91795e935b56122207fd1ce046271aeaeaf0f0`; wheel SHA-256: `c74329850c1c712d326ab3a5c4e157b12bfb64f8922de417627915cf54936474`. The LCOV report, full case receipts and MCP response remain ignored under `build/parity/coverage/response-cookie-ownership-20261005/`. This is measured line coverage for the instrumented package build; no branch coverage or regression comparison with older source is claimed.
+
+The current contract indexes 1744 cases in 109 files: 1742 ordinary oracle
+cases and two target-only fault contracts, 121 operations and 978 parity
+requirements. The atlas remains 809 source rows, 694 mapped rows, 52 reasoned
+not_applicable rows and 63 backlog rows. Fixed denominators remain 514 upstream
+test functions and 24 documentation pages. Supplied Morsel values, further key
+protocols, exception/GC cleanup after caller release, other interpreter
+versions, and Streaming/File/Redirect subclass interception remain open.
+Complete Starlette parity remains unproven.
+
+The repository's strict schema/index/input and project-policy validators passed.
+The bundled generic fixture audit assumes the older @2 layout and cannot ingest
+this @4 manifest's fault registry and ignored build/parity inputs; its diagnostic
+is retained locally and is not reported as passing evidence.

@@ -1,19 +1,87 @@
 //! Conversion of Python cookie attributes into Rust-owned response options.
 
-use pyo3::exceptions::{PyAssertionError, PyValueError};
+use pyo3::exceptions::{PyAssertionError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
-use pyo3::types::{PyDict, PyInt, PyList, PyString, PyTuple};
+use pyo3::types::{PyByteArray, PyBytes, PyDict, PyInt, PyList, PyMemoryView, PyString, PyTuple};
 use starlette_rs::{CookieOptions, ResponseError};
+
+use crate::datastructure_runtime::{codepoints_to_python_string, python_string_to_codepoints};
+
+/// Keeps cookie-owned Python values alive until the public header append finishes.
+pub(crate) struct CookieHeader<'py> {
+    pub(crate) text: Bound<'py, PyString>,
+    // SimpleCookie retains its Morsel, including converted values, until the
+    // set_cookie frame returns. Their finalizers may observe or reenter the response.
+    _retained: Vec<Bound<'py, PyAny>>,
+}
+
+/// Rust cookie state held by the forwarding frame, including on Python errors.
+#[pyclass(name = "_ResponseCookieCall")]
+pub(crate) struct PyCookieCall {
+    arguments: Py<PyTuple>,
+    retained: Vec<Py<PyAny>>,
+}
+
+impl PyCookieCall {
+    pub(crate) fn new(arguments: &Bound<'_, PyTuple>) -> Self {
+        Self {
+            arguments: arguments.clone().unbind(),
+            retained: Vec::new(),
+        }
+    }
+}
+
+#[pymethods]
+impl PyCookieCall {
+    fn apply(slf: Py<Self>, py: Python<'_>, response: &Bound<'_, PyAny>) -> PyResult<()> {
+        let arguments = slf.borrow(py).arguments.clone_ref(py);
+        let header = header_from_arguments(py, arguments.bind(py), Some(&slf))?;
+        let append = response.getattr("raw_headers")?.getattr("append")?;
+        let encoded = header.text.call_method1("encode", ("latin-1",))?;
+        append.call1((PyTuple::new(
+            py,
+            [PyBytes::new(py, b"set-cookie").into_any(), encoded],
+        )?,))?;
+        Ok(())
+    }
+
+    fn __traverse__(
+        &self,
+        visit: pyo3::class::gc::PyVisit<'_>,
+    ) -> Result<(), pyo3::class::gc::PyTraverseError> {
+        visit.call(&self.arguments)?;
+        for retained in &self.retained {
+            visit.call(retained)?;
+        }
+        Ok(())
+    }
+
+    fn __clear__(&mut self, py: Python<'_>) {
+        self.arguments = PyTuple::empty(py).unbind();
+        self.retained.clear();
+    }
+}
+
+fn retain(py: Python<'_>, owner: Option<&Py<PyCookieCall>>, value: &Bound<'_, PyAny>) {
+    if let Some(owner) = owner {
+        // Adding a reference cannot invoke a user finalizer. Release this native
+        // borrow before the next conversion, comparison, attribute access or append.
+        owner.borrow_mut(py).retained.push(value.clone().unbind());
+    }
+}
 
 /// Builds a Python cookie header while retaining original argument protocols.
 /// No response borrow is held across user conversion or comparison callbacks.
 pub(crate) fn header_from_arguments<'py>(
     py: Python<'py>,
     args: &Bound<'py, PyTuple>,
-) -> PyResult<Bound<'py, PyString>> {
+    owner: Option<&Py<PyCookieCall>>,
+) -> PyResult<CookieHeader<'py>> {
     let key = args.get_item(0)?;
     let value = args.get_item(1)?.str()?;
+    retain(py, owner, value.as_any());
     let coded = quote_value(py, &value)?;
+    retain(py, owner, &coded);
     // Source SimpleCookie first looks up the original key, then validates it.
     let storage = PyDict::new(py);
     let _ = storage.get_item(&key)?;
@@ -30,11 +98,11 @@ pub(crate) fn header_from_arguments<'py>(
             format!("Attempt to set a reserved key {}", key.repr()?),
         )?);
     }
-    if !legal_token(key.cast::<PyString>()?.to_str()?) {
+    if !legal_token(&string_codepoints(&key)?) {
         return Err(cookie_error(py, format!("Illegal key {}", key.repr()?))?);
     }
     for item in [&key, value.as_any(), &coded] {
-        if has_control(item.str()?.to_str()?) {
+        if has_control(&python_string_to_codepoints(item.str()?.as_any())?) {
             return Err(cookie_error(
                 py,
                 format!(
@@ -61,6 +129,7 @@ pub(crate) fn header_from_arguments<'py>(
                         .import("email.utils")?
                         .getattr("format_datetime")?
                         .call((attribute,), Some(&kwargs))?;
+                    retain(py, owner, &attribute);
                 }
             }
             let _ = storage.as_any().get_item(&key)?;
@@ -94,11 +163,11 @@ pub(crate) fn header_from_arguments<'py>(
     // its callback completed. Equality with an empty string can also run user code.
     attributes.sort_by_key(|(name, _)| *name);
     let mut output = format_pair(py, &key, &coded)?;
-    for (name, attribute) in attributes {
+    for (name, attribute) in &attributes {
         if attribute.eq("")? {
             continue;
         }
-        let label = match name {
+        let label = match *name {
             "domain" => "Domain",
             "httponly" => "HttpOnly",
             "max-age" => "Max-Age",
@@ -108,20 +177,20 @@ pub(crate) fn header_from_arguments<'py>(
             "secure" => "Secure",
             _ => "expires",
         };
-        if matches!(name, "secure" | "httponly" | "partitioned") {
-            output.push_str(&format!("; {label}"));
+        if matches!(*name, "secure" | "httponly" | "partitioned") {
+            output.extend(format!("; {label}").chars().map(u32::from));
         } else {
-            let text = if name == "expires" && attribute.is_instance_of::<PyInt>() {
+            let text = if *name == "expires" && attribute.is_instance_of::<PyInt>() {
                 py.import("http.cookies")?
                     .getattr("_getdate")?
                     .call1((attribute,))?
-            } else if name == "max-age" && attribute.is_instance_of::<PyInt>() {
+            } else if *name == "max-age" && attribute.is_instance_of::<PyInt>() {
                 PyString::new(py, "%d").call_method1("__mod__", (attribute,))?
             } else {
-                attribute
+                attribute.clone()
             };
-            output.push_str("; ");
-            output.push_str(&format_pair(py, PyString::new(py, label).as_any(), &text)?);
+            output.extend([u32::from(';'), u32::from(' ')]);
+            output.extend(format_pair(py, PyString::new(py, label).as_any(), &text)?);
         }
     }
     if has_control(&output) {
@@ -130,36 +199,67 @@ pub(crate) fn header_from_arguments<'py>(
             "Control characters are not allowed in cookies".to_owned(),
         )?);
     }
-    Ok(PyString::new(py, output.trim_matches(python_whitespace)))
+    let start = output.iter().position(|point| !python_whitespace(*point));
+    let end = output.iter().rposition(|point| !python_whitespace(*point));
+    let trimmed = match (start, end) {
+        (Some(start), Some(end)) => &output[start..=end],
+        _ => &[],
+    };
+    let text = codepoints_to_python_string(py, trimmed)?;
+    let mut retained = vec![key, value.into_any(), coded];
+    retained.extend(attributes.into_iter().map(|(_, attribute)| attribute));
+    Ok(CookieHeader {
+        text,
+        _retained: retained,
+    })
 }
 
 fn format_pair(
     py: Python<'_>,
     key: &Bound<'_, PyAny>,
     value: &Bound<'_, PyAny>,
-) -> PyResult<String> {
+) -> PyResult<Vec<u32>> {
     // CPython compiles the source's literal %s pairs as FORMAT_VALUE with str
     // conversion, followed by Python's format protocol. A string subclass can
     // run __str__ again there. Preserve that representation boundary directly.
-    let formatter = py.import("builtins")?.getattr("format")?;
-    let key = formatter.call1((key.str()?, ""))?.extract::<String>()?;
-    let value = formatter.call1((value.str()?, ""))?.extract::<String>()?;
-    Ok(format!("{key}={value}"))
+    let text = PyString::new(py, "{0!s}={1!s}").call_method1("format", (key, value))?;
+    python_string_to_codepoints(&text)
 }
 
-fn python_whitespace(character: char) -> bool {
-    character.is_whitespace() || matches!(character, '\u{001c}'..='\u{001f}')
+fn python_whitespace(point: u32) -> bool {
+    char::from_u32(point)
+        .is_some_and(|character| character.is_whitespace() || matches!(point, 0x1c..=0x1f))
 }
 
-fn has_control(text: &str) -> bool {
-    text.chars().any(|character| character.is_ascii_control())
+fn has_control(text: &[u32]) -> bool {
+    text.iter().any(|point| matches!(point, 0..=31 | 127))
 }
 
-fn legal_token(text: &str) -> bool {
+fn legal_token(text: &[u32]) -> bool {
     !text.is_empty()
-        && text.chars().all(|character| {
-            character.is_ascii_alphanumeric() || "!#$%&'*+-.^_`|~:".contains(character)
+        && text.iter().all(|point| {
+            char::from_u32(*point).is_some_and(|character| {
+                character.is_ascii_alphanumeric() || "!#$%&'*+-.^_`|~:".contains(character)
+            })
         })
+}
+
+fn string_codepoints(value: &Bound<'_, PyAny>) -> PyResult<Vec<u32>> {
+    if value.is_instance_of::<PyString>() {
+        return python_string_to_codepoints(value);
+    }
+    if value.is_instance_of::<PyBytes>()
+        || value.is_instance_of::<PyByteArray>()
+        || value.is_instance_of::<PyMemoryView>()
+    {
+        return Err(PyTypeError::new_err(
+            "cannot use a string pattern on a bytes-like object",
+        ));
+    }
+    Err(PyTypeError::new_err(format!(
+        "expected string or bytes-like object, got '{}'",
+        value.get_type().name()?
+    )))
 }
 
 fn cookie_error(py: Python<'_>, message: String) -> PyResult<PyErr> {
@@ -171,21 +271,14 @@ fn cookie_error(py: Python<'_>, message: String) -> PyResult<PyErr> {
 }
 
 fn quote_value<'py>(py: Python<'py>, value: &Bound<'py, PyString>) -> PyResult<Bound<'py, PyAny>> {
-    if legal_token(value.to_str()?) {
+    if legal_token(&python_string_to_codepoints(value.as_any())?) {
         return Ok(value.clone().into_any());
     }
-    // Python subclasses may override translate. The table and quoting decision
-    // belong to Rust; invoking the original method preserves that value contract.
-    let translations = PyDict::new(py);
-    for codepoint in 0..=255u32 {
-        if matches!(codepoint, 0..=31 | 44 | 59 | 127..=255) {
-            translations.set_item(codepoint, format!("\\{codepoint:03o}"))?;
-        } else if matches!(codepoint, 34 | 92) {
-            let character = char::from_u32(codepoint)
-                .ok_or_else(|| PyValueError::new_err("invalid cookie quote character"))?;
-            translations.set_item(codepoint, format!("\\{character}"))?;
-        }
-    }
+    // translate() is a Python representation boundary. Its shared interpreter
+    // dictionary is observable through user callbacks and must also alias the
+    // standard library's cookie translation table. Rust still selects quoting
+    // and builds the cookie; no SimpleCookie/Morsel algorithm is invoked here.
+    let translations = py.import("http.cookies")?.getattr("_Translator")?;
     let translated = value.call_method1("translate", (translations,))?;
     let operator = py.import("operator")?;
     let prefix = operator.call_method1("add", ("\"", translated))?;
@@ -235,12 +328,11 @@ fn validate_python_attribute(py: Python<'_>, name: &str, value: &Bound<'_, PyAny
     // CPython 3.12.13 validates an attribute when it is assigned to a
     // Morsel, before formatting it for output. Each str() call can run
     // arbitrary user code; conversion must preserve both boundaries.
-    let text = value.str()?;
-    if text
-        .to_str()?
-        .chars()
-        .any(|character| character.is_ascii_control())
-    {
+    let controls = {
+        let text = value.str()?;
+        has_control(&python_string_to_codepoints(text.as_any())?)
+    };
+    if controls {
         let message = format!(
             "Control characters are not allowed in cookies {} {}",
             PyString::new(py, name).repr()?,

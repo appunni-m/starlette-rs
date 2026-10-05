@@ -17,7 +17,7 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest uses `parity-input@43` and indexes 1588 input-only cases across 108 files (1586 oracle parity cases and two target-only fault contracts), covering 121 operations and 966 unique parity requirements. Earlier inputs compare the complete custom BaseHTTPMiddleware application through one client on asyncio and Trio: five ordered HTTP requests followed by a WebSocket session, with exception identity, arguments, group children, cause/context links, partial ASGI events, and thread cleanup. These exposed and fixed worker-to-portal StreamingResponse ownership, missing EndOfStream context, and asyncio streaming cancellation context in Rust. The declared normalization replaces only the hexadecimal cancel-scope address in typed asyncio CancelledError messages and arguments. Two new lifecycle inputs retain the four propagated exceptions and original tracebacks after portal shutdown, then release and collect them on the caller thread. They pass on asyncio and Trio with preserved traceback identity, all three user finalizers completed, and no unraisable errors after Rust ownership and GC traversal fixes. Active or unawaited continuations need separate comparisons. The declared AnyIO EOF normalization recognizes only the exact receiver-internal suppressed AttributeError/WouldBlock context shown to vary across identical live source inputs; it preserves EndOfStream and caller links. The preceding inputs compare the pinned composite Router graph and ten ordered requests through one managed TestClient on asyncio and Trio, including complete responses, redirect history, ASGI events, lifespan, and thread cleanup. The preceding inputs compare constructor headers without HTTP requests and middleware startup exceptions during TestClient context entry, including exception identity and thread cleanup. Earlier inputs map static and path-parameter WebSocketRoute dispatch through TestClient, alongside direct Request and WebSocket constructor scope checks. The pinned `test_router_add_websocket_route` uses a preconfigured module-level Router and does not invoke `Router.add_websocket_route`; the method candidate remains `uncertain` while the observed dispatch behavior is mapped. The preceding batch exercises URL-encoded `Request.form` field-count and part-size errors with each request body delivered in one ASGI chunk. The earlier batch maps `routing.test_partial_async_ws_endpoint`, comparing async function and bound class-method WebSocketRoute endpoints wrapped in `functools.partial` through a mounted Router. Recent parity inputs
+The active parity manifest uses `parity-input@44` and indexes 1744 input-only cases across 109 files (1742 oracle parity cases and two target-only fault contracts), covering 121 operations and 978 unique parity requirements. Earlier inputs compare the complete custom BaseHTTPMiddleware application through one client on asyncio and Trio: five ordered HTTP requests followed by a WebSocket session, with exception identity, arguments, group children, cause/context links, partial ASGI events, and thread cleanup. These exposed and fixed worker-to-portal StreamingResponse ownership, missing EndOfStream context, and asyncio streaming cancellation context in Rust. The declared normalization replaces only the hexadecimal cancel-scope address in typed asyncio CancelledError messages and arguments. Two new lifecycle inputs retain the four propagated exceptions and original tracebacks after portal shutdown, then release and collect them on the caller thread. They pass on asyncio and Trio with preserved traceback identity, all three user finalizers completed, and no unraisable errors after Rust ownership and GC traversal fixes. Active or unawaited continuations need separate comparisons. The declared AnyIO EOF normalization recognizes only the exact receiver-internal suppressed AttributeError/WouldBlock context shown to vary across identical live source inputs; it preserves EndOfStream and caller links. The preceding inputs compare the pinned composite Router graph and ten ordered requests through one managed TestClient on asyncio and Trio, including complete responses, redirect history, ASGI events, lifespan, and thread cleanup. The preceding inputs compare constructor headers without HTTP requests and middleware startup exceptions during TestClient context entry, including exception identity and thread cleanup. Earlier inputs map static and path-parameter WebSocketRoute dispatch through TestClient, alongside direct Request and WebSocket constructor scope checks. The pinned `test_router_add_websocket_route` uses a preconfigured module-level Router and does not invoke `Router.add_websocket_route`; the method candidate remains `uncertain` while the observed dispatch behavior is mapped. The preceding batch exercises URL-encoded `Request.form` field-count and part-size errors with each request body delivered in one ASGI chunk. The earlier batch maps `routing.test_partial_async_ws_endpoint`, comparing async function and bound class-method WebSocketRoute endpoints wrapped in `functools.partial` through a mounted Router. Recent parity inputs
 include outer BaseHTTPMiddleware request-body transformation and replay, map the pinned WebSocket scope Mapping and identity behavior, and correct the
 StaticFiles HEAD fixture to use the upstream `<file content>` asset and its
 14-byte length. The upstream one-chunk URL-encoded limit test directly inspects private `FormParser` counters/messages and a 50 MiB stress bound, so that implementation-local assertion is source-backed `not_applicable`; the public `Request.form` error behavior is covered by the two live source/package inputs. Schema inputs map the pinned route graph, including missing
@@ -369,6 +369,39 @@ boundaries. Ignored local results live in
 These results cover the selected workflows only and do not establish full
 compatibility.
 
+## Cookie returned-value ownership and shared translation evidence
+
+The 156 new input-only cases compare returned string lifetimes, original errors,
+finalizer reentry and unraisable errors, shared translation-table mutation and
+standard-library aliasing, key hash callbacks, and surrogate encoding order
+across Response, HTMLResponse, PlainTextResponse and JSONResponse. Implementation
+was completed before running the entire matrix, as requested. No reproduction
+against the previous target is claimed for this batch.
+
+Rust owns conversion state, validation, quoting and serialization. The Python
+forwarding frame holds a GC-visible Rust object so exception tracebacks retain
+converted values. This adds only object/lifetime forwarding; no runtime Python
+branching, iteration, unit tests, unsafe Rust or lint weakening was added.
+
+Full working-tree run `82b73937-71cb-40e9-b45e-a98186ed86a3` passed 1740/1740 package comparisons, 246/250 native comparisons, and both fault contracts, with zero failures or infrastructure errors. Four unsupported native callable cases remain not_run, so the full CLI returns exit status 2. This is working-tree evidence, not a clean-revision release claim. Result SHA-256: `08d58b4452fa673762e1ed9db594b8681674896083b4c6217255822325c66f85`.
+
+Instrumented full run `fb13c949-fb6a-4ed7-8f73-b203bed180bd` retained the same counts. Coverage MCP verified 19714/25453 Rust lines with matching source/build receipts; 5739 lines remain uncovered. Instrumented tree: `7ce86e79c5fcbe1b6871925b2f91795e935b56122207fd1ce046271aeaeaf0f0`; wheel SHA-256: `c74329850c1c712d326ab3a5c4e157b12bfb64f8922de417627915cf54936474`. The LCOV report, full case receipts and MCP response remain ignored under `build/parity/coverage/response-cookie-ownership-20261005/`. This is measured line coverage for the instrumented package build; no branch coverage or regression comparison with older source is claimed.
+
+The current contract indexes 1744 cases in 109 files: 1742 ordinary oracle
+cases and two target-only fault contracts, 121 operations and 978 parity
+requirements. The atlas remains 809 source rows, 694 mapped rows, 52 reasoned
+not_applicable rows and 63 backlog rows. Fixed denominators remain 514 upstream
+test functions and 24 documentation pages. Supplied Morsel values, further key
+protocols, exception/GC cleanup after caller release, other interpreter
+versions, and Streaming/File/Redirect subclass interception remain open.
+Complete Starlette parity remains unproven.
+
+The repository's strict schema/index/input and project-policy validators passed.
+The bundled generic fixture audit assumes the older @2 layout and cannot ingest
+this @4 manifest's fault registry and ignored build/parity inputs; its diagnostic
+is retained locally and is not reported as passing evidence.
+
+
 ## Response attribute and header-cache evidence
 
 The 136 new input-only consumers cover attribute interception, conditional charset reads, public header-view caching and aliasing, raw-header replacement/deletion, finalizer reentry, constructor header hooks, cookie override dispatch, and cookie conversion reentry/control characters across four documented response classes. Initial reproduction `7dc3041f-f0d7-4304-b686-50b7b5a3158b` exposed 70 divergences with 19 ordinary passes; a separate eight-case finalizer reproduction `59bb16ff-55de-45e8-9bd8-5431969adf7e` exposed eight divergences with one ordinary control pass. Both runs passed both fault contracts without infrastructure errors. The former raw-header setter held a native mutable borrow while dropping user values, so their finalizers could encounter a PyO3 borrow panic.
@@ -518,7 +551,7 @@ The candidate rows, source line numbers, signatures, defaults, constructors,
 special methods, candidate re-exports, and documentary evidence are in
 [`api-surface.csv`](api-surface.csv). The merged
 [`API review`](atlas/api-review.csv) dispositions each of its 999 rows with
-evidence: 517 `supported`, 285 `private/internal`, and 197 `uncertain`. The
+evidence: 530 `supported`, 285 `private/internal`, and 184 `uncertain`. The
 catalog's original `audit_status` field records inventory provenance; use the
 merged disposition and rationale for the compatibility classification. The
 root package defines only `__version__ = "1.6.0"`; it has no convenience
@@ -754,7 +787,7 @@ and the legacy `httpx` TestClient backend.
 
 ## Unresolved points carried into implementation
 
-- The 197 `uncertain` API candidates remain deliberately unresolved where the
+- The 184 `uncertain` API candidates remain deliberately unresolved where the
   pinned docs, source, and release history do not establish public intent.
 - The WebSocket guide says query parameters are unsupported while a pinned test
   exercises them; both inputs remain separate in
