@@ -179,7 +179,7 @@ The previous clean full-slice preflight `55535731-b03c-4a49-ae6f-b8f61e10fbda` p
 The previous clean benchmark `235c3274-3d87-494a-a9ab-62dab72158d1` measured 74/74 source/package workloads with matching normalized observations and zero failures. Median source/package latency ratios were 0.742 for Router and 0.976 for GZip; source was faster in 5/6 Router and 59/68 GZip workloads. All 74 native benchmark rows remain `not_run`. Result SHA-256: `be0e79206e67f80d85b5ea7b873a00d207b1240a9f0fb8bb60ddc9b4843299a2`. See [Benchmark mapping](BENCHMARKS.md) and [Parity evidence](PARITY.md) for current receipts and scope.
 
 The latest source inventory check dispositioned all 999 API candidate rows.
-The generated coverage matrix currently has 808 source rows: 689 input mappings,
+The generated coverage matrix currently has 809 source rows: 690 input mappings,
 52 reasoned `not_applicable` rows, and 67 fixture backlog rows. Derive these
 changing counts from the generated atlas CSV files. No upstream test-function row remains in the backlog; 67 other source rows remain open. The finished-workflow traceback-retained callback cleanup row now maps to the two passing backend inputs. The pinned denominators are 514 upstream test functions and 24 documented pages. The bundled generic Open Source auditor rejects the existing manifest extensions and generated-input layout before parsing inputs; that audit did not pass. Repository-native contract, inventory, and policy checks remain compatible. Full replacement parity is not established.
 
@@ -759,7 +759,7 @@ consumer reference. Its public status remains unresolved. Public lifespan
 parity inputs observe the user application's recorded thread and exception
 propagation rather than requiring this implementation-state attribute.
 
-## Clean full verification
+## Previous clean full verification
 
 The full preflight `7945194a-1060-4426-861c-abcc72183905` passed
 993/993 installed Python-package comparisons and
@@ -775,4 +775,28 @@ workloads with matching correctness observations. All 74 native timing
 boundaries remain not run. Benchmark SHA-256: `a7afc4bf807524411635aa80dee6e90fc4984077d0e90bd92d60607fb04106fe`. See
 [Benchmark mapping](BENCHMARKS.md) for latency ratios and limitations.
 
-The atlas currently contains 808 source rows, 689 fixture mappings, 52 source-backed not-applicable rows, and 67 backlog rows. The Request lifetime row maps to the 17 new inputs. Coverage MCP verified 223 newly covered Rust lines in a selected incremental measurement; it does not establish full-suite coverage. Full replacement parity remains incomplete.
+After the previous Request lifetime batch, the atlas contained 808 source rows, 689 fixture mappings, 52 source-backed not-applicable rows, and 67 backlog rows. The Request lifetime row mapped to its 17 new inputs. Coverage MCP verified 223 newly covered Rust lines in a selected incremental measurement; it does not establish full-suite coverage. Full replacement parity remains incomplete.
+
+## Clean full verification after public value ownership fixes
+
+The full preflight `b52b86ac-b202-4875-a6cb-8940055c133f` passed
+1038/1038 installed Python-package comparisons and
+246/250 Rust-native comparisons.
+The 4 existing native Python-callable rows remain `not_run`.
+All 2 target-only fault contracts passed, with zero failures or
+infrastructure errors. The package was clean at `7c02f8540081096a642e7a1528e0919973a8c355`,
+with package tree `b4d91d5491a21df1a3fc8796f2bc4033f421c7add407b26f6fa7156088f3a907` matching the normal selected
+ownership verification. Preflight SHA-256: `ea90512b5d2e5b737b07ea772ff651c12505c3a6738acfcfabe9b7ddb95d349c`.
+Manifest SHA-256: `96ae44c8fd64cac75901685765befc8861e88cb19e47296b05fad12bfaf01cfa`.
+
+Benchmark `839bb33d-b9e8-4f26-84a0-f9dcd1836bb4` measured all
+74 Router/GZip source/package workloads with
+matching correctness observations. All 74
+native timing boundaries remain `not_run`. Median source/package latency
+ratios were 0.736 for Router and 0.975
+for GZip; source was faster in 5/6
+Router and 57/68 GZip workloads.
+These are local workload measurements. Benchmark SHA-256: `3c52d488e8e57e6454dc54d8518f78ac0b3d258efc6ff927e3280330f8853890`.
+See [Benchmark mapping](BENCHMARKS.md) for the generated evidence and limitations.
+
+The current atlas contains 809 source rows, 690 fixture mappings, 52 source-backed not-applicable rows, and 67 backlog rows. The new public-value row and expanded Request lifetime row account for 45 new inputs. Coverage MCP verified 217 newly covered Rust lines in a selected incremental measurement. Full-suite coverage and full replacement parity remain unproven; the denominators remain 514 upstream test functions and 24 documented pages.

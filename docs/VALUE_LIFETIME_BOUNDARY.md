@@ -88,3 +88,25 @@ baseline 3,837/24,936 lines, batch 3,767/24,936, union 4,054/24,936
 (+0.870 percentage points). This selected union does not establish full-suite
 coverage or regression status. Reports, receipts, and comparison artifacts
 remain ignored under `build/parity/coverage/value-lifetime-20261005/`.
+
+## Clean full verification after public value ownership fixes
+
+The full preflight `b52b86ac-b202-4875-a6cb-8940055c133f` passed
+1038/1038 installed Python-package comparisons and
+246/250 Rust-native comparisons.
+The 4 existing native Python-callable rows remain `not_run`.
+All 2 target-only fault contracts passed, with zero failures or
+infrastructure errors. The package was clean at `7c02f8540081096a642e7a1528e0919973a8c355`,
+with package tree `b4d91d5491a21df1a3fc8796f2bc4033f421c7add407b26f6fa7156088f3a907` matching the normal selected
+ownership verification. Preflight SHA-256: `ea90512b5d2e5b737b07ea772ff651c12505c3a6738acfcfabe9b7ddb95d349c`.
+Manifest SHA-256: `96ae44c8fd64cac75901685765befc8861e88cb19e47296b05fad12bfaf01cfa`.
+
+Benchmark `839bb33d-b9e8-4f26-84a0-f9dcd1836bb4` measured all
+74 Router/GZip source/package workloads with
+matching correctness observations. All 74
+native timing boundaries remain `not_run`. Median source/package latency
+ratios were 0.736 for Router and 0.975
+for GZip; source was faster in 5/6
+Router and 57/68 GZip workloads.
+These are local workload measurements. Benchmark SHA-256: `3c52d488e8e57e6454dc54d8518f78ac0b3d258efc6ff927e3280330f8853890`.
+See [Benchmark mapping](BENCHMARKS.md) for the generated evidence and limitations.
