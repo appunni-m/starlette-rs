@@ -6,6 +6,29 @@ and `JSONResponse`, including the custom JSON render example in
 `docs/responses.md:96-118`. Their constructor and ASGI implementation are in
 `starlette/responses.py:29-200` in the pinned checkout.
 
+## Cookie argument protocol boundary
+
+`response-cookie-protocols.yaml` supplies 98 input-only consumers of the four
+documented response classes. They call public `set_cookie`/`delete_cookie`
+with original Python values and attribute objects, observe conversion and
+truth-testing callbacks, retain callback exception identity, and record public
+header bytes after success or failure. Callback reentry uses the same public
+cookie methods. An input-defined clock controls deletion/integer expiry on both
+sides without changing or normalizing the live output. The source implementation and installed package independently
+execute this shared consumer; exact results are generated live.
+
+The Rust boundary must preserve Python `str`, equality, truth testing, user
+string translation, formatting and `lower` protocols in source order. CPython
+compiles literal `%s` pairs into string conversion followed by its format
+protocol; a string subclass can run its original conversion again there.
+These callbacks preserve the required Python value representation contract.
+Rust owns attribute selection, validation, ordering, quoting and header
+construction. Python facades only forward the unchanged original arguments.
+Python datetime/date formatting uses the active interpreter's representation
+functions. No upstream Starlette module is imported at runtime. Arbitrary
+cookie key objects, supplied Morsel values, Python versions beyond the pinned
+interpreter, and complete cookie behavior remain separate open requirements.
+
 Python must invoke a user subclass's `render` method on the constructor's
 thread. Its values, attribute changes, and original exceptions belong to the
 Python consumer contract. This invocation cannot be replaced with a Rust
@@ -189,3 +212,15 @@ The generated atlas remains 809 source rows: 694 existing mappings, 52 source-ba
 Clean commit `09191fd4968b0d309bb336c0f693aeb0cd606d4e` passed full preflight `8eb08944-aa22-4802-9913-760667c7e4bb`: 1,486/1,486 Python-package comparisons, 246/250 Rust-native comparisons, and both fault contracts. There were zero failures or infrastructure errors. Four existing native callable cases remain not_run. Result SHA-256: `177bab1dd7bec1b19687a4c1dfe0be91ede4f0d66636b5f12fdbe776a1331335`. Normal package tree `f39c1c88aec7a7f3a2e60b825eaa68ba0442e07dfb2b86fdacbcb0bbce533187` matches the selected run.
 
 Benchmark `4d4c57cc-1dfb-4c01-b644-f8b07c4a08bb` matched and timed all 74 source/package workloads. All 74 native timings remain not_run. Median source/package latency ratios were 0.759 for Router and 0.975 for GZip; the source was faster in 5/6 Router and 54/68 GZip workloads. Result SHA-256: `f529e5553e5c4982a1ba8c86358b42769d678ed32e52681b8d6380e19e9e38fc`. See [benchmark evidence](BENCHMARKS.md). These bounded comparisons do not establish full replacement parity or general speed superiority.
+
+## Cookie argument conversion and serialization evidence
+
+The 98 input-only consumers exercise original cookie value/attribute conversions, empty-value equality, string subclass formatting and translation, flag truth testing, integer subclasses, original callback errors, and reentry through documented cookie methods. Initial reproduction `44098d49-02ee-427d-958a-7230be0470ac` exposed 78 divergences in the first 81 new inputs, with 4 ordinary passes including the control and both fault contracts passing, without infrastructure errors. A fixed input clock makes deletion/integer expiry deterministic on both sides; outputs remain live and exact.
+
+Rust now retains Python argument objects through source-ordered assignment and deferred serialization, selects cookie attributes and quoting, and invokes the active interpreter's value representation protocols. CPython compiles literal string pairs into str conversion followed by its format protocol, which matters when a string subclass returns itself. Raw-header append selection follows those conversions. User callbacks run without a native response borrow. The runtime Python facade is unchanged; no Python branching, loops, unsafe Rust, or unit tests were added.
+
+Normal selection `8a4bc151-3147-4c94-8f90-c5b1677ac7cc` passed 668/668 ordinary comparisons and both fault contracts, with no failures or infrastructure errors. It includes previous rendering, attribute/cache, ASGI ownership, construction-protocol, redirect, streaming, file, body-limit and route-limit controls. Result SHA-256: `ccec1f895844b0fd0acb4fe83f943162d8b4149d7d09d3778f5f9f41bfa45a01`; manifest SHA-256: `da6c7d67fb4ce2b49d0b10bcd4ec63db451e67863c5e9d9927b2914f422c6c4b`; normal installed package tree: `0d606843ce84425833aa38790784a5fef20173dfc6fa8837587e03fe2161eba4`.
+
+Coverage MCP verified 20 additional Rust lines with matching source/build receipts: baseline 3,231/25,392, batch 3,004/25,392, union 3,251/25,392. Baseline `4bd2dded-21df-4ea4-9841-ee693de53c0b` passed 446 ordinary comparisons; batch `096e641a-e283-4033-af86-a6c5d005b58f` passed 99. Both passed both fault contracts. Instrumented package tree: `a52ae84285111153f866ef4a64d50a93cdc81ec920911c707c889275a0254bb9`; wheel SHA-256: `331c3aa4de2fd664057a7ff942fc2f4bcf399a97568ca7bea445bfbd79940778`. Reports and receipts remain ignored under `build/parity/coverage/response-cookie-protocols-20261005/`. This selected incremental union does not establish full-suite coverage regression status.
+
+The generated atlas remains 809 source rows: 694 existing mappings, 52 source-backed not_applicable rows, and 63 backlog rows. Fixed denominators remain 514 upstream test functions and 24 documentation pages. Arbitrary cookie key objects, supplied Morsel values, other interpreter versions, and Streaming/File/Redirect subclass interception need further comparisons. `Response.init_headers` remains uncertain. Complete response and Starlette parity remain unproven. See [response boundary](RESPONSE_RENDER_BOUNDARY.md).

@@ -15915,7 +15915,14 @@ def validate_case(
         expected_case_keys = expected_case_keys | (REQUEST_FORM_OPTIONAL_KEYS.intersection(case))
     elif is_response_consumer:
         expected_case_keys = RESPONSE_CONSUMER_CASE_KEYS | (
-            {"callbacks", "ownership", "construction_boundary", "subclass_protocol"} & case.keys()
+            {
+                "callbacks",
+                "ownership",
+                "construction_boundary",
+                "subclass_protocol",
+                "cookie_protocol",
+            }
+            & case.keys()
         )
     elif is_value_lifetime:
         expected_case_keys = VALUE_LIFETIME_CASE_KEYS
@@ -31386,6 +31393,13 @@ def _validate_response_consumer_case(case: dict[str, Any]) -> None:
         if {"callbacks", "ownership", "construction_boundary"} & case.keys():
             raise ContractError("Response attribute protocols require their own input workflow")
         _validate_response_attribute_protocol(case["subclass_protocol"])
+    if "cookie_protocol" in case:
+        expected_requirements.append(
+            case["surface"] + ".consumer-construction.cookie-argument-protocols"
+        )
+        if {"callbacks", "ownership", "construction_boundary", "subclass_protocol"} & case.keys():
+            raise ContractError("Response cookie protocols require their own input workflow")
+        _validate_response_cookie_protocol(case["cookie_protocol"])
     if case["covers"] != expected_requirements:
         raise ContractError("Response consumer coverage must match its declared surface")
     spec = _exact(
@@ -31497,6 +31511,93 @@ def _validate_response_attribute_error(value: Any) -> None:
         error["message"], str
     ):
         raise ContractError("Response attribute callbacks require an exception class and text")
+
+
+def _validate_response_cookie_protocol(value: Any) -> None:
+    if not isinstance(value, list) or not value:
+        raise ContractError("Response cookie protocol requires nonempty actions")
+    methods = {"str", "repr", "bool", "eq", "lower", "translate"}
+    for action in value:
+        _exact(
+            action,
+            {"operation", "arguments", "clock_unix_seconds"},
+            "Response cookie protocol action",
+        )
+        if type(action["clock_unix_seconds"]) is not int:
+            raise ContractError("Response cookie protocol clock requires integer seconds")
+        if action["operation"] not in {"set_cookie", "delete_cookie"}:
+            raise ContractError("Response cookie protocol requires a public cookie operation")
+        arguments = action["arguments"]
+        names = {"key", "path", "domain", "secure", "httponly", "samesite"}
+        if action["operation"] == "set_cookie":
+            names |= {"value", "max_age", "expires", "partitioned"}
+        if not isinstance(arguments, dict) or "key" not in arguments or arguments.keys() - names:
+            raise ContractError("Response cookie arguments require a key and public option names")
+        for spec in arguments.values():
+            if not isinstance(spec, dict):
+                raise ContractError("Response cookie arguments require value definitions")
+            if spec.get("kind") == "literal":
+                _exact(spec, {"kind", "value"}, "Response cookie literal")
+                _validate_threadpool_json(spec["value"], "Response cookie literal value")
+                continue
+            _exact(
+                spec,
+                {
+                    "kind",
+                    "value",
+                    "label",
+                    "str_text",
+                    "str_self",
+                    "truth",
+                    "lower",
+                    "eq_empty",
+                    "failure",
+                    "reentry",
+                    "translation",
+                },
+                "Response cookie protocol value",
+            )
+            if spec["kind"] not in {"object", "text", "integer"}:
+                raise ContractError("Response cookie protocol value kind is unsupported")
+            if (
+                (spec["kind"] == "text" and not isinstance(spec["value"], str))
+                or (spec["kind"] == "integer" and type(spec["value"]) is not int)
+                or (spec["kind"] == "object" and spec["value"] is not None)
+            ):
+                raise ContractError("Response cookie protocol backing value has the wrong type")
+            if any(not isinstance(spec[name], str) for name in ("label", "str_text")):
+                raise ContractError(
+                    "Response cookie protocol labels and string results require text"
+                )
+            if any(type(spec[name]) is not bool for name in ("str_self", "truth", "eq_empty")):
+                raise ContractError("Response cookie protocol selections require booleans")
+            if spec["str_self"] and spec["kind"] != "text":
+                raise ContractError("Only a text subclass may return itself from str")
+            _validate_threadpool_json(spec["lower"], "Response cookie lower result")
+            if spec["translation"] is not None and not isinstance(spec["translation"], str):
+                raise ContractError("Response cookie translation requires text or delegation")
+            for name in ("failure", "reentry"):
+                event = spec[name]
+                if event is None:
+                    continue
+                keys = {"method", "at_call"} | (
+                    {"class", "message"} if name == "failure" else {"key", "value"}
+                )
+                _exact(event, keys, "Response cookie callback")
+                if (
+                    event["method"] not in methods
+                    or type(event["at_call"]) is not int
+                    or event["at_call"] < 1
+                ):
+                    raise ContractError(
+                        "Response cookie callbacks require a method and positive count"
+                    )
+                if name == "failure":
+                    _validate_response_construction_failure(
+                        {key: event[key] for key in ("class", "message")}
+                    )
+                elif any(not isinstance(event[key], str) for key in ("key", "value")):
+                    raise ContractError("Response cookie reentry requires text key and value")
 
 
 def _validate_response_attribute_protocol(value: Any) -> None:

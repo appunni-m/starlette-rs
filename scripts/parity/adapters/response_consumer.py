@@ -159,6 +159,12 @@ def run_response_consumer_case(case: dict[str, Any]) -> dict[str, Any]:
             else constructor(_content(spec["content"], trace, callback_errors), **kwargs)
         )
         outcome["constructed"] = True
+        if "cookie_protocol" in case:
+            from scripts.parity.adapters.response_cookies import apply_cookie_protocol
+
+            phase = "cookie-protocol"
+            apply_cookie_protocol(response, case["cookie_protocol"], trace, callback_errors)
+            phase = "constructor-observations"
         if subclass_probe is not None:
             phase = "header-actions"
             subclass_probe.actions(response)

@@ -1,5 +1,17 @@
 # Upstream identities
 
+## Cookie protocol input provenance
+
+`response-cookie-protocols.yaml` is independently authored from the pinned
+`starlette/responses.py:90-160`, `docs/responses.md:29-52`, and the active
+CPython 3.12.13 `http.cookies` value/attribute conversion behavior. User
+argument subclasses and callback/error/reentry stimuli are original consumer
+code; no upstream test file, stored expected output, or standard-library
+implementation is copied. Starlette's BSD-3-Clause provenance remains
+applicable. The active Python standard library is supplied by CPython under
+the PSF license and remains a runtime representation boundary for Python
+date values and exception classes.
+
 ## Starlette oracle
 
 | Field | Pinned identity |

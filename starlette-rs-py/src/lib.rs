@@ -809,20 +809,15 @@ impl PyResponse {
                 "unsupported response cookie operation",
             ));
         }
-        // Cookie generation is independent of existing headers. A temporary
-        // Rust value permits user conversion callbacks to reenter the response.
-        let native = Py::new(py, Self::uninitialized())?;
-        native.bind(py).getattr("set_cookie")?.call(args, None)?;
-        let headers = native.borrow(py).inner.headers().to_vec();
-        for (name, value) in headers {
-            response.getattr("raw_headers")?.call_method1(
-                "append",
-                (PyTuple::new(
-                    py,
-                    [PyBytes::new(py, &name), PyBytes::new(py, &value)],
-                )?,),
-            )?;
-        }
+        let header = cookie_runtime::header_from_arguments(py, args)?;
+        // Source selects the current append callable before encoding the final
+        // header. Neither user conversions nor this selection hold a native borrow.
+        let append = response.getattr("raw_headers")?.getattr("append")?;
+        let encoded = header.call_method1("encode", ("latin-1",))?;
+        append.call1((PyTuple::new(
+            py,
+            [PyBytes::new(py, b"set-cookie").into_any(), encoded],
+        )?,))?;
         Ok(())
     }
 
