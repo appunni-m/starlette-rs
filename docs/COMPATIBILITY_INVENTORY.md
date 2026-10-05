@@ -381,6 +381,12 @@ Coverage MCP verified 46 additional Rust lines on matching source/build receipts
 
 The generated atlas remains 809 rows: 694 existing mappings, 52 source-backed not_applicable rows, and 63 backlog rows. This batch adds behavior requirements within documented responses without relabeling unrelated backlog items. Fixed denominators remain 514 upstream test functions and 24 documentation pages. Complete Starlette parity remains unproven. See [response boundary](RESPONSE_RENDER_BOUNDARY.md).
 
+### Clean full callback regression and benchmark gate
+
+Clean commit `30becba23b568754874b17407a769c238697407f` passed full preflight `23659d68-7cc4-4e91-9134-7ab6ed4b8b19`: 1,218/1,218 Python-package comparisons, 246/250 Rust-native comparisons, and both fault contracts. There were zero failures or infrastructure errors. Four existing native callable cases remain not_run. Result SHA-256: `2eec10dd17b8a4e0fb749af9a54a80ceb8b541ead7a5e1b30394c4e7488f747a`. Normal package tree `16ed8c9e92d49c5240e6c8bda59161db80c9c3625611c16544146880249f6dd0` matches the selected run.
+
+Benchmark `b032a0d3-e787-4d23-b066-87b84086cb69` matched and timed all 74 source/package workloads. All 74 native timings remain not_run. Median source/package latency ratios were 0.756 for Router and 0.975 for GZip; the source was faster in 5/6 Router and 46/68 GZip workloads. Result SHA-256: `18812538edde5287ec6ddb514f54cb07e04df01318c5935588f1abd9c09dcf24`. See [benchmark evidence](BENCHMARKS.md). Passing this active bounded contract does not establish full replacement parity.
+
 ## Response construction and rendering evidence
 
 The 52 input-only response consumers cover documented HTML, plain-text, nested JSON, and custom JSON rendering. Live reproduction `949d28a1-4a26-4d91-b6eb-9ec5c14ca199` had 31 divergences, 22 ordinary passes, and two passing fault contracts with no infrastructure errors. It exposed PlainTextResponse class/default constructor differences, subclass charset headers, render-time status changes, and stale caller-updated ASGI status codes. Rust now selects charset headers and current call status; the Python subclasses only forward constructor and user-render calls.
