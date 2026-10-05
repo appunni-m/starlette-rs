@@ -100,6 +100,27 @@ These inputs exposed the earlier `unsendable` class annotations as a PyO3
 panic on valid public usage. This boundary does not establish free-threaded
 CPython or simultaneous template mutation behavior.
 
+## Public WebSocket denial and concurrency workflows
+
+[`testclient-websocket-public.yaml`](../tests/fixtures/sources/parity/testclient-websocket-public.yaml)
+compares four public workflows on asyncio and Trio. Default connections pass
+`subprotocols=None`; an empty sequence would add a protocol header. Headers
+and optional compression-module presence are observed from the live client.
+
+The concurrency app creates its AnyIO memory stream on the caller thread,
+then runs a JSON reader and writer on TestClient's selected portal backend.
+The input supplies a disconnect and drains the application close frame before
+context exit. This preserves deterministic frame and cleanup observations.
+AnyIO owns the user's task group and Python event loop; Rust owns WebSocket
+receive/send state and TestClient session cleanup.
+
+The denial inputs remove the live server extension or send two response starts
+through `WebSocket.send`. Both errors are reachable from public inputs and are
+compared against the oracle, including partial event tapes and propagated
+exceptions. They require no runtime fault hook and no Python facade behavior.
+The separate target-only route-cache poison contracts exercise internal Rust
+failures through public 500-response and exception outcomes.
+
 ## Evidence and remaining work
 
 Each slice is authored as input-only YAML under `tests/fixtures/sources/` and

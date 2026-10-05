@@ -282,6 +282,10 @@ TESTCLIENT_WEBSOCKET_REQUIREMENTS = {
     "query_params": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.query-params-raw-path",
     "application_query_params": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.application-query-params",
     "application_url": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.application-url",
+    "application_headers": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.application-headers",
+    "memory_stream_echo": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.memory-stream-json-echo",
+    "denial_unsupported": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.denial-response-unsupported-extension",
+    "denial_duplicate_start": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.denial-response-duplicate-start",
     "protocol_switch": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.router-protocol-switch",
     "router_miss": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.router-miss-disconnect",
     "router_websocket_match": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.router-websocket-route-match",
@@ -12836,8 +12840,37 @@ def _validate_testclient_websocket_flow(app_actions: Any) -> str:
                     _string(response["key"], f"{item_context}.on_item.key")
                 else:
                     raise ContractError(f"{item_context}.method must select a WebSocket iterator")
-            elif operation in {"observe_query_params", "send_query_params_json"}:
+            elif operation in {
+                "observe_query_params",
+                "send_query_params_json",
+                "observe_headers",
+                "send_headers_json",
+                "send_response_start",
+            }:
                 _exact(value, {"operation"}, item_context)
+            elif operation == "remove_extension":
+                action = _exact(value, {"operation", "name"}, item_context)
+                if action["name"] != "websocket.http.response":
+                    raise ContractError(f"{item_context} must remove the denial extension")
+            elif operation == "make_response":
+                action = _exact(value, {"operation", "response"}, item_context)
+                response = _exact(action["response"], {"content", "status_code"}, item_context)
+                if (
+                    type(response["status_code"]) is not int
+                    or not 100 <= response["status_code"] <= 599
+                ):
+                    raise ContractError(f"{item_context} must supply an HTTP status code")
+                _string(response["content"], f"{item_context}.response.content")
+            elif operation == "send_denial_response":
+                action = _exact(value, {"operation", "capture_error"}, item_context)
+                if type(action["capture_error"]) is not bool:
+                    raise ContractError(f"{item_context}.capture_error must be boolean")
+            elif operation == "memory_stream_echo":
+                action = _exact(value, {"operation", "buffer_size"}, item_context)
+                if type(action["buffer_size"]) is not int or action["buffer_size"] < 0:
+                    raise ContractError(
+                        f"{item_context}.buffer_size must be a non-negative integer"
+                    )
             elif operation == "send_url_json":
                 action = _exact(value, {"operation", "components"}, item_context)
                 components = action["components"]
@@ -12907,6 +12940,29 @@ def _validate_testclient_websocket_flow(app_actions: Any) -> str:
                 raise ContractError(f"{item_context} has unsupported operation {operation!r}")
 
     validate_actions(actions, "TestClient WebSocket flow actions")
+    top_operations = [action["operation"] for action in actions]
+    public_flow_shapes = {
+        ("observe_headers", "accept", "send_headers_json", "close"): "application-headers",
+        ("accept", "memory_stream_echo", "close"): "memory-stream-echo",
+        (
+            "remove_extension",
+            "receive",
+            "make_response",
+            "send_denial_response",
+            "close",
+        ): "denial-unsupported",
+        (
+            "receive",
+            "make_response",
+            "send_response_start",
+            "send_response_start",
+        ): "denial-duplicate-start",
+    }
+    public_flow = public_flow_shapes.get(tuple(top_operations))
+    if public_flow is not None:
+        if public_flow == "denial-unsupported" and not actions[3]["capture_error"]:
+            raise ContractError("Unsupported denial flow must observe the public method error")
+        return public_flow
     rejected_connection_flow = len(actions) == 2 and [
         action.get("operation") for action in actions
     ] == ["receive", "close"]
@@ -13067,10 +13123,11 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
                 "TestClient WebSocket params cases must keep query text in the params input"
             )
     subprotocols = websocket["subprotocols"]
-    if not isinstance(subprotocols, list) or any(
-        not isinstance(item, str) for item in subprotocols
+    if subprotocols is not None and (
+        not isinstance(subprotocols, list)
+        or any(not isinstance(item, str) for item in subprotocols)
     ):
-        raise ContractError("TestClient WebSocket subprotocols must be strings")
+        raise ContractError("TestClient WebSocket subprotocols must be a string list or null")
     validate_string_pairs(websocket["headers"], "TestClient WebSocket headers")
     session_actions = websocket["actions"]
     if not isinstance(session_actions, list):
@@ -13085,8 +13142,34 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
     exchange_requirement: str | None = None
     frame_mode: str | None = None
     client_close_workflow = False
+    client_stream_echo_workflow = False
     if denial_workflow:
         pass
+    elif len(session_actions) == 4 and all(isinstance(action, dict) for action in session_actions):
+        send_action = _exact(session_actions[0], {"operation", "value"}, "Stream echo JSON send")
+        receive_action = _exact(session_actions[1], {"operation"}, "Stream echo JSON receive")
+        close_action = _exact(
+            session_actions[2], {"operation", "code", "reason"}, "Stream echo close"
+        )
+        drain_action = _exact(
+            session_actions[3], {"operation", "capture_disconnect"}, "Stream echo close drain"
+        )
+        if [action["operation"] for action in session_actions] != [
+            "send_json",
+            "receive_json",
+            "close",
+            "receive_text",
+        ] or drain_action["capture_disconnect"] is not True:
+            raise ContractError(
+                "Stream echo client must exchange JSON then disconnect and drain close"
+            )
+        if (
+            type(close_action["code"]) is not int
+            or not 0 <= close_action["code"] <= 65535
+            or not isinstance(close_action["reason"], str)
+        ):
+            raise ContractError("Stream echo close must supply a valid code and reason")
+        client_stream_echo_workflow = True
     elif (
         len(session_actions) == 2
         and isinstance(session_actions[0], dict)
@@ -13805,6 +13888,63 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
 
     if accepted_flow_workflow:
         flow_kind = _validate_testclient_websocket_flow(app_actions)
+        if flow_kind in {
+            "application-headers",
+            "memory-stream-echo",
+            "denial-unsupported",
+            "denial-duplicate-start",
+        }:
+            expected_covers = {
+                TESTCLIENT_WEBSOCKET_REQUIREMENTS["scope"],
+                TESTCLIENT_WEBSOCKET_REQUIREMENTS["portal_cleanup"],
+            }
+            if flow_kind in {"denial-unsupported", "denial-duplicate-start"}:
+                if not no_client_actions or settings["raise_server_exceptions"] is not True:
+                    raise ContractError(
+                        "Denial state errors require session entry with exception propagation"
+                    )
+                expected_covers.add(
+                    TESTCLIENT_WEBSOCKET_REQUIREMENTS[
+                        "denial_unsupported"
+                        if flow_kind == "denial-unsupported"
+                        else "denial_duplicate_start"
+                    ]
+                )
+            else:
+                expected_covers.add(TESTCLIENT_WEBSOCKET_REQUIREMENTS["handshake"])
+                if flow_kind == "application-headers":
+                    if (
+                        len(session_actions) != 1
+                        or not client_json_workflow
+                        or client_json_receive_mode != "text"
+                        or "headers" not in scope_fields
+                    ):
+                        raise ContractError(
+                            "Header flow must observe headers and receive one JSON frame"
+                        )
+                    expected_covers.update(
+                        {
+                            TESTCLIENT_WEBSOCKET_REQUIREMENTS["application_headers"],
+                            TESTCLIENT_WEBSOCKET_REQUIREMENTS["receive_json_text"],
+                        }
+                    )
+                else:
+                    if not client_stream_echo_workflow:
+                        raise ContractError(
+                            "Memory stream flow requires the explicit JSON exchange and close drain"
+                        )
+                    expected_covers.update(
+                        {
+                            TESTCLIENT_WEBSOCKET_REQUIREMENTS["memory_stream_echo"],
+                            TESTCLIENT_WEBSOCKET_REQUIREMENTS["send_json_text"],
+                            TESTCLIENT_WEBSOCKET_REQUIREMENTS["receive_json_text"],
+                            TESTCLIENT_WEBSOCKET_REQUIREMENTS["client_close"],
+                            TESTCLIENT_WEBSOCKET_REQUIREMENTS["disconnect_details"],
+                        }
+                    )
+            if set(case["covers"]) != expected_covers:
+                raise ContractError("Public WebSocket flow covers must follow the supplied actions")
+            return
         if flow_kind == "rejected-connection":
             if not no_client_actions:
                 raise ContractError(

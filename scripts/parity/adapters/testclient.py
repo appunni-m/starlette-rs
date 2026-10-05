@@ -7,6 +7,7 @@ import base64
 import builtins
 import contextlib
 import os
+import sys
 import tempfile
 import threading
 import warnings
@@ -1203,6 +1204,22 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
     disconnect_observations: list[dict[str, Any]] = []
     cancellation_observations: list[dict[str, str]] = []
     application_state: dict[str, Any] = {"completed": False, "thread": None}
+    flow_actions = app_input.get("actions", [])
+    flow_actions = (
+        flow_actions[0]["actions"]
+        if flow_actions and flow_actions[0].get("operation") == "websocket_flow"
+        else []
+    )
+    stream_spec = next(
+        (action for action in flow_actions if action["operation"] == "memory_stream_echo"),
+        None,
+    )
+    stream_pair = None
+    if stream_spec is not None:
+        import anyio
+
+        # The pinned user app creates these streams on the client caller thread.
+        stream_pair = anyio.create_memory_object_stream(stream_spec["buffer_size"])
 
     async def observed_receive(receive: Any) -> dict[str, Any]:
         message = await receive()
@@ -1243,9 +1260,11 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
             lambda message: observed_send(send, message),
         )
         query_params_value: dict[str, Any] | None = None
+        headers_value: dict[str, str] | None = None
+        response: Any = None
 
         async def run_actions(actions: list[dict[str, Any]]) -> None:
-            nonlocal query_params_value
+            nonlocal query_params_value, headers_value, response
             for action in actions:
                 operation = action["operation"]
                 if operation == "receive":
@@ -1263,6 +1282,67 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
                     application_values.append(
                         {"operation": "query_params", "value": _safe(query_params_value)}
                     )
+                elif operation == "observe_headers":
+                    headers_value = dict(websocket.headers)
+                    application_values.append(
+                        {
+                            "operation": "headers",
+                            "value": headers_value,
+                            "compression_modules_loaded": [
+                                name for name in ("brotli", "brotlicffi") if name in sys.modules
+                            ],
+                        }
+                    )
+                elif operation == "send_headers_json":
+                    await websocket.send_json({"headers": headers_value})
+                elif operation == "remove_extension":
+                    del scope["extensions"][action["name"]]
+                elif operation == "make_response":
+                    from starlette.responses import Response
+
+                    response = Response(**action["response"])
+                elif operation == "send_response_start":
+                    await websocket.send(
+                        {
+                            "type": "websocket.http.response.start",
+                            "status": response.status_code,
+                            "headers": response.raw_headers,
+                        }
+                    )
+                elif operation == "send_denial_response":
+                    try:
+                        await websocket.send_denial_response(response)
+                    except Exception as error:
+                        if not action.get("capture_error", False):
+                            raise
+                        application_values.append(
+                            {
+                                "operation": operation,
+                                "error": {
+                                    "class": f"{type(error).__module__}.{type(error).__qualname__}",
+                                    "message": str(error),
+                                },
+                            }
+                        )
+                elif operation == "memory_stream_echo":
+                    stream_send, stream_receive = stream_pair
+
+                    async def reader(output_stream: Any) -> None:
+                        async with output_stream:
+                            async for data in websocket.iter_json():
+                                application_values.append(
+                                    {"operation": "stream-reader", "value": _safe(data)}
+                                )
+                                await output_stream.send(data)
+
+                    async def writer(input_stream: Any) -> None:
+                        async with input_stream:
+                            async for message in input_stream:
+                                await websocket.send_json(message)
+
+                    async with anyio.create_task_group() as task_group:
+                        task_group.start_soon(reader, stream_send)
+                        await writer(stream_receive)
                 elif operation == "send_json":
                     await websocket.send_json(action["value"], action.get("mode", "text"))
                 elif operation == "iterate":
@@ -1546,27 +1626,7 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
     accepted_subprotocol = None
     accepted_extra_headers = None
     denial_response = None
-    application_exception_workflow = app_input["kind"] == "starlette-websocket-route-error" or (
-        app_input["kind"]
-        not in {
-            "starlette-protocol-switch",
-            "starlette-partial-websocket-route-graph",
-            "starlette-routed-websocket-graph",
-            "starlette-standalone-websocket-route",
-        }
-        and len(app_input["actions"]) == 1
-        and app_input["actions"][0].get("operation") == "raise"
-    )
-    app_actions = app_input.get("actions", [])
-    preaccept_close_workflow = (
-        len(app_actions) == 1
-        and app_actions[0].get("operation") == "websocket_flow"
-        and [action.get("operation") for action in app_actions[0]["actions"]]
-        == ["receive", "close"]
-    ) or (
-        app_input["kind"] in {"starlette-protocol-switch", "starlette-standalone-websocket-route"}
-        and not websocket_input["actions"]
-    )
+    session_entered = False
     session_body_completed = False
     captured_error: BaseException | None = None
     captured_error_stage = "websocket-session-entry"
@@ -1580,6 +1640,7 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
             subprotocols=session_input,
             **websocket_kwargs,
         ) as session:
+            session_entered = True
             accepted_subprotocol = session.accepted_subprotocol
             accepted_extra_headers = session.extra_headers
             for action in websocket_input["actions"]:
@@ -1629,26 +1690,25 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
             "body_base64": base64.b64encode(exception.content).decode("ascii"),
         }
     except WebSocketDisconnect as error:
-        if preaccept_close_workflow:
-            captured_error = error
+        captured_error = error
+        if not session_entered:
             entry_disconnect = {
                 "class": f"{type(error).__module__}.{type(error).__qualname__}",
                 "code": error.code,
                 "reason": error.reason,
             }
-        elif session_body_completed:
-            captured_error = error
-            captured_error_stage = "websocket-session-exit"
         else:
-            raise
+            captured_error_stage = (
+                "websocket-session-exit" if session_body_completed else "websocket-session-action"
+            )
     except Exception as error:
-        if session_body_completed:
-            captured_error = error
-            captured_error_stage = "websocket-session-exit"
-        elif application_exception_workflow:
-            captured_error = error
-        else:
-            raise
+        # Exceptions from public session entry, methods, or exit are behavioral
+        # outcomes. App construction and harness failures stay outside this block.
+        captured_error = error
+        if session_entered:
+            captured_error_stage = (
+                "websocket-session-exit" if session_body_completed else "websocket-session-action"
+            )
     result = {
         "scope": scope_observations,
         "receive_messages": receive_observations,

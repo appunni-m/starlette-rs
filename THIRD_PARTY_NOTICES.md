@@ -48,6 +48,17 @@ notice is in [`LICENSE.md`](LICENSE.md). The shared live adapter in
 [`templating.py`](scripts/parity/adapters/templating.py) executes each side's
 public API and does not contain expected outputs.
 
+The input definitions in
+[`testclient-websocket-public.yaml`](tests/fixtures/sources/parity/testclient-websocket-public.yaml)
+are independently authored from `tests/test_websockets.py` at the pinned
+revision. The greeting JSON and short denial-response body reproduce source
+stimuli, Copyright © 2018 Encode OSS Ltd., under BSD-3-Clause; the complete
+notice is in [`LICENSE.md`](LICENSE.md). The shared live adapter in
+[`testclient.py`](scripts/parity/adapters/testclient.py) invokes each side
+through public APIs and supplies no expected outputs. The concurrency input
+also supplies explicit client disconnect and close-drain actions to make
+the captured cleanup tape deterministic.
+
 ## Dependency notices
 
 The upstream direct and transitive package metadata snapshot is maintained in

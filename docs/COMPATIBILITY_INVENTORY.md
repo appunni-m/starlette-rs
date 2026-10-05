@@ -171,8 +171,8 @@ The correctness-gated Router/GZip benchmark is recorded in
 workload-specific measurements do not establish full Starlette compatibility.
 
 The latest source inventory check dispositioned all 999 API candidate rows.
-The generated coverage matrix currently has 806 source rows: 679 input mappings,
-52 reasoned `not_applicable` rows, and 75 fixture backlog rows. Derive these
+The generated coverage matrix currently has 806 source rows: 683 input mappings,
+52 reasoned `not_applicable` rows, and 71 fixture backlog rows. Derive these
 changing counts from the generated atlas CSV files.
 
 Historical integrated run `af914b8c-5933-4ced-9e1d-c60b23263e1a` started at

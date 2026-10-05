@@ -356,6 +356,7 @@
       "build/parity/inputs/parity/testclient-websocket.json",
       "build/parity/inputs/parity/testclient-websocket-routing.json",
       "build/parity/inputs/parity/testclient-websocket-bytes.json",
+      "build/parity/inputs/parity/testclient-websocket-public.json",
       "build/parity/inputs/parity/testclient-lifespan-context.json",
       "build/parity/inputs/parity/application-routes.json",
       "build/parity/inputs/parity/concurrency.json",
@@ -23987,6 +23988,50 @@
               "id": "starlette.testclient.TestClient.websocket-session.application-url",
               "dimension": "feature",
               "description": "Construct the public WebSocket from the live TestClient ASGI scope, return str(websocket.url) and its path, port, and scheme properties through send_json, and close the socket. Compare the app values, emitted ASGI messages, and client receive_json result for relative and explicit-port URLs. Pinned source: starlette/requests.py:107-114; tests/test_websockets.py::test_websocket_url and ::test_websocket_port; docs/websockets.md:25-32.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.websocket-session.application-headers",
+              "dimension": "input_family",
+              "description": "Use the public websocket_connect subprotocols=None default, construct WebSocket from the live default TestClient scope, observe dict(websocket.headers) before acceptance, send that mapping as JSON, and close. Record actual brotli/brotlicffi module presence rather than specifying expected header values. Compare default headers and the received JSON frame on asyncio and Trio. Pinned source: tests/test_websockets.py::test_websocket_headers; tests/conftest.py::test_client_factory; starlette/requests.py::HTTPConnection.headers.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.websocket-session.memory-stream-json-echo",
+              "dimension": "boundary",
+              "description": "Create an AnyIO memory object stream on the client caller thread; accept a public WebSocket; concurrently iterate incoming JSON in one task and send the stream values in another. The client sends and receives the input JSON, explicitly disconnects, and drains the application close frame for deterministic cleanup. Compare the event tape, JSON values, disconnect, completion, and portal lifetime on asyncio and Trio. Pinned source: tests/test_websockets.py::test_websocket_concurrency_pattern; tests/conftest.py::test_client_factory; starlette/websockets.py::WebSocket.iter_json and send_json.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.websocket-session.denial-response-unsupported-extension",
+              "dimension": "error_path",
+              "description": "Remove websocket.http.response from the live ASGI scope, receive the connect event through WebSocket.receive, construct the input Response, and invoke WebSocket.send_denial_response. Observe its public error, then close and capture the session-entry disconnect. Both implementations receive the same public inputs on asyncio and Trio; no fault hook is used. Pinned source: tests/test_websockets.py::test_send_response_unsupported; starlette/websockets.py::WebSocket.send_denial_response.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.websocket-session.denial-response-duplicate-start",
+              "dimension": "error_path",
+              "description": "Receive the connect event through WebSocket.receive, construct the input Response, and send websocket.http.response.start twice through WebSocket.send using the response status and raw headers. Capture the public session-entry exception and partial ASGI event tape on asyncio and Trio. Both implementations can reach this state-machine failure from normal inputs. Pinned source: tests/test_websockets.py::test_send_response_duplicate_start; starlette/websockets.py::WebSocket.send.",
               "lanes": [
                 "parity"
               ],
