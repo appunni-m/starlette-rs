@@ -394,6 +394,18 @@ impl Display for FileResponseError {
 impl std::error::Error for FileResponseError {}
 
 impl FileResponse {
+    /// Compute the quoted file ETag from the caller's serialized stat values.
+    ///
+    /// Starlette hashes the UTF-8 representation of modification time, a hyphen,
+    /// and size. Python callers can preserve their value representation before
+    /// handing those bytes to this Rust implementation. This digest is an HTTP
+    /// cache validator, not a security primitive.
+    #[must_use]
+    pub fn stat_etag(serialized_metadata: &[u8]) -> String {
+        let digest = Md5::digest(serialized_metadata);
+        format!("\"{}\"", lower_hex(&digest))
+    }
+
     /// Creates a Starlette-compatible file response.
     ///
     /// `headers` retain input order and duplicates. The default content type
@@ -1198,13 +1210,7 @@ fn set_stat_headers(
         &httpdate::fmt_http_date(metadata.modified),
     )?;
     let input = format!("{}-{}", metadata.modified_text, metadata.size);
-    let mut hasher = Md5::new();
-    hasher.update(input.as_bytes());
-    set_default_header(
-        headers,
-        "etag",
-        &format!("\"{}\"", lower_hex(&hasher.finalize())),
-    )?;
+    set_default_header(headers, "etag", &FileResponse::stat_etag(input.as_bytes()))?;
     Ok(())
 }
 

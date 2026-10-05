@@ -13,6 +13,7 @@ from starlette.requests import Request
 from starlette.responses import HTMLResponse
 
 jinja2 = _core._templating_require_jinja2()
+pass_context = _core._templating_context_decorator(jinja2)
 
 
 class _TemplateResponse(HTMLResponse):
@@ -46,7 +47,8 @@ class _TemplateResponse(HTMLResponse):
 class Jinja2Templates:
     """Configure Jinja templates and build Starlette-compatible responses."""
 
-    __slots__ = ("_inner",)
+    env: jinja2.Environment
+    context_processors: list[Callable[[Request], dict[str, Any]]]
 
     @overload
     def __init__(
@@ -71,31 +73,13 @@ class Jinja2Templates:
         context_processors: list[Callable[[Request], dict[str, Any]]] | None = None,
         env: jinja2.Environment | None = None,
     ) -> None:
-        self._inner = _core._Jinja2Templates(
-            directory, context_processors=context_processors, env=env
-        )
-
-    @property
-    def env(self) -> Any:
-        return self._inner.env
-
-    @env.setter
-    def env(self, value: Any) -> None:
-        self._inner.env = value
-
-    @property
-    def context_processors(self) -> Any:
-        return self._inner.context_processors
-
-    @context_processors.setter
-    def context_processors(self, value: Any) -> None:
-        self._inner.context_processors = value
+        _core._Jinja2Templates.initialize_for(self, (directory, context_processors, env))
 
     def _setup_env_defaults(self, env: Any) -> None:
-        return self._inner._setup_env_defaults(env)
+        _core._Jinja2Templates.setup_for(env, pass_context)
 
     def get_template(self, name: str) -> Any:
-        return self._inner.get_template(name)
+        return _core._Jinja2Templates.template_for(self, name)
 
     def TemplateResponse(
         self,
@@ -108,7 +92,8 @@ class Jinja2Templates:
         background: BackgroundTask | None = None,
     ) -> _TemplateResponse:
         """Render a template and return an HTML response."""
-        return self._inner._template_response(
+        return _core._Jinja2Templates.response_for(
+            self,
             (
                 request,
                 name,
@@ -118,5 +103,5 @@ class Jinja2Templates:
                 headers,
                 media_type,
                 background,
-            )
+            ),
         )

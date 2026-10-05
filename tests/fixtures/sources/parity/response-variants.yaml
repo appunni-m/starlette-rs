@@ -1,0 +1,4472 @@
+{
+  "schema": "migration-parity/parity-input@45",
+  "cases": [
+    {
+      "case_id": "starlette.responses.RedirectResponse.consumer-construction.basic",
+      "surface": "starlette.responses.RedirectResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.RedirectResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.RedirectResponse.consumer-construction.attribute-and-header-cache-protocols"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "/caf\u00e9 path?x=hello world"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Variant": "basic"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/variants"
+      },
+      "send_failure": null,
+      "background_label": "variant-finished",
+      "subclass_protocol": {
+        "get_watch": [
+          "media_type",
+          "charset",
+          "status_code",
+          "raw_headers",
+          "headers",
+          "init_headers",
+          "body_iterator",
+          "path",
+          "filename",
+          "stat_result",
+          "background",
+          "render",
+          "stream_response",
+          "chunk_size",
+          "max_ranges"
+        ],
+        "set_watch": [
+          "body_iterator",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "path",
+          "filename",
+          "stat_result"
+        ],
+        "get_allowed": null,
+        "set_allowed": null,
+        "rejected_read": null,
+        "rejected_write": null,
+        "failure": null,
+        "raw_accessor": null,
+        "actions": [],
+        "dict_fields": [
+          "body_iterator",
+          "path",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "filename",
+          "stat_result"
+        ],
+        "override_cookie": false,
+        "header_hook": null
+      }
+    },
+    {
+      "case_id": "starlette.responses.RedirectResponse.consumer-construction.media-default",
+      "surface": "starlette.responses.RedirectResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.RedirectResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.RedirectResponse.consumer-construction.attribute-and-header-cache-protocols"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "/caf\u00e9 path?x=hello world"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Variant": "media-default"
+          }
+        },
+        "class_attributes": {
+          "media_type": "text/custom"
+        },
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/variants"
+      },
+      "send_failure": null,
+      "background_label": "variant-finished",
+      "subclass_protocol": {
+        "get_watch": [
+          "media_type",
+          "charset",
+          "status_code",
+          "raw_headers",
+          "headers",
+          "init_headers",
+          "body_iterator",
+          "path",
+          "filename",
+          "stat_result",
+          "background",
+          "render",
+          "stream_response",
+          "chunk_size",
+          "max_ranges"
+        ],
+        "set_watch": [
+          "body_iterator",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "path",
+          "filename",
+          "stat_result"
+        ],
+        "get_allowed": null,
+        "set_allowed": null,
+        "rejected_read": null,
+        "rejected_write": null,
+        "failure": null,
+        "raw_accessor": null,
+        "actions": [],
+        "dict_fields": [
+          "body_iterator",
+          "path",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "filename",
+          "stat_result"
+        ],
+        "override_cookie": false,
+        "header_hook": null
+      }
+    },
+    {
+      "case_id": "starlette.responses.RedirectResponse.consumer-construction.custom-charset",
+      "surface": "starlette.responses.RedirectResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.RedirectResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.RedirectResponse.consumer-construction.attribute-and-header-cache-protocols"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "/caf\u00e9 path?x=hello world"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Variant": "custom-charset"
+          }
+        },
+        "class_attributes": {
+          "charset": "latin-1"
+        },
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/variants"
+      },
+      "send_failure": null,
+      "background_label": "variant-finished",
+      "subclass_protocol": {
+        "get_watch": [
+          "media_type",
+          "charset",
+          "status_code",
+          "raw_headers",
+          "headers",
+          "init_headers",
+          "body_iterator",
+          "path",
+          "filename",
+          "stat_result",
+          "background",
+          "render",
+          "stream_response",
+          "chunk_size",
+          "max_ranges"
+        ],
+        "set_watch": [
+          "body_iterator",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "path",
+          "filename",
+          "stat_result"
+        ],
+        "get_allowed": null,
+        "set_allowed": null,
+        "rejected_read": null,
+        "rejected_write": null,
+        "failure": null,
+        "raw_accessor": null,
+        "actions": [],
+        "dict_fields": [
+          "body_iterator",
+          "path",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "filename",
+          "stat_result"
+        ],
+        "override_cookie": false,
+        "header_hook": null
+      }
+    },
+    {
+      "case_id": "starlette.responses.RedirectResponse.consumer-construction.status-change",
+      "surface": "starlette.responses.RedirectResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.RedirectResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.RedirectResponse.consumer-construction.attribute-and-header-cache-protocols"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "/caf\u00e9 path?x=hello world"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Variant": "status-change"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {
+        "status_code": 209
+      },
+      "scope": {
+        "type": "http",
+        "path": "/variants"
+      },
+      "send_failure": null,
+      "background_label": "variant-finished",
+      "subclass_protocol": {
+        "get_watch": [
+          "media_type",
+          "charset",
+          "status_code",
+          "raw_headers",
+          "headers",
+          "init_headers",
+          "body_iterator",
+          "path",
+          "filename",
+          "stat_result",
+          "background",
+          "render",
+          "stream_response",
+          "chunk_size",
+          "max_ranges"
+        ],
+        "set_watch": [
+          "body_iterator",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "path",
+          "filename",
+          "stat_result"
+        ],
+        "get_allowed": null,
+        "set_allowed": null,
+        "rejected_read": null,
+        "rejected_write": null,
+        "failure": null,
+        "raw_accessor": null,
+        "actions": [],
+        "dict_fields": [
+          "body_iterator",
+          "path",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "filename",
+          "stat_result"
+        ],
+        "override_cookie": false,
+        "header_hook": null
+      }
+    },
+    {
+      "case_id": "starlette.responses.RedirectResponse.consumer-construction.header-hook-mutate",
+      "surface": "starlette.responses.RedirectResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.RedirectResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.RedirectResponse.consumer-construction.attribute-and-header-cache-protocols"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "/caf\u00e9 path?x=hello world"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Variant": "header-hook-mutate"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/variants"
+      },
+      "send_failure": null,
+      "background_label": "variant-finished",
+      "subclass_protocol": {
+        "get_watch": [
+          "media_type",
+          "charset",
+          "status_code",
+          "raw_headers",
+          "headers",
+          "init_headers",
+          "body_iterator",
+          "path",
+          "filename",
+          "stat_result",
+          "background",
+          "render",
+          "stream_response",
+          "chunk_size",
+          "max_ranges"
+        ],
+        "set_watch": [
+          "body_iterator",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "path",
+          "filename",
+          "stat_result"
+        ],
+        "get_allowed": null,
+        "set_allowed": null,
+        "rejected_read": null,
+        "rejected_write": null,
+        "failure": null,
+        "raw_accessor": null,
+        "actions": [],
+        "dict_fields": [
+          "body_iterator",
+          "path",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "filename",
+          "stat_result"
+        ],
+        "override_cookie": false,
+        "header_hook": {
+          "delegate": true,
+          "mutations": {
+            "media_type": "text/hooked",
+            "status_code": 202
+          },
+          "failure": null
+        }
+      }
+    },
+    {
+      "case_id": "starlette.responses.RedirectResponse.consumer-construction.header-hook-error",
+      "surface": "starlette.responses.RedirectResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.RedirectResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.RedirectResponse.consumer-construction.attribute-and-header-cache-protocols"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "/caf\u00e9 path?x=hello world"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Variant": "header-hook-error"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/variants"
+      },
+      "send_failure": null,
+      "background_label": "variant-finished",
+      "subclass_protocol": {
+        "get_watch": [
+          "media_type",
+          "charset",
+          "status_code",
+          "raw_headers",
+          "headers",
+          "init_headers",
+          "body_iterator",
+          "path",
+          "filename",
+          "stat_result",
+          "background",
+          "render",
+          "stream_response",
+          "chunk_size",
+          "max_ranges"
+        ],
+        "set_watch": [
+          "body_iterator",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "path",
+          "filename",
+          "stat_result"
+        ],
+        "get_allowed": null,
+        "set_allowed": null,
+        "rejected_read": null,
+        "rejected_write": null,
+        "failure": null,
+        "raw_accessor": null,
+        "actions": [],
+        "dict_fields": [
+          "body_iterator",
+          "path",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "filename",
+          "stat_result"
+        ],
+        "override_cookie": false,
+        "header_hook": {
+          "delegate": true,
+          "mutations": {
+            "media_type": "text/hooked",
+            "status_code": 202
+          },
+          "failure": {
+            "class": "RuntimeError",
+            "message": "input header hook failed"
+          }
+        }
+      }
+    },
+    {
+      "case_id": "starlette.responses.RedirectResponse.consumer-construction.header-hook-omit",
+      "surface": "starlette.responses.RedirectResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.RedirectResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.RedirectResponse.consumer-construction.attribute-and-header-cache-protocols"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "/caf\u00e9 path?x=hello world"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Variant": "header-hook-omit"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/variants"
+      },
+      "send_failure": null,
+      "background_label": "variant-finished",
+      "subclass_protocol": {
+        "get_watch": [
+          "media_type",
+          "charset",
+          "status_code",
+          "raw_headers",
+          "headers",
+          "init_headers",
+          "body_iterator",
+          "path",
+          "filename",
+          "stat_result",
+          "background",
+          "render",
+          "stream_response",
+          "chunk_size",
+          "max_ranges"
+        ],
+        "set_watch": [
+          "body_iterator",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "path",
+          "filename",
+          "stat_result"
+        ],
+        "get_allowed": null,
+        "set_allowed": null,
+        "rejected_read": null,
+        "rejected_write": null,
+        "failure": null,
+        "raw_accessor": null,
+        "actions": [],
+        "dict_fields": [
+          "body_iterator",
+          "path",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "filename",
+          "stat_result"
+        ],
+        "override_cookie": false,
+        "header_hook": {
+          "delegate": false,
+          "mutations": {
+            "media_type": "text/hooked",
+            "status_code": 202
+          },
+          "failure": null
+        }
+      }
+    },
+    {
+      "case_id": "starlette.responses.RedirectResponse.consumer-construction.raw-property",
+      "surface": "starlette.responses.RedirectResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.RedirectResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.RedirectResponse.consumer-construction.attribute-and-header-cache-protocols"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "/caf\u00e9 path?x=hello world"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Variant": "raw-property"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/variants"
+      },
+      "send_failure": null,
+      "background_label": "variant-finished",
+      "subclass_protocol": {
+        "get_watch": [
+          "media_type",
+          "charset",
+          "status_code",
+          "raw_headers",
+          "headers",
+          "init_headers",
+          "body_iterator",
+          "path",
+          "filename",
+          "stat_result",
+          "background",
+          "render",
+          "stream_response",
+          "chunk_size",
+          "max_ranges"
+        ],
+        "set_watch": [
+          "body_iterator",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "path",
+          "filename",
+          "stat_result"
+        ],
+        "get_allowed": null,
+        "set_allowed": null,
+        "rejected_read": null,
+        "rejected_write": null,
+        "failure": null,
+        "raw_accessor": {
+          "mode": "stored",
+          "pairs": [],
+          "getter_failure": null,
+          "setter_failure": null
+        },
+        "actions": [],
+        "dict_fields": [
+          "body_iterator",
+          "path",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "filename",
+          "stat_result"
+        ],
+        "override_cookie": false,
+        "header_hook": null
+      }
+    },
+    {
+      "case_id": "starlette.responses.RedirectResponse.consumer-construction.attribute-order",
+      "surface": "starlette.responses.RedirectResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.RedirectResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.RedirectResponse.consumer-construction.attribute-and-header-cache-protocols"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "/caf\u00e9 path?x=hello world"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Variant": "attribute-order"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/variants"
+      },
+      "send_failure": null,
+      "background_label": "variant-finished",
+      "subclass_protocol": {
+        "get_watch": [
+          "media_type",
+          "charset",
+          "status_code",
+          "raw_headers",
+          "headers",
+          "init_headers",
+          "body_iterator",
+          "path",
+          "filename",
+          "stat_result",
+          "background",
+          "render",
+          "stream_response",
+          "chunk_size",
+          "max_ranges"
+        ],
+        "set_watch": [
+          "body_iterator",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "path",
+          "filename",
+          "stat_result"
+        ],
+        "get_allowed": null,
+        "set_allowed": null,
+        "rejected_read": null,
+        "rejected_write": null,
+        "failure": null,
+        "raw_accessor": null,
+        "actions": [],
+        "dict_fields": [
+          "body_iterator",
+          "path",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "filename",
+          "stat_result"
+        ],
+        "override_cookie": false,
+        "header_hook": null
+      }
+    },
+    {
+      "case_id": "starlette.responses.RedirectResponse.consumer-construction.reject-status",
+      "surface": "starlette.responses.RedirectResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.RedirectResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.RedirectResponse.consumer-construction.attribute-and-header-cache-protocols"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "/caf\u00e9 path?x=hello world"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Variant": "reject-status"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/variants"
+      },
+      "send_failure": null,
+      "background_label": "variant-finished",
+      "subclass_protocol": {
+        "get_watch": [
+          "media_type",
+          "charset",
+          "status_code",
+          "raw_headers",
+          "headers",
+          "init_headers",
+          "body_iterator",
+          "path",
+          "filename",
+          "stat_result",
+          "background",
+          "render",
+          "stream_response",
+          "chunk_size",
+          "max_ranges"
+        ],
+        "set_watch": [
+          "body_iterator",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "path",
+          "filename",
+          "stat_result"
+        ],
+        "get_allowed": null,
+        "set_allowed": null,
+        "rejected_read": null,
+        "rejected_write": null,
+        "failure": {
+          "operation": "set",
+          "name": "status_code",
+          "at_call": 1,
+          "error": {
+            "class": "RuntimeError",
+            "message": "input rejected status"
+          }
+        },
+        "raw_accessor": null,
+        "actions": [],
+        "dict_fields": [
+          "body_iterator",
+          "path",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "filename",
+          "stat_result"
+        ],
+        "override_cookie": false,
+        "header_hook": null
+      }
+    },
+    {
+      "case_id": "starlette.responses.RedirectResponse.consumer-construction.cookie-header-cache",
+      "surface": "starlette.responses.RedirectResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.RedirectResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.RedirectResponse.consumer-construction.attribute-and-header-cache-protocols"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "/caf\u00e9 path?x=hello world"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Variant": "cookie-header-cache"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/variants"
+      },
+      "send_failure": null,
+      "background_label": "variant-finished",
+      "subclass_protocol": {
+        "get_watch": [
+          "media_type",
+          "charset",
+          "status_code",
+          "raw_headers",
+          "headers",
+          "init_headers",
+          "body_iterator",
+          "path",
+          "filename",
+          "stat_result",
+          "background",
+          "render",
+          "stream_response",
+          "chunk_size",
+          "max_ranges"
+        ],
+        "set_watch": [
+          "body_iterator",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "path",
+          "filename",
+          "stat_result"
+        ],
+        "get_allowed": null,
+        "set_allowed": null,
+        "rejected_read": null,
+        "rejected_write": null,
+        "failure": null,
+        "raw_accessor": null,
+        "actions": [
+          {
+            "kind": "read",
+            "inspect_raw_alias": true
+          },
+          {
+            "kind": "replace-raw",
+            "pairs": [
+              [
+                "x-replaced",
+                "value"
+              ]
+            ]
+          },
+          {
+            "kind": "read",
+            "inspect_raw_alias": true
+          }
+        ],
+        "dict_fields": [
+          "body_iterator",
+          "path",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "filename",
+          "stat_result"
+        ],
+        "override_cookie": false,
+        "header_hook": null
+      }
+    },
+    {
+      "case_id": "starlette.responses.RedirectResponse.consumer-construction.render-hook",
+      "surface": "starlette.responses.RedirectResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.RedirectResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.RedirectResponse.consumer-construction.attribute-and-header-cache-protocols"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "/caf\u00e9 path?x=hello world"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Variant": "render-hook"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "constant",
+          "mutations": {
+            "status_code": 203
+          },
+          "content": {
+            "kind": "bytes",
+            "value": "aW5wdXQgYm9keQ=="
+          }
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/variants"
+      },
+      "send_failure": null,
+      "background_label": "variant-finished",
+      "subclass_protocol": {
+        "get_watch": [
+          "media_type",
+          "charset",
+          "status_code",
+          "raw_headers",
+          "headers",
+          "init_headers",
+          "body_iterator",
+          "path",
+          "filename",
+          "stat_result",
+          "background",
+          "render",
+          "stream_response",
+          "chunk_size",
+          "max_ranges"
+        ],
+        "set_watch": [
+          "body_iterator",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "path",
+          "filename",
+          "stat_result"
+        ],
+        "get_allowed": null,
+        "set_allowed": null,
+        "rejected_read": null,
+        "rejected_write": null,
+        "failure": null,
+        "raw_accessor": null,
+        "actions": [],
+        "dict_fields": [
+          "body_iterator",
+          "path",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "filename",
+          "stat_result"
+        ],
+        "override_cookie": false,
+        "header_hook": null
+      }
+    },
+    {
+      "case_id": "starlette.responses.StreamingResponse.consumer-construction.basic",
+      "surface": "starlette.responses.StreamingResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.StreamingResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.StreamingResponse.consumer-construction.attribute-and-header-cache-protocols"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "caf\u00e9"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Variant": "basic"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/variants",
+        "method": "GET",
+        "headers": [],
+        "asgi": {
+          "spec_version": "2.4"
+        }
+      },
+      "send_failure": null,
+      "background_label": "variant-finished",
+      "subclass_protocol": {
+        "get_watch": [
+          "media_type",
+          "charset",
+          "status_code",
+          "raw_headers",
+          "headers",
+          "init_headers",
+          "body_iterator",
+          "path",
+          "filename",
+          "stat_result",
+          "background",
+          "render",
+          "stream_response",
+          "chunk_size",
+          "max_ranges"
+        ],
+        "set_watch": [
+          "body_iterator",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "path",
+          "filename",
+          "stat_result"
+        ],
+        "get_allowed": null,
+        "set_allowed": null,
+        "rejected_read": null,
+        "rejected_write": null,
+        "failure": null,
+        "raw_accessor": null,
+        "actions": [],
+        "dict_fields": [
+          "body_iterator",
+          "path",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "filename",
+          "stat_result"
+        ],
+        "override_cookie": false,
+        "header_hook": null
+      }
+    },
+    {
+      "case_id": "starlette.responses.StreamingResponse.consumer-construction.media-default",
+      "surface": "starlette.responses.StreamingResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.StreamingResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.StreamingResponse.consumer-construction.attribute-and-header-cache-protocols"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "caf\u00e9"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Variant": "media-default"
+          }
+        },
+        "class_attributes": {
+          "media_type": "text/custom"
+        },
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/variants",
+        "method": "GET",
+        "headers": [],
+        "asgi": {
+          "spec_version": "2.4"
+        }
+      },
+      "send_failure": null,
+      "background_label": "variant-finished",
+      "subclass_protocol": {
+        "get_watch": [
+          "media_type",
+          "charset",
+          "status_code",
+          "raw_headers",
+          "headers",
+          "init_headers",
+          "body_iterator",
+          "path",
+          "filename",
+          "stat_result",
+          "background",
+          "render",
+          "stream_response",
+          "chunk_size",
+          "max_ranges"
+        ],
+        "set_watch": [
+          "body_iterator",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "path",
+          "filename",
+          "stat_result"
+        ],
+        "get_allowed": null,
+        "set_allowed": null,
+        "rejected_read": null,
+        "rejected_write": null,
+        "failure": null,
+        "raw_accessor": null,
+        "actions": [],
+        "dict_fields": [
+          "body_iterator",
+          "path",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "filename",
+          "stat_result"
+        ],
+        "override_cookie": false,
+        "header_hook": null
+      }
+    },
+    {
+      "case_id": "starlette.responses.StreamingResponse.consumer-construction.custom-charset",
+      "surface": "starlette.responses.StreamingResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.StreamingResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.StreamingResponse.consumer-construction.attribute-and-header-cache-protocols"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "caf\u00e9"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Variant": "custom-charset"
+          }
+        },
+        "class_attributes": {
+          "charset": "latin-1"
+        },
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/variants",
+        "method": "GET",
+        "headers": [],
+        "asgi": {
+          "spec_version": "2.4"
+        }
+      },
+      "send_failure": null,
+      "background_label": "variant-finished",
+      "subclass_protocol": {
+        "get_watch": [
+          "media_type",
+          "charset",
+          "status_code",
+          "raw_headers",
+          "headers",
+          "init_headers",
+          "body_iterator",
+          "path",
+          "filename",
+          "stat_result",
+          "background",
+          "render",
+          "stream_response",
+          "chunk_size",
+          "max_ranges"
+        ],
+        "set_watch": [
+          "body_iterator",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "path",
+          "filename",
+          "stat_result"
+        ],
+        "get_allowed": null,
+        "set_allowed": null,
+        "rejected_read": null,
+        "rejected_write": null,
+        "failure": null,
+        "raw_accessor": null,
+        "actions": [],
+        "dict_fields": [
+          "body_iterator",
+          "path",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "filename",
+          "stat_result"
+        ],
+        "override_cookie": false,
+        "header_hook": null
+      }
+    },
+    {
+      "case_id": "starlette.responses.StreamingResponse.consumer-construction.status-change",
+      "surface": "starlette.responses.StreamingResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.StreamingResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.StreamingResponse.consumer-construction.attribute-and-header-cache-protocols"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "caf\u00e9"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Variant": "status-change"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {
+        "status_code": 209
+      },
+      "scope": {
+        "type": "http",
+        "path": "/variants",
+        "method": "GET",
+        "headers": [],
+        "asgi": {
+          "spec_version": "2.4"
+        }
+      },
+      "send_failure": null,
+      "background_label": "variant-finished",
+      "subclass_protocol": {
+        "get_watch": [
+          "media_type",
+          "charset",
+          "status_code",
+          "raw_headers",
+          "headers",
+          "init_headers",
+          "body_iterator",
+          "path",
+          "filename",
+          "stat_result",
+          "background",
+          "render",
+          "stream_response",
+          "chunk_size",
+          "max_ranges"
+        ],
+        "set_watch": [
+          "body_iterator",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "path",
+          "filename",
+          "stat_result"
+        ],
+        "get_allowed": null,
+        "set_allowed": null,
+        "rejected_read": null,
+        "rejected_write": null,
+        "failure": null,
+        "raw_accessor": null,
+        "actions": [],
+        "dict_fields": [
+          "body_iterator",
+          "path",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "filename",
+          "stat_result"
+        ],
+        "override_cookie": false,
+        "header_hook": null
+      }
+    },
+    {
+      "case_id": "starlette.responses.StreamingResponse.consumer-construction.header-hook-mutate",
+      "surface": "starlette.responses.StreamingResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.StreamingResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.StreamingResponse.consumer-construction.attribute-and-header-cache-protocols"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "caf\u00e9"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Variant": "header-hook-mutate"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/variants",
+        "method": "GET",
+        "headers": [],
+        "asgi": {
+          "spec_version": "2.4"
+        }
+      },
+      "send_failure": null,
+      "background_label": "variant-finished",
+      "subclass_protocol": {
+        "get_watch": [
+          "media_type",
+          "charset",
+          "status_code",
+          "raw_headers",
+          "headers",
+          "init_headers",
+          "body_iterator",
+          "path",
+          "filename",
+          "stat_result",
+          "background",
+          "render",
+          "stream_response",
+          "chunk_size",
+          "max_ranges"
+        ],
+        "set_watch": [
+          "body_iterator",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "path",
+          "filename",
+          "stat_result"
+        ],
+        "get_allowed": null,
+        "set_allowed": null,
+        "rejected_read": null,
+        "rejected_write": null,
+        "failure": null,
+        "raw_accessor": null,
+        "actions": [],
+        "dict_fields": [
+          "body_iterator",
+          "path",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "filename",
+          "stat_result"
+        ],
+        "override_cookie": false,
+        "header_hook": {
+          "delegate": true,
+          "mutations": {
+            "media_type": "text/hooked",
+            "status_code": 202
+          },
+          "failure": null
+        }
+      }
+    },
+    {
+      "case_id": "starlette.responses.StreamingResponse.consumer-construction.header-hook-error",
+      "surface": "starlette.responses.StreamingResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.StreamingResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.StreamingResponse.consumer-construction.attribute-and-header-cache-protocols"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "caf\u00e9"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Variant": "header-hook-error"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/variants",
+        "method": "GET",
+        "headers": [],
+        "asgi": {
+          "spec_version": "2.4"
+        }
+      },
+      "send_failure": null,
+      "background_label": "variant-finished",
+      "subclass_protocol": {
+        "get_watch": [
+          "media_type",
+          "charset",
+          "status_code",
+          "raw_headers",
+          "headers",
+          "init_headers",
+          "body_iterator",
+          "path",
+          "filename",
+          "stat_result",
+          "background",
+          "render",
+          "stream_response",
+          "chunk_size",
+          "max_ranges"
+        ],
+        "set_watch": [
+          "body_iterator",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "path",
+          "filename",
+          "stat_result"
+        ],
+        "get_allowed": null,
+        "set_allowed": null,
+        "rejected_read": null,
+        "rejected_write": null,
+        "failure": null,
+        "raw_accessor": null,
+        "actions": [],
+        "dict_fields": [
+          "body_iterator",
+          "path",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "filename",
+          "stat_result"
+        ],
+        "override_cookie": false,
+        "header_hook": {
+          "delegate": true,
+          "mutations": {
+            "media_type": "text/hooked",
+            "status_code": 202
+          },
+          "failure": {
+            "class": "RuntimeError",
+            "message": "input header hook failed"
+          }
+        }
+      }
+    },
+    {
+      "case_id": "starlette.responses.StreamingResponse.consumer-construction.header-hook-omit",
+      "surface": "starlette.responses.StreamingResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.StreamingResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.StreamingResponse.consumer-construction.attribute-and-header-cache-protocols"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "caf\u00e9"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Variant": "header-hook-omit"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/variants",
+        "method": "GET",
+        "headers": [],
+        "asgi": {
+          "spec_version": "2.4"
+        }
+      },
+      "send_failure": null,
+      "background_label": "variant-finished",
+      "subclass_protocol": {
+        "get_watch": [
+          "media_type",
+          "charset",
+          "status_code",
+          "raw_headers",
+          "headers",
+          "init_headers",
+          "body_iterator",
+          "path",
+          "filename",
+          "stat_result",
+          "background",
+          "render",
+          "stream_response",
+          "chunk_size",
+          "max_ranges"
+        ],
+        "set_watch": [
+          "body_iterator",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "path",
+          "filename",
+          "stat_result"
+        ],
+        "get_allowed": null,
+        "set_allowed": null,
+        "rejected_read": null,
+        "rejected_write": null,
+        "failure": null,
+        "raw_accessor": null,
+        "actions": [],
+        "dict_fields": [
+          "body_iterator",
+          "path",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "filename",
+          "stat_result"
+        ],
+        "override_cookie": false,
+        "header_hook": {
+          "delegate": false,
+          "mutations": {
+            "media_type": "text/hooked",
+            "status_code": 202
+          },
+          "failure": null
+        }
+      }
+    },
+    {
+      "case_id": "starlette.responses.StreamingResponse.consumer-construction.raw-property",
+      "surface": "starlette.responses.StreamingResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.StreamingResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.StreamingResponse.consumer-construction.attribute-and-header-cache-protocols"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "caf\u00e9"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Variant": "raw-property"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/variants",
+        "method": "GET",
+        "headers": [],
+        "asgi": {
+          "spec_version": "2.4"
+        }
+      },
+      "send_failure": null,
+      "background_label": "variant-finished",
+      "subclass_protocol": {
+        "get_watch": [
+          "media_type",
+          "charset",
+          "status_code",
+          "raw_headers",
+          "headers",
+          "init_headers",
+          "body_iterator",
+          "path",
+          "filename",
+          "stat_result",
+          "background",
+          "render",
+          "stream_response",
+          "chunk_size",
+          "max_ranges"
+        ],
+        "set_watch": [
+          "body_iterator",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "path",
+          "filename",
+          "stat_result"
+        ],
+        "get_allowed": null,
+        "set_allowed": null,
+        "rejected_read": null,
+        "rejected_write": null,
+        "failure": null,
+        "raw_accessor": {
+          "mode": "stored",
+          "pairs": [],
+          "getter_failure": null,
+          "setter_failure": null
+        },
+        "actions": [],
+        "dict_fields": [
+          "body_iterator",
+          "path",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "filename",
+          "stat_result"
+        ],
+        "override_cookie": false,
+        "header_hook": null
+      }
+    },
+    {
+      "case_id": "starlette.responses.StreamingResponse.consumer-construction.attribute-order",
+      "surface": "starlette.responses.StreamingResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.StreamingResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.StreamingResponse.consumer-construction.attribute-and-header-cache-protocols"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "caf\u00e9"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Variant": "attribute-order"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/variants",
+        "method": "GET",
+        "headers": [],
+        "asgi": {
+          "spec_version": "2.4"
+        }
+      },
+      "send_failure": null,
+      "background_label": "variant-finished",
+      "subclass_protocol": {
+        "get_watch": [
+          "media_type",
+          "charset",
+          "status_code",
+          "raw_headers",
+          "headers",
+          "init_headers",
+          "body_iterator",
+          "path",
+          "filename",
+          "stat_result",
+          "background",
+          "render",
+          "stream_response",
+          "chunk_size",
+          "max_ranges"
+        ],
+        "set_watch": [
+          "body_iterator",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "path",
+          "filename",
+          "stat_result"
+        ],
+        "get_allowed": null,
+        "set_allowed": null,
+        "rejected_read": null,
+        "rejected_write": null,
+        "failure": null,
+        "raw_accessor": null,
+        "actions": [],
+        "dict_fields": [
+          "body_iterator",
+          "path",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "filename",
+          "stat_result"
+        ],
+        "override_cookie": false,
+        "header_hook": null
+      }
+    },
+    {
+      "case_id": "starlette.responses.StreamingResponse.consumer-construction.reject-status",
+      "surface": "starlette.responses.StreamingResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.StreamingResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.StreamingResponse.consumer-construction.attribute-and-header-cache-protocols"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "caf\u00e9"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Variant": "reject-status"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/variants",
+        "method": "GET",
+        "headers": [],
+        "asgi": {
+          "spec_version": "2.4"
+        }
+      },
+      "send_failure": null,
+      "background_label": "variant-finished",
+      "subclass_protocol": {
+        "get_watch": [
+          "media_type",
+          "charset",
+          "status_code",
+          "raw_headers",
+          "headers",
+          "init_headers",
+          "body_iterator",
+          "path",
+          "filename",
+          "stat_result",
+          "background",
+          "render",
+          "stream_response",
+          "chunk_size",
+          "max_ranges"
+        ],
+        "set_watch": [
+          "body_iterator",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "path",
+          "filename",
+          "stat_result"
+        ],
+        "get_allowed": null,
+        "set_allowed": null,
+        "rejected_read": null,
+        "rejected_write": null,
+        "failure": {
+          "operation": "set",
+          "name": "status_code",
+          "at_call": 1,
+          "error": {
+            "class": "RuntimeError",
+            "message": "input rejected status"
+          }
+        },
+        "raw_accessor": null,
+        "actions": [],
+        "dict_fields": [
+          "body_iterator",
+          "path",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "filename",
+          "stat_result"
+        ],
+        "override_cookie": false,
+        "header_hook": null
+      }
+    },
+    {
+      "case_id": "starlette.responses.StreamingResponse.consumer-construction.cookie-header-cache",
+      "surface": "starlette.responses.StreamingResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.StreamingResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.StreamingResponse.consumer-construction.attribute-and-header-cache-protocols"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "caf\u00e9"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Variant": "cookie-header-cache"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/variants",
+        "method": "GET",
+        "headers": [],
+        "asgi": {
+          "spec_version": "2.4"
+        }
+      },
+      "send_failure": null,
+      "background_label": "variant-finished",
+      "subclass_protocol": {
+        "get_watch": [
+          "media_type",
+          "charset",
+          "status_code",
+          "raw_headers",
+          "headers",
+          "init_headers",
+          "body_iterator",
+          "path",
+          "filename",
+          "stat_result",
+          "background",
+          "render",
+          "stream_response",
+          "chunk_size",
+          "max_ranges"
+        ],
+        "set_watch": [
+          "body_iterator",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "path",
+          "filename",
+          "stat_result"
+        ],
+        "get_allowed": null,
+        "set_allowed": null,
+        "rejected_read": null,
+        "rejected_write": null,
+        "failure": null,
+        "raw_accessor": null,
+        "actions": [
+          {
+            "kind": "read",
+            "inspect_raw_alias": true
+          },
+          {
+            "kind": "replace-raw",
+            "pairs": [
+              [
+                "x-replaced",
+                "value"
+              ]
+            ]
+          },
+          {
+            "kind": "read",
+            "inspect_raw_alias": true
+          }
+        ],
+        "dict_fields": [
+          "body_iterator",
+          "path",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "filename",
+          "stat_result"
+        ],
+        "override_cookie": false,
+        "header_hook": null
+      }
+    },
+    {
+      "case_id": "starlette.responses.StreamingResponse.consumer-construction.render-hook",
+      "surface": "starlette.responses.StreamingResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.StreamingResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.StreamingResponse.consumer-construction.attribute-and-header-cache-protocols"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "caf\u00e9"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Variant": "render-hook"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "constant",
+          "mutations": {
+            "status_code": 203
+          },
+          "content": {
+            "kind": "bytes",
+            "value": "aW5wdXQgYm9keQ=="
+          }
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/variants",
+        "method": "GET",
+        "headers": [],
+        "asgi": {
+          "spec_version": "2.4"
+        }
+      },
+      "send_failure": null,
+      "background_label": "variant-finished",
+      "subclass_protocol": {
+        "get_watch": [
+          "media_type",
+          "charset",
+          "status_code",
+          "raw_headers",
+          "headers",
+          "init_headers",
+          "body_iterator",
+          "path",
+          "filename",
+          "stat_result",
+          "background",
+          "render",
+          "stream_response",
+          "chunk_size",
+          "max_ranges"
+        ],
+        "set_watch": [
+          "body_iterator",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "path",
+          "filename",
+          "stat_result"
+        ],
+        "get_allowed": null,
+        "set_allowed": null,
+        "rejected_read": null,
+        "rejected_write": null,
+        "failure": null,
+        "raw_accessor": null,
+        "actions": [],
+        "dict_fields": [
+          "body_iterator",
+          "path",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "filename",
+          "stat_result"
+        ],
+        "override_cookie": false,
+        "header_hook": null
+      }
+    },
+    {
+      "case_id": "starlette.responses.FileResponse.consumer-construction.basic",
+      "surface": "starlette.responses.FileResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.FileResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.FileResponse.consumer-construction.attribute-and-header-cache-protocols"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "file",
+          "value": {
+            "name": "input-response.txt",
+            "contents_base64": "aW5wdXQgdGV4dA==",
+            "mtime_seconds": 1700000000.0,
+            "path_kind": "string"
+          }
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Variant": "basic"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/variants",
+        "method": "GET",
+        "headers": [],
+        "asgi": {
+          "spec_version": "2.4"
+        }
+      },
+      "send_failure": null,
+      "background_label": "variant-finished",
+      "subclass_protocol": {
+        "get_watch": [
+          "media_type",
+          "charset",
+          "status_code",
+          "raw_headers",
+          "headers",
+          "init_headers",
+          "body_iterator",
+          "path",
+          "filename",
+          "stat_result",
+          "background",
+          "render",
+          "stream_response",
+          "chunk_size",
+          "max_ranges"
+        ],
+        "set_watch": [
+          "body_iterator",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "path",
+          "filename",
+          "stat_result"
+        ],
+        "get_allowed": null,
+        "set_allowed": null,
+        "rejected_read": null,
+        "rejected_write": null,
+        "failure": null,
+        "raw_accessor": null,
+        "actions": [],
+        "dict_fields": [
+          "body_iterator",
+          "path",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "filename",
+          "stat_result"
+        ],
+        "override_cookie": false,
+        "header_hook": null
+      }
+    },
+    {
+      "case_id": "starlette.responses.FileResponse.consumer-construction.media-default",
+      "surface": "starlette.responses.FileResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.FileResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.FileResponse.consumer-construction.attribute-and-header-cache-protocols"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "file",
+          "value": {
+            "name": "input-response.txt",
+            "contents_base64": "aW5wdXQgdGV4dA==",
+            "mtime_seconds": 1700000000.0,
+            "path_kind": "string"
+          }
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Variant": "media-default"
+          }
+        },
+        "class_attributes": {
+          "media_type": "text/custom"
+        },
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/variants",
+        "method": "GET",
+        "headers": [],
+        "asgi": {
+          "spec_version": "2.4"
+        }
+      },
+      "send_failure": null,
+      "background_label": "variant-finished",
+      "subclass_protocol": {
+        "get_watch": [
+          "media_type",
+          "charset",
+          "status_code",
+          "raw_headers",
+          "headers",
+          "init_headers",
+          "body_iterator",
+          "path",
+          "filename",
+          "stat_result",
+          "background",
+          "render",
+          "stream_response",
+          "chunk_size",
+          "max_ranges"
+        ],
+        "set_watch": [
+          "body_iterator",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "path",
+          "filename",
+          "stat_result"
+        ],
+        "get_allowed": null,
+        "set_allowed": null,
+        "rejected_read": null,
+        "rejected_write": null,
+        "failure": null,
+        "raw_accessor": null,
+        "actions": [],
+        "dict_fields": [
+          "body_iterator",
+          "path",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "filename",
+          "stat_result"
+        ],
+        "override_cookie": false,
+        "header_hook": null
+      }
+    },
+    {
+      "case_id": "starlette.responses.FileResponse.consumer-construction.custom-charset",
+      "surface": "starlette.responses.FileResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.FileResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.FileResponse.consumer-construction.attribute-and-header-cache-protocols"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "file",
+          "value": {
+            "name": "input-response.txt",
+            "contents_base64": "aW5wdXQgdGV4dA==",
+            "mtime_seconds": 1700000000.0,
+            "path_kind": "string"
+          }
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Variant": "custom-charset"
+          }
+        },
+        "class_attributes": {
+          "charset": "latin-1"
+        },
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/variants",
+        "method": "GET",
+        "headers": [],
+        "asgi": {
+          "spec_version": "2.4"
+        }
+      },
+      "send_failure": null,
+      "background_label": "variant-finished",
+      "subclass_protocol": {
+        "get_watch": [
+          "media_type",
+          "charset",
+          "status_code",
+          "raw_headers",
+          "headers",
+          "init_headers",
+          "body_iterator",
+          "path",
+          "filename",
+          "stat_result",
+          "background",
+          "render",
+          "stream_response",
+          "chunk_size",
+          "max_ranges"
+        ],
+        "set_watch": [
+          "body_iterator",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "path",
+          "filename",
+          "stat_result"
+        ],
+        "get_allowed": null,
+        "set_allowed": null,
+        "rejected_read": null,
+        "rejected_write": null,
+        "failure": null,
+        "raw_accessor": null,
+        "actions": [],
+        "dict_fields": [
+          "body_iterator",
+          "path",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "filename",
+          "stat_result"
+        ],
+        "override_cookie": false,
+        "header_hook": null
+      }
+    },
+    {
+      "case_id": "starlette.responses.FileResponse.consumer-construction.status-change",
+      "surface": "starlette.responses.FileResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.FileResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.FileResponse.consumer-construction.attribute-and-header-cache-protocols"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "file",
+          "value": {
+            "name": "input-response.txt",
+            "contents_base64": "aW5wdXQgdGV4dA==",
+            "mtime_seconds": 1700000000.0,
+            "path_kind": "string"
+          }
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Variant": "status-change"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {
+        "status_code": 209
+      },
+      "scope": {
+        "type": "http",
+        "path": "/variants",
+        "method": "GET",
+        "headers": [],
+        "asgi": {
+          "spec_version": "2.4"
+        }
+      },
+      "send_failure": null,
+      "background_label": "variant-finished",
+      "subclass_protocol": {
+        "get_watch": [
+          "media_type",
+          "charset",
+          "status_code",
+          "raw_headers",
+          "headers",
+          "init_headers",
+          "body_iterator",
+          "path",
+          "filename",
+          "stat_result",
+          "background",
+          "render",
+          "stream_response",
+          "chunk_size",
+          "max_ranges"
+        ],
+        "set_watch": [
+          "body_iterator",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "path",
+          "filename",
+          "stat_result"
+        ],
+        "get_allowed": null,
+        "set_allowed": null,
+        "rejected_read": null,
+        "rejected_write": null,
+        "failure": null,
+        "raw_accessor": null,
+        "actions": [],
+        "dict_fields": [
+          "body_iterator",
+          "path",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "filename",
+          "stat_result"
+        ],
+        "override_cookie": false,
+        "header_hook": null
+      }
+    },
+    {
+      "case_id": "starlette.responses.FileResponse.consumer-construction.header-hook-mutate",
+      "surface": "starlette.responses.FileResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.FileResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.FileResponse.consumer-construction.attribute-and-header-cache-protocols"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "file",
+          "value": {
+            "name": "input-response.txt",
+            "contents_base64": "aW5wdXQgdGV4dA==",
+            "mtime_seconds": 1700000000.0,
+            "path_kind": "string"
+          }
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Variant": "header-hook-mutate"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/variants",
+        "method": "GET",
+        "headers": [],
+        "asgi": {
+          "spec_version": "2.4"
+        }
+      },
+      "send_failure": null,
+      "background_label": "variant-finished",
+      "subclass_protocol": {
+        "get_watch": [
+          "media_type",
+          "charset",
+          "status_code",
+          "raw_headers",
+          "headers",
+          "init_headers",
+          "body_iterator",
+          "path",
+          "filename",
+          "stat_result",
+          "background",
+          "render",
+          "stream_response",
+          "chunk_size",
+          "max_ranges"
+        ],
+        "set_watch": [
+          "body_iterator",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "path",
+          "filename",
+          "stat_result"
+        ],
+        "get_allowed": null,
+        "set_allowed": null,
+        "rejected_read": null,
+        "rejected_write": null,
+        "failure": null,
+        "raw_accessor": null,
+        "actions": [],
+        "dict_fields": [
+          "body_iterator",
+          "path",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "filename",
+          "stat_result"
+        ],
+        "override_cookie": false,
+        "header_hook": {
+          "delegate": true,
+          "mutations": {
+            "media_type": "text/hooked",
+            "status_code": 202
+          },
+          "failure": null
+        }
+      }
+    },
+    {
+      "case_id": "starlette.responses.FileResponse.consumer-construction.header-hook-error",
+      "surface": "starlette.responses.FileResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.FileResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.FileResponse.consumer-construction.attribute-and-header-cache-protocols"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "file",
+          "value": {
+            "name": "input-response.txt",
+            "contents_base64": "aW5wdXQgdGV4dA==",
+            "mtime_seconds": 1700000000.0,
+            "path_kind": "string"
+          }
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Variant": "header-hook-error"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/variants",
+        "method": "GET",
+        "headers": [],
+        "asgi": {
+          "spec_version": "2.4"
+        }
+      },
+      "send_failure": null,
+      "background_label": "variant-finished",
+      "subclass_protocol": {
+        "get_watch": [
+          "media_type",
+          "charset",
+          "status_code",
+          "raw_headers",
+          "headers",
+          "init_headers",
+          "body_iterator",
+          "path",
+          "filename",
+          "stat_result",
+          "background",
+          "render",
+          "stream_response",
+          "chunk_size",
+          "max_ranges"
+        ],
+        "set_watch": [
+          "body_iterator",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "path",
+          "filename",
+          "stat_result"
+        ],
+        "get_allowed": null,
+        "set_allowed": null,
+        "rejected_read": null,
+        "rejected_write": null,
+        "failure": null,
+        "raw_accessor": null,
+        "actions": [],
+        "dict_fields": [
+          "body_iterator",
+          "path",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "filename",
+          "stat_result"
+        ],
+        "override_cookie": false,
+        "header_hook": {
+          "delegate": true,
+          "mutations": {
+            "media_type": "text/hooked",
+            "status_code": 202
+          },
+          "failure": {
+            "class": "RuntimeError",
+            "message": "input header hook failed"
+          }
+        }
+      }
+    },
+    {
+      "case_id": "starlette.responses.FileResponse.consumer-construction.header-hook-omit",
+      "surface": "starlette.responses.FileResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.FileResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.FileResponse.consumer-construction.attribute-and-header-cache-protocols"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "file",
+          "value": {
+            "name": "input-response.txt",
+            "contents_base64": "aW5wdXQgdGV4dA==",
+            "mtime_seconds": 1700000000.0,
+            "path_kind": "string"
+          }
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Variant": "header-hook-omit"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/variants",
+        "method": "GET",
+        "headers": [],
+        "asgi": {
+          "spec_version": "2.4"
+        }
+      },
+      "send_failure": null,
+      "background_label": "variant-finished",
+      "subclass_protocol": {
+        "get_watch": [
+          "media_type",
+          "charset",
+          "status_code",
+          "raw_headers",
+          "headers",
+          "init_headers",
+          "body_iterator",
+          "path",
+          "filename",
+          "stat_result",
+          "background",
+          "render",
+          "stream_response",
+          "chunk_size",
+          "max_ranges"
+        ],
+        "set_watch": [
+          "body_iterator",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "path",
+          "filename",
+          "stat_result"
+        ],
+        "get_allowed": null,
+        "set_allowed": null,
+        "rejected_read": null,
+        "rejected_write": null,
+        "failure": null,
+        "raw_accessor": null,
+        "actions": [],
+        "dict_fields": [
+          "body_iterator",
+          "path",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "filename",
+          "stat_result"
+        ],
+        "override_cookie": false,
+        "header_hook": {
+          "delegate": false,
+          "mutations": {
+            "media_type": "text/hooked",
+            "status_code": 202
+          },
+          "failure": null
+        }
+      }
+    },
+    {
+      "case_id": "starlette.responses.FileResponse.consumer-construction.raw-property",
+      "surface": "starlette.responses.FileResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.FileResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.FileResponse.consumer-construction.attribute-and-header-cache-protocols"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "file",
+          "value": {
+            "name": "input-response.txt",
+            "contents_base64": "aW5wdXQgdGV4dA==",
+            "mtime_seconds": 1700000000.0,
+            "path_kind": "string"
+          }
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Variant": "raw-property"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/variants",
+        "method": "GET",
+        "headers": [],
+        "asgi": {
+          "spec_version": "2.4"
+        }
+      },
+      "send_failure": null,
+      "background_label": "variant-finished",
+      "subclass_protocol": {
+        "get_watch": [
+          "media_type",
+          "charset",
+          "status_code",
+          "raw_headers",
+          "headers",
+          "init_headers",
+          "body_iterator",
+          "path",
+          "filename",
+          "stat_result",
+          "background",
+          "render",
+          "stream_response",
+          "chunk_size",
+          "max_ranges"
+        ],
+        "set_watch": [
+          "body_iterator",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "path",
+          "filename",
+          "stat_result"
+        ],
+        "get_allowed": null,
+        "set_allowed": null,
+        "rejected_read": null,
+        "rejected_write": null,
+        "failure": null,
+        "raw_accessor": {
+          "mode": "stored",
+          "pairs": [],
+          "getter_failure": null,
+          "setter_failure": null
+        },
+        "actions": [],
+        "dict_fields": [
+          "body_iterator",
+          "path",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "filename",
+          "stat_result"
+        ],
+        "override_cookie": false,
+        "header_hook": null
+      }
+    },
+    {
+      "case_id": "starlette.responses.FileResponse.consumer-construction.attribute-order",
+      "surface": "starlette.responses.FileResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.FileResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.FileResponse.consumer-construction.attribute-and-header-cache-protocols"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "file",
+          "value": {
+            "name": "input-response.txt",
+            "contents_base64": "aW5wdXQgdGV4dA==",
+            "mtime_seconds": 1700000000.0,
+            "path_kind": "string"
+          }
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Variant": "attribute-order"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/variants",
+        "method": "GET",
+        "headers": [],
+        "asgi": {
+          "spec_version": "2.4"
+        }
+      },
+      "send_failure": null,
+      "background_label": "variant-finished",
+      "subclass_protocol": {
+        "get_watch": [
+          "media_type",
+          "charset",
+          "status_code",
+          "raw_headers",
+          "headers",
+          "init_headers",
+          "body_iterator",
+          "path",
+          "filename",
+          "stat_result",
+          "background",
+          "render",
+          "stream_response",
+          "chunk_size",
+          "max_ranges"
+        ],
+        "set_watch": [
+          "body_iterator",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "path",
+          "filename",
+          "stat_result"
+        ],
+        "get_allowed": null,
+        "set_allowed": null,
+        "rejected_read": null,
+        "rejected_write": null,
+        "failure": null,
+        "raw_accessor": null,
+        "actions": [],
+        "dict_fields": [
+          "body_iterator",
+          "path",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "filename",
+          "stat_result"
+        ],
+        "override_cookie": false,
+        "header_hook": null
+      }
+    },
+    {
+      "case_id": "starlette.responses.FileResponse.consumer-construction.reject-status",
+      "surface": "starlette.responses.FileResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.FileResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.FileResponse.consumer-construction.attribute-and-header-cache-protocols"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "file",
+          "value": {
+            "name": "input-response.txt",
+            "contents_base64": "aW5wdXQgdGV4dA==",
+            "mtime_seconds": 1700000000.0,
+            "path_kind": "string"
+          }
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Variant": "reject-status"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/variants",
+        "method": "GET",
+        "headers": [],
+        "asgi": {
+          "spec_version": "2.4"
+        }
+      },
+      "send_failure": null,
+      "background_label": "variant-finished",
+      "subclass_protocol": {
+        "get_watch": [
+          "media_type",
+          "charset",
+          "status_code",
+          "raw_headers",
+          "headers",
+          "init_headers",
+          "body_iterator",
+          "path",
+          "filename",
+          "stat_result",
+          "background",
+          "render",
+          "stream_response",
+          "chunk_size",
+          "max_ranges"
+        ],
+        "set_watch": [
+          "body_iterator",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "path",
+          "filename",
+          "stat_result"
+        ],
+        "get_allowed": null,
+        "set_allowed": null,
+        "rejected_read": null,
+        "rejected_write": null,
+        "failure": {
+          "operation": "set",
+          "name": "status_code",
+          "at_call": 1,
+          "error": {
+            "class": "RuntimeError",
+            "message": "input rejected status"
+          }
+        },
+        "raw_accessor": null,
+        "actions": [],
+        "dict_fields": [
+          "body_iterator",
+          "path",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "filename",
+          "stat_result"
+        ],
+        "override_cookie": false,
+        "header_hook": null
+      }
+    },
+    {
+      "case_id": "starlette.responses.FileResponse.consumer-construction.cookie-header-cache",
+      "surface": "starlette.responses.FileResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.FileResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.FileResponse.consumer-construction.attribute-and-header-cache-protocols"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "file",
+          "value": {
+            "name": "input-response.txt",
+            "contents_base64": "aW5wdXQgdGV4dA==",
+            "mtime_seconds": 1700000000.0,
+            "path_kind": "string"
+          }
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Variant": "cookie-header-cache"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/variants",
+        "method": "GET",
+        "headers": [],
+        "asgi": {
+          "spec_version": "2.4"
+        }
+      },
+      "send_failure": null,
+      "background_label": "variant-finished",
+      "subclass_protocol": {
+        "get_watch": [
+          "media_type",
+          "charset",
+          "status_code",
+          "raw_headers",
+          "headers",
+          "init_headers",
+          "body_iterator",
+          "path",
+          "filename",
+          "stat_result",
+          "background",
+          "render",
+          "stream_response",
+          "chunk_size",
+          "max_ranges"
+        ],
+        "set_watch": [
+          "body_iterator",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "path",
+          "filename",
+          "stat_result"
+        ],
+        "get_allowed": null,
+        "set_allowed": null,
+        "rejected_read": null,
+        "rejected_write": null,
+        "failure": null,
+        "raw_accessor": null,
+        "actions": [
+          {
+            "kind": "read",
+            "inspect_raw_alias": true
+          },
+          {
+            "kind": "replace-raw",
+            "pairs": [
+              [
+                "x-replaced",
+                "value"
+              ]
+            ]
+          },
+          {
+            "kind": "read",
+            "inspect_raw_alias": true
+          }
+        ],
+        "dict_fields": [
+          "body_iterator",
+          "path",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "filename",
+          "stat_result"
+        ],
+        "override_cookie": false,
+        "header_hook": null
+      }
+    },
+    {
+      "case_id": "starlette.responses.FileResponse.consumer-construction.render-hook",
+      "surface": "starlette.responses.FileResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.FileResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.FileResponse.consumer-construction.attribute-and-header-cache-protocols"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "file",
+          "value": {
+            "name": "input-response.txt",
+            "contents_base64": "aW5wdXQgdGV4dA==",
+            "mtime_seconds": 1700000000.0,
+            "path_kind": "string"
+          }
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Variant": "render-hook"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "constant",
+          "mutations": {
+            "status_code": 203
+          },
+          "content": {
+            "kind": "bytes",
+            "value": "aW5wdXQgYm9keQ=="
+          }
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/variants",
+        "method": "GET",
+        "headers": [],
+        "asgi": {
+          "spec_version": "2.4"
+        }
+      },
+      "send_failure": null,
+      "background_label": "variant-finished",
+      "subclass_protocol": {
+        "get_watch": [
+          "media_type",
+          "charset",
+          "status_code",
+          "raw_headers",
+          "headers",
+          "init_headers",
+          "body_iterator",
+          "path",
+          "filename",
+          "stat_result",
+          "background",
+          "render",
+          "stream_response",
+          "chunk_size",
+          "max_ranges"
+        ],
+        "set_watch": [
+          "body_iterator",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "path",
+          "filename",
+          "stat_result"
+        ],
+        "get_allowed": null,
+        "set_allowed": null,
+        "rejected_read": null,
+        "rejected_write": null,
+        "failure": null,
+        "raw_accessor": null,
+        "actions": [],
+        "dict_fields": [
+          "body_iterator",
+          "path",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "filename",
+          "stat_result"
+        ],
+        "override_cookie": false,
+        "header_hook": null
+      }
+    },
+    {
+      "case_id": "starlette.responses.RedirectResponse.consumer-construction.send-replaces-background",
+      "surface": "starlette.responses.RedirectResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.RedirectResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.RedirectResponse.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "/caf\u00e9 path?x=hello world"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Variant": "basic"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/variants"
+      },
+      "send_failure": null,
+      "background_label": "variant-finished",
+      "callbacks": {
+        "attribute_probe": [],
+        "inspect_aliases": false,
+        "background_definitions": [
+          {
+            "label": "replacement",
+            "failure": null
+          }
+        ],
+        "send_actions": [
+          {
+            "kind": "background",
+            "at_event": 1,
+            "checkpoint": true,
+            "label": "replacement"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.responses.StreamingResponse.consumer-construction.send-replaces-background",
+      "surface": "starlette.responses.StreamingResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.StreamingResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.StreamingResponse.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "caf\u00e9"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Variant": "basic"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/variants",
+        "method": "GET",
+        "headers": [],
+        "asgi": {
+          "spec_version": "2.4"
+        }
+      },
+      "send_failure": null,
+      "background_label": "variant-finished",
+      "callbacks": {
+        "attribute_probe": [],
+        "inspect_aliases": false,
+        "background_definitions": [
+          {
+            "label": "replacement",
+            "failure": null
+          }
+        ],
+        "send_actions": [
+          {
+            "kind": "background",
+            "at_event": 1,
+            "checkpoint": true,
+            "label": "replacement"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.responses.FileResponse.consumer-construction.send-replaces-background",
+      "surface": "starlette.responses.FileResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.FileResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.FileResponse.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "file",
+          "value": {
+            "name": "input-response.txt",
+            "contents_base64": "aW5wdXQgdGV4dA==",
+            "mtime_seconds": 1700000000.0,
+            "path_kind": "string"
+          }
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Variant": "basic"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/variants",
+        "method": "GET",
+        "headers": [],
+        "asgi": {
+          "spec_version": "2.4"
+        }
+      },
+      "send_failure": null,
+      "background_label": "variant-finished",
+      "callbacks": {
+        "attribute_probe": [],
+        "inspect_aliases": false,
+        "background_definitions": [
+          {
+            "label": "replacement",
+            "failure": null
+          }
+        ],
+        "send_actions": [
+          {
+            "kind": "background",
+            "at_event": 1,
+            "checkpoint": true,
+            "label": "replacement"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.responses.StreamingResponse.consumer-construction.construct-in-worker",
+      "surface": "starlette.responses.StreamingResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.StreamingResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.StreamingResponse.consumer-construction.attribute-and-header-cache-protocols",
+        "starlette.responses.StreamingResponse.consumer-construction.construction-thread-transfer"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "caf\u00e9"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Variant": "basic"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/variants",
+        "method": "GET",
+        "headers": [],
+        "asgi": {
+          "spec_version": "2.4"
+        }
+      },
+      "send_failure": null,
+      "background_label": "variant-finished",
+      "subclass_protocol": {
+        "get_watch": [
+          "media_type",
+          "charset",
+          "status_code",
+          "raw_headers",
+          "headers",
+          "init_headers",
+          "body_iterator",
+          "path",
+          "filename",
+          "stat_result",
+          "background",
+          "render",
+          "stream_response",
+          "chunk_size",
+          "max_ranges"
+        ],
+        "set_watch": [
+          "body_iterator",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "path",
+          "filename",
+          "stat_result"
+        ],
+        "get_allowed": null,
+        "set_allowed": null,
+        "rejected_read": null,
+        "rejected_write": null,
+        "failure": null,
+        "raw_accessor": null,
+        "actions": [],
+        "dict_fields": [
+          "body_iterator",
+          "path",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "filename",
+          "stat_result"
+        ],
+        "override_cookie": false,
+        "header_hook": null
+      },
+      "constructor_thread": "worker"
+    },
+    {
+      "case_id": "starlette.responses.FileResponse.consumer-construction.unicode-filename",
+      "surface": "starlette.responses.FileResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.FileResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.FileResponse.consumer-construction.attribute-and-header-cache-protocols"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "file",
+          "value": {
+            "name": "input-response.txt",
+            "contents_base64": "aW5wdXQgdGV4dA==",
+            "mtime_seconds": 1700000000.0,
+            "path_kind": "string"
+          }
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Variant": "basic"
+          },
+          "filename": "caf\u00e9.txt"
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/variants",
+        "method": "GET",
+        "headers": [],
+        "asgi": {
+          "spec_version": "2.4"
+        }
+      },
+      "send_failure": null,
+      "background_label": "variant-finished",
+      "subclass_protocol": {
+        "get_watch": [
+          "media_type",
+          "charset",
+          "status_code",
+          "raw_headers",
+          "headers",
+          "init_headers",
+          "body_iterator",
+          "path",
+          "filename",
+          "stat_result",
+          "background",
+          "render",
+          "stream_response",
+          "chunk_size",
+          "max_ranges"
+        ],
+        "set_watch": [
+          "body_iterator",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "path",
+          "filename",
+          "stat_result"
+        ],
+        "get_allowed": null,
+        "set_allowed": null,
+        "rejected_read": null,
+        "rejected_write": null,
+        "failure": null,
+        "raw_accessor": null,
+        "actions": [],
+        "dict_fields": [
+          "body_iterator",
+          "path",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "filename",
+          "stat_result"
+        ],
+        "override_cookie": false,
+        "header_hook": null
+      }
+    },
+    {
+      "case_id": "starlette.responses.FileResponse.consumer-construction.inline-filename",
+      "surface": "starlette.responses.FileResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.FileResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.FileResponse.consumer-construction.attribute-and-header-cache-protocols"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "file",
+          "value": {
+            "name": "input-response.txt",
+            "contents_base64": "aW5wdXQgdGV4dA==",
+            "mtime_seconds": 1700000000.0,
+            "path_kind": "string"
+          }
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Variant": "basic"
+          },
+          "filename": "notes.txt",
+          "content_disposition_type": "inline"
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/variants",
+        "method": "GET",
+        "headers": [],
+        "asgi": {
+          "spec_version": "2.4"
+        }
+      },
+      "send_failure": null,
+      "background_label": "variant-finished",
+      "subclass_protocol": {
+        "get_watch": [
+          "media_type",
+          "charset",
+          "status_code",
+          "raw_headers",
+          "headers",
+          "init_headers",
+          "body_iterator",
+          "path",
+          "filename",
+          "stat_result",
+          "background",
+          "render",
+          "stream_response",
+          "chunk_size",
+          "max_ranges"
+        ],
+        "set_watch": [
+          "body_iterator",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "path",
+          "filename",
+          "stat_result"
+        ],
+        "get_allowed": null,
+        "set_allowed": null,
+        "rejected_read": null,
+        "rejected_write": null,
+        "failure": null,
+        "raw_accessor": null,
+        "actions": [],
+        "dict_fields": [
+          "body_iterator",
+          "path",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "filename",
+          "stat_result"
+        ],
+        "override_cookie": false,
+        "header_hook": null
+      }
+    },
+    {
+      "case_id": "starlette.responses.FileResponse.consumer-construction.provided-stat",
+      "surface": "starlette.responses.FileResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.FileResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.FileResponse.consumer-construction.attribute-and-header-cache-protocols"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "file",
+          "value": {
+            "name": "input-response.txt",
+            "contents_base64": "aW5wdXQgdGV4dA==",
+            "mtime_seconds": 1700000000.0,
+            "path_kind": "string"
+          }
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Variant": "basic"
+          },
+          "stat_result": "from-content"
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/variants",
+        "method": "GET",
+        "headers": [],
+        "asgi": {
+          "spec_version": "2.4"
+        }
+      },
+      "send_failure": null,
+      "background_label": "variant-finished",
+      "subclass_protocol": {
+        "get_watch": [
+          "media_type",
+          "charset",
+          "status_code",
+          "raw_headers",
+          "headers",
+          "init_headers",
+          "body_iterator",
+          "path",
+          "filename",
+          "stat_result",
+          "background",
+          "render",
+          "stream_response",
+          "chunk_size",
+          "max_ranges"
+        ],
+        "set_watch": [
+          "body_iterator",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "path",
+          "filename",
+          "stat_result"
+        ],
+        "get_allowed": null,
+        "set_allowed": null,
+        "rejected_read": null,
+        "rejected_write": null,
+        "failure": null,
+        "raw_accessor": null,
+        "actions": [],
+        "dict_fields": [
+          "body_iterator",
+          "path",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "filename",
+          "stat_result"
+        ],
+        "override_cookie": false,
+        "header_hook": null
+      }
+    },
+    {
+      "case_id": "starlette.responses.StreamingResponse.consumer-construction.construct-in-worker-background-task",
+      "surface": "starlette.responses.StreamingResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.StreamingResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.StreamingResponse.consumer-construction.attribute-and-header-cache-protocols",
+        "starlette.responses.StreamingResponse.consumer-construction.construction-thread-transfer"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "caf\u00e9"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Variant": "basic"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/variants",
+        "method": "GET",
+        "headers": [],
+        "asgi": {
+          "spec_version": "2.4"
+        }
+      },
+      "send_failure": null,
+      "background_label": "variant-finished",
+      "subclass_protocol": {
+        "get_watch": [
+          "media_type",
+          "charset",
+          "status_code",
+          "raw_headers",
+          "headers",
+          "init_headers",
+          "body_iterator",
+          "path",
+          "filename",
+          "stat_result",
+          "background",
+          "render",
+          "stream_response",
+          "chunk_size",
+          "max_ranges"
+        ],
+        "set_watch": [
+          "body_iterator",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "path",
+          "filename",
+          "stat_result"
+        ],
+        "get_allowed": null,
+        "set_allowed": null,
+        "rejected_read": null,
+        "rejected_write": null,
+        "failure": null,
+        "raw_accessor": null,
+        "actions": [],
+        "dict_fields": [
+          "body_iterator",
+          "path",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "filename",
+          "stat_result"
+        ],
+        "override_cookie": false,
+        "header_hook": null
+      },
+      "constructor_thread": "worker",
+      "background_kind": "task"
+    },
+    {
+      "case_id": "starlette.responses.StreamingResponse.consumer-construction.construct-in-worker-background-tasks",
+      "surface": "starlette.responses.StreamingResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.StreamingResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.StreamingResponse.consumer-construction.attribute-and-header-cache-protocols",
+        "starlette.responses.StreamingResponse.consumer-construction.construction-thread-transfer"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "caf\u00e9"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Variant": "basic"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/variants",
+        "method": "GET",
+        "headers": [],
+        "asgi": {
+          "spec_version": "2.4"
+        }
+      },
+      "send_failure": null,
+      "background_label": "variant-finished",
+      "subclass_protocol": {
+        "get_watch": [
+          "media_type",
+          "charset",
+          "status_code",
+          "raw_headers",
+          "headers",
+          "init_headers",
+          "body_iterator",
+          "path",
+          "filename",
+          "stat_result",
+          "background",
+          "render",
+          "stream_response",
+          "chunk_size",
+          "max_ranges"
+        ],
+        "set_watch": [
+          "body_iterator",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "path",
+          "filename",
+          "stat_result"
+        ],
+        "get_allowed": null,
+        "set_allowed": null,
+        "rejected_read": null,
+        "rejected_write": null,
+        "failure": null,
+        "raw_accessor": null,
+        "actions": [],
+        "dict_fields": [
+          "body_iterator",
+          "path",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "filename",
+          "stat_result"
+        ],
+        "override_cookie": false,
+        "header_hook": null
+      },
+      "constructor_thread": "worker",
+      "background_kind": "tasks"
+    },
+    {
+      "case_id": "starlette.responses.FileResponse.consumer-construction.construct-in-worker-background-tasks",
+      "surface": "starlette.responses.FileResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.FileResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.FileResponse.consumer-construction.attribute-and-header-cache-protocols",
+        "starlette.responses.FileResponse.consumer-construction.construction-thread-transfer"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "file",
+          "value": {
+            "name": "input-response.txt",
+            "contents_base64": "aW5wdXQgdGV4dA==",
+            "mtime_seconds": 1700000000.0,
+            "path_kind": "string"
+          }
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Variant": "basic"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/variants",
+        "method": "GET",
+        "headers": [],
+        "asgi": {
+          "spec_version": "2.4"
+        }
+      },
+      "send_failure": null,
+      "background_label": "variant-finished",
+      "subclass_protocol": {
+        "get_watch": [
+          "media_type",
+          "charset",
+          "status_code",
+          "raw_headers",
+          "headers",
+          "init_headers",
+          "body_iterator",
+          "path",
+          "filename",
+          "stat_result",
+          "background",
+          "render",
+          "stream_response",
+          "chunk_size",
+          "max_ranges"
+        ],
+        "set_watch": [
+          "body_iterator",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "path",
+          "filename",
+          "stat_result"
+        ],
+        "get_allowed": null,
+        "set_allowed": null,
+        "rejected_read": null,
+        "rejected_write": null,
+        "failure": null,
+        "raw_accessor": null,
+        "actions": [],
+        "dict_fields": [
+          "body_iterator",
+          "path",
+          "status_code",
+          "media_type",
+          "background",
+          "body",
+          "raw_headers",
+          "filename",
+          "stat_result"
+        ],
+        "override_cookie": false,
+        "header_hook": null
+      },
+      "constructor_thread": "worker",
+      "background_kind": "tasks"
+    }
+  ]
+}

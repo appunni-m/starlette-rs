@@ -1,5 +1,11 @@
 # Benchmark mapping
 
+The recorded runs below are historical evidence for their recorded revisions.
+The active `parity-input@45` implementation checkpoint has not been benchmarked.
+Freshness validation currently rejects the previous result artifact because its
+manifest digest differs from the active manifest. New timing is deferred until
+implementation, full parity, and coverage are complete.
+
 The pinned Starlette 1.6.0 benchmark suite has six Router workloads and 68
 GZip workloads. The dedicated runner measures all 74 against both pinned
 Python source and the installed `starlette-rs-py` package after exact

@@ -28,6 +28,14 @@ classifiers = [
 ]
 
 [project.optional-dependencies]
+full = [
+    "itsdangerous",
+    "jinja2",
+    "python-multipart>=0.0.18",
+    "pyyaml",
+    "httpx>=0.27.0,<0.29.0",
+    "httpx2>=2.0.0",
+]
 schemas = ["pyyaml"]
 templates = ["jinja2"]
 testclient = ["httpx>=0.27.0,<0.29.0", "httpx2>=2.0.0"]

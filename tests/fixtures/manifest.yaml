@@ -210,7 +210,7 @@
   ],
   "interfaces": {
     "parity": {
-      "input_schema": "migration-parity/parity-input@44",
+      "input_schema": "migration-parity/parity-input@45",
       "result_schema": "migration-parity/parity-result@6",
       "command_id": "parity"
     },
@@ -376,7 +376,9 @@
       "build/parity/inputs/parity/response-construction-protocols.json",
       "build/parity/inputs/parity/response-attributes.json",
       "build/parity/inputs/parity/response-cookie-protocols.json",
-      "build/parity/inputs/parity/response-cookie-ownership.json"
+      "build/parity/inputs/parity/response-cookie-ownership.json",
+      "build/parity/inputs/parity/response-variants.json",
+      "build/parity/inputs/parity/templating-protocols.json"
     ],
     "coverage": [],
     "benchmark": [
@@ -15810,6 +15812,221 @@
             "applicability": "not_applicable",
             "reason": "This input-only FileResponse correctness slice declares no benchmark workload."
           }
+        },
+        {
+          "id": "consumer-construction",
+          "kind": "protocol_operation",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.responses.FileResponse.__init__, __call__, inherited Response.init_headers and headers; public constructor hooks, attribute protocols and ASGI callbacks",
+            "signature": "Construct the documented response or an input-defined subclass; compare live public constructor values, hooks, callback errors and ASGI events.",
+            "parameters": [
+              {
+                "id": "construction",
+                "style": "option",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "post_init_attributes",
+                "style": "option",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "scope",
+                "style": "option",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "send_failure",
+                "style": "option",
+                "value_types": [
+                  "record",
+                  "null"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "background_label",
+                "style": "option",
+                "value_types": [
+                  "string",
+                  "null"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "callbacks",
+                "style": "option",
+                "value_types": [
+                  "record",
+                  "null"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": null
+                }
+              },
+              {
+                "id": "subclass_protocol",
+                "style": "option",
+                "value_types": [
+                  "record",
+                  "null"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": null
+                }
+              },
+              {
+                "id": "background_kind",
+                "style": "option",
+                "value_types": [
+                  "string"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": "callable"
+                }
+              },
+              {
+                "id": "constructor_thread",
+                "style": "option",
+                "value_types": [
+                  "string"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": "caller"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "response-consumer",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "out_of_scope",
+                "reason": "This workflow observes Python subclass rendering, class defaults, Python values, user exception identity, and mutable Python response attributes. Native response construction remains covered through the existing native ASGI operation.",
+                "authority": "AGENTS.md: preserve documented starlette.* imports and keep the Rust-native API additive."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.responses.FileResponse.__init__, __call__, inherited Response.init_headers and headers; public constructor hooks, attribute protocols and ASGI callbacks",
+              "signature": "Construct the documented response or an input-defined subclass; compare live public constructor values, hooks, callback errors and ASGI events.",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.responses.FileResponse.consumer-construction.public-render-and-asgi",
+              "dimension": "boundary",
+              "description": "Compare input-derived FileResponse construction, subclass init_headers and attribute protocols, mutable public values, error identity and ASGI outcomes against the pinned source. Source: starlette/responses.py; docs/responses.md.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.FileResponse.consumer-construction.live-asgi-state-and-lifetime",
+              "dimension": "boundary",
+              "description": "Compare input-derived FileResponse construction, subclass init_headers and attribute protocols, mutable public values, error identity and ASGI outcomes against the pinned source. Source: starlette/responses.py; docs/responses.md.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.FileResponse.consumer-construction.attribute-and-header-cache-protocols",
+              "dimension": "boundary",
+              "description": "Compare input-derived FileResponse construction, subclass init_headers and attribute protocols, mutable public values, error identity and ASGI outcomes against the pinned source. Source: starlette/responses.py; docs/responses.md.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.FileResponse.consumer-construction.construction-thread-transfer",
+              "dimension": "boundary",
+              "description": "Construct FileResponse and background objects on an input-selected worker, then invoke the public ASGI callable on the caller loop. Compare live events, callback order and errors. Source: starlette/responses.py:FileResponse; starlette/background.py; docs/threadpool.md.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This input-only compatibility slice makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "Response construction and user rendering are outside the active Router/GZip timing workloads."
+          }
         }
       ]
     },
@@ -16552,6 +16769,188 @@
           "benchmark": {
             "applicability": "not_applicable",
             "reason": "This input-only response correctness slice declares no benchmark workload."
+          }
+        },
+        {
+          "id": "consumer-construction",
+          "kind": "protocol_operation",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.responses.RedirectResponse.__init__, __call__, inherited Response.init_headers and headers; public constructor hooks, attribute protocols and ASGI callbacks",
+            "signature": "Construct the documented response or an input-defined subclass; compare live public constructor values, hooks, callback errors and ASGI events.",
+            "parameters": [
+              {
+                "id": "construction",
+                "style": "option",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "post_init_attributes",
+                "style": "option",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "scope",
+                "style": "option",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "send_failure",
+                "style": "option",
+                "value_types": [
+                  "record",
+                  "null"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "background_label",
+                "style": "option",
+                "value_types": [
+                  "string",
+                  "null"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "callbacks",
+                "style": "option",
+                "value_types": [
+                  "record",
+                  "null"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": null
+                }
+              },
+              {
+                "id": "subclass_protocol",
+                "style": "option",
+                "value_types": [
+                  "record",
+                  "null"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": null
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "response-consumer",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "out_of_scope",
+                "reason": "This workflow observes Python subclass rendering, class defaults, Python values, user exception identity, and mutable Python response attributes. Native response construction remains covered through the existing native ASGI operation.",
+                "authority": "AGENTS.md: preserve documented starlette.* imports and keep the Rust-native API additive."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.responses.RedirectResponse.__init__, __call__, inherited Response.init_headers and headers; public constructor hooks, attribute protocols and ASGI callbacks",
+              "signature": "Construct the documented response or an input-defined subclass; compare live public constructor values, hooks, callback errors and ASGI events.",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.responses.RedirectResponse.consumer-construction.public-render-and-asgi",
+              "dimension": "boundary",
+              "description": "Compare input-derived RedirectResponse construction, subclass init_headers and attribute protocols, mutable public values, error identity and ASGI outcomes against the pinned source. Source: starlette/responses.py; docs/responses.md.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.RedirectResponse.consumer-construction.live-asgi-state-and-lifetime",
+              "dimension": "boundary",
+              "description": "Compare input-derived RedirectResponse construction, subclass init_headers and attribute protocols, mutable public values, error identity and ASGI outcomes against the pinned source. Source: starlette/responses.py; docs/responses.md.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.RedirectResponse.consumer-construction.attribute-and-header-cache-protocols",
+              "dimension": "boundary",
+              "description": "Compare input-derived RedirectResponse construction, subclass init_headers and attribute protocols, mutable public values, error identity and ASGI outcomes against the pinned source. Source: starlette/responses.py; docs/responses.md.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This input-only compatibility slice makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "Response construction and user rendering are outside the active Router/GZip timing workloads."
           }
         }
       ]
@@ -17932,6 +18331,221 @@
           "benchmark": {
             "applicability": "not_applicable",
             "reason": "This input-only response correctness slice declares no benchmark workload."
+          }
+        },
+        {
+          "id": "consumer-construction",
+          "kind": "protocol_operation",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.responses.StreamingResponse.__init__, __call__, inherited Response.init_headers and headers; public constructor hooks, attribute protocols and ASGI callbacks",
+            "signature": "Construct the documented response or an input-defined subclass; compare live public constructor values, hooks, callback errors and ASGI events.",
+            "parameters": [
+              {
+                "id": "construction",
+                "style": "option",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "post_init_attributes",
+                "style": "option",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "scope",
+                "style": "option",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "send_failure",
+                "style": "option",
+                "value_types": [
+                  "record",
+                  "null"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "background_label",
+                "style": "option",
+                "value_types": [
+                  "string",
+                  "null"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "callbacks",
+                "style": "option",
+                "value_types": [
+                  "record",
+                  "null"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": null
+                }
+              },
+              {
+                "id": "subclass_protocol",
+                "style": "option",
+                "value_types": [
+                  "record",
+                  "null"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": null
+                }
+              },
+              {
+                "id": "constructor_thread",
+                "style": "option",
+                "value_types": [
+                  "string"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": "caller"
+                }
+              },
+              {
+                "id": "background_kind",
+                "style": "option",
+                "value_types": [
+                  "string"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": "callable"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "response-consumer",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "out_of_scope",
+                "reason": "This workflow observes Python subclass rendering, class defaults, Python values, user exception identity, and mutable Python response attributes. Native response construction remains covered through the existing native ASGI operation.",
+                "authority": "AGENTS.md: preserve documented starlette.* imports and keep the Rust-native API additive."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.responses.StreamingResponse.__init__, __call__, inherited Response.init_headers and headers; public constructor hooks, attribute protocols and ASGI callbacks",
+              "signature": "Construct the documented response or an input-defined subclass; compare live public constructor values, hooks, callback errors and ASGI events.",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.responses.StreamingResponse.consumer-construction.public-render-and-asgi",
+              "dimension": "boundary",
+              "description": "Compare input-derived StreamingResponse construction, subclass init_headers and attribute protocols, mutable public values, error identity and ASGI outcomes against the pinned source. Source: starlette/responses.py; docs/responses.md.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.StreamingResponse.consumer-construction.live-asgi-state-and-lifetime",
+              "dimension": "boundary",
+              "description": "Compare input-derived StreamingResponse construction, subclass init_headers and attribute protocols, mutable public values, error identity and ASGI outcomes against the pinned source. Source: starlette/responses.py; docs/responses.md.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.StreamingResponse.consumer-construction.attribute-and-header-cache-protocols",
+              "dimension": "boundary",
+              "description": "Compare input-derived StreamingResponse construction, subclass init_headers and attribute protocols, mutable public values, error identity and ASGI outcomes against the pinned source. Source: starlette/responses.py; docs/responses.md.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.StreamingResponse.consumer-construction.construction-thread-transfer",
+              "dimension": "boundary",
+              "description": "Construct StreamingResponse with synchronous iterable content on an input-selected worker thread, then consume its public ASGI callable on the caller loop. Source: starlette/responses.py:StreamingResponse; starlette/concurrency.py:iterate_in_threadpool; docs/threadpool.md. Compare live callbacks and events without expected outputs.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This input-only compatibility slice makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "Response construction and user rendering are outside the active Router/GZip timing workloads."
           }
         }
       ]
@@ -26951,6 +27565,18 @@
                   "kind": "literal",
                   "value": null
                 }
+              },
+              {
+                "id": "hooks",
+                "style": "option",
+                "value_types": [
+                  "record",
+                  "null"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": null
+                }
               }
             ],
             "result": {
@@ -27166,6 +27792,17 @@
               "id": "starlette.templating.Jinja2Templates.template-public-workflow.client-debug-metadata",
               "dimension": "protocol_variant",
               "description": "Observe public TestClient response template and request context from the live template debug extension alongside response events. Pinned source: tests/test_templates.py:19-35,49-74,77-100,103-135,158-181; starlette/testclient.py:345-373.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.templating.Jinja2Templates.template-public-workflow.subclass-hook-dispatch",
+              "dimension": "boundary",
+              "description": "Construct an input-defined Jinja2Templates subclass with environment setup, template lookup and attribute access callbacks. Compare constructor/lookup errors and live template results through directory and preconfigured-environment consumers. Pinned source: starlette/templating.py:80-158; docs/templates.md. No expected outputs are stored.",
               "lanes": [
                 "parity"
               ],

@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@44",
+  "schema": "migration-parity/parity-input@45",
   "cases": [
     {
       "case_id": "starlette.responses.RedirectResponse.asgi-call.default-relative-location",

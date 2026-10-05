@@ -298,3 +298,51 @@ is retained locally and is not reported as passing evidence.
 Clean commit `553a06a49d6cc24c2f74ffdb01170c7a4da19f2b` passed full preflight `72d7b8d2-508a-4d10-bf44-92a37a855cd5`: 1,740/1,740 Python-package comparisons, 246/250 Rust-native comparisons, and both fault contracts. There were zero failures or infrastructure errors. Four existing native callable cases remain not_run. Result SHA-256: `e98156f566a0f6c00fa40692950b72a947e30ff80e22b2750ce223cb20a9a2c2`. Normal installed package tree: `1fe51681fa92a2f3f25650e9a2eee69a3211c3b2dc3957311eeb374b765fc666`.
 
 Benchmark `8ece8df3-a7c2-4a44-8f1d-5cfa915e35e5` matched and timed all 74 source/package workloads. All 74 native timings remain not_run. Median source/package latency ratios were 0.737 for Router and 0.980 for GZip; the source was faster in 5/6 Router and 59/68 GZip workloads. Result SHA-256: `003123ccc547becf233b63df466947cffa8ef04e25480b81120073c0c7db2230`. See [benchmark evidence](BENCHMARKS.md). These bounded comparisons do not establish full replacement parity or general speed superiority.
+
+## Implementation phase: response variants and thread ownership
+
+This checkpoint follows the whole-project order in AGENTS.md: implementation
+across all feature families, full parity with grouped fixes, full coverage,
+then the complete benchmark workload. No behavioral execution or new parity,
+coverage, or benchmark claim accompanies this checkpoint.
+
+Rust now orders StreamingResponse initialization, stores its public
+`body_iterator`, invokes the original constructor header hook, reads live
+attributes at streaming lookup points, and delegates public stream/listener
+subclass methods to the owning Python task. The established Rust disconnect
+coordinator handles the older ASGI task-group path. Native continuations and
+threadpool iterator storage can move from a synchronous constructor worker to
+the ASGI task or survive a traceback on a different Python thread. GC visits
+owned Python references; no unsafe code or Python runtime control flow is added.
+
+RedirectResponse now uses the inherited response constructor before Rust quotes
+the URL and writes the Location header. FileResponse now orders public path,
+status, filename, MIME selection, header initialization, disposition and supplied
+stat hooks in Rust. Rust also computes the stat ETag, sharing the same digest
+implementation with the native file API. The existing Rust file call driver
+remains responsible for range decisions and I/O scheduling. Its call-time stat
+and subclass hook order still requires implementation work and comparison.
+
+The remaining Python calls are boundary representation or user/library callbacks:
+
+- Python iterable registration and `aiter`/`anext` preserve special-method
+  dispatch and user exceptions; Rust owns iteration and ASGI event order.
+- Python string encoding preserves the interpreter's original encoding errors;
+  URL escaping and stat ETag hashing run in Rust.
+- Python `mimetypes.guess_type` preserves the interpreter's configured MIME
+  registry and platform initialization. Replacing that configured service with
+  a separate Rust registry would lose caller registrations and PathLike behavior.
+- Python's HTTP date formatting preserves the active interpreter's datetime
+  and timestamp representation. Rust selects the header and dispatch order.
+
+The 46 response-variant inputs observe constructor overrides, descriptor and
+attribute ordering, cached-header replacement, mutable values, background
+selection, fixed-input file bytes/stat data, and stream construction on a worker.
+They use public constructors and ASGI calls on both implementations and contain
+no expected output. They are authored under `response-variants.yaml` at
+`parity-input@45`, statically validated, and unexecuted.
+
+Further implementation review includes supplied Morsel values, cookie traceback
+release and cyclic GC, arbitrary filename/stat encoding protocols, active stream
+finalization, and FileResponse call-time hooks. Exposing a forwarding method does
+not resolve an uncertain helper's public status in the compatibility inventory.

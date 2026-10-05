@@ -6,6 +6,11 @@ import asyncio
 import base64
 import json
 import math
+import os
+import tempfile
+from concurrent.futures import ThreadPoolExecutor
+from contextlib import ExitStack
+from pathlib import Path
 from typing import Any
 
 
@@ -45,6 +50,11 @@ def _observe(value: Any) -> Any:
 
 
 def run_response_consumer_case(case: dict[str, Any]) -> dict[str, Any]:
+    with ExitStack() as resources:
+        return _run_response_consumer_case(case, resources)
+
+
+def _run_response_consumer_case(case: dict[str, Any], resources: ExitStack) -> dict[str, Any]:
     if "ownership" in case:
         from scripts.parity.adapters.response_ownership import run_response_ownership_case
 
@@ -151,13 +161,53 @@ def run_response_consumer_case(case: dict[str, Any]) -> dict[str, Any]:
         "asgi_events": events,
         "error": None,
     }
+
+    def observed_body() -> Any:
+        if case["surface"] in {
+            "starlette.responses.StreamingResponse",
+            "starlette.responses.FileResponse",
+        }:
+            return _observe(getattr(response, "body", None))
+        return _observe(response.body)
+
     phase = "constructor"
     try:
-        response = (
-            constructor(**kwargs)
-            if spec["omit_content"]
-            else constructor(_content(spec["content"], trace, callback_errors), **kwargs)
-        )
+        content_spec = spec["content"]
+        if content_spec["kind"] == "file":
+            definition = content_spec["value"]
+            directory = resources.enter_context(tempfile.TemporaryDirectory())
+            path = Path(directory) / definition["name"]
+            path.write_bytes(base64.b64decode(definition["contents_base64"], validate=True))
+            os.utime(path, (definition["mtime_seconds"], definition["mtime_seconds"]))
+            content = path if definition["path_kind"] == "path" else str(path)
+            if kwargs.get("stat_result") == "from-content":
+                kwargs["stat_result"] = os.stat(content)
+        else:
+            content = _content(content_spec, trace, callback_errors)
+
+        def construct() -> Any:
+            selected_kwargs = dict(kwargs)
+            if case.get("background_kind") == "task":
+                from starlette.background import BackgroundTask
+
+                selected_kwargs["background"] = BackgroundTask(background)
+            elif case.get("background_kind") == "tasks":
+                from starlette.background import BackgroundTasks
+
+                tasks = BackgroundTasks()
+                tasks.add_task(background)
+                selected_kwargs["background"] = tasks
+            return (
+                constructor(**selected_kwargs)
+                if spec["omit_content"]
+                else constructor(content, **selected_kwargs)
+            )
+
+        if case.get("constructor_thread", "caller") == "worker":
+            with ThreadPoolExecutor(max_workers=1) as executor:
+                response = executor.submit(construct).result()
+        else:
+            response = construct()
         outcome["constructed"] = True
         if "cookie_protocol" in case:
             from scripts.parity.adapters.response_cookies import apply_cookie_protocol
@@ -175,7 +225,7 @@ def run_response_consumer_case(case: dict[str, Any]) -> dict[str, Any]:
             "status_code": response.status_code,
             "media_type": response.media_type,
             "charset": response.charset,
-            "body": _observe(response.body),
+            "body": observed_body(),
             "raw_headers": _observe(response.raw_headers),
         }
         phase = "attributes"
@@ -183,7 +233,7 @@ def run_response_consumer_case(case: dict[str, Any]) -> dict[str, Any]:
             setattr(response, name, _content(value) if name == "body" else value)
         outcome["before_call"] = {
             "status_code": response.status_code,
-            "body": _observe(response.body),
+            "body": observed_body(),
             "raw_headers": _observe(response.raw_headers),
         }
         phase = "asgi"
@@ -266,7 +316,7 @@ def run_response_consumer_case(case: dict[str, Any]) -> dict[str, Any]:
         outcome["retained_messages"] = _observe(retained_messages)
         outcome["after_call"] = {
             "status_code": response.status_code,
-            "body": _observe(response.body),
+            "body": observed_body(),
             "raw_headers": _observe(response.raw_headers),
         }
     return {

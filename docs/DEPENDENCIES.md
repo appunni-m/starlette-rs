@@ -216,3 +216,13 @@ manifest and Unicode table version](https://docs.rs/crate/unicode-general-catego
 - Generate a new locked graph per supported Python/platform build, record the
   complete transitive package list and licenses, and inspect crate/wheel/sdist
   contents before any release.
+
+## Implementation phase: package full extra
+
+The target now declares a `full` extra with the pinned source's direct optional
+requirements: itsdangerous, Jinja2, python-multipart>=0.0.18, PyYAML, the deprecated
+HTTPX range, and HTTPX2>=2.0.0. This is package metadata; it does not introduce an
+upstream Starlette runtime dependency or move session/form algorithms out of Rust.
+Installed-package checks in present/absent dependency environments remain pending
+for the full parity phase. Source license records above still apply; packaged
+artifact license/provenance checks remain release work.

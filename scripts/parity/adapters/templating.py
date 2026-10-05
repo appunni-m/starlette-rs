@@ -59,6 +59,43 @@ def run_template_public_case(case: dict[str, Any]) -> dict[str, Any]:
         "middleware_trace": [],
         "asgi_events": [],
     }
+    constructor_type = Jinja2Templates
+    hooks = case.get("hooks")
+    if hooks is not None:
+        trace = []
+        observed["hook_trace"] = trace
+        hook_errors = {}
+        for name in ("setup", "template"):
+            definition = hooks[name]
+            if definition["failure"] is not None:
+                hook_errors[name] = RuntimeError(definition["failure"])
+
+        class ConsumerTemplates(Jinja2Templates):
+            def __getattribute__(self, name: str) -> Any:
+                if name in hooks["get_watch"]:
+                    trace.append({"operation": "get", "name": name})
+                return object.__getattribute__(self, name)
+
+            def __setattr__(self, name: str, value: Any) -> None:
+                if name in hooks["set_watch"]:
+                    trace.append({"operation": "set", "name": name})
+                object.__setattr__(self, name, value)
+
+            def _setup_env_defaults(self, env: Any) -> None:
+                trace.append({"operation": "setup"})
+                env.globals.update(hooks["setup"]["globals"])
+                if hooks["setup"]["kind"] == "raise":
+                    raise hook_errors["setup"]
+                if hooks["setup"]["kind"] == "delegate":
+                    super()._setup_env_defaults(env)
+
+            def get_template(self, name: str) -> Any:
+                trace.append({"operation": "template", "name": name})
+                if hooks["template"]["kind"] == "raise":
+                    raise hook_errors["template"]
+                return super().get_template(name)
+
+        constructor_type = ConsumerTemplates
     processors = []
     for additions in case["processor_additions"]:
 
@@ -104,7 +141,7 @@ def run_template_public_case(case: dict[str, Any]) -> dict[str, Any]:
             arguments["env"] = supplied_environment
 
         try:
-            templates = Jinja2Templates(**arguments)
+            templates = constructor_type(**arguments)
         except Exception as exc:
             observed["construction"] = {
                 "outcome": "error",
@@ -131,13 +168,22 @@ def run_template_public_case(case: dict[str, Any]) -> dict[str, Any]:
             consumer = case["consumer"]
             if consumer["kind"] == "template-render":
                 for item in consumer["renders"]:
-                    template = templates.get_template(item["name"])
-                    observed["rendered_templates"].append(
-                        {
+                    try:
+                        template = templates.get_template(item["name"])
+                        rendered = {
                             "template_name": template.name,
                             "rendered_text": template.render(dict(item["context"])),
                         }
-                    )
+                    except Exception as error:
+                        rendered = {
+                            "error": {
+                                "class": f"{type(error).__module__}.{type(error).__qualname__}",
+                                "message": str(error),
+                                "is_hook_error": hooks is not None
+                                and any(error is value for value in hook_errors.values()),
+                            }
+                        }
+                    observed["rendered_templates"].append(rendered)
             elif consumer["kind"] == "testclient":
                 _run_template_client(templates, consumer, observed)
 

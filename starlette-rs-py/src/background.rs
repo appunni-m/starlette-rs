@@ -11,15 +11,15 @@ use pyo3::exceptions::{
 };
 use pyo3::prelude::*;
 use pyo3::types::{PyBool, PyDict, PyList, PyMapping, PyModule, PyTuple};
-use std::cell::{Cell, RefCell};
-use std::rc::Rc;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use crate::awaitable::{
-    AwaitableStateMachine, MachineAction, MachineResume, into_python_awaitable,
-    into_python_awaitable_with_reuse_error, normalize_throw,
+    AwaitableStateMachine, MachineAction, MachineResume, into_sendable_python_awaitable,
+    into_sendable_python_awaitable_with_reuse_error, normalize_throw,
 };
 
-#[pyclass(name = "BackgroundTask", unsendable)]
+#[pyclass(name = "BackgroundTask")]
 struct PyBackgroundTask {
     func: Py<PyAny>,
     args: Py<PyAny>,
@@ -107,11 +107,11 @@ impl PyBackgroundTask {
 
     /// Return an awaitable that executes this task through the active Python loop.
     fn run(slf: Py<Self>, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        into_python_awaitable(py, BackgroundTaskCall { task: slf })
+        into_sendable_python_awaitable(py, BackgroundTaskCall { task: slf })
     }
 }
 
-#[pyclass(name = "BackgroundTasks", unsendable)]
+#[pyclass(name = "BackgroundTasks")]
 struct PyBackgroundTasks {
     tasks: Py<PyAny>,
 }
@@ -159,7 +159,7 @@ impl PyBackgroundTasks {
 
     /// Return an awaitable which runs tasks sequentially in registration order.
     fn run(slf: Py<Self>, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        into_python_awaitable(
+        into_sendable_python_awaitable(
             py,
             BackgroundTasksCall {
                 tasks: slf,
@@ -186,7 +186,7 @@ fn run_in_threadpool(
         || PyDict::new(py).into_any().unbind(),
         |kwargs| kwargs.clone().into_any().unbind(),
     );
-    into_python_awaitable(
+    into_sendable_python_awaitable(
         py,
         ThreadpoolCall {
             func,
@@ -203,7 +203,7 @@ fn run_in_threadpool(
 #[pyfunction]
 #[pyo3(signature = (*args))]
 fn run_until_first_complete(py: Python<'_>, args: &Bound<'_, PyTuple>) -> PyResult<Py<PyAny>> {
-    into_python_awaitable(
+    into_sendable_python_awaitable(
         py,
         RunUntilFirstComplete {
             args: args.clone().unbind(),
@@ -221,13 +221,13 @@ fn iterate_in_threadpool(py: Python<'_>, iterable: Py<PyAny>) -> PyResult<Py<PyA
     Py::new(
         py,
         PyThreadpoolAsyncIterator {
-            iterable: Rc::new(RefCell::new(Some(iterable))),
-            iterator: Rc::new(RefCell::new(None)),
-            awaiting: Rc::new(RefCell::new(None)),
+            iterable: SharedPythonValue::new(py, Some(iterable))?,
+            iterator: SharedPythonValue::new(py, None)?,
+            awaiting: SharedPythonValue::new(py, None)?,
             sentinel,
-            finished: Rc::new(Cell::new(false)),
-            running: Rc::new(Cell::new(false)),
-            started: Rc::new(Cell::new(false)),
+            finished: SharedFlag::new(false),
+            running: SharedFlag::new(false),
+            started: SharedFlag::new(false),
         },
     )
     .map(|iterator| iterator.into_any())
@@ -244,7 +244,7 @@ pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     Ok(())
 }
 
-#[pyclass(name = "_RunUntilFirstCompleteTask", unsendable)]
+#[pyclass(name = "_RunUntilFirstCompleteTask")]
 struct PyRunUntilFirstCompleteTask {
     func: Py<PyAny>,
     cancel_scope: Py<PyAny>,
@@ -259,7 +259,7 @@ impl PyRunUntilFirstCompleteTask {
             cancel_scope: task.cancel_scope.clone_ref(py),
         };
         drop(task);
-        into_python_awaitable(py, machine)
+        into_sendable_python_awaitable(py, machine)
     }
 
     fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
@@ -273,15 +273,77 @@ impl PyRunUntilFirstCompleteTask {
     }
 }
 
-#[pyclass(name = "ThreadpoolAsyncIterator", unsendable)]
+// Each owner holds an actual Python reference to a private storage list.
+// Unlike a shared Rust Rc containing Py references, this is both transferable
+// across Python threads and accurately visible to cyclic GC. No user code runs
+// with a Rust state lock held; all iterator decisions remain in Rust.
+struct SharedPythonValue {
+    holder: Py<PyList>,
+}
+
+impl SharedPythonValue {
+    fn new(py: Python<'_>, value: Option<Py<PyAny>>) -> PyResult<Self> {
+        Ok(Self {
+            holder: PyList::new(py, value)?.unbind(),
+        })
+    }
+
+    fn clone_ref(&self, py: Python<'_>) -> Self {
+        Self {
+            holder: self.holder.clone_ref(py),
+        }
+    }
+
+    fn get(&self, py: Python<'_>) -> PyResult<Option<Py<PyAny>>> {
+        let holder = self.holder.bind(py);
+        if holder.is_empty() {
+            Ok(None)
+        } else {
+            holder.get_item(0).map(|value| Some(value.unbind()))
+        }
+    }
+
+    fn replace(&self, py: Python<'_>, value: Option<Py<PyAny>>) -> PyResult<()> {
+        let holder = self.holder.bind(py);
+        let previous = self.get(py)?;
+        match value {
+            Some(value) if holder.is_empty() => holder.append(value)?,
+            Some(value) => holder.set_item(0, value)?,
+            None => {
+                holder.call_method0("clear")?;
+            }
+        }
+        // Release the old value after the completed state write, permitting
+        // finalizer reentry without a Rust borrow or mutex guard.
+        drop(previous);
+        Ok(())
+    }
+}
+
+#[derive(Clone)]
+struct SharedFlag(Arc<AtomicBool>);
+
+impl SharedFlag {
+    fn new(value: bool) -> Self {
+        Self(Arc::new(AtomicBool::new(value)))
+    }
+    fn get(&self) -> bool {
+        self.0.load(Ordering::SeqCst)
+    }
+    fn set(&self, value: bool) {
+        self.0.store(value, Ordering::SeqCst);
+    }
+}
+
+#[pyclass(name = "ThreadpoolAsyncIterator")]
 struct PyThreadpoolAsyncIterator {
-    iterable: Rc<RefCell<Option<Py<PyAny>>>>,
-    iterator: Rc<RefCell<Option<Py<PyAny>>>>,
-    awaiting: Rc<RefCell<Option<Py<PyAny>>>>,
+    iterable: SharedPythonValue,
+    iterator: SharedPythonValue,
+    awaiting: SharedPythonValue,
     sentinel: Py<PyAny>,
-    finished: Rc<Cell<bool>>,
-    running: Rc<Cell<bool>>,
-    started: Rc<Cell<bool>>,
+    finished: SharedFlag,
+    running: SharedFlag,
+    started: SharedFlag,
 }
 
 #[pymethods]
@@ -308,13 +370,13 @@ impl PyThreadpoolAsyncIterator {
     ) -> PyResult<Py<PyAny>> {
         let borrowed = slf.borrow(py);
         let owner = slf.clone_ref(py);
-        let iterable = borrowed.iterable.clone();
-        let iterator = borrowed.iterator.clone();
+        let iterable = borrowed.iterable.clone_ref(py);
+        let iterator = borrowed.iterator.clone_ref(py);
         let started = borrowed.started.clone();
         let running = borrowed.running.clone();
         let finished = borrowed.finished.clone();
         drop(borrowed);
-        into_python_awaitable_with_reuse_error(
+        into_sendable_python_awaitable_with_reuse_error(
             py,
             ThreadpoolIteratorThrow {
                 exception_type,
@@ -334,12 +396,12 @@ impl PyThreadpoolAsyncIterator {
     fn aclose(slf: Py<Self>, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let borrowed = slf.borrow(py);
         let owner = slf.clone_ref(py);
-        let iterable = borrowed.iterable.clone();
-        let iterator = borrowed.iterator.clone();
+        let iterable = borrowed.iterable.clone_ref(py);
+        let iterator = borrowed.iterator.clone_ref(py);
         let running = borrowed.running.clone();
         let finished = borrowed.finished.clone();
         drop(borrowed);
-        into_python_awaitable_with_reuse_error(
+        into_sendable_python_awaitable_with_reuse_error(
             py,
             ThreadpoolIteratorClose {
                 owner,
@@ -358,32 +420,22 @@ impl PyThreadpoolAsyncIterator {
     }
 
     #[getter]
-    fn ag_await(&self, py: Python<'_>) -> Py<PyAny> {
-        self.awaiting
-            .borrow()
-            .as_ref()
-            .map_or_else(|| py.None(), |awaitable| awaitable.clone_ref(py))
+    fn ag_await(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        Ok(self.awaiting.get(py)?.unwrap_or_else(|| py.None()))
     }
 
     fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
         visit.call(&self.sentinel)?;
-        if let Some(iterable) = self.iterable.borrow().as_ref() {
-            visit.call(iterable)?;
-        }
-        if let Some(iterator) = self.iterator.borrow().as_ref() {
-            visit.call(iterator)?;
-        }
-        if let Some(awaitable) = self.awaiting.borrow().as_ref() {
-            visit.call(awaitable)?;
-        }
-        Ok(())
+        visit.call(&self.iterable.holder)?;
+        visit.call(&self.iterator.holder)?;
+        visit.call(&self.awaiting.holder)
     }
 
     fn __clear__(&mut self, py: Python<'_>) {
-        *self.iterable.borrow_mut() = None;
+        let _ = self.iterable.replace(py, None);
         self.sentinel = py.None();
-        *self.iterator.borrow_mut() = None;
-        *self.awaiting.borrow_mut() = None;
+        let _ = self.iterator.replace(py, None);
+        let _ = self.awaiting.replace(py, None);
         self.finished.set(true);
     }
 }
@@ -396,9 +448,9 @@ fn threadpool_iterator_advance(
     let borrowed = iterator.borrow(py);
     let machine = ThreadpoolIteratorAdvance {
         owner: iterator.clone_ref(py),
-        iterable: borrowed.iterable.clone(),
-        iterator: borrowed.iterator.clone(),
-        awaiting: borrowed.awaiting.clone(),
+        iterable: borrowed.iterable.clone_ref(py),
+        iterator: borrowed.iterator.clone_ref(py),
+        awaiting: borrowed.awaiting.clone_ref(py),
         sentinel: borrowed.sentinel.clone_ref(py),
         finished: borrowed.finished.clone(),
         running: borrowed.running.clone(),
@@ -407,7 +459,7 @@ fn threadpool_iterator_advance(
         pending: false,
     };
     drop(borrowed);
-    into_python_awaitable_with_reuse_error(
+    into_sendable_python_awaitable_with_reuse_error(
         py,
         machine,
         "cannot reuse already awaited __anext__()/asend()",
@@ -416,13 +468,13 @@ fn threadpool_iterator_advance(
 
 struct ThreadpoolIteratorAdvance {
     owner: Py<PyThreadpoolAsyncIterator>,
-    iterable: Rc<RefCell<Option<Py<PyAny>>>>,
-    iterator: Rc<RefCell<Option<Py<PyAny>>>>,
-    awaiting: Rc<RefCell<Option<Py<PyAny>>>>,
+    iterable: SharedPythonValue,
+    iterator: SharedPythonValue,
+    awaiting: SharedPythonValue,
     sentinel: Py<PyAny>,
-    finished: Rc<Cell<bool>>,
-    running: Rc<Cell<bool>>,
-    started: Rc<Cell<bool>>,
+    finished: SharedFlag,
+    running: SharedFlag,
+    started: SharedFlag,
     value: Py<PyAny>,
     pending: bool,
 }
@@ -445,15 +497,11 @@ impl ThreadpoolIteratorAdvance {
 
         self.running.set(true);
         self.started.set(true);
-        let existing_iterator = self
-            .iterator
-            .borrow()
-            .as_ref()
-            .map(|iterator| iterator.clone_ref(py));
+        let existing_iterator = self.iterator.get(py)?;
         let iterator = match existing_iterator {
             Some(iterator) => iterator,
             None => {
-                let iterable = match self.iterable.borrow().as_ref() {
+                let iterable = match self.iterable.get(py)?.as_ref() {
                     Some(iterable) => iterable.clone_ref(py),
                     None => {
                         self.finished.set(true);
@@ -467,11 +515,11 @@ impl ThreadpoolIteratorAdvance {
                 {
                     Ok(iterator) => iterator.unbind(),
                     Err(error) => {
-                        self.finish();
+                        self.finish(py)?;
                         return Err(async_generator_escape(py, error));
                     }
                 };
-                *self.iterator.borrow_mut() = Some(iterator.clone_ref(py));
+                self.iterator.replace(py, Some(iterator.clone_ref(py)))?;
                 iterator
             }
         };
@@ -481,7 +529,7 @@ impl ThreadpoolIteratorAdvance {
         {
             Ok(run_sync) => run_sync,
             Err(error) => {
-                self.finish();
+                self.finish(py)?;
                 return Err(async_generator_escape(py, error));
             }
         };
@@ -491,42 +539,58 @@ impl ThreadpoolIteratorAdvance {
         {
             Ok(next) => next,
             Err(error) => {
-                self.finish();
+                self.finish(py)?;
                 return Err(async_generator_escape(py, error));
             }
         };
         let awaitable = match run_sync.call1((next, iterator, self.sentinel.bind(py))) {
             Ok(awaitable) => awaitable,
             Err(error) => {
-                self.finish();
+                self.finish(py)?;
                 return Err(async_generator_escape(py, error));
             }
         };
         self.pending = true;
-        *self.awaiting.borrow_mut() = Some(awaitable.clone().unbind());
+        self.awaiting
+            .replace(py, Some(awaitable.clone().unbind()))?;
         Ok(MachineAction::Await(awaitable.unbind()))
     }
 
-    fn finish(&mut self) {
+    fn finish(&mut self, py: Python<'_>) -> PyResult<()> {
         self.pending = false;
         self.finished.set(true);
-        self.iterator.borrow_mut().take();
-        self.iterable.borrow_mut().take();
-        self.awaiting.borrow_mut().take();
+        self.iterator.replace(py, None)?;
+        self.iterable.replace(py, None)?;
+        self.awaiting.replace(py, None)?;
         self.running.set(false);
+        Ok(())
     }
 }
 
 impl AwaitableStateMachine for ThreadpoolIteratorAdvance {
+    fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.owner)?;
+        visit.call(&self.iterable.holder)?;
+        visit.call(&self.iterator.holder)?;
+        visit.call(&self.awaiting.holder)?;
+        visit.call(&self.sentinel)?;
+        visit.call(&self.value)?;
+        Ok(())
+    }
+
+    fn finalize_on_drop(&self) -> bool {
+        true
+    }
+
     fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
         let _owner = &self.owner;
         match input {
             MachineResume::Start => self.start(py),
             MachineResume::Value(value) if self.pending => {
                 self.pending = false;
-                self.awaiting.borrow_mut().take();
+                self.awaiting.replace(py, None)?;
                 if value.bind(py).is(self.sentinel.bind(py)) {
-                    self.finish();
+                    self.finish(py)?;
                     Err(PyStopAsyncIteration::new_err(()))
                 } else {
                     self.running.set(false);
@@ -535,7 +599,7 @@ impl AwaitableStateMachine for ThreadpoolIteratorAdvance {
             }
             MachineResume::AsyncIterationComplete(error) | MachineResume::Error(error) => {
                 if self.pending {
-                    self.finish();
+                    self.finish(py)?;
                 }
                 Err(async_generator_escape(py, error))
             }
@@ -545,8 +609,8 @@ impl AwaitableStateMachine for ThreadpoolIteratorAdvance {
         }
     }
 
-    fn throw_before_start(&mut self, _py: Python<'_>) {
-        self.finish();
+    fn throw_before_start(&mut self, py: Python<'_>) {
+        let _ = self.finish(py);
     }
 }
 
@@ -555,14 +619,28 @@ struct ThreadpoolIteratorThrow {
     value: Option<Py<PyAny>>,
     traceback: Option<Py<PyAny>>,
     owner: Py<PyThreadpoolAsyncIterator>,
-    iterable: Rc<RefCell<Option<Py<PyAny>>>>,
-    iterator: Rc<RefCell<Option<Py<PyAny>>>>,
-    started: Rc<Cell<bool>>,
-    running: Rc<Cell<bool>>,
-    finished: Rc<Cell<bool>>,
+    iterable: SharedPythonValue,
+    iterator: SharedPythonValue,
+    started: SharedFlag,
+    running: SharedFlag,
+    finished: SharedFlag,
 }
 
 impl AwaitableStateMachine for ThreadpoolIteratorThrow {
+    fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.owner)?;
+        visit.call(&self.iterable.holder)?;
+        visit.call(&self.iterator.holder)?;
+        visit.call(&self.exception_type)?;
+        visit.call(&self.value)?;
+        visit.call(&self.traceback)?;
+        Ok(())
+    }
+
+    fn finalize_on_drop(&self) -> bool {
+        true
+    }
+
     fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
         let _owner = &self.owner;
         match input {
@@ -588,8 +666,8 @@ impl AwaitableStateMachine for ThreadpoolIteratorThrow {
                     }
                 };
                 self.finished.set(true);
-                self.iterable.borrow_mut().take();
-                self.iterator.borrow_mut().take();
+                self.iterable.replace(py, None)?;
+                self.iterator.replace(py, None)?;
                 self.running.set(false);
                 if self.started.get()
                     && (error.is_instance_of::<PyStopIteration>(py)
@@ -607,23 +685,34 @@ impl AwaitableStateMachine for ThreadpoolIteratorThrow {
         }
     }
 
-    fn throw_before_start(&mut self, _py: Python<'_>) {
+    fn throw_before_start(&mut self, py: Python<'_>) {
         self.finished.set(true);
-        self.iterable.borrow_mut().take();
-        self.iterator.borrow_mut().take();
+        let _ = self.iterable.replace(py, None);
+        let _ = self.iterator.replace(py, None);
         self.running.set(false);
     }
 }
 
 struct ThreadpoolIteratorClose {
     owner: Py<PyThreadpoolAsyncIterator>,
-    iterable: Rc<RefCell<Option<Py<PyAny>>>>,
-    iterator: Rc<RefCell<Option<Py<PyAny>>>>,
-    running: Rc<Cell<bool>>,
-    finished: Rc<Cell<bool>>,
+    iterable: SharedPythonValue,
+    iterator: SharedPythonValue,
+    running: SharedFlag,
+    finished: SharedFlag,
 }
 
 impl AwaitableStateMachine for ThreadpoolIteratorClose {
+    fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.owner)?;
+        visit.call(&self.iterable.holder)?;
+        visit.call(&self.iterator.holder)?;
+        Ok(())
+    }
+
+    fn finalize_on_drop(&self) -> bool {
+        true
+    }
+
     fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
         let _owner = &self.owner;
         match input {
@@ -635,8 +724,8 @@ impl AwaitableStateMachine for ThreadpoolIteratorClose {
                 }
                 self.running.set(true);
                 self.finished.set(true);
-                self.iterable.borrow_mut().take();
-                self.iterator.borrow_mut().take();
+                self.iterable.replace(py, None)?;
+                self.iterator.replace(py, None)?;
                 self.running.set(false);
                 Ok(MachineAction::Complete(py.None()))
             }
@@ -647,10 +736,10 @@ impl AwaitableStateMachine for ThreadpoolIteratorClose {
         }
     }
 
-    fn throw_before_start(&mut self, _py: Python<'_>) {
+    fn throw_before_start(&mut self, py: Python<'_>) {
         self.finished.set(true);
-        self.iterable.borrow_mut().take();
-        self.iterator.borrow_mut().take();
+        let _ = self.iterable.replace(py, None);
+        let _ = self.iterator.replace(py, None);
         self.running.set(false);
     }
 }
@@ -678,6 +767,15 @@ struct BackgroundTaskCall {
 }
 
 impl AwaitableStateMachine for BackgroundTaskCall {
+    fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.task)?;
+        Ok(())
+    }
+
+    fn finalize_on_drop(&self) -> bool {
+        true
+    }
+
     fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
         match input {
             MachineResume::Start => {
@@ -696,7 +794,7 @@ impl AwaitableStateMachine for BackgroundTaskCall {
                 Ok(MachineAction::Await(awaitable))
             }
             MachineResume::Value(_) => Ok(MachineAction::Complete(py.None())),
-            MachineResume::AsyncIterationComplete(_) => Err(PyStopAsyncIteration::new_err(())),
+            MachineResume::AsyncIterationComplete(error) => Err(error),
             MachineResume::Error(error) => Err(error),
         }
     }
@@ -728,6 +826,16 @@ impl BackgroundTasksCall {
 }
 
 impl AwaitableStateMachine for BackgroundTasksCall {
+    fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.tasks)?;
+        visit.call(&self.iterator)?;
+        Ok(())
+    }
+
+    fn finalize_on_drop(&self) -> bool {
+        true
+    }
+
     fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
         match input {
             MachineResume::Start => {
@@ -740,7 +848,7 @@ impl AwaitableStateMachine for BackgroundTasksCall {
                 self.pull_next(py)
             }
             MachineResume::Value(_) => self.pull_next(py),
-            MachineResume::AsyncIterationComplete(_) => Err(PyStopAsyncIteration::new_err(())),
+            MachineResume::AsyncIterationComplete(error) => Err(error),
             MachineResume::Error(error) => Err(error),
         }
     }

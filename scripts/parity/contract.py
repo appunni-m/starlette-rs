@@ -31,7 +31,7 @@ from .fault_contracts import (
 )
 
 MANIFEST_SCHEMA = "migration-parity/manifest@4"
-INPUT_SCHEMA = "migration-parity/parity-input@44"
+INPUT_SCHEMA = "migration-parity/parity-input@45"
 BENCHMARK_INPUT_SCHEMA = "migration-parity/benchmark-input@1"
 RESULT_SCHEMA = "migration-parity/parity-result@6"
 BENCHMARK_RESULT_SCHEMA = "migration-parity/benchmark-result@1"
@@ -414,7 +414,15 @@ REQUEST_BODY_STREAM_JSON_OPERATION = ("starlette.requests.Request", "body-stream
 REQUEST_LIFETIME_OPERATION = ("starlette.requests.Request", "callback-lifetime")
 RESPONSE_CONSUMER_OPERATIONS = {
     (f"starlette.responses.{name}", "consumer-construction")
-    for name in ("Response", "HTMLResponse", "PlainTextResponse", "JSONResponse")
+    for name in (
+        "Response",
+        "HTMLResponse",
+        "PlainTextResponse",
+        "JSONResponse",
+        "RedirectResponse",
+        "StreamingResponse",
+        "FileResponse",
+    )
 }
 RESPONSE_CONSUMER_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
     "construction",
@@ -15921,6 +15929,8 @@ def validate_case(
                 "construction_boundary",
                 "subclass_protocol",
                 "cookie_protocol",
+                "constructor_thread",
+                "background_kind",
             }
             & case.keys()
         )
@@ -15934,6 +15944,8 @@ def validate_case(
         expected_case_keys = STATUS_CASE_KEYS
     elif is_session_workflow:
         expected_case_keys = SESSION_WORKFLOW_CASE_KEYS
+    if (case["surface"], case["operation"]) == TEMPLATING_PUBLIC_OPERATION:
+        expected_case_keys |= {"hooks"} & case.keys()
     if is_streaming_response:
         expected_case_keys = expected_case_keys | {
             key
@@ -23094,6 +23106,38 @@ def _validate_templating_public_case(case: dict[str, Any]) -> None:
     }:
         raise ContractError("Template consumer must select construction, rendering, or TestClient")
     coverage = {TEMPLATING_PUBLIC_REQUIREMENTS["construction"]}
+    if "hooks" in case:
+        hooks = _exact(
+            case["hooks"],
+            {"setup", "template", "get_watch", "set_watch"},
+            "Template subclass hooks",
+        )
+        for name in ("get_watch", "set_watch"):
+            if not isinstance(hooks[name], list) or any(
+                not isinstance(item, str) or not item for item in hooks[name]
+            ):
+                raise ContractError("Template attribute selectors require nonempty names")
+        for name in ("setup", "template"):
+            definition = _exact(
+                hooks[name],
+                {"kind", "failure"} | ({"globals"} if name == "setup" else set()),
+                "Template hook definition",
+            )
+            if definition["kind"] not in (
+                {"delegate", "skip", "raise"} if name == "setup" else {"delegate", "raise"}
+            ):
+                raise ContractError("Template hook policy is unsupported")
+            if (definition["kind"] == "raise") != isinstance(definition["failure"], str):
+                raise ContractError("Raising template hooks require an input message")
+            if definition["failure"] is not None and not isinstance(definition["failure"], str):
+                raise ContractError("Template hook failure must be text or null")
+            if name == "setup":
+                _validate_threadpool_json(definition["globals"], "Template hook globals")
+                if not isinstance(definition["globals"], dict):
+                    raise ContractError("Template hook globals require a mapping")
+        coverage.add(
+            "starlette.templating.Jinja2Templates.template-public-workflow.subclass-hook-dispatch"
+        )
     if directory is None and environment is None:
         coverage.add(TEMPLATING_PUBLIC_REQUIREMENTS["missing-configuration"])
     elif directory is not None and environment is not None:
@@ -31331,6 +31375,28 @@ def _validate_response_consumer_content(value: Any) -> None:
             raise ContractError(
                 "Response memoryview shape must match its buffer; stride requires one dimension"
             )
+    elif kind == "file":
+        definition = _exact(
+            content,
+            {"name", "contents_base64", "mtime_seconds", "path_kind"},
+            "Response file stimulus",
+        )
+        if (
+            not isinstance(definition["name"], str)
+            or not definition["name"]
+            or "/" in definition["name"]
+            or "\\" in definition["name"]
+            or definition["name"] in {".", ".."}
+            or definition["path_kind"] not in {"string", "path"}
+            or type(definition["mtime_seconds"]) not in {int, float}
+            or not math.isfinite(definition["mtime_seconds"])
+        ):
+            raise ContractError(
+                "Response file stimulus requires a basename, path representation and finite mtime"
+            )
+        _validate_response_consumer_content(
+            {"kind": "bytes", "value": definition["contents_base64"]}
+        )
     elif kind == "text":
         if not isinstance(content, str):
             raise ContractError("Response text must be a string")
@@ -31402,6 +31468,28 @@ def _validate_response_consumer_case(case: dict[str, Any]) -> None:
         _validate_response_cookie_protocol(case["cookie_protocol"])
         for suffix in _response_cookie_boundaries(case["cookie_protocol"]):
             expected_requirements.append(case["surface"] + ".consumer-construction." + suffix)
+    if "background_kind" in case:
+        if (
+            case["surface"]
+            not in {"starlette.responses.StreamingResponse", "starlette.responses.FileResponse"}
+            or case["background_kind"] not in {"callable", "task", "tasks"}
+            or case["background_label"] is None
+        ):
+            raise ContractError(
+                "Response background constructors require a variant response, kind and input label"
+            )
+    if "constructor_thread" in case:
+        if case["constructor_thread"] not in {"caller", "worker"} or case["surface"] not in {
+            "starlette.responses.StreamingResponse",
+            "starlette.responses.FileResponse",
+        }:
+            raise ContractError(
+                "Thread-transfer construction belongs to the streaming response workflow"
+            )
+        if case["constructor_thread"] == "worker":
+            expected_requirements.append(
+                case["surface"] + ".consumer-construction.construction-thread-transfer"
+            )
     if case["covers"] != expected_requirements:
         raise ContractError("Response consumer coverage must match its declared surface")
     spec = _exact(
@@ -31413,9 +31501,29 @@ def _validate_response_consumer_case(case: dict[str, Any]) -> None:
     if type(spec["omit_content"]) is not bool:
         raise ContractError("Response omit_content must be boolean")
     kwargs = spec["kwargs"]
-    if not isinstance(kwargs, dict) or set(kwargs) - {"status_code", "headers", "media_type"}:
+    file_response = case["surface"] == "starlette.responses.FileResponse"
+    file_fields = (
+        {"filename", "stat_result", "content_disposition_type"} if file_response else set()
+    )
+    if not isinstance(kwargs, dict) or set(kwargs) - (
+        {"status_code", "headers", "media_type"} | file_fields
+    ):
         raise ContractError("Response constructor kwargs are unsupported")
-    _validate_response_consumer_attributes({k: v for k, v in kwargs.items() if k != "headers"})
+    _validate_response_consumer_attributes(
+        {k: v for k, v in kwargs.items() if k not in {"headers"} | file_fields}
+    )
+    if spec["content"]["kind"] == "file" and not file_response:
+        raise ContractError("Materialized file content belongs to FileResponse")
+    if file_response:
+        for field in ("filename", "content_disposition_type"):
+            if field in kwargs and kwargs[field] is not None and not isinstance(kwargs[field], str):
+                raise ContractError("FileResponse filename and disposition require text")
+        if "stat_result" in kwargs and kwargs["stat_result"] not in {None, "from-content"}:
+            raise ContractError(
+                "FileResponse stat stimulus selects omission or the materialized file"
+            )
+        if kwargs.get("stat_result") == "from-content" and spec["content"]["kind"] != "file":
+            raise ContractError("File stat stimulus requires materialized file content")
     headers = kwargs.get("headers")
     if headers is not None:
         if not isinstance(headers, dict) or any(
@@ -31479,9 +31587,22 @@ def _validate_response_consumer_case(case: dict[str, Any]) -> None:
         if not isinstance(render["encoding"], str):
             raise ContractError("JSON serializer encoding must be text")
     _validate_response_consumer_attributes(case["post_init_attributes"], body=True)
-    scope = _exact(case["scope"], {"type", "path"}, "Response consumer ASGI scope")
+    variant = case["surface"] in {
+        "starlette.responses.StreamingResponse",
+        "starlette.responses.FileResponse",
+    }
+    fields = {"type", "path", "method", "headers", "asgi"} if variant else {"type", "path"}
+    scope = _exact(case["scope"], fields, "Response consumer ASGI scope")
     if scope["type"] not in {"http", "websocket"} or not isinstance(scope["path"], str):
         raise ContractError("Response consumers require an HTTP or WebSocket scope")
+    if variant:
+        if not isinstance(scope["method"], str) or scope["headers"] != []:
+            raise ContractError("Response variant consumers require a method and empty headers")
+        asgi = _exact(scope["asgi"], {"spec_version"}, "Response variant ASGI version")
+        if asgi["spec_version"] != "2.4":
+            raise ContractError(
+                "Response variant consumers use ASGI 2.4; legacy cancellation has its own workflow"
+            )
     failure = case["send_failure"]
     if failure is not None:
         _exact(

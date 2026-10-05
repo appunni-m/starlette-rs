@@ -5,6 +5,60 @@ compatibility remains the target at every stage. A stage's completed scope is
 evidence for that scope only; scaffolding or one passing example cannot
 establish drop-in compatibility.
 
+## Execution order
+
+The current work proceeds across the whole replacement in this order:
+
+1. Finish implementation across response construction and streaming/files,
+   request/data protocols, routing/applications/lifespan, middleware,
+   WebSockets/endpoints, optional integrations, TestClient, and Python version
+   and typing boundaries. Author input-only comparisons with each change.
+   Compile and static checks are permitted here; behavioral runs are deferred.
+2. Run the full installed-package and Rust-native parity matrix against the
+   pinned source. Collect mismatches and fix them together, preserving every
+   unsupported result and fault-contract case.
+3. Measure coverage from the full matrix and reconcile every remaining source
+   row and public behavior with comparison evidence or a source-backed reason.
+4. Run all benchmark workloads together after the parity and coverage phases.
+
+These phases do not restart for each feature. Atlas backlog rows identify
+missing evidence; a row alone does not prove that its runtime is unimplemented.
+Existing successful slices remain historical evidence and do not establish
+completion of the implementation phase.
+
+The implementation review starts with source-ordered public response hooks,
+stream iterator ownership, FileResponse construction/stat hooks, optional
+integration selection, and error/lifetime propagation. The other feature
+families stay in scope for the same implementation phase. The full parity,
+coverage, and benchmark phases are pending for these changes.
+
+### Implementation ledger
+
+| Feature family | Current implementation work | Remaining implementation review |
+| --- | --- | --- |
+| Responses | Rust now orders Streaming/File/Redirect construction and invokes inherited and subclass hooks. Streaming uses live public iterator, header, charset and background values. | File call-time stat and subclass callbacks; supplied Morsel values; cookie exception/GC cleanup; stream chunk lifetime and special-method protocols. |
+| Concurrency and lifetimes | Threadpool iterator storage and continuations can cross Python threads; streaming coordination uses synchronized Rust state and exposes Python reference ownership to GC. | Active/unawaited continuations, cancellation and exception lifetime across all ASGI families and supported Python versions. |
+| Templates | Rust now initializes public environment/processor attributes and dispatches subclass environment and template hooks. | Optional import/decorator versions, async processor failure behavior and further descriptor/error protocols. |
+| Applications, routing and lifespan | Existing Rust state machines and forwarding facades remain in the implementation phase. | Remaining composite middleware placement, scope mutations, subclass callbacks and additive native callable interfaces. |
+| Requests and data structures | Existing parsing, body limits, forms, headers, URLs, state and upload implementations remain in scope. | Optional form dependency boundaries, arbitrary value protocols and lifecycle ownership. |
+| Middleware and endpoints | Existing Rust middleware and endpoint state machines remain in scope. | Composite error/background handling, exception groups across Python versions and concurrent request isolation. |
+| WebSockets | Existing handshake, message state, convenience calls, endpoint and denial-response implementations remain in scope. | Arbitrary ASGI wrapper/subclass callbacks and cancellation/denial extension boundaries. |
+| StaticFiles and file I/O | Existing Rust path, lookup, conditional response and file streaming implementations remain in scope. | Windows and custom PathLike behavior, stat/lookup hooks and async cleanup. |
+| TestClient and optional integrations | Existing Rust transport, lifespan portal and integration selection remain in scope; the package now declares the pinned source's `full` extra dependency set. | Present/absent dependency environments, HTTPX import failure/warning policy, asyncio/Trio options and cleanup. |
+| Typing and packaging | Existing generic facades and `py.typed` remain in scope. | Supported Python 3.10–3.14 consumers, dependency markers, build/install artifacts and provenance. |
+
+This ledger records implementation review, not new parity evidence. The current
+checkpoint authors 46 response-variant and 10 template-protocol inputs. They
+have not been executed. All feature families must leave this implementation
+phase before the full parity, coverage and benchmark phases begin.
+
+The checkpoint passes workspace builds, strict Clippy, formatting, Ruff,
+project policy, contract and inventory validation, rustdoc, and local document
+links. These are static checks, not behavioral evidence. Benchmark freshness
+validation rejects the previous artifact because the active manifest changed.
+The historical records remain visible; a new benchmark run is deferred until
+the final phase.
+
 ## Runtime architecture
 
 The upstream Starlette distribution is a source oracle and is not a runtime
@@ -32,13 +86,15 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The active parity contract uses `parity-input@44` and contains 1744 input-only
-cases in 109 indexed files (1742 oracle parity cases and two target-only fault
-contracts), covering 121 operations and 978 parity requirements. The newest
-156 cases cover cookie returned-value ownership, translation state, key hash
-callbacks and surrogate encoding. The current generated atlas has 809 source
+The active parity contract uses `parity-input@45` and contains 1800 input-only
+cases in 111 indexed files (1798 oracle parity cases and two target-only fault
+contracts), covering 124 operations and 990 parity requirements. The newest
+56 cases are authored response-variant and template-protocol consumers; their
+execution is deferred until the full parity phase. Earlier 156 cases cover
+cookie returned-value ownership, translation state, key hash callbacks and
+surrogate encoding. The current generated atlas has 809 source
 rows: 694 input mappings, 52 reasoned not_applicable rows and 63 backlog rows.
-The full working-tree matrix and instrumented coverage run passed with four
+The preceding @44 working-tree matrix and instrumented coverage run passed with four
 unsupported native cases retained. Clean commit `553a06a` also passed the full
 parity gate and all 74 source/package benchmarks; native benchmark interfaces
 remain unavailable. See [current parity evidence](PARITY.md). The earlier addition

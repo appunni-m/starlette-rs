@@ -1,0 +1,744 @@
+{
+  "schema": "migration-parity/parity-input@45",
+  "cases": [
+    {
+      "case_id": "starlette.templating.Jinja2Templates.template-public-workflow.hooks-directory-delegate",
+      "surface": "starlette.templating.Jinja2Templates",
+      "operation": "template-public-workflow",
+      "covers": [
+        "starlette.templating.Jinja2Templates.template-public-workflow.construction",
+        "starlette.templating.Jinja2Templates.template-public-workflow.direct-render",
+        "starlette.templating.Jinja2Templates.template-public-workflow.subclass-hook-dispatch"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "template-public-workflow"
+      ],
+      "template_directories": [
+        {
+          "id": "templates",
+          "path": "templates"
+        }
+      ],
+      "template_files": [
+        {
+          "directory_id": "templates",
+          "path": "index.html",
+          "text": "Hello"
+        }
+      ],
+      "constructor": {
+        "directory": {
+          "kind": "string",
+          "directory_ids": [
+            "templates"
+          ]
+        },
+        "environment": null
+      },
+      "processor_additions": [],
+      "consumer": {
+        "kind": "template-render",
+        "renders": [
+          {
+            "name": "index.html",
+            "context": {}
+          }
+        ]
+      },
+      "hooks": {
+        "setup": {
+          "kind": "delegate",
+          "globals": {
+            "input_global": "from-hook"
+          },
+          "failure": null
+        },
+        "template": {
+          "kind": "delegate",
+          "failure": null
+        },
+        "get_watch": [
+          "env",
+          "context_processors",
+          "get_template",
+          "_setup_env_defaults"
+        ],
+        "set_watch": [
+          "context_processors",
+          "env"
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.templating.Jinja2Templates.template-public-workflow.hooks-directory-skip-setup",
+      "surface": "starlette.templating.Jinja2Templates",
+      "operation": "template-public-workflow",
+      "covers": [
+        "starlette.templating.Jinja2Templates.template-public-workflow.construction",
+        "starlette.templating.Jinja2Templates.template-public-workflow.direct-render",
+        "starlette.templating.Jinja2Templates.template-public-workflow.subclass-hook-dispatch"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "template-public-workflow"
+      ],
+      "template_directories": [
+        {
+          "id": "templates",
+          "path": "templates"
+        }
+      ],
+      "template_files": [
+        {
+          "directory_id": "templates",
+          "path": "index.html",
+          "text": "Hello"
+        }
+      ],
+      "constructor": {
+        "directory": {
+          "kind": "string",
+          "directory_ids": [
+            "templates"
+          ]
+        },
+        "environment": null
+      },
+      "processor_additions": [],
+      "consumer": {
+        "kind": "template-render",
+        "renders": [
+          {
+            "name": "index.html",
+            "context": {}
+          }
+        ]
+      },
+      "hooks": {
+        "setup": {
+          "kind": "skip",
+          "globals": {
+            "input_global": "from-hook"
+          },
+          "failure": null
+        },
+        "template": {
+          "kind": "delegate",
+          "failure": null
+        },
+        "get_watch": [
+          "env",
+          "context_processors",
+          "get_template",
+          "_setup_env_defaults"
+        ],
+        "set_watch": [
+          "context_processors",
+          "env"
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.templating.Jinja2Templates.template-public-workflow.hooks-directory-setup-error",
+      "surface": "starlette.templating.Jinja2Templates",
+      "operation": "template-public-workflow",
+      "covers": [
+        "starlette.templating.Jinja2Templates.template-public-workflow.construction",
+        "starlette.templating.Jinja2Templates.template-public-workflow.subclass-hook-dispatch"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "template-public-workflow"
+      ],
+      "template_directories": [
+        {
+          "id": "templates",
+          "path": "templates"
+        }
+      ],
+      "template_files": [
+        {
+          "directory_id": "templates",
+          "path": "index.html",
+          "text": "Hello"
+        }
+      ],
+      "constructor": {
+        "directory": {
+          "kind": "string",
+          "directory_ids": [
+            "templates"
+          ]
+        },
+        "environment": null
+      },
+      "processor_additions": [],
+      "consumer": {
+        "kind": "construction"
+      },
+      "hooks": {
+        "setup": {
+          "kind": "raise",
+          "globals": {
+            "input_global": "from-hook"
+          },
+          "failure": "input setup failed"
+        },
+        "template": {
+          "kind": "delegate",
+          "failure": null
+        },
+        "get_watch": [
+          "env",
+          "context_processors",
+          "get_template",
+          "_setup_env_defaults"
+        ],
+        "set_watch": [
+          "context_processors",
+          "env"
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.templating.Jinja2Templates.template-public-workflow.hooks-directory-lookup-error",
+      "surface": "starlette.templating.Jinja2Templates",
+      "operation": "template-public-workflow",
+      "covers": [
+        "starlette.templating.Jinja2Templates.template-public-workflow.construction",
+        "starlette.templating.Jinja2Templates.template-public-workflow.direct-render",
+        "starlette.templating.Jinja2Templates.template-public-workflow.subclass-hook-dispatch"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "template-public-workflow"
+      ],
+      "template_directories": [
+        {
+          "id": "templates",
+          "path": "templates"
+        }
+      ],
+      "template_files": [
+        {
+          "directory_id": "templates",
+          "path": "index.html",
+          "text": "Hello"
+        }
+      ],
+      "constructor": {
+        "directory": {
+          "kind": "string",
+          "directory_ids": [
+            "templates"
+          ]
+        },
+        "environment": null
+      },
+      "processor_additions": [],
+      "consumer": {
+        "kind": "template-render",
+        "renders": [
+          {
+            "name": "index.html",
+            "context": {}
+          }
+        ]
+      },
+      "hooks": {
+        "setup": {
+          "kind": "delegate",
+          "globals": {
+            "input_global": "from-hook"
+          },
+          "failure": null
+        },
+        "template": {
+          "kind": "raise",
+          "failure": "input lookup failed"
+        },
+        "get_watch": [
+          "env",
+          "context_processors",
+          "get_template",
+          "_setup_env_defaults"
+        ],
+        "set_watch": [
+          "context_processors",
+          "env"
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.templating.Jinja2Templates.template-public-workflow.hooks-environment-delegate",
+      "surface": "starlette.templating.Jinja2Templates",
+      "operation": "template-public-workflow",
+      "covers": [
+        "starlette.templating.Jinja2Templates.template-public-workflow.construction",
+        "starlette.templating.Jinja2Templates.template-public-workflow.supplied-environment",
+        "starlette.templating.Jinja2Templates.template-public-workflow.direct-render",
+        "starlette.templating.Jinja2Templates.template-public-workflow.subclass-hook-dispatch"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "template-public-workflow"
+      ],
+      "template_directories": [
+        {
+          "id": "templates",
+          "path": "templates"
+        }
+      ],
+      "template_files": [
+        {
+          "directory_id": "templates",
+          "path": "index.html",
+          "text": "Hello, {{ name }}"
+        }
+      ],
+      "constructor": {
+        "directory": null,
+        "environment": {
+          "directory_ids": [
+            "templates"
+          ],
+          "autoescape": false
+        }
+      },
+      "processor_additions": [],
+      "consumer": {
+        "kind": "template-render",
+        "renders": [
+          {
+            "name": "index.html",
+            "context": {
+              "name": "<strong>name</strong>"
+            }
+          }
+        ]
+      },
+      "hooks": {
+        "setup": {
+          "kind": "delegate",
+          "globals": {
+            "input_global": "from-hook"
+          },
+          "failure": null
+        },
+        "template": {
+          "kind": "delegate",
+          "failure": null
+        },
+        "get_watch": [
+          "env",
+          "context_processors",
+          "get_template",
+          "_setup_env_defaults"
+        ],
+        "set_watch": [
+          "context_processors",
+          "env"
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.templating.Jinja2Templates.template-public-workflow.hooks-environment-skip-setup",
+      "surface": "starlette.templating.Jinja2Templates",
+      "operation": "template-public-workflow",
+      "covers": [
+        "starlette.templating.Jinja2Templates.template-public-workflow.construction",
+        "starlette.templating.Jinja2Templates.template-public-workflow.supplied-environment",
+        "starlette.templating.Jinja2Templates.template-public-workflow.direct-render",
+        "starlette.templating.Jinja2Templates.template-public-workflow.subclass-hook-dispatch"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "template-public-workflow"
+      ],
+      "template_directories": [
+        {
+          "id": "templates",
+          "path": "templates"
+        }
+      ],
+      "template_files": [
+        {
+          "directory_id": "templates",
+          "path": "index.html",
+          "text": "Hello, {{ name }}"
+        }
+      ],
+      "constructor": {
+        "directory": null,
+        "environment": {
+          "directory_ids": [
+            "templates"
+          ],
+          "autoescape": false
+        }
+      },
+      "processor_additions": [],
+      "consumer": {
+        "kind": "template-render",
+        "renders": [
+          {
+            "name": "index.html",
+            "context": {
+              "name": "<strong>name</strong>"
+            }
+          }
+        ]
+      },
+      "hooks": {
+        "setup": {
+          "kind": "skip",
+          "globals": {
+            "input_global": "from-hook"
+          },
+          "failure": null
+        },
+        "template": {
+          "kind": "delegate",
+          "failure": null
+        },
+        "get_watch": [
+          "env",
+          "context_processors",
+          "get_template",
+          "_setup_env_defaults"
+        ],
+        "set_watch": [
+          "context_processors",
+          "env"
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.templating.Jinja2Templates.template-public-workflow.hooks-environment-setup-error",
+      "surface": "starlette.templating.Jinja2Templates",
+      "operation": "template-public-workflow",
+      "covers": [
+        "starlette.templating.Jinja2Templates.template-public-workflow.construction",
+        "starlette.templating.Jinja2Templates.template-public-workflow.supplied-environment",
+        "starlette.templating.Jinja2Templates.template-public-workflow.subclass-hook-dispatch"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "template-public-workflow"
+      ],
+      "template_directories": [
+        {
+          "id": "templates",
+          "path": "templates"
+        }
+      ],
+      "template_files": [
+        {
+          "directory_id": "templates",
+          "path": "index.html",
+          "text": "Hello, {{ name }}"
+        }
+      ],
+      "constructor": {
+        "directory": null,
+        "environment": {
+          "directory_ids": [
+            "templates"
+          ],
+          "autoescape": false
+        }
+      },
+      "processor_additions": [],
+      "consumer": {
+        "kind": "construction"
+      },
+      "hooks": {
+        "setup": {
+          "kind": "raise",
+          "globals": {
+            "input_global": "from-hook"
+          },
+          "failure": "input setup failed"
+        },
+        "template": {
+          "kind": "delegate",
+          "failure": null
+        },
+        "get_watch": [
+          "env",
+          "context_processors",
+          "get_template",
+          "_setup_env_defaults"
+        ],
+        "set_watch": [
+          "context_processors",
+          "env"
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.templating.Jinja2Templates.template-public-workflow.hooks-environment-lookup-error",
+      "surface": "starlette.templating.Jinja2Templates",
+      "operation": "template-public-workflow",
+      "covers": [
+        "starlette.templating.Jinja2Templates.template-public-workflow.construction",
+        "starlette.templating.Jinja2Templates.template-public-workflow.supplied-environment",
+        "starlette.templating.Jinja2Templates.template-public-workflow.direct-render",
+        "starlette.templating.Jinja2Templates.template-public-workflow.subclass-hook-dispatch"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "template-public-workflow"
+      ],
+      "template_directories": [
+        {
+          "id": "templates",
+          "path": "templates"
+        }
+      ],
+      "template_files": [
+        {
+          "directory_id": "templates",
+          "path": "index.html",
+          "text": "Hello, {{ name }}"
+        }
+      ],
+      "constructor": {
+        "directory": null,
+        "environment": {
+          "directory_ids": [
+            "templates"
+          ],
+          "autoescape": false
+        }
+      },
+      "processor_additions": [],
+      "consumer": {
+        "kind": "template-render",
+        "renders": [
+          {
+            "name": "index.html",
+            "context": {
+              "name": "<strong>name</strong>"
+            }
+          }
+        ]
+      },
+      "hooks": {
+        "setup": {
+          "kind": "delegate",
+          "globals": {
+            "input_global": "from-hook"
+          },
+          "failure": null
+        },
+        "template": {
+          "kind": "raise",
+          "failure": "input lookup failed"
+        },
+        "get_watch": [
+          "env",
+          "context_processors",
+          "get_template",
+          "_setup_env_defaults"
+        ],
+        "set_watch": [
+          "context_processors",
+          "env"
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.templating.Jinja2Templates.template-public-workflow.hooks-directory-client",
+      "surface": "starlette.templating.Jinja2Templates",
+      "operation": "template-public-workflow",
+      "covers": [
+        "starlette.templating.Jinja2Templates.template-public-workflow.construction",
+        "starlette.templating.Jinja2Templates.template-public-workflow.client-debug-metadata",
+        "starlette.templating.Jinja2Templates.template-public-workflow.url-for",
+        "starlette.templating.Jinja2Templates.template-public-workflow.subclass-hook-dispatch"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "template-public-workflow"
+      ],
+      "template_directories": [
+        {
+          "id": "templates",
+          "path": "templates"
+        }
+      ],
+      "template_files": [
+        {
+          "directory_id": "templates",
+          "path": "index.html",
+          "text": "<html>Hello, <a href='{{ url_for('homepage') }}'>world</a></html>"
+        }
+      ],
+      "constructor": {
+        "directory": {
+          "kind": "string",
+          "directory_ids": [
+            "templates"
+          ]
+        },
+        "environment": null
+      },
+      "processor_additions": [],
+      "consumer": {
+        "kind": "testclient",
+        "debug": true,
+        "routes": [
+          {
+            "path": "/",
+            "name": "homepage",
+            "template_name": "index.html",
+            "context": {}
+          }
+        ],
+        "middleware": [],
+        "requests": [
+          {
+            "method": "GET",
+            "url": "/"
+          }
+        ]
+      },
+      "hooks": {
+        "setup": {
+          "kind": "delegate",
+          "globals": {
+            "input_global": "from-hook"
+          },
+          "failure": null
+        },
+        "template": {
+          "kind": "delegate",
+          "failure": null
+        },
+        "get_watch": [
+          "env",
+          "context_processors",
+          "get_template",
+          "_setup_env_defaults"
+        ],
+        "set_watch": [
+          "context_processors",
+          "env"
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.templating.Jinja2Templates.template-public-workflow.hooks-environment-client",
+      "surface": "starlette.templating.Jinja2Templates",
+      "operation": "template-public-workflow",
+      "covers": [
+        "starlette.templating.Jinja2Templates.template-public-workflow.construction",
+        "starlette.templating.Jinja2Templates.template-public-workflow.supplied-environment",
+        "starlette.templating.Jinja2Templates.template-public-workflow.client-debug-metadata",
+        "starlette.templating.Jinja2Templates.template-public-workflow.url-for",
+        "starlette.templating.Jinja2Templates.template-public-workflow.subclass-hook-dispatch"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "template-public-workflow"
+      ],
+      "template_directories": [
+        {
+          "id": "templates",
+          "path": "templates"
+        }
+      ],
+      "template_files": [
+        {
+          "directory_id": "templates",
+          "path": "index.html",
+          "text": "<html>Hello, <a href='{{ url_for('homepage') }}'>world</a></html>"
+        }
+      ],
+      "constructor": {
+        "directory": null,
+        "environment": {
+          "directory_ids": [
+            "templates"
+          ],
+          "autoescape": false
+        }
+      },
+      "processor_additions": [],
+      "consumer": {
+        "kind": "testclient",
+        "debug": true,
+        "routes": [
+          {
+            "path": "/",
+            "name": "homepage",
+            "template_name": "index.html",
+            "context": {}
+          }
+        ],
+        "middleware": [],
+        "requests": [
+          {
+            "method": "GET",
+            "url": "/"
+          }
+        ]
+      },
+      "hooks": {
+        "setup": {
+          "kind": "delegate",
+          "globals": {
+            "input_global": "from-hook"
+          },
+          "failure": null
+        },
+        "template": {
+          "kind": "delegate",
+          "failure": null
+        },
+        "get_watch": [
+          "env",
+          "context_processors",
+          "get_template",
+          "_setup_env_defaults"
+        ],
+        "set_watch": [
+          "context_processors",
+          "env"
+        ]
+      }
+    }
+  ]
+}

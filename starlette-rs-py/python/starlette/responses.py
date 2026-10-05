@@ -105,6 +105,9 @@ class Response:
             self, "delete_cookie", (key, path, domain, secure, httponly, samesite)
         )
 
+    def _wrap_websocket_denial_send(self, send: Callable[..., Any]) -> Callable[..., Any]:
+        return _core.Response.wrap_denial_send(send)
+
     async def __call__(
         self, scope: dict[str, Any], receive: Callable[..., Any], send: Callable[..., Any]
     ) -> None:
@@ -140,18 +143,20 @@ class StreamingResponse(Response):
         media_type: str | None = None,
         background: Any = None,
     ) -> None:
-        self.status_code = status_code
-        self.background = background
-        self._inner = _core.StreamingResponse(
-            content, status_code, headers, media_type, self.charset
+        _core.Response.initialize_stream(
+            self, (content, status_code, headers, media_type, background)
         )
-        self.raw_headers = self._inner.raw_headers
+
+    async def stream_response(self, send: Callable[..., Any]) -> None:
+        await _core.StreamingResponse.stream_for(self, send)
+
+    async def listen_for_disconnect(self, receive: Callable[..., Any]) -> None:
+        await _core.StreamingResponse.listen_for(receive)
 
     async def __call__(
         self, scope: dict[str, Any], receive: Callable[..., Any], send: Callable[..., Any]
     ) -> None:
-        self._sync_raw_headers()
-        await self._inner.asgi_call(scope, receive, send, self.background, self.status_code)
+        await _core.StreamingResponse.call_for(self, scope, receive, send)
 
 
 class FileResponse(Response):
@@ -171,37 +176,28 @@ class FileResponse(Response):
         stat_result: os.stat_result | None = None,
         content_disposition_type: str = "attachment",
     ) -> None:
-        self.path = path
-        self.status_code = status_code
-        self.filename = filename
-        self.background = background
-        self.stat_result = stat_result
-        self._inner = _core.FileResponse(
-            path,
-            status_code,
-            headers,
-            media_type,
-            filename,
-            stat_result,
-            content_disposition_type,
-            self.chunk_size,
-            self.max_ranges,
+        _core.Response.initialize_file(
+            self,
+            (
+                path,
+                status_code,
+                headers,
+                media_type,
+                background,
+                filename,
+                stat_result,
+                content_disposition_type,
+            ),
         )
-        self.media_type = self._inner.media_type
-        self.raw_headers = self._inner.raw_headers
+        _core.FileResponse.prepare_for(self)
+
+    def set_stat_headers(self, stat_result: os.stat_result) -> None:
+        _core.Response.set_stat_headers(self, stat_result)
 
     async def __call__(
         self, scope: dict[str, Any], receive: Callable[..., Any], send: Callable[..., Any]
     ) -> None:
-        self._inner.set_streaming_options(self.chunk_size, self.max_ranges)
-        self._sync_raw_headers()
-        await self._inner.asgi_call(
-            scope,
-            receive,
-            send,
-            self.background,
-            (self.path, self.status_code, self.stat_result),
-        )
+        await _core.FileResponse.call_for(self, scope, receive, send)
 
 
 class RedirectResponse(Response):
@@ -216,11 +212,10 @@ class RedirectResponse(Response):
         headers: Mapping[str, str] | None = None,
         background: Any = None,
     ) -> None:
-        self._inner = _core.Response.redirect(str(url), status_code, headers)
-        self.raw_headers = self._inner.raw_headers
-        self.background = background
-        self.body = b""
-        self.status_code = status_code
+        super().__init__(
+            content=b"", status_code=status_code, headers=headers, background=background
+        )
+        _core.Response.redirect_location(self, url)
 
 
 class JSONResponse(Response):

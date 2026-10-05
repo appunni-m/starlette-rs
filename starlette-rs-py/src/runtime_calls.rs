@@ -1,7 +1,5 @@
 //! Rust-owned ASGI response control flow with Python callback delegation.
 
-use std::cell::RefCell;
-use std::rc::Rc;
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use pyo3::class::gc::{PyTraverseError, PyVisit};
@@ -22,8 +20,7 @@ use starlette_rs::{
 };
 
 use crate::awaitable::{
-    AwaitableStateMachine, MachineAction, MachineResume, into_python_awaitable,
-    into_sendable_python_awaitable,
+    AwaitableStateMachine, MachineAction, MachineResume, into_sendable_python_awaitable,
 };
 use crate::cookie_runtime;
 
@@ -31,6 +28,14 @@ use crate::cookie_runtime;
 // on the ASGI portal. Only owned Python references cross that boundary; iterator
 // state is synchronized and no Python callback runs while its mutex is held.
 type SharedSyncIterator = Arc<Mutex<Option<Py<PyAny>>>>;
+type SharedDisconnectCall = Arc<Mutex<StreamingResponseDisconnectCall<PyErr>>>;
+
+fn disconnect_call_state(
+    call: &SharedDisconnectCall,
+) -> PyResult<MutexGuard<'_, StreamingResponseDisconnectCall<PyErr>>> {
+    call.lock()
+        .map_err(|_| PyRuntimeError::new_err("stream disconnect state mutex was poisoned"))
+}
 
 fn sync_iterator_state(
     iterator: &SharedSyncIterator,
@@ -266,6 +271,27 @@ pub(crate) struct PyStreamingResponse {
 
 #[pymethods]
 impl PyStreamingResponse {
+    #[staticmethod]
+    fn stream_for(py: Python<'_>, response: Py<PyAny>, send: Py<PyAny>) -> PyResult<Py<PyAny>> {
+        crate::streaming_object_runtime::stream(py, response, send)
+    }
+
+    #[staticmethod]
+    fn listen_for(py: Python<'_>, receive: Py<PyAny>) -> PyResult<Py<PyAny>> {
+        crate::streaming_object_runtime::listen(py, receive)
+    }
+
+    #[staticmethod]
+    fn call_for(
+        py: Python<'_>,
+        response: Py<PyAny>,
+        scope: Py<PyAny>,
+        receive: Py<PyAny>,
+        send: Py<PyAny>,
+    ) -> PyResult<Py<PyAny>> {
+        crate::streaming_object_runtime::call(py, response, scope, receive, send)
+    }
+
     #[new]
     #[pyo3(signature = (content, status_code=200, headers=None, media_type=None, charset="utf-8"))]
     fn new(
@@ -443,10 +469,11 @@ impl PyStreamingResponse {
         };
         if !websocket && !spec_at_least_24 {
             let has_background_callback = background.is_some();
-            return into_python_awaitable(
+            return into_sendable_python_awaitable(
                 py,
                 StreamingDisconnectCallMachine {
                     response: self.inner.clone(),
+                    public_response: None,
                     status_code_override,
                     content: self.content.clone_ref(py),
                     async_iterable: self.async_iterable,
@@ -455,7 +482,7 @@ impl PyStreamingResponse {
                     send,
                     receive,
                     background,
-                    call: Rc::new(RefCell::new(StreamingResponseDisconnectCall::new(
+                    call: Arc::new(Mutex::new(StreamingResponseDisconnectCall::new(
                         has_background_callback,
                     ))),
                     listener: StreamingResponseDisconnectListener::new(),
@@ -466,7 +493,7 @@ impl PyStreamingResponse {
             );
         }
         let catches_client_disconnect = !websocket && spec_at_least_24;
-        into_python_awaitable(
+        into_sendable_python_awaitable(
             py,
             StreamingCallMachine {
                 call: streaming_response_call_state(
@@ -708,6 +735,42 @@ impl StreamingCallMachine {
     }
 }
 
+/// Coordinate public streaming/listener overrides without a native response borrow.
+pub(crate) fn streaming_object_disconnect_call(
+    py: Python<'_>,
+    response: Py<PyAny>,
+    receive: Py<PyAny>,
+    send: Py<PyAny>,
+) -> PyResult<Py<PyAny>> {
+    let native = NativeStreamingResponse::from_chunks(
+        200,
+        Vec::<Vec<u8>>::new(),
+        None,
+        Vec::<(String, String)>::new(),
+    )
+    .map_err(response_error)?;
+    into_sendable_python_awaitable(
+        py,
+        StreamingDisconnectCallMachine {
+            response: native,
+            public_response: Some(response),
+            status_code_override: None,
+            content: py.None(),
+            async_iterable: true,
+            charset: String::new(),
+            sync_iterator: Arc::new(Mutex::new(None)),
+            send,
+            receive,
+            background: None,
+            call: Arc::new(Mutex::new(StreamingResponseDisconnectCall::new(true))),
+            listener: StreamingResponseDisconnectListener::new(),
+            task_group: None,
+            exit_error_context: None,
+            pending: None,
+        },
+    )
+}
+
 enum StreamingDisconnectPending {
     TaskGroupEnter,
     ListenerReceive,
@@ -717,6 +780,7 @@ enum StreamingDisconnectPending {
 
 struct StreamingDisconnectCallMachine {
     response: NativeStreamingResponse,
+    public_response: Option<Py<PyAny>>,
     status_code_override: Option<u16>,
     content: Py<PyAny>,
     async_iterable: bool,
@@ -725,7 +789,7 @@ struct StreamingDisconnectCallMachine {
     send: Py<PyAny>,
     receive: Py<PyAny>,
     background: Option<Py<PyAny>>,
-    call: Rc<RefCell<StreamingResponseDisconnectCall<PyErr>>>,
+    call: SharedDisconnectCall,
     listener: StreamingResponseDisconnectListener,
     task_group: Option<Py<PyAny>>,
     exit_error_context: Option<PyErr>,
@@ -733,6 +797,15 @@ struct StreamingDisconnectCallMachine {
 }
 
 impl AwaitableStateMachine for StreamingDisconnectCallMachine {
+    fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.public_response)?;
+        visit.call(&self.content)?;
+        visit.call(&self.send)?;
+        visit.call(&self.receive)?;
+        visit.call(&self.background)?;
+        visit.call(&self.task_group)
+    }
+
     fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
         match input {
             MachineResume::Start => self.next_action(py),
@@ -804,7 +877,7 @@ impl AwaitableStateMachine for StreamingDisconnectCallMachine {
 
 impl StreamingDisconnectCallMachine {
     fn next_action(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
-        let step = self.call.borrow().step();
+        let step = disconnect_call_state(&self.call)?.step();
         match step {
             StreamingResponseDisconnectCallStep::StartConcurrent => self.enter_task_group(py),
             StreamingResponseDisconnectCallStep::AwaitFirstCompletion => self.receive_next(py),
@@ -832,7 +905,7 @@ impl StreamingDisconnectCallMachine {
 
         let result = self.make_and_start_stream_child(py);
         if let Err(error) = result {
-            if self.call.borrow().step()
+            if disconnect_call_state(&self.call)?.step()
                 == StreamingResponseDisconnectCallStep::AwaitFirstCompletion
             {
                 let _ = self.advance(StreamingResponseDisconnectCallInput::StreamFinished(Err(
@@ -848,23 +921,35 @@ impl StreamingDisconnectCallMachine {
     fn make_and_start_stream_child(&self, py: Python<'_>) -> PyResult<()> {
         let task_group = self.task_group_ref(py)?;
         let cancel_scope = task_group.getattr("cancel_scope")?.unbind();
-        let stream = StreamingCallMachine {
-            call: streaming_response_call_state(&self.response, self.status_code_override, false),
-            content: self.content.clone_ref(py),
-            iterator: None,
-            sentinel: None,
-            async_iterable: self.async_iterable,
-            charset: self.charset.clone(),
-            sync_iterator: self.sync_iterator.clone(),
-            send: self.send.clone_ref(py),
-            _receive: self.receive.clone_ref(py),
-            background: None,
-            websocket: false,
-            catches_client_disconnect: false,
-            pending: None,
-            body_override: None,
-        };
-        let child = into_python_awaitable(
+        let stream: Box<dyn AwaitableStateMachine + Send + Sync> =
+            if let Some(response) = &self.public_response {
+                Box::new(crate::streaming_object_runtime::StreamHook::new(
+                    response.bind(py).getattr("stream_response")?.unbind(),
+                    self.send.clone_ref(py),
+                ))
+            } else {
+                Box::new(StreamingCallMachine {
+                    call: streaming_response_call_state(
+                        &self.response,
+                        self.status_code_override,
+                        false,
+                    ),
+                    content: self.content.clone_ref(py),
+                    iterator: None,
+                    sentinel: None,
+                    async_iterable: self.async_iterable,
+                    charset: self.charset.clone(),
+                    sync_iterator: self.sync_iterator.clone(),
+                    send: self.send.clone_ref(py),
+                    _receive: self.receive.clone_ref(py),
+                    background: None,
+                    websocket: false,
+                    catches_client_disconnect: false,
+                    pending: None,
+                    body_override: None,
+                })
+            };
+        let child = into_sendable_python_awaitable(
             py,
             StreamingResponseChildMachine {
                 stream,
@@ -880,7 +965,14 @@ impl StreamingDisconnectCallMachine {
     fn receive_next(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
         match self.listener.step() {
             StreamingResponseDisconnectListenerStep::Receive => {
-                let awaitable = match self.receive.bind(py).call0() {
+                let result = if let Some(response) = &self.public_response {
+                    response
+                        .bind(py)
+                        .call_method1("listen_for_disconnect", (self.receive.bind(py),))
+                } else {
+                    self.receive.bind(py).call0()
+                };
+                let awaitable = match result {
                     Ok(awaitable) => awaitable,
                     Err(error) => return self.finish_listener_error(py, error),
                 };
@@ -903,6 +995,15 @@ impl StreamingDisconnectCallMachine {
     }
 
     fn finish_receive(&mut self, py: Python<'_>, message: Py<PyAny>) -> PyResult<MachineAction> {
+        if self.public_response.is_some() {
+            self.advance(StreamingResponseDisconnectCallInput::ListenerFinished(Ok(
+                (),
+            )))?;
+            return match self.cancel_task_group(py) {
+                Ok(()) => self.leave_task_group(py, None),
+                Err(error) => self.leave_task_group(py, Some(&error)),
+            };
+        }
         let message_type = match message.bind(py).get_item("type") {
             Ok(message_type) => message_type,
             Err(error) => return self.finish_listener_error(py, error),
@@ -923,7 +1024,7 @@ impl StreamingDisconnectCallMachine {
     }
 
     fn finish_listener_error(&mut self, py: Python<'_>, error: PyErr) -> PyResult<MachineAction> {
-        let step = self.call.borrow().step();
+        let step = disconnect_call_state(&self.call)?.step();
         let cancelled = is_anyio_cancellation(py, &error)?;
         match step {
             StreamingResponseDisconnectCallStep::AwaitFirstCompletion if cancelled => {
@@ -1004,7 +1105,7 @@ impl StreamingDisconnectCallMachine {
             }
         }
         let error = collapse_single_task_group_error(py, error)?;
-        let step = self.call.borrow().step();
+        let step = disconnect_call_state(&self.call)?.step();
         if is_anyio_cancellation(py, &error)?
             && step == StreamingResponseDisconnectCallStep::AwaitFirstCompletion
         {
@@ -1013,7 +1114,7 @@ impl StreamingDisconnectCallMachine {
             ))?;
         }
         if !matches!(
-            self.call.borrow().step(),
+            disconnect_call_state(&self.call)?.step(),
             StreamingResponseDisconnectCallStep::CancelStream
                 | StreamingResponseDisconnectCallStep::CancelListener
                 | StreamingResponseDisconnectCallStep::CancelBoth
@@ -1030,12 +1131,25 @@ impl StreamingDisconnectCallMachine {
     }
 
     fn run_background(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
-        let Some(background) = self.background.as_ref() else {
-            return Err(PyRuntimeError::new_err(
-                "stream requested a missing background callback",
-            ));
+        let background = if let Some(response) = &self.public_response {
+            let response = response.bind(py);
+            if response.getattr("background")?.is_none() {
+                self.advance(StreamingResponseDisconnectCallInput::BackgroundFinished(
+                    Ok(()),
+                ))?;
+                return self.next_action(py);
+            }
+            response.getattr("background")?
+        } else {
+            self.background
+                .as_ref()
+                .ok_or_else(|| {
+                    PyRuntimeError::new_err("stream requested a missing background callback")
+                })?
+                .bind(py)
+                .clone()
         };
-        let awaitable = match background.bind(py).call0() {
+        let awaitable = match background.call0() {
             Ok(awaitable) => awaitable,
             Err(error) => {
                 self.advance(StreamingResponseDisconnectCallInput::BackgroundFinished(
@@ -1066,24 +1180,28 @@ impl StreamingDisconnectCallMachine {
         &self,
         input: StreamingResponseDisconnectCallInput<PyErr>,
     ) -> PyResult<StreamingResponseDisconnectCallStep> {
-        self.call
-            .borrow_mut()
+        disconnect_call_state(&self.call)?
             .advance(input)
             .map_err(streaming_disconnect_call_error)
     }
 }
 
 struct StreamingResponseChildMachine {
-    stream: StreamingCallMachine,
-    call: Rc<RefCell<StreamingResponseDisconnectCall<PyErr>>>,
+    stream: Box<dyn AwaitableStateMachine + Send + Sync>,
+    call: SharedDisconnectCall,
     cancel_scope: Py<PyAny>,
 }
 
 impl AwaitableStateMachine for StreamingResponseChildMachine {
+    fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
+        self.stream.traverse(visit)?;
+        visit.call(&self.cancel_scope)
+    }
+
     fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
         match self.stream.resume(py, input) {
             Ok(MachineAction::Complete(result)) => {
-                if self.call.borrow().step()
+                if disconnect_call_state(&self.call)?.step()
                     == StreamingResponseDisconnectCallStep::AwaitFirstCompletion
                 {
                     self.record_stream_completion(py, Ok(()))?;
@@ -1094,7 +1212,7 @@ impl AwaitableStateMachine for StreamingResponseChildMachine {
             Ok(action) => Ok(action),
             Err(error) => {
                 if !is_anyio_cancellation(py, &error)? {
-                    let mut call = self.call.borrow_mut();
+                    let mut call = disconnect_call_state(&self.call)?;
                     if call.step() == StreamingResponseDisconnectCallStep::AwaitFirstCompletion {
                         call.advance(StreamingResponseDisconnectCallInput::StreamFinished(Err(
                             error.clone_ref(py),
@@ -1114,20 +1232,27 @@ impl StreamingResponseChildMachine {
         _py: Python<'_>,
         result: Result<(), PyErr>,
     ) -> PyResult<StreamingResponseDisconnectCallStep> {
-        self.call
-            .borrow_mut()
+        disconnect_call_state(&self.call)?
             .advance(StreamingResponseDisconnectCallInput::StreamFinished(result))
             .map_err(streaming_disconnect_call_error)
     }
 }
 
-#[pyclass(unsendable)]
+#[pyclass]
 struct AwaitableFactory {
     awaitable: Py<PyAny>,
 }
 
 #[pymethods]
 impl AwaitableFactory {
+    fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.awaitable)
+    }
+
+    fn __clear__(&mut self, py: Python<'_>) {
+        self.awaitable = py.None();
+    }
+
     fn __call__(&self, py: Python<'_>) -> Py<PyAny> {
         self.awaitable.clone_ref(py)
     }
@@ -1157,7 +1282,7 @@ fn is_websocket_scope(scope: &Bound<'_, PyDict>) -> PyResult<bool> {
     }
 }
 
-fn asgi_spec_at_least_24(py: Python<'_>, scope: &Bound<'_, PyDict>) -> PyResult<bool> {
+pub(crate) fn asgi_spec_at_least_24(py: Python<'_>, scope: &Bound<'_, PyDict>) -> PyResult<bool> {
     let asgi = match scope.get_item("asgi")? {
         Some(asgi) => asgi,
         None => PyDict::new(py).into_any(),

@@ -518,6 +518,10 @@
         {
           "operation_id": "asgi-call",
           "source_path": "starlette.responses.FileResponse.__call__"
+        },
+        {
+          "operation_id": "consumer-construction",
+          "source_path": "starlette.responses.FileResponse.__init__, __call__, inherited Response.init_headers and headers; public constructor hooks, attribute protocols and ASGI callbacks"
         }
       ]
     },
@@ -542,6 +546,10 @@
         {
           "operation_id": "asgi-call",
           "source_path": "starlette.responses.Response.__call__"
+        },
+        {
+          "operation_id": "consumer-construction",
+          "source_path": "starlette.responses.RedirectResponse.__init__, __call__, inherited Response.init_headers and headers; public constructor hooks, attribute protocols and ASGI callbacks"
         }
       ]
     },
@@ -570,6 +578,10 @@
         {
           "operation_id": "asgi-call-with-execution-trace",
           "source_path": "starlette.responses.StreamingResponse.__call__"
+        },
+        {
+          "operation_id": "consumer-construction",
+          "source_path": "starlette.responses.StreamingResponse.__init__, __call__, inherited Response.init_headers and headers; public constructor hooks, attribute protocols and ASGI callbacks"
         }
       ]
     },

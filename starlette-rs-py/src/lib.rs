@@ -34,6 +34,7 @@ mod server_error_runtime;
 mod sessions_runtime;
 mod staticfiles_runtime;
 mod status_runtime;
+mod streaming_object_runtime;
 mod templating_runtime;
 mod testclient_runtime;
 mod websocket_calls;
@@ -734,6 +735,47 @@ impl PyResponse {
         headers: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<()> {
         response_construction_runtime::initialize_headers(py, response, headers)
+    }
+
+    #[staticmethod]
+    fn initialize_stream(
+        py: Python<'_>,
+        response: &Bound<'_, PyAny>,
+        arguments: &Bound<'_, PyTuple>,
+    ) -> PyResult<()> {
+        response_construction_runtime::initialize_stream(py, response, arguments)
+    }
+
+    #[staticmethod]
+    fn initialize_file(
+        py: Python<'_>,
+        response: &Bound<'_, PyAny>,
+        arguments: &Bound<'_, PyTuple>,
+    ) -> PyResult<()> {
+        response_construction_runtime::initialize_file(py, response, arguments)
+    }
+
+    #[staticmethod]
+    fn set_stat_headers(
+        py: Python<'_>,
+        response: &Bound<'_, PyAny>,
+        stat: &Bound<'_, PyAny>,
+    ) -> PyResult<()> {
+        response_construction_runtime::set_stat_headers(py, response, stat)
+    }
+
+    #[staticmethod]
+    fn redirect_location(
+        py: Python<'_>,
+        response: &Bound<'_, PyAny>,
+        url: &Bound<'_, PyAny>,
+    ) -> PyResult<()> {
+        response_construction_runtime::redirect_location(py, response, url)
+    }
+
+    #[staticmethod]
+    fn wrap_denial_send(py: Python<'_>, send: Py<PyAny>) -> PyResult<Py<PyAny>> {
+        streaming_object_runtime::wrap_denial_send(py, send)
     }
 
     #[staticmethod]

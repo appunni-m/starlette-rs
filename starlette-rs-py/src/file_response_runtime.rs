@@ -20,7 +20,7 @@ use starlette_rs::{
 };
 
 use crate::awaitable::{
-    AwaitableStateMachine, MachineAction, MachineResume, into_python_awaitable,
+    AwaitableStateMachine, MachineAction, MachineResume, into_sendable_python_awaitable,
 };
 use crate::cookie_runtime;
 use crate::runtime_calls::header_pairs;
@@ -31,7 +31,7 @@ pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyFileResponse>()
 }
 
-#[pyclass(name = "FileResponse", unsendable)]
+#[pyclass(name = "FileResponse")]
 struct PyFileResponse {
     inner: NativeFileResponse,
     raw_headers: Py<PyAny>,
@@ -40,6 +40,79 @@ struct PyFileResponse {
 
 #[pymethods]
 impl PyFileResponse {
+    fn __traverse__(
+        &self,
+        visit: pyo3::class::gc::PyVisit<'_>,
+    ) -> Result<(), pyo3::class::gc::PyTraverseError> {
+        visit.call(&self.raw_headers)?;
+        visit.call(&self.headers_view)
+    }
+
+    fn __clear__(&mut self, py: Python<'_>) {
+        self.raw_headers = PyList::empty(py).into_any().unbind();
+        self.headers_view = None;
+    }
+
+    #[staticmethod]
+    fn call_for(
+        py: Python<'_>,
+        response: &Bound<'_, PyAny>,
+        scope: &Bound<'_, PyDict>,
+        receive: Py<PyAny>,
+        send: Py<PyAny>,
+    ) -> PyResult<Py<PyAny>> {
+        let stored = py
+            .get_type::<PyAny>()
+            .call_method1("__getattribute__", (response, "_inner"))?;
+        let inner = stored.cast::<Self>()?.try_borrow()?.inner.clone();
+        // Snapshot private Rust storage, then release its borrow before every
+        // public attribute lookup and user descriptor. The public cached view
+        // may still refer to an older raw list after caller replacement.
+        let mut native = Self {
+            inner,
+            raw_headers: response.getattr("raw_headers")?.unbind(),
+            headers_view: Some(response.getattr("headers")?.unbind()),
+        };
+        native.inner.set_streaming_options(
+            response.getattr("chunk_size")?.extract()?,
+            response.getattr("max_ranges")?.extract()?,
+        );
+        let path = response.getattr("path")?.unbind();
+        let status = response.getattr("status_code")?.extract()?;
+        let stat = response.getattr("stat_result")?;
+        let stat = (!stat.is_none()).then(|| stat.unbind());
+        let background = response.getattr("background")?;
+        let background = (!background.is_none()).then(|| background.unbind());
+        native.asgi_call(py, scope, receive, send, background, (path, status, stat))
+    }
+
+    #[staticmethod]
+    fn prepare_for(py: Python<'_>, response: &Bound<'_, PyAny>) -> PyResult<()> {
+        // Construction must not coerce a PathLike or stat object before the
+        // source uses it. This native storage is filled at ASGI call time.
+        let inner = NativeFileResponse::new(
+            PathBuf::new(),
+            String::new(),
+            200,
+            &[],
+            FileResponseOptions::default(),
+        )
+        .map_err(file_response_error)?;
+        let object = py.get_type::<PyAny>();
+        let raw_headers = PyList::empty(py).into_any().unbind();
+        let headers_view = None;
+        let native = Py::new(
+            py,
+            Self {
+                inner,
+                raw_headers,
+                headers_view,
+            },
+        )?;
+        object.call_method1("__setattr__", (response, "_inner", native))?;
+        Ok(())
+    }
+
     #[new]
     #[pyo3(signature = (path, status_code=200, headers=None, media_type=None, filename=None, stat_result=None, content_disposition_type="attachment", chunk_size=65536, max_ranges=100))]
     // LINT EXCEPTION: Preserve FileResponse's public constructor options and defaults as individual PyO3 inputs.
@@ -280,7 +353,7 @@ impl PyFileResponse {
                 scope_type == "websocket",
             ),
         )?;
-        into_python_awaitable(
+        into_sendable_python_awaitable(
             py,
             FileResponseMachine {
                 driver,
@@ -508,6 +581,17 @@ enum FileResponsePending {
 }
 
 impl AwaitableStateMachine for FileResponseMachine {
+    fn traverse(
+        &self,
+        visit: &pyo3::class::gc::PyVisit<'_>,
+    ) -> Result<(), pyo3::class::gc::PyTraverseError> {
+        visit.call(&self.driver)?;
+        visit.call(&self.send)?;
+        visit.call(&self._receive)?;
+        visit.call(&self.background)?;
+        visit.call(&self.view_raw)
+    }
+
     fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
         match input {
             MachineResume::Start => self.next_action(py),
