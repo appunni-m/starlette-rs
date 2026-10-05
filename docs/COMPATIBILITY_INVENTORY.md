@@ -174,12 +174,12 @@ The previous clean full-slice preflight `14327f2a-372b-4751-a1e4-4630740a5017` p
 
 The previous clean benchmark `6e82f74a-b360-4112-8b45-012aec7924a0` measured all 74 source/package workloads with matching normalized observations and zero failures. Median source/package latency ratios were 0.747 for Router and 0.976 for GZip; source was faster in 5/6 Router and 60/68 GZip workloads. All 74 native benchmark boundaries remain `not_run`. Result SHA-256: `2fd8671c509d7d71f5361b7cf0bde37a67c9f067a96611b45819d3a3a464cc4f`. See [Benchmark mapping](BENCHMARKS.md) for the generated evidence; these are local workload measurements.
 
-The latest clean full-slice preflight `55535731-b03c-4a49-ae6f-b8f61e10fbda` passed 976/976 Python-package comparisons, 246/250 Rust-native comparisons, and both target-only fault contracts. Four existing native Python-callable boundaries remain `not_run`, with zero failures or infrastructure errors. The target was clean at revision `8d8e48e4c5d285b41cc42d376404a6b5a11fb0f8`; package tree SHA-256 `30dff4c3a7aa8b3494efe46a5b8bac4e5520245a76786de48a157b1b2ca8a927` matches the normal selected cleanup run. Result SHA-256: `600d92f12623ebf6d535683d84c4d49ee002cd89de9c1f6bf97a8166648c4a41`; manifest SHA-256: `f1c3c3cb7ccb00c2ffa7d9e1ecdc8eca126b6fb217453a948702b6a371a18491`. Coverage MCP verified zero additional Rust lines over the selected original middleware baseline. The cleanup cases remain valuable because their added public observations detect the earlier native deallocation failures; incremental coverage does not assess full-suite regressions.
+The previous clean full-slice preflight `55535731-b03c-4a49-ae6f-b8f61e10fbda` passed 976/976 Python-package comparisons, 246/250 Rust-native comparisons, and both target-only fault contracts. Four existing native Python-callable boundaries remain `not_run`, with zero failures or infrastructure errors. The target was clean at revision `8d8e48e4c5d285b41cc42d376404a6b5a11fb0f8`; package tree SHA-256 `30dff4c3a7aa8b3494efe46a5b8bac4e5520245a76786de48a157b1b2ca8a927` matches the normal selected cleanup run. Result SHA-256: `600d92f12623ebf6d535683d84c4d49ee002cd89de9c1f6bf97a8166648c4a41`; manifest SHA-256: `f1c3c3cb7ccb00c2ffa7d9e1ecdc8eca126b6fb217453a948702b6a371a18491`. Coverage MCP verified zero additional Rust lines over the selected original middleware baseline. The cleanup cases remain valuable because their added public observations detect the earlier native deallocation failures; incremental coverage does not assess full-suite regressions.
 
-The latest clean benchmark `235c3274-3d87-494a-a9ab-62dab72158d1` measured 74/74 source/package workloads with matching normalized observations and zero failures. Median source/package latency ratios were 0.742 for Router and 0.976 for GZip; source was faster in 5/6 Router and 59/68 GZip workloads. All 74 native benchmark rows remain `not_run`. Result SHA-256: `be0e79206e67f80d85b5ea7b873a00d207b1240a9f0fb8bb60ddc9b4843299a2`. See [Benchmark mapping](BENCHMARKS.md) and [Parity evidence](PARITY.md) for current receipts and scope.
+The previous clean benchmark `235c3274-3d87-494a-a9ab-62dab72158d1` measured 74/74 source/package workloads with matching normalized observations and zero failures. Median source/package latency ratios were 0.742 for Router and 0.976 for GZip; source was faster in 5/6 Router and 59/68 GZip workloads. All 74 native benchmark rows remain `not_run`. Result SHA-256: `be0e79206e67f80d85b5ea7b873a00d207b1240a9f0fb8bb60ddc9b4843299a2`. See [Benchmark mapping](BENCHMARKS.md) and [Parity evidence](PARITY.md) for current receipts and scope.
 
 The latest source inventory check dispositioned all 999 API candidate rows.
-The generated coverage matrix currently has 807 source rows: 688 input mappings,
+The generated coverage matrix currently has 808 source rows: 689 input mappings,
 52 reasoned `not_applicable` rows, and 67 fixture backlog rows. Derive these
 changing counts from the generated atlas CSV files. No upstream test-function row remains in the backlog; 67 other source rows remain open. The finished-workflow traceback-retained callback cleanup row now maps to the two passing backend inputs. The pinned denominators are 514 upstream test functions and 24 documented pages. The bundled generic Open Source auditor rejects the existing manifest extensions and generated-input layout before parsing inputs; that audit did not pass. Repository-native contract, inventory, and policy checks remain compatible. Full replacement parity is not established.
 
@@ -758,3 +758,21 @@ The pinned `TestClient.portal` attribute appears only in its implementation
 consumer reference. Its public status remains unresolved. Public lifespan
 parity inputs observe the user application's recorded thread and exception
 propagation rather than requiring this implementation-state attribute.
+
+## Clean full verification
+
+The full preflight `7945194a-1060-4426-861c-abcc72183905` passed
+993/993 installed Python-package comparisons and
+246/250 Rust-native comparisons,
+with 4 existing native Python-callable
+rows not run. Both target-only fault contracts passed. There were no failures
+or infrastructure errors. The package was clean at `bc54da45849ca372121b8318041ffbc81048aec1`,
+with package tree `d94f40a6bc973e4b93976c946b0b59cd01cad9589a4fb74dc9460de9039c0f01` matching the normal selected
+lifecycle verification. Preflight SHA-256: `bcf2b5762333286eb60ed818d5f2c4a0a812046b4e3e1116e577bdf89c2c54db`.
+
+Benchmark `bd78f693-7562-4384-9636-f1e66a3aa3e7` measured all 74 Router/GZip source/package
+workloads with matching correctness observations. All 74 native timing
+boundaries remain not run. Benchmark SHA-256: `a7afc4bf807524411635aa80dee6e90fc4984077d0e90bd92d60607fb04106fe`. See
+[Benchmark mapping](BENCHMARKS.md) for latency ratios and limitations.
+
+The atlas currently contains 808 source rows, 689 fixture mappings, 52 source-backed not-applicable rows, and 67 backlog rows. The Request lifetime row maps to the 17 new inputs. Coverage MCP verified 223 newly covered Rust lines in a selected incremental measurement; it does not establish full-suite coverage. Full replacement parity remains incomplete.

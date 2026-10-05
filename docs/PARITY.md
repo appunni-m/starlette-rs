@@ -1930,3 +1930,19 @@ The parity lifecycle step covers one successful async-context enter/exit separat
 ## Request lifetime graphs
 
 Seventeen public Request ownership graphs compare live source/package collection, suspended receive cleanup, and unawaited coroutine warnings without normalizing results. See [Request lifetime boundary](REQUEST_LIFETIME_BOUNDARY.md) for ownership, retained failure evidence, and the selected 33-case verification. Runtime Python facades are unchanged.
+
+## Clean full verification
+
+The full preflight `7945194a-1060-4426-861c-abcc72183905` passed
+993/993 installed Python-package comparisons and
+246/250 Rust-native comparisons,
+with 4 existing native Python-callable
+rows not run. Both target-only fault contracts passed. There were no failures
+or infrastructure errors. The package was clean at `bc54da45849ca372121b8318041ffbc81048aec1`,
+with package tree `d94f40a6bc973e4b93976c946b0b59cd01cad9589a4fb74dc9460de9039c0f01` matching the normal selected
+lifecycle verification. Preflight SHA-256: `bcf2b5762333286eb60ed818d5f2c4a0a812046b4e3e1116e577bdf89c2c54db`.
+
+Benchmark `bd78f693-7562-4384-9636-f1e66a3aa3e7` measured all 74 Router/GZip source/package
+workloads with matching correctness observations. All 74 native timing
+boundaries remain not run. Benchmark SHA-256: `a7afc4bf807524411635aa80dee6e90fc4984077d0e90bd92d60607fb04106fe`. See
+[Benchmark mapping](BENCHMARKS.md) for latency ratios and limitations.
