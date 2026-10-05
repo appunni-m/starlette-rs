@@ -32,11 +32,14 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The active parity contract uses `parity-input@43` and contains 940 input-only
-cases in 93 indexed files (938 oracle parity cases and two target-only fault
-contracts), covering 105 operations and 908 requirements. The latest addition
-compares invalid direct `Request` and `WebSocket` scope construction against
-Starlette's assertion behavior. The preceding addition compares URL-encoded
+The active parity contract uses `parity-input@43` and contains 942 input-only
+cases in 94 indexed files (940 oracle parity cases and two target-only fault
+contracts), covering 105 operations and 909 requirements. The latest addition
+maps static and path-parameter WebSocketRoute matching through TestClient for
+`tests/test_routing.py::test_router_add_websocket_route`; that test does not call
+`Router.add_websocket_route`, so the method candidate remains uncertain. The
+preceding addition compares invalid direct `Request` and `WebSocket` scope
+construction against Starlette's assertion behavior. Before that, the URL-encoded
 `Request.form` field-count and part-size errors with each body delivered in one
 ASGI chunk. The earlier addition maps
 `routing.test_partial_async_ws_endpoint` and compares partial-wrapped async
@@ -104,8 +107,8 @@ That integrated run includes the focused `parity-input@23` through `@27` additio
 The two BaseHTTPMiddleware ContextVar observer comparisons pass exactly against
 the pinned source and installed package in the integrated run.
 
-The generated coverage matrix contains 804 source rows: 664 input mappings,
-51 source-backed `not_applicable` rows, and 89 fixture-backlog rows. These
+The generated coverage matrix contains 806 source rows: 667 input mappings,
+52 source-backed `not_applicable` rows, and 87 fixture-backlog rows. These
 changing counts come from the generated atlas CSV files. The denominator
 remains 514 upstream test functions and 24 documentation pages; the full
 replacement objective is active and incomplete.

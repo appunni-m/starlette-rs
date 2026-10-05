@@ -354,6 +354,7 @@
       "build/parity/inputs/parity/testclient-partial-websocket-endpoints.json",
       "build/parity/inputs/parity/fault-contracts.json",
       "build/parity/inputs/parity/testclient-websocket.json",
+      "build/parity/inputs/parity/testclient-websocket-routing.json",
       "build/parity/inputs/parity/testclient-websocket-bytes.json",
       "build/parity/inputs/parity/testclient-lifespan-context.json",
       "build/parity/inputs/parity/application-routes.json",
@@ -23974,6 +23975,17 @@
               "id": "starlette.testclient.TestClient.websocket-session.router-protocol-switch",
               "dimension": "protocol_variant",
               "description": "Connect through TestClient to an input-defined Router with an HTTP Route and WebSocketRoute sharing one path; observe the WebSocketRoute response and websocket.url_for selecting the ws scheme. Pinned source: tests/test_routing.py::test_protocol_switch; starlette/routing.py::Router.app and WebSocketRoute.matches; starlette/websockets.py::WebSocket.url_for.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.websocket-session.router-websocket-route-match",
+              "dimension": "input_family",
+              "description": "Connect through TestClient to the pinned input-defined Router static /ws and parameterized /ws/{room} WebSocketRoute entries, then observe the endpoint text frames. Pinned source: tests/test_routing.py::test_router_add_websocket_route and its module-level Router setup; starlette/routing.py:Router.app and WebSocketRoute.matches.",
               "lanes": [
                 "parity"
               ],

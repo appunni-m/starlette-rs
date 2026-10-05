@@ -1403,6 +1403,46 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
             finally:
                 application_state["completed"] = True
 
+    elif app_input["kind"] == "starlette-routed-websocket-graph":
+        from starlette.routing import Router, WebSocketRoute
+
+        def endpoint_for(endpoint_spec: dict[str, Any]) -> Any:
+            async def endpoint(websocket: Any) -> None:
+                await websocket.accept()
+                if endpoint_spec["kind"] == "literal-text":
+                    text = endpoint_spec["text"]
+                else:
+                    text = (
+                        endpoint_spec["prefix"]
+                        + websocket.path_params[endpoint_spec["parameter"]]
+                        + endpoint_spec["suffix"]
+                    )
+                await websocket.send_text(text)
+                await websocket.close()
+
+            return endpoint
+
+        routes = [
+            WebSocketRoute(route_spec["path"], endpoint_for(route_spec["endpoint"]))
+            for route_spec in app_input["routes"]
+        ]
+        router = Router(routes=routes)
+
+        async def app(scope: dict[str, Any], receive: Any, send: Any) -> None:
+            record_scope(scope)
+            application_state["thread"] = threading.current_thread()
+
+            async def traced_receive() -> dict[str, Any]:
+                return await observed_receive(receive)
+
+            async def traced_send(message: dict[str, Any]) -> None:
+                await observed_send(send, message)
+
+            try:
+                await router(scope, traced_receive, traced_send)
+            finally:
+                application_state["completed"] = True
+
     elif app_input["kind"] == "starlette-protocol-switch":
         from starlette.applications import Starlette
         from starlette.responses import JSONResponse
@@ -1498,6 +1538,7 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
         not in {
             "starlette-protocol-switch",
             "starlette-partial-websocket-route-graph",
+            "starlette-routed-websocket-graph",
         }
         and len(app_input["actions"]) == 1
         and app_input["actions"][0].get("operation") == "raise"

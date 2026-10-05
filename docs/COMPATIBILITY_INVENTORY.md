@@ -17,7 +17,7 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest uses `parity-input@43` and indexes 940 input-only cases across 93 files (938 oracle parity cases and two target-only fault contracts), covering 105 operations and 908 unique parity requirements. The latest inputs compare Request and WebSocket constructor behavior for invalid scope types. The preceding batch exercises URL-encoded `Request.form` field-count and part-size errors with each request body delivered in one ASGI chunk. The earlier batch maps `routing.test_partial_async_ws_endpoint`, comparing async function and bound class-method WebSocketRoute endpoints wrapped in `functools.partial` through a mounted Router. Recent parity inputs
+The active parity manifest uses `parity-input@43` and indexes 942 input-only cases across 94 files (940 oracle parity cases and two target-only fault contracts), covering 105 operations and 909 unique parity requirements. The latest inputs map static and path-parameter WebSocketRoute dispatch through TestClient, alongside direct Request and WebSocket constructor scope checks. The pinned `test_router_add_websocket_route` uses a preconfigured module-level Router and does not invoke `Router.add_websocket_route`; the method candidate remains `uncertain` while the observed dispatch behavior is mapped. The preceding batch exercises URL-encoded `Request.form` field-count and part-size errors with each request body delivered in one ASGI chunk. The earlier batch maps `routing.test_partial_async_ws_endpoint`, comparing async function and bound class-method WebSocketRoute endpoints wrapped in `functools.partial` through a mounted Router. Recent parity inputs
 include outer BaseHTTPMiddleware request-body transformation and replay, map the pinned WebSocket scope Mapping and identity behavior, and correct the
 StaticFiles HEAD fixture to use the upstream `<file content>` asset and its
 14-byte length. The upstream one-chunk URL-encoded limit test directly inspects private `FormParser` counters/messages and a 50 MiB stress bound, so that implementation-local assertion is source-backed `not_applicable`; the public `Request.form` error behavior is covered by the two live source/package inputs. Schema inputs map the pinned route graph, including missing
@@ -131,7 +131,7 @@ comparison.
 
 The latest clean full-slice correctness preflight
 `4d9a1935-b216-449f-aa60-53421675afd3` ran against Starlette 1.6.0 at
-`4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the active 940-case contract.
+`4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the then-active 940-case contract, before the two latest routed WebSocket cases were added.
 It selected 1,186 profile comparisons: 1,182 passed, zero failed, zero
 infrastructure errors, and four Rust-native callable-boundary rows were
 `not_run`. The installed Python package passed 936/936; Rust-native passed
@@ -171,8 +171,8 @@ The correctness-gated Router/GZip benchmark is recorded in
 workload-specific measurements do not establish full Starlette compatibility.
 
 The latest source inventory check dispositioned all 999 API candidate rows.
-The generated coverage matrix currently has 804 source rows: 664 input mappings,
-51 reasoned `not_applicable` rows, and 89 fixture backlog rows. Derive these
+The generated coverage matrix currently has 806 source rows: 667 input mappings,
+52 reasoned `not_applicable` rows, and 87 fixture backlog rows. Derive these
 changing counts from the generated atlas CSV files.
 
 Historical integrated run `af914b8c-5933-4ced-9e1d-c60b23263e1a` started at

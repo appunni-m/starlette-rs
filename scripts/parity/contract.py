@@ -282,6 +282,7 @@ TESTCLIENT_WEBSOCKET_REQUIREMENTS = {
     "application_url": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.application-url",
     "protocol_switch": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.router-protocol-switch",
     "router_miss": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.router-miss-disconnect",
+    "router_websocket_match": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.router-websocket-route-match",
     "partial_async_endpoint": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.routed-async-endpoint-partial",
     "handshake": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.accept-handshake",
     "extra_headers": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.extra-headers",
@@ -13007,6 +13008,10 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
         websocket_keys.add("params")
     websocket = _exact(case["websocket"], websocket_keys, "TestClient WebSocket input")
     websocket_url = _string(websocket["url"], "TestClient WebSocket url")
+    is_router_websocket_graph = (
+        isinstance(case["asgi_app"], dict)
+        and case["asgi_app"].get("kind") == "starlette-routed-websocket-graph"
+    )
     if "params" in websocket:
         params = websocket["params"]
         if (
@@ -13130,9 +13135,11 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
                 {"operation"} | (session_actions[0].keys() & {"capture_disconnect"}),
                 "TestClient WebSocket disconnect receive action",
             )
-            if receive_action.get("capture_disconnect") is not True:
+            if receive_action.get("capture_disconnect") is not True and not (
+                is_router_websocket_graph and "capture_disconnect" not in receive_action
+            ):
                 raise ContractError(
-                    "TestClient WebSocket receive_text must capture application-close disconnect details"
+                    "TestClient WebSocket receive_text must capture a disconnect or select a routed-text workflow"
                 )
         else:
             receive_action = _exact(
@@ -13159,6 +13166,10 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
     is_starlette_protocol_switch_graph = (
         isinstance(raw_asgi_app, dict) and raw_asgi_app.get("kind") == "starlette-protocol-switch"
     )
+    is_starlette_routed_websocket_graph = (
+        isinstance(raw_asgi_app, dict)
+        and raw_asgi_app.get("kind") == "starlette-routed-websocket-graph"
+    )
     is_starlette_partial_websocket_graph = (
         isinstance(raw_asgi_app, dict)
         and raw_asgi_app.get("kind") == "starlette-partial-websocket-route-graph"
@@ -13167,11 +13178,19 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
         isinstance(raw_asgi_app, dict)
         and raw_asgi_app.get("kind") == "starlette-websocket-route-error"
     )
+
     if is_starlette_protocol_switch_graph:
         asgi_app = _exact(
             raw_asgi_app,
             {"kind", "routes", "scope_fields"},
             "TestClient Starlette protocol-switch route graph",
+        )
+        app_actions = []
+    elif is_starlette_routed_websocket_graph:
+        asgi_app = _exact(
+            raw_asgi_app,
+            {"kind", "routes", "scope_fields"},
+            "TestClient Starlette routed WebSocket graph",
         )
         app_actions = []
     elif is_starlette_partial_websocket_graph:
@@ -13234,6 +13253,7 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
         asgi_app["kind"] != "asgi3"
         and not is_starlette_websocket_route_error
         and not is_starlette_protocol_switch_graph
+        and not is_starlette_routed_websocket_graph
         and not is_starlette_partial_websocket_graph
     ):
         raise ContractError("This TestClient WebSocket workflow accepts an ASGI3 callable")
@@ -13263,6 +13283,116 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
     ):
         raise ContractError("TestClient WebSocket scope_fields must be unique supported scope keys")
 
+    if is_starlette_routed_websocket_graph:
+        raw_routes = asgi_app["routes"]
+        if not isinstance(raw_routes, list) or not raw_routes:
+            raise ContractError("TestClient routed WebSocket graph requires at least one route")
+        route_paths: set[str] = set()
+        route_parameters: dict[str, set[str]] = {}
+        for index, raw_route in enumerate(raw_routes):
+            context = f"TestClient routed WebSocket routes[{index}]"
+            route = _exact(raw_route, {"kind", "path", "endpoint"}, context)
+            if route["kind"] != "websocket-route":
+                raise ContractError(f"{context}.kind must be websocket-route")
+            route_path = _string(route["path"], f"{context}.path")
+            if not route_path.startswith("/") or route_path in route_paths:
+                raise ContractError(f"{context}.path must be unique and absolute")
+            parameters: set[str] = set()
+            for segment in route_path.strip("/").split("/"):
+                if "{" not in segment and "}" not in segment:
+                    continue
+                if re.fullmatch(r"\{[A-Za-z_][A-Za-z0-9_]*\}", segment) is None:
+                    raise ContractError(
+                        f"{context}.path supports only whole-segment string parameters"
+                    )
+                parameters.add(segment[1:-1])
+            endpoint = route["endpoint"]
+            if not isinstance(endpoint, dict):
+                raise ContractError(f"{context}.endpoint must be an object")
+            endpoint_kind = endpoint.get("kind")
+            if endpoint_kind == "literal-text":
+                endpoint = _exact(endpoint, {"kind", "text"}, f"{context}.endpoint")
+                _string(endpoint["text"], f"{context}.endpoint.text")
+            elif endpoint_kind == "path-param-text":
+                endpoint = _exact(
+                    endpoint,
+                    {"kind", "parameter", "prefix", "suffix"},
+                    f"{context}.endpoint",
+                )
+                parameter = _string(endpoint["parameter"], f"{context}.endpoint.parameter")
+                if parameter not in parameters:
+                    raise ContractError(
+                        f"{context}.endpoint.parameter must be captured by its route path"
+                    )
+                _string(endpoint["prefix"], f"{context}.endpoint.prefix")
+                _string(endpoint["suffix"], f"{context}.endpoint.suffix")
+            else:
+                raise ContractError(f"{context}.endpoint.kind is unsupported")
+            route_paths.add(route_path)
+            route_parameters[route_path] = parameters
+
+        websocket_path = urlsplit(websocket_url).path
+        path_segments = websocket_path.strip("/").split("/")
+        matching_routes = []
+        for route in raw_routes:
+            route_segments = route["path"].strip("/").split("/")
+            if len(route_segments) != len(path_segments):
+                continue
+            if all(
+                route_segment == request_segment
+                or (
+                    bool(request_segment)
+                    and route_segment.startswith("{")
+                    and route_segment.endswith("}")
+                    and route_segment[1:-1] in route_parameters[route["path"]]
+                )
+                for route_segment, request_segment in zip(
+                    route_segments, path_segments, strict=True
+                )
+            ):
+                matching_routes.append(route)
+        if (
+            not matching_routes
+            or urlsplit(websocket_url).query
+            or "params" in websocket
+            or settings["base_url"] != "http://testserver"
+            or settings["root_path"]
+            or settings["headers"]
+            or settings["raise_server_exceptions"] is not True
+            or settings["client"] != ["testclient", 50000]
+            or settings.get("backend", "asyncio") != "asyncio"
+            or settings.get("backend_options", {}) != {}
+            or websocket["subprotocols"]
+            or websocket["headers"]
+            or not {"type", "path", "scheme", "server"} <= set(scope_fields)
+        ):
+            raise ContractError(
+                "TestClient routed WebSocket graph must select a matching route using the pinned default client"
+            )
+        receive_action = (
+            _exact(
+                session_actions[0],
+                {"operation"},
+                "TestClient routed WebSocket text receive action",
+            )
+            if len(session_actions) == 1 and isinstance(session_actions[0], dict)
+            else None
+        )
+        if receive_action is None or receive_action["operation"] != "receive_text":
+            raise ContractError(
+                "TestClient routed WebSocket graph must receive the endpoint's text frame"
+            )
+        expected_covers = {
+            TESTCLIENT_WEBSOCKET_REQUIREMENTS["scope"],
+            TESTCLIENT_WEBSOCKET_REQUIREMENTS["handshake"],
+            TESTCLIENT_WEBSOCKET_REQUIREMENTS["portal_cleanup"],
+            TESTCLIENT_WEBSOCKET_REQUIREMENTS["router_websocket_match"],
+        }
+        if set(case["covers"]) != expected_covers:
+            raise ContractError(
+                "TestClient routed WebSocket covers must match the declared route graph"
+            )
+        return
     if is_starlette_protocol_switch_graph:
         raw_routes = asgi_app["routes"]
         if not isinstance(raw_routes, list) or len(raw_routes) != 2:

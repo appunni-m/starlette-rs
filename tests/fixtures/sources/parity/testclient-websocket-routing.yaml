@@ -1,0 +1,139 @@
+{
+  "schema": "migration-parity/parity-input@43",
+  "cases": [
+    {
+      "surface": "starlette.testclient.TestClient",
+      "operation": "websocket-session",
+      "covers": [
+        "starlette.testclient.TestClient.websocket-session.scope-projection",
+        "starlette.testclient.TestClient.websocket-session.accept-handshake",
+        "starlette.testclient.TestClient.websocket-session.portal-cleanup",
+        "starlette.testclient.TestClient.websocket-session.router-websocket-route-match"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "websocket-session"
+      ],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": [
+          "testclient",
+          50000
+        ],
+        "headers": []
+      },
+      "websocket": {
+        "subprotocols": [],
+        "headers": [],
+        "actions": [
+          {
+            "operation": "receive_text"
+          }
+        ],
+        "url": "/ws"
+      },
+      "asgi_app": {
+        "kind": "starlette-routed-websocket-graph",
+        "scope_fields": [
+          "type",
+          "path",
+          "scheme",
+          "server"
+        ],
+        "routes": [
+          {
+            "kind": "websocket-route",
+            "path": "/ws",
+            "endpoint": {
+              "kind": "literal-text",
+              "text": "Hello, world!"
+            }
+          },
+          {
+            "kind": "websocket-route",
+            "path": "/ws/{room}",
+            "endpoint": {
+              "kind": "path-param-text",
+              "parameter": "room",
+              "prefix": "Hello, ",
+              "suffix": "!"
+            }
+          }
+        ]
+      },
+      "case_id": "starlette.testclient.TestClient.websocket-session.router-websocket-route-match.static-path"
+    },
+    {
+      "surface": "starlette.testclient.TestClient",
+      "operation": "websocket-session",
+      "covers": [
+        "starlette.testclient.TestClient.websocket-session.scope-projection",
+        "starlette.testclient.TestClient.websocket-session.accept-handshake",
+        "starlette.testclient.TestClient.websocket-session.portal-cleanup",
+        "starlette.testclient.TestClient.websocket-session.router-websocket-route-match"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "websocket-session"
+      ],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": [
+          "testclient",
+          50000
+        ],
+        "headers": []
+      },
+      "websocket": {
+        "subprotocols": [],
+        "headers": [],
+        "actions": [
+          {
+            "operation": "receive_text"
+          }
+        ],
+        "url": "/ws/test"
+      },
+      "asgi_app": {
+        "kind": "starlette-routed-websocket-graph",
+        "scope_fields": [
+          "type",
+          "path",
+          "scheme",
+          "server"
+        ],
+        "routes": [
+          {
+            "kind": "websocket-route",
+            "path": "/ws",
+            "endpoint": {
+              "kind": "literal-text",
+              "text": "Hello, world!"
+            }
+          },
+          {
+            "kind": "websocket-route",
+            "path": "/ws/{room}",
+            "endpoint": {
+              "kind": "path-param-text",
+              "parameter": "room",
+              "prefix": "Hello, ",
+              "suffix": "!"
+            }
+          }
+        ]
+      },
+      "case_id": "starlette.testclient.TestClient.websocket-session.router-websocket-route-match.path-parameter"
+    }
+  ]
+}
