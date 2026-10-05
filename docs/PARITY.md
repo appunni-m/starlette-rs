@@ -1951,7 +1951,7 @@ boundaries remain not run. Benchmark SHA-256: `a7afc4bf807524411635aa80dee6e90fc
 
 Forty-five new input-only cases compare native value retention, caller/worker collection, and UploadFile size-arithmetic callback reentry. The selected verification passed 66 ordinary comparisons and both fault contracts. See [Public value boundary](VALUE_LIFETIME_BOUNDARY.md) for the retained 20-leak reproduction, Rust ownership changes, and 217 newly covered lines.
 
-## Clean full verification after public value ownership fixes
+## Previous clean full verification after public value ownership fixes
 
 The full preflight `b52b86ac-b202-4875-a6cb-8940055c133f` passed
 1038/1038 installed Python-package comparisons and
@@ -1978,3 +1978,25 @@ See [Benchmark mapping](BENCHMARKS.md) for the generated evidence and limitation
 Four additional public-input comparisons reproduce and fix backing-file replacement from the size callback. See [Public value boundary](VALUE_LIFETIME_BOUNDARY.md) for live failure evidence and Rust access ordering.
 
 Selected verification `184aca5c-dccd-42c4-a744-791d5ec202b0` passed 68/68 ordinary package comparisons and both target-only fault contracts, with zero failures, infrastructure errors, or not-run selected rows. The four new cases match exact file bytes, write targets, worker selection, and lifetime observations. Result SHA-256: `922e5d0236e65801e5e371f4eb7901e0b629d43e89f9fce04f995a17fa4bea96`; normal package tree: `9e63ddf110e4a78a06bfed9af5549e44ea9196d03426a67bc8c4dc8f99553212`. The selection also includes all earlier Request/value lifetime cases and the existing upload rollover workflow.
+
+## Clean full verification after UploadFile callback ordering fix
+
+The full preflight `524d9fa2-6a78-46d1-94d1-22a936d05696` passed
+1042/1042 installed Python-package comparisons and
+246/250 Rust-native comparisons.
+The 4 existing native Python-callable rows remain `not_run`.
+All 2 target-only fault contracts passed, with zero failures or
+infrastructure errors. The package was clean at `d0769b005ce12dce2c8fce5945800a42a3810960`,
+with package tree `9e63ddf110e4a78a06bfed9af5549e44ea9196d03426a67bc8c4dc8f99553212` matching the normal selected
+ownership verification. Preflight SHA-256: `86a6c9787daf1d2a8efbf8fe66f8132b6473391e97cb9e936fd3ac5aaa1de419`.
+Manifest SHA-256: `0cb576784769991cf4429d31917f4665ee185ac7be73d3da9bee13c0cb3e31bf`.
+
+Benchmark `316bf275-fb2e-4bad-9e79-d85334b22755` measured all
+74 Router/GZip source/package workloads with
+matching correctness observations. All 74
+native timing boundaries remain `not_run`. Median source/package latency
+ratios were 0.744 for Router and 0.975
+for GZip; source was faster in 5/6
+Router and 56/68 GZip workloads.
+These are local workload measurements. Benchmark SHA-256: `0172bbd458c5647b155d93a365ab4148f7f41c988e38f3cb5d4dff44efc23d07`.
+See [Benchmark mapping](BENCHMARKS.md) for the generated evidence and limitations.
