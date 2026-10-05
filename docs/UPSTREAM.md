@@ -67,3 +67,7 @@ or expected result is copied.
 ## Response consumer input provenance
 
 `tests/fixtures/sources/parity/response-consumers.yaml` contains independently authored input definitions derived from the pinned `starlette/responses.py:29-200` and `docs/responses.md:10-118`. It uses documented response classes, custom render subclasses, and ordinary ASGI callbacks. No upstream test file or expected output is copied. The source remains the development-time BSD-3-Clause oracle; exact outputs are produced live by both implementations. See `docs/RESPONSE_RENDER_BOUNDARY.md` for the Python calling boundary and limits.
+
+## Response ASGI callback input provenance
+
+`tests/fixtures/sources/parity/response-asgi-callbacks.yaml` is independently authored from the pinned `starlette/responses.py:29-200`, the responses guide's ASGI consumer contract, and the project's Python callback/lifetime boundary requirements. It supplies callback mutations, byte/header values, background functions, suspended coroutines, and collection schedules. Public observations are generated live; no source test file, expected output, or target-private state is copied. The development-time source oracle retains its BSD-3-Clause provenance. See `docs/RESPONSE_RENDER_BOUNDARY.md`.

@@ -15914,7 +15914,9 @@ def validate_case(
         expected_case_keys = REQUEST_FORM_CASE_KEYS
         expected_case_keys = expected_case_keys | (REQUEST_FORM_OPTIONAL_KEYS.intersection(case))
     elif is_response_consumer:
-        expected_case_keys = RESPONSE_CONSUMER_CASE_KEYS
+        expected_case_keys = RESPONSE_CONSUMER_CASE_KEYS | (
+            {"callbacks", "ownership"} & case.keys()
+        )
     elif is_value_lifetime:
         expected_case_keys = VALUE_LIFETIME_CASE_KEYS
     elif is_request_lifetime:
@@ -31283,7 +31285,7 @@ def _validate_value_lifetime_case(case: dict[str, Any]) -> None:
 def _validate_response_consumer_content(value: Any) -> None:
     spec = _exact(value, {"kind", "value"}, "Response consumer content")
     kind, content = spec["kind"], spec["value"]
-    if kind in {"bytes", "memoryview"}:
+    if kind in {"bytes", "memoryview", "mutable-memoryview"}:
         if not isinstance(content, str):
             raise ContractError("Response bytes must use base64 text")
         try:
@@ -31316,7 +31318,7 @@ def _validate_response_consumer_attributes(value: Any, *, body: bool = False) ->
             if not body:
                 raise ContractError("Response body changes belong after construction")
             _validate_response_consumer_content(item)
-            if item["kind"] not in {"bytes", "memoryview"}:
+            if item["kind"] not in {"bytes", "memoryview", "mutable-memoryview"}:
                 raise ContractError("Response body changes require bytes or memoryview")
         elif name == "media_type" and item is None:
             continue
@@ -31329,7 +31331,12 @@ def _validate_response_consumer_case(case: dict[str, Any]) -> None:
         raise ContractError(
             "Response consumers require the installed Python package without assets"
         )
-    if case["covers"] != [case["surface"] + ".consumer-construction.public-render-and-asgi"]:
+    expected_requirements = [case["surface"] + ".consumer-construction.public-render-and-asgi"]
+    if "callbacks" in case or "ownership" in case:
+        expected_requirements.append(
+            case["surface"] + ".consumer-construction.live-asgi-state-and-lifetime"
+        )
+    if case["covers"] != expected_requirements:
         raise ContractError("Response consumer coverage must match its declared surface")
     spec = _exact(
         case["construction"],
@@ -31396,10 +31403,166 @@ def _validate_response_consumer_case(case: dict[str, Any]) -> None:
         raise ContractError("Response consumers require an HTTP or WebSocket scope")
     failure = case["send_failure"]
     if failure is not None:
-        _exact(failure, {"at_event", "message"}, "Response send failure")
+        _exact(
+            failure,
+            {"at_event", "message"} | ({"exception_class"} & failure.keys()),
+            "Response send failure",
+        )
         if type(failure["at_event"]) is not int or failure["at_event"] not in {1, 2}:
             raise ContractError("Response send failure must select a start or body event")
         if not isinstance(failure["message"], str):
             raise ContractError("Response send exception message must be text")
+        if failure.get("exception_class", "OSError") not in {
+            "OSError",
+            "RuntimeError",
+            "StopAsyncIteration",
+            "CancelledError",
+        }:
+            raise ContractError("Response send exception class is unsupported")
     if case["background_label"] is not None and not isinstance(case["background_label"], str):
         raise ContractError("Response background label must be text or null")
+    _validate_response_callbacks(case)
+
+
+def _validate_response_callbacks(case: dict[str, Any]) -> None:
+    if "callbacks" in case and "ownership" in case:
+        raise ContractError("Response callback and ownership workflows are separate inputs")
+    if "callbacks" in case:
+        callbacks = _exact(
+            case["callbacks"],
+            {"send_actions", "inspect_aliases", "background_definitions"}
+            | ({"attribute_probe"} & case["callbacks"].keys()),
+            "Response callbacks",
+        )
+        if type(callbacks["inspect_aliases"]) is not bool or not isinstance(
+            callbacks["send_actions"], list
+        ):
+            raise ContractError("Response callbacks require an alias flag and action sequence")
+        if not isinstance(callbacks["background_definitions"], list):
+            raise ContractError("Response background definitions must be a sequence")
+        if "attribute_probe" in callbacks and (
+            not isinstance(callbacks["attribute_probe"], list)
+            or any(
+                name not in {"status_code", "raw_headers", "body", "background"}
+                for name in callbacks["attribute_probe"]
+            )
+        ):
+            raise ContractError("Response attribute probe must name public ASGI values")
+        labels = set()
+        for definition in callbacks["background_definitions"]:
+            _exact(
+                definition,
+                {"label", "failure"} | ({"exception_class"} & definition.keys()),
+                "Response background definition",
+            )
+            if not isinstance(definition["label"], str) or definition["label"] in labels:
+                raise ContractError("Response backgrounds require unique string labels")
+            if definition["failure"] is not None and not isinstance(definition["failure"], str):
+                raise ContractError("Response background failure must be a string or null")
+            if definition.get("exception_class", "RuntimeError") not in {
+                "RuntimeError",
+                "OSError",
+                "StopAsyncIteration",
+                "CancelledError",
+            }:
+                raise ContractError("Response background exception class is unsupported")
+            labels.add(definition["label"])
+        for action in callbacks["send_actions"]:
+            if not isinstance(action, dict):
+                raise ContractError("Response send action must be a record")
+            kind = action.get("kind")
+            parameters = {
+                "body": {"value"},
+                "status": {"value"},
+                "background": {"label"},
+                "append-header": {"pair"},
+                "raw-headers": {"pairs"},
+                "mutable-body": {"index", "value"},
+            }
+            if kind not in parameters:
+                raise ContractError("Response send action is unsupported")
+            _exact(
+                action,
+                {"kind", "at_event", "checkpoint"} | parameters[kind],
+                "Response send action",
+            )
+            if (
+                type(action["at_event"]) is not int
+                or action["at_event"] not in {1, 2}
+                or type(action["checkpoint"]) is not bool
+            ):
+                raise ContractError("Response send action requires an event and checkpoint flag")
+            if kind == "body":
+                _validate_response_consumer_attributes({"body": action["value"]}, body=True)
+            elif kind == "status":
+                _validate_response_consumer_attributes({"status_code": action["value"]})
+            elif kind == "background":
+                if action["label"] is not None and action["label"] not in labels:
+                    raise ContractError("Response send action selects an undefined background")
+            elif kind in {"append-header", "raw-headers"}:
+                pairs = [action["pair"]] if kind == "append-header" else action["pairs"]
+                if not isinstance(pairs, list):
+                    raise ContractError("Response raw header pairs must be a sequence")
+                for pair in pairs:
+                    if not isinstance(pair, list) or len(pair) != 2:
+                        raise ContractError("Response raw header requires a byte pair")
+                    for item in pair:
+                        _validate_response_consumer_content({"kind": "bytes", "value": item})
+            elif (
+                type(action["index"]) is not int
+                or action["index"] < 0
+                or type(action["value"]) is not int
+                or not 0 <= action["value"] <= 255
+            ):
+                raise ContractError("Response mutable body requires an index and byte value")
+    if "ownership" in case:
+        spec = _exact(
+            case["ownership"],
+            {
+                "kind",
+                "cache_headers",
+                "guard_label",
+                "callback_label",
+                "suspension_token",
+                "header_name",
+                "header_value",
+                "garbage_collection",
+            },
+            "Response ownership",
+        )
+        if (
+            spec["kind"] not in {"raw-header", "send", "background", "receive"}
+            or type(spec["cache_headers"]) is not bool
+        ):
+            raise ContractError("Response ownership selects a public callback/header graph")
+        for key in [
+            "guard_label",
+            "callback_label",
+            "suspension_token",
+            "header_name",
+            "header_value",
+        ]:
+            if not isinstance(spec[key], str):
+                raise ContractError("Response ownership labels and header data require text")
+        try:
+            spec["header_name"].encode("latin-1")
+            spec["header_value"].encode("latin-1")
+        except UnicodeEncodeError as error:
+            raise ContractError("Response ownership headers require Latin-1 data") from error
+        collection = _exact(
+            spec["garbage_collection"],
+            {"automatic_gc", "collect_generations", "thread"},
+            "Response ownership collection",
+        )
+        if (
+            type(collection["automatic_gc"]) is not bool
+            or collection["thread"] not in {"caller", "worker"}
+            or not isinstance(collection["collect_generations"], list)
+            or not collection["collect_generations"]
+            or any(
+                type(g) is not int or g not in {0, 1, 2} for g in collection["collect_generations"]
+            )
+        ):
+            raise ContractError(
+                "Response ownership requires a collection thread and valid generations"
+            )

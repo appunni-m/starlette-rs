@@ -705,6 +705,19 @@ impl PyResponse {
 
 #[pymethods]
 impl PyResponse {
+    fn __traverse__(
+        &self,
+        visit: pyo3::class::gc::PyVisit<'_>,
+    ) -> Result<(), pyo3::class::gc::PyTraverseError> {
+        visit.call(&self.raw_headers)?;
+        visit.call(&self.headers_view)
+    }
+
+    fn __clear__(&mut self, py: Python<'_>) {
+        self.raw_headers = PyList::empty(py).into_any().unbind();
+        self.headers_view = None;
+    }
+
     #[new]
     #[pyo3(signature = (content=None, status_code=200, headers=None, media_type=None, charset="utf-8"))]
     fn new(
@@ -807,25 +820,25 @@ impl PyResponse {
             .extract::<Vec<u8>>()
     }
 
-    #[pyo3(signature = (scope, receive, send, background=None, overrides=None))]
     fn asgi_call(
         &self,
         py: Python<'_>,
         scope: &Bound<'_, PyDict>,
         receive: Py<PyAny>,
         send: Py<PyAny>,
-        background: Option<Py<PyAny>>,
-        overrides: Option<(Py<PyAny>, u16)>,
+        response: Py<PyAny>,
     ) -> PyResult<Py<PyAny>> {
-        let (body_override, call) = match overrides {
-            Some((body, status_code)) => (
-                Some(body),
-                self.inner
-                    .call_state_with_status_code(status_code, background.is_some()),
-            ),
-            None => (None, self.inner.call_state(background.is_some())),
-        };
-        runtime_calls::response_call(py, call, scope, receive, send, background, body_override)
+        // Resolve background presence after the body send, as the source does.
+        // The Rust protocol always reaches that decision; no callback is invoked
+        // when the live public background attribute is None.
+        runtime_calls::response_object_call(
+            py,
+            self.inner.call_state(true),
+            response,
+            scope,
+            receive,
+            send,
+        )
     }
 
     #[getter]

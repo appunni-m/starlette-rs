@@ -4,6 +4,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex, MutexGuard};
 
+use pyo3::class::gc::{PyTraverseError, PyVisit};
 use pyo3::exceptions::{
     PyAttributeError, PyImportError, PyOSError, PyRuntimeError, PyStopAsyncIteration,
 };
@@ -22,6 +23,7 @@ use starlette_rs::{
 
 use crate::awaitable::{
     AwaitableStateMachine, MachineAction, MachineResume, into_python_awaitable,
+    into_sendable_python_awaitable,
 };
 use crate::cookie_runtime;
 
@@ -71,18 +73,51 @@ pub(crate) fn response_call(
     body_override: Option<Py<PyAny>>,
 ) -> PyResult<Py<PyAny>> {
     let websocket = is_websocket_scope(scope)?;
-    into_python_awaitable(
+    into_sendable_python_awaitable(
         py,
         ResponseCallMachine {
             call,
             send,
             _receive: receive,
-            background,
-            body_override,
+            values: ResponseValues::Native {
+                background,
+                body_override,
+            },
             websocket,
             pending: None,
         },
     )
+}
+
+/// Drive a facade response using its public values at each source lookup point.
+/// No PyO3 response borrow survives creation of this coroutine continuation.
+pub(crate) fn response_object_call(
+    py: Python<'_>,
+    call: ResponseCall,
+    response: Py<PyAny>,
+    scope: &Bound<'_, PyDict>,
+    receive: Py<PyAny>,
+    send: Py<PyAny>,
+) -> PyResult<Py<PyAny>> {
+    into_sendable_python_awaitable(
+        py,
+        ResponseCallMachine {
+            call,
+            send,
+            _receive: receive,
+            values: ResponseValues::Public(response),
+            websocket: is_websocket_scope(scope)?,
+            pending: None,
+        },
+    )
+}
+
+enum ResponseValues {
+    Native {
+        background: Option<Py<PyAny>>,
+        body_override: Option<Py<PyAny>>,
+    },
+    Public(Py<PyAny>),
 }
 
 enum ResponsePending {
@@ -94,13 +129,31 @@ struct ResponseCallMachine {
     call: ResponseCall,
     send: Py<PyAny>,
     _receive: Py<PyAny>,
-    background: Option<Py<PyAny>>,
-    body_override: Option<Py<PyAny>>,
+    values: ResponseValues,
     websocket: bool,
     pending: Option<ResponsePending>,
 }
 
 impl AwaitableStateMachine for ResponseCallMachine {
+    fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.send)?;
+        visit.call(&self._receive)?;
+        match &self.values {
+            ResponseValues::Native {
+                background,
+                body_override,
+            } => {
+                visit.call(background)?;
+                visit.call(body_override)
+            }
+            ResponseValues::Public(response) => visit.call(response),
+        }
+    }
+
+    fn finalize_on_drop(&self) -> bool {
+        true
+    }
+
     fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
         match input {
             MachineResume::Start => self.next_action(py),
@@ -118,7 +171,11 @@ impl AwaitableStateMachine for ResponseCallMachine {
                 }
                 self.next_action(py)
             }
-            MachineResume::AsyncIterationComplete(_) => Err(PyStopAsyncIteration::new_err(())),
+            // ASGI sends/backgrounds are not async iteration. Preserve the
+            // callback's original StopAsyncIteration just like every other error.
+            MachineResume::AsyncIterationComplete(error) => {
+                self.resume(py, MachineResume::Error(error))
+            }
             MachineResume::Error(error) => {
                 match self.pending.take() {
                     Some(ResponsePending::Send) => {
@@ -142,17 +199,42 @@ impl ResponseCallMachine {
         match self.call.step() {
             ResponseCallStep::Send(event) => {
                 self.pending = Some(ResponsePending::Send);
-                let body_override = self.body_override.as_ref().map(|body| body.bind(py));
-                let message = response_event_to_py(py, event, self.websocket, body_override)?;
+                let message = match &self.values {
+                    ResponseValues::Native { body_override, .. } => {
+                        let body_override = body_override.as_ref().map(|body| body.bind(py));
+                        response_event_to_py(py, event, self.websocket, body_override)?
+                    }
+                    ResponseValues::Public(response) => {
+                        response_object_event_to_py(py, response.bind(py), event, self.websocket)?
+                    }
+                };
                 let awaitable = self.send.bind(py).call1((message,))?;
                 Ok(MachineAction::Await(awaitable.unbind()))
             }
             ResponseCallStep::RunBackground => {
+                let background = match &self.values {
+                    ResponseValues::Native { background, .. } => background
+                        .as_ref()
+                        .ok_or_else(|| {
+                            PyRuntimeError::new_err(
+                                "response requested a missing background callback",
+                            )
+                        })?
+                        .bind(py)
+                        .clone(),
+                    ResponseValues::Public(response) => {
+                        let response = response.bind(py);
+                        if response.getattr("background")?.is_none() {
+                            self.advance(ResponseCallInput::BackgroundFinished(Ok(())))?;
+                            return self.next_action(py);
+                        }
+                        // Source checks the attribute, then reads it again to
+                        // invoke it. Preserve Python descriptor side effects.
+                        response.getattr("background")?
+                    }
+                };
                 self.pending = Some(ResponsePending::Background);
-                let background = self.background.as_ref().ok_or_else(|| {
-                    PyRuntimeError::new_err("response requested a missing background callback")
-                })?;
-                let awaitable = background.bind(py).call0()?;
+                let awaitable = background.call0()?;
                 Ok(MachineAction::Await(awaitable.unbind()))
             }
             ResponseCallStep::Complete => Ok(MachineAction::Complete(py.None())),
@@ -1092,6 +1174,27 @@ fn asgi_spec_at_least_24(py: Python<'_>, scope: &Bound<'_, PyDict>) -> PyResult<
     version
         .rich_compare(minimum, pyo3::basic::CompareOp::Ge)?
         .is_truthy()
+}
+
+fn response_object_event_to_py<'py>(
+    py: Python<'py>,
+    response: &Bound<'py, PyAny>,
+    event: ResponseEvent,
+    websocket: bool,
+) -> PyResult<Bound<'py, PyDict>> {
+    let message = PyDict::new(py);
+    match event {
+        ResponseEvent::Start { .. } => {
+            message.set_item("type", event_type("http.response.start", websocket))?;
+            message.set_item("status", response.getattr("status_code")?)?;
+            message.set_item("headers", response.getattr("raw_headers")?)?;
+        }
+        ResponseEvent::Body { .. } => {
+            message.set_item("type", event_type("http.response.body", websocket))?;
+            message.set_item("body", response.getattr("body")?)?;
+        }
+    }
+    Ok(message)
 }
 
 fn response_event_to_py<'py>(

@@ -1,0 +1,5727 @@
+{
+  "schema": "migration-parity/parity-input@43",
+  "cases": [
+    {
+      "case_id": "starlette.responses.Response.consumer-construction.callback-http-alias",
+      "surface": "starlette.responses.Response",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.Response.consumer-construction.public-render-and-asgi",
+        "starlette.responses.Response.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "Hello, caf\u00e9 \ud83c\udf0d"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "direct"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": null,
+      "callbacks": {
+        "send_actions": [],
+        "inspect_aliases": true,
+        "background_definitions": [
+          {
+            "label": "replacement",
+            "failure": null
+          },
+          {
+            "label": "failure",
+            "failure": "input background failure"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.responses.Response.consumer-construction.callback-start-body-and-background",
+      "surface": "starlette.responses.Response",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.Response.consumer-construction.public-render-and-asgi",
+        "starlette.responses.Response.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "Hello, caf\u00e9 \ud83c\udf0d"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "direct"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": "original",
+      "callbacks": {
+        "send_actions": [
+          {
+            "at_event": 1,
+            "kind": "body",
+            "checkpoint": true,
+            "value": {
+              "kind": "bytes",
+              "value": "YWZ0ZXItc3RhcnQ="
+            }
+          },
+          {
+            "at_event": 1,
+            "kind": "status",
+            "checkpoint": false,
+            "value": 201
+          },
+          {
+            "at_event": 2,
+            "kind": "background",
+            "checkpoint": true,
+            "label": "replacement"
+          }
+        ],
+        "inspect_aliases": true,
+        "background_definitions": [
+          {
+            "label": "replacement",
+            "failure": null
+          },
+          {
+            "label": "failure",
+            "failure": "input background failure"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.responses.Response.consumer-construction.callback-start-memoryview-websocket",
+      "surface": "starlette.responses.Response",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.Response.consumer-construction.public-render-and-asgi",
+        "starlette.responses.Response.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "Hello, caf\u00e9 \ud83c\udf0d"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "direct"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "websocket",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": null,
+      "callbacks": {
+        "send_actions": [
+          {
+            "at_event": 1,
+            "kind": "body",
+            "checkpoint": false,
+            "value": {
+              "kind": "memoryview",
+              "value": "YWZ0ZXItc3RhcnQtdmlldw=="
+            }
+          }
+        ],
+        "inspect_aliases": true,
+        "background_definitions": [
+          {
+            "label": "replacement",
+            "failure": null
+          },
+          {
+            "label": "failure",
+            "failure": "input background failure"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.responses.Response.consumer-construction.callback-insert-background",
+      "surface": "starlette.responses.Response",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.Response.consumer-construction.public-render-and-asgi",
+        "starlette.responses.Response.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "Hello, caf\u00e9 \ud83c\udf0d"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "direct"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": null,
+      "callbacks": {
+        "send_actions": [
+          {
+            "at_event": 1,
+            "kind": "background",
+            "checkpoint": true,
+            "label": "replacement"
+          }
+        ],
+        "inspect_aliases": true,
+        "background_definitions": [
+          {
+            "label": "replacement",
+            "failure": null
+          },
+          {
+            "label": "failure",
+            "failure": "input background failure"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.responses.Response.consumer-construction.callback-remove-background",
+      "surface": "starlette.responses.Response",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.Response.consumer-construction.public-render-and-asgi",
+        "starlette.responses.Response.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "Hello, caf\u00e9 \ud83c\udf0d"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "direct"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": "original",
+      "callbacks": {
+        "send_actions": [
+          {
+            "at_event": 2,
+            "kind": "background",
+            "checkpoint": true,
+            "label": null
+          }
+        ],
+        "inspect_aliases": true,
+        "background_definitions": [
+          {
+            "label": "replacement",
+            "failure": null
+          },
+          {
+            "label": "failure",
+            "failure": "input background failure"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.responses.Response.consumer-construction.callback-replace-background-error",
+      "surface": "starlette.responses.Response",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.Response.consumer-construction.public-render-and-asgi",
+        "starlette.responses.Response.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "Hello, caf\u00e9 \ud83c\udf0d"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "direct"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": "original",
+      "callbacks": {
+        "send_actions": [
+          {
+            "at_event": 2,
+            "kind": "background",
+            "checkpoint": false,
+            "label": "failure"
+          }
+        ],
+        "inspect_aliases": true,
+        "background_definitions": [
+          {
+            "label": "replacement",
+            "failure": null
+          },
+          {
+            "label": "failure",
+            "failure": "input background failure"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.responses.Response.consumer-construction.callback-append-replace-headers",
+      "surface": "starlette.responses.Response",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.Response.consumer-construction.public-render-and-asgi",
+        "starlette.responses.Response.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "Hello, caf\u00e9 \ud83c\udf0d"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "direct"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": null,
+      "callbacks": {
+        "send_actions": [
+          {
+            "at_event": 1,
+            "kind": "append-header",
+            "checkpoint": true,
+            "pair": [
+              "eC1saXZl",
+              "YWRkZWQ="
+            ]
+          },
+          {
+            "at_event": 2,
+            "kind": "raw-headers",
+            "checkpoint": false,
+            "pairs": [
+              [
+                "eC1yZXBsYWNlZA==",
+                "bmV3LWxpc3Q="
+              ]
+            ]
+          }
+        ],
+        "inspect_aliases": true,
+        "background_definitions": [
+          {
+            "label": "replacement",
+            "failure": null
+          },
+          {
+            "label": "failure",
+            "failure": "input background failure"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.responses.Response.consumer-construction.callback-mutable-body-buffer",
+      "surface": "starlette.responses.Response",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.Response.consumer-construction.public-render-and-asgi",
+        "starlette.responses.Response.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "Hello, caf\u00e9 \ud83c\udf0d"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "direct"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "constant",
+          "mutations": {},
+          "content": {
+            "kind": "mutable-memoryview",
+            "value": "YmVmb3Jl"
+          }
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": null,
+      "callbacks": {
+        "send_actions": [
+          {
+            "at_event": 2,
+            "kind": "mutable-body",
+            "checkpoint": true,
+            "index": 0,
+            "value": 88
+          }
+        ],
+        "inspect_aliases": true,
+        "background_definitions": [
+          {
+            "label": "replacement",
+            "failure": null
+          },
+          {
+            "label": "failure",
+            "failure": "input background failure"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.responses.Response.consumer-construction.callback-failed-start-after-mutations",
+      "surface": "starlette.responses.Response",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.Response.consumer-construction.public-render-and-asgi",
+        "starlette.responses.Response.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "Hello, caf\u00e9 \ud83c\udf0d"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "direct"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": {
+        "at_event": 1,
+        "message": "input start send failure"
+      },
+      "background_label": "original",
+      "callbacks": {
+        "send_actions": [
+          {
+            "at_event": 1,
+            "kind": "body",
+            "checkpoint": false,
+            "value": {
+              "kind": "bytes",
+              "value": "dW51c2Vk"
+            }
+          },
+          {
+            "at_event": 1,
+            "kind": "background",
+            "checkpoint": false,
+            "label": "replacement"
+          }
+        ],
+        "inspect_aliases": true,
+        "background_definitions": [
+          {
+            "label": "replacement",
+            "failure": null
+          },
+          {
+            "label": "failure",
+            "failure": "input background failure"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.responses.Response.consumer-construction.callback-websocket-alias",
+      "surface": "starlette.responses.Response",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.Response.consumer-construction.public-render-and-asgi",
+        "starlette.responses.Response.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "Hello, caf\u00e9 \ud83c\udf0d"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "direct"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "websocket",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": null,
+      "callbacks": {
+        "send_actions": [],
+        "inspect_aliases": true,
+        "background_definitions": [
+          {
+            "label": "replacement",
+            "failure": null
+          },
+          {
+            "label": "failure",
+            "failure": "input background failure"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.responses.Response.consumer-construction.callback-ownership-raw-header-caller",
+      "surface": "starlette.responses.Response",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.Response.consumer-construction.public-render-and-asgi",
+        "starlette.responses.Response.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "Hello, caf\u00e9 \ud83c\udf0d"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "direct"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": null,
+      "ownership": {
+        "kind": "raw-header",
+        "cache_headers": true,
+        "guard_label": "response-guard",
+        "callback_label": "user-callback",
+        "suspension_token": "callback-wait",
+        "header_name": "x-owner",
+        "header_value": "retained",
+        "garbage_collection": {
+          "automatic_gc": false,
+          "collect_generations": [
+            2,
+            2
+          ],
+          "thread": "caller"
+        }
+      }
+    },
+    {
+      "case_id": "starlette.responses.Response.consumer-construction.callback-ownership-raw-header-worker",
+      "surface": "starlette.responses.Response",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.Response.consumer-construction.public-render-and-asgi",
+        "starlette.responses.Response.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "Hello, caf\u00e9 \ud83c\udf0d"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "direct"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": null,
+      "ownership": {
+        "kind": "raw-header",
+        "cache_headers": true,
+        "guard_label": "response-guard",
+        "callback_label": "user-callback",
+        "suspension_token": "callback-wait",
+        "header_name": "x-owner",
+        "header_value": "retained",
+        "garbage_collection": {
+          "automatic_gc": false,
+          "collect_generations": [
+            2,
+            2
+          ],
+          "thread": "worker"
+        }
+      }
+    },
+    {
+      "case_id": "starlette.responses.Response.consumer-construction.callback-ownership-send-caller",
+      "surface": "starlette.responses.Response",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.Response.consumer-construction.public-render-and-asgi",
+        "starlette.responses.Response.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "Hello, caf\u00e9 \ud83c\udf0d"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "direct"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": null,
+      "ownership": {
+        "kind": "send",
+        "cache_headers": false,
+        "guard_label": "response-guard",
+        "callback_label": "user-callback",
+        "suspension_token": "callback-wait",
+        "header_name": "x-owner",
+        "header_value": "retained",
+        "garbage_collection": {
+          "automatic_gc": false,
+          "collect_generations": [
+            2,
+            2
+          ],
+          "thread": "caller"
+        }
+      }
+    },
+    {
+      "case_id": "starlette.responses.Response.consumer-construction.callback-ownership-send-worker",
+      "surface": "starlette.responses.Response",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.Response.consumer-construction.public-render-and-asgi",
+        "starlette.responses.Response.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "Hello, caf\u00e9 \ud83c\udf0d"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "direct"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": null,
+      "ownership": {
+        "kind": "send",
+        "cache_headers": false,
+        "guard_label": "response-guard",
+        "callback_label": "user-callback",
+        "suspension_token": "callback-wait",
+        "header_name": "x-owner",
+        "header_value": "retained",
+        "garbage_collection": {
+          "automatic_gc": false,
+          "collect_generations": [
+            2,
+            2
+          ],
+          "thread": "worker"
+        }
+      }
+    },
+    {
+      "case_id": "starlette.responses.Response.consumer-construction.callback-ownership-background-caller",
+      "surface": "starlette.responses.Response",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.Response.consumer-construction.public-render-and-asgi",
+        "starlette.responses.Response.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "Hello, caf\u00e9 \ud83c\udf0d"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "direct"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": null,
+      "ownership": {
+        "kind": "background",
+        "cache_headers": false,
+        "guard_label": "response-guard",
+        "callback_label": "user-callback",
+        "suspension_token": "callback-wait",
+        "header_name": "x-owner",
+        "header_value": "retained",
+        "garbage_collection": {
+          "automatic_gc": false,
+          "collect_generations": [
+            2,
+            2
+          ],
+          "thread": "caller"
+        }
+      }
+    },
+    {
+      "case_id": "starlette.responses.Response.consumer-construction.callback-ownership-background-worker",
+      "surface": "starlette.responses.Response",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.Response.consumer-construction.public-render-and-asgi",
+        "starlette.responses.Response.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "Hello, caf\u00e9 \ud83c\udf0d"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "direct"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": null,
+      "ownership": {
+        "kind": "background",
+        "cache_headers": false,
+        "guard_label": "response-guard",
+        "callback_label": "user-callback",
+        "suspension_token": "callback-wait",
+        "header_name": "x-owner",
+        "header_value": "retained",
+        "garbage_collection": {
+          "automatic_gc": false,
+          "collect_generations": [
+            2,
+            2
+          ],
+          "thread": "worker"
+        }
+      }
+    },
+    {
+      "case_id": "starlette.responses.Response.consumer-construction.callback-ownership-receive-caller",
+      "surface": "starlette.responses.Response",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.Response.consumer-construction.public-render-and-asgi",
+        "starlette.responses.Response.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "Hello, caf\u00e9 \ud83c\udf0d"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "direct"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": null,
+      "ownership": {
+        "kind": "receive",
+        "cache_headers": false,
+        "guard_label": "response-guard",
+        "callback_label": "user-callback",
+        "suspension_token": "callback-wait",
+        "header_name": "x-owner",
+        "header_value": "retained",
+        "garbage_collection": {
+          "automatic_gc": false,
+          "collect_generations": [
+            2,
+            2
+          ],
+          "thread": "caller"
+        }
+      }
+    },
+    {
+      "case_id": "starlette.responses.Response.consumer-construction.callback-ownership-receive-worker",
+      "surface": "starlette.responses.Response",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.Response.consumer-construction.public-render-and-asgi",
+        "starlette.responses.Response.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "Hello, caf\u00e9 \ud83c\udf0d"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "direct"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": null,
+      "ownership": {
+        "kind": "receive",
+        "cache_headers": false,
+        "guard_label": "response-guard",
+        "callback_label": "user-callback",
+        "suspension_token": "callback-wait",
+        "header_name": "x-owner",
+        "header_value": "retained",
+        "garbage_collection": {
+          "automatic_gc": false,
+          "collect_generations": [
+            2,
+            2
+          ],
+          "thread": "worker"
+        }
+      }
+    },
+    {
+      "case_id": "starlette.responses.HTMLResponse.consumer-construction.callback-http-alias",
+      "surface": "starlette.responses.HTMLResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.HTMLResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.HTMLResponse.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "Hello, caf\u00e9 \ud83c\udf0d"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "direct"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": null,
+      "callbacks": {
+        "send_actions": [],
+        "inspect_aliases": true,
+        "background_definitions": [
+          {
+            "label": "replacement",
+            "failure": null
+          },
+          {
+            "label": "failure",
+            "failure": "input background failure"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.responses.HTMLResponse.consumer-construction.callback-start-body-and-background",
+      "surface": "starlette.responses.HTMLResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.HTMLResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.HTMLResponse.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "Hello, caf\u00e9 \ud83c\udf0d"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "direct"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": "original",
+      "callbacks": {
+        "send_actions": [
+          {
+            "at_event": 1,
+            "kind": "body",
+            "checkpoint": true,
+            "value": {
+              "kind": "bytes",
+              "value": "YWZ0ZXItc3RhcnQ="
+            }
+          },
+          {
+            "at_event": 1,
+            "kind": "status",
+            "checkpoint": false,
+            "value": 201
+          },
+          {
+            "at_event": 2,
+            "kind": "background",
+            "checkpoint": true,
+            "label": "replacement"
+          }
+        ],
+        "inspect_aliases": true,
+        "background_definitions": [
+          {
+            "label": "replacement",
+            "failure": null
+          },
+          {
+            "label": "failure",
+            "failure": "input background failure"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.responses.HTMLResponse.consumer-construction.callback-start-memoryview-websocket",
+      "surface": "starlette.responses.HTMLResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.HTMLResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.HTMLResponse.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "Hello, caf\u00e9 \ud83c\udf0d"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "direct"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "websocket",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": null,
+      "callbacks": {
+        "send_actions": [
+          {
+            "at_event": 1,
+            "kind": "body",
+            "checkpoint": false,
+            "value": {
+              "kind": "memoryview",
+              "value": "YWZ0ZXItc3RhcnQtdmlldw=="
+            }
+          }
+        ],
+        "inspect_aliases": true,
+        "background_definitions": [
+          {
+            "label": "replacement",
+            "failure": null
+          },
+          {
+            "label": "failure",
+            "failure": "input background failure"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.responses.HTMLResponse.consumer-construction.callback-insert-background",
+      "surface": "starlette.responses.HTMLResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.HTMLResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.HTMLResponse.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "Hello, caf\u00e9 \ud83c\udf0d"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "direct"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": null,
+      "callbacks": {
+        "send_actions": [
+          {
+            "at_event": 1,
+            "kind": "background",
+            "checkpoint": true,
+            "label": "replacement"
+          }
+        ],
+        "inspect_aliases": true,
+        "background_definitions": [
+          {
+            "label": "replacement",
+            "failure": null
+          },
+          {
+            "label": "failure",
+            "failure": "input background failure"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.responses.HTMLResponse.consumer-construction.callback-remove-background",
+      "surface": "starlette.responses.HTMLResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.HTMLResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.HTMLResponse.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "Hello, caf\u00e9 \ud83c\udf0d"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "direct"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": "original",
+      "callbacks": {
+        "send_actions": [
+          {
+            "at_event": 2,
+            "kind": "background",
+            "checkpoint": true,
+            "label": null
+          }
+        ],
+        "inspect_aliases": true,
+        "background_definitions": [
+          {
+            "label": "replacement",
+            "failure": null
+          },
+          {
+            "label": "failure",
+            "failure": "input background failure"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.responses.HTMLResponse.consumer-construction.callback-replace-background-error",
+      "surface": "starlette.responses.HTMLResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.HTMLResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.HTMLResponse.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "Hello, caf\u00e9 \ud83c\udf0d"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "direct"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": "original",
+      "callbacks": {
+        "send_actions": [
+          {
+            "at_event": 2,
+            "kind": "background",
+            "checkpoint": false,
+            "label": "failure"
+          }
+        ],
+        "inspect_aliases": true,
+        "background_definitions": [
+          {
+            "label": "replacement",
+            "failure": null
+          },
+          {
+            "label": "failure",
+            "failure": "input background failure"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.responses.HTMLResponse.consumer-construction.callback-append-replace-headers",
+      "surface": "starlette.responses.HTMLResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.HTMLResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.HTMLResponse.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "Hello, caf\u00e9 \ud83c\udf0d"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "direct"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": null,
+      "callbacks": {
+        "send_actions": [
+          {
+            "at_event": 1,
+            "kind": "append-header",
+            "checkpoint": true,
+            "pair": [
+              "eC1saXZl",
+              "YWRkZWQ="
+            ]
+          },
+          {
+            "at_event": 2,
+            "kind": "raw-headers",
+            "checkpoint": false,
+            "pairs": [
+              [
+                "eC1yZXBsYWNlZA==",
+                "bmV3LWxpc3Q="
+              ]
+            ]
+          }
+        ],
+        "inspect_aliases": true,
+        "background_definitions": [
+          {
+            "label": "replacement",
+            "failure": null
+          },
+          {
+            "label": "failure",
+            "failure": "input background failure"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.responses.HTMLResponse.consumer-construction.callback-mutable-body-buffer",
+      "surface": "starlette.responses.HTMLResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.HTMLResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.HTMLResponse.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "Hello, caf\u00e9 \ud83c\udf0d"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "direct"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "constant",
+          "mutations": {},
+          "content": {
+            "kind": "mutable-memoryview",
+            "value": "YmVmb3Jl"
+          }
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": null,
+      "callbacks": {
+        "send_actions": [
+          {
+            "at_event": 2,
+            "kind": "mutable-body",
+            "checkpoint": true,
+            "index": 0,
+            "value": 88
+          }
+        ],
+        "inspect_aliases": true,
+        "background_definitions": [
+          {
+            "label": "replacement",
+            "failure": null
+          },
+          {
+            "label": "failure",
+            "failure": "input background failure"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.responses.HTMLResponse.consumer-construction.callback-failed-start-after-mutations",
+      "surface": "starlette.responses.HTMLResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.HTMLResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.HTMLResponse.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "Hello, caf\u00e9 \ud83c\udf0d"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "direct"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": {
+        "at_event": 1,
+        "message": "input start send failure"
+      },
+      "background_label": "original",
+      "callbacks": {
+        "send_actions": [
+          {
+            "at_event": 1,
+            "kind": "body",
+            "checkpoint": false,
+            "value": {
+              "kind": "bytes",
+              "value": "dW51c2Vk"
+            }
+          },
+          {
+            "at_event": 1,
+            "kind": "background",
+            "checkpoint": false,
+            "label": "replacement"
+          }
+        ],
+        "inspect_aliases": true,
+        "background_definitions": [
+          {
+            "label": "replacement",
+            "failure": null
+          },
+          {
+            "label": "failure",
+            "failure": "input background failure"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.responses.HTMLResponse.consumer-construction.callback-websocket-alias",
+      "surface": "starlette.responses.HTMLResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.HTMLResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.HTMLResponse.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "Hello, caf\u00e9 \ud83c\udf0d"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "direct"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "websocket",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": null,
+      "callbacks": {
+        "send_actions": [],
+        "inspect_aliases": true,
+        "background_definitions": [
+          {
+            "label": "replacement",
+            "failure": null
+          },
+          {
+            "label": "failure",
+            "failure": "input background failure"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.responses.HTMLResponse.consumer-construction.callback-ownership-raw-header-caller",
+      "surface": "starlette.responses.HTMLResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.HTMLResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.HTMLResponse.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "Hello, caf\u00e9 \ud83c\udf0d"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "direct"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": null,
+      "ownership": {
+        "kind": "raw-header",
+        "cache_headers": true,
+        "guard_label": "response-guard",
+        "callback_label": "user-callback",
+        "suspension_token": "callback-wait",
+        "header_name": "x-owner",
+        "header_value": "retained",
+        "garbage_collection": {
+          "automatic_gc": false,
+          "collect_generations": [
+            2,
+            2
+          ],
+          "thread": "caller"
+        }
+      }
+    },
+    {
+      "case_id": "starlette.responses.HTMLResponse.consumer-construction.callback-ownership-raw-header-worker",
+      "surface": "starlette.responses.HTMLResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.HTMLResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.HTMLResponse.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "Hello, caf\u00e9 \ud83c\udf0d"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "direct"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": null,
+      "ownership": {
+        "kind": "raw-header",
+        "cache_headers": true,
+        "guard_label": "response-guard",
+        "callback_label": "user-callback",
+        "suspension_token": "callback-wait",
+        "header_name": "x-owner",
+        "header_value": "retained",
+        "garbage_collection": {
+          "automatic_gc": false,
+          "collect_generations": [
+            2,
+            2
+          ],
+          "thread": "worker"
+        }
+      }
+    },
+    {
+      "case_id": "starlette.responses.HTMLResponse.consumer-construction.callback-ownership-send-caller",
+      "surface": "starlette.responses.HTMLResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.HTMLResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.HTMLResponse.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "Hello, caf\u00e9 \ud83c\udf0d"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "direct"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": null,
+      "ownership": {
+        "kind": "send",
+        "cache_headers": false,
+        "guard_label": "response-guard",
+        "callback_label": "user-callback",
+        "suspension_token": "callback-wait",
+        "header_name": "x-owner",
+        "header_value": "retained",
+        "garbage_collection": {
+          "automatic_gc": false,
+          "collect_generations": [
+            2,
+            2
+          ],
+          "thread": "caller"
+        }
+      }
+    },
+    {
+      "case_id": "starlette.responses.HTMLResponse.consumer-construction.callback-ownership-send-worker",
+      "surface": "starlette.responses.HTMLResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.HTMLResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.HTMLResponse.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "Hello, caf\u00e9 \ud83c\udf0d"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "direct"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": null,
+      "ownership": {
+        "kind": "send",
+        "cache_headers": false,
+        "guard_label": "response-guard",
+        "callback_label": "user-callback",
+        "suspension_token": "callback-wait",
+        "header_name": "x-owner",
+        "header_value": "retained",
+        "garbage_collection": {
+          "automatic_gc": false,
+          "collect_generations": [
+            2,
+            2
+          ],
+          "thread": "worker"
+        }
+      }
+    },
+    {
+      "case_id": "starlette.responses.HTMLResponse.consumer-construction.callback-ownership-background-caller",
+      "surface": "starlette.responses.HTMLResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.HTMLResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.HTMLResponse.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "Hello, caf\u00e9 \ud83c\udf0d"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "direct"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": null,
+      "ownership": {
+        "kind": "background",
+        "cache_headers": false,
+        "guard_label": "response-guard",
+        "callback_label": "user-callback",
+        "suspension_token": "callback-wait",
+        "header_name": "x-owner",
+        "header_value": "retained",
+        "garbage_collection": {
+          "automatic_gc": false,
+          "collect_generations": [
+            2,
+            2
+          ],
+          "thread": "caller"
+        }
+      }
+    },
+    {
+      "case_id": "starlette.responses.HTMLResponse.consumer-construction.callback-ownership-background-worker",
+      "surface": "starlette.responses.HTMLResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.HTMLResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.HTMLResponse.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "Hello, caf\u00e9 \ud83c\udf0d"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "direct"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": null,
+      "ownership": {
+        "kind": "background",
+        "cache_headers": false,
+        "guard_label": "response-guard",
+        "callback_label": "user-callback",
+        "suspension_token": "callback-wait",
+        "header_name": "x-owner",
+        "header_value": "retained",
+        "garbage_collection": {
+          "automatic_gc": false,
+          "collect_generations": [
+            2,
+            2
+          ],
+          "thread": "worker"
+        }
+      }
+    },
+    {
+      "case_id": "starlette.responses.HTMLResponse.consumer-construction.callback-ownership-receive-caller",
+      "surface": "starlette.responses.HTMLResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.HTMLResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.HTMLResponse.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "Hello, caf\u00e9 \ud83c\udf0d"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "direct"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": null,
+      "ownership": {
+        "kind": "receive",
+        "cache_headers": false,
+        "guard_label": "response-guard",
+        "callback_label": "user-callback",
+        "suspension_token": "callback-wait",
+        "header_name": "x-owner",
+        "header_value": "retained",
+        "garbage_collection": {
+          "automatic_gc": false,
+          "collect_generations": [
+            2,
+            2
+          ],
+          "thread": "caller"
+        }
+      }
+    },
+    {
+      "case_id": "starlette.responses.HTMLResponse.consumer-construction.callback-ownership-receive-worker",
+      "surface": "starlette.responses.HTMLResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.HTMLResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.HTMLResponse.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "Hello, caf\u00e9 \ud83c\udf0d"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "direct"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": null,
+      "ownership": {
+        "kind": "receive",
+        "cache_headers": false,
+        "guard_label": "response-guard",
+        "callback_label": "user-callback",
+        "suspension_token": "callback-wait",
+        "header_name": "x-owner",
+        "header_value": "retained",
+        "garbage_collection": {
+          "automatic_gc": false,
+          "collect_generations": [
+            2,
+            2
+          ],
+          "thread": "worker"
+        }
+      }
+    },
+    {
+      "case_id": "starlette.responses.PlainTextResponse.consumer-construction.callback-http-alias",
+      "surface": "starlette.responses.PlainTextResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.PlainTextResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.PlainTextResponse.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "Hello, caf\u00e9 \ud83c\udf0d"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "direct"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": null,
+      "callbacks": {
+        "send_actions": [],
+        "inspect_aliases": true,
+        "background_definitions": [
+          {
+            "label": "replacement",
+            "failure": null
+          },
+          {
+            "label": "failure",
+            "failure": "input background failure"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.responses.PlainTextResponse.consumer-construction.callback-start-body-and-background",
+      "surface": "starlette.responses.PlainTextResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.PlainTextResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.PlainTextResponse.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "Hello, caf\u00e9 \ud83c\udf0d"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "direct"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": "original",
+      "callbacks": {
+        "send_actions": [
+          {
+            "at_event": 1,
+            "kind": "body",
+            "checkpoint": true,
+            "value": {
+              "kind": "bytes",
+              "value": "YWZ0ZXItc3RhcnQ="
+            }
+          },
+          {
+            "at_event": 1,
+            "kind": "status",
+            "checkpoint": false,
+            "value": 201
+          },
+          {
+            "at_event": 2,
+            "kind": "background",
+            "checkpoint": true,
+            "label": "replacement"
+          }
+        ],
+        "inspect_aliases": true,
+        "background_definitions": [
+          {
+            "label": "replacement",
+            "failure": null
+          },
+          {
+            "label": "failure",
+            "failure": "input background failure"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.responses.PlainTextResponse.consumer-construction.callback-start-memoryview-websocket",
+      "surface": "starlette.responses.PlainTextResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.PlainTextResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.PlainTextResponse.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "Hello, caf\u00e9 \ud83c\udf0d"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "direct"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "websocket",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": null,
+      "callbacks": {
+        "send_actions": [
+          {
+            "at_event": 1,
+            "kind": "body",
+            "checkpoint": false,
+            "value": {
+              "kind": "memoryview",
+              "value": "YWZ0ZXItc3RhcnQtdmlldw=="
+            }
+          }
+        ],
+        "inspect_aliases": true,
+        "background_definitions": [
+          {
+            "label": "replacement",
+            "failure": null
+          },
+          {
+            "label": "failure",
+            "failure": "input background failure"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.responses.PlainTextResponse.consumer-construction.callback-insert-background",
+      "surface": "starlette.responses.PlainTextResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.PlainTextResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.PlainTextResponse.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "Hello, caf\u00e9 \ud83c\udf0d"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "direct"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": null,
+      "callbacks": {
+        "send_actions": [
+          {
+            "at_event": 1,
+            "kind": "background",
+            "checkpoint": true,
+            "label": "replacement"
+          }
+        ],
+        "inspect_aliases": true,
+        "background_definitions": [
+          {
+            "label": "replacement",
+            "failure": null
+          },
+          {
+            "label": "failure",
+            "failure": "input background failure"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.responses.PlainTextResponse.consumer-construction.callback-remove-background",
+      "surface": "starlette.responses.PlainTextResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.PlainTextResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.PlainTextResponse.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "Hello, caf\u00e9 \ud83c\udf0d"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "direct"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": "original",
+      "callbacks": {
+        "send_actions": [
+          {
+            "at_event": 2,
+            "kind": "background",
+            "checkpoint": true,
+            "label": null
+          }
+        ],
+        "inspect_aliases": true,
+        "background_definitions": [
+          {
+            "label": "replacement",
+            "failure": null
+          },
+          {
+            "label": "failure",
+            "failure": "input background failure"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.responses.PlainTextResponse.consumer-construction.callback-replace-background-error",
+      "surface": "starlette.responses.PlainTextResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.PlainTextResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.PlainTextResponse.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "Hello, caf\u00e9 \ud83c\udf0d"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "direct"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": "original",
+      "callbacks": {
+        "send_actions": [
+          {
+            "at_event": 2,
+            "kind": "background",
+            "checkpoint": false,
+            "label": "failure"
+          }
+        ],
+        "inspect_aliases": true,
+        "background_definitions": [
+          {
+            "label": "replacement",
+            "failure": null
+          },
+          {
+            "label": "failure",
+            "failure": "input background failure"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.responses.PlainTextResponse.consumer-construction.callback-append-replace-headers",
+      "surface": "starlette.responses.PlainTextResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.PlainTextResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.PlainTextResponse.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "Hello, caf\u00e9 \ud83c\udf0d"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "direct"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": null,
+      "callbacks": {
+        "send_actions": [
+          {
+            "at_event": 1,
+            "kind": "append-header",
+            "checkpoint": true,
+            "pair": [
+              "eC1saXZl",
+              "YWRkZWQ="
+            ]
+          },
+          {
+            "at_event": 2,
+            "kind": "raw-headers",
+            "checkpoint": false,
+            "pairs": [
+              [
+                "eC1yZXBsYWNlZA==",
+                "bmV3LWxpc3Q="
+              ]
+            ]
+          }
+        ],
+        "inspect_aliases": true,
+        "background_definitions": [
+          {
+            "label": "replacement",
+            "failure": null
+          },
+          {
+            "label": "failure",
+            "failure": "input background failure"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.responses.PlainTextResponse.consumer-construction.callback-mutable-body-buffer",
+      "surface": "starlette.responses.PlainTextResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.PlainTextResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.PlainTextResponse.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "Hello, caf\u00e9 \ud83c\udf0d"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "direct"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "constant",
+          "mutations": {},
+          "content": {
+            "kind": "mutable-memoryview",
+            "value": "YmVmb3Jl"
+          }
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": null,
+      "callbacks": {
+        "send_actions": [
+          {
+            "at_event": 2,
+            "kind": "mutable-body",
+            "checkpoint": true,
+            "index": 0,
+            "value": 88
+          }
+        ],
+        "inspect_aliases": true,
+        "background_definitions": [
+          {
+            "label": "replacement",
+            "failure": null
+          },
+          {
+            "label": "failure",
+            "failure": "input background failure"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.responses.PlainTextResponse.consumer-construction.callback-failed-start-after-mutations",
+      "surface": "starlette.responses.PlainTextResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.PlainTextResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.PlainTextResponse.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "Hello, caf\u00e9 \ud83c\udf0d"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "direct"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": {
+        "at_event": 1,
+        "message": "input start send failure"
+      },
+      "background_label": "original",
+      "callbacks": {
+        "send_actions": [
+          {
+            "at_event": 1,
+            "kind": "body",
+            "checkpoint": false,
+            "value": {
+              "kind": "bytes",
+              "value": "dW51c2Vk"
+            }
+          },
+          {
+            "at_event": 1,
+            "kind": "background",
+            "checkpoint": false,
+            "label": "replacement"
+          }
+        ],
+        "inspect_aliases": true,
+        "background_definitions": [
+          {
+            "label": "replacement",
+            "failure": null
+          },
+          {
+            "label": "failure",
+            "failure": "input background failure"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.responses.PlainTextResponse.consumer-construction.callback-websocket-alias",
+      "surface": "starlette.responses.PlainTextResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.PlainTextResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.PlainTextResponse.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "Hello, caf\u00e9 \ud83c\udf0d"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "direct"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "websocket",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": null,
+      "callbacks": {
+        "send_actions": [],
+        "inspect_aliases": true,
+        "background_definitions": [
+          {
+            "label": "replacement",
+            "failure": null
+          },
+          {
+            "label": "failure",
+            "failure": "input background failure"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.responses.PlainTextResponse.consumer-construction.callback-ownership-raw-header-caller",
+      "surface": "starlette.responses.PlainTextResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.PlainTextResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.PlainTextResponse.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "Hello, caf\u00e9 \ud83c\udf0d"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "direct"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": null,
+      "ownership": {
+        "kind": "raw-header",
+        "cache_headers": true,
+        "guard_label": "response-guard",
+        "callback_label": "user-callback",
+        "suspension_token": "callback-wait",
+        "header_name": "x-owner",
+        "header_value": "retained",
+        "garbage_collection": {
+          "automatic_gc": false,
+          "collect_generations": [
+            2,
+            2
+          ],
+          "thread": "caller"
+        }
+      }
+    },
+    {
+      "case_id": "starlette.responses.PlainTextResponse.consumer-construction.callback-ownership-raw-header-worker",
+      "surface": "starlette.responses.PlainTextResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.PlainTextResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.PlainTextResponse.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "Hello, caf\u00e9 \ud83c\udf0d"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "direct"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": null,
+      "ownership": {
+        "kind": "raw-header",
+        "cache_headers": true,
+        "guard_label": "response-guard",
+        "callback_label": "user-callback",
+        "suspension_token": "callback-wait",
+        "header_name": "x-owner",
+        "header_value": "retained",
+        "garbage_collection": {
+          "automatic_gc": false,
+          "collect_generations": [
+            2,
+            2
+          ],
+          "thread": "worker"
+        }
+      }
+    },
+    {
+      "case_id": "starlette.responses.PlainTextResponse.consumer-construction.callback-ownership-send-caller",
+      "surface": "starlette.responses.PlainTextResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.PlainTextResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.PlainTextResponse.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "Hello, caf\u00e9 \ud83c\udf0d"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "direct"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": null,
+      "ownership": {
+        "kind": "send",
+        "cache_headers": false,
+        "guard_label": "response-guard",
+        "callback_label": "user-callback",
+        "suspension_token": "callback-wait",
+        "header_name": "x-owner",
+        "header_value": "retained",
+        "garbage_collection": {
+          "automatic_gc": false,
+          "collect_generations": [
+            2,
+            2
+          ],
+          "thread": "caller"
+        }
+      }
+    },
+    {
+      "case_id": "starlette.responses.PlainTextResponse.consumer-construction.callback-ownership-send-worker",
+      "surface": "starlette.responses.PlainTextResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.PlainTextResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.PlainTextResponse.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "Hello, caf\u00e9 \ud83c\udf0d"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "direct"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": null,
+      "ownership": {
+        "kind": "send",
+        "cache_headers": false,
+        "guard_label": "response-guard",
+        "callback_label": "user-callback",
+        "suspension_token": "callback-wait",
+        "header_name": "x-owner",
+        "header_value": "retained",
+        "garbage_collection": {
+          "automatic_gc": false,
+          "collect_generations": [
+            2,
+            2
+          ],
+          "thread": "worker"
+        }
+      }
+    },
+    {
+      "case_id": "starlette.responses.PlainTextResponse.consumer-construction.callback-ownership-background-caller",
+      "surface": "starlette.responses.PlainTextResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.PlainTextResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.PlainTextResponse.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "Hello, caf\u00e9 \ud83c\udf0d"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "direct"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": null,
+      "ownership": {
+        "kind": "background",
+        "cache_headers": false,
+        "guard_label": "response-guard",
+        "callback_label": "user-callback",
+        "suspension_token": "callback-wait",
+        "header_name": "x-owner",
+        "header_value": "retained",
+        "garbage_collection": {
+          "automatic_gc": false,
+          "collect_generations": [
+            2,
+            2
+          ],
+          "thread": "caller"
+        }
+      }
+    },
+    {
+      "case_id": "starlette.responses.PlainTextResponse.consumer-construction.callback-ownership-background-worker",
+      "surface": "starlette.responses.PlainTextResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.PlainTextResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.PlainTextResponse.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "Hello, caf\u00e9 \ud83c\udf0d"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "direct"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": null,
+      "ownership": {
+        "kind": "background",
+        "cache_headers": false,
+        "guard_label": "response-guard",
+        "callback_label": "user-callback",
+        "suspension_token": "callback-wait",
+        "header_name": "x-owner",
+        "header_value": "retained",
+        "garbage_collection": {
+          "automatic_gc": false,
+          "collect_generations": [
+            2,
+            2
+          ],
+          "thread": "worker"
+        }
+      }
+    },
+    {
+      "case_id": "starlette.responses.PlainTextResponse.consumer-construction.callback-ownership-receive-caller",
+      "surface": "starlette.responses.PlainTextResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.PlainTextResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.PlainTextResponse.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "Hello, caf\u00e9 \ud83c\udf0d"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "direct"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": null,
+      "ownership": {
+        "kind": "receive",
+        "cache_headers": false,
+        "guard_label": "response-guard",
+        "callback_label": "user-callback",
+        "suspension_token": "callback-wait",
+        "header_name": "x-owner",
+        "header_value": "retained",
+        "garbage_collection": {
+          "automatic_gc": false,
+          "collect_generations": [
+            2,
+            2
+          ],
+          "thread": "caller"
+        }
+      }
+    },
+    {
+      "case_id": "starlette.responses.PlainTextResponse.consumer-construction.callback-ownership-receive-worker",
+      "surface": "starlette.responses.PlainTextResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.PlainTextResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.PlainTextResponse.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "Hello, caf\u00e9 \ud83c\udf0d"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "direct"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": null,
+      "ownership": {
+        "kind": "receive",
+        "cache_headers": false,
+        "guard_label": "response-guard",
+        "callback_label": "user-callback",
+        "suspension_token": "callback-wait",
+        "header_name": "x-owner",
+        "header_value": "retained",
+        "garbage_collection": {
+          "automatic_gc": false,
+          "collect_generations": [
+            2,
+            2
+          ],
+          "thread": "worker"
+        }
+      }
+    },
+    {
+      "case_id": "starlette.responses.JSONResponse.consumer-construction.callback-http-alias",
+      "surface": "starlette.responses.JSONResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.JSONResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.JSONResponse.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "json",
+          "value": {
+            "hello": "caf\u00e9 \ud83c\udf0d",
+            "nested": [
+              null,
+              true,
+              3,
+              {
+                "value": 1.25
+              }
+            ]
+          }
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "json"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": null,
+      "callbacks": {
+        "send_actions": [],
+        "inspect_aliases": true,
+        "background_definitions": [
+          {
+            "label": "replacement",
+            "failure": null
+          },
+          {
+            "label": "failure",
+            "failure": "input background failure"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.responses.JSONResponse.consumer-construction.callback-start-body-and-background",
+      "surface": "starlette.responses.JSONResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.JSONResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.JSONResponse.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "json",
+          "value": {
+            "hello": "caf\u00e9 \ud83c\udf0d",
+            "nested": [
+              null,
+              true,
+              3,
+              {
+                "value": 1.25
+              }
+            ]
+          }
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "json"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": "original",
+      "callbacks": {
+        "send_actions": [
+          {
+            "at_event": 1,
+            "kind": "body",
+            "checkpoint": true,
+            "value": {
+              "kind": "bytes",
+              "value": "YWZ0ZXItc3RhcnQ="
+            }
+          },
+          {
+            "at_event": 1,
+            "kind": "status",
+            "checkpoint": false,
+            "value": 201
+          },
+          {
+            "at_event": 2,
+            "kind": "background",
+            "checkpoint": true,
+            "label": "replacement"
+          }
+        ],
+        "inspect_aliases": true,
+        "background_definitions": [
+          {
+            "label": "replacement",
+            "failure": null
+          },
+          {
+            "label": "failure",
+            "failure": "input background failure"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.responses.JSONResponse.consumer-construction.callback-start-memoryview-websocket",
+      "surface": "starlette.responses.JSONResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.JSONResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.JSONResponse.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "json",
+          "value": {
+            "hello": "caf\u00e9 \ud83c\udf0d",
+            "nested": [
+              null,
+              true,
+              3,
+              {
+                "value": 1.25
+              }
+            ]
+          }
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "json"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "websocket",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": null,
+      "callbacks": {
+        "send_actions": [
+          {
+            "at_event": 1,
+            "kind": "body",
+            "checkpoint": false,
+            "value": {
+              "kind": "memoryview",
+              "value": "YWZ0ZXItc3RhcnQtdmlldw=="
+            }
+          }
+        ],
+        "inspect_aliases": true,
+        "background_definitions": [
+          {
+            "label": "replacement",
+            "failure": null
+          },
+          {
+            "label": "failure",
+            "failure": "input background failure"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.responses.JSONResponse.consumer-construction.callback-insert-background",
+      "surface": "starlette.responses.JSONResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.JSONResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.JSONResponse.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "json",
+          "value": {
+            "hello": "caf\u00e9 \ud83c\udf0d",
+            "nested": [
+              null,
+              true,
+              3,
+              {
+                "value": 1.25
+              }
+            ]
+          }
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "json"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": null,
+      "callbacks": {
+        "send_actions": [
+          {
+            "at_event": 1,
+            "kind": "background",
+            "checkpoint": true,
+            "label": "replacement"
+          }
+        ],
+        "inspect_aliases": true,
+        "background_definitions": [
+          {
+            "label": "replacement",
+            "failure": null
+          },
+          {
+            "label": "failure",
+            "failure": "input background failure"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.responses.JSONResponse.consumer-construction.callback-remove-background",
+      "surface": "starlette.responses.JSONResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.JSONResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.JSONResponse.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "json",
+          "value": {
+            "hello": "caf\u00e9 \ud83c\udf0d",
+            "nested": [
+              null,
+              true,
+              3,
+              {
+                "value": 1.25
+              }
+            ]
+          }
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "json"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": "original",
+      "callbacks": {
+        "send_actions": [
+          {
+            "at_event": 2,
+            "kind": "background",
+            "checkpoint": true,
+            "label": null
+          }
+        ],
+        "inspect_aliases": true,
+        "background_definitions": [
+          {
+            "label": "replacement",
+            "failure": null
+          },
+          {
+            "label": "failure",
+            "failure": "input background failure"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.responses.JSONResponse.consumer-construction.callback-replace-background-error",
+      "surface": "starlette.responses.JSONResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.JSONResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.JSONResponse.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "json",
+          "value": {
+            "hello": "caf\u00e9 \ud83c\udf0d",
+            "nested": [
+              null,
+              true,
+              3,
+              {
+                "value": 1.25
+              }
+            ]
+          }
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "json"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": "original",
+      "callbacks": {
+        "send_actions": [
+          {
+            "at_event": 2,
+            "kind": "background",
+            "checkpoint": false,
+            "label": "failure"
+          }
+        ],
+        "inspect_aliases": true,
+        "background_definitions": [
+          {
+            "label": "replacement",
+            "failure": null
+          },
+          {
+            "label": "failure",
+            "failure": "input background failure"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.responses.JSONResponse.consumer-construction.callback-append-replace-headers",
+      "surface": "starlette.responses.JSONResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.JSONResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.JSONResponse.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "json",
+          "value": {
+            "hello": "caf\u00e9 \ud83c\udf0d",
+            "nested": [
+              null,
+              true,
+              3,
+              {
+                "value": 1.25
+              }
+            ]
+          }
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "json"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": null,
+      "callbacks": {
+        "send_actions": [
+          {
+            "at_event": 1,
+            "kind": "append-header",
+            "checkpoint": true,
+            "pair": [
+              "eC1saXZl",
+              "YWRkZWQ="
+            ]
+          },
+          {
+            "at_event": 2,
+            "kind": "raw-headers",
+            "checkpoint": false,
+            "pairs": [
+              [
+                "eC1yZXBsYWNlZA==",
+                "bmV3LWxpc3Q="
+              ]
+            ]
+          }
+        ],
+        "inspect_aliases": true,
+        "background_definitions": [
+          {
+            "label": "replacement",
+            "failure": null
+          },
+          {
+            "label": "failure",
+            "failure": "input background failure"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.responses.JSONResponse.consumer-construction.callback-mutable-body-buffer",
+      "surface": "starlette.responses.JSONResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.JSONResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.JSONResponse.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "json",
+          "value": {
+            "hello": "caf\u00e9 \ud83c\udf0d",
+            "nested": [
+              null,
+              true,
+              3,
+              {
+                "value": 1.25
+              }
+            ]
+          }
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "json"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "constant",
+          "mutations": {},
+          "content": {
+            "kind": "mutable-memoryview",
+            "value": "YmVmb3Jl"
+          }
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": null,
+      "callbacks": {
+        "send_actions": [
+          {
+            "at_event": 2,
+            "kind": "mutable-body",
+            "checkpoint": true,
+            "index": 0,
+            "value": 88
+          }
+        ],
+        "inspect_aliases": true,
+        "background_definitions": [
+          {
+            "label": "replacement",
+            "failure": null
+          },
+          {
+            "label": "failure",
+            "failure": "input background failure"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.responses.JSONResponse.consumer-construction.callback-failed-start-after-mutations",
+      "surface": "starlette.responses.JSONResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.JSONResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.JSONResponse.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "json",
+          "value": {
+            "hello": "caf\u00e9 \ud83c\udf0d",
+            "nested": [
+              null,
+              true,
+              3,
+              {
+                "value": 1.25
+              }
+            ]
+          }
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "json"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": {
+        "at_event": 1,
+        "message": "input start send failure"
+      },
+      "background_label": "original",
+      "callbacks": {
+        "send_actions": [
+          {
+            "at_event": 1,
+            "kind": "body",
+            "checkpoint": false,
+            "value": {
+              "kind": "bytes",
+              "value": "dW51c2Vk"
+            }
+          },
+          {
+            "at_event": 1,
+            "kind": "background",
+            "checkpoint": false,
+            "label": "replacement"
+          }
+        ],
+        "inspect_aliases": true,
+        "background_definitions": [
+          {
+            "label": "replacement",
+            "failure": null
+          },
+          {
+            "label": "failure",
+            "failure": "input background failure"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.responses.JSONResponse.consumer-construction.callback-websocket-alias",
+      "surface": "starlette.responses.JSONResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.JSONResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.JSONResponse.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "json",
+          "value": {
+            "hello": "caf\u00e9 \ud83c\udf0d",
+            "nested": [
+              null,
+              true,
+              3,
+              {
+                "value": 1.25
+              }
+            ]
+          }
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "json"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "websocket",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": null,
+      "callbacks": {
+        "send_actions": [],
+        "inspect_aliases": true,
+        "background_definitions": [
+          {
+            "label": "replacement",
+            "failure": null
+          },
+          {
+            "label": "failure",
+            "failure": "input background failure"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.responses.JSONResponse.consumer-construction.callback-ownership-raw-header-caller",
+      "surface": "starlette.responses.JSONResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.JSONResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.JSONResponse.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "json",
+          "value": {
+            "hello": "caf\u00e9 \ud83c\udf0d",
+            "nested": [
+              null,
+              true,
+              3,
+              {
+                "value": 1.25
+              }
+            ]
+          }
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "json"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": null,
+      "ownership": {
+        "kind": "raw-header",
+        "cache_headers": true,
+        "guard_label": "response-guard",
+        "callback_label": "user-callback",
+        "suspension_token": "callback-wait",
+        "header_name": "x-owner",
+        "header_value": "retained",
+        "garbage_collection": {
+          "automatic_gc": false,
+          "collect_generations": [
+            2,
+            2
+          ],
+          "thread": "caller"
+        }
+      }
+    },
+    {
+      "case_id": "starlette.responses.JSONResponse.consumer-construction.callback-ownership-raw-header-worker",
+      "surface": "starlette.responses.JSONResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.JSONResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.JSONResponse.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "json",
+          "value": {
+            "hello": "caf\u00e9 \ud83c\udf0d",
+            "nested": [
+              null,
+              true,
+              3,
+              {
+                "value": 1.25
+              }
+            ]
+          }
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "json"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": null,
+      "ownership": {
+        "kind": "raw-header",
+        "cache_headers": true,
+        "guard_label": "response-guard",
+        "callback_label": "user-callback",
+        "suspension_token": "callback-wait",
+        "header_name": "x-owner",
+        "header_value": "retained",
+        "garbage_collection": {
+          "automatic_gc": false,
+          "collect_generations": [
+            2,
+            2
+          ],
+          "thread": "worker"
+        }
+      }
+    },
+    {
+      "case_id": "starlette.responses.JSONResponse.consumer-construction.callback-ownership-send-caller",
+      "surface": "starlette.responses.JSONResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.JSONResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.JSONResponse.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "json",
+          "value": {
+            "hello": "caf\u00e9 \ud83c\udf0d",
+            "nested": [
+              null,
+              true,
+              3,
+              {
+                "value": 1.25
+              }
+            ]
+          }
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "json"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": null,
+      "ownership": {
+        "kind": "send",
+        "cache_headers": false,
+        "guard_label": "response-guard",
+        "callback_label": "user-callback",
+        "suspension_token": "callback-wait",
+        "header_name": "x-owner",
+        "header_value": "retained",
+        "garbage_collection": {
+          "automatic_gc": false,
+          "collect_generations": [
+            2,
+            2
+          ],
+          "thread": "caller"
+        }
+      }
+    },
+    {
+      "case_id": "starlette.responses.JSONResponse.consumer-construction.callback-ownership-send-worker",
+      "surface": "starlette.responses.JSONResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.JSONResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.JSONResponse.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "json",
+          "value": {
+            "hello": "caf\u00e9 \ud83c\udf0d",
+            "nested": [
+              null,
+              true,
+              3,
+              {
+                "value": 1.25
+              }
+            ]
+          }
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "json"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": null,
+      "ownership": {
+        "kind": "send",
+        "cache_headers": false,
+        "guard_label": "response-guard",
+        "callback_label": "user-callback",
+        "suspension_token": "callback-wait",
+        "header_name": "x-owner",
+        "header_value": "retained",
+        "garbage_collection": {
+          "automatic_gc": false,
+          "collect_generations": [
+            2,
+            2
+          ],
+          "thread": "worker"
+        }
+      }
+    },
+    {
+      "case_id": "starlette.responses.JSONResponse.consumer-construction.callback-ownership-background-caller",
+      "surface": "starlette.responses.JSONResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.JSONResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.JSONResponse.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "json",
+          "value": {
+            "hello": "caf\u00e9 \ud83c\udf0d",
+            "nested": [
+              null,
+              true,
+              3,
+              {
+                "value": 1.25
+              }
+            ]
+          }
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "json"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": null,
+      "ownership": {
+        "kind": "background",
+        "cache_headers": false,
+        "guard_label": "response-guard",
+        "callback_label": "user-callback",
+        "suspension_token": "callback-wait",
+        "header_name": "x-owner",
+        "header_value": "retained",
+        "garbage_collection": {
+          "automatic_gc": false,
+          "collect_generations": [
+            2,
+            2
+          ],
+          "thread": "caller"
+        }
+      }
+    },
+    {
+      "case_id": "starlette.responses.JSONResponse.consumer-construction.callback-ownership-background-worker",
+      "surface": "starlette.responses.JSONResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.JSONResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.JSONResponse.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "json",
+          "value": {
+            "hello": "caf\u00e9 \ud83c\udf0d",
+            "nested": [
+              null,
+              true,
+              3,
+              {
+                "value": 1.25
+              }
+            ]
+          }
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "json"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": null,
+      "ownership": {
+        "kind": "background",
+        "cache_headers": false,
+        "guard_label": "response-guard",
+        "callback_label": "user-callback",
+        "suspension_token": "callback-wait",
+        "header_name": "x-owner",
+        "header_value": "retained",
+        "garbage_collection": {
+          "automatic_gc": false,
+          "collect_generations": [
+            2,
+            2
+          ],
+          "thread": "worker"
+        }
+      }
+    },
+    {
+      "case_id": "starlette.responses.JSONResponse.consumer-construction.callback-ownership-receive-caller",
+      "surface": "starlette.responses.JSONResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.JSONResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.JSONResponse.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "json",
+          "value": {
+            "hello": "caf\u00e9 \ud83c\udf0d",
+            "nested": [
+              null,
+              true,
+              3,
+              {
+                "value": 1.25
+              }
+            ]
+          }
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "json"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": null,
+      "ownership": {
+        "kind": "receive",
+        "cache_headers": false,
+        "guard_label": "response-guard",
+        "callback_label": "user-callback",
+        "suspension_token": "callback-wait",
+        "header_name": "x-owner",
+        "header_value": "retained",
+        "garbage_collection": {
+          "automatic_gc": false,
+          "collect_generations": [
+            2,
+            2
+          ],
+          "thread": "caller"
+        }
+      }
+    },
+    {
+      "case_id": "starlette.responses.JSONResponse.consumer-construction.callback-ownership-receive-worker",
+      "surface": "starlette.responses.JSONResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.JSONResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.JSONResponse.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "json",
+          "value": {
+            "hello": "caf\u00e9 \ud83c\udf0d",
+            "nested": [
+              null,
+              true,
+              3,
+              {
+                "value": 1.25
+              }
+            ]
+          }
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "json"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": null,
+      "ownership": {
+        "kind": "receive",
+        "cache_headers": false,
+        "guard_label": "response-guard",
+        "callback_label": "user-callback",
+        "suspension_token": "callback-wait",
+        "header_name": "x-owner",
+        "header_value": "retained",
+        "garbage_collection": {
+          "automatic_gc": false,
+          "collect_generations": [
+            2,
+            2
+          ],
+          "thread": "worker"
+        }
+      }
+    },
+    {
+      "case_id": "starlette.responses.Response.consumer-construction.callback-send-stop-async-iteration",
+      "surface": "starlette.responses.Response",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.Response.consumer-construction.public-render-and-asgi",
+        "starlette.responses.Response.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "Hello, caf\u00e9 \ud83c\udf0d"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "direct"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": {
+        "at_event": 1,
+        "message": "input async iteration error",
+        "exception_class": "StopAsyncIteration"
+      },
+      "background_label": null,
+      "callbacks": {
+        "send_actions": [],
+        "inspect_aliases": false,
+        "background_definitions": [
+          {
+            "label": "replacement",
+            "failure": null
+          },
+          {
+            "label": "failure",
+            "failure": "input background failure"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.responses.Response.consumer-construction.callback-background-stop-async-iteration",
+      "surface": "starlette.responses.Response",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.Response.consumer-construction.public-render-and-asgi",
+        "starlette.responses.Response.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "Hello, caf\u00e9 \ud83c\udf0d"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "direct"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": null,
+      "callbacks": {
+        "send_actions": [
+          {
+            "kind": "background",
+            "at_event": 2,
+            "checkpoint": false,
+            "label": "failure"
+          }
+        ],
+        "inspect_aliases": false,
+        "background_definitions": [
+          {
+            "label": "failure",
+            "failure": "input background error",
+            "exception_class": "StopAsyncIteration"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.responses.Response.consumer-construction.callback-background-cancellation",
+      "surface": "starlette.responses.Response",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.Response.consumer-construction.public-render-and-asgi",
+        "starlette.responses.Response.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "Hello, caf\u00e9 \ud83c\udf0d"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "direct"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": null,
+      "callbacks": {
+        "send_actions": [
+          {
+            "kind": "background",
+            "at_event": 2,
+            "checkpoint": false,
+            "label": "failure"
+          }
+        ],
+        "inspect_aliases": false,
+        "background_definitions": [
+          {
+            "label": "failure",
+            "failure": "input background error",
+            "exception_class": "CancelledError"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.responses.HTMLResponse.consumer-construction.callback-send-stop-async-iteration",
+      "surface": "starlette.responses.HTMLResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.HTMLResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.HTMLResponse.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "Hello, caf\u00e9 \ud83c\udf0d"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "direct"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": {
+        "at_event": 1,
+        "message": "input async iteration error",
+        "exception_class": "StopAsyncIteration"
+      },
+      "background_label": null,
+      "callbacks": {
+        "send_actions": [],
+        "inspect_aliases": false,
+        "background_definitions": [
+          {
+            "label": "replacement",
+            "failure": null
+          },
+          {
+            "label": "failure",
+            "failure": "input background failure"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.responses.HTMLResponse.consumer-construction.callback-background-stop-async-iteration",
+      "surface": "starlette.responses.HTMLResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.HTMLResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.HTMLResponse.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "Hello, caf\u00e9 \ud83c\udf0d"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "direct"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": null,
+      "callbacks": {
+        "send_actions": [
+          {
+            "kind": "background",
+            "at_event": 2,
+            "checkpoint": false,
+            "label": "failure"
+          }
+        ],
+        "inspect_aliases": false,
+        "background_definitions": [
+          {
+            "label": "failure",
+            "failure": "input background error",
+            "exception_class": "StopAsyncIteration"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.responses.HTMLResponse.consumer-construction.callback-background-cancellation",
+      "surface": "starlette.responses.HTMLResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.HTMLResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.HTMLResponse.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "Hello, caf\u00e9 \ud83c\udf0d"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "direct"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": null,
+      "callbacks": {
+        "send_actions": [
+          {
+            "kind": "background",
+            "at_event": 2,
+            "checkpoint": false,
+            "label": "failure"
+          }
+        ],
+        "inspect_aliases": false,
+        "background_definitions": [
+          {
+            "label": "failure",
+            "failure": "input background error",
+            "exception_class": "CancelledError"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.responses.PlainTextResponse.consumer-construction.callback-send-stop-async-iteration",
+      "surface": "starlette.responses.PlainTextResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.PlainTextResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.PlainTextResponse.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "Hello, caf\u00e9 \ud83c\udf0d"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "direct"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": {
+        "at_event": 1,
+        "message": "input async iteration error",
+        "exception_class": "StopAsyncIteration"
+      },
+      "background_label": null,
+      "callbacks": {
+        "send_actions": [],
+        "inspect_aliases": false,
+        "background_definitions": [
+          {
+            "label": "replacement",
+            "failure": null
+          },
+          {
+            "label": "failure",
+            "failure": "input background failure"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.responses.PlainTextResponse.consumer-construction.callback-background-stop-async-iteration",
+      "surface": "starlette.responses.PlainTextResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.PlainTextResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.PlainTextResponse.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "Hello, caf\u00e9 \ud83c\udf0d"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "direct"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": null,
+      "callbacks": {
+        "send_actions": [
+          {
+            "kind": "background",
+            "at_event": 2,
+            "checkpoint": false,
+            "label": "failure"
+          }
+        ],
+        "inspect_aliases": false,
+        "background_definitions": [
+          {
+            "label": "failure",
+            "failure": "input background error",
+            "exception_class": "StopAsyncIteration"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.responses.PlainTextResponse.consumer-construction.callback-background-cancellation",
+      "surface": "starlette.responses.PlainTextResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.PlainTextResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.PlainTextResponse.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "Hello, caf\u00e9 \ud83c\udf0d"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "direct"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": null,
+      "callbacks": {
+        "send_actions": [
+          {
+            "kind": "background",
+            "at_event": 2,
+            "checkpoint": false,
+            "label": "failure"
+          }
+        ],
+        "inspect_aliases": false,
+        "background_definitions": [
+          {
+            "label": "failure",
+            "failure": "input background error",
+            "exception_class": "CancelledError"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.responses.JSONResponse.consumer-construction.callback-send-stop-async-iteration",
+      "surface": "starlette.responses.JSONResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.JSONResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.JSONResponse.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "json",
+          "value": {
+            "hello": "caf\u00e9 \ud83c\udf0d",
+            "nested": [
+              null,
+              true,
+              3,
+              {
+                "value": 1.25
+              }
+            ]
+          }
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "json"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": {
+        "at_event": 1,
+        "message": "input async iteration error",
+        "exception_class": "StopAsyncIteration"
+      },
+      "background_label": null,
+      "callbacks": {
+        "send_actions": [],
+        "inspect_aliases": false,
+        "background_definitions": [
+          {
+            "label": "replacement",
+            "failure": null
+          },
+          {
+            "label": "failure",
+            "failure": "input background failure"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.responses.JSONResponse.consumer-construction.callback-background-stop-async-iteration",
+      "surface": "starlette.responses.JSONResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.JSONResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.JSONResponse.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "json",
+          "value": {
+            "hello": "caf\u00e9 \ud83c\udf0d",
+            "nested": [
+              null,
+              true,
+              3,
+              {
+                "value": 1.25
+              }
+            ]
+          }
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "json"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": null,
+      "callbacks": {
+        "send_actions": [
+          {
+            "kind": "background",
+            "at_event": 2,
+            "checkpoint": false,
+            "label": "failure"
+          }
+        ],
+        "inspect_aliases": false,
+        "background_definitions": [
+          {
+            "label": "failure",
+            "failure": "input background error",
+            "exception_class": "StopAsyncIteration"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.responses.JSONResponse.consumer-construction.callback-background-cancellation",
+      "surface": "starlette.responses.JSONResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.JSONResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.JSONResponse.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "json",
+          "value": {
+            "hello": "caf\u00e9 \ud83c\udf0d",
+            "nested": [
+              null,
+              true,
+              3,
+              {
+                "value": 1.25
+              }
+            ]
+          }
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "json"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": null,
+      "callbacks": {
+        "send_actions": [
+          {
+            "kind": "background",
+            "at_event": 2,
+            "checkpoint": false,
+            "label": "failure"
+          }
+        ],
+        "inspect_aliases": false,
+        "background_definitions": [
+          {
+            "label": "failure",
+            "failure": "input background error",
+            "exception_class": "CancelledError"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.responses.Response.consumer-construction.callback-attribute-read-empty-background",
+      "surface": "starlette.responses.Response",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.Response.consumer-construction.public-render-and-asgi",
+        "starlette.responses.Response.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "Hello, caf\u00e9 \ud83c\udf0d"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "direct"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": null,
+      "callbacks": {
+        "send_actions": [],
+        "inspect_aliases": false,
+        "background_definitions": [
+          {
+            "label": "replacement",
+            "failure": null
+          },
+          {
+            "label": "failure",
+            "failure": "input background failure"
+          }
+        ],
+        "attribute_probe": [
+          "status_code",
+          "raw_headers",
+          "body",
+          "background"
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.responses.Response.consumer-construction.callback-attribute-read-background",
+      "surface": "starlette.responses.Response",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.Response.consumer-construction.public-render-and-asgi",
+        "starlette.responses.Response.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "Hello, caf\u00e9 \ud83c\udf0d"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "direct"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": "original",
+      "callbacks": {
+        "send_actions": [],
+        "inspect_aliases": false,
+        "background_definitions": [
+          {
+            "label": "replacement",
+            "failure": null
+          },
+          {
+            "label": "failure",
+            "failure": "input background failure"
+          }
+        ],
+        "attribute_probe": [
+          "status_code",
+          "raw_headers",
+          "body",
+          "background"
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.responses.HTMLResponse.consumer-construction.callback-attribute-read-empty-background",
+      "surface": "starlette.responses.HTMLResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.HTMLResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.HTMLResponse.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "Hello, caf\u00e9 \ud83c\udf0d"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "direct"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": null,
+      "callbacks": {
+        "send_actions": [],
+        "inspect_aliases": false,
+        "background_definitions": [
+          {
+            "label": "replacement",
+            "failure": null
+          },
+          {
+            "label": "failure",
+            "failure": "input background failure"
+          }
+        ],
+        "attribute_probe": [
+          "status_code",
+          "raw_headers",
+          "body",
+          "background"
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.responses.HTMLResponse.consumer-construction.callback-attribute-read-background",
+      "surface": "starlette.responses.HTMLResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.HTMLResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.HTMLResponse.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "Hello, caf\u00e9 \ud83c\udf0d"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "direct"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": "original",
+      "callbacks": {
+        "send_actions": [],
+        "inspect_aliases": false,
+        "background_definitions": [
+          {
+            "label": "replacement",
+            "failure": null
+          },
+          {
+            "label": "failure",
+            "failure": "input background failure"
+          }
+        ],
+        "attribute_probe": [
+          "status_code",
+          "raw_headers",
+          "body",
+          "background"
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.responses.PlainTextResponse.consumer-construction.callback-attribute-read-empty-background",
+      "surface": "starlette.responses.PlainTextResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.PlainTextResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.PlainTextResponse.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "Hello, caf\u00e9 \ud83c\udf0d"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "direct"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": null,
+      "callbacks": {
+        "send_actions": [],
+        "inspect_aliases": false,
+        "background_definitions": [
+          {
+            "label": "replacement",
+            "failure": null
+          },
+          {
+            "label": "failure",
+            "failure": "input background failure"
+          }
+        ],
+        "attribute_probe": [
+          "status_code",
+          "raw_headers",
+          "body",
+          "background"
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.responses.PlainTextResponse.consumer-construction.callback-attribute-read-background",
+      "surface": "starlette.responses.PlainTextResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.PlainTextResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.PlainTextResponse.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "Hello, caf\u00e9 \ud83c\udf0d"
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "direct"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": "original",
+      "callbacks": {
+        "send_actions": [],
+        "inspect_aliases": false,
+        "background_definitions": [
+          {
+            "label": "replacement",
+            "failure": null
+          },
+          {
+            "label": "failure",
+            "failure": "input background failure"
+          }
+        ],
+        "attribute_probe": [
+          "status_code",
+          "raw_headers",
+          "body",
+          "background"
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.responses.JSONResponse.consumer-construction.callback-attribute-read-empty-background",
+      "surface": "starlette.responses.JSONResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.JSONResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.JSONResponse.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "json",
+          "value": {
+            "hello": "caf\u00e9 \ud83c\udf0d",
+            "nested": [
+              null,
+              true,
+              3,
+              {
+                "value": 1.25
+              }
+            ]
+          }
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "json"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": null,
+      "callbacks": {
+        "send_actions": [],
+        "inspect_aliases": false,
+        "background_definitions": [
+          {
+            "label": "replacement",
+            "failure": null
+          },
+          {
+            "label": "failure",
+            "failure": "input background failure"
+          }
+        ],
+        "attribute_probe": [
+          "status_code",
+          "raw_headers",
+          "body",
+          "background"
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.responses.JSONResponse.consumer-construction.callback-attribute-read-background",
+      "surface": "starlette.responses.JSONResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.JSONResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.JSONResponse.consumer-construction.live-asgi-state-and-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "json",
+          "value": {
+            "hello": "caf\u00e9 \ud83c\udf0d",
+            "nested": [
+              null,
+              true,
+              3,
+              {
+                "value": 1.25
+              }
+            ]
+          }
+        },
+        "omit_content": false,
+        "kwargs": {
+          "headers": {
+            "X-Consumer": "json"
+          }
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer"
+      },
+      "send_failure": null,
+      "background_label": "original",
+      "callbacks": {
+        "send_actions": [],
+        "inspect_aliases": false,
+        "background_definitions": [
+          {
+            "label": "replacement",
+            "failure": null
+          },
+          {
+            "label": "failure",
+            "failure": "input background failure"
+          }
+        ],
+        "attribute_probe": [
+          "status_code",
+          "raw_headers",
+          "body",
+          "background"
+        ]
+      }
+    }
+  ]
+}

@@ -371,7 +371,8 @@
       "build/parity/inputs/parity/request-lifetime.json",
       "build/parity/inputs/parity/request-property-worker-lifetime.json",
       "build/parity/inputs/parity/public-value-lifetime.json",
-      "build/parity/inputs/parity/response-consumers.json"
+      "build/parity/inputs/parity/response-consumers.json",
+      "build/parity/inputs/parity/response-asgi-callbacks.json"
     ],
     "coverage": [],
     "benchmark": [
@@ -16038,7 +16039,7 @@
           },
           "source": {
             "oracle_id": "starlette-python",
-            "path": "starlette.responses.JSONResponse.__init__, Response.render, JSONResponse.render, Response.__call__",
+            "path": "starlette.responses.JSONResponse.__init__, Response.render, JSONResponse.render, Response.__call__; public raw_headers, body, background and returned coroutine lifetime",
             "signature": "Construct a documented response or input-defined render subclass; observe constructor attributes, rendering errors, and public ASGI events after caller attribute changes.",
             "parameters": [
               {
@@ -16092,6 +16093,30 @@
                 "omission": {
                   "kind": "required"
                 }
+              },
+              {
+                "id": "callbacks",
+                "style": "option",
+                "value_types": [
+                  "record",
+                  "null"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": null
+                }
+              },
+              {
+                "id": "ownership",
+                "style": "option",
+                "value_types": [
+                  "record",
+                  "null"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": null
+                }
               }
             ],
             "result": {
@@ -16130,7 +16155,7 @@
             },
             {
               "target_id": "python-package",
-              "path": "starlette.responses.JSONResponse.__init__, Response.render, JSONResponse.render, Response.__call__",
+              "path": "starlette.responses.JSONResponse.__init__, Response.render, JSONResponse.render, Response.__call__; public raw_headers, body, background and returned coroutine lifetime",
               "signature": "Construct a documented response or input-defined render subclass; observe constructor attributes, rendering errors, and public ASGI events after caller attribute changes.",
               "support": {
                 "status": "supported"
@@ -16142,6 +16167,17 @@
               "id": "starlette.responses.JSONResponse.consumer-construction.public-render-and-asgi",
               "dimension": "boundary",
               "description": "Compare documented JSONResponse constructor and render consumers with the live pin: text, bytes, nested JSON, class defaults, input-defined subclass render hooks, charset, status and body mutations, exact errors, background ordering, and HTTP/WebSocket ASGI messages. Pinned source: starlette/responses.py:29-200; docs/responses.md:10-118. User code and every callback stimulus are input-derived.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.JSONResponse.consumer-construction.live-asgi-state-and-lifetime",
+              "dimension": "boundary",
+              "description": "Compare raw header and body aliasing, mutations during send callbacks, late background selection, original callback errors, and user callback/header ownership graphs with suspended coroutine finalization on caller/worker collection. Only public response attributes and the coroutine returned by __call__ are consumed. Pinned source: starlette/responses.py:29-200; docs/responses.md:10-118; AGENTS.md ASGI callbacks and lifetime boundary. Every stimulus is input-derived.",
               "lanes": [
                 "parity"
               ],
@@ -16932,7 +16968,7 @@
           },
           "source": {
             "oracle_id": "starlette-python",
-            "path": "starlette.responses.Response.__init__, Response.render, JSONResponse.render, Response.__call__",
+            "path": "starlette.responses.Response.__init__, Response.render, JSONResponse.render, Response.__call__; public raw_headers, body, background and returned coroutine lifetime",
             "signature": "Construct a documented response or input-defined render subclass; observe constructor attributes, rendering errors, and public ASGI events after caller attribute changes.",
             "parameters": [
               {
@@ -16986,6 +17022,30 @@
                 "omission": {
                   "kind": "required"
                 }
+              },
+              {
+                "id": "callbacks",
+                "style": "option",
+                "value_types": [
+                  "record",
+                  "null"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": null
+                }
+              },
+              {
+                "id": "ownership",
+                "style": "option",
+                "value_types": [
+                  "record",
+                  "null"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": null
+                }
               }
             ],
             "result": {
@@ -17024,7 +17084,7 @@
             },
             {
               "target_id": "python-package",
-              "path": "starlette.responses.Response.__init__, Response.render, JSONResponse.render, Response.__call__",
+              "path": "starlette.responses.Response.__init__, Response.render, JSONResponse.render, Response.__call__; public raw_headers, body, background and returned coroutine lifetime",
               "signature": "Construct a documented response or input-defined render subclass; observe constructor attributes, rendering errors, and public ASGI events after caller attribute changes.",
               "support": {
                 "status": "supported"
@@ -17036,6 +17096,17 @@
               "id": "starlette.responses.Response.consumer-construction.public-render-and-asgi",
               "dimension": "boundary",
               "description": "Compare documented Response constructor and render consumers with the live pin: text, bytes, nested JSON, class defaults, input-defined subclass render hooks, charset, status and body mutations, exact errors, background ordering, and HTTP/WebSocket ASGI messages. Pinned source: starlette/responses.py:29-200; docs/responses.md:10-118. User code and every callback stimulus are input-derived.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.Response.consumer-construction.live-asgi-state-and-lifetime",
+              "dimension": "boundary",
+              "description": "Compare raw header and body aliasing, mutations during send callbacks, late background selection, original callback errors, and user callback/header ownership graphs with suspended coroutine finalization on caller/worker collection. Only public response attributes and the coroutine returned by __call__ are consumed. Pinned source: starlette/responses.py:29-200; docs/responses.md:10-118; AGENTS.md ASGI callbacks and lifetime boundary. Every stimulus is input-derived.",
               "lanes": [
                 "parity"
               ],
@@ -27215,7 +27286,7 @@
           },
           "source": {
             "oracle_id": "starlette-python",
-            "path": "starlette.responses.HTMLResponse.__init__, Response.render, JSONResponse.render, Response.__call__",
+            "path": "starlette.responses.HTMLResponse.__init__, Response.render, JSONResponse.render, Response.__call__; public raw_headers, body, background and returned coroutine lifetime",
             "signature": "Construct a documented response or input-defined render subclass; observe constructor attributes, rendering errors, and public ASGI events after caller attribute changes.",
             "parameters": [
               {
@@ -27269,6 +27340,30 @@
                 "omission": {
                   "kind": "required"
                 }
+              },
+              {
+                "id": "callbacks",
+                "style": "option",
+                "value_types": [
+                  "record",
+                  "null"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": null
+                }
+              },
+              {
+                "id": "ownership",
+                "style": "option",
+                "value_types": [
+                  "record",
+                  "null"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": null
+                }
               }
             ],
             "result": {
@@ -27307,7 +27402,7 @@
             },
             {
               "target_id": "python-package",
-              "path": "starlette.responses.HTMLResponse.__init__, Response.render, JSONResponse.render, Response.__call__",
+              "path": "starlette.responses.HTMLResponse.__init__, Response.render, JSONResponse.render, Response.__call__; public raw_headers, body, background and returned coroutine lifetime",
               "signature": "Construct a documented response or input-defined render subclass; observe constructor attributes, rendering errors, and public ASGI events after caller attribute changes.",
               "support": {
                 "status": "supported"
@@ -27319,6 +27414,17 @@
               "id": "starlette.responses.HTMLResponse.consumer-construction.public-render-and-asgi",
               "dimension": "boundary",
               "description": "Compare documented HTMLResponse constructor and render consumers with the live pin: text, bytes, nested JSON, class defaults, input-defined subclass render hooks, charset, status and body mutations, exact errors, background ordering, and HTTP/WebSocket ASGI messages. Pinned source: starlette/responses.py:29-200; docs/responses.md:10-118. User code and every callback stimulus are input-derived.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.HTMLResponse.consumer-construction.live-asgi-state-and-lifetime",
+              "dimension": "boundary",
+              "description": "Compare raw header and body aliasing, mutations during send callbacks, late background selection, original callback errors, and user callback/header ownership graphs with suspended coroutine finalization on caller/worker collection. Only public response attributes and the coroutine returned by __call__ are consumed. Pinned source: starlette/responses.py:29-200; docs/responses.md:10-118; AGENTS.md ASGI callbacks and lifetime boundary. Every stimulus is input-derived.",
               "lanes": [
                 "parity"
               ],
@@ -27359,7 +27465,7 @@
           },
           "source": {
             "oracle_id": "starlette-python",
-            "path": "starlette.responses.PlainTextResponse.__init__, Response.render, JSONResponse.render, Response.__call__",
+            "path": "starlette.responses.PlainTextResponse.__init__, Response.render, JSONResponse.render, Response.__call__; public raw_headers, body, background and returned coroutine lifetime",
             "signature": "Construct a documented response or input-defined render subclass; observe constructor attributes, rendering errors, and public ASGI events after caller attribute changes.",
             "parameters": [
               {
@@ -27413,6 +27519,30 @@
                 "omission": {
                   "kind": "required"
                 }
+              },
+              {
+                "id": "callbacks",
+                "style": "option",
+                "value_types": [
+                  "record",
+                  "null"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": null
+                }
+              },
+              {
+                "id": "ownership",
+                "style": "option",
+                "value_types": [
+                  "record",
+                  "null"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": null
+                }
               }
             ],
             "result": {
@@ -27451,7 +27581,7 @@
             },
             {
               "target_id": "python-package",
-              "path": "starlette.responses.PlainTextResponse.__init__, Response.render, JSONResponse.render, Response.__call__",
+              "path": "starlette.responses.PlainTextResponse.__init__, Response.render, JSONResponse.render, Response.__call__; public raw_headers, body, background and returned coroutine lifetime",
               "signature": "Construct a documented response or input-defined render subclass; observe constructor attributes, rendering errors, and public ASGI events after caller attribute changes.",
               "support": {
                 "status": "supported"
@@ -27463,6 +27593,17 @@
               "id": "starlette.responses.PlainTextResponse.consumer-construction.public-render-and-asgi",
               "dimension": "boundary",
               "description": "Compare documented PlainTextResponse constructor and render consumers with the live pin: text, bytes, nested JSON, class defaults, input-defined subclass render hooks, charset, status and body mutations, exact errors, background ordering, and HTTP/WebSocket ASGI messages. Pinned source: starlette/responses.py:29-200; docs/responses.md:10-118. User code and every callback stimulus are input-derived.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.PlainTextResponse.consumer-construction.live-asgi-state-and-lifetime",
+              "dimension": "boundary",
+              "description": "Compare raw header and body aliasing, mutations during send callbacks, late background selection, original callback errors, and user callback/header ownership graphs with suspended coroutine finalization on caller/worker collection. Only public response attributes and the coroutine returned by __call__ are consumed. Pinned source: starlette/responses.py:29-200; docs/responses.md:10-118; AGENTS.md ASGI callbacks and lifetime boundary. Every stimulus is input-derived.",
               "lanes": [
                 "parity"
               ],

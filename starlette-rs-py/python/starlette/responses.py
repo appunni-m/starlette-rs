@@ -113,10 +113,7 @@ class Response:
     async def __call__(
         self, scope: dict[str, Any], receive: Callable[..., Any], send: Callable[..., Any]
     ) -> None:
-        self._sync_raw_headers()
-        await self._inner.asgi_call(
-            scope, receive, send, self.background, (self.body, self.status_code)
-        )
+        await self._inner.asgi_call(scope, receive, send, self)
 
 
 class PlainTextResponse(Response):
