@@ -379,8 +379,11 @@ VALUE_FORMATTING_OPERATIONS = {
 REQUEST_DEFAULT_RECEIVE_OPERATION = ("starlette.requests.Request", "default-receive")
 REQUEST_CLIENT_OPERATION = ("starlette.requests.Request", "client")
 REQUEST_SCOPE_MAPPING_OPERATION = ("starlette.requests.Request", "scope-mapping")
+REQUEST_CONSTRUCTOR_OPERATION = ("starlette.requests.Request", "constructor-contract")
 REQUEST_CLIENT_REQUIREMENT = "starlette.request.client-address"
 REQUEST_SCOPE_MAPPING_REQUIREMENT = "starlette.requests.Request.scope-mapping.minimal-http-scope"
+REQUEST_CONSTRUCTOR_REQUIREMENT = "starlette.requests.Request.constructor.scope-type-validation"
+REQUEST_CONSTRUCTOR_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {"scope"}
 WEBSOCKET_SCOPE_MAPPING_OPERATION = ("starlette.websockets.WebSocket", "scope-mapping")
 WEBSOCKET_SCOPE_MAPPING_REQUIREMENTS = {
     "minimal_scope": "starlette.websockets.WebSocket.scope-mapping.minimal-websocket-scope",
@@ -392,6 +395,9 @@ WEBSOCKET_CONSTRUCTOR_OPERATION = (
     "constructor-contract",
 )
 WEBSOCKET_CONSTRUCTOR_REQUIREMENT = "starlette.websockets.WebSocket.constructor.required-callables"
+WEBSOCKET_CONSTRUCTOR_SCOPE_REQUIREMENT = (
+    "starlette.websockets.WebSocket.constructor.scope-type-validation"
+)
 REQUEST_SEND_PUSH_PROMISE_OPERATION = ("starlette.requests.Request", "send-push-promise")
 REQUEST_IS_DISCONNECTED_OPERATION = ("starlette.requests.Request", "is-disconnected")
 REQUEST_FORM_OPERATION = ("starlette.requests.Request", "form")
@@ -2328,6 +2334,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                 or key == REQUEST_DEFAULT_RECEIVE_OPERATION
                 or key == REQUEST_CLIENT_OPERATION
                 or key == REQUEST_SCOPE_MAPPING_OPERATION
+                or key == REQUEST_CONSTRUCTOR_OPERATION
                 or key == WEBSOCKET_SCOPE_MAPPING_OPERATION
                 or key == WEBSOCKET_CONSTRUCTOR_OPERATION
                 or key == REQUEST_SEND_PUSH_PROMISE_OPERATION
@@ -2544,6 +2551,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         or (surface["id"], operation["id"]) == REQUEST_DEFAULT_RECEIVE_OPERATION
                         or (surface["id"], operation["id"]) == REQUEST_CLIENT_OPERATION
                         or (surface["id"], operation["id"]) == REQUEST_SCOPE_MAPPING_OPERATION
+                        or (surface["id"], operation["id"]) == REQUEST_CONSTRUCTOR_OPERATION
                         or (surface["id"], operation["id"]) == WEBSOCKET_SCOPE_MAPPING_OPERATION
                         or (surface["id"], operation["id"]) == WEBSOCKET_CONSTRUCTOR_OPERATION
                         or (surface["id"], operation["id"]) == REQUEST_SEND_PUSH_PROMISE_OPERATION
@@ -15052,6 +15060,10 @@ def validate_case(
         isinstance(case, dict)
         and (case.get("surface"), case.get("operation")) == REQUEST_SCOPE_MAPPING_OPERATION
     )
+    is_request_constructor = (
+        isinstance(case, dict)
+        and (case.get("surface"), case.get("operation")) == REQUEST_CONSTRUCTOR_OPERATION
+    )
     is_websocket_scope_mapping = (
         isinstance(case, dict)
         and (case.get("surface"), case.get("operation")) == WEBSOCKET_SCOPE_MAPPING_OPERATION
@@ -15199,6 +15211,8 @@ def validate_case(
         if is_request_body_stream_json
         else (CASE_KEYS - {"steps", "execution_schedule"}) | {"scope_cases"}
         if is_request_client
+        else REQUEST_CONSTRUCTOR_CASE_KEYS
+        if is_request_constructor
         else (CASE_KEYS - {"steps", "execution_schedule"}) | {"scope"}
         if is_request_scope_mapping
         else (CASE_KEYS - {"steps", "execution_schedule"}) | {"routes"}
@@ -15284,6 +15298,10 @@ def validate_case(
     if is_request_scope_mapping:
         _exact(case, expected_case_keys, "Request scope-mapping case")
         _validate_request_scope_mapping_case(case)
+        return case
+    if is_request_constructor:
+        _exact(case, expected_case_keys, "Request constructor case")
+        _validate_request_constructor_case(case)
         return case
     if is_websocket_scope_mapping:
         _exact(case, expected_case_keys, "WebSocket scope-mapping case")
@@ -20224,6 +20242,21 @@ def _validate_request_scope_mapping_case(case: dict[str, Any]) -> None:
         raise ContractError("Request scope-mapping case must cover its canonical requirement")
 
 
+def _validate_request_constructor_case(case: dict[str, Any]) -> None:
+    if case["target_profiles"] != ["python-package-cpython312"]:
+        raise ContractError("Request constructor parity targets the Python package profile")
+    if case["assets"] != [] or case["observations"] != ["constructor-contract"]:
+        raise ContractError("Request constructor cases select constructor-contract without assets")
+    if not case["case_id"].startswith("starlette.requests.Request.constructor-contract."):
+        raise ContractError("Request constructor case ID must bind to the constructor interface")
+    scope = _exact(case["scope"], {"type"}, "Request constructor scope")
+    scope_type = _string(scope["type"], "Request constructor scope.type")
+    if scope_type not in {"websocket", "lifespan"}:
+        raise ContractError("Request constructor cases require a non-HTTP scope type")
+    if case["covers"] != [REQUEST_CONSTRUCTOR_REQUIREMENT]:
+        raise ContractError("Request constructor case must cover its canonical requirement")
+
+
 def _validate_websocket_scope_mapping_case(case: dict[str, Any]) -> None:
     if case["target_profiles"] != ["python-package-cpython312"]:
         raise ContractError("WebSocket scope mapping parity targets the Python package profile")
@@ -20314,11 +20347,15 @@ def _validate_websocket_constructor_case(case: dict[str, Any]) -> None:
         )
     if not case["case_id"].startswith("starlette.websockets.WebSocket.constructor-contract."):
         raise ContractError("WebSocket constructor case ID must bind to the constructor interface")
-    if case["scope"] != {"type": "websocket", "path": "/abc/", "headers": []}:
-        raise ContractError("WebSocket constructor input must preserve the declared minimal scope")
+    scope = case["scope"]
+    websocket_scope = scope == {"type": "websocket", "path": "/abc/", "headers": []}
+    http_scope = scope == {"type": "http", "path": "/abc/", "headers": []}
+    if not websocket_scope and not http_scope:
+        raise ContractError("WebSocket constructor input must use a declared minimal scope")
     probes = case["constructor_probes"]
-    if not isinstance(probes, list) or len(probes) != 2:
-        raise ContractError("WebSocket constructor cases must provide both declared call forms")
+    expected_probe_count = 2 if websocket_scope else 1
+    if not isinstance(probes, list) or len(probes) != expected_probe_count:
+        raise ContractError("WebSocket constructor cases must provide their declared call forms")
     probe_ids: set[str] = set()
     argument_forms: set[tuple[str, ...]] = set()
     for index, raw_probe in enumerate(probes):
@@ -20339,9 +20376,17 @@ def _validate_websocket_constructor_case(case: dict[str, Any]) -> None:
         ):
             raise ContractError(f"{context}.arguments must select unique constructor inputs")
         argument_forms.add(tuple(arguments))
-    if argument_forms != {("scope",), ("scope", "receive", "send")}:
-        raise ContractError("WebSocket constructor probes must compare both documented call forms")
-    if case["covers"] != [WEBSOCKET_CONSTRUCTOR_REQUIREMENT]:
+    if websocket_scope:
+        if argument_forms != {("scope",), ("scope", "receive", "send")}:
+            raise ContractError(
+                "WebSocket constructor probes must compare both documented call forms"
+            )
+        expected_requirement = WEBSOCKET_CONSTRUCTOR_REQUIREMENT
+    else:
+        if argument_forms != {("scope", "receive", "send")}:
+            raise ContractError("WebSocket scope validation must use explicit callbacks")
+        expected_requirement = WEBSOCKET_CONSTRUCTOR_SCOPE_REQUIREMENT
+    if case["covers"] != [expected_requirement]:
         raise ContractError("WebSocket constructor case must cover its canonical requirement")
 
 

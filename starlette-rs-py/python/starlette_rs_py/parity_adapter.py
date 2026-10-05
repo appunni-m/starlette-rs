@@ -113,6 +113,7 @@ VALUE_FORMATTING_OPERATION = "value-formatting"
 REQUEST_DEFAULT_RECEIVE_OPERATION = ("starlette.requests.Request", "default-receive")
 REQUEST_CLIENT_OPERATION = ("starlette.requests.Request", "client")
 REQUEST_SCOPE_MAPPING_OPERATION = ("starlette.requests.Request", "scope-mapping")
+REQUEST_CONSTRUCTOR_OPERATION = ("starlette.requests.Request", "constructor-contract")
 WEBSOCKET_SCOPE_MAPPING_OPERATION = ("starlette.websockets.WebSocket", "scope-mapping")
 WEBSOCKET_CONSTRUCTOR_OPERATION = ("starlette.websockets.WebSocket", "constructor-contract")
 REQUEST_SEND_PUSH_PROMISE_OPERATION = ("starlette.requests.Request", "send-push-promise")
@@ -13001,6 +13002,15 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         from scripts.parity.adapters.request_scope_mapping import run_request_scope_mapping_case
 
         return run_request_scope_mapping_case(case, Request)
+    if (
+        isinstance(case, dict)
+        and (case.get("surface"), case.get("operation")) == REQUEST_CONSTRUCTOR_OPERATION
+    ):
+        from starlette.requests import Request
+
+        from scripts.parity.adapters.request_scope_mapping import run_request_constructor_case
+
+        return run_request_constructor_case(case, Request)
     if (
         isinstance(case, dict)
         and (case.get("surface"), case.get("operation")) == WEBSOCKET_SCOPE_MAPPING_OPERATION

@@ -43,6 +43,36 @@ def run_request_scope_mapping_case(
     }
 
 
+def run_request_constructor_case(
+    case: dict[str, Any],
+    request_type: type[Any],
+) -> dict[str, Any]:
+    """Compare Request construction for the scope supplied by one parity input."""
+    try:
+        request_type(case["scope"])
+    except Exception as error:
+        error_type = type(error)
+        result = {
+            "outcome": "error",
+            "exception_type": f"{error_type.__module__}.{error_type.__qualname__}",
+            "message": str(error),
+        }
+    else:
+        result = {"outcome": "constructed"}
+
+    return {
+        "case_id": case["case_id"],
+        "status": "completed",
+        "observations": [
+            {
+                "step_id": "constructor-contract",
+                "status": "ok",
+                "value": {"constructor_result": result},
+            }
+        ],
+    }
+
+
 def run_websocket_constructor_case(
     case: dict[str, Any],
     websocket_type: type[Any],

@@ -8,11 +8,12 @@ incomplete.
 
 ## Current parity snapshot
 
-The active contract uses `parity-input@43` with 937 input-only cases in 93
-indexed files: 935 oracle parity cases and two target-only fault contracts. It
-covers 104 operations and 906 parity requirements. The latest inputs compare
-URL-encoded `Request.form` field-count and part-size errors with each body
-delivered in one ASGI chunk. The preceding input maps
+The active contract uses `parity-input@43` with 940 input-only cases in 93
+indexed files: 938 oracle parity cases and two target-only fault contracts. It
+covers 105 operations and 908 parity requirements. The latest inputs compare
+direct Request and WebSocket constructor behavior for invalid scope types. The
+preceding inputs compare URL-encoded `Request.form` field-count and part-size
+errors with each body delivered in one ASGI chunk. The earlier input maps
 `routing.test_partial_async_ws_endpoint` and compares partial-wrapped async
 function and bound class-method WebSocketRoute endpoints through a mounted
 Router. The private parser-counter and stress-bound assertions in the upstream
@@ -38,6 +39,16 @@ instrumented wheel SHA-256
 The selected comparison did not check full-suite regressions. Reports and
 receipts remain under ignored
 `build/parity/coverage/urlencoded-limit-20261005-corrected/`.
+
+Selected run `77763c01-30bb-452f-b887-6508cfe76adb` passed the seven selected
+constructor, scope-mapping, and callback parity comparisons and both
+route-cache target-only fault contracts (2/2). The faults assert the public
+HTTP 500 response and TestClient exception propagation; both oracle results
+remain `not_applicable`. Result SHA-256:
+`72ba7bfd242f5825dae548433a053d78b45f36cd5e0cbb930d85f91be7c73186`;
+manifest SHA-256:
+`4539630160f3e2816d089fc0d351dc74aa73de7f0f187d4ed187e53295b5208f`.
+This focused run does not establish full-slice parity or add a coverage delta.
 
 The latest clean full-slice preflight
 `5856ac2f-28ca-43b5-b1b6-6db403cee6b7` used the active

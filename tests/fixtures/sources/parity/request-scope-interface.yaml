@@ -20,6 +20,42 @@
       "observations": [
         "scope-mapping"
       ]
+    },
+    {
+      "case_id": "starlette.requests.Request.constructor-contract.rejects-websocket-scope",
+      "surface": "starlette.requests.Request",
+      "operation": "constructor-contract",
+      "covers": [
+        "starlette.requests.Request.constructor.scope-type-validation"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "websocket"
+      },
+      "observations": [
+        "constructor-contract"
+      ]
+    },
+    {
+      "case_id": "starlette.requests.Request.constructor-contract.rejects-lifespan-scope",
+      "surface": "starlette.requests.Request",
+      "operation": "constructor-contract",
+      "covers": [
+        "starlette.requests.Request.constructor.scope-type-validation"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "lifespan"
+      },
+      "observations": [
+        "constructor-contract"
+      ]
     }
   ]
 }

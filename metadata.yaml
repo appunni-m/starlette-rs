@@ -468,6 +468,10 @@
         {
           "operation_id": "scope-mapping",
           "source_path": "starlette.requests.HTTPConnection.__getitem__, HTTPConnection.__iter__, and HTTPConnection.__len__"
+        },
+        {
+          "operation_id": "constructor-contract",
+          "source_path": "starlette.requests.Request.__init__ and HTTPConnection.__init__"
         }
       ]
     },

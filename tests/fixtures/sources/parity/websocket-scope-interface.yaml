@@ -107,6 +107,36 @@
       "observations": [
         "constructor-contract"
       ]
+    },
+    {
+      "case_id": "starlette.websockets.WebSocket.constructor-contract.rejects-http-scope",
+      "surface": "starlette.websockets.WebSocket",
+      "operation": "constructor-contract",
+      "covers": [
+        "starlette.websockets.WebSocket.constructor.scope-type-validation"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "http",
+        "path": "/abc/",
+        "headers": []
+      },
+      "constructor_probes": [
+        {
+          "probe_id": "explicit-callbacks",
+          "arguments": [
+            "scope",
+            "receive",
+            "send"
+          ]
+        }
+      ],
+      "observations": [
+        "constructor-contract"
+      ]
     }
   ]
 }

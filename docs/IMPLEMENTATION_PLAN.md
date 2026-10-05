@@ -32,11 +32,13 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The active parity contract uses `parity-input@43` and contains 937 input-only
-cases in 93 indexed files (935 oracle parity cases and two target-only fault
-contracts), covering 104 operations and 906 requirements. The latest addition
-compares URL-encoded `Request.form` field-count and part-size errors with each
-body delivered in one ASGI chunk. The preceding addition maps
+The active parity contract uses `parity-input@43` and contains 940 input-only
+cases in 93 indexed files (938 oracle parity cases and two target-only fault
+contracts), covering 105 operations and 908 requirements. The latest addition
+compares invalid direct `Request` and `WebSocket` scope construction against
+Starlette's assertion behavior. The preceding addition compares URL-encoded
+`Request.form` field-count and part-size errors with each body delivered in one
+ASGI chunk. The earlier addition maps
 `routing.test_partial_async_ws_endpoint` and compares partial-wrapped async
 function and bound class-method WebSocketRoute endpoints through a mounted
 Router. Recent additions include the nested TestClient

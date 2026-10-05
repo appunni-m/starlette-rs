@@ -13870,6 +13870,100 @@
             "applicability": "not_applicable",
             "reason": "The Rust-native API does not expose a Python Request over an arbitrary mapping scope."
           }
+        },
+        {
+          "id": "constructor-contract",
+          "kind": "protocol_operation",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.requests.Request.__init__ and HTTPConnection.__init__",
+            "signature": "Request(scope) -> Request, using the documented receive/send defaults",
+            "parameters": [
+              {
+                "id": "scope",
+                "style": "positional",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "constructor_result",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "The Rust-native API does not expose the Python Request constructor over an arbitrary ASGI scope.",
+                "blocker": "The input compares Python Request construction and Python exception behavior."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.requests.Request.__init__",
+              "signature": "Request(scope, receive=empty_receive, send=empty_send)",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.requests.Request.constructor.scope-type-validation",
+              "dimension": "error_path",
+              "description": "Call Request with input-selected ASGI scope types and observe the live constructor outcome and public exception details. Pinned source: starlette/requests.py:80-88,217-224; docs/requests.md:5-28.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "Input-only constructor comparisons make no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "Python constructor behavior is outside the active Router/GZip benchmark workloads."
+          }
         }
       ]
     },
@@ -22470,6 +22564,17 @@
               "id": "starlette.websockets.WebSocket.constructor.required-callables",
               "dimension": "error_path",
               "description": "Compare constructor calls selected by the input, including callback omission and explicit callback construction, with exact Python outcomes. Pinned source: starlette/websockets.py:26-31; docs: docs/websockets.md:5-17.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.websockets.WebSocket.constructor.scope-type-validation",
+              "dimension": "error_path",
+              "description": "Construct a WebSocket with explicit callbacks and an input-selected ASGI scope type, then compare its public construction outcome and exception details. Pinned source: starlette/requests.py:80-88; starlette/websockets.py:26-31; docs/websockets.md:5-18.",
               "lanes": [
                 "parity"
               ],
