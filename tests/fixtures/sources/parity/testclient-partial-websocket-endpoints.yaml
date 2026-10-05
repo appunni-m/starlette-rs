@@ -1,0 +1,133 @@
+{
+  "schema": "migration-parity/parity-input@43",
+  "cases": [
+    {
+      "case_id": "starlette.testclient.TestClient.websocket-session.routed-async-endpoint-partial-function",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "websocket-session",
+      "covers": [
+        "starlette.testclient.TestClient.websocket-session.scope-projection",
+        "starlette.testclient.TestClient.websocket-session.accept-handshake",
+        "starlette.testclient.TestClient.websocket-session.portal-cleanup",
+        "starlette.testclient.TestClient.websocket-session.receive-json-text-frame",
+        "starlette.testclient.TestClient.websocket-session.routed-async-endpoint-partial"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "websocket-session"
+      ],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": [
+          "testclient",
+          50000
+        ],
+        "headers": []
+      },
+      "websocket": {
+        "url": "/partial/ws",
+        "subprotocols": [],
+        "headers": [],
+        "actions": [
+          {
+            "operation": "receive_json"
+          }
+        ]
+      },
+      "asgi_app": {
+        "kind": "starlette-partial-websocket-route-graph",
+        "scope_fields": [
+          "type",
+          "path",
+          "root_path",
+          "scheme",
+          "server"
+        ],
+        "mount": {
+          "path": "/partial",
+          "routes": [
+            {
+              "kind": "websocket-route",
+              "path": "/ws",
+              "callable_shape": "function"
+            },
+            {
+              "kind": "websocket-route",
+              "path": "/ws/cls",
+              "callable_shape": "bound-classmethod"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "case_id": "starlette.testclient.TestClient.websocket-session.routed-async-endpoint-partial-bound-classmethod",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "websocket-session",
+      "covers": [
+        "starlette.testclient.TestClient.websocket-session.scope-projection",
+        "starlette.testclient.TestClient.websocket-session.accept-handshake",
+        "starlette.testclient.TestClient.websocket-session.portal-cleanup",
+        "starlette.testclient.TestClient.websocket-session.receive-json-text-frame",
+        "starlette.testclient.TestClient.websocket-session.routed-async-endpoint-partial"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "websocket-session"
+      ],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": [
+          "testclient",
+          50000
+        ],
+        "headers": []
+      },
+      "websocket": {
+        "url": "/partial/ws/cls",
+        "subprotocols": [],
+        "headers": [],
+        "actions": [
+          {
+            "operation": "receive_json"
+          }
+        ]
+      },
+      "asgi_app": {
+        "kind": "starlette-partial-websocket-route-graph",
+        "scope_fields": [
+          "type",
+          "path",
+          "root_path",
+          "scheme",
+          "server"
+        ],
+        "mount": {
+          "path": "/partial",
+          "routes": [
+            {
+              "kind": "websocket-route",
+              "path": "/ws",
+              "callable_shape": "function"
+            },
+            {
+              "kind": "websocket-route",
+              "path": "/ws/cls",
+              "callable_shape": "bound-classmethod"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

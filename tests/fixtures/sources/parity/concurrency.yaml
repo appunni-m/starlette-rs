@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@42",
+  "schema": "migration-parity/parity-input@43",
   "cases": [
     {
       "case_id": "starlette.concurrency.run_in_threadpool.arguments-result-worker-progress",

@@ -17,7 +17,7 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest uses `parity-input@42` and indexes 933 input-only cases across 92 files (931 oracle parity cases and two target-only fault contracts), covering 104 operations and 905 unique parity requirements. The latest input maps `routing.test_partial_async_endpoint`, comparing async function and bound class-method endpoints wrapped in `functools.partial` through mounted Routes. Recent parity inputs
+The active parity manifest uses `parity-input@43` and indexes 935 input-only cases across 93 files (933 oracle parity cases and two target-only fault contracts), covering 104 operations and 906 unique parity requirements. The latest input maps `routing.test_partial_async_ws_endpoint`, comparing async function and bound class-method WebSocketRoute endpoints wrapped in `functools.partial` through a mounted Router. Recent parity inputs
 include outer BaseHTTPMiddleware request-body transformation and replay, map the pinned WebSocket scope Mapping and identity behavior, and correct the
 StaticFiles HEAD fixture to use the upstream `<file content>` asset and its
 14-byte length. Schema inputs map the pinned route graph, including missing
@@ -165,8 +165,8 @@ The correctness-gated Router/GZip benchmark is recorded in
 workload-specific measurements do not establish full Starlette compatibility.
 
 The latest source inventory check dispositioned all 999 API candidate rows.
-The generated coverage matrix currently has 804 source rows: 663 input mappings,
-51 reasoned `not_applicable` rows, and 90 fixture backlog rows. Derive these
+The generated coverage matrix currently has 804 source rows: 664 input mappings,
+51 reasoned `not_applicable` rows, and 89 fixture backlog rows. Derive these
 changing counts from the generated atlas CSV files.
 
 Historical integrated run `af914b8c-5933-4ced-9e1d-c60b23263e1a` started at

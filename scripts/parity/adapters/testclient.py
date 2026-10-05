@@ -1355,6 +1355,54 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
                 await starlette_application(scope, receive, send)
             finally:
                 application_state["completed"] = True
+    elif app_input["kind"] == "starlette-partial-websocket-route-graph":
+        from functools import partial
+
+        from starlette.routing import Mount, Router, WebSocketRoute
+
+        class PartialWebSocketRoutes:
+            @classmethod
+            async def endpoint(cls, websocket: Any) -> None:
+                await websocket.accept()
+                await websocket.send_json({"url": str(websocket.url)})
+                await websocket.close()
+
+        def endpoint_for(callable_shape: str) -> Any:
+            if callable_shape == "function":
+
+                async def endpoint(websocket: Any) -> None:
+                    await websocket.accept()
+                    await websocket.send_json({"url": str(websocket.url)})
+                    await websocket.close()
+
+                return partial(endpoint)
+            return partial(PartialWebSocketRoutes.endpoint)
+
+        mount_input = app_input["mount"]
+        websocket_routes = [
+            WebSocketRoute(
+                route_spec["path"],
+                endpoint_for(route_spec["callable_shape"]),
+            )
+            for route_spec in mount_input["routes"]
+        ]
+        router = Router([Mount(mount_input["path"], routes=websocket_routes)])
+
+        async def app(scope: dict[str, Any], receive: Any, send: Any) -> None:
+            record_scope(scope)
+            application_state["thread"] = threading.current_thread()
+
+            async def traced_receive() -> dict[str, Any]:
+                return await observed_receive(receive)
+
+            async def traced_send(message: dict[str, Any]) -> None:
+                await observed_send(send, message)
+
+            try:
+                await router(scope, traced_receive, traced_send)
+            finally:
+                application_state["completed"] = True
+
     elif app_input["kind"] == "starlette-protocol-switch":
         from starlette.applications import Starlette
         from starlette.responses import JSONResponse
@@ -1446,7 +1494,11 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
     accepted_extra_headers = None
     denial_response = None
     application_exception_workflow = app_input["kind"] == "starlette-websocket-route-error" or (
-        app_input["kind"] != "starlette-protocol-switch"
+        app_input["kind"]
+        not in {
+            "starlette-protocol-switch",
+            "starlette-partial-websocket-route-graph",
+        }
         and len(app_input["actions"]) == 1
         and app_input["actions"][0].get("operation") == "raise"
     )

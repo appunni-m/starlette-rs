@@ -31,7 +31,7 @@ from .fault_contracts import (
 )
 
 MANIFEST_SCHEMA = "migration-parity/manifest@4"
-INPUT_SCHEMA = "migration-parity/parity-input@42"
+INPUT_SCHEMA = "migration-parity/parity-input@43"
 BENCHMARK_INPUT_SCHEMA = "migration-parity/benchmark-input@1"
 RESULT_SCHEMA = "migration-parity/parity-result@6"
 BENCHMARK_RESULT_SCHEMA = "migration-parity/benchmark-result@1"
@@ -282,6 +282,7 @@ TESTCLIENT_WEBSOCKET_REQUIREMENTS = {
     "application_url": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.application-url",
     "protocol_switch": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.router-protocol-switch",
     "router_miss": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.router-miss-disconnect",
+    "partial_async_endpoint": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.routed-async-endpoint-partial",
     "handshake": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.accept-handshake",
     "extra_headers": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.extra-headers",
     "text_messages": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.text-message-exchange",
@@ -13150,6 +13151,10 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
     is_starlette_protocol_switch_graph = (
         isinstance(raw_asgi_app, dict) and raw_asgi_app.get("kind") == "starlette-protocol-switch"
     )
+    is_starlette_partial_websocket_graph = (
+        isinstance(raw_asgi_app, dict)
+        and raw_asgi_app.get("kind") == "starlette-partial-websocket-route-graph"
+    )
     is_starlette_websocket_route_error = (
         isinstance(raw_asgi_app, dict)
         and raw_asgi_app.get("kind") == "starlette-websocket-route-error"
@@ -13159,6 +13164,13 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
             raw_asgi_app,
             {"kind", "routes", "scope_fields"},
             "TestClient Starlette protocol-switch route graph",
+        )
+        app_actions = []
+    elif is_starlette_partial_websocket_graph:
+        asgi_app = _exact(
+            raw_asgi_app,
+            {"kind", "mount", "scope_fields"},
+            "TestClient Starlette partial WebSocket route graph",
         )
         app_actions = []
     elif is_starlette_websocket_route_error:
@@ -13214,6 +13226,7 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
         asgi_app["kind"] != "asgi3"
         and not is_starlette_websocket_route_error
         and not is_starlette_protocol_switch_graph
+        and not is_starlette_partial_websocket_graph
     ):
         raise ContractError("This TestClient WebSocket workflow accepts an ASGI3 callable")
     scope_fields = asgi_app["scope_fields"]
@@ -13376,6 +13389,82 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
         if set(case["covers"]) != expected_covers:
             raise ContractError(
                 "TestClient protocol-switch covers must match the input route and session workflow"
+            )
+        return
+
+    if is_starlette_partial_websocket_graph:
+        mount = _exact(
+            asgi_app["mount"],
+            {"path", "routes"},
+            "TestClient partial WebSocket mount",
+        )
+        mount_path = _string(mount["path"], "TestClient partial WebSocket mount.path")
+        routes = mount["routes"]
+        if mount_path != "/partial" or not isinstance(routes, list) or len(routes) != 2:
+            raise ContractError(
+                "TestClient partial WebSocket graph requires the pinned /partial mount and two routes"
+            )
+        route_shapes: dict[str, str] = {}
+        for index, raw_route in enumerate(routes):
+            context = f"TestClient partial WebSocket mount.routes[{index}]"
+            route = _exact(raw_route, {"kind", "path", "callable_shape"}, context)
+            if route["kind"] != "websocket-route":
+                raise ContractError(f"{context}.kind must be websocket-route")
+            route_path = _string(route["path"], f"{context}.path")
+            if not route_path.startswith("/") or route_path in route_shapes:
+                raise ContractError(f"{context}.path must be unique and absolute")
+            callable_shape = _string(route["callable_shape"], f"{context}.callable_shape")
+            if callable_shape not in {"function", "bound-classmethod"}:
+                raise ContractError(f"{context}.callable_shape is unsupported")
+            route_shapes[route_path] = callable_shape
+        if route_shapes != {"/ws": "function", "/ws/cls": "bound-classmethod"}:
+            raise ContractError(
+                "TestClient partial WebSocket routes must map function and bound class-method callables"
+            )
+        websocket_path = urlsplit(websocket_url).path
+        if (
+            websocket_path not in {"/partial/ws", "/partial/ws/cls"}
+            or urlsplit(websocket_url).query
+            or "params" in websocket
+            or settings["base_url"] != "http://testserver"
+            or settings["root_path"]
+            or settings["headers"]
+            or settings["raise_server_exceptions"] is not True
+            or settings["client"] != ["testclient", 50000]
+            or websocket["subprotocols"]
+            or websocket["headers"]
+            or not {"type", "path", "root_path", "scheme"} <= set(scope_fields)
+        ):
+            raise ContractError(
+                "TestClient partial WebSocket graph must use the pinned default TestClient and mounted route URL"
+            )
+        receive_action = (
+            _exact(
+                session_actions[0],
+                {"operation"} | (session_actions[0].keys() & {"mode"}),
+                "TestClient partial WebSocket receive action",
+            )
+            if len(session_actions) == 1 and isinstance(session_actions[0], dict)
+            else None
+        )
+        if (
+            receive_action is None
+            or receive_action["operation"] != "receive_json"
+            or receive_action.get("mode", "text") != "text"
+        ):
+            raise ContractError(
+                "TestClient partial WebSocket graph must receive the endpoint's text JSON URL frame"
+            )
+        expected_covers = {
+            TESTCLIENT_WEBSOCKET_REQUIREMENTS["scope"],
+            TESTCLIENT_WEBSOCKET_REQUIREMENTS["handshake"],
+            TESTCLIENT_WEBSOCKET_REQUIREMENTS["portal_cleanup"],
+            TESTCLIENT_WEBSOCKET_REQUIREMENTS["receive_json_text"],
+            TESTCLIENT_WEBSOCKET_REQUIREMENTS["partial_async_endpoint"],
+        }
+        if set(case["covers"]) != expected_covers:
+            raise ContractError(
+                "TestClient partial WebSocket covers must match the mounted callable workflow"
             )
         return
 

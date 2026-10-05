@@ -32,11 +32,12 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The active parity contract uses `parity-input@42` and contains 933 input-only
-cases in 92 indexed files (931 oracle parity cases and two target-only fault
-contracts), covering 104 operations and 905 requirements. The latest addition
-maps `routing.test_partial_async_endpoint` and compares partial-wrapped async
-function and bound class-method endpoints through mounted Routes. Recent additions include the nested TestClient
+The active parity contract uses `parity-input@43` and contains 935 input-only
+cases in 93 indexed files (933 oracle parity cases and two target-only fault
+contracts), covering 104 operations and 906 requirements. The latest addition
+maps `routing.test_partial_async_ws_endpoint` and compares partial-wrapped
+async function and bound class-method WebSocketRoute endpoints through a
+mounted Router. Recent additions include the nested TestClient
 case that constructs an inner client inside an input-defined synchronous outer
 endpoint, plus direct FormData
 constructor/equality inputs; direct UploadFile constructor/repr, spooled-file
@@ -99,8 +100,8 @@ That integrated run includes the focused `parity-input@23` through `@27` additio
 The two BaseHTTPMiddleware ContextVar observer comparisons pass exactly against
 the pinned source and installed package in the integrated run.
 
-The generated coverage matrix contains 804 source rows: 663 input mappings,
-51 source-backed `not_applicable` rows, and 90 fixture-backlog rows. These
+The generated coverage matrix contains 804 source rows: 664 input mappings,
+51 source-backed `not_applicable` rows, and 89 fixture-backlog rows. These
 changing counts come from the generated atlas CSV files. The denominator
 remains 514 upstream test functions and 24 documentation pages; the full
 replacement objective is active and incomplete.

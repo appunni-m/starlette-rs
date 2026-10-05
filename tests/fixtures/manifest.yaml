@@ -210,7 +210,7 @@
   ],
   "interfaces": {
     "parity": {
-      "input_schema": "migration-parity/parity-input@42",
+      "input_schema": "migration-parity/parity-input@43",
       "result_schema": "migration-parity/parity-result@6",
       "command_id": "parity"
     },
@@ -351,6 +351,7 @@
       "build/parity/inputs/parity/http-endpoint-dispatch.json",
       "build/parity/inputs/parity/testclient-http.json",
       "build/parity/inputs/parity/testclient-partial-endpoints.json",
+      "build/parity/inputs/parity/testclient-partial-websocket-endpoints.json",
       "build/parity/inputs/parity/fault-contracts.json",
       "build/parity/inputs/parity/testclient-websocket.json",
       "build/parity/inputs/parity/testclient-websocket-bytes.json",
@@ -23879,6 +23880,17 @@
               "id": "starlette.testclient.TestClient.websocket-session.router-miss-disconnect",
               "dimension": "error_path",
               "description": "Connect through TestClient to an unmatched WebSocket path on an input-defined mixed-protocol Router and observe the default WebSocketDisconnect raised by the Router miss close. Pinned source: tests/test_routing.py::test_protocol_switch; starlette/routing.py::Router.not_found; starlette/testclient.py::WebSocketTestSession.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.websocket-session.routed-async-endpoint-partial",
+              "dimension": "boundary",
+              "description": "Dispatch WebSocketRoute endpoints wrapped in functools.partial for both an async function and a bound async class method through TestClient, preserving the live URL JSON frames, ordered ASGI events, and session cleanup. Pinned source: tests/test_routing.py::test_partial_async_ws_endpoint; starlette/routing.py:252-255; starlette/_utils.py:is_async_callable.",
               "lanes": [
                 "parity"
               ],
