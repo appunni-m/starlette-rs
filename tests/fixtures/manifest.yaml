@@ -23730,6 +23730,17 @@
               ]
             },
             {
+              "id": "starlette.testclient.TestClient.request-response.request-raw-path-query-omission",
+              "dimension": "protocol_variant",
+              "description": "Pass GET /hello-world with input params foo=bar through TestClient; observe that ASGI raw_path remains /hello-world while query_string carries foo=bar. Pinned source: tests/test_testclient.py::test_raw_path_with_querystring; starlette/testclient.py:430-455.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.testclient.TestClient.request-response.request-json-failure-without-receive",
               "dimension": "error_path",
               "description": "Construct Request without the app receive callback, call json(), and observe the live caught RuntimeError through the response and ASGI events. Pinned source: tests/test_requests.py::test_request_without_setting_receive; starlette/requests.py.",

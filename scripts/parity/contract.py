@@ -242,6 +242,7 @@ TESTCLIENT_REQUEST_REQUIREMENTS = {
     "headers_mapping": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.request-headers-mapping",
     "headers_semantics": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.request-headers-immutable-multidict",
     "raw_path": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.request-raw-path-scope-preservation",
+    "raw_path_query": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.request-raw-path-query-omission",
     "json_without_receive": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.request-json-failure-without-receive",
     "path_params": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.request-path-params-dictionary",
 }
@@ -12139,17 +12140,26 @@ def _validate_testclient_case(
                     "TestClient Request header semantics input must include repeated mixed-case names"
                 )
         elif probe == "raw-path":
+            raw_path_query_case = (
+                request["url"] == "/hello-world"
+                and request.get("params") == {"foo": "bar"}
+                and {"path", "raw_path", "query_string"} <= set(asgi_app["scope_fields"])
+            )
+            raw_path_encoded_case = (
+                request["url"] == "/he%2Fllo"
+                and "params" not in request
+                and {"path", "raw_path"} <= set(asgi_app["scope_fields"])
+            )
             if (
                 followup_requests
                 or request["method"] != "GET"
                 or request.get("client_method") != "get"
-                or request["url"] != "/he%2Fllo"
                 or request["headers_base64_pairs"]
                 or not empty_body
-                or not {"path", "raw_path"} <= set(asgi_app["scope_fields"])
+                or not (raw_path_encoded_case or raw_path_query_case)
             ):
                 raise ContractError(
-                    "TestClient Request raw-path input must use the pinned encoded-slash GET"
+                    "TestClient Request raw-path input must use the pinned encoded-slash or query-parameter GET"
                 )
         elif probe == "json-without-receive":
             if (
@@ -12582,13 +12592,18 @@ def _validate_testclient_case(
         expected_covers.add(TESTCLIENT_REQUIREMENTS["request_sequence"])
         expected_covers.add(TESTCLIENT_REQUIREMENTS["response"])
     if is_request_observer:
+        raw_path_requirement = (
+            "raw_path_query"
+            if asgi_app["probe"] == "raw-path" and "params" in request
+            else "raw_path"
+        )
         probe_requirement = {
             "url": TESTCLIENT_REQUEST_REQUIREMENTS["url_string"],
             "query-params-mapping": TESTCLIENT_REQUEST_REQUIREMENTS["query_mapping"],
             "query-params-semantics": TESTCLIENT_REQUEST_REQUIREMENTS["query_semantics"],
             "headers-mapping": TESTCLIENT_REQUEST_REQUIREMENTS["headers_mapping"],
             "headers-semantics": TESTCLIENT_REQUEST_REQUIREMENTS["headers_semantics"],
-            "raw-path": TESTCLIENT_REQUEST_REQUIREMENTS["raw_path"],
+            "raw-path": TESTCLIENT_REQUEST_REQUIREMENTS[raw_path_requirement],
             "json-without-receive": TESTCLIENT_REQUEST_REQUIREMENTS["json_without_receive"],
         }[asgi_app["probe"]]
         expected_covers.add(probe_requirement)
