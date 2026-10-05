@@ -118,6 +118,14 @@ One input-only case maps the pinned `tests/test_testclient.py::test_raw_path_wit
 
 Selected run `519470b2-1d83-4316-8ed5-8f9c2a9d608f` passed the source/package comparison (1/1) and the unpoisoned route-cache control (1/1), plus both target-only route-cache fault contracts (2/2). The fault rows remain `not_applicable` to the source oracle. Result SHA-256: `9b4b11b51cb2ef0018659b4358aa25bd8380c050767bf64e1536a31b504f767b`; manifest SHA-256: `88e613991f2474adb680bd7f92b716864aa51300435e4a3a7dc92955c772b6e5`. This selected run does not claim full-slice parity or a coverage delta.
 
+## Latest clean full-slice preflight and benchmarks: active 980-case snapshot
+
+Clean preflight `55535731-b03c-4a49-ae6f-b8f61e10fbda` passed all 976 Python-package comparisons, 246/250 Rust-native comparisons, and both target-only fault contracts. It selected 1,226 profile comparisons, with zero failures or infrastructure errors. Four existing native Python-callable boundaries remain `not_run`: synchronous function, bound-method and partial Request endpoints, and callable-instance ASGI dispatch. The standalone parity command continues to exit nonzero for those unsupported rows.
+
+The target was clean at revision `8d8e48e4c5d285b41cc42d376404a6b5a11fb0f8`, with package tree SHA-256 `30dff4c3a7aa8b3494efe46a5b8bac4e5520245a76786de48a157b1b2ca8a927`, matching the normal selected cleanup run. Preflight result SHA-256: `600d92f12623ebf6d535683d84c4d49ee002cd89de9c1f6bf97a8166648c4a41`; manifest SHA-256: `f1c3c3cb7ccb00c2ffa7d9e1ecdc8eca126b6fb217453a948702b6a371a18491`; installed wheel SHA-256: `ded85bae1db44cf908e1451628de24d6bed7f8b3735182b6739590e51a85e129`.
+
+Correctness-gated benchmark run `235c3274-3d87-494a-a9ab-62dab72158d1` measured all 74 source/package workloads: six Router and 68 GZip, with zero failures and matching normalized observations. All 74 Rust-native benchmark rows remain `not_run` because the public ASGI boundaries are not equivalent. Median source/package latency ratios were 0.742 for Router and 0.976 for GZip; source latency was lower in 5/6 Router and 59/68 GZip workloads. Result SHA-256: `be0e79206e67f80d85b5ea7b873a00d207b1240a9f0fb8bb60ddc9b4843299a2`. These local workload timings do not establish a broad speed advantage or full Starlette parity. See [Benchmark mapping](BENCHMARKS.md).
+
 ## Previous clean full-slice preflight and benchmarks: 978-case snapshot
 
 Clean preflight `14327f2a-372b-4751-a1e4-4630740a5017` passed all 974 Python-package comparisons, 246/250 Rust-native comparisons, and both target-only fault contracts. It selected 1,224 profile comparisons, with zero failures or infrastructure errors and four existing native Python-callable boundaries `not_run`. Those four rows remain unsupported in the standalone parity command.
