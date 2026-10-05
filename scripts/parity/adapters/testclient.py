@@ -230,12 +230,15 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
 
     elif app_input["kind"] in {
         "starlette-route-graph",
+        "starlette-partial-route-graph",
         "starlette-url-for-route-graph",
         "starlette-protocol-switch",
     }:
+        from functools import partial
+
         from starlette.applications import Starlette
         from starlette.responses import JSONResponse
-        from starlette.routing import Mount, Route, WebSocketRoute
+        from starlette.routing import Mount, Route, Router, WebSocketRoute
 
         def endpoint_response(
             endpoint_spec: dict[str, Any], scope: dict[str, Any], request: Any = None
@@ -251,6 +254,26 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
             return JSONResponse(value)
 
         def request_endpoint_for(endpoint_spec: dict[str, Any]) -> Any:
+            if endpoint_spec["kind"] == "async-partial-json":
+                if endpoint_spec["callable_shape"] == "function":
+
+                    async def endpoint(bound_value: Any, _request: Any) -> Any:
+                        return JSONResponse({endpoint_spec["response_key"]: bound_value})
+
+                    return partial(endpoint, endpoint_spec["bound_value"])
+
+                class PartialRoutes:
+                    @classmethod
+                    async def endpoint(
+                        cls: type[PartialRoutes], bound_value: Any, _request: Any
+                    ) -> Any:
+                        return JSONResponse({endpoint_spec["response_key"]: bound_value})
+
+                return partial(
+                    PartialRoutes.endpoint,
+                    endpoint_spec["bound_value"],
+                )
+
             async def endpoint(request: Any) -> Any:
                 return endpoint_response(endpoint_spec, request.scope, request)
 
@@ -312,7 +335,10 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
                     )
             return routes
 
-        route_app = Starlette(routes=build_routes(app_input["routes"]))
+        if app_input["kind"] == "starlette-partial-route-graph":
+            route_app = Router(routes=build_routes(app_input["routes"]))
+        else:
+            route_app = Starlette(routes=build_routes(app_input["routes"]))
 
         async def app(scope: dict[str, Any], receive: Any, send: Any) -> None:
             record_scope(scope)

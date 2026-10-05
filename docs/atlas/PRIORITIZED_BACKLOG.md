@@ -8,25 +8,29 @@ incomplete.
 
 ## Current parity snapshot
 
-The active contract uses `parity-input@41` with 932 input-only cases in 91
-indexed files: 930 oracle parity cases and two target-only fault contracts. It
-covers 104 operations and 904 parity requirements. The latest selected run adds
-source/package evidence for the outer BaseHTTPMiddleware receive-body transform.
+The active contract uses `parity-input@42` with 933 input-only cases in 92
+indexed files: 931 oracle parity cases and two target-only fault contracts. It
+covers 104 operations and 905 parity requirements. The new input maps
+`routing.test_partial_async_endpoint` and compares partial-wrapped async
+function and bound class-method endpoints through mounted Routes.
 
-The instrumented selected baseline `9a3d279a-8ecb-4bd1-9387-d1e11a8cf1dd`
-passed the configured-header case and both target-only route-cache fault
-contracts (2/2). Measurement `7615faa6-1d90-4217-9342-00c3df9dca63` passed the
-new outer-receive parity case and the same fault contracts (2/2). Coverage MCP
-verified 458 newly covered Rust lines (1.864 percentage points): 3,298/24,568
-baseline lines, 3,638/24,568 in the batch, and 3,756/24,568 after union. The
-matching receipts bind to manifest SHA-256
-`6bf22d158ed9b41fdd0a5c62aee7545d38a3ade25edfaf8bc884ab29db8c7f6e`, target
+Selected run `2189c29e-b500-4509-9422-241719950cc0` passed the new
+source/package comparison (1/1) and both route-cache fault contracts (2/2);
+the fault rows remain `not_applicable` to the oracle. Instrumented baseline
+`2470158b-74b8-49df-b6f3-c1c95ebe4330` and measurement
+`aa366e34-ecec-4d58-b2ea-ff878852474f` also passed those respective selections.
+Coverage MCP verified 561 newly covered Rust lines (2.283 percentage points):
+3,298/24,568 baseline lines, 3,181/24,568 in the batch, 3,756/24,568 after
+the prior accepted batch, and 4,317/24,568 after union. The receipts bind to
+manifest SHA-256
+`00b265edd5c4965f06d91281b3a3bdbc9c388e81be4599915a246ee9b08ea830`, target
 tree SHA-256
 `528b61413bd72e17d720847fe5bc1e1f0867007ccdda782af6613d99936b473a`, and
 instrumented wheel SHA-256
-`0d45399cb3e23aa37d34f1f82c02dc5ec77c29060e49eeae75d7a6ab72512093`. This
-selected comparison did not check full-suite regressions. Reports and receipts
-remain under ignored `build/parity/coverage/fault-contract-base-http-20261005/`.
+`0d45399cb3e23aa37d34f1f82c02dc5ec77c29060e49eeae75d7a6ab72512093`.
+This selected comparison did not check full-suite regressions. Reports and
+receipts remain under ignored
+`build/parity/coverage/starlette-partial-async-20261005/`.
 
 The latest clean full-slice preflight
 `46eab00f-c97e-443c-9e64-5e6f98dcd7c5` selected 1,177 profile comparisons:
@@ -193,8 +197,8 @@ correctness-gated benchmark `d0bba2ec-079e-4d21-822e-e0ddbf0133ef` measured all
 non-equivalent ASGI boundary. The full Starlette compatibility denominator
 remains incomplete.
 
-The generated coverage matrix contains 804 source rows: 662 input mappings,
-51 reasoned `not_applicable` rows, and 91 fixture-backlog rows. These changing
+The generated coverage matrix contains 804 source rows: 663 input mappings,
+51 reasoned `not_applicable` rows, and 90 fixture-backlog rows. These changing
 counts are derived from the generated atlas CSV files. The pinned denominator remains 514 upstream test
 functions and 24 documented pages. Four Rust-native `not_run` rows remain for
 synchronous Request endpoints, bound methods, partials, and callable-instance
@@ -214,8 +218,8 @@ success and failure, and callable instances dispatched as ASGI apps with
 success and failure observations. Exact parity for these selected inputs does
 not establish all callable or exception behavior.
 
-The current coverage matrix has 804 source rows: 662 input mappings,
-51 source-backed `not_applicable` rows, and 91 fixture-backlog rows, as
+The current coverage matrix has 804 source rows: 663 input mappings,
+51 source-backed `not_applicable` rows, and 90 fixture-backlog rows, as
 reported by the generated atlas. The compatibility objective remains active and incomplete. See
 [Migration parity contract and evidence](../PARITY.md) for run evidence.
 

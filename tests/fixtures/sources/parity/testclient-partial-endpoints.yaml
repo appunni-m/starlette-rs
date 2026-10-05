@@ -1,0 +1,97 @@
+{
+  "schema": "migration-parity/parity-input@42",
+  "cases": [
+    {
+      "case_id": "starlette.testclient.TestClient.request-response.routed-async-endpoint-partial",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "request-response",
+      "covers": [
+        "starlette.testclient.TestClient.request-response.scope-projection",
+        "starlette.testclient.TestClient.request-response.response-and-debug",
+        "starlette.testclient.TestClient.request-response.follow-up-request-sequence",
+        "starlette.testclient.TestClient.request-response.routed-async-endpoint-partial"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "request-response"
+      ],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": [
+          "testclient",
+          50000
+        ],
+        "headers": []
+      },
+      "request": {
+        "method": "GET",
+        "client_method": "get",
+        "url": "/partial",
+        "headers_base64_pairs": [],
+        "body_base64": ""
+      },
+      "followup_requests": [
+        {
+          "method": "GET",
+          "client_method": "get",
+          "url": "/partial/cls",
+          "headers_base64_pairs": [],
+          "body_base64": ""
+        }
+      ],
+      "asgi_app": {
+        "kind": "starlette-partial-route-graph",
+        "scope_fields": [
+          "type",
+          "method",
+          "path",
+          "root_path"
+        ],
+        "routes": [
+          {
+            "kind": "mount-routes",
+            "path": "/partial",
+            "name": "partial",
+            "routes": [
+              {
+                "kind": "route",
+                "path": "/",
+                "name": "partial-function",
+                "methods": [
+                  "GET",
+                  "HEAD"
+                ],
+                "endpoint": {
+                  "kind": "async-partial-json",
+                  "callable_shape": "function",
+                  "bound_value": "foo",
+                  "response_key": "arg"
+                }
+              },
+              {
+                "kind": "route",
+                "path": "/cls",
+                "name": "partial-classmethod",
+                "methods": [
+                  "GET",
+                  "HEAD"
+                ],
+                "endpoint": {
+                  "kind": "async-partial-json",
+                  "callable_shape": "bound-classmethod",
+                  "bound_value": "foo",
+                  "response_key": "arg"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -17,7 +17,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-PARITY_INPUT_SCHEMA = "migration-parity/parity-input@41"
+PARITY_INPUT_SCHEMA = "migration-parity/parity-input@42"
 REQUEST_SCHEMA = "starlette-rs-benchmark-worker-request@1"
 RESULT_SCHEMA = "starlette-rs-benchmark-worker-result@1"
 

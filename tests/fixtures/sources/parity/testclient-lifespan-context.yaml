@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@41",
+  "schema": "migration-parity/parity-input@42",
   "cases": [
     {
       "case_id": "starlette.testclient.TestClient.lifespan-context.normal-managed-cycle",

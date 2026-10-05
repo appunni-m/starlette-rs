@@ -210,7 +210,7 @@
   ],
   "interfaces": {
     "parity": {
-      "input_schema": "migration-parity/parity-input@41",
+      "input_schema": "migration-parity/parity-input@42",
       "result_schema": "migration-parity/parity-result@6",
       "command_id": "parity"
     },
@@ -350,6 +350,7 @@
       "build/parity/inputs/parity/websocket-endpoint-dispatch.json",
       "build/parity/inputs/parity/http-endpoint-dispatch.json",
       "build/parity/inputs/parity/testclient-http.json",
+      "build/parity/inputs/parity/testclient-partial-endpoints.json",
       "build/parity/inputs/parity/fault-contracts.json",
       "build/parity/inputs/parity/testclient-websocket.json",
       "build/parity/inputs/parity/testclient-websocket-bytes.json",
@@ -23262,6 +23263,17 @@
               "id": "starlette.testclient.TestClient.request-response.routed-sync-endpoint-worker-thread",
               "dimension": "boundary",
               "description": "Verify that the synchronous endpoint used by TestClient runs exactly once on an AnyIO worker thread. Upstream: starlette/routing.py::request_response; starlette/concurrency.py::run_in_threadpool; tests/test_applications.py::test_func_route.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.request-response.routed-async-endpoint-partial",
+              "dimension": "boundary",
+              "description": "Run a Route endpoint wrapped in functools.partial for both an async function and a bound async class method through TestClient, preserving both live JSON responses. Pinned source: tests/test_routing.py::test_partial_async_endpoint; starlette/routing.py::request_response; starlette/_utils.py::is_async_callable.",
               "lanes": [
                 "parity"
               ],

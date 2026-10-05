@@ -31,7 +31,7 @@ from .fault_contracts import (
 )
 
 MANIFEST_SCHEMA = "migration-parity/manifest@4"
-INPUT_SCHEMA = "migration-parity/parity-input@41"
+INPUT_SCHEMA = "migration-parity/parity-input@42"
 BENCHMARK_INPUT_SCHEMA = "migration-parity/benchmark-input@1"
 RESULT_SCHEMA = "migration-parity/parity-result@6"
 BENCHMARK_RESULT_SCHEMA = "migration-parity/benchmark-result@1"
@@ -208,6 +208,7 @@ TESTCLIENT_REQUIREMENTS = {
     "sync_route_get": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.routed-sync-endpoint-get",
     "sync_route_head": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.routed-sync-endpoint-head",
     "sync_route_worker_thread": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.routed-sync-endpoint-worker-thread",
+    "partial_async_route": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.routed-async-endpoint-partial",
     "nested_testclient": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.nested-testclient-from-sync-endpoint",
     "base_url_path_merge": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.base-url-path-prefix-merge",
     "app_debug_mutation": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.application-debug-mutation",
@@ -10961,6 +10962,7 @@ def _validate_testclient_case(
     is_sync_route = app_kind == "starlette-route"
     is_nested_testclient = app_kind == "starlette-nested-testclient"
     is_starlette_route_graph = app_kind == "starlette-route-graph"
+    is_starlette_partial_route_graph = app_kind == "starlette-partial-route-graph"
     is_starlette_protocol_switch = app_kind == "starlette-protocol-switch"
     is_starlette_url_for_route_graph = app_kind in {
         "starlette-url-for-route-graph",
@@ -11080,6 +11082,7 @@ def _validate_testclient_case(
             or is_sync_route
             or is_nested_testclient
             or is_starlette_route_graph
+            or is_starlette_partial_route_graph
             or is_starlette_url_for_route_graph
         ):
             raise ContractError(
@@ -11654,7 +11657,11 @@ def _validate_testclient_case(
             )
         exception_spec = None
         messages = []
-    elif is_starlette_route_graph or is_starlette_url_for_route_graph:
+    elif (
+        is_starlette_route_graph
+        or is_starlette_partial_route_graph
+        or is_starlette_url_for_route_graph
+    ):
         asgi_app = _exact(
             raw_asgi_app,
             {"kind", "routes", "scope_fields"},
@@ -11683,6 +11690,7 @@ def _validate_testclient_case(
 
         route_kinds: set[str] = set()
         protocol_route_paths: dict[str, list[str]] = {"route": [], "websocket-route": []}
+        partial_route_paths: set[str] = set()
 
         route_names: set[str] = set()
         requested_route_names: list[str] = []
@@ -11724,6 +11732,7 @@ def _validate_testclient_case(
             value: Any,
             context: str,
             namespace: tuple[str, ...] = (),
+            path_prefix: str = "",
         ) -> None:
             if not isinstance(value, list) or not value:
                 raise ContractError(f"{context} must be a non-empty route array")
@@ -11760,7 +11769,39 @@ def _validate_testclient_case(
                     route_names.add(":".join((*namespace, route_name)))
                     if is_starlette_protocol_switch:
                         protocol_route_paths["route"].append(route_path)
-                    if is_starlette_url_for_route_graph:
+                    if is_starlette_partial_route_graph:
+                        endpoint = _exact(
+                            route["endpoint"],
+                            {"kind", "callable_shape", "bound_value", "response_key"},
+                            f"{route_context}.endpoint",
+                        )
+                        callable_shape = endpoint["callable_shape"]
+                        if endpoint["kind"] != "async-partial-json" or callable_shape not in {
+                            "function",
+                            "bound-classmethod",
+                        }:
+                            raise ContractError(
+                                f"{route_context}.endpoint must describe an async partial callable"
+                            )
+                        try:
+                            json.dumps(endpoint["bound_value"], allow_nan=False)
+                        except (TypeError, ValueError) as exc:
+                            raise ContractError(
+                                f"{route_context}.endpoint.bound_value must be JSON-compatible"
+                            ) from exc
+                        if not _string(
+                            endpoint["response_key"], f"{route_context}.endpoint.response_key"
+                        ):
+                            raise ContractError(
+                                f"{route_context}.endpoint.response_key must be non-empty"
+                            )
+                        path = (
+                            path_prefix.rstrip("/")
+                            if route_path == "/" and path_prefix
+                            else f"{path_prefix.rstrip('/')}{route_path}"
+                        )
+                        partial_route_paths.add(path or "/")
+                    elif is_starlette_url_for_route_graph:
                         validate_url_for_endpoint(route["endpoint"], f"{route_context}.endpoint")
                     else:
                         validate_scope_json_endpoint(
@@ -11831,6 +11872,7 @@ def _validate_testclient_case(
                         mount["routes"],
                         f"{route_context}.routes",
                         (*namespace, mount_name),
+                        f"{path_prefix.rstrip('/')}{mount_path}",
                     )
                 elif route_kind == "mount-asgi":
                     if is_starlette_url_for_route_graph:
@@ -11856,6 +11898,7 @@ def _validate_testclient_case(
             (
                 not settings["root_path"].startswith("/")
                 and not (is_starlette_protocol_switch and settings["root_path"] == "")
+                and not (is_starlette_partial_route_graph and settings["root_path"] == "")
             )
             or not isinstance(asgi_app["scope_fields"], list)
             or any(not isinstance(field, str) for field in asgi_app["scope_fields"])
@@ -11874,12 +11917,31 @@ def _validate_testclient_case(
                     or protocol_route_paths["route"] != protocol_route_paths["websocket-route"]
                 )
             )
+            or (
+                is_starlette_partial_route_graph
+                and (
+                    "route" not in route_kinds
+                    or not route_kinds <= {"route", "mount-routes"}
+                    or not partial_route_paths
+                    or settings["root_path"] != ""
+                )
+            )
         ):
             raise ContractError(
                 "TestClient Starlette route graph requires its source route kinds, an absolute root_path, and observable request scope"
             )
         requests = [request, *followup_requests]
-        if is_starlette_url_for_route_graph:
+        if is_starlette_partial_route_graph:
+            invalid_request_sequence = any(
+                item["method"] != "GET"
+                or item.get("client_method") != "get"
+                or item["headers_base64_pairs"]
+                or base64.b64decode(item["body_base64"])
+                or urlsplit(item["url"]).query
+                or urlsplit(item["url"]).path not in partial_route_paths
+                for item in requests
+            )
+        elif is_starlette_url_for_route_graph:
             if any(requested_name not in route_names for requested_name in requested_route_names):
                 raise ContractError(
                     "TestClient request.url_for route names must resolve within the input route graph"
@@ -12482,6 +12544,15 @@ def _validate_testclient_case(
         expected_covers.add(TESTCLIENT_REQUIREMENTS["root_path_route_graph"])
         expected_covers.add(TESTCLIENT_REQUIREMENTS["request_sequence"])
         expected_covers.add(TESTCLIENT_REQUIREMENTS["response"])
+    if is_starlette_partial_route_graph:
+        expected_covers.update(
+            {
+                TESTCLIENT_REQUIREMENTS["scope"],
+                TESTCLIENT_REQUIREMENTS["partial_async_route"],
+                TESTCLIENT_REQUIREMENTS["request_sequence"],
+                TESTCLIENT_REQUIREMENTS["response"],
+            }
+        )
     if is_starlette_url_for_route_graph:
         if is_starlette_protocol_switch:
             expected_covers.add(TESTCLIENT_REQUIREMENTS["protocol_switch_http"])
