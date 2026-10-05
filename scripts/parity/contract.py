@@ -31077,16 +31077,117 @@ def _validate_value_lifetime_case(case: dict[str, Any]) -> None:
         keys.add("filename")
     if name == "UploadFile" and "io_actions" in case["construction"]:
         keys |= {"io_actions", "size_callback"}
+        if "capture_errors" in case["construction"]:
+            keys.add("capture_errors")
+    if name == "UploadFile" and "worker_operation" in case["construction"]:
+        keys |= {"worker_operation", "rolled"}
     spec = _exact(case["construction"], keys, "Public value lifetime construction")
-    for key in keys - {"pair_count", "io_actions", "size_callback"}:
+    for key in keys - {
+        "pair_count",
+        "io_actions",
+        "size_callback",
+        "worker_operation",
+        "rolled",
+        "capture_errors",
+    }:
         _string(spec[key], f"Public value lifetime {key}")
+    if "capture_errors" in spec and type(spec["capture_errors"]) is not bool:
+        raise ContractError("Public upload capture_errors must be boolean")
+    if "worker_operation" in spec:
+        if "io_actions" in spec or type(spec["rolled"]) is not bool:
+            raise ContractError(
+                "Upload worker inputs select one worker operation and boolean rolled state"
+            )
+        worker_keys = {
+            "backend",
+            "cancellation",
+            "method",
+            "arguments",
+            "watchdog_seconds",
+            "injected_error",
+        }
+        if case["construction"]["worker_operation"].get("cancellation") == "asyncio-task":
+            worker_keys.add("cancel_message")
+        worker = _exact(spec["worker_operation"], worker_keys, "Upload worker operation")
+        if worker["backend"] not in {"asyncio", "trio"} or worker["cancellation"] not in {
+            "anyio-scope",
+            "asyncio-task",
+        }:
+            raise ContractError(
+                "Upload workers select supported backend and cancellation mechanism"
+            )
+        if worker["cancellation"] == "asyncio-task":
+            if worker["backend"] != "asyncio":
+                raise ContractError("Raw asyncio task cancellation requires the asyncio backend")
+            _string(worker["cancel_message"], "Upload task cancel_message")
+        if (
+            type(worker["watchdog_seconds"]) not in {int, float}
+            or not 0.1 <= worker["watchdog_seconds"] <= 5
+        ):
+            raise ContractError("Upload worker watchdog_seconds must be between 0.1 and 5")
+        arguments = worker["arguments"]
+        if not isinstance(arguments, list) or worker["method"] not in {
+            "read",
+            "write",
+            "seek",
+            "close",
+        }:
+            raise ContractError("Upload workers select a file operation and argument sequence")
+        if worker["method"] == "close":
+            if arguments:
+                raise ContractError("Upload close worker accepts no arguments")
+        elif len(arguments) != 1:
+            raise ContractError("Upload read/write/seek workers accept one input argument")
+        elif worker["method"] == "write":
+            try:
+                base64.b64decode(arguments[0], validate=True)
+            except (ValueError, TypeError, base64.binascii.Error) as exc:
+                raise ContractError("Upload worker write data must be valid base64") from exc
+        elif type(arguments[0]) is not int or arguments[0] < (
+            -1 if worker["method"] == "read" else 0
+        ):
+            raise ContractError("Upload worker read/seek argument must be a valid integer")
+        if worker["injected_error"] is not None:
+            error = _exact(
+                worker["injected_error"], {"class", "message"}, "Upload worker user exception"
+            )
+            if error["class"] not in {"OSError", "RuntimeError"}:
+                raise ContractError("Upload worker user exception selects OSError or RuntimeError")
+            _string(error["message"], "Upload worker user exception message")
     if "io_actions" in spec:
         callback = _exact(
             spec["size_callback"],
             {"initial", "read_attributes"}
-            | ({"replace_file"} if "replace_file" in spec["size_callback"] else set()),
+            | ({"replace_file", "inplace"} & spec["size_callback"].keys()),
             "Upload size callback",
         )
+        if "inplace" in callback:
+            inplace = _exact(
+                callback["inplace"],
+                {"result", "extra_increment"}
+                | ({"failure"} if callback["inplace"].get("result") == "raise" else set()),
+                "Upload inplace callback",
+            )
+            if (
+                inplace["result"] not in {"self", "computed", "not-implemented", "none", "raise"}
+                or type(inplace["extra_increment"]) is not int
+            ):
+                raise ContractError(
+                    "Upload inplace callback selects a result kind and integer extra_increment"
+                )
+            if inplace["result"] != "computed" and inplace["extra_increment"] != 0:
+                raise ContractError("Non-computed Upload inplace callbacks use no extra increment")
+            if inplace["result"] == "raise":
+                failure = _exact(
+                    inplace["failure"], {"class", "message"}, "Upload arithmetic failure"
+                )
+                if failure["class"] not in {"OSError", "RuntimeError"} or not spec.get(
+                    "capture_errors", False
+                ):
+                    raise ContractError(
+                        "Upload arithmetic failure selects a supported exception and captures public errors"
+                    )
+                _string(failure["message"], "Upload arithmetic failure message")
         if "replace_file" in callback:
             replacement = _exact(
                 callback["replace_file"], {"value_text", "rolled"}, "Upload callback replacement"

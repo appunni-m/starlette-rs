@@ -1192,10 +1192,16 @@ impl UploadFileMachine {
                     .as_ref()
                     .map(|size| size.clone_ref(py));
                 if let Some(size) = size {
-                    // User int subclasses can reenter UploadFile from __add__.
-                    // Preserve Python assignment ordering without a native borrow.
-                    let updated = size.bind(py).add(PyInt::new(py, data_length))?.unbind();
-                    let previous = upload_state_mut(py, &self.shared)?.size.replace(updated);
+                    // User int subclasses can define __iadd__, return themselves
+                    // or None, and reenter UploadFile. CPython owns dispatch;
+                    // release the native borrow before arithmetic and old-value drop.
+                    let updated = py
+                        .import("operator")?
+                        .getattr("iadd")?
+                        .call1((size.bind(py), PyInt::new(py, data_length)))?;
+                    let updated = (!updated.is_none()).then(|| updated.unbind());
+                    let previous =
+                        std::mem::replace(&mut upload_state_mut(py, &self.shared)?.size, updated);
                     drop(previous);
                 }
                 // Python size arithmetic can replace the public backing file.

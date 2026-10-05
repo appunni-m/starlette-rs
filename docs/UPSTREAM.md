@@ -57,3 +57,9 @@ The four further UploadFile ownership inputs author backing-file replacement
 from a user integer arithmetic callback. They derive observable ordering from
 the pinned `UploadFile.write` implementation and use public file/size access;
 no upstream test body or expected byte output is copied.
+
+The UploadFile in-place arithmetic and worker cancellation definitions are
+authored from the pinned public write/read/seek/close methods and
+`starlette.concurrency.run_in_threadpool`. User integer/file subclasses and
+cancellation barriers are new public-consumer stimuli; no upstream test body
+or expected result is copied.

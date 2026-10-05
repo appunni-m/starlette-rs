@@ -5292,7 +5292,7 @@
           },
           "source": {
             "oracle_id": "starlette-python",
-            "path": "starlette.datastructures.UploadFile.__init__, UploadFile.write, and public value access",
+            "path": "starlette.datastructures.UploadFile.__init__, UploadFile.write/read/seek/close, and public value access",
             "signature": "Construct an input-defined public container with user-owned value cycles; observe public value identity, retention, finalizers, file close, and unraisable errors before and after caller or worker collection.",
             "parameters": [
               {
@@ -5352,7 +5352,7 @@
             },
             {
               "target_id": "python-package",
-              "path": "starlette.datastructures.UploadFile.__init__, UploadFile.write, and public value access",
+              "path": "starlette.datastructures.UploadFile.__init__, UploadFile.write/read/seek/close, and public value access",
               "signature": "Public package objects retain and expose user-owned values while Rust owns container semantics.",
               "support": {
                 "status": "supported"

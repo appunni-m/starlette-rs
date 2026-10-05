@@ -139,7 +139,7 @@
         },
         {
           "operation_id": "ownership-graph",
-          "source_path": "starlette.datastructures.UploadFile.__init__, UploadFile.write, and public value access"
+          "source_path": "starlette.datastructures.UploadFile.__init__, UploadFile.write/read/seek/close, and public value access"
         }
       ]
     },

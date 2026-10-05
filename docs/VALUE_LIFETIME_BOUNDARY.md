@@ -5,7 +5,7 @@
 The compatibility authority is Starlette 1.6.0 at
 `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`.
 [`public-value-lifetime.yaml`](../tests/fixtures/sources/parity/public-value-lifetime.yaml)
-contains 28 cases for ImmutableMultiDict, MultiDict, Headers, MutableHeaders,
+contains 60 cases for ImmutableMultiDict, MultiDict, Headers, MutableHeaders,
 FormData, UploadFile, State, CommaSeparatedStrings, and URL. Two UploadFile
 cases drive input-defined writes with an integer-subclass size callback that
 reads public size/file/filename/headers attributes during arithmetic.
@@ -155,3 +155,47 @@ for GZip; source was faster in 5/6
 Router and 56/68 GZip workloads.
 These are local workload measurements. Benchmark SHA-256: `0172bbd458c5647b155d93a365ab4148f7f41c988e38f3cb5d4dff44efc23d07`.
 See [Benchmark mapping](BENCHMARKS.md) for the generated evidence and limitations.
+
+## In-place arithmetic and worker cancellation inputs
+
+Fourteen further UploadFile inputs supply an integer subclass with __iadd__. Its
+input-selected behavior returns a computed integer, the original object,
+NotImplemented or None, or raises a user exception; computed results use an input integer adjustment. Replacement
+file variants preserve the earlier memory/worker and caller/worker collection
+boundaries. Public size observations are converted to integers, while identity
+is recorded separately, so the result observer does not retain a user size
+object after releasing the public container.
+
+Eighteen further inputs drive public read/write/seek/close calls against a
+user file whose rolled state is supplied in construction. A user method signals
+entry, waits for the consumer's release barrier, then returns or raises the
+input-selected exception. Asyncio and Trio AnyIO-scope cancellation variants
+record shielded completion, scope flags, user-error identity, arguments and
+cause/context categories. Raw asyncio Task.cancel variants supply a cancellation
+message and observe the await outcome before releasing the worker. A bounded
+input watchdog releases stalled I/O and remains visible in the result; it never
+selects or manufactures a passing outcome.
+
+The consumer waits for user I/O completion before loop teardown and collection.
+Asyncio's user worker is joined after loop exit; Trio owns its persistent worker
+cache, which is not modified by the consumer. Byte returns, file closure, size,
+write targets, callback events, weak references, every finalizer, unraisable
+error, and warning remain live observations. Input-defined user file exceptions
+are normal oracle parity cases. The two target-only route-cache fault contracts
+continue as controls. The runtime Python facade is unchanged.
+
+The extended live reproduction `b8317c14-c382-4f0b-a93a-547a865a5e46` failed all
+14 new arithmetic comparisons. Its 18 worker cases, normal route-cache control,
+and both fault contracts passed, with no infrastructure errors or skipped rows.
+Every worker source observation released both user objects after collection and
+reported no unraisable errors. Rust now calls CPython's in-place operator through
+the safe PyO3 pattern already used for body-limit arithmetic. Rust keeps the
+state/assignment and I/O policy; Python's own object protocol performs numeric
+subclass dispatch. No Python algorithm or runtime facade is added. A None result
+is stored as the existing absent size state so subsequent writes skip arithmetic.
+User exceptions propagate before assignment and file-policy selection, and old
+values still drop after the native borrow is released.
+
+Selected verification `ce4f9633-2558-41e5-bf8d-1cb088292116` passed 102/102 ordinary package comparisons and both fault contracts with zero failures, infrastructure errors or not-run selected rows. It includes all 32 new inputs, every earlier Request/value lifetime input, the existing upload rollover workflow and both FormData constructor cases. Result SHA-256: `4bb88e662745f3a34b39009b4195a9753e048506ceed3b6412366aa42cb7e86f`; normal package tree: `6fd042132fec89afac089aca463dc2802844f176daf091ba64bea8d06700848d`. All new arithmetic and worker observations remain exact.
+
+Coverage MCP verified 3 additional Rust lines on matching source/build receipts. The baseline selected all six earlier arithmetic/replacement inputs plus upload rollover and the normal/fault route-cache controls. The batch selected the 32 new inputs with those same route-cache controls. Both live selections passed: baseline 3,167/24,942, batch 3,089/24,942, union 3,170/24,942. This is selected incremental coverage, with full-suite regression status unknown. Receipts and reports remain ignored under `build/parity/coverage/upload-operation-lifetime-20261005/`.

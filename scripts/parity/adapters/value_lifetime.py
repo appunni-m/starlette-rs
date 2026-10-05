@@ -13,6 +13,7 @@ from typing import Any
 
 from scripts.parity.adapters.ownership_cleanup import observe_ownership
 from scripts.parity.adapters.traceback_cleanup import TracebackCleanup
+from scripts.parity.adapters.upload_worker import UploadWorkerProbe
 
 
 def _graph(case: dict[str, Any], observer: TracebackCleanup) -> tuple[Any, ...]:
@@ -21,6 +22,13 @@ def _graph(case: dict[str, Any], observer: TracebackCleanup) -> tuple[Any, ...]:
     spec = case["construction"]
     events: list[Any] = []
     guard = observer.guard(spec["guard_label"])
+    inplace_error: BaseException | None = None
+    inplace_policy = spec.get("size_callback", {}).get("inplace", {})
+    if "failure" in inplace_policy:
+        error_input = inplace_policy["failure"]
+        exception_type = {"OSError": OSError, "RuntimeError": RuntimeError}[error_input["class"]]
+        inplace_error = exception_type(error_input["message"])
+        inplace_error.guard = guard
 
     def finalized() -> None:
         observer.finalizers.append(
@@ -46,7 +54,17 @@ def _graph(case: dict[str, Any], observer: TracebackCleanup) -> tuple[Any, ...]:
             super().__init__((spec["value_text"] if text is None else text).encode("utf-8"))
             self.guard = guard
             self.peer: Any = None
-            self._rolled = False
+            self._rolled = spec.get("rolled", False)
+
+        def worker_call(self, method: str, operation: Any) -> Any:
+            probe = getattr(self, "worker_probe", None)
+            return operation() if probe is None else probe.call(method, operation)
+
+        def read(self, size: int = -1) -> bytes:
+            return self.worker_call("read", lambda: super(UserFile, self).read(size))
+
+        def seek(self, offset: int, whence: int = 0) -> int:
+            return self.worker_call("seek", lambda: super(UserFile, self).seek(offset, whence))
 
         def write(self, data: bytes) -> int:
             if "replace_file" in spec.get("size_callback", {}):
@@ -58,7 +76,7 @@ def _graph(case: dict[str, Any], observer: TracebackCleanup) -> tuple[Any, ...]:
                         "data_base64": base64.b64encode(data).decode("ascii"),
                     }
                 )
-            return super().write(data)
+            return self.worker_call("write", lambda: super(UserFile, self).write(data))
 
         def close(self) -> None:
             events.append(
@@ -68,7 +86,7 @@ def _graph(case: dict[str, Any], observer: TracebackCleanup) -> tuple[Any, ...]:
                     "already_closed": self.closed,
                 }
             )
-            super().close()
+            self.worker_call("close", lambda: super(UserFile, self).close())
 
         def __del__(self) -> None:
             finalized()
@@ -101,6 +119,30 @@ def _graph(case: dict[str, Any], observer: TracebackCleanup) -> tuple[Any, ...]:
                 )
             return int(self) + increment
 
+    if "inplace" in spec.get("size_callback", {}):
+
+        def inplace_add(self: UserSize, increment: Any) -> Any:
+            events.append(
+                {
+                    "event": "size-inplace-add",
+                    "operand": int(self),
+                    "increment": int(increment),
+                }
+            )
+            policy = spec["size_callback"]["inplace"]
+            if policy["result"] == "not-implemented":
+                return NotImplemented
+            if policy["result"] == "raise":
+                raise inplace_error
+            value = self.__add__(increment)
+            if policy["result"] == "self":
+                return self
+            if policy["result"] == "none":
+                return None
+            return value + policy["extra_increment"]
+
+        UserSize.__iadd__ = inplace_add
+
     class UserText(str):
         pass
 
@@ -117,6 +159,7 @@ def _graph(case: dict[str, Any], observer: TracebackCleanup) -> tuple[Any, ...]:
         upload = datastructures.UploadFile(holder, filename=spec["filename"])
         if "size_callback" in spec:
             upload.size = UserSize(spec["size_callback"]["initial"])
+            original_size = upload.size
         if name == "UploadFile":
             container = upload
             public = {"file_identity": container.file is holder, "filename": container.filename}
@@ -161,18 +204,43 @@ def _graph(case: dict[str, Any], observer: TracebackCleanup) -> tuple[Any, ...]:
             else:
                 raise ValueError("Unsupported public value lifetime constructor")
     holder.peer = container
+    if "worker_operation" in spec:
+        probe = UploadWorkerProbe(spec["worker_operation"], events, observer.caller_thread, guard)
+        holder.worker_probe = probe
+        public["worker_operation"] = probe.run(upload)
     if "io_actions" in spec:
 
         async def drive_io() -> list[Any]:
             observations = []
             for action in spec["io_actions"]:
                 arguments = [base64.b64decode(action["data_base64"], validate=True)]
-                result = await getattr(upload, action["method"])(*arguments)
-                observations.append({"method": action["method"], "result": result})
+                try:
+                    result = await getattr(upload, action["method"])(*arguments)
+                    observations.append({"method": action["method"], "result": result})
+                except Exception as error:
+                    if not spec.get("capture_errors", False):
+                        raise
+                    observations.append(
+                        {
+                            "method": action["method"],
+                            "error": {
+                                "class": f"{type(error).__module__}.{type(error).__qualname__}",
+                                "args": list(error.args),
+                                "message": str(error),
+                                "is_injected_error": error is inplace_error,
+                                "has_cause": error.__cause__ is not None,
+                                "has_context": error.__context__ is not None,
+                                "suppress_context": error.__suppress_context__,
+                            },
+                        }
+                    )
             return observations
 
         public["io_results"] = asyncio.run(drive_io())
-        public["size_after"] = upload.size
+        size_after = upload.size
+        public["size_after"] = None if size_after is None else int(size_after)
+        if "inplace" in spec["size_callback"]:
+            public["size_identity_preserved"] = upload.size is original_size
         if "replace_file" in spec["size_callback"]:
             public["original_file_bytes"] = base64.b64encode(holder.getvalue()).decode("ascii")
             public["current_file_bytes"] = base64.b64encode(upload.file.getvalue()).decode("ascii")
