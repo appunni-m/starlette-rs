@@ -3,6 +3,7 @@
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use pyo3::basic::CompareOp;
+use pyo3::class::gc::{PyTraverseError, PyVisit};
 use pyo3::create_exception;
 use pyo3::exceptions::{
     PyAssertionError, PyException, PyKeyError, PyModuleNotFoundError, PyRuntimeError,
@@ -12,8 +13,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyDict, PyList, PyModule, PyString, PyTuple};
 
 use crate::awaitable::{
-    AwaitableStateMachine, MachineAction, MachineResume, into_python_awaitable,
-    into_sendable_python_awaitable,
+    AwaitableStateMachine, MachineAction, MachineResume, into_sendable_python_awaitable,
 };
 
 create_exception!(_core, WebSocketUpgrade, PyException);
@@ -50,6 +50,24 @@ struct WebSocketTaskCallable {
 
 #[pymethods]
 impl WebSocketTaskCallable {
+    fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.runner)?;
+        visit.call(&self.app)?;
+        visit.call(&self.scope)?;
+        visit.call(&self.receive)?;
+        visit.call(&self.send)?;
+        visit.call(&self.signal_token)?;
+        Ok(())
+    }
+
+    fn __clear__(&mut self, py: Python<'_>) {
+        self.runner = py.None();
+        self.app = py.None();
+        self.receive = py.None();
+        self.send = py.None();
+        self.signal_token = py.None();
+    }
+
     fn __call__(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         into_sendable_python_awaitable(
             py,
@@ -82,6 +100,21 @@ impl WebSocketTaskMachine {
 }
 
 impl AwaitableStateMachine for WebSocketTaskMachine {
+    fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.runner)?;
+        visit.call(&self.app)?;
+        visit.call(&self.scope)?;
+        visit.call(&self.receive)?;
+        visit.call(&self.send)?;
+        visit.call(&self.signal_token)?;
+        visit.call(&self.failure_exception)?;
+        Ok(())
+    }
+
+    fn finalize_on_drop(&self) -> bool {
+        true
+    }
+
     fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
         match (self.phase, input) {
             (WebSocketTaskPhase::App, MachineResume::Start) => {
@@ -181,6 +214,24 @@ struct LifespanTaskCallable {
 
 #[pymethods]
 impl LifespanTaskCallable {
+    fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.runner)?;
+        visit.call(&self.app)?;
+        visit.call(&self.scope)?;
+        visit.call(&self.receive)?;
+        visit.call(&self.send)?;
+        visit.call(&self.completion_send)?;
+        Ok(())
+    }
+
+    fn __clear__(&mut self, py: Python<'_>) {
+        self.runner = py.None();
+        self.app = py.None();
+        self.receive = py.None();
+        self.send = py.None();
+        self.completion_send = py.None();
+    }
+
     fn __call__(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         into_sendable_python_awaitable(
             py,
@@ -215,6 +266,20 @@ impl LifespanTaskMachine {
 }
 
 impl AwaitableStateMachine for LifespanTaskMachine {
+    fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.runner)?;
+        visit.call(&self.app)?;
+        visit.call(&self.scope)?;
+        visit.call(&self.receive)?;
+        visit.call(&self.send)?;
+        visit.call(&self.completion_send)?;
+        Ok(())
+    }
+
+    fn finalize_on_drop(&self) -> bool {
+        true
+    }
+
     fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
         match (&self.phase, input) {
             (LifespanTaskPhase::App, MachineResume::Start) => {
@@ -501,7 +566,7 @@ impl PyTestClientTransport {
 
 /// Internal transport signal used to return a Rust-owned WebSocket session
 /// through HTTPX's synchronous request path.
-#[pyclass(name = "_WebSocketTestSession", unsendable)]
+#[pyclass(name = "_WebSocketTestSession")]
 struct PyWebSocketTestSession {
     app: Py<PyAny>,
     runner: Py<PyAny>,
@@ -826,6 +891,39 @@ impl PyWebSocketTestSession {
 
 #[pymethods]
 impl PyWebSocketTestSession {
+    fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.app)?;
+        visit.call(&self.runner)?;
+        visit.call(&self.scope)?;
+        visit.call(&self.shared_portal)?;
+        visit.call(&self.backend_options)?;
+        visit.call(&self.portal_manager)?;
+        visit.call(&self.portal)?;
+        visit.call(&self.client_to_app_send)?;
+        visit.call(&self.client_to_app_receive)?;
+        visit.call(&self.app_to_client_send)?;
+        visit.call(&self.app_to_client_receive)?;
+        visit.call(&self.task)?;
+        visit.call(&self.failure_signal_token)?;
+        visit.call(&self.extra_headers)?;
+        Ok(())
+    }
+
+    fn __clear__(&mut self, py: Python<'_>) {
+        self.app = py.None();
+        self.runner = py.None();
+        self.shared_portal = None;
+        self.portal_manager = None;
+        self.portal = None;
+        self.client_to_app_send = None;
+        self.client_to_app_receive = None;
+        self.app_to_client_send = None;
+        self.app_to_client_receive = None;
+        self.task = None;
+        self.failure_signal_token = None;
+        self.extra_headers = None;
+    }
+
     #[getter]
     fn accepted_subprotocol(&self) -> Option<String> {
         self.accepted_subprotocol.clone()
@@ -989,6 +1087,14 @@ struct TestClientSendMachine {
 }
 
 impl AwaitableStateMachine for TestClientReceiveMachine {
+    fn traverse(&self, _visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
+        Ok(())
+    }
+
+    fn finalize_on_drop(&self) -> bool {
+        true
+    }
+
     fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
         match input {
             MachineResume::Start => self.next_action(py),
@@ -1091,6 +1197,15 @@ enum TestClientReceiveSource {
 }
 
 impl AwaitableStateMachine for TestClientSendMachine {
+    fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.message)?;
+        Ok(())
+    }
+
+    fn finalize_on_drop(&self) -> bool {
+        true
+    }
+
     fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
         match input {
             MachineResume::Start => {
@@ -1110,7 +1225,7 @@ impl AwaitableStateMachine for TestClientSendMachine {
 #[pymethods]
 impl TestClientReceive {
     fn __call__(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        into_python_awaitable(
+        into_sendable_python_awaitable(
             py,
             TestClientReceiveMachine {
                 state: Arc::clone(&self.state),
@@ -1123,7 +1238,7 @@ impl TestClientReceive {
 #[pymethods]
 impl TestClientSend {
     fn __call__(&self, py: Python<'_>, message: Py<PyAny>) -> PyResult<Py<PyAny>> {
-        into_python_awaitable(
+        into_sendable_python_awaitable(
             py,
             TestClientSendMachine {
                 state: Arc::clone(&self.state),
@@ -1135,6 +1250,23 @@ impl TestClientSend {
 
 #[pymethods]
 impl PyTestClientTransport {
+    fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.app)?;
+        visit.call(&self.httpx)?;
+        visit.call(&self.asgi3_runner)?;
+        visit.call(&self.asgi2_runner)?;
+        visit.call(&self.backend_options)?;
+        visit.call(&self.app_state)?;
+        Ok(())
+    }
+
+    fn __clear__(&mut self, py: Python<'_>) {
+        self.app = py.None();
+        self.httpx = py.None();
+        self.asgi3_runner = py.None();
+        self.asgi2_runner = py.None();
+    }
+
     #[new]
     #[pyo3(signature = (app, httpx, runners, settings))]
     fn new(

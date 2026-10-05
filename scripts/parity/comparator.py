@@ -756,6 +756,48 @@ def _has_file_response_pathsend(value: Any, *, observation_path: str) -> bool:
     return False
 
 
+def _normalize_response_consumer_multipart(value: Any) -> Any:
+    events = value.get("asgi_events", [])
+    boundary = None
+    for event in events:
+        headers = event.get("headers", [])
+        pairs = [[part.get("base64", "") for part in pair] for pair in headers]
+        boundary = _multipart_boundary_from_headers(pairs)
+        if boundary is not None:
+            break
+    if boundary is None:
+        return value
+    result = dict(value)
+    for field in ("asgi_events", "retained_messages"):
+        if field not in result:
+            continue
+        normalized = []
+        for event in result[field]:
+            event = dict(event)
+            if "headers" in event:
+                pairs = [[part.get("base64", "") for part in pair] for pair in event["headers"]]
+                pairs = _normalize_multipart_boundary_headers(pairs, boundary)
+                event["headers"] = [
+                    [
+                        {**original, "base64": text}
+                        for original, text in zip(pair, replaced, strict=True)
+                    ]
+                    for pair, replaced in zip(event["headers"], pairs, strict=True)
+                ]
+            body = event.get("body")
+            if isinstance(body, dict) and body.get("type") == "bytes" and "base64" in body:
+                data = base64.b64decode(body["base64"], validate=True)
+                event["body"] = {
+                    **body,
+                    "base64": base64.b64encode(_normalize_multipart_body(data, boundary)).decode(
+                        "ascii"
+                    ),
+                }
+            normalized.append(event)
+        result[field] = normalized
+    return result
+
+
 def _normalize_response_consumer_file_root(value: Any, *, file_name: str, side: str) -> Any:
     """Replace only a validated adapter-generated root, retaining path suffixes."""
     if not isinstance(value, dict):
@@ -781,7 +823,7 @@ def _normalize_response_consumer_file_root(value: Any, *, file_name: str, side: 
             return {key: replace(child) for key, child in item.items()}
         return item
 
-    return replace(value)
+    return _normalize_response_consumer_multipart(replace(value))
 
 
 def _normalize_file_response_temp_path(
@@ -1070,7 +1112,7 @@ def compare_workflows(
                         right_field = _normalize_multipart_range_boundary(
                             path, right_field, observation=right_value
                         )
-                    elif kind == "response-consumer-file-root":
+                    elif kind == "response-consumer-file-environment":
                         if (case.get("surface"), case.get("operation"), path) != (
                             "starlette.responses.FileResponse",
                             "consumer-construction",

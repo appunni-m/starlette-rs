@@ -24,6 +24,23 @@ These independently execute against live source/package consumers; inputs have
 no expected output and dispatch does not depend on case IDs.
 
 The definitions are statically validated and unexecuted. Active iterator
-finalization, endpoint continuations, complete exception traceback lifetime,
+finalization, complete exception traceback lifetime,
 custom callback descriptors and cancellation across Python versions remain
 implementation review. This checkpoint makes no new parity or coverage claim.
+
+## Shared ASGI continuation implementation
+
+All ASGI families now use the Send/Sync native continuation driver, including
+endpoints, routing/lifespan, authentication, sessions, static files, WSGI, GZip,
+body limits and BaseHTTPMiddleware. Shared Python references live in GC-visible
+PyO3 holders; Rust-only iterator/response flags use atomics. No unsafe thread
+trait implementation is used, and Python callbacks remain on the driving event
+loop or the source-selected AnyIO worker.
+
+Endpoint dispatch retains request, handler and response values through the
+response call, reads live method values in source order, and preserves original
+callback StopAsyncIteration. WebSocket decode/disconnect failures retain original
+exception contexts. Two input-defined HTTP scope mappings observe repeated
+GET/HEAD method reads through the public endpoint ASGI interface. The integrated
+run must validate these changes; compiler thread traits alone are not parity
+evidence.

@@ -12887,6 +12887,100 @@
             "applicability": "not_applicable",
             "reason": "This input-only correctness slice declares no SessionMiddleware benchmark workload."
           }
+        },
+        {
+          "id": "module-import-policy",
+          "kind": "value_operation",
+          "classification": "non_endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.middleware.sessions module import and public consumer",
+            "signature": "Import the documented consumer module under input-selected dependency loader failures and warning filters.",
+            "parameters": [
+              {
+                "id": "imports",
+                "style": "option",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "import-policy",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "Python module dependency import policy belongs to the Python package consumer interface.",
+                "blocker": "The Rust-native API has no Python import loader interface."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.middleware.sessions",
+              "signature": "Import the documented consumer module under input-selected dependency loader failures and warning filters.",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.middleware.sessions.SessionMiddleware.module-import-policy.dependency-errors-and-selection",
+              "dimension": "error_path",
+              "description": "Preserve optional dependency selection, original import errors and public consumer outcomes. Pinned source: starlette/middleware/sessions.py; documented optional dependency requirements: docs/index.md.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "These input-only import consumers make no standalone measurement claim; the complete instrumented matrix is measured in the coverage phase."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "Import failure policy is outside the pinned upstream timing workloads."
+          }
         }
       ]
     },
@@ -15001,6 +15095,100 @@
             "applicability": "not_applicable",
             "reason": "Request ownership collection is outside the active Router/GZip timing workloads."
           }
+        },
+        {
+          "id": "module-import-policy",
+          "kind": "value_operation",
+          "classification": "non_endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.requests module import and public consumer",
+            "signature": "Import the documented consumer module under input-selected dependency loader failures and warning filters.",
+            "parameters": [
+              {
+                "id": "imports",
+                "style": "option",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "import-policy",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "Python module dependency import policy belongs to the Python package consumer interface.",
+                "blocker": "The Rust-native API has no Python import loader interface."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.requests",
+              "signature": "Import the documented consumer module under input-selected dependency loader failures and warning filters.",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.requests.Request.module-import-policy.dependency-errors-and-selection",
+              "dimension": "error_path",
+              "description": "Preserve optional dependency selection, original import errors and public consumer outcomes. Pinned source: starlette/requests.py; documented optional dependency requirements: docs/index.md.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "These input-only import consumers make no standalone measurement claim; the complete instrumented matrix is measured in the coverage phase."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "Import failure policy is outside the pinned upstream timing workloads."
+          }
         }
       ]
     },
@@ -15950,7 +16138,7 @@
                     "kind": "exact"
                   },
                   "normalization": {
-                    "kind": "response-consumer-file-root"
+                    "kind": "response-consumer-file-environment"
                   }
                 }
               ],
@@ -21651,6 +21839,100 @@
             "applicability": "not_applicable",
             "reason": "This behavior is outside the declared benchmark workloads."
           }
+        },
+        {
+          "id": "module-import-policy",
+          "kind": "value_operation",
+          "classification": "non_endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.schemas module import and public consumer",
+            "signature": "Import the documented consumer module under input-selected dependency loader failures and warning filters.",
+            "parameters": [
+              {
+                "id": "imports",
+                "style": "option",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "import-policy",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "Python module dependency import policy belongs to the Python package consumer interface.",
+                "blocker": "The Rust-native API has no Python import loader interface."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.schemas",
+              "signature": "Import the documented consumer module under input-selected dependency loader failures and warning filters.",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.schemas.BaseSchemaGenerator.module-import-policy.dependency-errors-and-selection",
+              "dimension": "error_path",
+              "description": "Preserve optional dependency selection, original import errors and public consumer outcomes. Pinned source: starlette/schemas.py; documented optional dependency requirements: docs/index.md.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "These input-only import consumers make no standalone measurement claim; the complete instrumented matrix is measured in the coverage phase."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "Import failure policy is outside the pinned upstream timing workloads."
+          }
         }
       ]
     },
@@ -21953,6 +22235,100 @@
           "benchmark": {
             "applicability": "not_applicable",
             "reason": "This behavior is outside the declared benchmark workloads."
+          }
+        },
+        {
+          "id": "module-import-policy",
+          "kind": "value_operation",
+          "classification": "non_endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.schemas module import and public consumer",
+            "signature": "Import the documented consumer module under input-selected dependency loader failures and warning filters.",
+            "parameters": [
+              {
+                "id": "imports",
+                "style": "option",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "import-policy",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "Python module dependency import policy belongs to the Python package consumer interface.",
+                "blocker": "The Rust-native API has no Python import loader interface."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.schemas",
+              "signature": "Import the documented consumer module under input-selected dependency loader failures and warning filters.",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.schemas.OpenAPIResponse.module-import-policy.dependency-errors-and-selection",
+              "dimension": "error_path",
+              "description": "Preserve optional dependency selection, original import errors and public consumer outcomes. Pinned source: starlette/schemas.py; documented optional dependency requirements: docs/index.md.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "These input-only import consumers make no standalone measurement claim; the complete instrumented matrix is measured in the coverage phase."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "Import failure policy is outside the pinned upstream timing workloads."
           }
         }
       ]

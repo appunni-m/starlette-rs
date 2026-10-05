@@ -77,6 +77,10 @@ pub(crate) fn header_from_arguments<'py>(
     args: &Bound<'py, PyTuple>,
     owner: Option<&Py<PyCookieCall>>,
 ) -> PyResult<CookieHeader<'py>> {
+    let supplied = args.get_item(1)?;
+    if supplied.is_instance(&py.import("http.cookies")?.getattr("Morsel")?)? {
+        return header_from_morsel(py, args, supplied, owner);
+    }
     let key = args.get_item(0)?;
     let value = args.get_item(1)?.str()?;
     retain(py, owner, value.as_any());
@@ -211,6 +215,109 @@ pub(crate) fn header_from_arguments<'py>(
     Ok(CookieHeader {
         text,
         _retained: retained,
+    })
+}
+
+fn header_from_morsel<'py>(
+    py: Python<'py>,
+    args: &Bound<'py, PyTuple>,
+    morsel: Bound<'py, PyAny>,
+    owner: Option<&Py<PyCookieCall>>,
+) -> PyResult<CookieHeader<'py>> {
+    // A supplied Morsel is mutable user representation. Source SimpleCookie
+    // stores that exact object without validating/replacing its key or value.
+    // Mutations invoke that object's mapping protocol; Rust owns their order,
+    // option selection and final cookie formatting, never OutputString/output.
+    retain(py, owner, &morsel);
+    let key = args.get_item(0)?;
+    let storage = PyDict::new(py);
+    storage.set_item(&key, &morsel)?;
+    for (index, name) in [(2, "max-age"), (3, "expires"), (4, "path"), (5, "domain")] {
+        let mut value = args.get_item(index)?;
+        if !value.is_none() {
+            if name == "expires"
+                && value.is_instance(&py.import("datetime")?.getattr("datetime")?)?
+            {
+                let kwargs = PyDict::new(py);
+                kwargs.set_item("usegmt", true)?;
+                value = py
+                    .import("email.utils")?
+                    .getattr("format_datetime")?
+                    .call((value,), Some(&kwargs))?;
+                retain(py, owner, &value);
+            }
+            storage.as_any().get_item(&key)?.set_item(name, value)?;
+        }
+    }
+    for (index, name) in [(6, "secure"), (7, "httponly")] {
+        if args.get_item(index)?.is_truthy()? {
+            storage.as_any().get_item(&key)?.set_item(name, true)?;
+        }
+    }
+    let samesite = args.get_item(8)?;
+    if !samesite.is_none() {
+        if !PyList::new(py, ["strict", "lax", "none"])?.contains(samesite.call_method0("lower")?)? {
+            return Err(PyAssertionError::new_err(
+                "samesite must be either 'strict', 'lax' or 'none'",
+            ));
+        }
+        storage
+            .as_any()
+            .get_item(&key)?
+            .set_item("samesite", samesite)?;
+    }
+    if args.get_item(9)?.is_truthy()? {
+        validate_partitioned_version(py, true)?;
+        storage
+            .as_any()
+            .get_item(&key)?
+            .set_item("partitioned", true)?;
+    }
+    let public_key = morsel.getattr("key")?;
+    let coded = morsel.getattr("coded_value")?;
+    let mut output = format_pair(py, &public_key, &coded)?;
+    let items = morsel.call_method0("items")?;
+    let mut attributes = Vec::new();
+    for item in items.try_iter()? {
+        let item = item?;
+        attributes.push((item.get_item(0)?.extract::<String>()?, item.get_item(1)?));
+    }
+    attributes.sort_by(|left, right| left.0.cmp(&right.0));
+    let labels = morsel.getattr("_reserved")?;
+    let flags = morsel.getattr("_flags")?;
+    for (name, value) in &attributes {
+        if value.eq("")? || !labels.contains(name)? {
+            continue;
+        }
+        let label = labels.get_item(name)?;
+        let formatted = if name == "expires" && value.is_instance_of::<PyInt>() {
+            py.import("http.cookies")?
+                .getattr("_getdate")?
+                .call1((value,))?
+        } else if name == "max-age" && value.is_instance_of::<PyInt>() {
+            PyString::new(py, "%d").call_method1("__mod__", (value,))?
+        } else if name == "comment" && value.is_instance_of::<PyString>() {
+            quote_value(py, value.cast::<PyString>()?)?
+        } else if flags.contains(name)? {
+            if value.is_truthy()? {
+                output.extend([u32::from(';'), u32::from(' ')]);
+                output.extend(python_string_to_codepoints(label.str()?.as_any())?);
+            }
+            continue;
+        } else {
+            value.clone()
+        };
+        output.extend([u32::from(';'), u32::from(' ')]);
+        output.extend(format_pair(py, &label, &formatted)?);
+    }
+    // SimpleCookie.output(header="") strips the completed header.
+    let text = codepoints_to_python_string(py, &output)?
+        .call_method0("strip")?
+        .cast::<PyString>()?
+        .clone();
+    Ok(CookieHeader {
+        text,
+        _retained: vec![morsel, public_key, coded, items],
     })
 }
 

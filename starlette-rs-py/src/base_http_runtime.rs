@@ -4,8 +4,9 @@
 //! are driven by the active Python task through `PythonAwaitable`; AnyIO supplies
 //! the backend-neutral task group and rendezvous streams used by `call_next`.
 
-use std::cell::RefCell;
-use std::rc::Rc;
+use std::ops::{Deref, DerefMut};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use pyo3::class::gc::{PyTraverseError, PyVisit};
 use pyo3::exceptions::{PyAssertionError, PyKeyError, PyRuntimeError, PyStopAsyncIteration};
@@ -14,11 +15,29 @@ use pyo3::sync::PyOnceLock;
 use pyo3::types::{PyBytes, PyDict, PyList, PyString, PyTuple};
 
 use crate::awaitable::{
-    AwaitableStateMachine, MachineAction, MachineResume, into_python_awaitable,
-    into_python_awaitable_with_reuse_error, into_sendable_python_awaitable,
+    AwaitableStateMachine, MachineAction, MachineResume, into_sendable_python_awaitable,
+    into_sendable_python_awaitable_with_reuse_error,
 };
 
-type SharedHeaders = Rc<RefCell<Vec<(Vec<u8>, Vec<u8>)>>>;
+type SharedHeaders = Py<HeaderValues>;
+
+#[pyclass]
+struct HeaderValues {
+    values: Vec<(Vec<u8>, Vec<u8>)>,
+}
+
+impl Deref for HeaderValues {
+    type Target = Vec<(Vec<u8>, Vec<u8>)>;
+    fn deref(&self) -> &Self::Target {
+        &self.values
+    }
+}
+
+impl DerefMut for HeaderValues {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.values
+    }
+}
 // Shared Python-owned nodes expose each owned reference once to Python GC.
 // Callbacks may survive their portal thread through a propagated traceback.
 type SharedCall = Py<BaseHTTPCallState>;
@@ -781,7 +800,7 @@ impl CallNextMachine {
         let response_info = self.info.take().or(info);
         let response = Py::new(
             py,
-            PyBaseHTTPResponse::new(status_code, raw_headers, response_info, stream),
+            PyBaseHTTPResponse::new(py, status_code, raw_headers, response_info, stream)?,
         )?;
         let wrapper = py
             .import("starlette.middleware.base")?
@@ -1193,7 +1212,7 @@ impl AwaitableStateMachine for SendNoErrorMachine {
     }
 }
 
-#[pyclass(unsendable)]
+#[pyclass]
 pub(crate) struct PyBaseHTTPResponse {
     status_code: u16,
     headers: SharedHeaders,
@@ -1203,22 +1222,39 @@ pub(crate) struct PyBaseHTTPResponse {
 
 impl PyBaseHTTPResponse {
     fn new(
+        py: Python<'_>,
         status_code: u16,
         raw_headers: Vec<(Vec<u8>, Vec<u8>)>,
         info: Option<Py<PyAny>>,
         receive_stream: Py<PyAny>,
-    ) -> Self {
-        Self {
+    ) -> PyResult<Self> {
+        Ok(Self {
             status_code,
-            headers: Rc::new(RefCell::new(raw_headers)),
+            headers: Py::new(
+                py,
+                HeaderValues {
+                    values: raw_headers,
+                },
+            )?,
             info,
             receive_stream,
-        }
+        })
     }
 }
 
 #[pymethods]
 impl PyBaseHTTPResponse {
+    fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.info)?;
+        visit.call(&self.receive_stream)?;
+        Ok(())
+    }
+
+    fn __clear__(&mut self, py: Python<'_>) {
+        self.info = None;
+        self.receive_stream = py.None();
+    }
+
     #[getter]
     fn status_code(&self) -> u16 {
         self.status_code
@@ -1235,8 +1271,8 @@ impl PyBaseHTTPResponse {
     }
 
     #[setter]
-    fn set_raw_headers(&mut self, value: Vec<(Vec<u8>, Vec<u8>)>) {
-        *self.headers.borrow_mut() = value;
+    fn set_raw_headers(&mut self, py: Python<'_>, value: Vec<(Vec<u8>, Vec<u8>)>) {
+        **self.headers.borrow_mut(py) = value;
     }
 
     #[getter]
@@ -1244,7 +1280,7 @@ impl PyBaseHTTPResponse {
         Py::new(
             py,
             PyBaseHTTPHeaders {
-                values: self.headers.clone(),
+                values: self.headers.clone_ref(py),
             },
         )
     }
@@ -1262,8 +1298,8 @@ impl PyBaseHTTPResponse {
             py,
             PyBaseHTTPBodyIterator {
                 receive_stream: self.receive_stream.clone_ref(py),
-                finished: Rc::new(RefCell::new(false)),
-                pending: Rc::new(RefCell::new(false)),
+                finished: Arc::new(AtomicBool::new(false)),
+                pending: Arc::new(AtomicBool::new(false)),
             },
         )
     }
@@ -1276,11 +1312,11 @@ impl PyBaseHTTPResponse {
         send: Py<PyAny>,
         background: Py<PyAny>,
     ) -> PyResult<Py<PyAny>> {
-        into_python_awaitable(
+        into_sendable_python_awaitable(
             py,
             BaseHTTPResponseCallMachine {
                 status_code: self.status_code,
-                headers: self.headers.clone(),
+                headers: self.headers.clone_ref(py),
                 info: self.info.as_ref().map(|value| value.clone_ref(py)),
                 receive_stream: self.receive_stream.clone_ref(py),
                 send,
@@ -1297,7 +1333,7 @@ impl PyBaseHTTPResponse {
     }
 }
 
-#[pyclass(unsendable)]
+#[pyclass]
 struct PyBaseHTTPHeaders {
     values: SharedHeaders,
 }
@@ -1306,7 +1342,7 @@ struct PyBaseHTTPHeaders {
 impl PyBaseHTTPHeaders {
     fn __getitem__(&self, py: Python<'_>, key: &str) -> PyResult<Py<PyAny>> {
         let key = key.to_ascii_lowercase().into_bytes();
-        let values = self.values.borrow();
+        let values = self.values.borrow(py);
         let value = values
             .iter()
             .rev()
@@ -1323,7 +1359,7 @@ impl PyBaseHTTPHeaders {
         let value = PyString::new(py, value)
             .call_method1("encode", ("latin-1",))?
             .extract::<Vec<u8>>()?;
-        let mut values = self.values.borrow_mut();
+        let mut values = self.values.borrow_mut(py);
         if let Some(first) = values
             .iter()
             .position(|(name, _)| name.eq_ignore_ascii_case(&key))
@@ -1344,9 +1380,9 @@ impl PyBaseHTTPHeaders {
         Ok(())
     }
 
-    fn __delitem__(&self, key: &str) -> PyResult<()> {
+    fn __delitem__(&self, py: Python<'_>, key: &str) -> PyResult<()> {
         let key = key.to_ascii_lowercase().into_bytes();
-        let mut values = self.values.borrow_mut();
+        let mut values = self.values.borrow_mut(py);
         let old_len = values.len();
         values.retain(|(name, _)| !name.eq_ignore_ascii_case(&key));
         if old_len == values.len() {
@@ -1355,16 +1391,16 @@ impl PyBaseHTTPHeaders {
         Ok(())
     }
 
-    fn __contains__(&self, key: &str) -> bool {
+    fn __contains__(&self, py: Python<'_>, key: &str) -> bool {
         let key = key.to_ascii_lowercase().into_bytes();
         self.values
-            .borrow()
+            .borrow(py)
             .iter()
             .any(|(name, _)| name.eq_ignore_ascii_case(&key))
     }
 
     fn __iter__(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        let values = self.values.borrow();
+        let values = self.values.borrow(py);
         let mut keys = Vec::<String>::new();
         for (name, _) in values.iter() {
             let key = String::from_utf8_lossy(name).to_ascii_lowercase();
@@ -1377,8 +1413,8 @@ impl PyBaseHTTPHeaders {
             .map(Bound::unbind)
     }
 
-    fn __len__(&self) -> usize {
-        let values = self.values.borrow();
+    fn __len__(&self, py: Python<'_>) -> usize {
+        let values = self.values.borrow(py);
         let mut keys = Vec::<Vec<u8>>::new();
         for (name, _) in values.iter() {
             if !keys
@@ -1392,7 +1428,7 @@ impl PyBaseHTTPHeaders {
     }
 
     fn items(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        let values = self.values.borrow();
+        let values = self.values.borrow(py);
         let result = PyList::empty(py);
         let mut keys = Vec::<Vec<u8>>::new();
         for (name, value) in values.iter() {
@@ -1416,15 +1452,24 @@ impl PyBaseHTTPHeaders {
     }
 }
 
-#[pyclass(unsendable)]
+#[pyclass]
 pub(crate) struct PyBaseHTTPBodyIterator {
     receive_stream: Py<PyAny>,
-    finished: Rc<RefCell<bool>>,
-    pending: Rc<RefCell<bool>>,
+    finished: Arc<AtomicBool>,
+    pending: Arc<AtomicBool>,
 }
 
 #[pymethods]
 impl PyBaseHTTPBodyIterator {
+    fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.receive_stream)?;
+        Ok(())
+    }
+
+    fn __clear__(&mut self, py: Python<'_>) {
+        self.receive_stream = py.None();
+    }
+
     fn __aiter__(slf: Py<Self>) -> Py<Self> {
         slf
     }
@@ -1435,7 +1480,7 @@ impl PyBaseHTTPBodyIterator {
         let finished = borrowed.finished.clone();
         let pending = borrowed.pending.clone();
         drop(borrowed);
-        into_python_awaitable(
+        into_sendable_python_awaitable(
             py,
             BodyIteratorMachine {
                 receive_stream,
@@ -1451,7 +1496,7 @@ impl PyBaseHTTPBodyIterator {
         let finished = borrowed.finished.clone();
         let pending = borrowed.pending.clone();
         drop(borrowed);
-        into_python_awaitable_with_reuse_error(
+        into_sendable_python_awaitable_with_reuse_error(
             py,
             BodyIteratorCloseMachine { finished, pending },
             "cannot reuse already awaited aclose()/athrow()",
@@ -1466,20 +1511,28 @@ impl PyBaseHTTPBodyIterator {
 /// The iterator can be closed only when an `__anext__` call is not currently
 /// awaiting a message, matching Python's asynchronous-generator protocol.
 struct BodyIteratorCloseMachine {
-    finished: Rc<RefCell<bool>>,
-    pending: Rc<RefCell<bool>>,
+    finished: Arc<AtomicBool>,
+    pending: Arc<AtomicBool>,
 }
 
 impl AwaitableStateMachine for BodyIteratorCloseMachine {
+    fn traverse(&self, _visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
+        Ok(())
+    }
+
+    fn finalize_on_drop(&self) -> bool {
+        true
+    }
+
     fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
         match input {
             MachineResume::Start => {
-                if *self.pending.borrow() {
+                if self.pending.load(Ordering::SeqCst) {
                     return Err(PyRuntimeError::new_err(
                         "aclose(): asynchronous generator is already running",
                     ));
                 }
-                *self.finished.borrow_mut() = true;
+                self.finished.store(true, Ordering::SeqCst);
                 Ok(MachineAction::Complete(py.None()))
             }
             MachineResume::Value(_) => Ok(MachineAction::Complete(py.None())),
@@ -1492,25 +1545,34 @@ impl AwaitableStateMachine for BodyIteratorCloseMachine {
 
 struct BodyIteratorMachine {
     receive_stream: Py<PyAny>,
-    finished: Rc<RefCell<bool>>,
-    pending: Rc<RefCell<bool>>,
+    finished: Arc<AtomicBool>,
+    pending: Arc<AtomicBool>,
     waiting: bool,
 }
 
 impl AwaitableStateMachine for BodyIteratorMachine {
+    fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.receive_stream)?;
+        Ok(())
+    }
+
+    fn finalize_on_drop(&self) -> bool {
+        true
+    }
+
     fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
         match input {
             MachineResume::Start => self.receive(py),
             MachineResume::Value(message) if self.waiting => {
                 self.waiting = false;
-                *self.pending.borrow_mut() = false;
+                self.pending.store(false, Ordering::SeqCst);
                 let message = message.bind(py).cast::<PyDict>()?;
                 let message_type = message
                     .get_item("type")?
                     .ok_or_else(|| PyKeyError::new_err("type"))?
                     .extract::<String>()?;
                 if message_type == "http.response.pathsend" {
-                    *self.finished.borrow_mut() = true;
+                    self.finished.store(true, Ordering::SeqCst);
                     return Ok(MachineAction::Complete(message.clone().into_any().unbind()));
                 }
                 if message_type != "http.response.body" {
@@ -1528,7 +1590,7 @@ impl AwaitableStateMachine for BodyIteratorMachine {
                     .transpose()?
                     .unwrap_or(false);
                 if !more_body {
-                    *self.finished.borrow_mut() = true;
+                    self.finished.store(true, Ordering::SeqCst);
                 }
                 if body.is_truthy()? {
                     return Ok(MachineAction::Complete(body.unbind()));
@@ -1541,8 +1603,8 @@ impl AwaitableStateMachine for BodyIteratorMachine {
             }
             MachineResume::AsyncIterationComplete(error) | MachineResume::Error(error) => {
                 if self.waiting && is_end_of_stream(py, &error)? {
-                    *self.finished.borrow_mut() = true;
-                    *self.pending.borrow_mut() = false;
+                    self.finished.store(true, Ordering::SeqCst);
+                    self.pending.store(false, Ordering::SeqCst);
                     Err(PyStopAsyncIteration::new_err(()))
                 } else {
                     Err(error)
@@ -1557,12 +1619,12 @@ impl AwaitableStateMachine for BodyIteratorMachine {
 
 impl BodyIteratorMachine {
     fn receive(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
-        if *self.finished.borrow() {
+        if self.finished.load(Ordering::SeqCst) {
             return Err(PyStopAsyncIteration::new_err(()));
         }
         let awaitable = self.receive_stream.bind(py).call_method0("receive")?;
         self.waiting = true;
-        *self.pending.borrow_mut() = true;
+        self.pending.store(true, Ordering::SeqCst);
         Ok(MachineAction::Await(awaitable.unbind()))
     }
 }
@@ -1598,6 +1660,19 @@ struct BaseHTTPResponseCallMachine {
 }
 
 impl AwaitableStateMachine for BaseHTTPResponseCallMachine {
+    fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.info)?;
+        visit.call(&self.receive_stream)?;
+        visit.call(&self.send)?;
+        visit.call(&self.background)?;
+        visit.call(&self.headers)?;
+        Ok(())
+    }
+
+    fn finalize_on_drop(&self) -> bool {
+        true
+    }
+
     fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
         match input {
             MachineResume::Start => self.next_action(py),
@@ -1766,7 +1841,7 @@ fn raw_headers_to_python(py: Python<'_>, headers: &SharedHeaders) -> PyResult<Py
 
 fn raw_headers_list<'py>(py: Python<'py>, headers: &SharedHeaders) -> PyResult<Bound<'py, PyList>> {
     let result = PyList::empty(py);
-    for (name, value) in headers.borrow().iter() {
+    for (name, value) in headers.borrow(py).iter() {
         result.append(PyTuple::new(
             py,
             [PyBytes::new(py, name), PyBytes::new(py, value)],

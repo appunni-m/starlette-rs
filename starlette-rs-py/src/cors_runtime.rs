@@ -2,12 +2,13 @@
 
 use std::sync::{Arc, Mutex, MutexGuard};
 
+use pyo3::class::gc::{PyTraverseError, PyVisit};
 use pyo3::exceptions::{PyKeyError, PyRuntimeError, PyStopAsyncIteration};
 use pyo3::prelude::*;
 use pyo3::types::{PyBool, PyBytes, PyDict, PyList, PyModule, PySet, PyString, PyTuple};
 
 use crate::awaitable::{
-    AwaitableStateMachine, MachineAction, MachineResume, into_python_awaitable,
+    AwaitableStateMachine, MachineAction, MachineResume, into_sendable_python_awaitable,
 };
 
 const ALL_METHODS: [&str; 7] = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"];
@@ -88,6 +89,15 @@ struct CorsMiddlewareArgs {
 
 #[pymethods]
 impl PyCORSMiddlewareRuntime {
+    fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.plain_text_response_type)?;
+        Ok(())
+    }
+
+    fn __clear__(&mut self, py: Python<'_>) {
+        self.plain_text_response_type = py.None();
+    }
+
     #[new]
     fn new(py: Python<'_>, args: CorsMiddlewareArgs) -> PyResult<Self> {
         let CorsMiddlewareArgs {
@@ -361,7 +371,7 @@ impl PyCORSMiddlewareRuntime {
         receive: Py<PyAny>,
         send: Py<PyAny>,
     ) -> PyResult<Py<PyAny>> {
-        into_python_awaitable(
+        into_sendable_python_awaitable(
             py,
             CorsCall {
                 middleware: slf,
@@ -414,7 +424,7 @@ impl PyCORSMiddlewareRuntime {
         send: Py<PyAny>,
         request_headers: Py<PyAny>,
     ) -> PyResult<Py<PyAny>> {
-        into_python_awaitable(
+        into_sendable_python_awaitable(
             py,
             CorsCall {
                 middleware: slf,
@@ -482,6 +492,20 @@ struct CorsCall {
 }
 
 impl AwaitableStateMachine for CorsCall {
+    fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.middleware)?;
+        visit.call(&self.scope)?;
+        visit.call(&self.receive)?;
+        visit.call(&self.send)?;
+        visit.call(&self.direct_request_headers)?;
+        visit.call(&self.direct_request_origin)?;
+        Ok(())
+    }
+
+    fn finalize_on_drop(&self) -> bool {
+        true
+    }
+
     fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
         match input {
             MachineResume::Start if !self.pending => self.start(py),
@@ -611,7 +635,7 @@ impl CorsCall {
     }
 }
 
-#[pyclass(unsendable)]
+#[pyclass]
 struct PyCORSSendProxy {
     middleware: Py<PyCORSMiddlewareRuntime>,
     send: Py<PyAny>,
@@ -622,8 +646,24 @@ struct PyCORSSendProxy {
 
 #[pymethods]
 impl PyCORSSendProxy {
+    fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.middleware)?;
+        visit.call(&self.send)?;
+        visit.call(&self.request_headers)?;
+        visit.call(&self.request_origin)?;
+        visit.call(&self.scope_headers)?;
+        Ok(())
+    }
+
+    fn __clear__(&mut self, py: Python<'_>) {
+        self.send = py.None();
+        self.request_headers = None;
+        self.request_origin = None;
+        self.scope_headers = None;
+    }
+
     fn __call__(slf: Py<Self>, py: Python<'_>, message: Py<PyAny>) -> PyResult<Py<PyAny>> {
-        into_python_awaitable(
+        into_sendable_python_awaitable(
             py,
             CorsSendMessage {
                 proxy: slf,
@@ -641,6 +681,16 @@ struct CorsSendMessage {
 }
 
 impl AwaitableStateMachine for CorsSendMessage {
+    fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.proxy)?;
+        visit.call(&self.message)?;
+        Ok(())
+    }
+
+    fn finalize_on_drop(&self) -> bool {
+        true
+    }
+
     fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
         match input {
             MachineResume::Start if !self.pending => self.start(py),

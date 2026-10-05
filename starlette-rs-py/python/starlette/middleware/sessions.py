@@ -9,6 +9,8 @@ from starlette_rs_py import _core
 
 from starlette.datastructures import Secret
 
+_core._sessions_dependency()
+
 
 class Session(dict[str, Any]):
     """Dictionary-compatible session state used by ``request.session``."""

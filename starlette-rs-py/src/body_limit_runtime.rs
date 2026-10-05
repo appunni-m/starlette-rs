@@ -5,17 +5,15 @@
 //! objects so they execute on the caller's event loop and retain the public
 //! exception/response classes.
 
-use std::cell::RefCell;
-use std::rc::Rc;
-
 use pyo3::basic::CompareOp;
-use pyo3::exceptions::{PyAssertionError, PyRuntimeError, PyStopAsyncIteration, PyValueError};
+use pyo3::class::gc::{PyTraverseError, PyVisit};
+use pyo3::exceptions::{PyAssertionError, PyRuntimeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyInt, PyModule};
 use starlette_rs::Response;
 
 use crate::awaitable::{
-    AwaitableStateMachine, MachineAction, MachineResume, into_python_awaitable,
+    AwaitableStateMachine, MachineAction, MachineResume, into_sendable_python_awaitable,
 };
 
 const MAX_BODY_SIZE_SCOPE_KEY: &str = "starlette.max_body_size";
@@ -37,15 +35,15 @@ pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
 /// The public responder type keeps the source-visible mutable state attributes.
 #[pyclass(
     name = "RequestBodyLimitResponder",
-    module = "starlette.middleware.body_limit",
-    unsendable
+    module = "starlette.middleware.body_limit"
 )]
 pub(crate) struct PyRequestBodyLimitResponder {
     state: SharedBodyLimitState,
 }
 
-type SharedBodyLimitState = Rc<RefCell<BodyLimitState>>;
+type SharedBodyLimitState = Py<BodyLimitState>;
 
+#[pyclass]
 struct BodyLimitState {
     app: Py<PyAny>,
     max_body_size: Py<PyAny>,
@@ -61,121 +59,128 @@ struct BodyLimitState {
 
 #[pymethods]
 impl PyRequestBodyLimitResponder {
+    fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.state)
+    }
+
     #[new]
     fn new(py: Python<'_>, app: Py<PyAny>, max_body_size: Py<PyAny>) -> PyResult<Self> {
         let module = py.import("starlette.middleware.body_limit")?;
         Ok(Self {
-            state: Rc::new(RefCell::new(BodyLimitState {
-                app,
-                max_body_size,
-                scope: None,
-                receive: None,
-                send: None,
-                content_length: py.None(),
-                total_size: PyInt::new(py, 0).into_any().unbind(),
-                response_started: false,
-                too_large_type: module.getattr("_RequestBodyTooLarge")?.unbind(),
-                response_sent_type: module.getattr("_RequestBodyLimitResponseSent")?.unbind(),
-            })),
+            state: Py::new(
+                py,
+                BodyLimitState {
+                    app,
+                    max_body_size,
+                    scope: None,
+                    receive: None,
+                    send: None,
+                    content_length: py.None(),
+                    total_size: PyInt::new(py, 0).into_any().unbind(),
+                    response_started: false,
+                    too_large_type: module.getattr("_RequestBodyTooLarge")?.unbind(),
+                    response_sent_type: module.getattr("_RequestBodyLimitResponseSent")?.unbind(),
+                },
+            )?,
         })
     }
 
     #[getter]
     fn app(&self, py: Python<'_>) -> Py<PyAny> {
-        self.state.borrow().app.clone_ref(py)
+        self.state.borrow(py).app.clone_ref(py)
     }
 
     #[setter]
-    fn set_app(&mut self, app: Py<PyAny>) {
-        self.state.borrow_mut().app = app;
+    fn set_app(&mut self, py: Python<'_>, app: Py<PyAny>) {
+        self.state.borrow_mut(py).app = app;
     }
 
     #[getter]
     fn max_body_size(&self, py: Python<'_>) -> Py<PyAny> {
-        self.state.borrow().max_body_size.clone_ref(py)
+        self.state.borrow(py).max_body_size.clone_ref(py)
     }
 
     #[setter]
-    fn set_max_body_size(&mut self, max_body_size: Py<PyAny>) {
-        self.state.borrow_mut().max_body_size = max_body_size;
+    fn set_max_body_size(&mut self, py: Python<'_>, max_body_size: Py<PyAny>) {
+        self.state.borrow_mut(py).max_body_size = max_body_size;
     }
 
     #[getter(_scope)]
     fn internal_scope(&self, py: Python<'_>) -> Py<PyAny> {
         self.state
-            .borrow()
+            .borrow(py)
             .scope
             .as_ref()
             .map_or_else(|| py.None(), |value| value.clone_ref(py))
     }
 
     #[setter(_scope)]
-    fn set_internal_scope(&mut self, scope: Option<Py<PyAny>>) {
-        self.state.borrow_mut().scope = scope;
+    fn set_internal_scope(&mut self, py: Python<'_>, scope: Option<Py<PyAny>>) {
+        self.state.borrow_mut(py).scope = scope;
     }
 
     #[getter(_receive)]
     fn internal_receive(&self, py: Python<'_>) -> Py<PyAny> {
         self.state
-            .borrow()
+            .borrow(py)
             .receive
             .as_ref()
             .map_or_else(|| py.None(), |value| value.clone_ref(py))
     }
 
     #[setter(_receive)]
-    fn set_internal_receive(&mut self, receive: Option<Py<PyAny>>) {
-        self.state.borrow_mut().receive = receive;
+    fn set_internal_receive(&mut self, py: Python<'_>, receive: Option<Py<PyAny>>) {
+        self.state.borrow_mut(py).receive = receive;
     }
 
     #[getter(_send)]
     fn internal_send(&self, py: Python<'_>) -> Py<PyAny> {
         self.state
-            .borrow()
+            .borrow(py)
             .send
             .as_ref()
             .map_or_else(|| py.None(), |value| value.clone_ref(py))
     }
 
     #[setter(_send)]
-    fn set_internal_send(&mut self, send: Option<Py<PyAny>>) {
-        self.state.borrow_mut().send = send;
+    fn set_internal_send(&mut self, py: Python<'_>, send: Option<Py<PyAny>>) {
+        self.state.borrow_mut(py).send = send;
     }
 
     #[getter]
     fn content_length(&self, py: Python<'_>) -> Py<PyAny> {
-        self.state.borrow().content_length.clone_ref(py)
+        self.state.borrow(py).content_length.clone_ref(py)
     }
 
     #[setter]
-    fn set_content_length(&mut self, content_length: Py<PyAny>) {
-        self.state.borrow_mut().content_length = content_length;
+    fn set_content_length(&mut self, py: Python<'_>, content_length: Py<PyAny>) {
+        self.state.borrow_mut(py).content_length = content_length;
     }
 
     #[getter]
     fn total_size(&self, py: Python<'_>) -> Py<PyAny> {
-        self.state.borrow().total_size.clone_ref(py)
+        self.state.borrow(py).total_size.clone_ref(py)
     }
 
     #[setter]
-    fn set_total_size(&mut self, total_size: Py<PyAny>) {
-        self.state.borrow_mut().total_size = total_size;
+    fn set_total_size(&mut self, py: Python<'_>, total_size: Py<PyAny>) {
+        self.state.borrow_mut(py).total_size = total_size;
     }
 
     #[getter]
-    fn response_started(&self) -> bool {
-        self.state.borrow().response_started
+    fn response_started(&self, py: Python<'_>) -> bool {
+        self.state.borrow(py).response_started
     }
 
     #[setter]
-    fn set_response_started(&mut self, response_started: bool) {
-        self.state.borrow_mut().response_started = response_started;
+    fn set_response_started(&mut self, py: Python<'_>, response_started: bool) {
+        self.state.borrow_mut(py).response_started = response_started;
     }
 
     #[getter]
     fn scope(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         self.state
-            .borrow()
+            .borrow(py)
             .scope
             .as_ref()
             .map(|value| value.clone_ref(py))
@@ -185,7 +190,7 @@ impl PyRequestBodyLimitResponder {
     #[getter]
     fn receive(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         self.state
-            .borrow()
+            .borrow(py)
             .receive
             .as_ref()
             .map(|value| value.clone_ref(py))
@@ -195,7 +200,7 @@ impl PyRequestBodyLimitResponder {
     #[getter]
     fn send(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         self.state
-            .borrow()
+            .borrow(py)
             .send
             .as_ref()
             .map(|value| value.clone_ref(py))
@@ -209,8 +214,8 @@ impl PyRequestBodyLimitResponder {
         receive: Py<PyAny>,
         send: Py<PyAny>,
     ) -> PyResult<Py<PyAny>> {
-        let state = slf.borrow(py).state.clone();
-        into_python_awaitable(
+        let state = slf.borrow(py).state.clone_ref(py);
+        into_sendable_python_awaitable(
             py,
             BodyLimitCallMachine {
                 responder: slf,
@@ -228,8 +233,8 @@ impl PyRequestBodyLimitResponder {
     }
 
     fn receive_with_limit(slf: Py<Self>, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        let state = slf.borrow(py).state.clone();
-        into_python_awaitable(
+        let state = slf.borrow(py).state.clone_ref(py);
+        into_sendable_python_awaitable(
             py,
             BodyLimitReceiveMachine {
                 state,
@@ -239,8 +244,8 @@ impl PyRequestBodyLimitResponder {
     }
 
     fn send_with_limit(slf: Py<Self>, py: Python<'_>, message: Py<PyAny>) -> PyResult<Py<PyAny>> {
-        let state = slf.borrow(py).state.clone();
-        into_python_awaitable(
+        let state = slf.borrow(py).state.clone_ref(py);
+        into_sendable_python_awaitable(
             py,
             BodyLimitSendMachine {
                 state,
@@ -253,7 +258,7 @@ impl PyRequestBodyLimitResponder {
 
 /// Per-middleware Python-loop entry point; arguments are read at each call so
 /// public mutations of `app` and `max_body_size` remain observable.
-#[pyclass(name = "RequestBodyLimitMiddlewareRuntime", unsendable)]
+#[pyclass(name = "RequestBodyLimitMiddlewareRuntime")]
 pub(crate) struct PyRequestBodyLimitMiddlewareRuntime;
 
 #[pymethods]
@@ -272,7 +277,7 @@ impl PyRequestBodyLimitMiddlewareRuntime {
         receive: Py<PyAny>,
         send: Py<PyAny>,
     ) -> PyResult<Py<PyAny>> {
-        into_python_awaitable(
+        into_sendable_python_awaitable(
             py,
             BodyLimitMiddlewareCall {
                 app,
@@ -296,6 +301,19 @@ struct BodyLimitMiddlewareCall {
 }
 
 impl AwaitableStateMachine for BodyLimitMiddlewareCall {
+    fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.app)?;
+        visit.call(&self.max_body_size)?;
+        visit.call(&self.scope)?;
+        visit.call(&self.receive)?;
+        visit.call(&self.send)?;
+        Ok(())
+    }
+
+    fn finalize_on_drop(&self) -> bool {
+        true
+    }
+
     fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
         match input {
             MachineResume::Start if !self.pending => self.start(py),
@@ -307,7 +325,7 @@ impl AwaitableStateMachine for BodyLimitMiddlewareCall {
                 self.pending = false;
                 Err(error)
             }
-            MachineResume::AsyncIterationComplete(_) => Err(PyStopAsyncIteration::new_err(())),
+            MachineResume::AsyncIterationComplete(error) => Err(error),
             MachineResume::Start | MachineResume::Value(_) | MachineResume::Error(_) => Err(
                 PyRuntimeError::new_err("request body limit middleware has no pending ASGI call"),
             ),
@@ -363,6 +381,20 @@ struct BodyLimitCallMachine {
 }
 
 impl AwaitableStateMachine for BodyLimitCallMachine {
+    fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.responder)?;
+        visit.call(&self.scope)?;
+        visit.call(&self.receive)?;
+        visit.call(&self.send)?;
+        visit.call(&self.previous_scope_limit)?;
+        visit.call(&self.state)?;
+        Ok(())
+    }
+
+    fn finalize_on_drop(&self) -> bool {
+        true
+    }
+
     fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
         match input {
             MachineResume::Start if self.pending.is_none() => self.start(py),
@@ -384,7 +416,7 @@ impl AwaitableStateMachine for BodyLimitCallMachine {
                 Some(BodyLimitCallPending::ReplacementResponse) => self.cleanup_error(py, error),
                 None => Err(error),
             },
-            MachineResume::AsyncIterationComplete(_) => Err(PyStopAsyncIteration::new_err(())),
+            MachineResume::AsyncIterationComplete(error) => Err(error),
             MachineResume::Start => Err(PyRuntimeError::new_err(
                 "request body limit middleware received an unexpected start signal",
             )),
@@ -403,7 +435,7 @@ impl BodyLimitCallMachine {
         } else {
             None
         };
-        let max_body_size = self.state.borrow().max_body_size.clone_ref(py);
+        let max_body_size = self.state.borrow(py).max_body_size.clone_ref(py);
         scope.set_item(MAX_BODY_SIZE_SCOPE_KEY, max_body_size.bind(py))?;
 
         let active_responder = scope.call_method1("get", (BODY_LIMIT_RESPONDER_SCOPE_KEY,))?;
@@ -414,7 +446,7 @@ impl BodyLimitCallMachine {
             if greater_than(&total_size, &current_limit)? {
                 return Err(new_too_large_error(py, &self.state)?);
             }
-            let app = self.state.borrow().app.clone_ref(py);
+            let app = self.state.borrow(py).app.clone_ref(py);
             let awaitable = app
                 .bind(py)
                 .call1((&self.scope, &self.receive, &self.send))?;
@@ -424,13 +456,13 @@ impl BodyLimitCallMachine {
         }
 
         {
-            let mut state = self.state.borrow_mut();
+            let mut state = self.state.borrow_mut(py);
             state.scope = Some(self.scope.clone_ref(py));
             state.receive = Some(self.receive.clone_ref(py));
             state.send = Some(self.send.clone_ref(py));
         }
         let content_length = get_content_length(py, scope)?;
-        self.state.borrow_mut().content_length = content_length;
+        self.state.borrow_mut(py).content_length = content_length;
         scope.set_item(BODY_LIMIT_RESPONDER_SCOPE_KEY, &self.responder)?;
 
         self.previous_scope_limit = previous_scope_limit;
@@ -439,7 +471,7 @@ impl BodyLimitCallMachine {
 
         let receive_with_limit = self.responder.bind(py).getattr("receive_with_limit")?;
         let send_with_limit = self.responder.bind(py).getattr("send_with_limit")?;
-        let app = self.state.borrow().app.clone_ref(py);
+        let app = self.state.borrow(py).app.clone_ref(py);
         let awaitable = match app
             .bind(py)
             .call1((scope, receive_with_limit, send_with_limit))
@@ -455,12 +487,12 @@ impl BodyLimitCallMachine {
         if self.nested {
             return Err(error);
         }
-        if is_instance_of_error(py, &error, &self.state.borrow().response_sent_type)? {
+        if is_instance_of_error(py, &error, &self.state.borrow(py).response_sent_type)? {
             self.cleanup(py)?;
             return Ok(MachineAction::Complete(py.None()));
         }
-        if is_instance_of_error(py, &error, &self.state.borrow().too_large_type)? {
-            if self.state.borrow().response_started {
+        if is_instance_of_error(py, &error, &self.state.borrow(py).too_large_type)? {
+            if self.state.borrow(py).response_started {
                 return self.cleanup_error(py, error);
             }
             let replacement = replacement_response_call(py, &self.state)?;
@@ -501,6 +533,15 @@ struct BodyLimitReceiveMachine {
 }
 
 impl AwaitableStateMachine for BodyLimitReceiveMachine {
+    fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.state)?;
+        Ok(())
+    }
+
+    fn finalize_on_drop(&self) -> bool {
+        true
+    }
+
     fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
         match input {
             MachineResume::Start if !self.pending => self.start(py),
@@ -512,7 +553,7 @@ impl AwaitableStateMachine for BodyLimitReceiveMachine {
                 self.pending = false;
                 Err(error)
             }
-            MachineResume::AsyncIterationComplete(_) => Err(PyStopAsyncIteration::new_err(())),
+            MachineResume::AsyncIterationComplete(error) => Err(error),
             MachineResume::Start | MachineResume::Value(_) | MachineResume::Error(_) => Err(
                 PyRuntimeError::new_err("request body limit receive has no pending receive"),
             ),
@@ -523,7 +564,7 @@ impl AwaitableStateMachine for BodyLimitReceiveMachine {
 impl BodyLimitReceiveMachine {
     fn start(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
         let (content_length, max_body_size, receive) = {
-            let state = self.state.borrow();
+            let state = self.state.borrow(py);
             (
                 state.content_length.clone_ref(py),
                 state.max_body_size.clone_ref(py),
@@ -549,13 +590,13 @@ impl BodyLimitReceiveMachine {
         {
             let body = message.call_method1("get", ("body", b""))?;
             let body_length = PyInt::new(py, body.len()?).into_any();
-            let previous_total = self.state.borrow().total_size.clone_ref(py);
+            let previous_total = self.state.borrow(py).total_size.clone_ref(py);
             let total_size = py
                 .import("operator")?
                 .getattr("iadd")?
                 .call1((previous_total.bind(py), &body_length))?;
-            self.state.borrow_mut().total_size = total_size.clone().unbind();
-            let max_body_size = self.state.borrow().max_body_size.clone_ref(py);
+            self.state.borrow_mut(py).total_size = total_size.clone().unbind();
+            let max_body_size = self.state.borrow(py).max_body_size.clone_ref(py);
             if greater_than(&total_size, max_body_size.bind(py))? {
                 return Err(new_too_large_error(py, &self.state)?);
             }
@@ -576,6 +617,16 @@ struct BodyLimitSendMachine {
 }
 
 impl AwaitableStateMachine for BodyLimitSendMachine {
+    fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.message)?;
+        visit.call(&self.state)?;
+        Ok(())
+    }
+
+    fn finalize_on_drop(&self) -> bool {
+        true
+    }
+
     fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
         match input {
             MachineResume::Start if self.pending.is_none() => self.start(py),
@@ -592,7 +643,7 @@ impl AwaitableStateMachine for BodyLimitSendMachine {
                 self.pending = None;
                 Err(error)
             }
-            MachineResume::AsyncIterationComplete(_) => Err(PyStopAsyncIteration::new_err(())),
+            MachineResume::AsyncIterationComplete(error) => Err(error),
             MachineResume::Start => Err(PyRuntimeError::new_err(
                 "request body limit send received an unexpected start signal",
             )),
@@ -608,9 +659,9 @@ impl BodyLimitSendMachine {
             .rich_compare("http.response.start", CompareOp::Eq)?
             .is_truthy()?
         {
-            self.state.borrow_mut().response_started = true;
+            self.state.borrow_mut(py).response_started = true;
             let (content_length, max_body_size) = {
-                let state = self.state.borrow();
+                let state = self.state.borrow(py);
                 (
                     state.content_length.clone_ref(py),
                     state.max_body_size.clone_ref(py),
@@ -626,7 +677,7 @@ impl BodyLimitSendMachine {
         }
         let send = self
             .state
-            .borrow()
+            .borrow(py)
             .send
             .as_ref()
             .map(|callback| callback.clone_ref(py));
@@ -662,7 +713,7 @@ fn get_content_length(py: Python<'_>, scope: &Bound<'_, PyAny>) -> PyResult<Py<P
 
 fn replacement_response_call(py: Python<'_>, state: &SharedBodyLimitState) -> PyResult<Py<PyAny>> {
     let (scope, receive, send) = {
-        let state = state.borrow();
+        let state = state.borrow(py);
         (
             required_callback(py, state.scope.as_ref())?,
             required_callback(py, state.receive.as_ref())?,
@@ -702,7 +753,7 @@ fn is_instance_of_error(
 }
 
 fn new_too_large_error(py: Python<'_>, state: &SharedBodyLimitState) -> PyResult<PyErr> {
-    let exception_type = state.borrow().too_large_type.clone_ref(py);
+    let exception_type = state.borrow(py).too_large_type.clone_ref(py);
     let kwargs = PyDict::new(py);
     kwargs.set_item("status_code", REQUEST_BODY_LIMIT_STATUS_CODE)?;
     kwargs.set_item("detail", REQUEST_BODY_LIMIT_DETAIL)?;
@@ -713,6 +764,34 @@ fn new_too_large_error(py: Python<'_>, state: &SharedBodyLimitState) -> PyResult
 }
 
 fn new_response_sent_error(py: Python<'_>, state: &SharedBodyLimitState) -> PyResult<PyErr> {
-    let exception_type = state.borrow().response_sent_type.clone_ref(py);
+    let exception_type = state.borrow(py).response_sent_type.clone_ref(py);
     exception_type.bind(py).call0().map(PyErr::from_value)
+}
+
+#[pymethods]
+impl BodyLimitState {
+    fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.app)?;
+        visit.call(&self.max_body_size)?;
+        visit.call(&self.scope)?;
+        visit.call(&self.receive)?;
+        visit.call(&self.send)?;
+        visit.call(&self.content_length)?;
+        visit.call(&self.total_size)?;
+        visit.call(&self.too_large_type)?;
+        visit.call(&self.response_sent_type)?;
+        Ok(())
+    }
+
+    fn __clear__(&mut self, py: Python<'_>) {
+        self.app = py.None();
+        self.max_body_size = py.None();
+        self.scope = None;
+        self.receive = None;
+        self.send = None;
+        self.content_length = py.None();
+        self.total_size = py.None();
+        self.too_large_type = py.None();
+        self.response_sent_type = py.None();
+    }
 }

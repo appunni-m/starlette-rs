@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import base64
 import importlib
 import importlib.abc
 import importlib.util
@@ -71,6 +73,58 @@ def run_optional_import_case(case: dict[str, Any]) -> dict[str, Any]:
                 outcome["imported"] = True
                 selected = getattr(module, spec["consumer_attribute"])
                 outcome["consumer_attribute"] = selected.__name__
+                actions = []
+                for stimulus in spec.get("actions", []):
+                    try:
+                        if stimulus["action"] == "form":
+                            delivered = False
+
+                            async def receive(stimulus: Any = stimulus) -> Any:
+                                nonlocal delivered
+                                if delivered:
+                                    return {"type": "http.disconnect"}
+                                delivered = True
+                                return {
+                                    "type": "http.request",
+                                    "body": base64.b64decode(stimulus["body_base64"]),
+                                    "more_body": False,
+                                }
+
+                            request = selected(
+                                {
+                                    "type": "http",
+                                    "method": "POST",
+                                    "path": "/",
+                                    "headers": [
+                                        (b"content-type", stimulus["content_type"].encode())
+                                    ],
+                                },
+                                receive,
+                            )
+
+                            async def form(request: Any = request) -> Any:
+                                async with request.form() as data:
+                                    return [[key, value] for key, value in data.multi_items()]
+
+                            value = asyncio.run(form())
+                        elif stimulus["action"] == "render":
+                            value = selected(stimulus["content"]).body.decode("utf-8")
+                        else:
+
+                            def endpoint() -> None:
+                                pass
+
+                            endpoint.__doc__ = stimulus["docstring"]
+                            value = selected().parse_docstring(endpoint)
+                        actions.append(
+                            {"action": stimulus["action"], "value": value, "error": None}
+                        )
+                    except BaseException as error:
+                        actions.append(
+                            {"action": stimulus["action"], "error": observe_error(error, set())}
+                        )
+                if "actions" in spec:
+                    outcome["actions"] = actions
             except BaseException as error:
                 outcome["error"] = observe_error(error, set())
             outcome["warnings"] = [

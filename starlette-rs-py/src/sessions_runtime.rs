@@ -9,13 +9,13 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use base64::Engine as _;
 use pyo3::class::gc::{PyTraverseError, PyVisit};
-use pyo3::exceptions::{PyRuntimeError, PyStopAsyncIteration};
+use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyDict, PyList, PyString, PyTuple};
 use starlette_rs::{SessionSignatureError, timestamp_sign, timestamp_unsign};
 
 use crate::awaitable::{
-    AwaitableStateMachine, MachineAction, MachineResume, into_python_awaitable,
+    AwaitableStateMachine, MachineAction, MachineResume, into_sendable_python_awaitable,
 };
 
 pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
@@ -26,7 +26,7 @@ pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
 }
 
 /// State shared by a Python `dict` subclass and the Rust mutation protocol.
-#[pyclass(name = "SessionState", unsendable)]
+#[pyclass(name = "SessionState")]
 pub(crate) struct PySessionState {
     accessed: bool,
     modified: bool,
@@ -193,7 +193,7 @@ impl PySessionState {
 }
 
 /// Rust runtime behind the public `starlette.middleware.sessions` facade.
-#[pyclass(name = "SessionMiddlewareRuntime", unsendable)]
+#[pyclass(name = "SessionMiddlewareRuntime")]
 pub(crate) struct PySessionMiddlewareRuntime {
     app: Py<PyAny>,
     secret_key: String,
@@ -307,7 +307,7 @@ impl PySessionMiddlewareRuntime {
         receive: Py<PyAny>,
         send: Py<PyAny>,
     ) -> PyResult<Py<PyAny>> {
-        into_python_awaitable(
+        into_sendable_python_awaitable(
             py,
             SessionMiddlewareCall {
                 runtime: slf,
@@ -337,6 +337,18 @@ struct SessionMiddlewareCall {
 }
 
 impl AwaitableStateMachine for SessionMiddlewareCall {
+    fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.runtime)?;
+        visit.call(&self.scope)?;
+        visit.call(&self.receive)?;
+        visit.call(&self.send)?;
+        Ok(())
+    }
+
+    fn finalize_on_drop(&self) -> bool {
+        true
+    }
+
     fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
         match input {
             MachineResume::Start if !self.pending => self.start(py),
@@ -348,7 +360,7 @@ impl AwaitableStateMachine for SessionMiddlewareCall {
                 self.pending = false;
                 Err(error)
             }
-            MachineResume::AsyncIterationComplete(_) => Err(PyStopAsyncIteration::new_err(())),
+            MachineResume::AsyncIterationComplete(error) => Err(error),
             MachineResume::Start | MachineResume::Value(_) | MachineResume::Error(_) => Err(
                 PyRuntimeError::new_err("session middleware has no pending application call"),
             ),
@@ -430,7 +442,7 @@ impl SessionMiddlewareCall {
 }
 
 /// Callable ASGI send wrapper whose response-header decisions stay in Rust.
-#[pyclass(name = "SessionSendWrapper", unsendable)]
+#[pyclass(name = "SessionSendWrapper")]
 pub(crate) struct PySessionSendWrapper {
     send: Py<PyAny>,
     scope: Py<PyAny>,
@@ -441,7 +453,7 @@ pub(crate) struct PySessionSendWrapper {
 #[pymethods]
 impl PySessionSendWrapper {
     fn __call__(slf: Py<Self>, py: Python<'_>, message: Py<PyAny>) -> PyResult<Py<PyAny>> {
-        into_python_awaitable(
+        into_sendable_python_awaitable(
             py,
             SessionSendCall {
                 wrapper: slf,
@@ -474,6 +486,16 @@ struct SessionSendCall {
 }
 
 impl AwaitableStateMachine for SessionSendCall {
+    fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.wrapper)?;
+        visit.call(&self.message)?;
+        Ok(())
+    }
+
+    fn finalize_on_drop(&self) -> bool {
+        true
+    }
+
     fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
         match input {
             MachineResume::Start if !self.pending => self.start(py),
@@ -485,7 +507,7 @@ impl AwaitableStateMachine for SessionSendCall {
                 self.pending = false;
                 Err(error)
             }
-            MachineResume::AsyncIterationComplete(_) => Err(PyStopAsyncIteration::new_err(())),
+            MachineResume::AsyncIterationComplete(error) => Err(error),
             MachineResume::Start | MachineResume::Value(_) | MachineResume::Error(_) => Err(
                 PyRuntimeError::new_err("session send wrapper has no pending send callback"),
             ),

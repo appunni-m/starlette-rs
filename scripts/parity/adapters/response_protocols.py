@@ -19,6 +19,45 @@ def configure_response_protocols(
         "OSError": OSError,
         "StopAsyncIteration": StopAsyncIteration,
     }
+    for name, definition in spec.get("file_hooks", {}).items():
+
+        def make_hook(name: str, definition: Any) -> Any:
+            if name in {"_parse_ranges", "_parse_range_header"}:
+
+                def class_hook(cls: Any, *args: Any) -> Any:
+                    trace.append({"event": "file-hook", "name": name})
+                    if definition["delegate"]:
+                        return getattr(base, name).__func__(cls, *args)
+                    return [tuple(pair) for pair in definition["ranges"]]
+
+                return classmethod(class_hook)
+            if name == "_should_use_range":
+
+                def range_hook(response: Any, value: Any) -> Any:
+                    trace.append({"event": "file-hook", "name": name, "value": value})
+                    return (
+                        base._should_use_range(response, value)
+                        if definition["delegate"]
+                        else definition["use_range"]
+                    )
+
+                return range_hook
+            if name == "generate_multipart":
+
+                def generator_hook(response: Any, *args: Any) -> Any:
+                    trace.append({"event": "file-hook", "name": name})
+                    return base.generate_multipart(response, *args)
+
+                return generator_hook
+
+            async def handler_hook(response: Any, *args: Any) -> None:
+                trace.append({"event": "file-hook", "name": name})
+                if definition["delegate"]:
+                    await getattr(base, name)(response, *args)
+
+            return handler_hook
+
+        attributes[name] = make_hook(name, definition)
     stat = spec["stat_hook"]
     if stat is not None:
         error = (

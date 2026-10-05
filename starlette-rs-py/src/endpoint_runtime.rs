@@ -5,12 +5,13 @@
 //! Rust owns scope checks, handler selection, decoding policy, and protocol
 //! sequencing.
 
-use pyo3::exceptions::{PyAssertionError, PyException, PyRuntimeError, PyStopAsyncIteration};
+use pyo3::class::gc::{PyTraverseError, PyVisit};
+use pyo3::exceptions::{PyAssertionError, PyException, PyRuntimeError};
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList, PyModule, PyString};
 
 use crate::awaitable::{
-    AwaitableStateMachine, MachineAction, MachineResume, into_python_awaitable,
+    AwaitableStateMachine, MachineAction, MachineResume, into_sendable_python_awaitable,
 };
 
 pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
@@ -57,12 +58,15 @@ fn http_endpoint_dispatch(
     request_type: Py<PyAny>,
     run_in_threadpool: Py<PyAny>,
 ) -> PyResult<Py<PyAny>> {
-    into_python_awaitable(
+    into_sendable_python_awaitable(
         py,
         HttpEndpointCall {
             endpoint,
             request_type,
             run_in_threadpool,
+            request: None,
+            handler: None,
+            response: None,
             pending: None,
         },
     )
@@ -78,10 +82,27 @@ struct HttpEndpointCall {
     endpoint: Py<PyAny>,
     request_type: Py<PyAny>,
     run_in_threadpool: Py<PyAny>,
+    request: Option<Py<PyAny>>,
+    handler: Option<Py<PyAny>>,
+    response: Option<Py<PyAny>>,
     pending: Option<HttpEndpointPending>,
 }
 
 impl AwaitableStateMachine for HttpEndpointCall {
+    fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.endpoint)?;
+        visit.call(&self.request_type)?;
+        visit.call(&self.run_in_threadpool)?;
+        visit.call(&self.request)?;
+        visit.call(&self.handler)?;
+        visit.call(&self.response)?;
+        Ok(())
+    }
+
+    fn finalize_on_drop(&self) -> bool {
+        true
+    }
+
     fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
         match input {
             MachineResume::Start if self.pending.is_none() => self.start(py),
@@ -96,7 +117,7 @@ impl AwaitableStateMachine for HttpEndpointCall {
                 self.pending = None;
                 Err(error)
             }
-            MachineResume::AsyncIterationComplete(_) => Err(PyStopAsyncIteration::new_err(())),
+            MachineResume::AsyncIterationComplete(error) => Err(error),
             MachineResume::Start => Err(PyRuntimeError::new_err(
                 "HTTP endpoint continuation has a pending operation",
             )),
@@ -114,9 +135,7 @@ impl HttpEndpointCall {
             .request_type
             .bind(py)
             .call((scope,), Some(&request_arguments))?;
-        let method = request.getattr("method")?;
-        let is_head = method.eq("HEAD")?;
-        let handler_name = if is_head
+        let handler_name = if request.getattr("method")?.eq("HEAD")?
             && !py
                 .import("builtins")?
                 .getattr("hasattr")?
@@ -125,11 +144,17 @@ impl HttpEndpointCall {
         {
             PyString::new(py, "get").into_any()
         } else {
-            method.call_method0("lower")?
+            request.getattr("method")?.call_method0("lower")?
         };
+        let requested_method = request.getattr("method")?;
         let allowed_methods = self.endpoint.bind(py).getattr("_allowed_methods")?;
-        let is_allowed =
-            allowed_methods.contains(&method)? || (is_head && allowed_methods.contains("GET")?);
+        let is_allowed = allowed_methods.contains(requested_method)?
+            || (request.getattr("method")?.eq("HEAD")?
+                && self
+                    .endpoint
+                    .bind(py)
+                    .getattr("_allowed_methods")?
+                    .contains("GET")?);
         let handler = if is_allowed {
             py.import("builtins")?
                 .getattr("getattr")?
@@ -139,10 +164,15 @@ impl HttpEndpointCall {
         };
         let is_async = crate::background::is_async_callable(py, &handler)?;
         let awaitable = if is_async {
-            handler.call1((request,))?
+            handler.call1((&request,))?
         } else {
-            self.run_in_threadpool.bind(py).call1((handler, request))?
+            self.run_in_threadpool
+                .bind(py)
+                .call1((&handler, &request))?
         };
+        // The source coroutine retains these locals through the response call.
+        self.request = Some(request.unbind());
+        self.handler = Some(handler.unbind());
         self.pending = Some(HttpEndpointPending::Handler);
         Ok(MachineAction::Await(awaitable.unbind()))
     }
@@ -152,6 +182,7 @@ impl HttpEndpointCall {
         let receive = self.endpoint.bind(py).getattr("receive")?;
         let send = self.endpoint.bind(py).getattr("send")?;
         let awaitable = response.bind(py).call1((scope, receive, send))?;
+        self.response = Some(response);
         self.pending = Some(HttpEndpointPending::Response);
         Ok(MachineAction::Await(awaitable.unbind()))
     }
@@ -192,7 +223,7 @@ fn websocket_endpoint_dispatch(
     websocket_type: Py<PyAny>,
     status_module: Py<PyAny>,
 ) -> PyResult<Py<PyAny>> {
-    into_python_awaitable(
+    into_sendable_python_awaitable(
         py,
         WebSocketEndpointCall {
             endpoint,
@@ -221,11 +252,25 @@ struct WebSocketEndpointCall {
     status_module: Py<PyAny>,
     websocket: Option<Py<PyAny>>,
     close_code: Option<Py<PyAny>>,
-    original_exception: Option<PyErr>,
+    original_exception: Option<Py<PyAny>>,
     pending: Option<WebSocketEndpointPending>,
 }
 
 impl AwaitableStateMachine for WebSocketEndpointCall {
+    fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.endpoint)?;
+        visit.call(&self.websocket_type)?;
+        visit.call(&self.status_module)?;
+        visit.call(&self.websocket)?;
+        visit.call(&self.close_code)?;
+        visit.call(&self.original_exception)?;
+        Ok(())
+    }
+
+    fn finalize_on_drop(&self) -> bool {
+        true
+    }
+
     fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
         match input {
             MachineResume::Start if self.pending.is_none() => self.start(py),
@@ -249,9 +294,8 @@ impl AwaitableStateMachine for WebSocketEndpointCall {
                 )),
             },
             MachineResume::Error(error) => match self.pending.take() {
-                Some(WebSocketEndpointPending::Connect | WebSocketEndpointPending::Disconnect) => {
-                    Err(error)
-                }
+                Some(WebSocketEndpointPending::Connect) => Err(error),
+                Some(WebSocketEndpointPending::Disconnect) => Err(self.disconnect_error(py, error)),
                 Some(
                     WebSocketEndpointPending::Receive
                     | WebSocketEndpointPending::Decode
@@ -259,20 +303,16 @@ impl AwaitableStateMachine for WebSocketEndpointCall {
                 ) => self.protocol_error(py, error),
                 None => Err(error),
             },
-            MachineResume::AsyncIterationComplete(_) => {
-                let error = PyStopAsyncIteration::new_err(());
-                match self.pending.take() {
-                    Some(
-                        WebSocketEndpointPending::Connect | WebSocketEndpointPending::Disconnect,
-                    ) => Err(error),
-                    Some(
-                        WebSocketEndpointPending::Receive
-                        | WebSocketEndpointPending::Decode
-                        | WebSocketEndpointPending::OnReceive,
-                    ) => self.protocol_error(py, error),
-                    None => Err(error),
-                }
-            }
+            MachineResume::AsyncIterationComplete(error) => match self.pending.take() {
+                Some(WebSocketEndpointPending::Connect) => Err(error),
+                Some(WebSocketEndpointPending::Disconnect) => Err(self.disconnect_error(py, error)),
+                Some(
+                    WebSocketEndpointPending::Receive
+                    | WebSocketEndpointPending::Decode
+                    | WebSocketEndpointPending::OnReceive,
+                ) => self.protocol_error(py, error),
+                None => Err(error),
+            },
             MachineResume::Start => Err(PyRuntimeError::new_err(
                 "WebSocket endpoint continuation has a pending operation",
             )),
@@ -402,13 +442,23 @@ impl WebSocketEndpointCall {
         } else {
             error
         };
-        self.original_exception = Some(error);
+        self.original_exception = Some(error.value(py).clone().into_any().unbind());
         self.begin_disconnect(py)
+            .map_err(|error| self.disconnect_error(py, error))
+    }
+
+    fn disconnect_error(&self, py: Python<'_>, error: PyErr) -> PyErr {
+        if let Some(original) = &self.original_exception {
+            if !error.value(py).is(original.bind(py)) {
+                error.set_context(py, Some(PyErr::from_value(original.bind(py).clone())));
+            }
+        }
+        error
     }
 
     fn disconnected(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
         match self.original_exception.take() {
-            Some(error) => Err(error),
+            Some(error) => Err(PyErr::from_value(error.into_bound(py))),
             None => Ok(MachineAction::Complete(py.None())),
         }
     }
@@ -431,7 +481,7 @@ fn websocket_endpoint_decode(
     status_module: Py<PyAny>,
     debug: bool,
 ) -> PyResult<Py<PyAny>> {
-    into_python_awaitable(
+    into_sendable_python_awaitable(
         py,
         WebSocketDecodeCall {
             encoding,
@@ -453,18 +503,32 @@ struct WebSocketDecodeCall {
     json_module: Py<PyAny>,
     status_module: Py<PyAny>,
     debug: bool,
-    pending_error: Option<PyErr>,
+    pending_error: Option<Py<PyAny>>,
     pending: bool,
 }
 
 impl AwaitableStateMachine for WebSocketDecodeCall {
+    fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.encoding)?;
+        visit.call(&self.websocket)?;
+        visit.call(&self.message)?;
+        visit.call(&self.json_module)?;
+        visit.call(&self.status_module)?;
+        visit.call(&self.pending_error)?;
+        Ok(())
+    }
+
+    fn finalize_on_drop(&self) -> bool {
+        true
+    }
+
     fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
         match input {
             MachineResume::Start if !self.pending => self.start(py),
             MachineResume::Value(_) if self.pending => {
                 self.pending = false;
                 match self.pending_error.take() {
-                    Some(error) => Err(error),
+                    Some(error) => Err(PyErr::from_value(error.into_bound(py))),
                     None => Err(PyRuntimeError::new_err(
                         "WebSocket decode continuation has no pending error",
                     )),
@@ -472,19 +536,17 @@ impl AwaitableStateMachine for WebSocketDecodeCall {
             }
             MachineResume::Error(error) if self.pending => {
                 self.pending = false;
-                self.pending_error = None;
-                Err(error)
+                Err(self.close_error(py, error))
             }
-            MachineResume::AsyncIterationComplete(_) if self.pending => {
+            MachineResume::AsyncIterationComplete(error) if self.pending => {
                 self.pending = false;
-                self.pending_error = None;
-                Err(PyStopAsyncIteration::new_err(()))
+                Err(self.close_error(py, error))
             }
             MachineResume::Value(_) => Err(PyRuntimeError::new_err(
                 "WebSocket decode continuation has no pending operation",
             )),
             MachineResume::Error(error) => Err(error),
-            MachineResume::AsyncIterationComplete(_) => Err(PyStopAsyncIteration::new_err(())),
+            MachineResume::AsyncIterationComplete(error) => Err(error),
             MachineResume::Start => Err(PyRuntimeError::new_err(
                 "WebSocket decode continuation has a pending operation",
             )),
@@ -493,6 +555,18 @@ impl AwaitableStateMachine for WebSocketDecodeCall {
 }
 
 impl WebSocketDecodeCall {
+    fn close_error(&mut self, py: Python<'_>, error: PyErr) -> PyErr {
+        if let Some(pending) = self.pending_error.take() {
+            let context = pending.bind(py).getattr("__context__");
+            if let Ok(context) = context {
+                if !context.is_none() && !error.value(py).is(&context) {
+                    error.set_context(py, Some(PyErr::from_value(context)));
+                }
+            }
+        }
+        error
+    }
+
     fn start(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
         let encoding = self.encoding.bind(py);
         if encoding.eq("text")? {
@@ -514,7 +588,9 @@ impl WebSocketDecodeCall {
         let message = self.message.bind(py);
         let text = message.call_method1("get", ("text",))?;
         if text.is_truthy()? {
-            return Ok(MachineAction::Complete(text.unbind()));
+            return message
+                .get_item("text")
+                .map(|value| MachineAction::Complete(value.unbind()));
         }
         message
             .get_item("bytes")
@@ -553,7 +629,7 @@ impl WebSocketDecodeCall {
         let message = self.message.bind(py);
         let text = message.call_method1("get", ("text",))?;
         let text = if !text.is_none() {
-            text
+            message.get_item("text")?
         } else {
             message
                 .get_item("bytes")?
@@ -569,11 +645,18 @@ impl WebSocketDecodeCall {
                     .getattr("decoder")?
                     .getattr("JSONDecodeError")?;
                 if error.value(py).is_instance(&json_decode_error)? {
-                    self.close_then_error(
+                    let result = self.close_then_error(
                         py,
                         "WS_1003_UNSUPPORTED_DATA",
                         "Malformed JSON data received.",
-                    )
+                    );
+                    if let Some(pending) = &self.pending_error {
+                        PyErr::from_value(pending.bind(py).clone())
+                            .set_context(py, Some(error.clone_ref(py)));
+                    }
+                    result.inspect_err(|close_error| {
+                        close_error.set_context(py, Some(error));
+                    })
                 } else {
                     Err(error)
                 }
@@ -595,7 +678,13 @@ impl WebSocketDecodeCall {
             .bind(py)
             .getattr("close")?
             .call((), Some(&arguments))?;
-        self.pending_error = Some(PyRuntimeError::new_err(error_message.to_owned()));
+        self.pending_error = Some(
+            PyRuntimeError::new_err(error_message.to_owned())
+                .value(py)
+                .clone()
+                .into_any()
+                .unbind(),
+        );
         self.pending = true;
         Ok(MachineAction::Await(close.unbind()))
     }

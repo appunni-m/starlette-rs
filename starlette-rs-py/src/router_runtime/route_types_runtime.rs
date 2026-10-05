@@ -9,6 +9,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use pyo3::class::basic::CompareOp;
+use pyo3::class::gc::{PyTraverseError, PyVisit};
 use pyo3::exceptions::{
     PyAssertionError, PyException, PyKeyError, PyNotImplementedError, PyRuntimeError,
     PyStopAsyncIteration, PyStopIteration, PyValueError,
@@ -18,7 +19,7 @@ use pyo3::types::{PyBool, PyBytes, PyDict, PyList, PySet, PyString, PyTuple};
 
 use crate::application_runtime::exception_send_proxy;
 use crate::awaitable::{
-    AwaitableStateMachine, MachineAction, MachineResume, into_python_awaitable,
+    AwaitableStateMachine, MachineAction, MachineResume, into_sendable_python_awaitable,
 };
 
 pub(super) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
@@ -58,19 +59,28 @@ pub(super) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     Ok(())
 }
 
-#[pyclass(name = "_DefaultLifespanRuntime", unsendable)]
+#[pyclass(name = "_DefaultLifespanRuntime")]
 struct PyDefaultLifespanRuntime {
     _router: Py<PyAny>,
 }
 
 /// Callable adapter created by Rust for deprecated synchronous generator lifespans.
-#[pyclass(name = "_SyncGeneratorLifespanFactory", dict, unsendable)]
+#[pyclass(name = "_SyncGeneratorLifespanFactory", dict)]
 struct PySyncGeneratorLifespanFactory {
     lifespan: Py<PyAny>,
 }
 
 #[pymethods]
 impl PySyncGeneratorLifespanFactory {
+    fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.lifespan)?;
+        Ok(())
+    }
+
+    fn __clear__(&mut self, py: Python<'_>) {
+        self.lifespan = py.None();
+    }
+
     fn __call__(&self, py: Python<'_>, app: Py<PyAny>) -> PyResult<Py<PyAny>> {
         let generator = self.lifespan.bind(py).call1((app,))?;
         Py::new(
@@ -92,13 +102,22 @@ impl PySyncGeneratorLifespanFactory {
 }
 
 /// Callable adapter created by Rust for deprecated asynchronous generator lifespans.
-#[pyclass(name = "_AsyncGeneratorLifespanFactory", dict, unsendable)]
+#[pyclass(name = "_AsyncGeneratorLifespanFactory", dict)]
 struct PyAsyncGeneratorLifespanFactory {
     lifespan: Py<PyAny>,
 }
 
 #[pymethods]
 impl PyAsyncGeneratorLifespanFactory {
+    fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.lifespan)?;
+        Ok(())
+    }
+
+    fn __clear__(&mut self, py: Python<'_>) {
+        self.lifespan = py.None();
+    }
+
     fn __call__(&self, py: Python<'_>, app: Py<PyAny>) -> PyResult<Py<PyAny>> {
         let generator = self.lifespan.bind(py).call1((app,))?;
         Py::new(
@@ -120,15 +139,24 @@ impl PyAsyncGeneratorLifespanFactory {
 }
 
 /// Exposes the async context-manager protocol while Rust drives a Python generator.
-#[pyclass(name = "_SyncGeneratorLifespanContextManager", unsendable)]
+#[pyclass(name = "_SyncGeneratorLifespanContextManager")]
 struct PySyncGeneratorLifespanContextManager {
     generator: Py<PyAny>,
 }
 
 #[pymethods]
 impl PySyncGeneratorLifespanContextManager {
+    fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.generator)?;
+        Ok(())
+    }
+
+    fn __clear__(&mut self, py: Python<'_>) {
+        self.generator = py.None();
+    }
+
     fn __aenter__(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        into_python_awaitable(
+        into_sendable_python_awaitable(
             py,
             SyncGeneratorEnter {
                 generator: self.generator.clone_ref(py),
@@ -143,7 +171,7 @@ impl PySyncGeneratorLifespanContextManager {
         exception: Py<PyAny>,
         traceback: Py<PyAny>,
     ) -> PyResult<Py<PyAny>> {
-        into_python_awaitable(
+        into_sendable_python_awaitable(
             py,
             SyncGeneratorExit {
                 generator: self.generator.clone_ref(py),
@@ -156,15 +184,24 @@ impl PySyncGeneratorLifespanContextManager {
 }
 
 /// Exposes the async context-manager protocol while Rust drives an async generator.
-#[pyclass(name = "_AsyncGeneratorLifespanContextManager", unsendable)]
+#[pyclass(name = "_AsyncGeneratorLifespanContextManager")]
 struct PyAsyncGeneratorLifespanContextManager {
     generator: Py<PyAny>,
 }
 
 #[pymethods]
 impl PyAsyncGeneratorLifespanContextManager {
+    fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.generator)?;
+        Ok(())
+    }
+
+    fn __clear__(&mut self, py: Python<'_>) {
+        self.generator = py.None();
+    }
+
     fn __aenter__(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        into_python_awaitable(
+        into_sendable_python_awaitable(
             py,
             AsyncGeneratorEnter {
                 generator: self.generator.clone_ref(py),
@@ -188,7 +225,7 @@ impl PyAsyncGeneratorLifespanContextManager {
                 traceback,
             }
         };
-        into_python_awaitable(
+        into_sendable_python_awaitable(
             py,
             AsyncGeneratorExit {
                 generator: self.generator.clone_ref(py),
@@ -204,6 +241,15 @@ struct SyncGeneratorEnter {
 }
 
 impl AwaitableStateMachine for SyncGeneratorEnter {
+    fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.generator)?;
+        Ok(())
+    }
+
+    fn finalize_on_drop(&self) -> bool {
+        true
+    }
+
     fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
         match input {
             MachineResume::Start => match self.generator.bind(py).call_method0("__next__") {
@@ -229,6 +275,18 @@ struct SyncGeneratorExit {
 }
 
 impl AwaitableStateMachine for SyncGeneratorExit {
+    fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.generator)?;
+        visit.call(&self.exception_type)?;
+        visit.call(&self.exception)?;
+        visit.call(&self.traceback)?;
+        Ok(())
+    }
+
+    fn finalize_on_drop(&self) -> bool {
+        true
+    }
+
     fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
         match input {
             MachineResume::Start => {
@@ -295,6 +353,15 @@ struct AsyncGeneratorEnter {
 }
 
 impl AwaitableStateMachine for AsyncGeneratorEnter {
+    fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.generator)?;
+        Ok(())
+    }
+
+    fn finalize_on_drop(&self) -> bool {
+        true
+    }
+
     fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
         match input {
             MachineResume::Start if !self.pending => {
@@ -328,6 +395,31 @@ struct AsyncGeneratorExit {
 }
 
 impl AwaitableStateMachine for AsyncGeneratorExit {
+    fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.generator)?;
+        if let AsyncGeneratorExitMode::Exceptional {
+            exception,
+            traceback,
+        } = &self.mode
+        {
+            visit.call(exception)?;
+            visit.call(traceback)?;
+        }
+        if let Some(AsyncGeneratorExitPending::ExceptionalStep {
+            exception,
+            traceback,
+        }) = &self.pending
+        {
+            visit.call(exception)?;
+            visit.call(traceback)?;
+        }
+        Ok(())
+    }
+
+    fn finalize_on_drop(&self) -> bool {
+        true
+    }
+
     fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
         match input {
             MachineResume::Start if self.pending.is_none() => self.start(py),
@@ -516,7 +608,7 @@ fn base_route_unimplemented(_method: &str) -> PyResult<Py<PyAny>> {
 
 #[pyfunction]
 fn base_route_unimplemented_async(py: Python<'_>, _method: &str) -> PyResult<Py<PyAny>> {
-    into_python_awaitable(py, BaseRouteUnimplemented)
+    into_sendable_python_awaitable(py, BaseRouteUnimplemented)
 }
 
 #[pyfunction]
@@ -526,7 +618,7 @@ fn default_lifespan_runtime(py: Python<'_>, router: Py<PyAny>) -> PyResult<Py<Py
 
 #[pyfunction]
 fn default_lifespan_transition(py: Python<'_>, _runtime: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
-    into_python_awaitable(py, DefaultLifespanTransition)
+    into_sendable_python_awaitable(py, DefaultLifespanTransition)
 }
 
 #[pyfunction]
@@ -546,7 +638,7 @@ fn router_lifespan(
     receive: Py<PyAny>,
     send: Py<PyAny>,
 ) -> PyResult<Py<PyAny>> {
-    into_python_awaitable(
+    into_sendable_python_awaitable(
         py,
         RouterLifespanMachine {
             lifespan_context,
@@ -565,8 +657,8 @@ enum RouterLifespanPending {
     StartupSend,
     ShutdownReceive,
     NormalExit,
-    ErrorExit { original: PyErr, started: bool },
-    FailureSend { original: PyErr },
+    ErrorExit { original: Py<PyAny>, started: bool },
+    FailureSend { original: Py<PyAny> },
     ShutdownComplete,
 }
 
@@ -580,6 +672,26 @@ struct RouterLifespanMachine {
 }
 
 impl AwaitableStateMachine for RouterLifespanMachine {
+    fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.lifespan_context)?;
+        visit.call(&self.context_manager)?;
+        visit.call(&self.scope)?;
+        visit.call(&self.receive)?;
+        visit.call(&self.send)?;
+        if let Some(
+            RouterLifespanPending::ErrorExit { original, .. }
+            | RouterLifespanPending::FailureSend { original },
+        ) = &self.pending
+        {
+            visit.call(original)?;
+        }
+        Ok(())
+    }
+
+    fn finalize_on_drop(&self) -> bool {
+        true
+    }
+
     fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
         match input {
             MachineResume::Start if self.pending.is_none() => self.start(py),
@@ -591,8 +703,8 @@ impl AwaitableStateMachine for RouterLifespanMachine {
                 let pending = self.take_pending()?;
                 self.resume_error(py, pending, error)
             }
-            MachineResume::AsyncIterationComplete(_) => {
-                Err(pyo3::exceptions::PyStopAsyncIteration::new_err(()))
+            MachineResume::AsyncIterationComplete(error) => {
+                self.resume(py, MachineResume::Error(error))
             }
             _ => Err(PyRuntimeError::new_err(
                 "router lifespan resumed without a pending operation",
@@ -634,11 +746,15 @@ impl RouterLifespanMachine {
             RouterLifespanPending::ErrorExit { original, started } => {
                 match value.bind(py).is_truthy() {
                     Ok(true) => self.send_shutdown_complete(py),
-                    Ok(false) => self.send_failure(py, original, started),
+                    Ok(false) => {
+                        self.send_failure(py, PyErr::from_value(original.into_bound(py)), started)
+                    }
                     Err(error) => self.send_failure(py, error, started),
                 }
             }
-            RouterLifespanPending::FailureSend { original } => Err(original),
+            RouterLifespanPending::FailureSend { original } => {
+                Err(PyErr::from_value(original.into_bound(py)))
+            }
             RouterLifespanPending::ShutdownComplete => Ok(MachineAction::Complete(py.None())),
         }
     }
@@ -752,7 +868,10 @@ impl RouterLifespanMachine {
             Ok(exit) => exit,
             Err(error) => return self.send_failure(py, error, started),
         };
-        self.pending = Some(RouterLifespanPending::ErrorExit { original, started });
+        self.pending = Some(RouterLifespanPending::ErrorExit {
+            original: original.value(py).clone().into_any().unbind(),
+            started,
+        });
         Ok(MachineAction::Await(exit.unbind()))
     }
 
@@ -772,7 +891,9 @@ impl RouterLifespanMachine {
             py,
             event_type,
             Some(&message),
-            RouterLifespanPending::FailureSend { original },
+            RouterLifespanPending::FailureSend {
+                original: original.value(py).clone().into_any().unbind(),
+            },
         )
     }
 
@@ -2405,7 +2526,7 @@ fn base_route_call(
     plain_text_response_type: Py<PyAny>,
     websocket_close_type: Py<PyAny>,
 ) -> PyResult<Py<PyAny>> {
-    into_python_awaitable(
+    into_sendable_python_awaitable(
         py,
         BaseRouteCallMachine {
             route,
@@ -2430,6 +2551,20 @@ struct BaseRouteCallMachine {
 }
 
 impl AwaitableStateMachine for BaseRouteCallMachine {
+    fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.route)?;
+        visit.call(&self.scope)?;
+        visit.call(&self.receive)?;
+        visit.call(&self.send)?;
+        visit.call(&self.plain_text_response_type)?;
+        visit.call(&self.websocket_close_type)?;
+        Ok(())
+    }
+
+    fn finalize_on_drop(&self) -> bool {
+        true
+    }
+
     fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
         match input {
             MachineResume::Start if !self.pending => self.start(py),
@@ -2441,8 +2576,8 @@ impl AwaitableStateMachine for BaseRouteCallMachine {
                 self.pending = false;
                 Err(error)
             }
-            MachineResume::AsyncIterationComplete(_) => {
-                Err(pyo3::exceptions::PyStopAsyncIteration::new_err(()))
+            MachineResume::AsyncIterationComplete(error) => {
+                self.resume(py, MachineResume::Error(error))
             }
             _ => Err(PyRuntimeError::new_err(
                 "base route call resumed without a pending operation",
@@ -2787,7 +2922,7 @@ fn dict_items_as_py(dict: &Bound<'_, PyDict>) -> PyResult<Vec<(String, Py<PyAny>
 
 #[pyfunction]
 fn request_response(py: Python<'_>, args: RequestResponseArgs) -> PyResult<Py<PyAny>> {
-    into_python_awaitable(
+    into_sendable_python_awaitable(
         py,
         RequestResponseMachine {
             endpoint: args.endpoint,
@@ -2842,13 +2977,31 @@ struct RequestResponseMachine {
 }
 
 impl AwaitableStateMachine for RequestResponseMachine {
+    fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.endpoint)?;
+        visit.call(&self.scope)?;
+        visit.call(&self.receive)?;
+        visit.call(&self.send)?;
+        visit.call(&self.request_type)?;
+        visit.call(&self.http_exception_type)?;
+        visit.call(&self.run_in_threadpool)?;
+        visit.call(&self.request)?;
+        visit.call(&self.sender)?;
+        visit.call(&self.original_exception)?;
+        Ok(())
+    }
+
+    fn finalize_on_drop(&self) -> bool {
+        true
+    }
+
     fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
         match input {
             MachineResume::Start if self.pending.is_none() => self.start(py),
             MachineResume::Value(value) => self.resume_value(py, value),
             MachineResume::Error(error) => self.resume_error(py, error),
-            MachineResume::AsyncIterationComplete(_) => {
-                Err(pyo3::exceptions::PyStopAsyncIteration::new_err(()))
+            MachineResume::AsyncIterationComplete(error) => {
+                self.resume(py, MachineResume::Error(error))
             }
             _ => Err(PyRuntimeError::new_err(
                 "request endpoint resumed without a pending operation",

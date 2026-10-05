@@ -291,13 +291,19 @@ def _run_response_consumer_case(case: dict[str, Any], resources: ExitStack) -> d
                     response.raw_headers.append(
                         tuple(base64.b64decode(item) for item in action["pair"])
                     )
+                elif action["kind"] == "chunk-size":
+                    response.chunk_size = action["value"]
                 elif action["kind"] == "mutable-body":
                     response.body[action["index"]] = action["value"]
             if case["send_failure"] and len(events) == case["send_failure"]["at_event"]:
                 raise send_error
 
         attribute_probe["enabled"] = True
-        asyncio.run(response(dict(case["scope"]), receive, send))
+        scope = dict(case["scope"])
+        scope["headers"] = [
+            tuple(base64.b64decode(item) for item in pair) for pair in scope.get("headers", [])
+        ]
+        asyncio.run(response(scope, receive, send))
         outcome["completed"] = True
     except BaseException as error:
         outcome["completed"] = False

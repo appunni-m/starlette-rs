@@ -9,12 +9,13 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
 use pyo3::basic::CompareOp;
-use pyo3::exceptions::{PyAssertionError, PyRuntimeError, PyStopAsyncIteration, PyValueError};
+use pyo3::class::gc::{PyTraverseError, PyVisit};
+use pyo3::exceptions::{PyAssertionError, PyRuntimeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyDict, PyInt, PyList, PyModule, PyString, PyTraceback, PyTuple};
 
 use crate::awaitable::{
-    AwaitableStateMachine, MachineAction, MachineResume, into_python_awaitable,
+    AwaitableStateMachine, MachineAction, MachineResume, into_sendable_python_awaitable,
 };
 
 const DEPRECATION_MESSAGE: &str = "starlette.middleware.wsgi is deprecated and will be removed in a future release. Please refer to https://github.com/abersheeran/a2wsgi as a replacement.";
@@ -166,7 +167,7 @@ fn wsgi_middleware_call(
     receive: Py<PyAny>,
     send: Py<PyAny>,
 ) -> PyResult<Py<PyAny>> {
-    into_python_awaitable(
+    into_sendable_python_awaitable(
         py,
         WsgiMiddlewareCall {
             app,
@@ -196,6 +197,19 @@ struct WsgiMiddlewareCall {
 }
 
 impl AwaitableStateMachine for WsgiMiddlewareCall {
+    fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.app)?;
+        visit.call(&self.scope)?;
+        visit.call(&self.receive)?;
+        visit.call(&self.send)?;
+        visit.call(&self.body)?;
+        Ok(())
+    }
+
+    fn finalize_on_drop(&self) -> bool {
+        true
+    }
+
     fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
         match input {
             MachineResume::Start if self.pending.is_none() => self.start(py),
@@ -216,7 +230,7 @@ impl AwaitableStateMachine for WsgiMiddlewareCall {
                     "WSGI middleware has no pending operation",
                 )),
             },
-            MachineResume::AsyncIterationComplete(_) => Err(PyStopAsyncIteration::new_err(())),
+            MachineResume::AsyncIterationComplete(error) => Err(error),
             MachineResume::Start => Err(PyRuntimeError::new_err(
                 "WSGI middleware call has already started",
             )),

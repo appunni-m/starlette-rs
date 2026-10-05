@@ -3,8 +3,9 @@
 use std::path::{Path, PathBuf};
 
 use crate::awaitable::{
-    AwaitableStateMachine, MachineAction, MachineResume, into_python_awaitable,
+    AwaitableStateMachine, MachineAction, MachineResume, into_sendable_python_awaitable,
 };
+use pyo3::class::gc::{PyTraverseError, PyVisit};
 use pyo3::exceptions::{
     PyAssertionError, PyKeyError, PyOSError, PyPermissionError, PyRuntimeError, PyValueError,
 };
@@ -30,6 +31,17 @@ struct PyStaticFiles {
 
 #[pymethods]
 impl PyStaticFiles {
+    fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.directory)?;
+        visit.call(&self.packages)?;
+        Ok(())
+    }
+
+    fn __clear__(&mut self, _py: Python<'_>) {
+        self.directory = None;
+        self.packages = None;
+    }
+
     #[new]
     #[pyo3(signature = (directory=None, packages=None, html=false, check_dir=true, follow_symlink=false))]
     fn new(
@@ -158,7 +170,7 @@ impl PyStaticFiles {
 
     fn check_config(slf: Py<Self>, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let callback = slf.bind(py).getattr("_check_config_sync")?.unbind();
-        into_python_awaitable(
+        into_sendable_python_awaitable(
             py,
             StaticFilesCheckConfigMachine {
                 callback,
@@ -174,7 +186,7 @@ impl PyStaticFiles {
         scope: &Bound<'_, PyDict>,
         lookup_path: Py<PyAny>,
     ) -> PyResult<Py<PyAny>> {
-        into_python_awaitable(
+        into_sendable_python_awaitable(
             py,
             StaticFilesCallMachine::new(
                 slf,
@@ -208,7 +220,7 @@ impl PyStaticFiles {
         if scope_type != "http" {
             return Err(PyAssertionError::new_err(()));
         }
-        into_python_awaitable(
+        into_sendable_python_awaitable(
             py,
             StaticFilesCallMachine::new(
                 slf,
@@ -439,6 +451,24 @@ impl StaticFilesCallMachine {
 }
 
 impl AwaitableStateMachine for StaticFilesCallMachine {
+    fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.owner)?;
+        visit.call(&self.scope)?;
+        visit.call(&self.lookup_path)?;
+        visit.call(&self.check_config)?;
+        visit.call(&self.get_path)?;
+        visit.call(&self.selected_stat_result)?;
+        if let Some((receive, send)) = &self.response_callbacks {
+            visit.call(receive)?;
+            visit.call(send)?;
+        }
+        Ok(())
+    }
+
+    fn finalize_on_drop(&self) -> bool {
+        true
+    }
+
     fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
         match (self.state, input) {
             (StaticFilesCallState::Start, MachineResume::Start) => {
@@ -484,6 +514,15 @@ struct StaticFilesCheckConfigMachine {
 }
 
 impl AwaitableStateMachine for StaticFilesCheckConfigMachine {
+    fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.callback)?;
+        Ok(())
+    }
+
+    fn finalize_on_drop(&self) -> bool {
+        true
+    }
+
     fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
         match input {
             MachineResume::Start if !self.waiting => {

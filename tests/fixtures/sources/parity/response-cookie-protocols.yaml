@@ -504,7 +504,7 @@
               "kind": "object",
               "value": null,
               "label": "value",
-              "str_text": "é",
+              "str_text": "\u00e9",
               "str_self": false,
               "truth": true,
               "lower": "lax",
@@ -568,7 +568,7 @@
               "kind": "object",
               "value": null,
               "label": "value",
-              "str_text": "漢",
+              "str_text": "\u6f22",
               "str_self": false,
               "truth": true,
               "lower": "lax",
@@ -6743,6 +6743,382 @@
               "owned_result": null,
               "table_callback": null,
               "hash_result": null
+            }
+          },
+          "clock_unix_seconds": 1700000000,
+          "observe_raw_reads": false
+        }
+      ]
+    },
+    {
+      "case_id": "starlette.responses.Response.consumer-construction.cookie-supplied-morsel-0",
+      "surface": "starlette.responses.Response",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.Response.consumer-construction.public-render-and-asgi",
+        "starlette.responses.Response.consumer-construction.cookie-argument-protocols"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "body"
+        },
+        "omit_content": false,
+        "kwargs": {},
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/cookie-protocol"
+      },
+      "send_failure": null,
+      "background_label": null,
+      "cookie_protocol": [
+        {
+          "operation": "set_cookie",
+          "arguments": {
+            "key": {
+              "kind": "literal",
+              "value": "mapping-key"
+            },
+            "value": {
+              "kind": "morsel",
+              "key": "stored",
+              "value": "input raw value",
+              "coded_value": "literal",
+              "attributes": {}
+            }
+          },
+          "clock_unix_seconds": 1700000000,
+          "observe_raw_reads": false
+        }
+      ]
+    },
+    {
+      "case_id": "starlette.responses.Response.consumer-construction.cookie-supplied-morsel-1",
+      "surface": "starlette.responses.Response",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.Response.consumer-construction.public-render-and-asgi",
+        "starlette.responses.Response.consumer-construction.cookie-argument-protocols"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "body"
+        },
+        "omit_content": false,
+        "kwargs": {},
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/cookie-protocol"
+      },
+      "send_failure": null,
+      "background_label": null,
+      "cookie_protocol": [
+        {
+          "operation": "set_cookie",
+          "arguments": {
+            "key": {
+              "kind": "literal",
+              "value": "mapping-key"
+            },
+            "value": {
+              "kind": "morsel",
+              "key": "different",
+              "value": "input raw value",
+              "coded_value": "\"space value\"",
+              "attributes": {
+                "comment": "quoted comment; x",
+                "version": 1
+              }
+            }
+          },
+          "clock_unix_seconds": 1700000000,
+          "observe_raw_reads": false
+        }
+      ]
+    },
+    {
+      "case_id": "starlette.responses.Response.consumer-construction.cookie-supplied-morsel-2",
+      "surface": "starlette.responses.Response",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.Response.consumer-construction.public-render-and-asgi",
+        "starlette.responses.Response.consumer-construction.cookie-argument-protocols"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "body"
+        },
+        "omit_content": false,
+        "kwargs": {},
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/cookie-protocol"
+      },
+      "send_failure": null,
+      "background_label": null,
+      "cookie_protocol": [
+        {
+          "operation": "set_cookie",
+          "arguments": {
+            "key": {
+              "kind": "literal",
+              "value": "path"
+            },
+            "value": {
+              "kind": "morsel",
+              "key": "unicode",
+              "value": "input raw value",
+              "coded_value": "caf\u00e9",
+              "attributes": {
+                "path": "/original",
+                "domain": "input.example",
+                "secure": true
+              }
+            },
+            "path": {
+              "kind": "literal",
+              "value": null
+            },
+            "samesite": {
+              "kind": "literal",
+              "value": null
+            }
+          },
+          "clock_unix_seconds": 1700000000,
+          "observe_raw_reads": false
+        }
+      ]
+    },
+    {
+      "case_id": "starlette.responses.Response.consumer-construction.cookie-supplied-morsel-3",
+      "surface": "starlette.responses.Response",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.Response.consumer-construction.public-render-and-asgi",
+        "starlette.responses.Response.consumer-construction.cookie-argument-protocols"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "body"
+        },
+        "omit_content": false,
+        "kwargs": {},
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/cookie-protocol"
+      },
+      "send_failure": null,
+      "background_label": null,
+      "cookie_protocol": [
+        {
+          "operation": "set_cookie",
+          "arguments": {
+            "key": {
+              "kind": "literal",
+              "value": "mapping-key"
+            },
+            "value": {
+              "kind": "morsel",
+              "key": "flags",
+              "value": "input raw value",
+              "coded_value": "plain",
+              "attributes": {
+                "secure": false,
+                "httponly": true,
+                "max-age": 12,
+                "samesite": "Strict"
+              }
+            },
+            "secure": {
+              "kind": "literal",
+              "value": true
+            }
+          },
+          "clock_unix_seconds": 1700000000,
+          "observe_raw_reads": false
+        }
+      ]
+    },
+    {
+      "case_id": "starlette.responses.Response.consumer-construction.cookie-supplied-morsel-4",
+      "surface": "starlette.responses.Response",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.Response.consumer-construction.public-render-and-asgi",
+        "starlette.responses.Response.consumer-construction.cookie-argument-protocols"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "body"
+        },
+        "omit_content": false,
+        "kwargs": {},
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/cookie-protocol"
+      },
+      "send_failure": null,
+      "background_label": null,
+      "cookie_protocol": [
+        {
+          "operation": "set_cookie",
+          "arguments": {
+            "key": {
+              "kind": "literal",
+              "value": "mapping-key"
+            },
+            "value": {
+              "kind": "morsel",
+              "key": "overwrite",
+              "value": "input raw value",
+              "coded_value": "plain",
+              "attributes": {
+                "max-age": 17,
+                "expires": 12,
+                "path": "/old"
+              }
+            },
+            "max_age": {
+              "kind": "literal",
+              "value": 9
+            },
+            "expires": {
+              "kind": "literal",
+              "value": 0
+            },
+            "path": {
+              "kind": "literal",
+              "value": "/next"
+            },
+            "samesite": {
+              "kind": "literal",
+              "value": "None"
+            }
+          },
+          "clock_unix_seconds": 1700000000,
+          "observe_raw_reads": false
+        }
+      ]
+    },
+    {
+      "case_id": "starlette.responses.Response.consumer-construction.cookie-supplied-morsel-5",
+      "surface": "starlette.responses.Response",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.Response.consumer-construction.public-render-and-asgi",
+        "starlette.responses.Response.consumer-construction.cookie-argument-protocols"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "body"
+        },
+        "omit_content": false,
+        "kwargs": {},
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/cookie-protocol"
+      },
+      "send_failure": null,
+      "background_label": null,
+      "cookie_protocol": [
+        {
+          "operation": "set_cookie",
+          "arguments": {
+            "key": {
+              "kind": "literal",
+              "value": "mapping-key"
+            },
+            "value": {
+              "kind": "morsel",
+              "key": "reserved",
+              "value": "input raw value",
+              "coded_value": "raw",
+              "attributes": {
+                "comment": "input unicode \u2713"
+              }
             }
           },
           "clock_unix_seconds": 1700000000,

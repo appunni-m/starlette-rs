@@ -354,6 +354,600 @@
         ],
         "warning_filter": "always"
       }
+    },
+    {
+      "case_id": "starlette.middleware.sessions.SessionMiddleware.module-import-policy.installed",
+      "surface": "starlette.middleware.sessions.SessionMiddleware",
+      "operation": "module-import-policy",
+      "covers": [
+        "starlette.middleware.sessions.SessionMiddleware.module-import-policy.dependency-errors-and-selection"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "import-policy"
+      ],
+      "imports": {
+        "module": "starlette.middleware.sessions",
+        "consumer_attribute": "SessionMiddleware",
+        "failures": [],
+        "warning_filter": "always",
+        "actions": []
+      }
+    },
+    {
+      "case_id": "starlette.middleware.sessions.SessionMiddleware.module-import-policy.modulenotfounderror",
+      "surface": "starlette.middleware.sessions.SessionMiddleware",
+      "operation": "module-import-policy",
+      "covers": [
+        "starlette.middleware.sessions.SessionMiddleware.module-import-policy.dependency-errors-and-selection"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "import-policy"
+      ],
+      "imports": {
+        "module": "starlette.middleware.sessions",
+        "consumer_attribute": "SessionMiddleware",
+        "failures": [
+          {
+            "module": "itsdangerous",
+            "exception": "ModuleNotFoundError",
+            "message": "input loader error: itsdangerous"
+          }
+        ],
+        "warning_filter": "always",
+        "actions": []
+      }
+    },
+    {
+      "case_id": "starlette.middleware.sessions.SessionMiddleware.module-import-policy.importerror",
+      "surface": "starlette.middleware.sessions.SessionMiddleware",
+      "operation": "module-import-policy",
+      "covers": [
+        "starlette.middleware.sessions.SessionMiddleware.module-import-policy.dependency-errors-and-selection"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "import-policy"
+      ],
+      "imports": {
+        "module": "starlette.middleware.sessions",
+        "consumer_attribute": "SessionMiddleware",
+        "failures": [
+          {
+            "module": "itsdangerous",
+            "exception": "ImportError",
+            "message": "input loader error: itsdangerous"
+          }
+        ],
+        "warning_filter": "always",
+        "actions": []
+      }
+    },
+    {
+      "case_id": "starlette.middleware.sessions.SessionMiddleware.module-import-policy.runtimeerror",
+      "surface": "starlette.middleware.sessions.SessionMiddleware",
+      "operation": "module-import-policy",
+      "covers": [
+        "starlette.middleware.sessions.SessionMiddleware.module-import-policy.dependency-errors-and-selection"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "import-policy"
+      ],
+      "imports": {
+        "module": "starlette.middleware.sessions",
+        "consumer_attribute": "SessionMiddleware",
+        "failures": [
+          {
+            "module": "itsdangerous",
+            "exception": "RuntimeError",
+            "message": "input loader error: itsdangerous"
+          }
+        ],
+        "warning_filter": "always",
+        "actions": []
+      }
+    },
+    {
+      "case_id": "starlette.schemas.OpenAPIResponse.module-import-policy.installed",
+      "surface": "starlette.schemas.OpenAPIResponse",
+      "operation": "module-import-policy",
+      "covers": [
+        "starlette.schemas.OpenAPIResponse.module-import-policy.dependency-errors-and-selection"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "import-policy"
+      ],
+      "imports": {
+        "module": "starlette.schemas",
+        "consumer_attribute": "OpenAPIResponse",
+        "failures": [],
+        "warning_filter": "always",
+        "actions": [
+          {
+            "action": "render",
+            "content": {
+              "openapi": "3.0.0",
+              "paths": {}
+            }
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.schemas.OpenAPIResponse.module-import-policy.modulenotfounderror",
+      "surface": "starlette.schemas.OpenAPIResponse",
+      "operation": "module-import-policy",
+      "covers": [
+        "starlette.schemas.OpenAPIResponse.module-import-policy.dependency-errors-and-selection"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "import-policy"
+      ],
+      "imports": {
+        "module": "starlette.schemas",
+        "consumer_attribute": "OpenAPIResponse",
+        "failures": [
+          {
+            "module": "yaml",
+            "exception": "ModuleNotFoundError",
+            "message": "input loader error: yaml"
+          }
+        ],
+        "warning_filter": "always",
+        "actions": [
+          {
+            "action": "render",
+            "content": {
+              "openapi": "3.0.0",
+              "paths": {}
+            }
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.schemas.OpenAPIResponse.module-import-policy.importerror",
+      "surface": "starlette.schemas.OpenAPIResponse",
+      "operation": "module-import-policy",
+      "covers": [
+        "starlette.schemas.OpenAPIResponse.module-import-policy.dependency-errors-and-selection"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "import-policy"
+      ],
+      "imports": {
+        "module": "starlette.schemas",
+        "consumer_attribute": "OpenAPIResponse",
+        "failures": [
+          {
+            "module": "yaml",
+            "exception": "ImportError",
+            "message": "input loader error: yaml"
+          }
+        ],
+        "warning_filter": "always",
+        "actions": [
+          {
+            "action": "render",
+            "content": {
+              "openapi": "3.0.0",
+              "paths": {}
+            }
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.schemas.OpenAPIResponse.module-import-policy.runtimeerror",
+      "surface": "starlette.schemas.OpenAPIResponse",
+      "operation": "module-import-policy",
+      "covers": [
+        "starlette.schemas.OpenAPIResponse.module-import-policy.dependency-errors-and-selection"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "import-policy"
+      ],
+      "imports": {
+        "module": "starlette.schemas",
+        "consumer_attribute": "OpenAPIResponse",
+        "failures": [
+          {
+            "module": "yaml",
+            "exception": "RuntimeError",
+            "message": "input loader error: yaml"
+          }
+        ],
+        "warning_filter": "always",
+        "actions": [
+          {
+            "action": "render",
+            "content": {
+              "openapi": "3.0.0",
+              "paths": {}
+            }
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.schemas.BaseSchemaGenerator.module-import-policy.installed",
+      "surface": "starlette.schemas.BaseSchemaGenerator",
+      "operation": "module-import-policy",
+      "covers": [
+        "starlette.schemas.BaseSchemaGenerator.module-import-policy.dependency-errors-and-selection"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "import-policy"
+      ],
+      "imports": {
+        "module": "starlette.schemas",
+        "consumer_attribute": "BaseSchemaGenerator",
+        "failures": [],
+        "warning_filter": "always",
+        "actions": [
+          {
+            "action": "parse-docstring",
+            "docstring": null
+          },
+          {
+            "action": "parse-docstring",
+            "docstring": "Summary\n---\nresponses:\n  200:\n    description: input response"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.schemas.BaseSchemaGenerator.module-import-policy.modulenotfounderror",
+      "surface": "starlette.schemas.BaseSchemaGenerator",
+      "operation": "module-import-policy",
+      "covers": [
+        "starlette.schemas.BaseSchemaGenerator.module-import-policy.dependency-errors-and-selection"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "import-policy"
+      ],
+      "imports": {
+        "module": "starlette.schemas",
+        "consumer_attribute": "BaseSchemaGenerator",
+        "failures": [
+          {
+            "module": "yaml",
+            "exception": "ModuleNotFoundError",
+            "message": "input loader error: yaml"
+          }
+        ],
+        "warning_filter": "always",
+        "actions": [
+          {
+            "action": "parse-docstring",
+            "docstring": null
+          },
+          {
+            "action": "parse-docstring",
+            "docstring": "Summary\n---\nresponses:\n  200:\n    description: input response"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.schemas.BaseSchemaGenerator.module-import-policy.importerror",
+      "surface": "starlette.schemas.BaseSchemaGenerator",
+      "operation": "module-import-policy",
+      "covers": [
+        "starlette.schemas.BaseSchemaGenerator.module-import-policy.dependency-errors-and-selection"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "import-policy"
+      ],
+      "imports": {
+        "module": "starlette.schemas",
+        "consumer_attribute": "BaseSchemaGenerator",
+        "failures": [
+          {
+            "module": "yaml",
+            "exception": "ImportError",
+            "message": "input loader error: yaml"
+          }
+        ],
+        "warning_filter": "always",
+        "actions": [
+          {
+            "action": "parse-docstring",
+            "docstring": null
+          },
+          {
+            "action": "parse-docstring",
+            "docstring": "Summary\n---\nresponses:\n  200:\n    description: input response"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.schemas.BaseSchemaGenerator.module-import-policy.runtimeerror",
+      "surface": "starlette.schemas.BaseSchemaGenerator",
+      "operation": "module-import-policy",
+      "covers": [
+        "starlette.schemas.BaseSchemaGenerator.module-import-policy.dependency-errors-and-selection"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "import-policy"
+      ],
+      "imports": {
+        "module": "starlette.schemas",
+        "consumer_attribute": "BaseSchemaGenerator",
+        "failures": [
+          {
+            "module": "yaml",
+            "exception": "RuntimeError",
+            "message": "input loader error: yaml"
+          }
+        ],
+        "warning_filter": "always",
+        "actions": [
+          {
+            "action": "parse-docstring",
+            "docstring": null
+          },
+          {
+            "action": "parse-docstring",
+            "docstring": "Summary\n---\nresponses:\n  200:\n    description: input response"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.requests.Request.module-import-policy.installed",
+      "surface": "starlette.requests.Request",
+      "operation": "module-import-policy",
+      "covers": [
+        "starlette.requests.Request.module-import-policy.dependency-errors-and-selection"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "import-policy"
+      ],
+      "imports": {
+        "module": "starlette.requests",
+        "consumer_attribute": "Request",
+        "failures": [],
+        "warning_filter": "always",
+        "actions": [
+          {
+            "action": "form",
+            "content_type": "application/x-www-form-urlencoded",
+            "body_base64": "YT1vbmUmYT10d28="
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.requests.Request.module-import-policy.modulenotfounderror",
+      "surface": "starlette.requests.Request",
+      "operation": "module-import-policy",
+      "covers": [
+        "starlette.requests.Request.module-import-policy.dependency-errors-and-selection"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "import-policy"
+      ],
+      "imports": {
+        "module": "starlette.requests",
+        "consumer_attribute": "Request",
+        "failures": [
+          {
+            "module": "python_multipart",
+            "exception": "ModuleNotFoundError",
+            "message": "input loader error: python_multipart"
+          }
+        ],
+        "warning_filter": "always",
+        "actions": [
+          {
+            "action": "form",
+            "content_type": "application/x-www-form-urlencoded",
+            "body_base64": "YT1vbmUmYT10d28="
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.requests.Request.module-import-policy.importerror",
+      "surface": "starlette.requests.Request",
+      "operation": "module-import-policy",
+      "covers": [
+        "starlette.requests.Request.module-import-policy.dependency-errors-and-selection"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "import-policy"
+      ],
+      "imports": {
+        "module": "starlette.requests",
+        "consumer_attribute": "Request",
+        "failures": [
+          {
+            "module": "python_multipart",
+            "exception": "ImportError",
+            "message": "input loader error: python_multipart"
+          }
+        ],
+        "warning_filter": "always",
+        "actions": [
+          {
+            "action": "form",
+            "content_type": "application/x-www-form-urlencoded",
+            "body_base64": "YT1vbmUmYT10d28="
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.requests.Request.module-import-policy.runtimeerror",
+      "surface": "starlette.requests.Request",
+      "operation": "module-import-policy",
+      "covers": [
+        "starlette.requests.Request.module-import-policy.dependency-errors-and-selection"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "import-policy"
+      ],
+      "imports": {
+        "module": "starlette.requests",
+        "consumer_attribute": "Request",
+        "failures": [
+          {
+            "module": "python_multipart",
+            "exception": "RuntimeError",
+            "message": "input loader error: python_multipart"
+          }
+        ],
+        "warning_filter": "always",
+        "actions": [
+          {
+            "action": "form",
+            "content_type": "application/x-www-form-urlencoded",
+            "body_base64": "YT1vbmUmYT10d28="
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.requests.Request.module-import-policy.both-missing",
+      "surface": "starlette.requests.Request",
+      "operation": "module-import-policy",
+      "covers": [
+        "starlette.requests.Request.module-import-policy.dependency-errors-and-selection"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "import-policy"
+      ],
+      "imports": {
+        "module": "starlette.requests",
+        "consumer_attribute": "Request",
+        "failures": [
+          {
+            "module": "python_multipart",
+            "exception": "ModuleNotFoundError",
+            "message": "input loader error: python_multipart"
+          },
+          {
+            "module": "multipart",
+            "exception": "ModuleNotFoundError",
+            "message": "input loader error: multipart"
+          }
+        ],
+        "warning_filter": "always",
+        "actions": [
+          {
+            "action": "form",
+            "content_type": "application/x-www-form-urlencoded",
+            "body_base64": "YT1vbmUmYT10d28="
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.requests.Request.module-import-policy.fallback-importerror",
+      "surface": "starlette.requests.Request",
+      "operation": "module-import-policy",
+      "covers": [
+        "starlette.requests.Request.module-import-policy.dependency-errors-and-selection"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "import-policy"
+      ],
+      "imports": {
+        "module": "starlette.requests",
+        "consumer_attribute": "Request",
+        "failures": [
+          {
+            "module": "python_multipart",
+            "exception": "ModuleNotFoundError",
+            "message": "input preferred missing"
+          },
+          {
+            "module": "multipart",
+            "exception": "ImportError",
+            "message": "input legacy loader error"
+          }
+        ],
+        "warning_filter": "always",
+        "actions": [
+          {
+            "action": "form",
+            "content_type": "application/x-www-form-urlencoded",
+            "body_base64": "YT1vbmUmYT10d28="
+          }
+        ]
+      }
     }
   ]
 }

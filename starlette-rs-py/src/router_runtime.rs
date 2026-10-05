@@ -1,17 +1,17 @@
 //! Rust-owned route ordering, scope changes, and ASGI dispatch.
 
-use std::cell::Cell;
 use std::collections::HashMap;
-use std::rc::Rc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
+use pyo3::class::gc::{PyTraverseError, PyVisit};
 use pyo3::exceptions::{PyAssertionError, PyKeyError, PyRuntimeError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyString, PyTuple};
 use starlette_rs::{DispatchPlanError, HttpDispatchPlan, RouteTable, SupplementalRouteMatch};
 
 use crate::awaitable::{
-    AwaitableStateMachine, MachineAction, MachineResume, into_python_awaitable,
+    AwaitableStateMachine, MachineAction, MachineResume, into_sendable_python_awaitable,
 };
 
 #[path = "router_runtime/route_types_runtime.rs"]
@@ -153,7 +153,7 @@ impl PyRouterRuntime {
             websocket_close_type,
             exception_handler,
         } = args;
-        into_python_awaitable(
+        into_sendable_python_awaitable(
             py,
             RouterDispatchMachine {
                 route_types: RouteTypes {
@@ -190,7 +190,7 @@ impl PyRouterRuntime {
             plain_text_response_type,
             websocket_close_type,
         } = args;
-        into_python_awaitable(
+        into_sendable_python_awaitable(
             py,
             NotFoundMachine {
                 scope,
@@ -556,11 +556,35 @@ struct RouterDispatchMachine {
 }
 
 enum RouterPending {
-    Route(Option<Rc<Cell<bool>>>),
+    Route(Option<Arc<AtomicBool>>),
     Callback,
 }
 
 impl AwaitableStateMachine for RouterDispatchMachine {
+    fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.routes_source)?;
+        visit.call(&self.router)?;
+        visit.call(&self.scope)?;
+        visit.call(&self.receive)?;
+        visit.call(&self.send)?;
+        visit.call(&self.default)?;
+        visit.call(&self.url_type)?;
+        visit.call(&self.redirect_response_type)?;
+        visit.call(&self.http_exception_type)?;
+        visit.call(&self.plain_text_response_type)?;
+        visit.call(&self.websocket_close_type)?;
+        visit.call(&self.exception_handler)?;
+        visit.call(&self.route_types.http)?;
+        visit.call(&self.route_types.websocket)?;
+        visit.call(&self.route_types.mount)?;
+        visit.call(&self.route_types.host)?;
+        Ok(())
+    }
+
+    fn finalize_on_drop(&self) -> bool {
+        true
+    }
+
     fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
         match input {
             MachineResume::Start => {
@@ -584,9 +608,7 @@ impl AwaitableStateMachine for RouterDispatchMachine {
                     "router dispatch resumed without a pending operation",
                 )),
             },
-            MachineResume::AsyncIterationComplete(_) => {
-                Err(pyo3::exceptions::PyStopAsyncIteration::new_err(()))
-            }
+            MachineResume::AsyncIterationComplete(error) => Err(error),
             _ => Err(PyRuntimeError::new_err(
                 "router dispatch resumed without a pending operation",
             )),
@@ -647,7 +669,7 @@ impl RouterDispatchMachine {
                 };
                 scope_dict.call_method1("update", (child_scope,))?;
                 let (route_send, response_started) = if self.exception_handler.is_some() {
-                    let response_started = Rc::new(Cell::new(false));
+                    let response_started = Arc::new(AtomicBool::new(false));
                     let tracker = Py::new(
                         py,
                         PyResponseStartTracker {
@@ -725,7 +747,7 @@ impl RouterDispatchMachine {
         &mut self,
         py: Python<'_>,
         error: PyErr,
-        response_started: Option<Rc<Cell<bool>>>,
+        response_started: Option<Arc<AtomicBool>>,
     ) -> PyResult<MachineAction> {
         let Some(handler) = self.exception_handler.as_ref() else {
             return Err(error);
@@ -734,7 +756,7 @@ impl RouterDispatchMachine {
         if !error_value.is_instance(self.http_exception_type.bind(py))? {
             return Err(error);
         }
-        if response_started.is_some_and(|state| state.get()) {
+        if response_started.is_some_and(|state| state.load(Ordering::SeqCst)) {
             let runtime_error =
                 PyRuntimeError::new_err("Caught handled exception, but response already started.");
             runtime_error.set_cause(py, Some(error));
@@ -857,6 +879,20 @@ struct NotFoundMachine {
 }
 
 impl AwaitableStateMachine for NotFoundMachine {
+    fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.scope)?;
+        visit.call(&self.receive)?;
+        visit.call(&self.send)?;
+        visit.call(&self.http_exception_type)?;
+        visit.call(&self.plain_text_response_type)?;
+        visit.call(&self.websocket_close_type)?;
+        Ok(())
+    }
+
+    fn finalize_on_drop(&self) -> bool {
+        true
+    }
+
     fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
         match input {
             MachineResume::Start if !self.pending => {
@@ -881,9 +917,7 @@ impl AwaitableStateMachine for NotFoundMachine {
                 self.pending = false;
                 Err(error)
             }
-            MachineResume::AsyncIterationComplete(_) => {
-                Err(pyo3::exceptions::PyStopAsyncIteration::new_err(()))
-            }
+            MachineResume::AsyncIterationComplete(error) => Err(error),
             _ => Err(PyRuntimeError::new_err(
                 "not-found dispatch resumed without a pending operation",
             )),
@@ -918,20 +952,29 @@ fn not_found_callback(
     Ok(callback.unbind())
 }
 
-#[pyclass(unsendable)]
+#[pyclass]
 struct PyResponseStartTracker {
     send: Py<PyAny>,
-    response_started: Rc<Cell<bool>>,
+    response_started: Arc<AtomicBool>,
 }
 
 #[pymethods]
 impl PyResponseStartTracker {
+    fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.send)?;
+        Ok(())
+    }
+
+    fn __clear__(&mut self, py: Python<'_>) {
+        self.send = py.None();
+    }
+
     fn __call__(&self, py: Python<'_>, message: Py<PyAny>) -> PyResult<Py<PyAny>> {
         let message = message.bind(py);
         let message_type =
             required_scope_value(message.cast::<PyDict>()?, "type")?.extract::<String>()?;
         if message_type == "http.response.start" {
-            self.response_started.set(true);
+            self.response_started.store(true, Ordering::SeqCst);
         }
         self.send.bind(py).call1((message,)).map(Bound::unbind)
     }

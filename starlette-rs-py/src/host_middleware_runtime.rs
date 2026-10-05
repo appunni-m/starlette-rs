@@ -1,12 +1,13 @@
 //! Rust-owned dispatch semantics for the pinned Starlette 1.6.0 host middleware.
 
 use pyo3::basic::CompareOp;
-use pyo3::exceptions::{PyAssertionError, PyRuntimeError, PyStopAsyncIteration};
+use pyo3::class::gc::{PyTraverseError, PyVisit};
+use pyo3::exceptions::{PyAssertionError, PyRuntimeError};
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList, PyModule, PyString, PyTuple};
 
 use crate::awaitable::{
-    AwaitableStateMachine, MachineAction, MachineResume, into_python_awaitable,
+    AwaitableStateMachine, MachineAction, MachineResume, into_sendable_python_awaitable,
 };
 
 const ENFORCE_DOMAIN_WILDCARD: &str = "Domain wildcard patterns must be like '*.example.com'.";
@@ -31,7 +32,7 @@ fn https_redirect_middleware_call(
     url_type: Py<PyAny>,
     redirect_response_type: Py<PyAny>,
 ) -> PyResult<Py<PyAny>> {
-    into_python_awaitable(
+    into_sendable_python_awaitable(
         py,
         HttpsRedirectCall {
             app,
@@ -56,6 +57,20 @@ struct HttpsRedirectCall {
 }
 
 impl AwaitableStateMachine for HttpsRedirectCall {
+    fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.app)?;
+        visit.call(&self.scope)?;
+        visit.call(&self.receive)?;
+        visit.call(&self.send)?;
+        visit.call(&self.url_type)?;
+        visit.call(&self.redirect_response_type)?;
+        Ok(())
+    }
+
+    fn finalize_on_drop(&self) -> bool {
+        true
+    }
+
     fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
         match input {
             MachineResume::Start if !self.pending => self.start(py),
@@ -67,7 +82,7 @@ impl AwaitableStateMachine for HttpsRedirectCall {
                 self.pending = false;
                 Err(error)
             }
-            MachineResume::AsyncIterationComplete(_) => Err(PyStopAsyncIteration::new_err(())),
+            MachineResume::AsyncIterationComplete(error) => Err(error),
             MachineResume::Start | MachineResume::Value(_) | MachineResume::Error(_) => Err(
                 PyRuntimeError::new_err("HTTPS redirect middleware continuation is not pending"),
             ),
@@ -189,7 +204,7 @@ fn trusted_host_contains(allowed_hosts: &Bound<'_, PyAny>) -> PyResult<bool> {
 
 #[pyfunction(name = "_trusted_host_middleware_call")]
 fn trusted_host_middleware_call(py: Python<'_>, args: TrustedHostCallArgs) -> PyResult<Py<PyAny>> {
-    into_python_awaitable(
+    into_sendable_python_awaitable(
         py,
         TrustedHostCall {
             app: args.app,
@@ -240,6 +255,25 @@ struct TrustedHostCall {
 }
 
 impl AwaitableStateMachine for TrustedHostCall {
+    fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.app)?;
+        visit.call(&self.allowed_hosts)?;
+        visit.call(&self.allow_any)?;
+        visit.call(&self.www_redirect)?;
+        visit.call(&self.scope)?;
+        visit.call(&self.receive)?;
+        visit.call(&self.send)?;
+        visit.call(&self.connection_type)?;
+        visit.call(&self.url_type)?;
+        visit.call(&self.redirect_response_type)?;
+        visit.call(&self.plain_text_response_type)?;
+        Ok(())
+    }
+
+    fn finalize_on_drop(&self) -> bool {
+        true
+    }
+
     fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
         match input {
             MachineResume::Start if !self.pending => self.start(py),
@@ -251,7 +285,7 @@ impl AwaitableStateMachine for TrustedHostCall {
                 self.pending = false;
                 Err(error)
             }
-            MachineResume::AsyncIterationComplete(_) => Err(PyStopAsyncIteration::new_err(())),
+            MachineResume::AsyncIterationComplete(error) => Err(error),
             MachineResume::Start | MachineResume::Value(_) | MachineResume::Error(_) => Err(
                 PyRuntimeError::new_err("trusted-host middleware continuation is not pending"),
             ),

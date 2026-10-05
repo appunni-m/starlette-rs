@@ -1,15 +1,13 @@
 //! Rust-owned ASGI message flow for GZip middleware.
 
-use std::cell::RefCell;
-use std::rc::Rc;
-
-use pyo3::exceptions::{PyKeyError, PyLookupError, PyRuntimeError, PyStopAsyncIteration};
+use pyo3::class::gc::{PyTraverseError, PyVisit};
+use pyo3::exceptions::{PyKeyError, PyLookupError, PyRuntimeError};
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyDict, PyList, PyModule, PyTuple};
 use starlette_rs::{DEFAULT_EXCLUDED_CONTENT_TYPES, GzipHeader};
 
 use crate::awaitable::{
-    AwaitableStateMachine, MachineAction, MachineResume, into_python_awaitable,
+    AwaitableStateMachine, MachineAction, MachineResume, into_sendable_python_awaitable,
 };
 
 pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
@@ -55,7 +53,7 @@ fn offload_gzip_body(
 
 /// Owns GZip middleware configuration and delegates the Python application
 /// call through the active Python task's awaitable driver.
-#[pyclass(name = "GZipMiddlewareRuntime", unsendable)]
+#[pyclass(name = "GZipMiddlewareRuntime")]
 pub(crate) struct PyGzipMiddlewareRuntime {
     app: Py<PyAny>,
     config: Py<PyAny>,
@@ -65,6 +63,19 @@ pub(crate) struct PyGzipMiddlewareRuntime {
 
 #[pymethods]
 impl PyGzipMiddlewareRuntime {
+    fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.app)?;
+        visit.call(&self.config)?;
+        visit.call(&self.offload_body)?;
+        Ok(())
+    }
+
+    fn __clear__(&mut self, py: Python<'_>) {
+        self.app = py.None();
+        self.config = py.None();
+        self.offload_body = py.None();
+    }
+
     #[new]
     #[pyo3(signature = (app, config, offload_body, gzip_always=false))]
     fn new(app: Py<PyAny>, config: Py<PyAny>, offload_body: Py<PyAny>, gzip_always: bool) -> Self {
@@ -84,7 +95,7 @@ impl PyGzipMiddlewareRuntime {
         send: Py<PyAny>,
     ) -> PyResult<Py<PyAny>> {
         let runtime = slf.borrow(py);
-        into_python_awaitable(
+        into_sendable_python_awaitable(
             py,
             GzipMiddlewareCall {
                 app: runtime.app.clone_ref(py),
@@ -112,6 +123,20 @@ struct GzipMiddlewareCall {
 }
 
 impl AwaitableStateMachine for GzipMiddlewareCall {
+    fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.app)?;
+        visit.call(&self.config)?;
+        visit.call(&self.offload_body)?;
+        visit.call(&self.scope)?;
+        visit.call(&self.receive)?;
+        visit.call(&self.send)?;
+        Ok(())
+    }
+
+    fn finalize_on_drop(&self) -> bool {
+        true
+    }
+
     fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
         match input {
             MachineResume::Start if !self.pending => self.start(py),
@@ -120,7 +145,7 @@ impl AwaitableStateMachine for GzipMiddlewareCall {
                 Ok(MachineAction::Complete(py.None()))
             }
             MachineResume::Error(error) if self.pending => Err(error),
-            MachineResume::AsyncIterationComplete(_) => Err(PyStopAsyncIteration::new_err(())),
+            MachineResume::AsyncIterationComplete(error) => Err(error),
             MachineResume::Start | MachineResume::Value(_) | MachineResume::Error(_) => {
                 Err(PyRuntimeError::new_err(
                     "GZip middleware continuation has no pending application call",
@@ -156,12 +181,15 @@ impl GzipMiddlewareCall {
             Py::new(
                 py,
                 PyGzipSendProxy {
-                    state: Rc::new(RefCell::new(GzipSendState {
-                        responder,
-                        send: self.send.clone_ref(py),
-                        offload_body: self.offload_body.clone_ref(py),
-                        initial_message,
-                    })),
+                    state: Py::new(
+                        py,
+                        GzipSendState {
+                            responder,
+                            send: self.send.clone_ref(py),
+                            offload_body: self.offload_body.clone_ref(py),
+                            initial_message,
+                        },
+                    )?,
                 },
             )?
             .into_any()
@@ -178,16 +206,20 @@ impl GzipMiddlewareCall {
     }
 }
 
-#[pyclass(name = "_GZipSendProxy", unsendable)]
+#[pyclass(name = "_GZipSendProxy")]
 struct PyGzipSendProxy {
-    state: Rc<RefCell<GzipSendState>>,
+    state: Py<GzipSendState>,
 }
 
 #[pymethods]
 impl PyGzipSendProxy {
+    fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.state)
+    }
+
     fn __call__(slf: Py<Self>, py: Python<'_>, message: Py<PyAny>) -> PyResult<Py<PyAny>> {
-        let state = slf.borrow(py).state.clone();
-        into_python_awaitable(
+        let state = slf.borrow(py).state.clone_ref(py);
+        into_sendable_python_awaitable(
             py,
             GzipSendMessage {
                 state,
@@ -200,6 +232,7 @@ impl PyGzipSendProxy {
     }
 }
 
+#[pyclass]
 struct GzipSendState {
     responder: Py<PyAny>,
     send: Py<PyAny>,
@@ -220,7 +253,7 @@ enum GzipSendPending {
 }
 
 struct GzipSendMessage {
-    state: Rc<RefCell<GzipSendState>>,
+    state: Py<GzipSendState>,
     message: Py<PyAny>,
     pending: Option<GzipSendPending>,
     original_body: Option<Py<PyAny>>,
@@ -228,6 +261,18 @@ struct GzipSendMessage {
 }
 
 impl AwaitableStateMachine for GzipSendMessage {
+    fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.state)?;
+        visit.call(&self.message)?;
+        visit.call(&self.original_body)?;
+        visit.call(&self.compressed_body)?;
+        Ok(())
+    }
+
+    fn finalize_on_drop(&self) -> bool {
+        true
+    }
+
     fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
         match input {
             MachineResume::Start if self.pending.is_none() => self.process_message(py),
@@ -261,7 +306,7 @@ impl AwaitableStateMachine for GzipSendMessage {
                     "GZip send continuation has no pending operation",
                 )),
             },
-            MachineResume::AsyncIterationComplete(_) => Err(PyStopAsyncIteration::new_err(())),
+            MachineResume::AsyncIterationComplete(error) => Err(error),
             MachineResume::Start => Err(PyRuntimeError::new_err(
                 "GZip send continuation has no pending operation",
             )),
@@ -291,7 +336,7 @@ impl GzipSendMessage {
                     .ok_or_else(|| PyKeyError::new_err("headers"))?
                     .extract::<Vec<GzipHeader>>()?;
                 let responder = self.responder(py);
-                self.state.borrow_mut().initial_message = self.message.clone_ref(py);
+                self.state.borrow_mut(py).initial_message = self.message.clone_ref(py);
                 responder.bind(py).call_method1(
                     "response_start",
                     (status, gzip_headers_to_python(py, &headers)?),
@@ -421,19 +466,19 @@ impl GzipSendMessage {
     }
 
     fn initial_message(&self, py: Python<'_>) -> Py<PyAny> {
-        self.state.borrow().initial_message.clone_ref(py)
+        self.state.borrow(py).initial_message.clone_ref(py)
     }
 
     fn responder(&self, py: Python<'_>) -> Py<PyAny> {
-        self.state.borrow().responder.clone_ref(py)
+        self.state.borrow(py).responder.clone_ref(py)
     }
 
     fn offload_body(&self, py: Python<'_>) -> Py<PyAny> {
-        self.state.borrow().offload_body.clone_ref(py)
+        self.state.borrow(py).offload_body.clone_ref(py)
     }
 
     fn send(&self, py: Python<'_>) -> Py<PyAny> {
-        self.state.borrow().send.clone_ref(py)
+        self.state.borrow(py).send.clone_ref(py)
     }
 }
 
@@ -447,4 +492,22 @@ fn gzip_headers_to_python<'py>(
         result.append(pair)?;
     }
     Ok(result)
+}
+
+#[pymethods]
+impl GzipSendState {
+    fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.responder)?;
+        visit.call(&self.send)?;
+        visit.call(&self.offload_body)?;
+        visit.call(&self.initial_message)?;
+        Ok(())
+    }
+
+    fn __clear__(&mut self, py: Python<'_>) {
+        self.responder = py.None();
+        self.send = py.None();
+        self.offload_body = py.None();
+        self.initial_message = py.None();
+    }
 }

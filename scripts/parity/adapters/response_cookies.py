@@ -21,6 +21,21 @@ def apply_cookie_protocol(
     def argument(spec: dict[str, Any]) -> Any:
         if spec["kind"] == "literal":
             return spec["value"]
+        if spec["kind"] == "morsel":
+            from http.cookies import Morsel
+
+            class InputMorsel(Morsel):
+                def __setitem__(self, key: Any, value: Any) -> None:
+                    trace.append(
+                        {"event": "morsel-attribute", "name": key, "value": _observe(value)}
+                    )
+                    super().__setitem__(key, value)
+
+            value = InputMorsel()
+            value.set(spec["key"], spec["value"], spec["coded_value"])
+            value.update(spec["attributes"])
+            trace.append({"event": "morsel-created", "key": value.key})
+            return value
         counts: dict[str, int] = {}
         failure = spec["failure"]
         error = (

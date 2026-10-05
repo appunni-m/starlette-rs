@@ -794,6 +794,10 @@ AUTHENTICATION_REQUIRED_WEBSOCKET_PATHS = {
     "decorated": "/ws/decorated",
 }
 OPTIONAL_IMPORT_OPERATIONS = {
+    ("starlette.requests.Request", "module-import-policy"),
+    ("starlette.middleware.sessions.SessionMiddleware", "module-import-policy"),
+    ("starlette.schemas.OpenAPIResponse", "module-import-policy"),
+    ("starlette.schemas.BaseSchemaGenerator", "module-import-policy"),
     ("starlette.testclient.TestClient", "module-import-policy"),
     ("starlette.templating.Jinja2Templates", "module-import-policy"),
 }
@@ -2301,7 +2305,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                             raise ContractError(
                                 f"{octx} permits multipart boundary normalization only for FileResponse headers, bytes, or events"
                             )
-                    elif normalization_kind == "response-consumer-file-root":
+                    elif normalization_kind == "response-consumer-file-environment":
                         _exact(normalization_spec, {"kind"}, f"{octx}.normalization")
                         if (
                             key != (FILE_RESPONSE_SURFACE, "consumer-construction")
@@ -3859,8 +3863,18 @@ def _validate_http_endpoint_case_stimulus(case: dict[str, Any]) -> None:
     if case["target_profiles"] != ["python-package-cpython312"]:
         raise ContractError("HTTPEndpoint dispatch selects only the Python-package profile")
 
+    endpoint_input = case["endpoint"]
+    if not isinstance(endpoint_input, dict):
+        raise ContractError("HTTPEndpoint input must be an object")
+    method_reads = endpoint_input.get("method_reads")
+    if "method_reads" in endpoint_input and (
+        not isinstance(method_reads, list)
+        or not method_reads
+        or any(value not in {"GET", "HEAD"} for value in method_reads)
+    ):
+        raise ContractError("HTTPEndpoint method_reads must provide GET/HEAD values")
     endpoint = _validate_http_class_endpoint_input(
-        case["endpoint"],
+        {key: value for key, value in endpoint_input.items() if key != "method_reads"},
         [],
         "HTTPEndpoint endpoint input",
     )
@@ -15901,6 +15915,12 @@ def validate_case(
             WSGI_BUILD_ENVIRON_OPERATION: {"scope", "body_base64", "environ_probes"},
             WSGI_MODULE_IMPORT_OPERATION: {"module_name"},
             ("starlette.testclient.TestClient", "module-import-policy"): {"imports"},
+            ("starlette.requests.Request", "module-import-policy"): {"imports"},
+            ("starlette.middleware.sessions.SessionMiddleware", "module-import-policy"): {
+                "imports"
+            },
+            ("starlette.schemas.OpenAPIResponse", "module-import-policy"): {"imports"},
+            ("starlette.schemas.BaseSchemaGenerator", "module-import-policy"): {"imports"},
             ("starlette.templating.Jinja2Templates", "module-import-policy"): {"imports"},
         }[(case["surface"], case["operation"])]
         expected_case_keys = (CASE_KEYS - {"steps", "execution_schedule"}) | input_keys
@@ -31487,11 +31507,19 @@ def _validate_response_consumer_content(value: Any) -> None:
         raise ContractError("Response consumer content kind is unsupported")
 
 
-def _validate_response_consumer_attributes(value: Any, *, body: bool = False) -> None:
-    if not isinstance(value, dict) or set(value) - {"status_code", "charset", "media_type", "body"}:
+def _validate_response_consumer_attributes(
+    value: Any, *, body: bool = False, file: bool = False
+) -> None:
+    if not isinstance(value, dict) or set(value) - (
+        {"status_code", "charset", "media_type", "body"}
+        | ({"chunk_size", "max_ranges"} if file else set())
+    ):
         raise ContractError("Response attributes must name public response values")
     for name, item in value.items():
-        if name == "status_code":
+        if name in {"chunk_size", "max_ranges"}:
+            if type(item) is not int or item <= 0:
+                raise ContractError("File response options require positive integers")
+        elif name == "status_code":
             if type(item) is not int:
                 raise ContractError("Python response status requires an integer")
         elif name == "body":
@@ -31618,7 +31646,7 @@ def _validate_response_consumer_case(case: dict[str, Any]) -> None:
             not isinstance(k, str) or not isinstance(v, str) for k, v in headers.items()
         ):
             raise ContractError("Response headers must be a string mapping")
-    _validate_response_consumer_attributes(spec["class_attributes"])
+    _validate_response_consumer_attributes(spec["class_attributes"], file=file_response)
     if "status_code" in spec["class_attributes"]:
         raise ContractError("Response class attributes select only media_type and charset")
     render = spec["render"]
@@ -31686,7 +31714,7 @@ def _validate_response_consumer_case(case: dict[str, Any]) -> None:
     if scope["type"] not in {"http", "websocket"} or not isinstance(scope["path"], str):
         raise ContractError("Response consumers require an HTTP or WebSocket scope")
     if variant:
-        if not isinstance(scope["method"], str) or scope["headers"] != []:
+        if not isinstance(scope["method"], str) or (scope["headers"] != [] and not file_response):
             raise ContractError("Response variant consumers require a method and empty headers")
         asgi = _exact(scope["asgi"], {"spec_version"}, "Response variant ASGI version")
         if asgi["spec_version"] != "2.4":
@@ -31719,7 +31747,49 @@ def _validate_response_consumer_case(case: dict[str, Any]) -> None:
 
 
 def _validate_response_user_protocols(case: dict[str, Any]) -> None:
-    protocols = _exact(case["protocols"], {"stat_hook", "denial_hook"}, "Response call protocols")
+    protocols = _exact(
+        case["protocols"],
+        {"stat_hook", "denial_hook"} | ({"file_hooks"} & case["protocols"].keys()),
+        "Response call protocols",
+    )
+    if "file_hooks" in protocols:
+        if case["surface"] != "starlette.responses.FileResponse" or not isinstance(
+            protocols["file_hooks"], dict
+        ):
+            raise ContractError("File handlers require a FileResponse consumer")
+        for name, hook in protocols["file_hooks"].items():
+            keys = {"delegate"}
+            if name in {"_parse_ranges", "_parse_range_header"}:
+                keys.add("ranges")
+            elif name == "_should_use_range":
+                keys.add("use_range")
+            elif name not in {
+                "_handle_simple",
+                "_handle_single_range",
+                "_handle_multiple_ranges",
+                "generate_multipart",
+            }:
+                raise ContractError("Unknown file hook")
+            _exact(hook, keys, "File hook stimulus")
+            if type(hook["delegate"]) is not bool:
+                raise ContractError("File hook delegation requires a boolean")
+            if "use_range" in hook and type(hook["use_range"]) is not bool:
+                raise ContractError("If-Range hook result requires a boolean")
+            if "ranges" in hook and (
+                not isinstance(hook["ranges"], list)
+                or any(
+                    not isinstance(pair, list)
+                    or len(pair) != 2
+                    or any(type(value) is not int or value < 0 for value in pair)
+                    for pair in hook["ranges"]
+                )
+            ):
+                raise ContractError("Range hook requires integer range pairs")
+        for pair in case["scope"]["headers"]:
+            if not isinstance(pair, list) or len(pair) != 2:
+                raise ContractError("File scope headers require byte pairs")
+            for item in pair:
+                _validate_response_consumer_content({"kind": "bytes", "value": item})
     stat = protocols["stat_hook"]
     if stat is not None:
         if case["surface"] != "starlette.responses.FileResponse":
@@ -31749,12 +31819,28 @@ def _validate_response_user_protocols(case: dict[str, Any]) -> None:
             raise ContractError(
                 "Response denial hook requires a WebSocket scope and delegation flag"
             )
-    if stat is None and denial is None:
+    if stat is None and denial is None and not protocols.get("file_hooks"):
         raise ContractError("Response call protocols must select a hook")
 
 
 def _validate_optional_import_case(case: dict[str, Any]) -> None:
     consumers = {
+        "starlette.requests.Request": (
+            "starlette.requests",
+            "Request",
+            {"python_multipart", "multipart"},
+        ),
+        "starlette.middleware.sessions.SessionMiddleware": (
+            "starlette.middleware.sessions",
+            "SessionMiddleware",
+            {"itsdangerous"},
+        ),
+        "starlette.schemas.OpenAPIResponse": ("starlette.schemas", "OpenAPIResponse", {"yaml"}),
+        "starlette.schemas.BaseSchemaGenerator": (
+            "starlette.schemas",
+            "BaseSchemaGenerator",
+            {"yaml"},
+        ),
         "starlette.testclient.TestClient": (
             "starlette.testclient",
             "TestClient",
@@ -31769,7 +31855,8 @@ def _validate_optional_import_case(case: dict[str, Any]) -> None:
     module, attribute, dependencies = consumers[case["surface"]]
     imports = _exact(
         case["imports"],
-        {"module", "consumer_attribute", "failures", "warning_filter"},
+        {"module", "consumer_attribute", "failures", "warning_filter"}
+        | ({"actions"} if "actions" in case["imports"] else set()),
         "Optional import stimulus",
     )
     if (
@@ -31793,6 +31880,28 @@ def _validate_optional_import_case(case: dict[str, Any]) -> None:
                 "Dependency failure requires a unique declared module, supported error and text"
             )
         selected.add(rule["module"])
+    for action in imports.get("actions", []):
+        kind = action.get("action")
+        if kind == "form" and case["surface"] == "starlette.requests.Request":
+            _exact(action, {"action", "content_type", "body_base64"}, "Optional form consumer")
+            _string(action["content_type"], "Optional form content type")
+            try:
+                base64.b64decode(action["body_base64"], validate=True)
+            except (TypeError, ValueError) as error:
+                raise ContractError("Optional form body must be base64") from error
+        elif kind == "render" and case["surface"] == "starlette.schemas.OpenAPIResponse":
+            _exact(action, {"action", "content"}, "Optional OpenAPI consumer")
+            _validate_threadpool_json(action["content"], "Optional OpenAPI content")
+        elif (
+            kind == "parse-docstring" and case["surface"] == "starlette.schemas.BaseSchemaGenerator"
+        ):
+            _exact(action, {"action", "docstring"}, "Optional schema docstring")
+            if action["docstring"] is not None:
+                _string(action["docstring"], "Optional schema docstring")
+        else:
+            raise ContractError(
+                "Optional dependency actions must invoke their declared public consumer"
+            )
     if (
         case["assets"]
         or case["target_profiles"] != ["python-package-cpython312"]
@@ -31865,6 +31974,38 @@ def _validate_response_cookie_protocol(value: Any) -> None:
             if spec.get("kind") == "literal":
                 _exact(spec, {"kind", "value"}, "Response cookie literal")
                 _validate_threadpool_json(spec["value"], "Response cookie literal value")
+                continue
+            if spec.get("kind") == "morsel":
+                _exact(
+                    spec,
+                    {"kind", "key", "value", "coded_value", "attributes"},
+                    "Supplied cookie Morsel",
+                )
+                if any(
+                    not isinstance(spec[field], str) for field in ("key", "value", "coded_value")
+                ) or not isinstance(spec["attributes"], dict):
+                    raise ContractError(
+                        "Supplied Morsels require string values and an attribute mapping"
+                    )
+                if any(
+                    name
+                    not in {
+                        "expires",
+                        "path",
+                        "comment",
+                        "domain",
+                        "max-age",
+                        "secure",
+                        "httponly",
+                        "version",
+                        "samesite",
+                    }
+                    for name in spec["attributes"]
+                ):
+                    raise ContractError(
+                        "Supplied Morsel attributes must use the standard cookie names"
+                    )
+                _validate_threadpool_json(spec["attributes"], "Supplied Morsel attributes")
                 continue
             _exact(
                 spec,
@@ -32234,6 +32375,7 @@ def _validate_response_callbacks(case: dict[str, Any]) -> None:
             parameters = {
                 "body": {"value"},
                 "status": {"value"},
+                "chunk-size": {"value"},
                 "background": {"label"},
                 "append-header": {"pair"},
                 "raw-headers": {"pairs"},
@@ -32256,6 +32398,13 @@ def _validate_response_callbacks(case: dict[str, Any]) -> None:
                 _validate_response_consumer_attributes({"body": action["value"]}, body=True)
             elif kind == "status":
                 _validate_response_consumer_attributes({"status_code": action["value"]})
+            elif kind == "chunk-size":
+                if (
+                    case["surface"] != "starlette.responses.FileResponse"
+                    or type(action["value"]) is not int
+                    or action["value"] <= 0
+                ):
+                    raise ContractError("File chunk-size action requires a positive integer")
             elif kind == "background":
                 if action["label"] is not None and action["label"] not in labels:
                     raise ContractError("Response send action selects an undefined background")

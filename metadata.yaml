@@ -434,6 +434,10 @@
         {
           "operation_id": "session-workflow",
           "source_path": "starlette.middleware.sessions.SessionMiddleware.__call__"
+        },
+        {
+          "operation_id": "module-import-policy",
+          "source_path": "starlette.middleware.sessions module import and public consumer"
         }
       ]
     },
@@ -508,6 +512,10 @@
         {
           "operation_id": "callback-lifetime",
           "source_path": "starlette.requests.Request.scope, Request.receive, Request.body, Request.stream, Request.json, and Request.form, Request.state, and Request.headers"
+        },
+        {
+          "operation_id": "module-import-policy",
+          "source_path": "starlette.requests module import and public consumer"
         }
       ]
     },
@@ -678,6 +686,10 @@
         {
           "operation_id": "schema-docstring-parsing",
           "source_path": "starlette.schemas.BaseSchemaGenerator.parse_docstring"
+        },
+        {
+          "operation_id": "module-import-policy",
+          "source_path": "starlette.schemas module import and public consumer"
         }
       ]
     },
@@ -692,6 +704,10 @@
         {
           "operation_id": "schema-endpoint-asgi-call",
           "source_path": "starlette.schemas.BaseSchemaGenerator.OpenAPIResponse and OpenAPIResponse ASGI response call"
+        },
+        {
+          "operation_id": "module-import-policy",
+          "source_path": "starlette.schemas module import and public consumer"
         }
       ]
     },

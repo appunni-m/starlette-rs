@@ -8,7 +8,7 @@ use pyo3::types::PyDict;
 use crate::awaitable::{
     AwaitableStateMachine, MachineAction, MachineResume, into_sendable_python_awaitable,
 };
-use crate::file_response_runtime::{PublicFileFacts, prepared_public_call};
+use crate::file_response_runtime::PublicFileFacts;
 
 pub(crate) fn call(
     py: Python<'_>,
@@ -26,6 +26,7 @@ pub(crate) fn call(
             send,
             facts: None,
             stat: None,
+            handled_error: None,
             pending: Pending::Start,
         },
     )
@@ -35,6 +36,8 @@ enum Pending {
     Start,
     Stat,
     Body,
+    ErrorResponse,
+    Background,
 }
 
 struct FileCall {
@@ -44,6 +47,7 @@ struct FileCall {
     send: Py<PyAny>,
     facts: Option<PublicFileFacts>,
     stat: Option<Py<PyAny>>,
+    handled_error: Option<Py<PyAny>>,
     pending: Pending,
 }
 
@@ -53,7 +57,8 @@ impl AwaitableStateMachine for FileCall {
         visit.call(&self.scope)?;
         visit.call(&self.receive)?;
         visit.call(&self.send)?;
-        visit.call(&self.stat)
+        visit.call(&self.stat)?;
+        visit.call(&self.handled_error)
     }
 
     fn finalize_on_drop(&self) -> bool {
@@ -83,7 +88,20 @@ impl AwaitableStateMachine for FileCall {
                     }
                     self.body(py, stat)
                 }
-                Pending::Body => Ok(MachineAction::Complete(py.None())),
+                Pending::Body => {
+                    let response = self.response.bind(py);
+                    if response.getattr("background")?.is_none() {
+                        Ok(MachineAction::Complete(py.None()))
+                    } else {
+                        self.pending = Pending::Background;
+                        Ok(MachineAction::Await(
+                            response.getattr("background")?.call0()?.unbind(),
+                        ))
+                    }
+                }
+                Pending::ErrorResponse | Pending::Background => {
+                    Ok(MachineAction::Complete(py.None()))
+                }
                 Pending::Start => Err(PyRuntimeError::new_err(
                     "file call resumed before stat selection",
                 )),
@@ -92,6 +110,14 @@ impl AwaitableStateMachine for FileCall {
                 if matches!(self.pending, Pending::Stat) {
                     Err(self.stat_error(py, error)?)
                 } else {
+                    if matches!(self.pending, Pending::ErrorResponse) {
+                        if let Some(original) = &self.handled_error {
+                            error.set_context(
+                                py,
+                                Some(PyErr::from_value(original.bind(py).clone())),
+                            );
+                        }
+                    }
                     Err(error)
                 }
             }
@@ -125,7 +151,6 @@ impl FileCall {
                 .unbind();
         }
         self.facts = Some(PublicFileFacts {
-            scope_type: scope_type.extract()?,
             header_only,
             pathsend,
         });
@@ -165,15 +190,103 @@ impl FileCall {
             .facts
             .as_ref()
             .ok_or_else(|| PyRuntimeError::new_err("file call lost its scope facts"))?;
-        let awaitable = prepared_public_call(
-            py,
-            self.response.clone_ref(py),
-            self.scope.bind(py),
-            self.receive.clone_ref(py),
-            self.send.clone_ref(py),
-            stat,
-            facts,
-        )?;
+        let response = self.response.bind(py);
+        let kwargs = PyDict::new(py);
+        kwargs.set_item("scope", self.scope.bind(py))?;
+        let headers = py
+            .import("starlette.datastructures")?
+            .getattr("Headers")?
+            .call((), Some(&kwargs))?;
+        let range = headers.call_method1("get", ("range",))?;
+        let if_range = headers.call_method1("get", ("if-range",))?;
+        let simple = range.is_none()
+            || (!if_range.is_none()
+                && !response
+                    .call_method1("_should_use_range", (if_range,))?
+                    .is_truthy()?);
+        let awaitable = if simple {
+            response.call_method1(
+                "_handle_simple",
+                (self.send.bind(py), facts.header_only, facts.pathsend),
+            )?
+        } else {
+            let parsed = response.call_method1(
+                "_parse_range_header",
+                (range, stat.bind(py).getattr("st_size")?),
+            );
+            let ranges = match parsed {
+                Ok(ranges) => ranges,
+                Err(error) => {
+                    let module = py.import("starlette.responses")?;
+                    let kwargs = PyDict::new(py);
+                    let error_response = if error
+                        .value(py)
+                        .is_instance(&module.getattr("MalformedRangeHeader")?)?
+                    {
+                        kwargs.set_item("status_code", 400)?;
+                        module
+                            .getattr("PlainTextResponse")?
+                            .call((error.value(py).getattr("content")?,), Some(&kwargs))?
+                    } else if error
+                        .value(py)
+                        .is_instance(&module.getattr("RangeNotSatisfiable")?)?
+                    {
+                        kwargs.set_item("status_code", 416)?;
+                        let headers = PyDict::new(py);
+                        headers.set_item(
+                            "Content-Range",
+                            format!("bytes */{}", error.value(py).getattr("max_size")?.str()?),
+                        )?;
+                        kwargs.set_item("headers", headers)?;
+                        module
+                            .getattr("PlainTextResponse")?
+                            .call((), Some(&kwargs))?
+                    } else {
+                        return Err(error);
+                    };
+                    self.handled_error = Some(error.value(py).clone().into_any().unbind());
+                    self.pending = Pending::ErrorResponse;
+                    return Ok(MachineAction::Await(
+                        error_response
+                            .call1((
+                                self.scope.bind(py),
+                                self.receive.bind(py),
+                                self.send.bind(py),
+                            ))?
+                            .unbind(),
+                    ));
+                }
+            };
+            match ranges.len()? {
+                0 => response.call_method1(
+                    "_handle_simple",
+                    (self.send.bind(py), facts.header_only, facts.pathsend),
+                )?,
+                1 => {
+                    let range = ranges.get_item(0)?;
+                    response.call_method1(
+                        "_handle_single_range",
+                        (
+                            self.send.bind(py),
+                            range.get_item(0)?,
+                            range.get_item(1)?,
+                            stat.bind(py).getattr("st_size")?,
+                            facts.header_only,
+                        ),
+                    )?
+                }
+                _ => response.call_method1(
+                    "_handle_multiple_ranges",
+                    (
+                        self.send.bind(py),
+                        ranges,
+                        stat.bind(py).getattr("st_size")?,
+                        facts.header_only,
+                    ),
+                )?,
+            }
+        }
+        .unbind();
         self.pending = Pending::Body;
         Ok(MachineAction::Await(awaitable))
     }

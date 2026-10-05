@@ -822,15 +822,6 @@ pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     let multipart_exception = py.get_type::<MultiPartException>();
     module.add("MultiPartException", &multipart_exception)?;
     multipart_exception.setattr("__module__", "starlette.formparsers")?;
-    let formparsers = PyModule::new(py, "starlette.formparsers")?;
-    formparsers.add("MultiPartException", &multipart_exception)?;
-    formparsers.add("__all__", ["MultiPartException"])?;
-    let modules = py.import("sys")?.getattr("modules")?;
-    modules.set_item("starlette.formparsers", &formparsers)?;
-    let starlette_package = modules.call_method1("get", ("starlette",))?;
-    if !starlette_package.is_none() {
-        starlette_package.setattr("formparsers", formparsers)?;
-    }
     module.add_class::<PyRequestBody>()?;
     module.add_class::<PyFormAwaitableContext>()?;
     module.add_class::<PyRequestStream>()?;
@@ -1533,6 +1524,16 @@ impl FormMachine {
     fn start(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
         if let Some(form) = borrow_runtime(py, &self.shared)?.form_object.as_ref() {
             return Ok(MachineAction::Complete(form.clone_ref(py)));
+        }
+
+        if py
+            .import("starlette.requests")?
+            .getattr("parse_options_header")?
+            .is_none()
+        {
+            return Err(PyAssertionError::new_err(
+                "The `python-multipart` library must be installed to use form parsing.",
+            ));
         }
 
         match request_form_media_type(self.content_type.as_deref()) {

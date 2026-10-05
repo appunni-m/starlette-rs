@@ -1,6 +1,6 @@
 //! Scheduler-neutral delegation from a Rust continuation to Python awaitables.
 //!
-//! Python's active task drives [`PythonAwaitable`] through the iterator returned by
+//! Python's active task drives [`SendablePythonAwaitable`] through the iterator returned by
 //! `__await__`. When a Rust state machine requests an awaitable, this driver delegates
 //! to that object's own `__await__` iterator and returns every yielded object unchanged.
 //! The active event loop therefore remains responsible for driving Futures and waking
@@ -58,8 +58,7 @@ pub(crate) trait AwaitableStateMachine: 'static {
     fn throw_before_start(&mut self, _py: Python<'_>) {}
 
     /// Visit every directly owned Python reference once without acquiring the GIL.
-    /// Unconverted legacy continuations retain their existing opaque ownership;
-    /// converted machines expose shared Python references through GC-visible nodes.
+    /// Shared Python references are exposed through GC-visible owned nodes.
     fn traverse(&self, _visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
         Ok(())
     }
@@ -73,37 +72,6 @@ pub(crate) trait AwaitableStateMachine: 'static {
     fn unawaited_warning(&self) -> Option<&'static std::ffi::CStr> {
         None
     }
-}
-
-/// Wrap a Rust state machine in an awaitable driven by the caller's Python task.
-///
-/// The returned object implements the Python `__await__` iterator protocol. It
-/// does not create an executor or event loop; Futures yielded by Python awaitables
-/// are passed directly to whichever loop is driving the returned awaitable.
-pub(crate) fn into_python_awaitable<M>(py: Python<'_>, machine: M) -> PyResult<Py<PyAny>>
-where
-    M: AwaitableStateMachine,
-{
-    into_python_awaitable_with_reuse_error(py, machine, "cannot reuse already awaited coroutine")
-}
-
-/// Wrap a state machine with the reuse error exposed by a specific Python
-/// awaitable protocol, such as an async-generator `asend` operation.
-pub(crate) fn into_python_awaitable_with_reuse_error<M>(
-    py: Python<'_>,
-    machine: M,
-    reuse_error: &'static str,
-) -> PyResult<Py<PyAny>>
-where
-    M: AwaitableStateMachine,
-{
-    Py::new(
-        py,
-        PythonAwaitable {
-            driver: AwaitableDriver::new(Box::new(machine), reuse_error),
-        },
-    )
-    .map(|awaitable| awaitable.into_any())
 }
 
 /// Wrap a thread-safe state machine whose Python traceback may outlive the
@@ -140,11 +108,6 @@ where
         },
     )
     .map(|awaitable| awaitable.into_any())
-}
-
-#[pyclass(unsendable)]
-struct PythonAwaitable {
-    driver: AwaitableDriver<dyn AwaitableStateMachine>,
 }
 
 #[pyclass]
@@ -395,41 +358,6 @@ enum DriverInput {
     Send(Py<PyAny>),
     Throw(PyErr),
     Machine(MachineResume),
-}
-
-#[pymethods]
-impl PythonAwaitable {
-    fn __await__(self_: Py<Self>) -> Py<Self> {
-        self_
-    }
-
-    fn __iter__(self_: Py<Self>) -> Py<Self> {
-        self_
-    }
-
-    fn __next__(&mut self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        self.driver.handle_send(py, py.None())
-    }
-
-    fn send(&mut self, py: Python<'_>, value: Py<PyAny>) -> PyResult<Py<PyAny>> {
-        self.driver.handle_send(py, value)
-    }
-
-    #[pyo3(signature = (exception_type, value=None, traceback=None))]
-    fn throw(
-        &mut self,
-        py: Python<'_>,
-        exception_type: Py<PyAny>,
-        value: Option<Py<PyAny>>,
-        traceback: Option<Py<PyAny>>,
-    ) -> PyResult<Py<PyAny>> {
-        self.driver
-            .handle_throw(py, exception_type, value, traceback)
-    }
-
-    fn close(&mut self, py: Python<'_>) -> PyResult<()> {
-        self.driver.handle_close(py)
-    }
 }
 
 #[pymethods]

@@ -199,6 +199,49 @@ class FileResponse(Response):
     ) -> None:
         await _core.FileResponse.call_for(self, scope, receive, send)
 
+    def _should_use_range(self, http_if_range: str) -> bool:
+        return _core.FileResponse.should_use_range(self, http_if_range)
+
+    @classmethod
+    def _parse_range_header(cls, http_range: str, file_size: int) -> list[tuple[int, int]]:
+        return _core.FileResponse.parse_range_header(cls, http_range, file_size)
+
+    @classmethod
+    def _parse_ranges(cls, range_: str, file_size: int) -> list[tuple[int, int]]:
+        return _core.FileResponse.parse_ranges(range_, file_size)
+
+    def generate_multipart(
+        self, ranges: Any, boundary: str, max_size: int, content_type: str
+    ) -> Any:
+        return _core.FileResponse.generate_multipart(ranges, boundary, max_size, content_type)
+
+    async def _handle_simple(self, send: Any, send_header_only: bool, send_pathsend: bool) -> None:
+        await _core.FileResponse.handle_simple(self, send, send_header_only, send_pathsend)
+
+    async def _handle_single_range(
+        self, send: Any, start: int, end: int, file_size: int, send_header_only: bool
+    ) -> None:
+        await _core.FileResponse.handle_single_range(
+            self, send, (start, end, file_size), send_header_only
+        )
+
+    async def _handle_multiple_ranges(
+        self, send: Any, ranges: Any, file_size: int, send_header_only: bool
+    ) -> None:
+        await _core.FileResponse.handle_multiple_ranges(
+            self, send, ranges, file_size, send_header_only
+        )
+
+
+class MalformedRangeHeader(Exception):
+    def __init__(self, content: str = "Malformed range header.") -> None:
+        self.content = content
+
+
+class RangeNotSatisfiable(Exception):
+    def __init__(self, max_size: int) -> None:
+        self.max_size = max_size
+
 
 class RedirectResponse(Response):
     """An empty response that redirects to a quoted URL."""

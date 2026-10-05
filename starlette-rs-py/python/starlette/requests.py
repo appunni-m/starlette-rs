@@ -9,6 +9,9 @@ from starlette_rs_py import _core
 from typing_extensions import TypeVar
 
 from starlette.datastructures import URL, Address, Headers, QueryParams, State
+from starlette.formparsers import MultiPartException as MultiPartException
+
+parse_options_header = _core._request_form_dependency()
 
 StateT = TypeVar("StateT", bound=Mapping[str, Any] | State, default=State)
 

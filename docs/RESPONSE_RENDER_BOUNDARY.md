@@ -349,13 +349,13 @@ They use public constructors and ASGI calls on both implementations and contain
 no expected output. They are authored under `response-variants.yaml` at
 `parity-input@45`, statically validated, and unexecuted.
 
-Another 25 `response-call-protocols.yaml` inputs supply public stat and denial
+Another 43 `response-call-protocols.yaml` inputs supply public stat and denial
 hooks, synchronous/awaited async-iterator completion, user callback errors,
 HEAD, provided stat data, unconstrained Python integer status values, and pathsend. Ordinary callbacks can reach these
 failures on both implementations, so they are oracle parity inputs. The two
 existing target-only fault contracts remain separate in the same matrix.
 
-The FileResponse consumer observation declares `response-consumer-file-root`
+The FileResponse consumer observation declares `response-consumer-file-environment`
 normalization. The shared consumer records its materialized temporary root.
 The comparator validates the absolute root's adapter prefix, replaces only that
 observed root, and preserves all suffixes, emitted messages and error arguments.
@@ -366,3 +366,24 @@ Further implementation review includes supplied Morsel values, cookie traceback
 release and cyclic GC, arbitrary filename/stat encoding protocols, active stream
 finalization, and remaining FileResponse range/I/O callbacks. Exposing a forwarding method does
 not resolve an uncertain helper's public status in the compatibility inventory.
+
+## File range and supplied-cookie protocols
+
+Rust now selects live file range and If-Range branches, invokes subclass range,
+handler and multipart hooks, and streams through the caller's AnyIO file context.
+Chunk size and path are read at the source call boundaries. Python methods only
+forward to native continuations; Rust owns every read/seek/send transition and
+context exit, including error-response selection and background ordering.
+
+The file normalizer additionally replaces the independently generated 26-digit
+hexadecimal multipart boundary in its Content-Type and MIME delimiters. All
+body bytes, range headers, chunk ordering and remaining observations compare
+exactly. Original random values remain in the generated results.
+
+Six cookie inputs supply real standard-library Morsel values with input-defined
+setter callbacks, stored keys, coded values and attributes. Rust preserves the
+original mutable representation, invokes its user mapping protocol, and owns
+option selection, mutation order and serialization. It does not call Morsel's
+output algorithm. Calling a provided Python object's setter is required to
+preserve user callbacks and aliasing; Python wrapper code contains no policy.
+These inputs and the 18 added file protocols await the full parity phase.

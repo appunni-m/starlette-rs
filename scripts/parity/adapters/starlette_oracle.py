@@ -6831,7 +6831,10 @@ def _run_http_endpoint_case(case: dict[str, Any]) -> dict[str, Any]:
     from starlette.responses import PlainTextResponse
 
     endpoint_spec = case["endpoint"]
-    _strict_object(endpoint_spec, {"kind", "handlers"}, "HTTP class endpoint input")
+    endpoint_keys = {"kind", "handlers"}
+    if "method_reads" in endpoint_spec:
+        endpoint_keys.add("method_reads")
+    _strict_object(endpoint_spec, endpoint_keys, "HTTP class endpoint input")
     if endpoint_spec["kind"] != "http-class-based-endpoint" or len(endpoint_spec["handlers"]) != 1:
         raise ValueError("HTTPEndpoint input must define one HTTP class handler")
     handler_spec = endpoint_spec["handlers"][0]
@@ -6854,6 +6857,19 @@ def _run_http_endpoint_case(case: dict[str, Any]) -> dict[str, Any]:
 
     endpoint_type = type("InputHTTPEndpoint", (HTTPEndpoint,), {"get": get})
     scope = _make_scope(case["scope"])
+    method_trace: list[str] = []
+    if "method_reads" in endpoint_spec:
+        method_values = endpoint_spec["method_reads"]
+
+        class InputScope(dict):
+            def __getitem__(self, key: Any) -> Any:
+                if key == "method":
+                    value = method_values[min(len(method_trace), len(method_values) - 1)]
+                    method_trace.append(value)
+                    return value
+                return super().__getitem__(key)
+
+        scope = InputScope(scope)
     incoming = [_message(item) for item in case["incoming"]]
     incoming_index = 0
     sent: list[dict[str, Any]] = []
@@ -6895,6 +6911,8 @@ def _run_http_endpoint_case(case: dict[str, Any]) -> dict[str, Any]:
         "asgi_event_order": [event["type"] for event in events],
         "asgi_events": events,
     }
+    if "method_reads" in endpoint_spec:
+        observation["method_reads"] = method_trace
     return {
         "case_id": case["case_id"],
         "status": "completed",

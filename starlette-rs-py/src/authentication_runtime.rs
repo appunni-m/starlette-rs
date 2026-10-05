@@ -4,6 +4,7 @@
 //! connection objects, and Python's active event loop. Rust owns scope checks,
 //! decorator selection, authentication outcomes, and middleware dispatch.
 
+use pyo3::class::gc::{PyTraverseError, PyVisit};
 use pyo3::exceptions::{
     PyAssertionError, PyException, PyKeyError, PyNotImplementedError, PyRuntimeError,
 };
@@ -11,7 +12,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList, PyModule, PyString, PyTuple};
 
 use crate::awaitable::{
-    AwaitableStateMachine, MachineAction, MachineResume, into_python_awaitable,
+    AwaitableStateMachine, MachineAction, MachineResume, into_sendable_python_awaitable,
 };
 
 pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
@@ -60,7 +61,7 @@ pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     Ok(())
 }
 
-#[pyclass(name = "_AuthenticationRequiresConfig", unsendable)]
+#[pyclass(name = "_AuthenticationRequiresConfig")]
 struct PyRequiresConfig {
     scopes: Py<PyAny>,
     status_code: Py<PyAny>,
@@ -238,7 +239,7 @@ fn authentication_requires_invoke(
     args: Py<PyTuple>,
     kwargs: Py<PyDict>,
 ) -> PyResult<Py<PyAny>> {
-    into_python_awaitable(
+    into_sendable_python_awaitable(
         py,
         RequiresCall {
             runtime,
@@ -392,6 +393,17 @@ struct RequiresCall {
 }
 
 impl AwaitableStateMachine for RequiresCall {
+    fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.runtime)?;
+        visit.call(&self.args)?;
+        visit.call(&self.kwargs)?;
+        Ok(())
+    }
+
+    fn finalize_on_drop(&self) -> bool {
+        true
+    }
+
     fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
         match input {
             MachineResume::Start if !self.pending => self.start(py),
@@ -413,9 +425,7 @@ impl AwaitableStateMachine for RequiresCall {
                 self.pending = false;
                 Err(error)
             }
-            MachineResume::AsyncIterationComplete(_) => {
-                Err(pyo3::exceptions::PyStopAsyncIteration::new_err(()))
-            }
+            MachineResume::AsyncIterationComplete(error) => Err(error),
             _ => Err(PyRuntimeError::new_err(
                 "requires wrapper resumed without a pending callback",
             )),
@@ -490,7 +500,7 @@ impl AwaitableStateMachine for AuthenticationUnimplemented {
 #[pyfunction]
 fn authentication_unimplemented_async(py: Python<'_>, method: &str) -> PyResult<Py<PyAny>> {
     let _ = method;
-    into_python_awaitable(py, AuthenticationUnimplemented)
+    into_sendable_python_awaitable(py, AuthenticationUnimplemented)
 }
 
 #[pyfunction]
@@ -513,7 +523,7 @@ fn authentication_unauthenticated_user_display_name(py: Python<'_>) -> Py<PyAny>
     PyString::new(py, "").into_any().unbind()
 }
 
-#[pyclass(name = "_AuthenticationMiddlewareRuntime", unsendable)]
+#[pyclass(name = "_AuthenticationMiddlewareRuntime")]
 struct PyAuthenticationMiddlewareRuntime {
     app: Py<PyAny>,
     backend: Py<PyAny>,
@@ -581,7 +591,7 @@ fn authentication_middleware_invoke(
     receive: Py<PyAny>,
     send: Py<PyAny>,
 ) -> PyResult<Py<PyAny>> {
-    into_python_awaitable(
+    into_sendable_python_awaitable(
         py,
         AuthenticationMiddlewareCall {
             runtime,
@@ -637,6 +647,19 @@ struct AuthenticationMiddlewareCall {
 }
 
 impl AwaitableStateMachine for AuthenticationMiddlewareCall {
+    fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.runtime)?;
+        visit.call(&self.scope)?;
+        visit.call(&self.receive)?;
+        visit.call(&self.send)?;
+        visit.call(&self.connection)?;
+        Ok(())
+    }
+
+    fn finalize_on_drop(&self) -> bool {
+        true
+    }
+
     fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
         match input {
             MachineResume::Start if self.pending.is_none() => self.start(py),
@@ -669,9 +692,7 @@ impl AwaitableStateMachine for AuthenticationMiddlewareCall {
             MachineResume::Start => Err(PyRuntimeError::new_err(
                 "authentication middleware resumed without a pending operation",
             )),
-            MachineResume::AsyncIterationComplete(_) => {
-                Err(pyo3::exceptions::PyStopAsyncIteration::new_err(()))
-            }
+            MachineResume::AsyncIterationComplete(error) => Err(error),
         }
     }
 }

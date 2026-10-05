@@ -71,6 +71,94 @@ impl PyFileResponse {
     }
 
     #[staticmethod]
+    fn should_use_range(response: &Bound<'_, PyAny>, value: &Bound<'_, PyAny>) -> PyResult<bool> {
+        crate::file_range_runtime::should_use_range(response, value)
+    }
+
+    #[staticmethod]
+    fn parse_ranges(
+        py: Python<'_>,
+        text: &Bound<'_, PyAny>,
+        size: &Bound<'_, PyAny>,
+    ) -> PyResult<Py<PyAny>> {
+        crate::file_range_runtime::parse_ranges(py, text, size)
+            .map(|ranges| ranges.into_any().unbind())
+    }
+
+    #[staticmethod]
+    fn parse_range_header(
+        py: Python<'_>,
+        class: &Bound<'_, PyAny>,
+        header: &Bound<'_, PyAny>,
+        size: &Bound<'_, PyAny>,
+    ) -> PyResult<Py<PyAny>> {
+        crate::file_range_runtime::parse_header(py, class, header, size)
+    }
+
+    #[staticmethod]
+    fn generate_multipart(
+        py: Python<'_>,
+        ranges: &Bound<'_, PyAny>,
+        boundary: String,
+        size: &Bound<'_, PyAny>,
+        content_type: String,
+    ) -> PyResult<Py<PyAny>> {
+        crate::file_range_runtime::multipart(py, ranges, boundary, size, content_type)
+    }
+
+    #[staticmethod]
+    fn handle_simple(
+        py: Python<'_>,
+        response: Py<PyAny>,
+        send: Py<PyAny>,
+        header_only: bool,
+        pathsend: bool,
+    ) -> PyResult<Py<PyAny>> {
+        crate::file_stream_runtime::handler(
+            py,
+            response,
+            send,
+            header_only,
+            crate::file_stream_runtime::BodyKind::Simple(pathsend),
+        )
+    }
+
+    #[staticmethod]
+    fn handle_single_range(
+        py: Python<'_>,
+        response: Py<PyAny>,
+        send: Py<PyAny>,
+        range: (u64, u64, u64),
+        header_only: bool,
+    ) -> PyResult<Py<PyAny>> {
+        crate::file_stream_runtime::handler(
+            py,
+            response,
+            send,
+            header_only,
+            crate::file_stream_runtime::BodyKind::Single(range.0, range.1, range.2),
+        )
+    }
+
+    #[staticmethod]
+    fn handle_multiple_ranges(
+        py: Python<'_>,
+        response: Py<PyAny>,
+        send: Py<PyAny>,
+        ranges: Py<PyAny>,
+        size: Py<PyAny>,
+        header_only: bool,
+    ) -> PyResult<Py<PyAny>> {
+        crate::file_stream_runtime::handler(
+            py,
+            response,
+            send,
+            header_only,
+            crate::file_stream_runtime::BodyKind::Multiple(ranges, size),
+        )
+    }
+
+    #[staticmethod]
     fn prepare_for(py: Python<'_>, response: &Bound<'_, PyAny>) -> PyResult<()> {
         // Construction must not coerce a PathLike or stat object before the
         // source uses it. This native storage is filled at ASGI call time.
@@ -355,81 +443,8 @@ impl PyFileResponse {
 
 /// Request facts selected by the Rust facade before stat/header callbacks.
 pub(crate) struct PublicFileFacts {
-    pub(crate) scope_type: String,
     pub(crate) header_only: bool,
     pub(crate) pathsend: bool,
-}
-
-pub(crate) fn prepared_public_call(
-    py: Python<'_>,
-    response: Py<PyAny>,
-    scope: &Bound<'_, PyDict>,
-    receive: Py<PyAny>,
-    send: Py<PyAny>,
-    stat: Py<PyAny>,
-    facts: &PublicFileFacts,
-) -> PyResult<Py<PyAny>> {
-    let public = response.bind(py);
-    let stored = py
-        .get_type::<PyAny>()
-        .call_method1("__getattribute__", (public, "_inner"))?;
-    let mut native = stored.cast::<PyFileResponse>()?.try_borrow()?.inner.clone();
-    // No native borrow survives user descriptors. The stat callback has
-    // already selected the header defaults, including intentional omissions.
-    let headers_view = public.getattr("headers")?;
-    let view_raw = headers_view.getattr("raw")?;
-    let raw = public.getattr("raw_headers")?;
-    let views = FileResponseHeaderViews {
-        view: crate::response_headers_runtime::parse_raw_pairs(&view_raw)?,
-        raw: crate::response_headers_runtime::parse_raw_pairs(&raw)?,
-        view_is_raw: view_raw.is(&raw),
-    };
-    let path = public.getattr("path")?;
-    native = native
-        .with_call_time_fields(
-            path_from_python(&path)?,
-            path.str()?.to_str()?.to_owned(),
-            // Simple responses read the original Python status only at their start
-            // event. Range/error branches select fixed Rust statuses instead.
-            200,
-            stat_metadata(py, Some(stat))?,
-        )
-        .with_prepared_stat_headers();
-    native.set_streaming_options(
-        public.getattr("chunk_size")?.extract()?,
-        public.getattr("max_ranges")?.extract()?,
-    );
-    let headers = scope
-        .get_item("headers")?
-        .map(|value| value.extract())
-        .transpose()?
-        .unwrap_or_default();
-    let driver = Py::new(
-        py,
-        PyFileResponseCallDriver::new(
-            native,
-            views,
-            facts.scope_type.clone(),
-            if facts.header_only { "HEAD" } else { "GET" }.to_owned(),
-            headers,
-            facts.pathsend,
-            true,
-            false,
-        ),
-    )?;
-    into_sendable_python_awaitable(
-        py,
-        FileResponseMachine {
-            driver,
-            send,
-            _receive: receive,
-            background: None,
-            public_response: Some(response),
-            view_raw: view_raw.unbind(),
-            pending: None,
-            deferred_error: None,
-        },
-    )
 }
 
 /// Owns one response call while AnyIO schedules its synchronous Rust steps.
