@@ -48,3 +48,7 @@ this project.
 ## Request lifecycle input provenance
 
 The Request callback-lifetime fixture and public consumer were authored for this repository from the pinned `starlette/requests.py` and `starlette/_utils.py` behavior and `docs/requests.md`; no upstream test file was copied. Starlette source remains a development-time BSD-3-Clause oracle, with its existing Encode OSS notices preserved. Python GC and coroutine behavior is observed live in both isolated environments. See [Request lifetime boundary](REQUEST_LIFETIME_BOUNDARY.md).
+
+## Public value lifetime input provenance
+
+The public value and Request property/worker fixtures and their consumers were authored for this repository from pinned `starlette/datastructures.py`, `starlette/requests.py`, their public documentation, and live Python collection behavior. No upstream test file was copied. Existing Starlette BSD-3-Clause notices remain preserved. See [Public value and worker boundary](VALUE_LIFETIME_BOUNDARY.md).

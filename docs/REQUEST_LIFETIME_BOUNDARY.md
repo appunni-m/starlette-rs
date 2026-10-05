@@ -106,3 +106,7 @@ Benchmark `bd78f693-7562-4384-9636-f1e66a3aa3e7` measured all 74 Router/GZip sou
 workloads with matching correctness observations. All 74 native timing
 boundaries remain not run. Benchmark SHA-256: `a7afc4bf807524411635aa80dee6e90fc4984077d0e90bd92d60607fb04106fe`. See
 [Benchmark mapping](BENCHMARKS.md) for latency ratios and limitations.
+
+## Worker and property collection extension
+
+The 17 Request graphs now also pass worker-thread release/collection. New caller/worker state and header cycles are covered by input-only public consumers. See [Public value and worker collection](VALUE_LIFETIME_BOUNDARY.md) for the 45-case extension, reproduced native store leaks, and UploadFile callback reentry.

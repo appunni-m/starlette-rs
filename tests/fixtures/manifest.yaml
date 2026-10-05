@@ -368,7 +368,9 @@
       "build/parity/inputs/parity/testclient-router.json",
       "build/parity/inputs/parity/testclient-middleware.json",
       "build/parity/inputs/parity/testclient-traceback-cleanup.json",
-      "build/parity/inputs/parity/request-lifetime.json"
+      "build/parity/inputs/parity/request-lifetime.json",
+      "build/parity/inputs/parity/request-property-worker-lifetime.json",
+      "build/parity/inputs/parity/public-value-lifetime.json"
     ],
     "coverage": [],
     "benchmark": [
@@ -5022,6 +5024,110 @@
             "applicability": "not_applicable",
             "reason": "FormData multidict lookups are outside the active benchmark workloads."
           }
+        },
+        {
+          "id": "ownership-graph",
+          "kind": "protocol_operation",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.datastructures.FormData.__init__ and public value access",
+            "signature": "Construct an input-defined public container with user-owned value cycles; observe public value identity, retention, finalizers, file close, and unraisable errors before and after caller or worker collection.",
+            "parameters": [
+              {
+                "id": "construction",
+                "style": "option",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "garbage_collection",
+                "style": "option",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "value-lifetime",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "Python object identity, cyclic collection, user file lifetime, and Python finalizer threads have no equivalent Rust-native public consumer boundary.",
+                "blocker": "This compatibility operation requires Python heap objects and finalizers through installed-package public consumers."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.datastructures.FormData.__init__ and public value access",
+              "signature": "Public package objects retain and expose user-owned values while Rust owns container semantics.",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.datastructures.FormData.ownership-graph.public-value-lifetime",
+              "dimension": "boundary",
+              "description": "Compare public FormData value identity and ownership cycles, including repeated references, on the caller and a worker thread. Only the public container remains externally rooted. Observe every user finalizer, file-close event, warning, unraisable error, and user weak reference. Pinned source: starlette/datastructures.py:482; tests/test_datastructures.py; docs/requests.md and docs/applications.md. No private framework attributes are inspected.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This input-only compatibility slice makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "Request ownership collection is outside the active Router/GZip timing workloads."
+          }
         }
       ]
     },
@@ -5175,6 +5281,110 @@
           "benchmark": {
             "applicability": "not_applicable",
             "reason": "Small UploadFile consumer operations are outside the active benchmark workloads."
+          }
+        },
+        {
+          "id": "ownership-graph",
+          "kind": "protocol_operation",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.datastructures.UploadFile.__init__ and public value access",
+            "signature": "Construct an input-defined public container with user-owned value cycles; observe public value identity, retention, finalizers, file close, and unraisable errors before and after caller or worker collection.",
+            "parameters": [
+              {
+                "id": "construction",
+                "style": "option",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "garbage_collection",
+                "style": "option",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "value-lifetime",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "Python object identity, cyclic collection, user file lifetime, and Python finalizer threads have no equivalent Rust-native public consumer boundary.",
+                "blocker": "This compatibility operation requires Python heap objects and finalizers through installed-package public consumers."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.datastructures.UploadFile.__init__ and public value access",
+              "signature": "Public package objects retain and expose user-owned values while Rust owns container semantics.",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.datastructures.UploadFile.ownership-graph.public-value-lifetime",
+              "dimension": "boundary",
+              "description": "Compare public UploadFile value identity and ownership cycles, including repeated references, on the caller and a worker thread. Only the public container remains externally rooted. Observe every user finalizer, file-close event, warning, unraisable error, and user weak reference. Pinned source: starlette/datastructures.py:410; tests/test_datastructures.py; docs/requests.md and docs/applications.md. No private framework attributes are inspected. Input-defined integer-subclass size callbacks read public UploadFile attributes while write updates size, preserving Python arithmetic reentry and assignment ordering. Pinned source: starlette/datastructures.py:450-460.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This input-only compatibility slice makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "Request ownership collection is outside the active Router/GZip timing workloads."
           }
         }
       ]
@@ -5410,6 +5620,110 @@
           "benchmark": {
             "applicability": "not_applicable",
             "reason": "Headers construction and mapping operations are outside the declared benchmark workloads."
+          }
+        },
+        {
+          "id": "ownership-graph",
+          "kind": "protocol_operation",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.datastructures.Headers.__init__ and public value access",
+            "signature": "Construct an input-defined public container with user-owned value cycles; observe public value identity, retention, finalizers, file close, and unraisable errors before and after caller or worker collection.",
+            "parameters": [
+              {
+                "id": "construction",
+                "style": "option",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "garbage_collection",
+                "style": "option",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "value-lifetime",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "Python object identity, cyclic collection, user file lifetime, and Python finalizer threads have no equivalent Rust-native public consumer boundary.",
+                "blocker": "This compatibility operation requires Python heap objects and finalizers through installed-package public consumers."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.datastructures.Headers.__init__ and public value access",
+              "signature": "Public package objects retain and expose user-owned values while Rust owns container semantics.",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.datastructures.Headers.ownership-graph.public-value-lifetime",
+              "dimension": "boundary",
+              "description": "Compare public Headers value identity and ownership cycles, including repeated references, on the caller and a worker thread. Only the public container remains externally rooted. Observe every user finalizer, file-close event, warning, unraisable error, and user weak reference. Pinned source: starlette/datastructures.py:500; tests/test_datastructures.py; docs/requests.md and docs/applications.md. No private framework attributes are inspected.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This input-only compatibility slice makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "Request ownership collection is outside the active Router/GZip timing workloads."
           }
         }
       ]
@@ -5680,6 +5994,110 @@
             "applicability": "not_applicable",
             "reason": "MutableHeaders construction and mutations are outside the declared benchmark workloads."
           }
+        },
+        {
+          "id": "ownership-graph",
+          "kind": "protocol_operation",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.datastructures.MutableHeaders.__init__ and public value access",
+            "signature": "Construct an input-defined public container with user-owned value cycles; observe public value identity, retention, finalizers, file close, and unraisable errors before and after caller or worker collection.",
+            "parameters": [
+              {
+                "id": "construction",
+                "style": "option",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "garbage_collection",
+                "style": "option",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "value-lifetime",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "Python object identity, cyclic collection, user file lifetime, and Python finalizer threads have no equivalent Rust-native public consumer boundary.",
+                "blocker": "This compatibility operation requires Python heap objects and finalizers through installed-package public consumers."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.datastructures.MutableHeaders.__init__ and public value access",
+              "signature": "Public package objects retain and expose user-owned values while Rust owns container semantics.",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.datastructures.MutableHeaders.ownership-graph.public-value-lifetime",
+              "dimension": "boundary",
+              "description": "Compare public MutableHeaders value identity and ownership cycles, including repeated references, on the caller and a worker thread. Only the public container remains externally rooted. Observe every user finalizer, file-close event, warning, unraisable error, and user weak reference. Pinned source: starlette/datastructures.py:577; tests/test_datastructures.py; docs/requests.md and docs/applications.md. No private framework attributes are inspected.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This input-only compatibility slice makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "Request ownership collection is outside the active Router/GZip timing workloads."
+          }
         }
       ]
     },
@@ -5901,6 +6319,110 @@
           "benchmark": {
             "applicability": "not_applicable",
             "reason": "Small State object operations are outside the declared benchmark workloads."
+          }
+        },
+        {
+          "id": "ownership-graph",
+          "kind": "protocol_operation",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.datastructures.State.__init__ and public value access",
+            "signature": "Construct an input-defined public container with user-owned value cycles; observe public value identity, retention, finalizers, file close, and unraisable errors before and after caller or worker collection.",
+            "parameters": [
+              {
+                "id": "construction",
+                "style": "option",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "garbage_collection",
+                "style": "option",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "value-lifetime",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "Python object identity, cyclic collection, user file lifetime, and Python finalizer threads have no equivalent Rust-native public consumer boundary.",
+                "blocker": "This compatibility operation requires Python heap objects and finalizers through installed-package public consumers."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.datastructures.State.__init__ and public value access",
+              "signature": "Public package objects retain and expose user-owned values while Rust owns container semantics.",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.datastructures.State.ownership-graph.public-value-lifetime",
+              "dimension": "boundary",
+              "description": "Compare public State value identity and ownership cycles, including repeated references, on the caller and a worker thread. Only the public container remains externally rooted. Observe every user finalizer, file-close event, warning, unraisable error, and user weak reference. Pinned source: starlette/datastructures.py:664; tests/test_datastructures.py; docs/requests.md and docs/applications.md. No private framework attributes are inspected.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This input-only compatibility slice makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "Request ownership collection is outside the active Router/GZip timing workloads."
           }
         }
       ]
@@ -6153,6 +6675,110 @@
           "benchmark": {
             "applicability": "not_applicable",
             "reason": "MultiDict consumer behavior is outside the active benchmark workloads."
+          }
+        },
+        {
+          "id": "ownership-graph",
+          "kind": "protocol_operation",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.datastructures.MultiDict.__init__ and public value access",
+            "signature": "Construct an input-defined public container with user-owned value cycles; observe public value identity, retention, finalizers, file close, and unraisable errors before and after caller or worker collection.",
+            "parameters": [
+              {
+                "id": "construction",
+                "style": "option",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "garbage_collection",
+                "style": "option",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "value-lifetime",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "Python object identity, cyclic collection, user file lifetime, and Python finalizer threads have no equivalent Rust-native public consumer boundary.",
+                "blocker": "This compatibility operation requires Python heap objects and finalizers through installed-package public consumers."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.datastructures.MultiDict.__init__ and public value access",
+              "signature": "Public package objects retain and expose user-owned values while Rust owns container semantics.",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.datastructures.MultiDict.ownership-graph.public-value-lifetime",
+              "dimension": "boundary",
+              "description": "Compare public MultiDict value identity and ownership cycles, including repeated references, on the caller and a worker thread. Only the public container remains externally rooted. Observe every user finalizer, file-close event, warning, unraisable error, and user weak reference. Pinned source: starlette/datastructures.py:322; tests/test_datastructures.py; docs/requests.md and docs/applications.md. No private framework attributes are inspected.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This input-only compatibility slice makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "Request ownership collection is outside the active Router/GZip timing workloads."
           }
         }
       ]
@@ -6543,6 +7169,110 @@
           "benchmark": {
             "applicability": "not_applicable",
             "reason": "Comma-separated configuration values are outside the active benchmark workloads."
+          }
+        },
+        {
+          "id": "ownership-graph",
+          "kind": "protocol_operation",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.datastructures.CommaSeparatedStrings.__init__ and public value access",
+            "signature": "Construct an input-defined public container with user-owned value cycles; observe public value identity, retention, finalizers, file close, and unraisable errors before and after caller or worker collection.",
+            "parameters": [
+              {
+                "id": "construction",
+                "style": "option",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "garbage_collection",
+                "style": "option",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "value-lifetime",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "Python object identity, cyclic collection, user file lifetime, and Python finalizer threads have no equivalent Rust-native public consumer boundary.",
+                "blocker": "This compatibility operation requires Python heap objects and finalizers through installed-package public consumers."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.datastructures.CommaSeparatedStrings.__init__ and public value access",
+              "signature": "Public package objects retain and expose user-owned values while Rust owns container semantics.",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.datastructures.CommaSeparatedStrings.ownership-graph.public-value-lifetime",
+              "dimension": "boundary",
+              "description": "Compare public CommaSeparatedStrings value identity and ownership cycles, including repeated references, on the caller and a worker thread. Only the public container remains externally rooted. Observe every user finalizer, file-close event, warning, unraisable error, and user weak reference. Pinned source: starlette/datastructures.py:225; tests/test_datastructures.py; docs/requests.md and docs/applications.md. No private framework attributes are inspected.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This input-only compatibility slice makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "Request ownership collection is outside the active Router/GZip timing workloads."
           }
         }
       ]
@@ -7118,6 +7848,110 @@
           "benchmark": {
             "applicability": "not_applicable",
             "reason": "URL construction and replacement are outside the declared benchmark workloads."
+          }
+        },
+        {
+          "id": "ownership-graph",
+          "kind": "protocol_operation",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.datastructures.URL.__init__ and public value access",
+            "signature": "Construct an input-defined public container with user-owned value cycles; observe public value identity, retention, finalizers, file close, and unraisable errors before and after caller or worker collection.",
+            "parameters": [
+              {
+                "id": "construction",
+                "style": "option",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "garbage_collection",
+                "style": "option",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "value-lifetime",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "Python object identity, cyclic collection, user file lifetime, and Python finalizer threads have no equivalent Rust-native public consumer boundary.",
+                "blocker": "This compatibility operation requires Python heap objects and finalizers through installed-package public consumers."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.datastructures.URL.__init__ and public value access",
+              "signature": "Public package objects retain and expose user-owned values while Rust owns container semantics.",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.datastructures.URL.ownership-graph.public-value-lifetime",
+              "dimension": "boundary",
+              "description": "Compare public URL value identity and ownership cycles, including repeated references, on the caller and a worker thread. Only the public container remains externally rooted. Observe every user finalizer, file-close event, warning, unraisable error, and user weak reference. Pinned source: starlette/datastructures.py:28; tests/test_datastructures.py; docs/requests.md and docs/applications.md. No private framework attributes are inspected.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This input-only compatibility slice makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "Request ownership collection is outside the active Router/GZip timing workloads."
           }
         }
       ]
@@ -13982,7 +14816,7 @@
           },
           "source": {
             "oracle_id": "starlette-python",
-            "path": "starlette.requests.Request.scope, Request.receive, Request.body, Request.stream, Request.json, and Request.form",
+            "path": "starlette.requests.Request.scope, Request.receive, Request.body, Request.stream, Request.json, and Request.form, Request.state, and Request.headers",
             "signature": "Build input-defined public Request ownership cycles; retain, release, and collect them while observing user finalizers, suspended receive cleanup, warnings, and unraisable errors.",
             "parameters": [
               {
@@ -14122,7 +14956,7 @@
             },
             {
               "target_id": "python-package",
-              "path": "starlette.requests.Request.scope, Request.receive, Request.body, Request.stream, Request.json, and Request.form",
+              "path": "starlette.requests.Request.scope, Request.receive, Request.body, Request.stream, Request.json, and Request.form, Request.state, and Request.headers",
               "signature": "The installed Python facade forwards Request state and operations to Rust; garbage collection must preserve the public Python ownership contract.",
               "support": {
                 "status": "supported"
@@ -14133,7 +14967,7 @@
             {
               "id": "starlette.request.callback-lifetime.public-cycle-collection",
               "dimension": "boundary",
-              "description": "Retain and release cycles through public Request scope/receive and unstarted or suspended body, JSON, stream, and form operations; compare user-object weak references, finalizers, callback finally blocks, every unraisable error, and warning category/message. Pinned source: starlette/requests.py:76-86,225-324; docs/requests.md:15-28,76-123; CPython public garbage-collection and coroutine protocols. Finalizer and warning records are sorted without dropping duplicates because collection order is not portable.",
+              "description": "Retain and release cycles through public Request scope/receive and unstarted or suspended body, JSON, stream, and form operations; compare user-object weak references, finalizers, callback finally blocks, every unraisable error, and warning category/message. Pinned source: starlette/requests.py:76-86,225-324; docs/requests.md:15-28,76-123; CPython public garbage-collection and coroutine protocols. Finalizer and warning records are sorted without dropping duplicates because collection order is not portable. Also compare worker-thread release/collection and cycles through public Request.state and byte-subclass header values; pinned source: starlette/requests.py:117-121,187-192; starlette/datastructures.py:499-518,664-684.",
               "lanes": [
                 "parity"
               ],
@@ -25977,6 +26811,118 @@
           "benchmark": {
             "applicability": "not_applicable",
             "reason": "Direct HTTPEndpoint class invocation is outside the active benchmark workloads."
+          }
+        }
+      ]
+    },
+    {
+      "id": "starlette.datastructures.ImmutableMultiDict",
+      "kind": "type",
+      "source_path": "starlette/datastructures.py:253",
+      "storage_slug": "starlette-datastructures-MultiDict",
+      "operations": [
+        {
+          "id": "ownership-graph",
+          "kind": "protocol_operation",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.datastructures.ImmutableMultiDict.__init__ and public value access",
+            "signature": "Construct an input-defined public container with user-owned value cycles; observe public value identity, retention, finalizers, file close, and unraisable errors before and after caller or worker collection.",
+            "parameters": [
+              {
+                "id": "construction",
+                "style": "option",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "garbage_collection",
+                "style": "option",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "value-lifetime",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "Python object identity, cyclic collection, user file lifetime, and Python finalizer threads have no equivalent Rust-native public consumer boundary.",
+                "blocker": "This compatibility operation requires Python heap objects and finalizers through installed-package public consumers."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.datastructures.ImmutableMultiDict.__init__ and public value access",
+              "signature": "Public package objects retain and expose user-owned values while Rust owns container semantics.",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.datastructures.ImmutableMultiDict.ownership-graph.public-value-lifetime",
+              "dimension": "boundary",
+              "description": "Compare public ImmutableMultiDict value identity and ownership cycles, including repeated references, on the caller and a worker thread. Only the public container remains externally rooted. Observe every user finalizer, file-close event, warning, unraisable error, and user weak reference. Pinned source: starlette/datastructures.py:253; tests/test_datastructures.py; docs/requests.md and docs/applications.md. No private framework attributes are inspected.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This input-only compatibility slice makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "Request ownership collection is outside the active Router/GZip timing workloads."
           }
         }
       ]

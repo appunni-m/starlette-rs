@@ -6,6 +6,7 @@
 //! public operations to the native types.
 
 use pyo3::basic::CompareOp;
+use pyo3::class::gc::{PyTraverseError, PyVisit};
 use pyo3::exceptions::{PyAssertionError, PyKeyError, PyOverflowError, PyTypeError};
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyDict, PyList, PyModule, PySlice, PyString, PyTuple};
@@ -25,6 +26,14 @@ struct PyHeadersStore {
 
 #[pymethods]
 impl PyHeadersStore {
+    fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.raw)
+    }
+
+    fn __clear__(&mut self, py: Python<'_>) {
+        self.raw = PyList::empty(py).into_any().unbind();
+    }
+
     #[new]
     #[pyo3(signature = (headers=None, raw=None, scope=None, mutable=false))]
     fn new(

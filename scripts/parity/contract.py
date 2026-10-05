@@ -412,6 +412,21 @@ REQUEST_IS_DISCONNECTED_OPERATION = ("starlette.requests.Request", "is-disconnec
 REQUEST_FORM_OPERATION = ("starlette.requests.Request", "form")
 REQUEST_BODY_STREAM_JSON_OPERATION = ("starlette.requests.Request", "body-stream-json")
 REQUEST_LIFETIME_OPERATION = ("starlette.requests.Request", "callback-lifetime")
+VALUE_LIFETIME_OPERATIONS = {
+    ("starlette.datastructures.CommaSeparatedStrings", "ownership-graph"),
+    ("starlette.datastructures.UploadFile", "ownership-graph"),
+    ("starlette.datastructures.ImmutableMultiDict", "ownership-graph"),
+    ("starlette.datastructures.FormData", "ownership-graph"),
+    ("starlette.datastructures.Headers", "ownership-graph"),
+    ("starlette.datastructures.MultiDict", "ownership-graph"),
+    ("starlette.datastructures.MutableHeaders", "ownership-graph"),
+    ("starlette.datastructures.State", "ownership-graph"),
+    ("starlette.datastructures.URL", "ownership-graph"),
+}
+VALUE_LIFETIME_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
+    "construction",
+    "garbage_collection",
+}
 REQUEST_LIFETIME_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
     "scope",
     "request_operation",
@@ -2406,6 +2421,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                 or key == REQUEST_IS_DISCONNECTED_OPERATION
                 or key == REQUEST_BODY_STREAM_JSON_OPERATION
                 or key == REQUEST_LIFETIME_OPERATION
+                or key in VALUE_LIFETIME_OPERATIONS
                 or key == RUN_UNTIL_FIRST_COMPLETE_OPERATION_KEY
                 or key == BASE_HTTP_WORKFLOW_OPERATION_KEY
                 or key == BASE_HTTP_CONTEXTVARS_OPERATION_KEY
@@ -2625,6 +2641,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         or (surface["id"], operation["id"]) == REQUEST_FORM_OPERATION
                         or (surface["id"], operation["id"]) == REQUEST_BODY_STREAM_JSON_OPERATION
                         or (surface["id"], operation["id"]) == REQUEST_LIFETIME_OPERATION
+                        or (surface["id"], operation["id"]) in VALUE_LIFETIME_OPERATIONS
                         or (surface["id"], operation["id"]) == FORM_DATA_MULTIDICT_LOOKUPS_OPERATION
                         or (surface["id"], operation["id"]) == EXCEPTION_MIDDLEWARE_TYPING_OPERATION
                         or (surface["id"], operation["id"]) == UPLOAD_FILE_OPERATION
@@ -15456,6 +15473,10 @@ def validate_case(
         isinstance(case, dict)
         and (case.get("surface"), case.get("operation")) == REQUEST_FORM_OPERATION
     )
+    is_value_lifetime = (
+        isinstance(case, dict)
+        and (case.get("surface"), case.get("operation")) in VALUE_LIFETIME_OPERATIONS
+    )
     is_request_lifetime = (
         isinstance(case, dict)
         and (case.get("surface"), case.get("operation")) == REQUEST_LIFETIME_OPERATION
@@ -15583,6 +15604,8 @@ def validate_case(
         if is_status_symbols
         else REQUEST_FORM_CASE_KEYS
         if is_request_form
+        else VALUE_LIFETIME_CASE_KEYS
+        if is_value_lifetime
         else REQUEST_LIFETIME_CASE_KEYS
         if is_request_lifetime
         else REQUEST_BODY_STREAM_JSON_CASE_KEYS
@@ -15867,6 +15890,8 @@ def validate_case(
     elif is_request_form:
         expected_case_keys = REQUEST_FORM_CASE_KEYS
         expected_case_keys = expected_case_keys | (REQUEST_FORM_OPTIONAL_KEYS.intersection(case))
+    elif is_value_lifetime:
+        expected_case_keys = VALUE_LIFETIME_CASE_KEYS
     elif is_request_lifetime:
         expected_case_keys = REQUEST_LIFETIME_CASE_KEYS
     elif is_request_body_stream_json:
@@ -16051,6 +16076,9 @@ def validate_case(
     elif is_request_form:
         if case["observations"] != ["form"]:
             raise ContractError("Request.form cases must select the form observation")
+    elif is_value_lifetime:
+        if case["observations"] != ["value-lifetime"]:
+            raise ContractError("Public value lifetime cases select value-lifetime")
     elif is_request_lifetime:
         if case["observations"] != ["request-lifetime"]:
             raise ContractError("Request lifetime cases must select request-lifetime")
@@ -16285,6 +16313,9 @@ def validate_case(
         return case
     if is_upload_file:
         _validate_upload_file_case(case)
+        return case
+    if is_value_lifetime:
+        _validate_value_lifetime_case(case)
         return case
     if is_request_lifetime:
         _validate_request_lifetime_case(case)
@@ -30938,6 +30969,8 @@ def _validate_request_lifetime_case(case: dict[str, Any]) -> None:
     if operation not in {
         "scope",
         "receive",
+        "state",
+        "headers",
         "body",
         "json",
         "stream",
@@ -30952,7 +30985,15 @@ def _validate_request_lifetime_case(case: dict[str, Any]) -> None:
     arguments = case["operation_arguments"]
     if not isinstance(arguments, list):
         raise ContractError("Request lifetime arguments must be a sequence")
-    if operation == "stream-asend":
+    if operation == "headers":
+        if (
+            len(arguments) != 2
+            or any(type(value) is not int for value in arguments)
+            or not 0 <= arguments[0] < len(scope["headers"])
+            or arguments[1] not in {0, 1}
+        ):
+            raise ContractError("Request header lifetime selects a supplied header pair component")
+    elif operation == "stream-asend":
         if arguments != [None]:
             raise ContractError("This lifetime probe starts asend with None")
     elif operation == "stream-athrow":
@@ -30986,7 +31027,8 @@ def _validate_request_lifetime_case(case: dict[str, Any]) -> None:
         raise ContractError("Request lifetime body_base64 is invalid") from exc
     collection = _exact(
         case["garbage_collection"],
-        {"automatic_gc", "collect_generations"},
+        {"automatic_gc", "collect_generations"}
+        | ({"thread"} if "thread" in case["garbage_collection"] else set()),
         "Request lifetime garbage collection",
     )
     if (
@@ -30999,3 +31041,98 @@ def _validate_request_lifetime_case(case: dict[str, Any]) -> None:
         )
     ):
         raise ContractError("Request lifetime requires valid input-defined GC generations")
+
+    if collection.get("thread", "caller") not in {"caller", "worker"}:
+        raise ContractError("Request lifetime collection thread must be caller or worker")
+
+
+def _validate_value_lifetime_case(case: dict[str, Any]) -> None:
+    if case["target_profiles"] != ["python-package-cpython312"] or case["assets"] != []:
+        raise ContractError(
+            "Public value lifetime targets the installed Python package without assets"
+        )
+    name = case["surface"].removeprefix("starlette.datastructures.")
+    keys = {"guard_label", "holder_label", "value_text"}
+    if name in {
+        "ImmutableMultiDict",
+        "MultiDict",
+        "Headers",
+        "MutableHeaders",
+        "State",
+        "FormData",
+    }:
+        keys.add("key")
+    if name in {
+        "ImmutableMultiDict",
+        "MultiDict",
+        "Headers",
+        "MutableHeaders",
+        "CommaSeparatedStrings",
+        "FormData",
+    }:
+        keys.add("pair_count")
+    if name in {"ImmutableMultiDict", "MultiDict"}:
+        keys.add("holder_position")
+    if name in {"UploadFile", "FormData"}:
+        keys.add("filename")
+    if name == "UploadFile" and "io_actions" in case["construction"]:
+        keys |= {"io_actions", "size_callback"}
+    spec = _exact(case["construction"], keys, "Public value lifetime construction")
+    for key in keys - {"pair_count", "io_actions", "size_callback"}:
+        _string(spec[key], f"Public value lifetime {key}")
+    if "io_actions" in spec:
+        callback = _exact(
+            spec["size_callback"], {"initial", "read_attributes"}, "Upload size callback"
+        )
+        if (
+            type(callback["initial"]) is not int
+            or not isinstance(callback["read_attributes"], list)
+            or not callback["read_attributes"]
+            or any(
+                name not in {"file", "size", "filename", "headers"}
+                for name in callback["read_attributes"]
+            )
+        ):
+            raise ContractError(
+                "Upload size callback selects public attributes and an integer initial size"
+            )
+        if not isinstance(spec["io_actions"], list) or not spec["io_actions"]:
+            raise ContractError("Upload ownership I/O actions must be nonempty")
+        for action in spec["io_actions"]:
+            _exact(action, {"method", "data_base64"}, "Upload ownership I/O action")
+            if action["method"] != "write":
+                raise ContractError("This public reentry probe drives UploadFile.write")
+            try:
+                base64.b64decode(action["data_base64"], validate=True)
+            except (ValueError, TypeError, base64.binascii.Error) as exc:
+                raise ContractError("Upload write data_base64 is invalid") from exc
+    if "pair_count" in spec and (
+        type(spec["pair_count"]) is not int or not 1 <= spec["pair_count"] <= 64
+    ):
+        raise ContractError("Public value lifetime pair count must be between 1 and 64")
+    if "holder_position" in spec and spec["holder_position"] not in {"key", "value"}:
+        raise ContractError("Multi-dict ownership selects key or value")
+    if name in {"Headers", "MutableHeaders"}:
+        try:
+            spec["key"].encode("latin-1")
+            spec["value_text"].encode("latin-1")
+        except UnicodeEncodeError as exc:
+            raise ContractError("Header ownership inputs must be latin-1 encodable") from exc
+    collection = _exact(
+        case["garbage_collection"],
+        {"automatic_gc", "collect_generations", "thread"},
+        "Public value lifetime garbage collection",
+    )
+    if (
+        type(collection["automatic_gc"]) is not bool
+        or collection["thread"] not in {"caller", "worker"}
+        or not isinstance(collection["collect_generations"], list)
+        or not collection["collect_generations"]
+        or any(
+            type(generation) is not int or generation not in {0, 1, 2}
+            for generation in collection["collect_generations"]
+        )
+    ):
+        raise ContractError(
+            "Public value lifetime requires a collection thread and valid generations"
+        )

@@ -1,0 +1,866 @@
+{
+  "schema": "migration-parity/parity-input@43",
+  "cases": [
+    {
+      "case_id": "starlette.requests.Request.callback-lifetime.scope.unstarted.worker",
+      "surface": "starlette.requests.Request",
+      "operation": "callback-lifetime",
+      "covers": [
+        "starlette.request.callback-lifetime.public-cycle-collection"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "request-lifetime"
+      ],
+      "scope": {
+        "type": "http",
+        "headers": []
+      },
+      "request_operation": "scope",
+      "operation_arguments": [],
+      "drive": "unstarted",
+      "cycle_key": "user_cycle",
+      "guard_label": "user-guard",
+      "receive_label": "user-receive",
+      "suspension_token": "receive-paused",
+      "receive_message": {
+        "type": "http.request",
+        "body_base64": "eyJhIjoxfQ==",
+        "more_body": false
+      },
+      "garbage_collection": {
+        "automatic_gc": false,
+        "collect_generations": [
+          2,
+          2
+        ],
+        "thread": "worker"
+      }
+    },
+    {
+      "case_id": "starlette.requests.Request.callback-lifetime.receive.unstarted.worker",
+      "surface": "starlette.requests.Request",
+      "operation": "callback-lifetime",
+      "covers": [
+        "starlette.request.callback-lifetime.public-cycle-collection"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "request-lifetime"
+      ],
+      "scope": {
+        "type": "http",
+        "headers": []
+      },
+      "request_operation": "receive",
+      "operation_arguments": [],
+      "drive": "unstarted",
+      "cycle_key": "user_cycle",
+      "guard_label": "user-guard",
+      "receive_label": "user-receive",
+      "suspension_token": "receive-paused",
+      "receive_message": {
+        "type": "http.request",
+        "body_base64": "eyJhIjoxfQ==",
+        "more_body": false
+      },
+      "garbage_collection": {
+        "automatic_gc": false,
+        "collect_generations": [
+          2,
+          2
+        ],
+        "thread": "worker"
+      }
+    },
+    {
+      "case_id": "starlette.requests.Request.callback-lifetime.body.unstarted.worker",
+      "surface": "starlette.requests.Request",
+      "operation": "callback-lifetime",
+      "covers": [
+        "starlette.request.callback-lifetime.public-cycle-collection"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "request-lifetime"
+      ],
+      "scope": {
+        "type": "http",
+        "headers": []
+      },
+      "request_operation": "body",
+      "operation_arguments": [],
+      "drive": "unstarted",
+      "cycle_key": "user_cycle",
+      "guard_label": "user-guard",
+      "receive_label": "user-receive",
+      "suspension_token": "receive-paused",
+      "receive_message": {
+        "type": "http.request",
+        "body_base64": "eyJhIjoxfQ==",
+        "more_body": false
+      },
+      "garbage_collection": {
+        "automatic_gc": false,
+        "collect_generations": [
+          2,
+          2
+        ],
+        "thread": "worker"
+      }
+    },
+    {
+      "case_id": "starlette.requests.Request.callback-lifetime.body.suspend.worker",
+      "surface": "starlette.requests.Request",
+      "operation": "callback-lifetime",
+      "covers": [
+        "starlette.request.callback-lifetime.public-cycle-collection"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "request-lifetime"
+      ],
+      "scope": {
+        "type": "http",
+        "headers": []
+      },
+      "request_operation": "body",
+      "operation_arguments": [],
+      "drive": "suspend",
+      "cycle_key": "user_cycle",
+      "guard_label": "user-guard",
+      "receive_label": "user-receive",
+      "suspension_token": "receive-paused",
+      "receive_message": {
+        "type": "http.request",
+        "body_base64": "eyJhIjoxfQ==",
+        "more_body": false
+      },
+      "garbage_collection": {
+        "automatic_gc": false,
+        "collect_generations": [
+          2,
+          2
+        ],
+        "thread": "worker"
+      }
+    },
+    {
+      "case_id": "starlette.requests.Request.callback-lifetime.json.unstarted.worker",
+      "surface": "starlette.requests.Request",
+      "operation": "callback-lifetime",
+      "covers": [
+        "starlette.request.callback-lifetime.public-cycle-collection"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "request-lifetime"
+      ],
+      "scope": {
+        "type": "http",
+        "headers": []
+      },
+      "request_operation": "json",
+      "operation_arguments": [],
+      "drive": "unstarted",
+      "cycle_key": "user_cycle",
+      "guard_label": "user-guard",
+      "receive_label": "user-receive",
+      "suspension_token": "receive-paused",
+      "receive_message": {
+        "type": "http.request",
+        "body_base64": "eyJhIjoxfQ==",
+        "more_body": false
+      },
+      "garbage_collection": {
+        "automatic_gc": false,
+        "collect_generations": [
+          2,
+          2
+        ],
+        "thread": "worker"
+      }
+    },
+    {
+      "case_id": "starlette.requests.Request.callback-lifetime.json.suspend.worker",
+      "surface": "starlette.requests.Request",
+      "operation": "callback-lifetime",
+      "covers": [
+        "starlette.request.callback-lifetime.public-cycle-collection"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "request-lifetime"
+      ],
+      "scope": {
+        "type": "http",
+        "headers": []
+      },
+      "request_operation": "json",
+      "operation_arguments": [],
+      "drive": "suspend",
+      "cycle_key": "user_cycle",
+      "guard_label": "user-guard",
+      "receive_label": "user-receive",
+      "suspension_token": "receive-paused",
+      "receive_message": {
+        "type": "http.request",
+        "body_base64": "eyJhIjoxfQ==",
+        "more_body": false
+      },
+      "garbage_collection": {
+        "automatic_gc": false,
+        "collect_generations": [
+          2,
+          2
+        ],
+        "thread": "worker"
+      }
+    },
+    {
+      "case_id": "starlette.requests.Request.callback-lifetime.stream.unstarted.worker",
+      "surface": "starlette.requests.Request",
+      "operation": "callback-lifetime",
+      "covers": [
+        "starlette.request.callback-lifetime.public-cycle-collection"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "request-lifetime"
+      ],
+      "scope": {
+        "type": "http",
+        "headers": []
+      },
+      "request_operation": "stream",
+      "operation_arguments": [],
+      "drive": "unstarted",
+      "cycle_key": "user_cycle",
+      "guard_label": "user-guard",
+      "receive_label": "user-receive",
+      "suspension_token": "receive-paused",
+      "receive_message": {
+        "type": "http.request",
+        "body_base64": "eyJhIjoxfQ==",
+        "more_body": false
+      },
+      "garbage_collection": {
+        "automatic_gc": false,
+        "collect_generations": [
+          2,
+          2
+        ],
+        "thread": "worker"
+      }
+    },
+    {
+      "case_id": "starlette.requests.Request.callback-lifetime.stream-__anext__.unstarted.worker",
+      "surface": "starlette.requests.Request",
+      "operation": "callback-lifetime",
+      "covers": [
+        "starlette.request.callback-lifetime.public-cycle-collection"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "request-lifetime"
+      ],
+      "scope": {
+        "type": "http",
+        "headers": []
+      },
+      "request_operation": "stream-__anext__",
+      "operation_arguments": [],
+      "drive": "unstarted",
+      "cycle_key": "user_cycle",
+      "guard_label": "user-guard",
+      "receive_label": "user-receive",
+      "suspension_token": "receive-paused",
+      "receive_message": {
+        "type": "http.request",
+        "body_base64": "eyJhIjoxfQ==",
+        "more_body": false
+      },
+      "garbage_collection": {
+        "automatic_gc": false,
+        "collect_generations": [
+          2,
+          2
+        ],
+        "thread": "worker"
+      }
+    },
+    {
+      "case_id": "starlette.requests.Request.callback-lifetime.stream-__anext__.suspend.worker",
+      "surface": "starlette.requests.Request",
+      "operation": "callback-lifetime",
+      "covers": [
+        "starlette.request.callback-lifetime.public-cycle-collection"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "request-lifetime"
+      ],
+      "scope": {
+        "type": "http",
+        "headers": []
+      },
+      "request_operation": "stream-__anext__",
+      "operation_arguments": [],
+      "drive": "suspend",
+      "cycle_key": "user_cycle",
+      "guard_label": "user-guard",
+      "receive_label": "user-receive",
+      "suspension_token": "receive-paused",
+      "receive_message": {
+        "type": "http.request",
+        "body_base64": "eyJhIjoxfQ==",
+        "more_body": false
+      },
+      "garbage_collection": {
+        "automatic_gc": false,
+        "collect_generations": [
+          2,
+          2
+        ],
+        "thread": "worker"
+      }
+    },
+    {
+      "case_id": "starlette.requests.Request.callback-lifetime.stream-asend.unstarted.worker",
+      "surface": "starlette.requests.Request",
+      "operation": "callback-lifetime",
+      "covers": [
+        "starlette.request.callback-lifetime.public-cycle-collection"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "request-lifetime"
+      ],
+      "scope": {
+        "type": "http",
+        "headers": []
+      },
+      "request_operation": "stream-asend",
+      "operation_arguments": [
+        null
+      ],
+      "drive": "unstarted",
+      "cycle_key": "user_cycle",
+      "guard_label": "user-guard",
+      "receive_label": "user-receive",
+      "suspension_token": "receive-paused",
+      "receive_message": {
+        "type": "http.request",
+        "body_base64": "eyJhIjoxfQ==",
+        "more_body": false
+      },
+      "garbage_collection": {
+        "automatic_gc": false,
+        "collect_generations": [
+          2,
+          2
+        ],
+        "thread": "worker"
+      }
+    },
+    {
+      "case_id": "starlette.requests.Request.callback-lifetime.stream-asend.suspend.worker",
+      "surface": "starlette.requests.Request",
+      "operation": "callback-lifetime",
+      "covers": [
+        "starlette.request.callback-lifetime.public-cycle-collection"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "request-lifetime"
+      ],
+      "scope": {
+        "type": "http",
+        "headers": []
+      },
+      "request_operation": "stream-asend",
+      "operation_arguments": [
+        null
+      ],
+      "drive": "suspend",
+      "cycle_key": "user_cycle",
+      "guard_label": "user-guard",
+      "receive_label": "user-receive",
+      "suspension_token": "receive-paused",
+      "receive_message": {
+        "type": "http.request",
+        "body_base64": "eyJhIjoxfQ==",
+        "more_body": false
+      },
+      "garbage_collection": {
+        "automatic_gc": false,
+        "collect_generations": [
+          2,
+          2
+        ],
+        "thread": "worker"
+      }
+    },
+    {
+      "case_id": "starlette.requests.Request.callback-lifetime.stream-athrow.unstarted.worker",
+      "surface": "starlette.requests.Request",
+      "operation": "callback-lifetime",
+      "covers": [
+        "starlette.request.callback-lifetime.public-cycle-collection"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "request-lifetime"
+      ],
+      "scope": {
+        "type": "http",
+        "headers": []
+      },
+      "request_operation": "stream-athrow",
+      "operation_arguments": [
+        "lifetime error"
+      ],
+      "drive": "unstarted",
+      "cycle_key": "user_cycle",
+      "guard_label": "user-guard",
+      "receive_label": "user-receive",
+      "suspension_token": "receive-paused",
+      "receive_message": {
+        "type": "http.request",
+        "body_base64": "eyJhIjoxfQ==",
+        "more_body": false
+      },
+      "garbage_collection": {
+        "automatic_gc": false,
+        "collect_generations": [
+          2,
+          2
+        ],
+        "thread": "worker"
+      }
+    },
+    {
+      "case_id": "starlette.requests.Request.callback-lifetime.stream-aclose.unstarted.worker",
+      "surface": "starlette.requests.Request",
+      "operation": "callback-lifetime",
+      "covers": [
+        "starlette.request.callback-lifetime.public-cycle-collection"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "request-lifetime"
+      ],
+      "scope": {
+        "type": "http",
+        "headers": []
+      },
+      "request_operation": "stream-aclose",
+      "operation_arguments": [],
+      "drive": "unstarted",
+      "cycle_key": "user_cycle",
+      "guard_label": "user-guard",
+      "receive_label": "user-receive",
+      "suspension_token": "receive-paused",
+      "receive_message": {
+        "type": "http.request",
+        "body_base64": "eyJhIjoxfQ==",
+        "more_body": false
+      },
+      "garbage_collection": {
+        "automatic_gc": false,
+        "collect_generations": [
+          2,
+          2
+        ],
+        "thread": "worker"
+      }
+    },
+    {
+      "case_id": "starlette.requests.Request.callback-lifetime.form.unstarted.worker",
+      "surface": "starlette.requests.Request",
+      "operation": "callback-lifetime",
+      "covers": [
+        "starlette.request.callback-lifetime.public-cycle-collection"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "request-lifetime"
+      ],
+      "scope": {
+        "type": "http",
+        "headers": [
+          [
+            "content-type",
+            "application/x-www-form-urlencoded"
+          ]
+        ]
+      },
+      "request_operation": "form",
+      "operation_arguments": [],
+      "drive": "unstarted",
+      "cycle_key": "user_cycle",
+      "guard_label": "user-guard",
+      "receive_label": "user-receive",
+      "suspension_token": "receive-paused",
+      "receive_message": {
+        "type": "http.request",
+        "body_base64": "eyJhIjoxfQ==",
+        "more_body": false
+      },
+      "garbage_collection": {
+        "automatic_gc": false,
+        "collect_generations": [
+          2,
+          2
+        ],
+        "thread": "worker"
+      }
+    },
+    {
+      "case_id": "starlette.requests.Request.callback-lifetime.form.suspend.worker",
+      "surface": "starlette.requests.Request",
+      "operation": "callback-lifetime",
+      "covers": [
+        "starlette.request.callback-lifetime.public-cycle-collection"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "request-lifetime"
+      ],
+      "scope": {
+        "type": "http",
+        "headers": [
+          [
+            "content-type",
+            "application/x-www-form-urlencoded"
+          ]
+        ]
+      },
+      "request_operation": "form",
+      "operation_arguments": [],
+      "drive": "suspend",
+      "cycle_key": "user_cycle",
+      "guard_label": "user-guard",
+      "receive_label": "user-receive",
+      "suspension_token": "receive-paused",
+      "receive_message": {
+        "type": "http.request",
+        "body_base64": "eyJhIjoxfQ==",
+        "more_body": false
+      },
+      "garbage_collection": {
+        "automatic_gc": false,
+        "collect_generations": [
+          2,
+          2
+        ],
+        "thread": "worker"
+      }
+    },
+    {
+      "case_id": "starlette.requests.Request.callback-lifetime.form-enter.unstarted.worker",
+      "surface": "starlette.requests.Request",
+      "operation": "callback-lifetime",
+      "covers": [
+        "starlette.request.callback-lifetime.public-cycle-collection"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "request-lifetime"
+      ],
+      "scope": {
+        "type": "http",
+        "headers": [
+          [
+            "content-type",
+            "application/x-www-form-urlencoded"
+          ]
+        ]
+      },
+      "request_operation": "form-enter",
+      "operation_arguments": [],
+      "drive": "unstarted",
+      "cycle_key": "user_cycle",
+      "guard_label": "user-guard",
+      "receive_label": "user-receive",
+      "suspension_token": "receive-paused",
+      "receive_message": {
+        "type": "http.request",
+        "body_base64": "eyJhIjoxfQ==",
+        "more_body": false
+      },
+      "garbage_collection": {
+        "automatic_gc": false,
+        "collect_generations": [
+          2,
+          2
+        ],
+        "thread": "worker"
+      }
+    },
+    {
+      "case_id": "starlette.requests.Request.callback-lifetime.form-enter.suspend.worker",
+      "surface": "starlette.requests.Request",
+      "operation": "callback-lifetime",
+      "covers": [
+        "starlette.request.callback-lifetime.public-cycle-collection"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "request-lifetime"
+      ],
+      "scope": {
+        "type": "http",
+        "headers": [
+          [
+            "content-type",
+            "application/x-www-form-urlencoded"
+          ]
+        ]
+      },
+      "request_operation": "form-enter",
+      "operation_arguments": [],
+      "drive": "suspend",
+      "cycle_key": "user_cycle",
+      "guard_label": "user-guard",
+      "receive_label": "user-receive",
+      "suspension_token": "receive-paused",
+      "receive_message": {
+        "type": "http.request",
+        "body_base64": "eyJhIjoxfQ==",
+        "more_body": false
+      },
+      "garbage_collection": {
+        "automatic_gc": false,
+        "collect_generations": [
+          2,
+          2
+        ],
+        "thread": "worker"
+      }
+    },
+    {
+      "case_id": "starlette.requests.Request.callback-lifetime.state.caller",
+      "surface": "starlette.requests.Request",
+      "operation": "callback-lifetime",
+      "covers": [
+        "starlette.request.callback-lifetime.public-cycle-collection"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "request-lifetime"
+      ],
+      "scope": {
+        "type": "http",
+        "headers": []
+      },
+      "request_operation": "state",
+      "operation_arguments": [],
+      "drive": "unstarted",
+      "cycle_key": "user_cycle",
+      "guard_label": "user-guard",
+      "receive_label": "user-receive",
+      "suspension_token": "receive-paused",
+      "receive_message": {
+        "type": "http.request",
+        "body_base64": "eyJhIjoxfQ==",
+        "more_body": false
+      },
+      "garbage_collection": {
+        "automatic_gc": false,
+        "collect_generations": [
+          2,
+          2
+        ],
+        "thread": "caller"
+      }
+    },
+    {
+      "case_id": "starlette.requests.Request.callback-lifetime.state.worker",
+      "surface": "starlette.requests.Request",
+      "operation": "callback-lifetime",
+      "covers": [
+        "starlette.request.callback-lifetime.public-cycle-collection"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "request-lifetime"
+      ],
+      "scope": {
+        "type": "http",
+        "headers": []
+      },
+      "request_operation": "state",
+      "operation_arguments": [],
+      "drive": "unstarted",
+      "cycle_key": "user_cycle",
+      "guard_label": "user-guard",
+      "receive_label": "user-receive",
+      "suspension_token": "receive-paused",
+      "receive_message": {
+        "type": "http.request",
+        "body_base64": "eyJhIjoxfQ==",
+        "more_body": false
+      },
+      "garbage_collection": {
+        "automatic_gc": false,
+        "collect_generations": [
+          2,
+          2
+        ],
+        "thread": "worker"
+      }
+    },
+    {
+      "case_id": "starlette.requests.Request.callback-lifetime.headers.caller",
+      "surface": "starlette.requests.Request",
+      "operation": "callback-lifetime",
+      "covers": [
+        "starlette.request.callback-lifetime.public-cycle-collection"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "request-lifetime"
+      ],
+      "scope": {
+        "type": "http",
+        "headers": [
+          [
+            "x-user",
+            "retained header"
+          ]
+        ]
+      },
+      "request_operation": "headers",
+      "operation_arguments": [
+        0,
+        1
+      ],
+      "drive": "unstarted",
+      "cycle_key": "user_cycle",
+      "guard_label": "user-guard",
+      "receive_label": "user-receive",
+      "suspension_token": "receive-paused",
+      "receive_message": {
+        "type": "http.request",
+        "body_base64": "eyJhIjoxfQ==",
+        "more_body": false
+      },
+      "garbage_collection": {
+        "automatic_gc": false,
+        "collect_generations": [
+          2,
+          2
+        ],
+        "thread": "caller"
+      }
+    },
+    {
+      "case_id": "starlette.requests.Request.callback-lifetime.headers.worker",
+      "surface": "starlette.requests.Request",
+      "operation": "callback-lifetime",
+      "covers": [
+        "starlette.request.callback-lifetime.public-cycle-collection"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "request-lifetime"
+      ],
+      "scope": {
+        "type": "http",
+        "headers": [
+          [
+            "x-user",
+            "retained header"
+          ]
+        ]
+      },
+      "request_operation": "headers",
+      "operation_arguments": [
+        0,
+        1
+      ],
+      "drive": "unstarted",
+      "cycle_key": "user_cycle",
+      "guard_label": "user-guard",
+      "receive_label": "user-receive",
+      "suspension_token": "receive-paused",
+      "receive_message": {
+        "type": "http.request",
+        "body_base64": "eyJhIjoxfQ==",
+        "more_body": false
+      },
+      "garbage_collection": {
+        "automatic_gc": false,
+        "collect_generations": [
+          2,
+          2
+        ],
+        "thread": "worker"
+      }
+    }
+  ]
+}

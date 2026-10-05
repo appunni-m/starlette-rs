@@ -13341,6 +13341,20 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         from scripts.parity.adapters.upload_file import run_upload_file_case
 
         return run_upload_file_case(case, UploadFile)
+    if isinstance(case, dict) and (case.get("surface"), case.get("operation")) in {
+        ("starlette.datastructures.CommaSeparatedStrings", "ownership-graph"),
+        ("starlette.datastructures.UploadFile", "ownership-graph"),
+        ("starlette.datastructures.ImmutableMultiDict", "ownership-graph"),
+        ("starlette.datastructures.FormData", "ownership-graph"),
+        ("starlette.datastructures.Headers", "ownership-graph"),
+        ("starlette.datastructures.MultiDict", "ownership-graph"),
+        ("starlette.datastructures.MutableHeaders", "ownership-graph"),
+        ("starlette.datastructures.State", "ownership-graph"),
+        ("starlette.datastructures.URL", "ownership-graph"),
+    }:
+        from scripts.parity.adapters.value_lifetime import run_value_lifetime_case
+
+        return run_value_lifetime_case(case)
     if isinstance(case, dict) and (case.get("surface"), case.get("operation")) == (
         "starlette.requests.Request",
         "callback-lifetime",

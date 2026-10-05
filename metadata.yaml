@@ -122,6 +122,10 @@
         {
           "operation_id": "multidict-lookups",
           "source_path": "starlette.datastructures.FormData.__init__, FormData.close, ImmutableMultiDict.getlist, keys, items, multi_items, and __getitem__"
+        },
+        {
+          "operation_id": "ownership-graph",
+          "source_path": "starlette.datastructures.FormData.__init__ and public value access"
         }
       ]
     },
@@ -132,6 +136,10 @@
         {
           "operation_id": "file-operations",
           "source_path": "starlette.datastructures.UploadFile.__init__, content_type, _in_memory, _will_roll, write, read, seek, close, and __repr__"
+        },
+        {
+          "operation_id": "ownership-graph",
+          "source_path": "starlette.datastructures.UploadFile.__init__ and public value access"
         }
       ]
     },
@@ -142,6 +150,10 @@
         {
           "operation_id": "consumer-sequence",
           "source_path": "starlette.datastructures.State.__init__, State.__setattr__, State.__getattr__, State.__delattr__, State.__getitem__, State.__setitem__, State.__delitem__, State.__iter__, and State.__len__"
+        },
+        {
+          "operation_id": "ownership-graph",
+          "source_path": "starlette.datastructures.State.__init__ and public value access"
         }
       ]
     },
@@ -152,6 +164,10 @@
         {
           "operation_id": "consumer-sequence",
           "source_path": "starlette.datastructures.Headers.__init__, Headers.__contains__, Headers.__getitem__, Headers.getlist, Headers.keys, Headers.values, Headers.items, Headers.__iter__, Headers.__len__, Headers.__eq__, Headers.__repr__, and Headers.mutablecopy"
+        },
+        {
+          "operation_id": "ownership-graph",
+          "source_path": "starlette.datastructures.Headers.__init__ and public value access"
         }
       ]
     },
@@ -162,6 +178,10 @@
         {
           "operation_id": "consumer-sequence",
           "source_path": "starlette.datastructures.MutableHeaders.__setitem__, __delitem__, setdefault, update, append, __or__, and __ior__"
+        },
+        {
+          "operation_id": "ownership-graph",
+          "source_path": "starlette.datastructures.MutableHeaders.__init__ and public value access"
         }
       ]
     },
@@ -172,6 +192,10 @@
         {
           "operation_id": "mutation-sequence",
           "source_path": "starlette.datastructures.MultiDict and ImmutableMultiDict mapping and mutation methods"
+        },
+        {
+          "operation_id": "ownership-graph",
+          "source_path": "starlette.datastructures.MultiDict.__init__ and public value access"
         }
       ]
     },
@@ -192,6 +216,10 @@
         {
           "operation_id": "consumer-sequence",
           "source_path": "starlette.datastructures.CommaSeparatedStrings.__init__, CommaSeparatedStrings.__iter__, __getitem__, __len__, __repr__, and __str__"
+        },
+        {
+          "operation_id": "ownership-graph",
+          "source_path": "starlette.datastructures.CommaSeparatedStrings.__init__ and public value access"
         }
       ]
     },
@@ -210,6 +238,10 @@
         {
           "operation_id": "component-and-replacement-sequence",
           "source_path": "starlette.datastructures.URL.__init__, URL.components, URL.replace, and URL.__repr__"
+        },
+        {
+          "operation_id": "ownership-graph",
+          "source_path": "starlette.datastructures.URL.__init__ and public value access"
         }
       ]
     },
@@ -475,7 +507,7 @@
         },
         {
           "operation_id": "callback-lifetime",
-          "source_path": "starlette.requests.Request.scope, Request.receive, Request.body, Request.stream, Request.json, and Request.form"
+          "source_path": "starlette.requests.Request.scope, Request.receive, Request.body, Request.stream, Request.json, and Request.form, Request.state, and Request.headers"
         }
       ]
     },
@@ -754,6 +786,16 @@
         {
           "operation_id": "call-sequence",
           "source_path": "starlette.websockets.WebSocketClose.__call__"
+        }
+      ]
+    },
+    {
+      "surface_id": "starlette.datastructures.ImmutableMultiDict",
+      "source_path": "starlette/datastructures.py:253",
+      "operations": [
+        {
+          "operation_id": "ownership-graph",
+          "source_path": "starlette.datastructures.ImmutableMultiDict.__init__ and public value access"
         }
       ]
     }

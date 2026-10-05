@@ -8,6 +8,7 @@ import warnings
 import weakref
 from typing import Any
 
+from scripts.parity.adapters.ownership_cleanup import observe_ownership
 from scripts.parity.adapters.request_consumption import _decode_message
 from scripts.parity.adapters.traceback_cleanup import TracebackCleanup
 
@@ -48,12 +49,28 @@ def _graph(
     scope["headers"] = [
         (key.encode("latin-1"), value.encode("latin-1")) for key, value in scope["headers"]
     ]
-    request = request_type(scope, receive)
     operation = case["request_operation"]
+    if operation == "headers":
+
+        class UserHeader(bytes):
+            pass
+
+        index, component = case["operation_arguments"]
+        pair = list(scope["headers"][index])
+        value = UserHeader(pair[component])
+        value.owner = receive
+        pair[component] = value
+        scope["headers"][index] = tuple(pair)
+    request = request_type(scope, receive)
     roots: list[Any] = [request, receive]
     if operation == "scope":
         request.scope[case["cycle_key"]] = request
     elif operation == "receive":
+        receive.peer = request
+    elif operation == "state":
+        setattr(request.state, case["cycle_key"], request)
+    elif operation == "headers":
+        roots.append(request.headers)
         receive.peer = request
     else:
         if operation == "stream":
@@ -89,31 +106,9 @@ def run_request_lifetime_case(case: dict[str, Any], request_type: type[Any]) -> 
             warnings.simplefilter("always")
             roots, references, events = _graph(case, request_type, observer)
 
-            def snapshot() -> dict[str, Any]:
-                return {
-                    "alive": [reference() is not None for reference in references],
-                    "events": list(events),
-                    "user_finalizers": observer.snapshot()["user_finalizers"],
-                    "unraisable": list(observer.unraisable),
-                    "warnings": sorted(
-                        [
-                            {
-                                "class": f"{event.category.__module__}.{event.category.__qualname__}",
-                                "message": str(event.message),
-                            }
-                            for event in warning_events
-                        ],
-                        key=lambda item: (item["class"], item["message"]),
-                    ),
-                }
-
-            for generation in case["garbage_collection"]["collect_generations"]:
-                gc.collect(generation)
-            retained = snapshot()
-            roots.clear()
-            for generation in case["garbage_collection"]["collect_generations"]:
-                gc.collect(generation)
-            observation = {"while_retained": retained, "after_release": snapshot()}
+            observation = observe_ownership(
+                case["garbage_collection"], roots, references, events, observer, warning_events
+            )
     return {
         "case_id": case["case_id"],
         "status": "completed",

@@ -6,8 +6,7 @@
 //! policy. The public `URLPath` subclass remains Python because its value must
 //! actually be a `str` subclass.
 
-use std::sync::{Arc, Mutex};
-
+use pyo3::class::gc::{PyTraverseError, PyVisit};
 use pyo3::exceptions::{
     PyAssertionError, PyAttributeError, PyKeyError, PyRuntimeError, PyValueError,
 };
@@ -15,7 +14,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyDict, PyInt, PyList, PyModule, PyString, PyTuple};
 use starlette_rs::PythonCodePointStrings as NativePythonCodePointStrings;
 
-use crate::awaitable::into_python_awaitable;
+use crate::awaitable::into_sendable_python_awaitable;
 
 pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyCommaSeparatedStrings>()?;
@@ -66,6 +65,19 @@ struct PyMultiDictStore {
 
 #[pymethods]
 impl PyMultiDictStore {
+    fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
+        for (key, value) in &self.items {
+            visit.call(key)?;
+            visit.call(value)?;
+        }
+        visit.call(&self.mapping)
+    }
+
+    fn __clear__(&mut self, py: Python<'_>) {
+        self.items.clear();
+        self.mapping = PyDict::new(py).unbind();
+    }
+
     #[new]
     #[pyo3(signature = (*args, **kwargs))]
     fn new(
@@ -399,6 +411,19 @@ pub(crate) struct PyCommaSeparatedStrings {
 
 #[pymethods]
 impl PyCommaSeparatedStrings {
+    fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
+        if let Some(items) = &self.python_items {
+            for item in items {
+                visit.call(item)?;
+            }
+        }
+        Ok(())
+    }
+
+    fn __clear__(&mut self) {
+        self.python_items = None;
+    }
+
     #[new]
     fn new(value: &Bound<'_, PyAny>) -> PyResult<Self> {
         let (inner, python_items) = if value.is_instance_of::<PyString>() {
@@ -551,6 +576,17 @@ pub(crate) struct PyFormData {
 
 #[pymethods]
 impl PyFormData {
+    fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
+        for (_, value) in &self.items {
+            visit.call(value)?;
+        }
+        Ok(())
+    }
+
+    fn __clear__(&mut self) {
+        self.items.clear();
+    }
+
     #[new]
     #[pyo3(signature = (*args, **kwargs))]
     fn new(args: &Bound<'_, PyTuple>, kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<Self> {
@@ -681,7 +717,7 @@ impl PyFormData {
             .filter(|(_, value)| value.bind(py).is_instance_of::<PyUploadFile>())
             .map(|(_, value)| value.clone_ref(py))
             .collect();
-        crate::awaitable::into_python_awaitable(py, FormDataClose { files, index: 0 })
+        crate::awaitable::into_sendable_python_awaitable(py, FormDataClose { files, index: 0 })
     }
 }
 
@@ -709,6 +745,13 @@ struct FormDataClose {
 }
 
 impl crate::awaitable::AwaitableStateMachine for FormDataClose {
+    fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
+        for file in &self.files {
+            visit.call(file)?;
+        }
+        Ok(())
+    }
+
     fn resume(
         &mut self,
         py: Python<'_>,
@@ -788,8 +831,55 @@ fn form_data_from_iterable(values: &Bound<'_, PyAny>) -> PyResult<Vec<(String, P
         .collect()
 }
 
-type SharedPythonValue = Arc<Mutex<Py<PyAny>>>;
-type SharedOptionalPythonValue = Arc<Mutex<Option<Py<PyAny>>>>;
+// Shared operations visit one GC-visible node; its Python references are
+// owned and traversed once, regardless of the number of outstanding operations.
+type SharedUploadFile = Py<UploadFileState>;
+
+#[pyclass]
+struct UploadFileState {
+    file: Py<PyAny>,
+    filename: Option<Py<PyAny>>,
+    size: Option<Py<PyAny>>,
+    headers: Py<PyAny>,
+    max_mem_size: Py<PyAny>,
+}
+
+#[pymethods]
+impl UploadFileState {
+    fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.file)?;
+        visit.call(&self.filename)?;
+        visit.call(&self.size)?;
+        visit.call(&self.headers)?;
+        visit.call(&self.max_mem_size)
+    }
+
+    fn __clear__(&mut self, py: Python<'_>) {
+        self.file = py.None();
+        self.filename = None;
+        self.size = None;
+        self.headers = py.None();
+        self.max_mem_size = py.None();
+    }
+}
+
+fn upload_state<'py>(
+    py: Python<'py>,
+    shared: &'py SharedUploadFile,
+) -> PyResult<PyRef<'py, UploadFileState>> {
+    shared
+        .try_borrow(py)
+        .map_err(|_| PyRuntimeError::new_err("UploadFile is already borrowed"))
+}
+
+fn upload_state_mut<'py>(
+    py: Python<'py>,
+    shared: &'py SharedUploadFile,
+) -> PyResult<PyRefMut<'py, UploadFileState>> {
+    shared
+        .try_borrow_mut(py)
+        .map_err(|_| PyRuntimeError::new_err("UploadFile is already borrowed"))
+}
 
 /// Public UploadFile behavior with Rust-owned in-memory/worker-thread decisions.
 ///
@@ -798,15 +888,15 @@ type SharedOptionalPythonValue = Arc<Mutex<Option<Py<PyAny>>>>;
 /// file object's identity and methods.
 #[pyclass(name = "UploadFile", subclass)]
 pub(crate) struct PyUploadFile {
-    file: SharedPythonValue,
-    filename: SharedOptionalPythonValue,
-    size: SharedOptionalPythonValue,
-    headers: SharedPythonValue,
-    max_mem_size: SharedPythonValue,
+    shared: SharedUploadFile,
 }
 
 #[pymethods]
 impl PyUploadFile {
+    fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.shared)
+    }
+
     #[new]
     #[pyo3(signature = (file, *, size=None, filename=None, headers=None))]
     fn new(
@@ -830,73 +920,92 @@ impl PyUploadFile {
             .call1((file.bind(py), "_max_size", 0))?
             .unbind();
         Ok(Self {
-            file: Arc::new(Mutex::new(file)),
-            filename: Arc::new(Mutex::new(filename)),
-            size: Arc::new(Mutex::new(size)),
-            headers: Arc::new(Mutex::new(headers)),
-            max_mem_size: Arc::new(Mutex::new(max_mem_size)),
+            shared: Py::new(
+                py,
+                UploadFileState {
+                    file,
+                    filename,
+                    size,
+                    headers,
+                    max_mem_size,
+                },
+            )?,
         })
     }
 
     #[getter]
     fn file(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        shared_python_value(py, &self.file)
+        Ok(upload_state(py, &self.shared)?.file.clone_ref(py))
     }
 
     #[setter]
-    fn set_file(&self, file: Py<PyAny>) -> PyResult<()> {
-        *self
-            .file
-            .lock()
-            .map_err(|_| PyRuntimeError::new_err("UploadFile is already borrowed"))? = file;
+    fn set_file(&self, py: Python<'_>, file: Py<PyAny>) -> PyResult<()> {
+        let previous = {
+            let mut state = upload_state_mut(py, &self.shared)?;
+            std::mem::replace(&mut state.file, file)
+        };
+        // Release the state borrow before a replaced user value can finalize.
+        drop(previous);
         Ok(())
     }
 
     #[getter]
     fn filename(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        shared_optional_python_value(py, &self.filename)
+        Ok(upload_state(py, &self.shared)?
+            .filename
+            .as_ref()
+            .map_or_else(|| py.None(), |value| value.clone_ref(py)))
     }
 
     #[setter]
-    fn set_filename(&self, filename: Option<Py<PyAny>>) -> PyResult<()> {
-        *self
-            .filename
-            .lock()
-            .map_err(|_| PyRuntimeError::new_err("UploadFile is already borrowed"))? = filename;
+    fn set_filename(&self, py: Python<'_>, filename: Option<Py<PyAny>>) -> PyResult<()> {
+        let previous = {
+            let mut state = upload_state_mut(py, &self.shared)?;
+            std::mem::replace(&mut state.filename, filename)
+        };
+        // Release the state borrow before a replaced user value can finalize.
+        drop(previous);
         Ok(())
     }
 
     #[getter]
     fn size(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        shared_optional_python_value(py, &self.size)
+        Ok(upload_state(py, &self.shared)?
+            .size
+            .as_ref()
+            .map_or_else(|| py.None(), |value| value.clone_ref(py)))
     }
 
     #[setter]
-    fn set_size(&self, size: Option<Py<PyAny>>) -> PyResult<()> {
-        *self
-            .size
-            .lock()
-            .map_err(|_| PyRuntimeError::new_err("UploadFile is already borrowed"))? = size;
+    fn set_size(&self, py: Python<'_>, size: Option<Py<PyAny>>) -> PyResult<()> {
+        let previous = {
+            let mut state = upload_state_mut(py, &self.shared)?;
+            std::mem::replace(&mut state.size, size)
+        };
+        // Release the state borrow before a replaced user value can finalize.
+        drop(previous);
         Ok(())
     }
 
     #[getter]
     fn headers(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        shared_python_value(py, &self.headers)
+        Ok(upload_state(py, &self.shared)?.headers.clone_ref(py))
     }
 
     #[setter]
-    fn set_headers(&self, headers: Py<PyAny>) -> PyResult<()> {
-        *self
-            .headers
-            .lock()
-            .map_err(|_| PyRuntimeError::new_err("UploadFile is already borrowed"))? = headers;
+    fn set_headers(&self, py: Python<'_>, headers: Py<PyAny>) -> PyResult<()> {
+        let previous = {
+            let mut state = upload_state_mut(py, &self.shared)?;
+            std::mem::replace(&mut state.headers, headers)
+        };
+        // Release the state borrow before a replaced user value can finalize.
+        drop(previous);
         Ok(())
     }
 
     #[getter]
     fn content_type(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        let headers = shared_python_value(py, &self.headers)?;
+        let headers = upload_state(py, &self.shared)?.headers.clone_ref(py);
         let none = py.None();
         headers
             .bind(py)
@@ -906,37 +1015,37 @@ impl PyUploadFile {
 
     #[getter]
     fn _max_mem_size(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        shared_python_value(py, &self.max_mem_size)
+        Ok(upload_state(py, &self.shared)?.max_mem_size.clone_ref(py))
     }
 
     #[setter]
-    fn set_max_mem_size(&self, max_mem_size: Py<PyAny>) -> PyResult<()> {
-        *self
-            .max_mem_size
-            .lock()
-            .map_err(|_| PyRuntimeError::new_err("UploadFile is already borrowed"))? = max_mem_size;
+    fn set_max_mem_size(&self, py: Python<'_>, max_mem_size: Py<PyAny>) -> PyResult<()> {
+        let previous = {
+            let mut state = upload_state_mut(py, &self.shared)?;
+            std::mem::replace(&mut state.max_mem_size, max_mem_size)
+        };
+        // Release the state borrow before a replaced user value can finalize.
+        drop(previous);
         Ok(())
     }
 
     #[getter]
     fn _in_memory(&self, py: Python<'_>) -> PyResult<bool> {
-        let file = shared_python_value(py, &self.file)?;
+        let file = upload_state(py, &self.shared)?.file.clone_ref(py);
         upload_file_is_in_memory(py, file.bind(py))
     }
 
     fn _will_roll(&self, py: Python<'_>, size_to_add: &Bound<'_, PyAny>) -> PyResult<bool> {
-        let file = shared_python_value(py, &self.file)?;
-        let max_mem_size = shared_python_value(py, &self.max_mem_size)?;
+        let file = upload_state(py, &self.shared)?.file.clone_ref(py);
+        let max_mem_size = upload_state(py, &self.shared)?.max_mem_size.clone_ref(py);
         upload_file_will_roll(py, file.bind(py), max_mem_size.bind(py), size_to_add)
     }
 
     fn _write(&self, py: Python<'_>, data: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
-        into_python_awaitable(
+        into_sendable_python_awaitable(
             py,
             UploadFileMachine {
-                file: self.file.clone(),
-                size: self.size.clone(),
-                max_mem_size: self.max_mem_size.clone(),
+                shared: self.shared.clone_ref(py),
                 operation: UploadFileOperation::Write(data.clone().unbind()),
                 pending: false,
             },
@@ -944,12 +1053,10 @@ impl PyUploadFile {
     }
 
     fn _read(&self, py: Python<'_>, size: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
-        into_python_awaitable(
+        into_sendable_python_awaitable(
             py,
             UploadFileMachine {
-                file: self.file.clone(),
-                size: self.size.clone(),
-                max_mem_size: self.max_mem_size.clone(),
+                shared: self.shared.clone_ref(py),
                 operation: UploadFileOperation::Read(size.clone().unbind()),
                 pending: false,
             },
@@ -957,12 +1064,10 @@ impl PyUploadFile {
     }
 
     fn _seek(&self, py: Python<'_>, offset: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
-        into_python_awaitable(
+        into_sendable_python_awaitable(
             py,
             UploadFileMachine {
-                file: self.file.clone(),
-                size: self.size.clone(),
-                max_mem_size: self.max_mem_size.clone(),
+                shared: self.shared.clone_ref(py),
                 operation: UploadFileOperation::Seek(offset.clone().unbind()),
                 pending: false,
             },
@@ -970,12 +1075,10 @@ impl PyUploadFile {
     }
 
     fn _close(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        into_python_awaitable(
+        into_sendable_python_awaitable(
             py,
             UploadFileMachine {
-                file: self.file.clone(),
-                size: self.size.clone(),
-                max_mem_size: self.max_mem_size.clone(),
+                shared: self.shared.clone_ref(py),
                 operation: UploadFileOperation::Close,
                 pending: false,
             },
@@ -984,9 +1087,15 @@ impl PyUploadFile {
 
     fn __repr__(slf: PyRef<'_, Self>) -> PyResult<String> {
         let py = slf.py();
-        let filename = shared_optional_python_value(py, &slf.filename)?;
-        let size = shared_optional_python_value(py, &slf.size)?;
-        let headers = shared_python_value(py, &slf.headers)?;
+        let filename = upload_state(py, &slf.shared)?
+            .filename
+            .as_ref()
+            .map_or_else(|| py.None(), |value| value.clone_ref(py));
+        let size = upload_state(py, &slf.shared)?
+            .size
+            .as_ref()
+            .map_or_else(|| py.None(), |value| value.clone_ref(py));
+        let headers = upload_state(py, &slf.shared)?.headers.clone_ref(py);
         let instance = slf.into_pyobject(py)?;
         let class_name = instance.get_type().name()?.to_string();
         Ok(format!(
@@ -996,27 +1105,6 @@ impl PyUploadFile {
             headers.bind(py).repr()?.to_str()?
         ))
     }
-}
-
-fn shared_python_value(py: Python<'_>, value: &SharedPythonValue) -> PyResult<Py<PyAny>> {
-    value
-        .lock()
-        .map(|value| value.clone_ref(py))
-        .map_err(|_| PyRuntimeError::new_err("UploadFile is already borrowed"))
-}
-
-fn shared_optional_python_value(
-    py: Python<'_>,
-    value: &SharedOptionalPythonValue,
-) -> PyResult<Py<PyAny>> {
-    value
-        .lock()
-        .map(|value| {
-            value
-                .as_ref()
-                .map_or_else(|| py.None(), |value| value.clone_ref(py))
-        })
-        .map_err(|_| PyRuntimeError::new_err("UploadFile is already borrowed"))
 }
 
 fn upload_file_is_in_memory(py: Python<'_>, file: &Bound<'_, PyAny>) -> PyResult<bool> {
@@ -1052,14 +1140,23 @@ enum UploadFileOperation {
 }
 
 struct UploadFileMachine {
-    file: SharedPythonValue,
-    size: SharedOptionalPythonValue,
-    max_mem_size: SharedPythonValue,
+    shared: SharedUploadFile,
     operation: UploadFileOperation,
     pending: bool,
 }
 
 impl crate::awaitable::AwaitableStateMachine for UploadFileMachine {
+    fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.shared)?;
+        match &self.operation {
+            UploadFileOperation::Write(value)
+            | UploadFileOperation::Read(value)
+            | UploadFileOperation::Seek(value) => visit.call(value)?,
+            UploadFileOperation::Close => {}
+        }
+        Ok(())
+    }
+
     fn resume(
         &mut self,
         py: Python<'_>,
@@ -1087,21 +1184,23 @@ impl crate::awaitable::AwaitableStateMachine for UploadFileMachine {
 
 impl UploadFileMachine {
     fn start(&mut self, py: Python<'_>) -> PyResult<crate::awaitable::MachineAction> {
-        let file = shared_python_value(py, &self.file)?;
-        let max_mem_size = shared_python_value(py, &self.max_mem_size)?;
+        let file = upload_state(py, &self.shared)?.file.clone_ref(py);
+        let max_mem_size = upload_state(py, &self.shared)?.max_mem_size.clone_ref(py);
         let file = file.bind(py);
         let worker_required = match &self.operation {
             UploadFileOperation::Write(data) => {
                 let data_length = data.bind(py).len()?;
-                let mut size_guard = self
+                let size = upload_state(py, &self.shared)?
                     .size
-                    .lock()
-                    .map_err(|_| PyRuntimeError::new_err("UploadFile is already borrowed"))?;
-                if let Some(size) = size_guard.as_ref() {
+                    .as_ref()
+                    .map(|size| size.clone_ref(py));
+                if let Some(size) = size {
+                    // User int subclasses can reenter UploadFile from __add__.
+                    // Preserve Python assignment ordering without a native borrow.
                     let updated = size.bind(py).add(PyInt::new(py, data_length))?.unbind();
-                    *size_guard = Some(updated);
+                    let previous = upload_state_mut(py, &self.shared)?.size.replace(updated);
+                    drop(previous);
                 }
-                drop(size_guard);
                 let size_to_add = PyInt::new(py, data_length);
                 upload_file_will_roll(py, file, max_mem_size.bind(py), &size_to_add)?
             }
