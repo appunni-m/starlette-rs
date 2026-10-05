@@ -8,32 +8,38 @@ incomplete.
 
 ## Current parity snapshot
 
-The active contract uses `parity-input@43` with 935 input-only cases in 93
-indexed files: 933 oracle parity cases and two target-only fault contracts. It
-covers 104 operations and 906 parity requirements. The new input maps
+The active contract uses `parity-input@43` with 937 input-only cases in 93
+indexed files: 935 oracle parity cases and two target-only fault contracts. It
+covers 104 operations and 906 parity requirements. The latest inputs compare
+URL-encoded `Request.form` field-count and part-size errors with each body
+delivered in one ASGI chunk. The preceding input maps
 `routing.test_partial_async_ws_endpoint` and compares partial-wrapped async
 function and bound class-method WebSocketRoute endpoints through a mounted
-Router.
+Router. The private parser-counter and stress-bound assertions in the upstream
+one-chunk limit test are source-backed `not_applicable`; public errors remain
+covered.
 
-Selected run `8be27b9b-40b3-4e60-8fa5-3ec95c3bba65` passed both new
-source/package comparisons (2/2) and both route-cache fault contracts (2/2);
+Selected run `a0b78286-3bd7-419f-bca3-93a2da652f8e` passed both form-limit
+comparisons and the route-cache unpoisoned control (3/3), plus both route-cache
+fault contracts (2/2);
 the fault rows remain `not_applicable` to the oracle. Its result SHA-256 is
-`d12f24cb610906f6609a5b041fbafc7e02c21e8942c1eeeb1512f627c61f70a5`.
-Instrumented run `32f2e73e-e011-43da-b815-a527300cdd8a` also passed 2/2 parity
-cases and 2/2 target-only faults. Coverage MCP verified 1,208 newly covered
-Rust lines (4.917 percentage points): 3,298/24,568 baseline lines, 3,624/24,568
-in this batch, 3,756/24,568 after the one prior accepted batch, and 4,964/24,568
-after union. Receipts bind to manifest SHA-256
-`4e274a15018c41d626f62d3e23060d24207dc5b6ad4d34f88161ea042258b4aa`, target
+`45a677595a6a397f8a0115ba166f1c501df1a266ae2b4319377547ddeb48c354`.
+Instrumented run `4d472583-df15-439b-92c9-57c3426dd3d4` also passed 3/3 parity
+cases and 2/2 target-only faults. Coverage MCP verified 199 newly covered
+Rust lines (0.810 percentage points): 3,298/24,568 baseline lines, 3,051/24,568
+in this batch, 4,964/24,568 after the two previous accepted batches, and
+5,163/24,568 after union. This selected comparison did not check full-suite
+regressions. Receipts bind to manifest SHA-256
+`48c9c23e399480334d9f7266940526a032b72f25abf42eca29a468a006d8a16c`, target
 tree SHA-256
 `528b61413bd72e17d720847fe5bc1e1f0867007ccdda782af6613d99936b473a`, and
 instrumented wheel SHA-256
 `0d45399cb3e23aa37d34f1f82c02dc5ec77c29060e49eeae75d7a6ab72512093`.
 The selected comparison did not check full-suite regressions. Reports and
 receipts remain under ignored
-`build/parity/coverage/partial-websocket-20261005/`.
+`build/parity/coverage/urlencoded-limit-20261005-corrected/`.
 
-The latest clean full-slice preflight before this WebSocket addition,
+The latest clean full-slice preflight before this URL-encoded form-limit addition,
 `91f41a7f-6761-4e77-b55d-0c5675cc405a`, used the @42 manifest and selected
 1,179 profile comparisons: 1,175 passed, zero failed, zero infrastructure
 errors, and four Rust-native callable-boundary cases were `not_run`. The

@@ -13313,7 +13313,7 @@
             {
               "id": "starlette.request.form.parser-limits",
               "dimension": "parameter_combination",
-              "description": "Enforce URL-encoded max_fields and max_part_size options at both defaults and supplied limits, preserve the upstream MultiPartException versus HTTPException boundary, and stop before requesting a later body chunk after a limit is exceeded. Pinned source: starlette/requests.py:268-308; starlette/formparsers.py:57-100; tests/test_formparsers.py::test_urlencoded_too_many_fields_raise, ::test_urlencoded_field_exceeds_max_part_size_raise, ::test_urlencoded_max_fields_is_customizable, and ::test_urlencoded_max_part_size_is_customizable; docs/requests.md:116-126.",
+              "description": "Enforce URL-encoded max_fields and max_part_size options at both defaults and supplied limits, preserve the upstream MultiPartException versus HTTPException boundary, stop before requesting a later body chunk after a limit is exceeded, and return the exact public form-parsing error when a single chunk exceeds either limit. Pinned source: starlette/requests.py:268-308; starlette/formparsers.py:57-100; tests/test_formparsers.py::test_urlencoded_too_many_fields_raise, ::test_urlencoded_field_exceeds_max_part_size_raise, ::test_urlencoded_limits_stop_parsing_within_a_single_chunk, ::test_urlencoded_max_fields_is_customizable, and ::test_urlencoded_max_part_size_is_customizable; docs/requests.md:116-126.",
               "lanes": [
                 "parity"
               ],

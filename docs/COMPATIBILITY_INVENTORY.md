@@ -17,10 +17,10 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest uses `parity-input@43` and indexes 935 input-only cases across 93 files (933 oracle parity cases and two target-only fault contracts), covering 104 operations and 906 unique parity requirements. The latest input maps `routing.test_partial_async_ws_endpoint`, comparing async function and bound class-method WebSocketRoute endpoints wrapped in `functools.partial` through a mounted Router. Recent parity inputs
+The active parity manifest uses `parity-input@43` and indexes 937 input-only cases across 93 files (935 oracle parity cases and two target-only fault contracts), covering 104 operations and 906 unique parity requirements. The latest inputs exercise URL-encoded `Request.form` field-count and part-size errors with each request body delivered in one ASGI chunk. The preceding batch maps `routing.test_partial_async_ws_endpoint`, comparing async function and bound class-method WebSocketRoute endpoints wrapped in `functools.partial` through a mounted Router. Recent parity inputs
 include outer BaseHTTPMiddleware request-body transformation and replay, map the pinned WebSocket scope Mapping and identity behavior, and correct the
 StaticFiles HEAD fixture to use the upstream `<file content>` asset and its
-14-byte length. Schema inputs map the pinned route graph, including missing
+14-byte length. The upstream one-chunk URL-encoded limit test directly inspects private `FormParser` counters/messages and a 50 MiB stress bound, so that implementation-local assertion is source-backed `not_applicable`; the public `Request.form` error behavior is covered by the two live source/package inputs. Schema inputs map the pinned route graph, including missing
 docstrings and mounted/hosted routes, and exercise its hidden `/schema` endpoint
 through the installed ASGI application. The active fixtures also
 map 11 routed protected-HTTP
