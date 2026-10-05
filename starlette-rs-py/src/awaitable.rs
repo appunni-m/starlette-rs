@@ -6,9 +6,10 @@
 //! The active event loop therefore remains responsible for driving Futures and waking
 //! the state machine through `send` or `throw`.
 
+use pyo3::class::gc::{PyTraverseError, PyVisit};
 use pyo3::exceptions::{
-    PyBaseException, PyGeneratorExit, PyRuntimeError, PyStopAsyncIteration, PyStopIteration,
-    PyTypeError,
+    PyAttributeError, PyBaseException, PyGeneratorExit, PyRuntimeError, PyRuntimeWarning,
+    PyStopAsyncIteration, PyStopIteration, PyTypeError,
 };
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyIterator, PyTraceback, PyType};
@@ -55,6 +56,23 @@ pub(crate) trait AwaitableStateMachine: 'static {
     /// Most Rust awaitables have no externally visible state before they start. Async
     /// generator operation awaitables can close their owning generator in this case.
     fn throw_before_start(&mut self, _py: Python<'_>) {}
+
+    /// Visit every directly owned Python reference once without acquiring the GIL.
+    /// Unconverted legacy continuations retain their existing opaque ownership;
+    /// converted machines expose shared Python references through GC-visible nodes.
+    fn traverse(&self, _visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
+        Ok(())
+    }
+
+    /// Whether this converted continuation implements coroutine finalization.
+    fn finalize_on_drop(&self) -> bool {
+        false
+    }
+
+    /// Python coroutine warning required by a public facade that returns a native object.
+    fn unawaited_warning(&self) -> Option<&'static std::ffi::CStr> {
+        None
+    }
 }
 
 /// Wrap a Rust state machine in an awaitable driven by the caller's Python task.
@@ -101,6 +119,24 @@ where
                 Box::new(machine),
                 "cannot reuse already awaited coroutine",
             ),
+        },
+    )
+    .map(|awaitable| awaitable.into_any())
+}
+
+/// Thread-safe variant for Python async-generator operation reuse errors.
+pub(crate) fn into_sendable_python_awaitable_with_reuse_error<M>(
+    py: Python<'_>,
+    machine: M,
+    reuse_error: &'static str,
+) -> PyResult<Py<PyAny>>
+where
+    M: AwaitableStateMachine + Send + Sync,
+{
+    Py::new(
+        py,
+        SendablePythonAwaitable {
+            driver: AwaitableDriver::new(Box::new(machine), reuse_error),
         },
     )
     .map(|awaitable| awaitable.into_any())
@@ -257,8 +293,15 @@ impl<M: AwaitableStateMachine + ?Sized> AwaitableDriver<M> {
             return Ok(());
         }
 
-        let exit = PyGeneratorExit::new_err(());
-        match self.drive(py, DriverInput::Throw(exit)) {
+        // Python coroutine.close() first closes its delegated iterator, then
+        // injects GeneratorExit into the outer continuation. Throwing through
+        // an already finalized child incorrectly produces a reuse error when
+        // Python GC has finalized that child before the parent.
+        let exit = match self.close_delegate(py) {
+            Ok(()) => PyGeneratorExit::new_err(()),
+            Err(error) => error,
+        };
+        match self.drive(py, DriverInput::Machine(MachineResume::Error(exit))) {
             Ok(_) => {
                 self.close_active_iterator(py);
                 self.finish();
@@ -286,10 +329,64 @@ impl<M: AwaitableStateMachine + ?Sized> AwaitableDriver<M> {
         }
     }
 
+    fn close_delegate(&mut self, py: Python<'_>) -> PyResult<()> {
+        let Some(iterator) = self.active_iterator.take() else {
+            return Ok(());
+        };
+        let close = match iterator.bind(py).getattr("close") {
+            Ok(close) => close,
+            Err(error) if error.is_instance_of::<PyAttributeError>(py) => return Ok(()),
+            Err(error) => return Err(error),
+        };
+        close.call0().map(|_| ())
+    }
+
+    fn finalize(&mut self, py: Python<'_>) {
+        if self.finished {
+            return;
+        }
+        // Native form facade objects replace source coroutines, so Rust must
+        // preserve their unawaited warning and suspended-callback finalization.
+        let previous = PyErr::take(py);
+        if !self.started {
+            if let Some(message) = self
+                .machine
+                .as_ref()
+                .and_then(|machine| machine.unawaited_warning())
+            {
+                if let Err(error) = PyErr::warn(py, &py.get_type::<PyRuntimeWarning>(), message, 1)
+                {
+                    error.write_unraisable(py, None);
+                }
+            }
+        } else if self
+            .machine
+            .as_ref()
+            .is_some_and(|machine| machine.finalize_on_drop())
+        {
+            if let Err(error) = self.handle_close(py) {
+                error.write_unraisable(py, None);
+            }
+        }
+        self.finish();
+        if let Some(previous) = previous {
+            previous.restore(py);
+        }
+    }
+
     fn finish(&mut self) {
         self.finished = true;
         self.active_iterator = None;
         self.machine = None;
+    }
+}
+
+impl<M: AwaitableStateMachine + ?Sized> Drop for AwaitableDriver<M> {
+    fn drop(&mut self) {
+        if self.finished {
+            return;
+        }
+        let _ = Python::try_attach(|py| self.finalize(py));
     }
 }
 
@@ -337,6 +434,18 @@ impl PythonAwaitable {
 
 #[pymethods]
 impl SendablePythonAwaitable {
+    fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.driver.active_iterator)?;
+        if let Some(machine) = &self.driver.machine {
+            machine.traverse(&visit)?;
+        }
+        Ok(())
+    }
+
+    fn __clear__(&mut self, py: Python<'_>) {
+        self.driver.finalize(py);
+    }
+
     fn __await__(self_: Py<Self>) -> Py<Self> {
         self_
     }

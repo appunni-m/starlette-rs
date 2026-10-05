@@ -3,6 +3,7 @@
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex, MutexGuard};
 
+use pyo3::class::gc::{PyTraverseError, PyVisit};
 use pyo3::create_exception;
 use pyo3::exceptions::{
     PyAssertionError, PyAttributeError, PyBaseException, PyException, PyRuntimeError,
@@ -19,15 +20,18 @@ use starlette_rs::{
 };
 
 use crate::awaitable::{
-    AwaitableStateMachine, MachineAction, MachineResume, into_python_awaitable,
-    into_python_awaitable_with_reuse_error,
+    AwaitableStateMachine, MachineAction, MachineResume, into_sendable_python_awaitable,
+    into_sendable_python_awaitable_with_reuse_error,
 };
 
 create_exception!(_core, MultiPartException, PyException);
 
-type SharedRequestBody = Arc<Mutex<RequestBodyRuntime>>;
+// Each Python edge is owned once by a GC-visible node; shared continuations
+// own references to that node rather than hiding Python objects behind an Arc.
+type SharedRequestBody = Py<RequestBodyRuntime>;
 type BaseHTTPWrappedReceiveState = (Option<Py<PyAny>>, bool, bool, bool, bool);
 
+#[pyclass]
 struct RequestBodyRuntime {
     accumulator: NativeRequestBodyAccumulator,
     receive: Option<Py<PyAny>>,
@@ -37,6 +41,23 @@ struct RequestBodyRuntime {
     body_object: Option<Py<PyBytes>>,
     json_object: Option<Py<PyAny>>,
     form_object: Option<Py<PyAny>>,
+}
+
+#[pymethods]
+impl RequestBodyRuntime {
+    fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.receive)?;
+        visit.call(&self.body_object)?;
+        visit.call(&self.json_object)?;
+        visit.call(&self.form_object)
+    }
+
+    fn __clear__(&mut self) {
+        self.receive = None;
+        self.body_object = None;
+        self.json_object = None;
+        self.form_object = None;
+    }
 }
 
 #[pyclass(name = "RequestBody")]
@@ -72,6 +93,28 @@ pub(crate) struct PyHTTPConnection {
 
 #[pymethods]
 impl PyHTTPConnection {
+    fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.scope)?;
+        visit.call(&self.request_headers)?;
+        visit.call(&self.headers)?;
+        visit.call(&self.query_params)?;
+        visit.call(&self.cookies)?;
+        visit.call(&self.url)?;
+        visit.call(&self.base_url)?;
+        visit.call(&self.state)
+    }
+
+    fn __clear__(&mut self, py: Python<'_>) {
+        self.scope = py.None();
+        self.request_headers = None;
+        self.headers = None;
+        self.query_params = None;
+        self.cookies = None;
+        self.url = None;
+        self.base_url = None;
+        self.state = None;
+    }
+
     #[new]
     #[pyo3(signature = (scope, expected_type=None))]
     fn new(py: Python<'_>, scope: Py<PyAny>, expected_type: Option<&str>) -> PyResult<Self> {
@@ -341,7 +384,7 @@ impl PyHTTPConnection {
         send_callback: Py<PyAny>,
         path: Py<PyAny>,
     ) -> PyResult<Py<PyAny>> {
-        into_python_awaitable(
+        into_sendable_python_awaitable(
             py,
             SendPushPromiseMachine {
                 connection: slf,
@@ -361,6 +404,13 @@ struct SendPushPromiseMachine {
 }
 
 impl AwaitableStateMachine for SendPushPromiseMachine {
+    fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.connection)?;
+        visit.call(&self.send_callback)?;
+        visit.call(&self.path)?;
+        Ok(())
+    }
+
     fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
         match input {
             MachineResume::Start if !self.pending_send => self.start(py),
@@ -462,6 +512,10 @@ fn url_from_scope(py: Python<'_>, scope: &Bound<'_, PyAny>) -> PyResult<Py<PyAny
 
 #[pymethods]
 impl PyRequestBody {
+    fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.shared)
+    }
+
     #[new]
     #[pyo3(signature = (receive=None))]
     fn new(py: Python<'_>, receive: Option<Py<PyAny>>) -> PyResult<Self> {
@@ -473,22 +527,25 @@ impl PyRequestBody {
                 .unbind(),
         };
         Ok(Self {
-            shared: Arc::new(Mutex::new(RequestBodyRuntime {
-                accumulator: NativeRequestBodyAccumulator::default(),
-                receive: Some(receive),
-                request_disconnected: false,
-                base_http_receive_disconnected: false,
-                base_http_receive_consumed: false,
-                body_object: None,
-                json_object: None,
-                form_object: None,
-            })),
+            shared: Py::new(
+                py,
+                RequestBodyRuntime {
+                    accumulator: NativeRequestBodyAccumulator::default(),
+                    receive: Some(receive),
+                    request_disconnected: false,
+                    base_http_receive_disconnected: false,
+                    base_http_receive_consumed: false,
+                    body_object: None,
+                    json_object: None,
+                    form_object: None,
+                },
+            )?,
         })
     }
 
     #[getter]
     fn receive(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        borrow_runtime(&self.shared)?
+        borrow_runtime(py, &self.shared)?
             .receive
             .as_ref()
             .map(|receive| receive.clone_ref(py))
@@ -503,7 +560,7 @@ impl PyRequestBody {
         py: Python<'_>,
     ) -> PyResult<BaseHTTPWrappedReceiveState> {
         let cached_body = cached_body_object(py, &self.shared)?;
-        let runtime = borrow_runtime(&self.shared)?;
+        let runtime = borrow_runtime(py, &self.shared)?;
         Ok((
             cached_body,
             runtime.accumulator.is_consumed(),
@@ -515,10 +572,11 @@ impl PyRequestBody {
 
     fn _base_http_set_wrapped_receive_flags(
         &self,
+        py: Python<'_>,
         disconnected: Option<bool>,
         consumed: Option<bool>,
     ) -> PyResult<()> {
-        let mut runtime = borrow_runtime_mut(&self.shared)?;
+        let mut runtime = borrow_runtime_mut(py, &self.shared)?;
         if let Some(disconnected) = disconnected {
             runtime.base_http_receive_disconnected = disconnected;
         }
@@ -532,7 +590,7 @@ impl PyRequestBody {
         Py::new(
             py,
             PyRequestStream {
-                shared: self.shared.clone(),
+                shared: self.shared.clone_ref(py),
                 state: Arc::new(Mutex::new(RequestStreamState::default())),
                 protocol: Arc::new(Mutex::new(StreamProtocol::default())),
             },
@@ -540,10 +598,10 @@ impl PyRequestBody {
     }
 
     fn body(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        into_python_awaitable(
+        into_sendable_python_awaitable(
             py,
             BodyMachine {
-                shared: self.shared.clone(),
+                shared: self.shared.clone_ref(py),
                 stream: RequestStreamState::default(),
                 body: Vec::new(),
                 pending_receive: false,
@@ -552,10 +610,10 @@ impl PyRequestBody {
     }
 
     fn json(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        into_python_awaitable(
+        into_sendable_python_awaitable(
             py,
             JsonMachine {
-                shared: self.shared.clone(),
+                shared: self.shared.clone_ref(py),
                 pending_body: false,
             },
         )
@@ -572,7 +630,7 @@ impl PyRequestBody {
         max_part_size: &Bound<'_, PyAny>,
     ) -> PyResult<Py<PyFormAwaitableContext>> {
         let machine = FormMachine {
-            shared: self.shared.clone(),
+            shared: self.shared.clone_ref(py),
             stream: RequestStreamState::default(),
             content_type,
             scope,
@@ -594,38 +652,38 @@ impl PyRequestBody {
             pending_receive: false,
             pending_multipart_operation: false,
         };
-        let awaitable = into_python_awaitable(py, machine)?;
+        let awaitable = into_sendable_python_awaitable(py, machine)?;
         Py::new(
             py,
             PyFormAwaitableContext {
                 awaitable,
-                entered: Arc::new(Mutex::new(None)),
+                entered: Py::new(py, EnteredFormState { form: None })?,
             },
         )
     }
 
     fn close_form(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        into_python_awaitable(
+        into_sendable_python_awaitable(
             py,
             CloseFormMachine {
-                shared: self.shared.clone(),
+                shared: self.shared.clone_ref(py),
                 pending_close: false,
             },
         )
     }
 
     fn is_disconnected(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        let receive = borrow_runtime(&self.shared)?
+        let receive = borrow_runtime(py, &self.shared)?
             .receive
             .as_ref()
             .map(|receive| receive.clone_ref(py))
             .ok_or_else(|| {
                 PyRuntimeError::new_err("Receive channel has not been made available")
             })?;
-        into_python_awaitable(
+        into_sendable_python_awaitable(
             py,
             RequestDisconnectedMachine {
-                shared: self.shared.clone(),
+                shared: self.shared.clone_ref(py),
                 receive,
                 cancel_scope: None,
                 pending_receive: false,
@@ -643,6 +701,10 @@ struct PyRequestStream {
 
 #[pymethods]
 impl PyRequestStream {
+    fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.shared)
+    }
+
     fn __aiter__(slf: Py<Self>) -> Py<Self> {
         slf
     }
@@ -664,7 +726,11 @@ impl PyRequestStream {
         traceback: Option<Py<PyAny>>,
     ) -> PyResult<Py<PyAny>> {
         let error = normalize_stream_throw(py, exception_type, value, traceback)?;
-        stream_operation(py, &slf, StreamCommand::Throw(error))
+        stream_operation(
+            py,
+            &slf,
+            StreamCommand::Throw(error.into_value(py).into_any()),
+        )
     }
 
     fn aclose(slf: Py<Self>, py: Python<'_>) -> PyResult<Py<PyAny>> {
@@ -678,7 +744,7 @@ fn stream_operation(
     command: StreamCommand,
 ) -> PyResult<Py<PyAny>> {
     let borrowed = stream.borrow(py);
-    let shared = borrowed.shared.clone();
+    let shared = borrowed.shared.clone_ref(py);
     let state = borrowed.state.clone();
     let protocol = borrowed.protocol.clone();
     drop(borrowed);
@@ -688,7 +754,7 @@ fn stream_operation(
             "cannot reuse already awaited aclose()/athrow()"
         }
     };
-    into_python_awaitable_with_reuse_error(
+    into_sendable_python_awaitable_with_reuse_error(
         py,
         StreamMachine {
             shared,
@@ -703,7 +769,7 @@ fn stream_operation(
 
 enum StreamCommand {
     Advance(Option<Py<PyAny>>),
-    Throw(PyErr),
+    Throw(Py<PyAny>),
     Close,
 }
 
@@ -774,7 +840,7 @@ pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
 
 #[pyfunction(name = "_empty_receive")]
 fn empty_receive(py: Python<'_>) -> PyResult<Py<PyAny>> {
-    into_python_awaitable(py, EmptyReceive)
+    into_sendable_python_awaitable(py, EmptyReceive)
 }
 
 struct EmptyReceive;
@@ -789,7 +855,7 @@ impl AwaitableStateMachine for EmptyReceive {
 
 #[pyfunction(name = "_empty_send")]
 fn empty_send(py: Python<'_>) -> PyResult<Py<PyAny>> {
-    into_python_awaitable(py, EmptySend)
+    into_sendable_python_awaitable(py, EmptySend)
 }
 
 struct EmptySend;
@@ -810,6 +876,13 @@ struct RequestDisconnectedMachine {
 }
 
 impl AwaitableStateMachine for RequestDisconnectedMachine {
+    fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.shared)?;
+        visit.call(&self.receive)?;
+        visit.call(&self.cancel_scope)?;
+        Ok(())
+    }
+
     fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
         match input {
             MachineResume::Start if !self.pending_receive => self.start(py),
@@ -827,7 +900,7 @@ impl AwaitableStateMachine for RequestDisconnectedMachine {
                     .call_method1("get", ("type",))?
                     .eq("http.disconnect")?
                 {
-                    borrow_runtime_mut(&self.shared)?.request_disconnected = true;
+                    borrow_runtime_mut(py, &self.shared)?.request_disconnected = true;
                 }
                 self.complete_current(py)
             }
@@ -852,7 +925,7 @@ impl AwaitableStateMachine for RequestDisconnectedMachine {
 
 impl RequestDisconnectedMachine {
     fn start(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
-        if borrow_runtime(&self.shared)?.request_disconnected {
+        if borrow_runtime(py, &self.shared)?.request_disconnected {
             return self.complete_current(py);
         }
 
@@ -906,7 +979,7 @@ impl RequestDisconnectedMachine {
     }
 
     fn complete_current(&self, py: Python<'_>) -> PyResult<MachineAction> {
-        let disconnected = borrow_runtime(&self.shared)?.request_disconnected;
+        let disconnected = borrow_runtime(py, &self.shared)?.request_disconnected;
         Ok(MachineAction::Complete(
             PyBool::new(py, disconnected).to_owned().into_any().unbind(),
         ))
@@ -921,6 +994,15 @@ struct BodyMachine {
 }
 
 impl AwaitableStateMachine for BodyMachine {
+    fn finalize_on_drop(&self) -> bool {
+        true
+    }
+
+    fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.shared)?;
+        Ok(())
+    }
+
     fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
         match input {
             MachineResume::Start => self.start(py),
@@ -934,13 +1016,13 @@ impl AwaitableStateMachine for BodyMachine {
                 let (message_type, body, more_body) = match request_message(py, message) {
                     Ok(message) => message,
                     Err(error) => {
-                        self.abort_collection();
+                        self.abort_collection(py);
                         self.stream.fail();
                         return Err(error);
                     }
                 };
                 let progress = {
-                    let mut runtime = borrow_runtime_mut(&self.shared)?;
+                    let mut runtime = borrow_runtime_mut(py, &self.shared)?;
                     if message_type == "http.disconnect" {
                         runtime.request_disconnected = true;
                     }
@@ -954,20 +1036,20 @@ impl AwaitableStateMachine for BodyMachine {
                 match progress {
                     Ok(progress) => self.consume_progress(py, progress),
                     Err(error) => {
-                        self.abort_collection();
+                        self.abort_collection(py);
                         Err(request_body_error(py, error))
                     }
                 }
             }
             MachineResume::AsyncIterationComplete(_) => {
-                self.abort_collection();
+                self.abort_collection(py);
                 self.stream.fail();
                 Err(PyRuntimeError::new_err(
                     "async generator raised StopAsyncIteration",
                 ))
             }
             MachineResume::Error(error) => {
-                self.abort_collection();
+                self.abort_collection(py);
                 self.stream.fail();
                 Err(error)
             }
@@ -982,12 +1064,12 @@ impl BodyMachine {
         }
 
         let result = {
-            let mut runtime = borrow_runtime_mut(&self.shared)?;
+            let mut runtime = borrow_runtime_mut(py, &self.shared)?;
             runtime.accumulator.begin_body_collection()
         };
         result.map_err(|error| request_body_error(py, error))?;
         let progress = {
-            let runtime = borrow_runtime(&self.shared)?;
+            let runtime = borrow_runtime(py, &self.shared)?;
             self.stream.next(&runtime.accumulator)
         }
         .map_err(|error| request_body_error(py, error))?;
@@ -1005,11 +1087,11 @@ impl BodyMachine {
                 RequestStreamProgress::Chunk(chunk) | RequestStreamProgress::CachedBody(chunk) => {
                     self.body.extend_from_slice(&chunk);
                     progress = {
-                        let runtime = borrow_runtime(&self.shared)?;
+                        let runtime = borrow_runtime(py, &self.shared)?;
                         self.stream.next(&runtime.accumulator)
                     }
                     .map_err(|error| {
-                        self.abort_collection();
+                        self.abort_collection(py);
                         request_body_error(py, error)
                     })?;
                 }
@@ -1021,12 +1103,12 @@ impl BodyMachine {
     }
 
     fn await_receive(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
-        let receive = borrow_runtime(&self.shared)?
+        let receive = borrow_runtime(py, &self.shared)?
             .receive
             .as_ref()
             .map(|receive| receive.clone_ref(py));
         let Some(receive) = receive else {
-            self.abort_collection();
+            self.abort_collection(py);
             self.stream.fail();
             return Err(PyRuntimeError::new_err(
                 "Receive channel has not been made available",
@@ -1035,7 +1117,7 @@ impl BodyMachine {
         let awaitable = match receive.bind(py).call0() {
             Ok(awaitable) => awaitable,
             Err(error) => {
-                self.abort_collection();
+                self.abort_collection(py);
                 self.stream.fail();
                 return Err(error);
             }
@@ -1044,8 +1126,8 @@ impl BodyMachine {
         Ok(MachineAction::Await(awaitable.unbind()))
     }
 
-    fn abort_collection(&self) {
-        if let Ok(mut runtime) = self.shared.try_lock() {
+    fn abort_collection(&self, py: Python<'_>) {
+        if let Ok(mut runtime) = self.shared.try_borrow_mut(py) {
             runtime.accumulator.abort_body_collection();
         }
     }
@@ -1060,6 +1142,20 @@ struct StreamMachine {
 }
 
 impl AwaitableStateMachine for StreamMachine {
+    fn finalize_on_drop(&self) -> bool {
+        true
+    }
+
+    fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.shared)?;
+        match &self.command {
+            StreamCommand::Advance(value) => visit.call(value)?,
+            StreamCommand::Throw(error) => visit.call(error)?,
+            StreamCommand::Close => {}
+        }
+        Ok(())
+    }
+
     fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
         match input {
             MachineResume::Start => self.start(py),
@@ -1080,7 +1176,7 @@ impl AwaitableStateMachine for StreamMachine {
                     }
                 };
                 let progress = {
-                    let mut runtime = borrow_runtime_mut(&self.shared)?;
+                    let mut runtime = borrow_runtime_mut(py, &self.shared)?;
                     if message_type == "http.disconnect" {
                         runtime.request_disconnected = true;
                     }
@@ -1151,7 +1247,7 @@ impl StreamMachine {
                 protocol.closed = true;
                 drop(protocol);
                 self.fail_stream();
-                return Err(error.clone_ref(py));
+                return Err(PyErr::from_value(error.bind(py).clone()));
             }
             StreamCommand::Close => {
                 protocol.closed = true;
@@ -1170,7 +1266,7 @@ impl StreamMachine {
         // message while this stream was suspended after yielding a chunk. The
         // upstream generator shares `_stream_consumed`, so it yields its final
         // empty chunk instead of issuing one more receive call.
-        if yielded_chunk && borrow_runtime(&self.shared)?.accumulator.is_consumed() {
+        if yielded_chunk && borrow_runtime(py, &self.shared)?.accumulator.is_consumed() {
             self.finish(false);
             return Ok(MachineAction::Complete(
                 PyBytes::new(py, b"").unbind().into_any(),
@@ -1182,7 +1278,7 @@ impl StreamMachine {
 
     fn next_action(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
         let progress = {
-            let runtime = borrow_runtime(&self.shared)?;
+            let runtime = borrow_runtime(py, &self.shared)?;
             let mut state = borrow_stream_mut(&self.state)?;
             state.next(&runtime.accumulator)
         };
@@ -1205,7 +1301,7 @@ impl StreamMachine {
             RequestStreamProgress::Receive => self.await_receive(py),
             RequestStreamProgress::Chunk(body) => {
                 let is_terminal_chunk =
-                    body.is_empty() && borrow_runtime(&self.shared)?.accumulator.is_consumed();
+                    body.is_empty() && borrow_runtime(py, &self.shared)?.accumulator.is_consumed();
                 let body = PyBytes::new(py, &body).unbind().into_any();
                 self.finish(!is_terminal_chunk);
                 Ok(MachineAction::Complete(body))
@@ -1224,7 +1320,7 @@ impl StreamMachine {
     }
 
     fn await_receive(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
-        let receive = borrow_runtime(&self.shared)?
+        let receive = borrow_runtime(py, &self.shared)?
             .receive
             .as_ref()
             .map(|receive| receive.clone_ref(py))
@@ -1357,6 +1453,29 @@ enum MultipartFileOperation {
 }
 
 impl AwaitableStateMachine for FormMachine {
+    fn finalize_on_drop(&self) -> bool {
+        true
+    }
+
+    fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.shared)?;
+        visit.call(&self.scope)?;
+        for (_, item) in &self.multipart_items {
+            visit.call(item)?;
+        }
+        for upload in &self.multipart_uploads {
+            visit.call(&upload.upload)?;
+        }
+        for file in &self.multipart_temp_files {
+            visit.call(file)?;
+        }
+        Ok(())
+    }
+
+    fn unawaited_warning(&self) -> Option<&'static std::ffi::CStr> {
+        Some(c"coroutine 'Request._get_form' was never awaited")
+    }
+
     fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
         let result = self.resume_inner(py, input);
         if let Err(error) = result {
@@ -1382,7 +1501,7 @@ impl FormMachine {
                     self.pending_receive = false;
                     let (message_type, body, more_body) = request_message(py, message)?;
                     let progress = {
-                        let mut runtime = borrow_runtime_mut(&self.shared)?;
+                        let mut runtime = borrow_runtime_mut(py, &self.shared)?;
                         if message_type == "http.disconnect" {
                             runtime.request_disconnected = true;
                         }
@@ -1412,7 +1531,7 @@ impl FormMachine {
     }
 
     fn start(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
-        if let Some(form) = borrow_runtime(&self.shared)?.form_object.as_ref() {
+        if let Some(form) = borrow_runtime(py, &self.shared)?.form_object.as_ref() {
             return Ok(MachineAction::Complete(form.clone_ref(py)));
         }
 
@@ -1432,7 +1551,7 @@ impl FormMachine {
                     );
                 }
                 let progress = {
-                    let runtime = borrow_runtime(&self.shared)?;
+                    let runtime = borrow_runtime(py, &self.shared)?;
                     self.stream.next(&runtime.accumulator)
                 }
                 .map_err(|error| request_body_error(py, error))?;
@@ -1441,7 +1560,7 @@ impl FormMachine {
             FormMediaType::Other => self.complete_form(py, NativeFormData::default()),
             FormMediaType::UrlEncoded => {
                 let progress = {
-                    let runtime = borrow_runtime(&self.shared)?;
+                    let runtime = borrow_runtime(py, &self.shared)?;
                     self.stream.next(&runtime.accumulator)
                 }
                 .map_err(|error| request_body_error(py, error))?;
@@ -1485,7 +1604,7 @@ impl FormMachine {
                         self.body.extend_from_slice(&body);
                     }
                     progress = {
-                        let runtime = borrow_runtime(&self.shared)?;
+                        let runtime = borrow_runtime(py, &self.shared)?;
                         self.stream.next(&runtime.accumulator)
                     }
                     .map_err(|error| request_body_error(py, error))?;
@@ -1496,7 +1615,7 @@ impl FormMachine {
     }
 
     fn await_receive(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
-        let receive = borrow_runtime(&self.shared)?
+        let receive = borrow_runtime(py, &self.shared)?
             .receive
             .as_ref()
             .map(|receive| receive.clone_ref(py))
@@ -1635,7 +1754,7 @@ impl FormMachine {
             return Ok(action);
         }
         let progress = {
-            let runtime = borrow_runtime(&self.shared)?;
+            let runtime = borrow_runtime(py, &self.shared)?;
             self.stream.next(&runtime.accumulator)
         }
         .map_err(|error| request_body_error(py, error))?;
@@ -1743,7 +1862,7 @@ impl FormMachine {
             .getattr("FormData")?
             .call1((form_items,))?
             .unbind();
-        borrow_runtime_mut(&self.shared)?.form_object = Some(form.clone_ref(py));
+        borrow_runtime_mut(py, &self.shared)?.form_object = Some(form.clone_ref(py));
         Ok(MachineAction::Complete(form))
     }
 }
@@ -1807,9 +1926,25 @@ fn request_form_media_type(content_type: Option<&str>) -> FormMediaType {
     }
 }
 
-type SharedEnteredForm = Arc<Mutex<Option<Py<PyAny>>>>;
+type SharedEnteredForm = Py<EnteredFormState>;
 
-#[pyclass(unsendable)]
+#[pyclass]
+struct EnteredFormState {
+    form: Option<Py<PyAny>>,
+}
+
+#[pymethods]
+impl EnteredFormState {
+    fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.form)
+    }
+
+    fn __clear__(&mut self) {
+        self.form = None;
+    }
+}
+
+#[pyclass]
 struct PyFormAwaitableContext {
     awaitable: Py<PyAny>,
     entered: SharedEnteredForm,
@@ -1817,6 +1952,15 @@ struct PyFormAwaitableContext {
 
 #[pymethods]
 impl PyFormAwaitableContext {
+    fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.awaitable)?;
+        visit.call(&self.entered)
+    }
+
+    fn __clear__(&mut self, py: Python<'_>) {
+        self.awaitable = py.None();
+    }
+
     fn __await__(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         self.awaitable
             .bind(py)
@@ -1825,11 +1969,11 @@ impl PyFormAwaitableContext {
     }
 
     fn __aenter__(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        into_python_awaitable(
+        into_sendable_python_awaitable(
             py,
             EnterFormMachine {
                 awaitable: self.awaitable.clone_ref(py),
-                entered: self.entered.clone(),
+                entered: self.entered.clone_ref(py),
                 pending: false,
             },
         )
@@ -1844,12 +1988,13 @@ impl PyFormAwaitableContext {
         traceback: Option<Py<PyAny>>,
     ) -> PyResult<Py<PyAny>> {
         let _ = (exc_type, exc, traceback);
-        let entered = self
+        let form = self
             .entered
-            .try_lock()
-            .map_err(|_| PyRuntimeError::new_err("form context is already borrowed"))?;
-        let form = entered
+            .try_borrow(py)
+            .map_err(|_| PyRuntimeError::new_err("form context is already borrowed"))?
+            .form
             .as_ref()
+            .map(|form| form.clone_ref(py))
             .ok_or_else(|| PyAttributeError::new_err("form context has not been entered"))?;
         form.bind(py).call_method0("close").map(Bound::unbind)
     }
@@ -1862,6 +2007,20 @@ struct EnterFormMachine {
 }
 
 impl AwaitableStateMachine for EnterFormMachine {
+    fn finalize_on_drop(&self) -> bool {
+        true
+    }
+
+    fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.awaitable)?;
+        visit.call(&self.entered)?;
+        Ok(())
+    }
+
+    fn unawaited_warning(&self) -> Option<&'static std::ffi::CStr> {
+        Some(c"coroutine 'AwaitableOrContextManagerWrapper.__aenter__' was never awaited")
+    }
+
     fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
         match input {
             MachineResume::Start if !self.pending => {
@@ -1870,10 +2029,13 @@ impl AwaitableStateMachine for EnterFormMachine {
             }
             MachineResume::Value(form) if self.pending => {
                 self.pending = false;
-                self.entered
-                    .try_lock()
+                let previous = self
+                    .entered
+                    .try_borrow_mut(py)
                     .map_err(|_| PyRuntimeError::new_err("form context is already borrowed"))?
+                    .form
                     .replace(form.clone_ref(py));
+                drop(previous);
                 Ok(MachineAction::Complete(form))
             }
             MachineResume::Error(error) | MachineResume::AsyncIterationComplete(error) => {
@@ -1892,10 +2054,15 @@ struct CloseFormMachine {
 }
 
 impl AwaitableStateMachine for CloseFormMachine {
+    fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.shared)?;
+        Ok(())
+    }
+
     fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
         match input {
             MachineResume::Start if !self.pending_close => {
-                let form = borrow_runtime(&self.shared)?
+                let form = borrow_runtime(py, &self.shared)?
                     .form_object
                     .as_ref()
                     .map(|form| form.clone_ref(py));
@@ -1929,17 +2096,26 @@ struct JsonMachine {
 }
 
 impl AwaitableStateMachine for JsonMachine {
+    fn finalize_on_drop(&self) -> bool {
+        true
+    }
+
+    fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.shared)?;
+        Ok(())
+    }
+
     fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
         match input {
             MachineResume::Start => {
-                if let Some(value) = borrow_runtime(&self.shared)?.json_object.as_ref() {
+                if let Some(value) = borrow_runtime(py, &self.shared)?.json_object.as_ref() {
                     return Ok(MachineAction::Complete(value.clone_ref(py)));
                 }
                 self.pending_body = true;
-                let awaitable = into_python_awaitable(
+                let awaitable = into_sendable_python_awaitable(
                     py,
                     BodyMachine {
-                        shared: self.shared.clone(),
+                        shared: self.shared.clone_ref(py),
                         stream: RequestStreamState::default(),
                         body: Vec::new(),
                         pending_receive: false,
@@ -1957,7 +2133,7 @@ impl AwaitableStateMachine for JsonMachine {
                 let json = py.import("json")?;
                 let value = json.getattr("loads")?.call1((body.bind(py),))?;
                 let result = value.clone().unbind();
-                borrow_runtime_mut(&self.shared)?.json_object = Some(result.clone_ref(py));
+                borrow_runtime_mut(py, &self.shared)?.json_object = Some(result.clone_ref(py));
                 Ok(MachineAction::Complete(result))
             }
             MachineResume::AsyncIterationComplete(_) => Err(PyRuntimeError::new_err(
@@ -1990,7 +2166,7 @@ fn complete_cached_body(
     body: &[u8],
 ) -> PyResult<MachineAction> {
     let body = {
-        let mut runtime = borrow_runtime_mut(shared)?;
+        let mut runtime = borrow_runtime_mut(py, shared)?;
         runtime
             .accumulator
             .cache_body_from(body)
@@ -1998,36 +2174,42 @@ fn complete_cached_body(
             .to_vec()
     };
     let body = PyBytes::new(py, &body).unbind();
-    borrow_runtime_mut(shared)?.body_object = Some(body.clone_ref(py));
+    borrow_runtime_mut(py, shared)?.body_object = Some(body.clone_ref(py));
     Ok(MachineAction::Complete(body.into_any()))
 }
 
 fn cached_body_object(py: Python<'_>, shared: &SharedRequestBody) -> PyResult<Option<Py<PyAny>>> {
-    if let Some(cached) = borrow_runtime(shared)?.body_object.as_ref() {
+    if let Some(cached) = borrow_runtime(py, shared)?.body_object.as_ref() {
         return Ok(Some(cached.clone_ref(py).into_any()));
     }
 
     let body = {
-        let runtime = borrow_runtime(shared)?;
+        let runtime = borrow_runtime(py, shared)?;
         runtime.accumulator.cached_body().map(<[u8]>::to_vec)
     };
     let Some(body) = body else {
         return Ok(None);
     };
     let body = PyBytes::new(py, &body).unbind();
-    borrow_runtime_mut(shared)?.body_object = Some(body.clone_ref(py));
+    borrow_runtime_mut(py, shared)?.body_object = Some(body.clone_ref(py));
     Ok(Some(body.into_any()))
 }
 
-fn borrow_runtime(shared: &SharedRequestBody) -> PyResult<MutexGuard<'_, RequestBodyRuntime>> {
+fn borrow_runtime<'py>(
+    py: Python<'py>,
+    shared: &'py SharedRequestBody,
+) -> PyResult<PyRef<'py, RequestBodyRuntime>> {
     shared
-        .try_lock()
+        .try_borrow(py)
         .map_err(|_| PyRuntimeError::new_err("request body state is already borrowed"))
 }
 
-fn borrow_runtime_mut(shared: &SharedRequestBody) -> PyResult<MutexGuard<'_, RequestBodyRuntime>> {
+fn borrow_runtime_mut<'py>(
+    py: Python<'py>,
+    shared: &'py SharedRequestBody,
+) -> PyResult<PyRefMut<'py, RequestBodyRuntime>> {
     shared
-        .try_lock()
+        .try_borrow_mut(py)
         .map_err(|_| PyRuntimeError::new_err("request body state is already borrowed"))
 }
 

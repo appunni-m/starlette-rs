@@ -472,6 +472,10 @@
         {
           "operation_id": "constructor-contract",
           "source_path": "starlette.requests.Request.__init__ and HTTPConnection.__init__"
+        },
+        {
+          "operation_id": "callback-lifetime",
+          "source_path": "starlette.requests.Request.scope, Request.receive, Request.body, Request.stream, Request.json, and Request.form"
         }
       ]
     },

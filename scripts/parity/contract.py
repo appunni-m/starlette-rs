@@ -411,6 +411,19 @@ REQUEST_SEND_PUSH_PROMISE_OPERATION = ("starlette.requests.Request", "send-push-
 REQUEST_IS_DISCONNECTED_OPERATION = ("starlette.requests.Request", "is-disconnected")
 REQUEST_FORM_OPERATION = ("starlette.requests.Request", "form")
 REQUEST_BODY_STREAM_JSON_OPERATION = ("starlette.requests.Request", "body-stream-json")
+REQUEST_LIFETIME_OPERATION = ("starlette.requests.Request", "callback-lifetime")
+REQUEST_LIFETIME_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
+    "scope",
+    "request_operation",
+    "operation_arguments",
+    "drive",
+    "cycle_key",
+    "guard_label",
+    "receive_label",
+    "suspension_token",
+    "receive_message",
+    "garbage_collection",
+}
 REQUEST_SEND_PUSH_PROMISE_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
     "scope",
     "path",
@@ -2392,6 +2405,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                 or key == REQUEST_SEND_PUSH_PROMISE_OPERATION
                 or key == REQUEST_IS_DISCONNECTED_OPERATION
                 or key == REQUEST_BODY_STREAM_JSON_OPERATION
+                or key == REQUEST_LIFETIME_OPERATION
                 or key == RUN_UNTIL_FIRST_COMPLETE_OPERATION_KEY
                 or key == BASE_HTTP_WORKFLOW_OPERATION_KEY
                 or key == BASE_HTTP_CONTEXTVARS_OPERATION_KEY
@@ -2610,6 +2624,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         or (surface["id"], operation["id"]) == REQUEST_IS_DISCONNECTED_OPERATION
                         or (surface["id"], operation["id"]) == REQUEST_FORM_OPERATION
                         or (surface["id"], operation["id"]) == REQUEST_BODY_STREAM_JSON_OPERATION
+                        or (surface["id"], operation["id"]) == REQUEST_LIFETIME_OPERATION
                         or (surface["id"], operation["id"]) == FORM_DATA_MULTIDICT_LOOKUPS_OPERATION
                         or (surface["id"], operation["id"]) == EXCEPTION_MIDDLEWARE_TYPING_OPERATION
                         or (surface["id"], operation["id"]) == UPLOAD_FILE_OPERATION
@@ -15441,6 +15456,10 @@ def validate_case(
         isinstance(case, dict)
         and (case.get("surface"), case.get("operation")) == REQUEST_FORM_OPERATION
     )
+    is_request_lifetime = (
+        isinstance(case, dict)
+        and (case.get("surface"), case.get("operation")) == REQUEST_LIFETIME_OPERATION
+    )
     is_request_body_stream_json = (
         isinstance(case, dict)
         and (case.get("surface"), case.get("operation")) == REQUEST_BODY_STREAM_JSON_OPERATION
@@ -15564,6 +15583,8 @@ def validate_case(
         if is_status_symbols
         else REQUEST_FORM_CASE_KEYS
         if is_request_form
+        else REQUEST_LIFETIME_CASE_KEYS
+        if is_request_lifetime
         else REQUEST_BODY_STREAM_JSON_CASE_KEYS
         if is_request_body_stream_json
         else (CASE_KEYS - {"steps", "execution_schedule"}) | {"scope_cases"}
@@ -15846,6 +15867,8 @@ def validate_case(
     elif is_request_form:
         expected_case_keys = REQUEST_FORM_CASE_KEYS
         expected_case_keys = expected_case_keys | (REQUEST_FORM_OPTIONAL_KEYS.intersection(case))
+    elif is_request_lifetime:
+        expected_case_keys = REQUEST_LIFETIME_CASE_KEYS
     elif is_request_body_stream_json:
         expected_case_keys = REQUEST_BODY_STREAM_JSON_CASE_KEYS
     elif is_status_symbols:
@@ -16028,6 +16051,9 @@ def validate_case(
     elif is_request_form:
         if case["observations"] != ["form"]:
             raise ContractError("Request.form cases must select the form observation")
+    elif is_request_lifetime:
+        if case["observations"] != ["request-lifetime"]:
+            raise ContractError("Request lifetime cases must select request-lifetime")
     elif is_request_body_stream_json:
         if case["observations"] != ["request-consumption"]:
             raise ContractError("Request body/stream/json cases must select request-consumption")
@@ -16259,6 +16285,9 @@ def validate_case(
         return case
     if is_upload_file:
         _validate_upload_file_case(case)
+        return case
+    if is_request_lifetime:
+        _validate_request_lifetime_case(case)
         return case
     if is_request_body_stream_json:
         _validate_request_body_stream_json_case(case)
@@ -30886,3 +30915,87 @@ def validate_result_artifact(
     if isinstance(value, dict) and value.get("schema") == BENCHMARK_RESULT_SCHEMA:
         return _validate_benchmark_result_artifact(value, root, manifest_path)
     return _validate_parity_result_artifact(value, root=root, manifest_path=manifest_path)
+
+
+def _validate_request_lifetime_case(case: dict[str, Any]) -> None:
+    if case["target_profiles"] != ["python-package-cpython312"] or case["assets"] != []:
+        raise ContractError(
+            "Request lifetime cases use the installed Python package without assets"
+        )
+    scope = _exact(case["scope"], {"type", "headers"}, "Request lifetime scope")
+    if (
+        scope["type"] != "http"
+        or not isinstance(scope["headers"], list)
+        or any(
+            not isinstance(pair, list)
+            or len(pair) != 2
+            or any(not isinstance(value, str) for value in pair)
+            for pair in scope["headers"]
+        )
+    ):
+        raise ContractError("Request lifetime scope must be HTTP with string header pairs")
+    operation = case["request_operation"]
+    if operation not in {
+        "scope",
+        "receive",
+        "body",
+        "json",
+        "stream",
+        "stream-__anext__",
+        "stream-asend",
+        "stream-athrow",
+        "stream-aclose",
+        "form",
+        "form-enter",
+    }:
+        raise ContractError("Request lifetime operation is unsupported")
+    arguments = case["operation_arguments"]
+    if not isinstance(arguments, list):
+        raise ContractError("Request lifetime arguments must be a sequence")
+    if operation == "stream-asend":
+        if arguments != [None]:
+            raise ContractError("This lifetime probe starts asend with None")
+    elif operation == "stream-athrow":
+        if len(arguments) != 1 or not isinstance(arguments[0], str):
+            raise ContractError("Lifetime athrow takes one RuntimeError message")
+    elif arguments != []:
+        raise ContractError("This lifetime operation takes no arguments")
+    if case["drive"] not in {"unstarted", "suspend"}:
+        raise ContractError("Request lifetime drive must be unstarted or suspend")
+    if case["drive"] == "suspend" and operation not in {
+        "body",
+        "json",
+        "stream-__anext__",
+        "stream-asend",
+        "form",
+        "form-enter",
+    }:
+        raise ContractError("Only receive-awaiting operations can suspend in this probe")
+    for key in ("cycle_key", "guard_label", "receive_label", "suspension_token"):
+        _string(case[key], f"Request lifetime {key}")
+    message = _exact(
+        case["receive_message"],
+        {"type", "body_base64", "more_body"},
+        "Request lifetime receive message",
+    )
+    if message["type"] != "http.request" or type(message["more_body"]) is not bool:
+        raise ContractError("Request lifetime receive message must be an HTTP body message")
+    try:
+        base64.b64decode(message["body_base64"], validate=True)
+    except (ValueError, TypeError, base64.binascii.Error) as exc:
+        raise ContractError("Request lifetime body_base64 is invalid") from exc
+    collection = _exact(
+        case["garbage_collection"],
+        {"automatic_gc", "collect_generations"},
+        "Request lifetime garbage collection",
+    )
+    if (
+        type(collection["automatic_gc"]) is not bool
+        or not isinstance(collection["collect_generations"], list)
+        or not collection["collect_generations"]
+        or any(
+            type(generation) is not int or generation not in {0, 1, 2}
+            for generation in collection["collect_generations"]
+        )
+    ):
+        raise ContractError("Request lifetime requires valid input-defined GC generations")

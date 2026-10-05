@@ -13082,6 +13082,15 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         from scripts.parity.adapters.upload_file import run_upload_file_case
 
         return run_upload_file_case(case, UploadFile)
+    if isinstance(case, dict) and (case.get("surface"), case.get("operation")) == (
+        "starlette.requests.Request",
+        "callback-lifetime",
+    ):
+        from starlette.requests import Request
+
+        from scripts.parity.adapters.request_lifetime import run_request_lifetime_case
+
+        return run_request_lifetime_case(case, Request)
     if (
         isinstance(case, dict)
         and (case.get("surface"), case.get("operation")) == REQUEST_BODY_STREAM_JSON_OPERATION

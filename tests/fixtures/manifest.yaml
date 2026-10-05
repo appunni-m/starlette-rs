@@ -367,7 +367,8 @@
       "build/parity/inputs/parity/testclient-public.json",
       "build/parity/inputs/parity/testclient-router.json",
       "build/parity/inputs/parity/testclient-middleware.json",
-      "build/parity/inputs/parity/testclient-traceback-cleanup.json"
+      "build/parity/inputs/parity/testclient-traceback-cleanup.json",
+      "build/parity/inputs/parity/request-lifetime.json"
     ],
     "coverage": [],
     "benchmark": [
@@ -13970,6 +13971,190 @@
           "benchmark": {
             "applicability": "not_applicable",
             "reason": "Python constructor behavior is outside the active Router/GZip benchmark workloads."
+          }
+        },
+        {
+          "id": "callback-lifetime",
+          "kind": "protocol_operation",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.requests.Request.scope, Request.receive, Request.body, Request.stream, Request.json, and Request.form",
+            "signature": "Build input-defined public Request ownership cycles; retain, release, and collect them while observing user finalizers, suspended receive cleanup, warnings, and unraisable errors.",
+            "parameters": [
+              {
+                "id": "scope",
+                "style": "option",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "request_operation",
+                "style": "option",
+                "value_types": [
+                  "string"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "operation_arguments",
+                "style": "option",
+                "value_types": [
+                  "sequence"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "drive",
+                "style": "option",
+                "value_types": [
+                  "string"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "cycle_key",
+                "style": "option",
+                "value_types": [
+                  "string"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "guard_label",
+                "style": "option",
+                "value_types": [
+                  "string"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "receive_label",
+                "style": "option",
+                "value_types": [
+                  "string"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "suspension_token",
+                "style": "option",
+                "value_types": [
+                  "string"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "receive_message",
+                "style": "option",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "garbage_collection",
+                "style": "option",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "request-lifetime",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "The Rust-native public API does not expose a Python Request object, Python ASGI receive callback, or Python JSON value boundary.",
+                "blocker": "This compatibility operation exercises Python Request and callback semantics through the installed package."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.requests.Request.scope, Request.receive, Request.body, Request.stream, Request.json, and Request.form",
+              "signature": "The installed Python facade forwards Request state and operations to Rust; garbage collection must preserve the public Python ownership contract.",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.request.callback-lifetime.public-cycle-collection",
+              "dimension": "boundary",
+              "description": "Retain and release cycles through public Request scope/receive and unstarted or suspended body, JSON, stream, and form operations; compare user-object weak references, finalizers, callback finally blocks, every unraisable error, and warning category/message. Pinned source: starlette/requests.py:76-86,225-324; docs/requests.md:15-28,76-123; CPython public garbage-collection and coroutine protocols. Finalizer and warning records are sorted without dropping duplicates because collection order is not portable.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This input-only compatibility slice makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "Request ownership collection is outside the active Router/GZip timing workloads."
           }
         }
       ]

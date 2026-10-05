@@ -44,3 +44,7 @@ input-only manifest, isolated live oracle/target processes, strict run
 identity, correctness-gated benchmarks, and release preflight separated from
 publication. Image-specific code, assets, and backend machinery are not part of
 this project.
+
+## Request lifecycle input provenance
+
+The Request callback-lifetime fixture and public consumer were authored for this repository from the pinned `starlette/requests.py` and `starlette/_utils.py` behavior and `docs/requests.md`; no upstream test file was copied. Starlette source remains a development-time BSD-3-Clause oracle, with its existing Encode OSS notices preserved. Python GC and coroutine behavior is observed live in both isolated environments. See [Request lifetime boundary](REQUEST_LIFETIME_BOUNDARY.md).
