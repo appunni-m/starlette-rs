@@ -114,34 +114,32 @@ Parity and benchmark inputs are authored as JSON-compatible YAML under [`tests/f
 The compatibility authority is Starlette 1.6.0 at commit `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The live source oracle checks the release, commit, source import path, source `uv.lock` digest, and CPython identity before it executes any case.
 
 The latest clean full-slice correctness preflight
-`5856ac2f-28ca-43b5-b1b6-6db403cee6b7` ran against Starlette 1.6.0 at
-`4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the active 937-case contract.
-It selected 1,183 profile comparisons: 1,179 passed, zero failed, zero
+`4d9a1935-b216-449f-aa60-53421675afd3` ran against Starlette 1.6.0 at
+`4f250d6b814587e20c5365f0a5f0c4d42bcb929f` and the active 940-case contract.
+It selected 1,186 profile comparisons: 1,182 passed, zero failed, zero
 infrastructure errors, and four Rust-native callable-boundary rows were
-`not_run`. The installed Python package passed 933/933; Rust-native passed
+`not_run`. The installed Python package passed 936/936; Rust-native passed
 246/250. Both target-only route-cache fault contracts passed (2/2) and remain
 `not_applicable` to the source oracle. The result SHA-256 is
-`d9900b5d37b3688afc535bf5776f893deba89c65a7ba2c9cdeb6427f14a3e92f`;
-it uses manifest SHA-256
-`48c9c23e399480334d9f7266940526a032b72f25abf42eca29a468a006d8a16c`, clean
-target revision `7fcc76d55eb743bc67836b7a9221e2da6aa86a35`, target package-tree
-SHA-256 `d36b437df1549cf9e56c24f0f51c6d1172a5892d06b349b07d599f1c9891a67b`, and
+`10c37dd392b4f3433a0dceb1da7987713502e7a39c14d77b702983fe98f6b15d`;
+manifest SHA-256 is
+`4539630160f3e2816d089fc0d351dc74aa73de7f0f187d4ed187e53295b5208f`, clean
+target revision `c93d25a8b2e477ca689bce7b454a93b3352dd628`, target package-tree
+SHA-256 `1ada9c03c40f828754761c2dfdeee90cb81ac5bbb6ed64527e462d1b84c195dc`, and
 installed wheel SHA-256
-`22d3d8e486ece6e6100fe194fa0a753cb5178edcdefdbfde3cf57d3dab8cf72d`. These
+`6796dece62859aa7a9cfa5739cc5e5ebcc1d0aa86f3bfbc1d27189e7cbaf622a`. These
 results cover the active package slice and do not establish full Starlette
 parity.
 
 The latest clean Router/GZip benchmark run
-`3d3cf21e-d8de-4376-aef7-6dad3b149e11` measured all 74 source/package
-workloads on that revision:
-six Router and 68 GZip. It recorded zero failures and matching normalized
-observations for all 74 workloads; all 74 Rust-native workload boundaries
-remain `not_run`. The correctness preflight above selected 1,183 profile
-comparisons, with 1,179 passed, zero failed, zero infrastructure errors, and
-four not-run rows. Median source/package latency ratios were 0.717 for Router
-and 0.970 for GZip; source latency was lower in 5/6 Router and 52/68 GZip
-workloads. The benchmark result SHA-256 is
-`123d1abf779476d1c97db173f2cf01d681184e9441073d47705d45efc6435191`. These
+`e8fb3ceb-f397-4f6b-99b2-1499e9861d22` measured all 74 source/package workloads
+on that revision: six Router and 68 GZip. It recorded zero failures and
+matching normalized observations for all 74 workloads; all 74 Rust-native
+workload boundaries remain `not_run`. Its correctness preflight is the
+1,186-comparison run above. Median source/package latency ratios were 0.735
+for Router and 0.978 for GZip; source latency was lower in 5/6 Router and
+56/68 GZip workloads. The benchmark result SHA-256 is
+`47d34ead361efddfd8f4fe846a852272c099cae00fb5b19fc08176f8670c2e5c`. These
 workload-specific measurements do not establish full Starlette compatibility;
 see [Benchmark mapping](BENCHMARKS.md) for timing and artifact details.
 
