@@ -359,6 +359,7 @@
       "build/parity/inputs/parity/responses-basic.json",
       "build/parity/inputs/parity/background-tasks.json",
       "build/parity/inputs/parity/streaming-response.json",
+      "build/parity/inputs/parity/streaming-response-lazy-iterator-start-send-failure.json",
       "build/parity/inputs/parity/streaming-response-final-send-disconnect.json",
       "build/parity/inputs/parity/websocket-convenience.json",
       "build/parity/inputs/parity/websocket-iterator-disconnect-athrow.json",
@@ -417,6 +418,7 @@
       "build/parity/inputs/parity/websocket-endpoint-docs-inputs.json",
       "build/parity/inputs/parity/http-endpoint-dispatch.json",
       "build/parity/inputs/parity/testclient-http.json",
+      "build/parity/inputs/parity/testclient-incomplete-response-return.json",
       "build/parity/inputs/parity/testclient-streaming-request-body.json",
       "build/parity/inputs/parity/testclient-template-debug-extension.json",
       "build/parity/inputs/parity/testclient-partial-endpoints.json",
@@ -27446,6 +27448,17 @@
               "id": "starlette.testclient.TestClient.request-response.exception-after-incomplete-response",
               "dimension": "error_path",
               "description": "With raise_server_exceptions=False, send response.start and an input-defined nonterminal response body, then raise the app exception. Compare the empty response body produced because TestClient only rewinds its stream after a terminal body message. Pinned source: starlette/testclient.py::TestClient._portal_factory and _TestClientTransport.handle_request.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.request-response.incomplete-response-without-exception",
+              "dimension": "protocol_variant",
+              "description": "Return normally after response.start and an input-defined nonterminal response body without a terminal body event; compare the empty public response body because TestClient rewinds its stream only after the final body message. Pinned source: starlette/testclient.py:327-367.",
               "lanes": [
                 "parity"
               ],

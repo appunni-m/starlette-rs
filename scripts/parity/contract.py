@@ -237,6 +237,7 @@ TESTCLIENT_REQUIREMENTS = {
     "timeout_warning": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.timeout-deprecation-warning",
     "exception_policy": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.exception-policy",
     "incomplete_response_exception": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.exception-after-incomplete-response",
+    "incomplete_response_return": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.incomplete-response-without-exception",
     "exception_identity_chain": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.exception-identity-and-chaining",
     "authentication_option": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.authentication-option",
     "multipart_file_upload": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.multipart-file-upload",
@@ -13655,6 +13656,13 @@ def _validate_testclient_case(
         )
         if incomplete_response:
             expected_covers.add(TESTCLIENT_REQUIREMENTS["incomplete_response_exception"])
+    elif (
+        messages
+        and isinstance(messages[-1], dict)
+        and messages[-1].get("type") == "http.response.body"
+        and messages[-1].get("more_body") is True
+    ):
+        expected_covers.add(TESTCLIENT_REQUIREMENTS["incomplete_response_return"])
     if messages or not settings["raise_server_exceptions"]:
         expected_covers.add(TESTCLIENT_REQUIREMENTS["response"])
     if asgi_app["kind"] == "asgi2":
@@ -13697,9 +13705,8 @@ def _validate_testclient_case(
             if type(message["more_body"]) is not bool:
                 raise ContractError("TestClient response body message more_body must be boolean")
             if message["more_body"] and not (
-                exception_spec is not None
-                and settings["raise_server_exceptions"] is False
-                and index == len(messages) - 1
+                index == len(messages) - 1
+                and (exception_spec is None or settings["raise_server_exceptions"] is False)
             ):
                 raise ContractError("TestClient response body message must be terminal")
         else:

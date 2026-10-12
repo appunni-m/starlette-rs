@@ -1,0 +1,58 @@
+{
+  "schema": "migration-parity/parity-input@48",
+  "cases": [
+    {
+      "case_id": "starlette.responses.StreamingResponse.consumer-construction.start-send-failure-defers-aiter",
+      "surface": "starlette.responses.StreamingResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.StreamingResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.StreamingResponse.consumer-construction.user-call-protocols"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "async-iterator",
+          "value": {
+            "chunks": [
+              {
+                "kind": "text",
+                "value": "must-not-be-requested"
+              }
+            ],
+            "completion": "awaited",
+            "checkpoint": true,
+            "failure": null
+          }
+        },
+        "omit_content": false,
+        "kwargs": {},
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/variants",
+        "method": "GET",
+        "headers": [],
+        "asgi": {
+          "spec_version": "2.4"
+        }
+      },
+      "send_failure": {
+        "at_event": 1,
+        "message": "response start send failed"
+      },
+      "background_label": "must-not-run"
+    }
+  ]
+}
