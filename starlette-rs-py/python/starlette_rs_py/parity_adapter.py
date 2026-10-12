@@ -142,6 +142,7 @@ NATIVE_SERVICE_SURFACE = "starlette-rs.NativeApplication"
 NATIVE_SERVICE_OPERATION = "service-body-streaming"
 NATIVE_WEBSOCKET_SURFACE = "starlette-rs.NativeWebSocket"
 NATIVE_WEBSOCKET_OPERATION = "native-session-sequence"
+NATIVE_LIFESPAN_SURFACE = "starlette-rs.NativeLifespan"
 NATIVE_LIFESPAN_OPERATION = "native-lifespan"
 _MISSING = object()
 
@@ -3706,6 +3707,33 @@ def _make_websocket_scope(spec: dict[str, Any]) -> dict[str, Any]:
     return scope
 
 
+class _InputStringSubclass(str):
+    """Carry input-defined comparison or hashing behavior into an ASGI message."""
+
+    def __new__(
+        cls,
+        value: str,
+        *,
+        not_equal_result: bool | None = None,
+        hash_error: str | None = None,
+    ) -> _InputStringSubclass:
+        instance = super().__new__(cls, value)
+        instance._not_equal_result = not_equal_result
+        instance._hash_error = hash_error
+        return instance
+
+    def __ne__(self, other: object) -> bool:
+        if self._not_equal_result is not None:
+            return self._not_equal_result
+        result = str.__eq__(self, other)
+        return result is NotImplemented or not result
+
+    def __hash__(self) -> int:
+        if self._hash_error is not None:
+            raise TypeError(self._hash_error)
+        return str.__hash__(self)
+
+
 def _materialize_websocket_message(spec: dict[str, Any]) -> dict[str, Any]:
     message: dict[str, Any] = {}
     for name, value in spec.items():
@@ -3721,6 +3749,37 @@ def _materialize_websocket_message(spec: dict[str, Any]) -> dict[str, Any]:
                 )
                 for pair in value
             ]
+        elif name == "type" and isinstance(value, dict) and "str_subclass" in value:
+            _exact_object(value, {"str_subclass"}, "WebSocket message type descriptor")
+            subclass_spec = value["str_subclass"]
+            if not isinstance(subclass_spec, dict):
+                raise ValueError("WebSocket message str_subclass must be an object")
+            subclass_value = subclass_spec.get("value")
+            if not isinstance(subclass_value, str):
+                raise ValueError("WebSocket message str_subclass value must be a string")
+            if "not_equal_result" in subclass_spec:
+                _exact_object(
+                    subclass_spec,
+                    {"value", "not_equal_result"},
+                    "WebSocket message str_subclass descriptor",
+                )
+                if not isinstance(subclass_spec["not_equal_result"], bool):
+                    raise ValueError("WebSocket message not_equal_result must be a boolean")
+                message[name] = _InputStringSubclass(
+                    subclass_value,
+                    not_equal_result=subclass_spec["not_equal_result"],
+                )
+            else:
+                _exact_object(
+                    subclass_spec,
+                    {"value", "hash_error"},
+                    "WebSocket message str_subclass descriptor",
+                )
+                if not isinstance(subclass_spec["hash_error"], str):
+                    raise ValueError("WebSocket message hash_error must be a string")
+                message[name] = _InputStringSubclass(
+                    subclass_value, hash_error=subclass_spec["hash_error"]
+                )
         else:
             message[name] = value
     return message
@@ -4266,11 +4325,8 @@ def _run_native_lifespan_case(case: dict[str, Any]) -> dict[str, Any]:
         },
         "native lifespan case",
     )
-    if (
-        case["surface"] != "starlette.applications.Starlette"
-        or case["operation"] != NATIVE_LIFESPAN_OPERATION
-    ):
-        raise ValueError("case is outside the Starlette native-lifespan workflow")
+    if case["surface"] != NATIVE_LIFESPAN_SURFACE or case["operation"] != NATIVE_LIFESPAN_OPERATION:
+        raise ValueError("case is outside the native lifespan workflow")
 
     from starlette.applications import Starlette
 
@@ -4308,22 +4364,52 @@ def _run_native_lifespan_case(case: dict[str, Any]) -> dict[str, Any]:
             else:
                 raise ValueError("unsupported native lifespan callback action")
 
-    def make_registration_context(registration: dict[str, Any]) -> Callable[..., Any]:
+    def make_registration_context(
+        registration_index: int, registration: dict[str, Any]
+    ) -> Callable[..., Any]:
         @contextlib.asynccontextmanager
         async def registration_context(_app: Any) -> AsyncIterator[None]:
-            await apply_actions(registration["startup"]["actions"])
+            try:
+                await apply_actions(registration["startup"]["actions"])
+            except Exception as exc:
+                observation["startup_failure"] = {
+                    "kind": "startup",
+                    "hook_index": registration_index,
+                    "registration": registration["name"],
+                    "message": str(exc),
+                    "rollback_failures": [],
+                }
+                raise
             try:
                 yield
             finally:
-                await apply_actions(registration["shutdown"]["actions"])
+                try:
+                    await apply_actions(registration["shutdown"]["actions"])
+                except Exception as exc:
+                    failure = {
+                        "hook_index": registration_index,
+                        "registration": registration["name"],
+                        "message": str(exc),
+                    }
+                    if observation["phase"] == "startup":
+                        startup_failure = observation["startup_failure"]
+                        if startup_failure is not None:
+                            startup_failure["rollback_failures"].append(failure)
+                    else:
+                        shutdown_failure = observation["shutdown_failure"]
+                        if shutdown_failure is None:
+                            shutdown_failure = {"kind": "shutdown", "failures": []}
+                            observation["shutdown_failure"] = shutdown_failure
+                        shutdown_failure["failures"].append(failure)
+                        raise
 
         return registration_context
 
     @contextlib.asynccontextmanager
     async def lifespan(_app: Any) -> AsyncIterator[dict[str, Any]]:
         async with contextlib.AsyncExitStack() as stack:
-            for registration in registrations:
-                context = make_registration_context(registration)
+            for registration_index, registration in enumerate(registrations):
+                context = make_registration_context(registration_index, registration)
                 await stack.enter_async_context(context(_app))
             yield state
 
@@ -4360,11 +4446,12 @@ def _run_native_lifespan_case(case: dict[str, Any]) -> dict[str, Any]:
         except asyncio.CancelledError:
             raise
         except Exception as exc:
-            error_value = _native_error_value(exc)
             if observation["phase"] == "startup":
-                observation["startup_failure"] = error_value
+                if observation["startup_failure"] is None:
+                    observation["startup_failure"] = _native_error_value(exc)
             elif observation["phase"] == "shutdown":
-                observation["shutdown_failure"] = error_value
+                if observation["shutdown_failure"] is None:
+                    observation["shutdown_failure"] = _native_error_value(exc)
 
     async def run() -> dict[str, Any]:
         await invoke()
@@ -14394,7 +14481,7 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
     ):
         return _run_native_websocket_case(case)
     if (case.get("surface"), case.get("operation")) == (
-        "starlette.applications.Starlette",
+        NATIVE_LIFESPAN_SURFACE,
         NATIVE_LIFESPAN_OPERATION,
     ):
         return _run_native_lifespan_case(case)

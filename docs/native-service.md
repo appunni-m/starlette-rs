@@ -98,12 +98,14 @@ not claim that URI/header parsing, TLS, compression, or downstream transport
 serialization are zero-copy.
 
 This is an initial HTTP service surface. It does not implement the Python
-Starlette application model, route-level dependency injection, Starlette
-middleware semantics as a full catalog, WebSockets, lifespan hooks, mounts,
-server protocol negotiation, or a cross-repository FastAPI composition. The
-pulling and drop behavior above is guaranteed by this service boundary; an
-end-to-end transport's buffering and disconnect behavior still depends on its
-server adapter.
+Starlette application model, route-level dependency injection, the full
+Starlette middleware catalog, mounts, server protocol negotiation, or a
+cross-repository FastAPI composition. Separate transport-neutral Rust APIs
+provide [WebSocket sessions](native-websocket.md) and
+[lifespan hooks](native-lifespan.md); they remain distinct from Starlette's
+Python and ASGI surfaces. The pulling and drop behavior above is guaranteed by
+this service boundary; an end-to-end transport's buffering and disconnect
+behavior still depends on its server adapter.
 
 ## Executable example
 

@@ -2699,6 +2699,7 @@ pub(crate) static GB18030_2022_OVERRIDE_BYTES: [[u8; 2]; 18] = [
 ```
 ## BSD 3-Clause &quot;New&quot; or &quot;Revised&quot; License (`BSD-3-Clause`)
 
+- `starlette-rs-native-lifespan-example 0.1.0`
 - `starlette-rs-native-service-example 0.1.0`
 - `starlette-rs-py 0.1.0`
 ```text

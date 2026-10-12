@@ -68,6 +68,7 @@ use unicode_general_category as _;
 const REQUEST_SCHEMA: &str = "migration-parity/adapter-request@1";
 const RESPONSE_SCHEMA: &str = "migration-parity/adapter-response@1";
 const SUBJECT_ID: &str = "rust-native";
+const RUST_NATIVE_TARGET_PROFILE: &str = "rust-native-local";
 const REDIRECT_RESPONSE_SURFACE: &str = "starlette.responses.RedirectResponse";
 const REDIRECT_RESPONSE_OPERATION: &str = "asgi-call";
 const RESPONSE_SURFACE: &str = "starlette.responses.Response";
@@ -681,6 +682,10 @@ fn run_native_service_case(case: &Value) -> Result<Value, String> {
             "native service target_profiles must contain strings",
         ));
     }
+    let rust_only_profile = !input_profiles.is_empty()
+        && input_profiles
+            .iter()
+            .all(|profile| profile.as_str() == Some(RUST_NATIVE_TARGET_PROFILE));
 
     let request = exact_object(
         case.get("request")
@@ -1000,6 +1005,35 @@ fn run_native_service_case(case: &Value) -> Result<Value, String> {
         String::from("service-error"),
         service_error.map_or(Value::Null, |message| json!({"message": message})),
     );
+    if rust_only_profile {
+        // These native polling and drop observations are target-specific. Keep
+        // them out of shared workflows, whose exact output is also compared
+        // with the Python package.
+        let request_poll_trace = request_trace
+            .lock()
+            .map_err(|_| String::from("native service request trace lock is poisoned"))?
+            .clone();
+        let response_poll_trace = response_trace
+            .lock()
+            .map_err(|_| String::from("native service response trace lock is poisoned"))?
+            .clone();
+        values.insert(
+            String::from("request-body-poll-trace"),
+            json!(request_poll_trace),
+        );
+        values.insert(
+            String::from("request-body-dropped"),
+            json!(request_dropped.load(Ordering::Acquire)),
+        );
+        values.insert(
+            String::from("response-body-poll-trace"),
+            json!(response_poll_trace),
+        );
+        values.insert(
+            String::from("response-body-dropped"),
+            json!(response_dropped.load(Ordering::Acquire)),
+        );
+    }
     native_observation_result(case_id, case, values, "native service")
 }
 
@@ -1778,10 +1812,11 @@ fn run_native_lifespan_case(case: &Value) -> Result<Value, String> {
         .collect::<Result<Vec<_>, _>>()?;
 
     let mut hook_specs = Vec::with_capacity(registrations.len());
+    let mut registration_names = Vec::with_capacity(registrations.len());
     for (index, registration) in registrations.iter().enumerate() {
         let context = format!("native lifespan registrations[{index}]");
         let registration = exact_object(registration, &["name", "startup", "shutdown"], &context)?;
-        let _ = string_field(registration, "name", &context)?;
+        registration_names.push(string_field(registration, "name", &context)?.to_owned());
         let startup = exact_object(
             registration
                 .get("startup")
@@ -1841,7 +1876,7 @@ fn run_native_lifespan_case(case: &Value) -> Result<Value, String> {
                 match block_on(lifecycle_to_start.start()) {
                     Ok(started) => active = Some(started),
                     Err(error) => {
-                        startup_failure = native_lifespan_error_value(&error);
+                        startup_failure = native_lifespan_error_value(&error, &registration_names)?;
                         break;
                     }
                 }
@@ -1859,9 +1894,12 @@ fn run_native_lifespan_case(case: &Value) -> Result<Value, String> {
                     .ok_or_else(|| String::from("native lifespan shutdown requires startup"))?;
                 if let Err(error) = block_on(active_lifecycle.shutdown()) {
                     shutdown_failure = if operation == "shutdown" {
-                        native_lifespan_aggregated_shutdown_error_value(&error)
+                        native_lifespan_aggregated_shutdown_error_value(
+                            &error,
+                            &registration_names,
+                        )?
                     } else {
-                        native_lifespan_error_value(&error)
+                        native_lifespan_error_value(&error, &registration_names)?
                     };
                 }
             }
@@ -1876,7 +1914,7 @@ fn run_native_lifespan_case(case: &Value) -> Result<Value, String> {
                         active = Some(started);
                     }
                     Poll::Ready(Err(error)) => {
-                        startup_failure = native_lifespan_error_value(&error);
+                        startup_failure = native_lifespan_error_value(&error, &registration_names)?;
                     }
                 }
             }
@@ -1889,7 +1927,8 @@ fn run_native_lifespan_case(case: &Value) -> Result<Value, String> {
                     Poll::Pending => pending_shutdown_future = Some(shutdown_future),
                     Poll::Ready(Ok(())) => {}
                     Poll::Ready(Err(error)) => {
-                        shutdown_failure = native_lifespan_error_value(&error);
+                        shutdown_failure =
+                            native_lifespan_error_value(&error, &registration_names)?;
                     }
                 }
             }
@@ -2057,27 +2096,88 @@ fn native_lifespan_state_snapshot(
     Ok(Value::Object(snapshot))
 }
 
-fn native_lifespan_error_value(error: &NativeLifespanError) -> Value {
+fn native_lifespan_registration_name(
+    registration_names: &[String],
+    hook_index: usize,
+) -> Result<&str, String> {
+    registration_names
+        .get(hook_index)
+        .map(String::as_str)
+        .ok_or_else(|| {
+            format!("native lifespan failure references missing hook index {hook_index}")
+        })
+}
+
+fn native_lifespan_failure_value(
+    hook_index: usize,
+    message: String,
+    registration_names: &[String],
+) -> Result<Value, String> {
+    Ok(json!({
+        "hook_index": hook_index,
+        "registration": native_lifespan_registration_name(registration_names, hook_index)?,
+        "message": message,
+    }))
+}
+
+fn native_lifespan_error_value(
+    error: &NativeLifespanError,
+    registration_names: &[String],
+) -> Result<Value, String> {
     match error {
-        NativeLifespanError::Startup { source, .. } => {
-            json!({"message": source.to_string()})
+        NativeLifespanError::Startup {
+            hook_index,
+            source,
+            shutdown_failures,
+        } => {
+            let rollback_failures = shutdown_failures
+                .iter()
+                .map(|failure| {
+                    native_lifespan_failure_value(
+                        failure.hook_index(),
+                        failure.source_error().to_string(),
+                        registration_names,
+                    )
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+            Ok(json!({
+                "kind": "startup",
+                "hook_index": hook_index,
+                "registration": native_lifespan_registration_name(
+                    registration_names,
+                    *hook_index,
+                )?,
+                "message": source.to_string(),
+                "rollback_failures": rollback_failures,
+            }))
         }
-        NativeLifespanError::Shutdown { failures } => failures.first().map_or(
-            Value::Null,
-            |failure| json!({"message": failure.source_error().to_string()}),
-        ),
+        NativeLifespanError::Shutdown { failures } => Ok(json!({
+            "kind": "shutdown",
+            "failures": failures.iter().map(|failure| {
+                native_lifespan_failure_value(
+                    failure.hook_index(),
+                    failure.source_error().to_string(),
+                    registration_names,
+                )
+            }).collect::<Result<Vec<_>, _>>()?,
+        })),
     }
 }
 
-fn native_lifespan_aggregated_shutdown_error_value(error: &NativeLifespanError) -> Value {
+fn native_lifespan_aggregated_shutdown_error_value(
+    error: &NativeLifespanError,
+    registration_names: &[String],
+) -> Result<Value, String> {
     match error {
-        NativeLifespanError::Shutdown { failures } => json!({
+        NativeLifespanError::Shutdown { failures } => Ok(json!({
             "failures": failures.iter().map(|failure| json!({
                 "hook_index": failure.hook_index(),
                 "message": failure.source_error().to_string(),
             })).collect::<Vec<_>>(),
-        }),
-        NativeLifespanError::Startup { .. } => native_lifespan_error_value(error),
+        })),
+        NativeLifespanError::Startup { .. } => {
+            native_lifespan_error_value(error, registration_names)
+        }
     }
 }
 

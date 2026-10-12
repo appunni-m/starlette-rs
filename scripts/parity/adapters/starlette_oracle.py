@@ -6648,7 +6648,49 @@ def _make_websocket_scope(spec: dict[str, Any]) -> dict[str, Any]:
 def _materialize_websocket_message(spec: dict[str, Any]) -> dict[str, Any]:
     message: dict[str, Any] = {}
     for name, value in spec.items():
-        if name == "bytes_base64":
+        if name == "type" and isinstance(value, dict) and "str_subclass" in value:
+            descriptor = _strict_object(value, {"str_subclass"}, "WebSocket message type")
+            subclass_spec = descriptor["str_subclass"]
+            if not isinstance(subclass_spec, dict):
+                raise ValueError("WebSocket message type str_subclass must be an object")
+            behavior_fields = set(subclass_spec) - {"value"}
+            if behavior_fields == {"not_equal_result"}:
+                subclass_spec = _strict_object(
+                    subclass_spec,
+                    {"value", "not_equal_result"},
+                    "WebSocket message type str_subclass",
+                )
+                not_equal_result = subclass_spec["not_equal_result"]
+                if type(not_equal_result) is not bool or not isinstance(
+                    subclass_spec["value"], str
+                ):
+                    raise ValueError("WebSocket message type str_subclass has invalid fields")
+
+                class InputStringSubclass(str):
+                    def __ne__(self, other: object, result: bool = not_equal_result) -> bool:
+                        return result
+
+                message[name] = InputStringSubclass(subclass_spec["value"])
+            elif behavior_fields == {"hash_error"}:
+                subclass_spec = _strict_object(
+                    subclass_spec,
+                    {"value", "hash_error"},
+                    "WebSocket message type str_subclass",
+                )
+                hash_error = subclass_spec["hash_error"]
+                if not isinstance(subclass_spec["value"], str) or not isinstance(hash_error, str):
+                    raise ValueError("WebSocket message type str_subclass has invalid fields")
+
+                class InputStringSubclass(str):
+                    def __hash__(self, message: str = hash_error) -> int:
+                        raise TypeError(message)
+
+                message[name] = InputStringSubclass(subclass_spec["value"])
+            else:
+                raise ValueError(
+                    "WebSocket message type str_subclass must select not_equal_result or hash_error"
+                )
+        elif name == "bytes_base64":
             message["bytes"] = _decode_b64(value, "WebSocket message.bytes_base64")
         elif name == "body_base64":
             message["body"] = _decode_b64(value, "WebSocket message.body_base64")
@@ -14784,7 +14826,7 @@ def _run_native_service_asgi_case(case: dict[str, Any]) -> dict[str, Any]:
     async def receive() -> dict[str, Any]:
         nonlocal request_frame_index, request_error
         if request_frame_index >= len(request_frames):
-            raise ValueError("native ASGI request body exhausted its input frames")
+            return {"type": "http.request", "body": b"", "more_body": False}
         frame = request_frames[request_frame_index]
         request_frame_index += 1
         if frame["kind"] == "pending":
@@ -14800,8 +14842,13 @@ def _run_native_service_asgi_case(case: dict[str, Any]) -> dict[str, Any]:
         if frame["kind"] == "end":
             return {"type": "http.request", "body": b"", "more_body": False}
         data = frame["data"]
-        request_chunks.append(base64.b64encode(data).decode("ascii"))
-        return {"type": "http.request", "body": data, "more_body": True}
+        if data:
+            request_chunks.append(base64.b64encode(data).decode("ascii"))
+        return {
+            "type": "http.request",
+            "body": data,
+            "more_body": request_frame_index < len(request_frames),
+        }
 
     def make_endpoint(route_spec: dict[str, Any]) -> Any:
         nonlocal handler_entered

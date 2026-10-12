@@ -1,16 +1,16 @@
 # Migration parity contract and evidence
 
-The working-tree input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@6`, `scope.mode: slice`, and `parity-input@48`. It currently contains 2,112 cases across 181 parity inputs and two benchmark inputs. The compatibility registry has 134 Starlette operations; the separate native registry has 6 Rust-native operations. Together they declare 1,115 parity requirements: 1,094 compatibility requirements and 18 native requirements. The source inventory has 839 rows: 784 input mappings, 55 source-backed `not_applicable` rows, and zero fixture-backlog rows.
+The working-tree input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@6`, `scope.mode: slice`, and `parity-input@48`. It currently contains 2,114 cases across 181 parity inputs and two benchmark inputs. The compatibility registry has 134 Starlette operations; the separate native registry has 6 Rust-native operations. Together they declare 1,115 parity requirements: 1,094 compatibility requirements and 18 native requirements. The source inventory has 839 rows: 784 input mappings, 55 source-backed `not_applicable` rows, and zero fixture-backlog rows.
 
 The latest clean full parity preflight, `dc8c8ca6-f2b7-449b-9f53-45860e3cad4c`, passed 2,254/2,254 comparisons for the preceding 1,992-case contract: 1,988 Python-package and 266 Rust-native comparisons, with zero failures, infrastructure errors, or `not_run` rows. Both target-only fault contracts passed on clean revision `57aab659fb09cd252df110cc9daef7eeaec1ea1a`. Later @48 additions cover optional-backend behavior, WebSocket authorization, Router truthiness, BaseHTTPMiddleware iterator cancellation, response subclasses, Python-version applicability, StaticFiles OS-specific paths and NUL handling, StreamingResponse OSError mapping and await-factory exhaustion, TestClient callback decoding, BaseException and close-code behavior, WebSocket close-code forwarding, CPython custom-regex syntax, AuthenticationMiddleware iterable backend results, nested Host/Mount reverse lookup, Request body retry and interleaved iterator consumption after `http.disconnect`, cached Request.is_disconnected() state after body/stream disconnect observations, and async background-list failure ordering. The additional BackgroundTasks live-list mutation, async-list cancellation, and sync cancellation-then-worker-error inputs, plus StreamingResponse caller-cancellation inputs also remain unexecuted; full parity remains deferred until implementation closes.
 
 The latest input-only additions cover the separate Rust-native HTTP service,
 WebSocket, and lifespan APIs, including partial response-body pulls and three
 target-only lifespan fault contracts. Contract validation passes for all
-2,112 cases; these cases and faults remain unexecuted until the grouped parity
+2,114 cases; these cases and faults remain unexecuted until the grouped parity
 phase.
 
-Six latest compatibility inputs remain unexecuted: closing a partially
+Eight latest compatibility inputs remain unexecuted: closing a partially
 consumed Request stream before `body()` reads and caches the remainder;
 ignoring a non-string ASGI message before TestClient receives a complete
 response and suppresses a later app exception; preserving a
@@ -18,7 +18,9 @@ WebSocketEndpoint disconnect-hook error raised during cancellation
 finalization; propagating `athrow(ValueError)` after Request.stream() yields its
 terminal empty chunk; preserving TestClient's configured integer client port
 above 65,535 in the ASGI scope; and matching the pinned `TypeError` when
-WebSocket.receive() sees an unhashable message type after connection.
+WebSocket.receive() sees an unhashable message type after connection; two
+additional inputs exercise raw receive rich-comparison and hash-error behavior
+for Python string subclasses.
 
 Coverage MCP run `fd5b3b63-9ddc-44bd-bf38-35ecbc260dbe` measured 19,909/28,139 Rust lines (70.7%), with 8,230 uncovered lines, for the preceding contract. It reported `status=measured`, `source=matches_receipt`, and `tests=passed`. The LCOV report and receipt remain under ignored `build/parity/coverage/full-starlette-1.6.0-20261012-57aab65/`; this measurement is not current for the post-run contract and WebSocket input changes.
 

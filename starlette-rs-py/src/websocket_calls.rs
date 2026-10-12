@@ -123,7 +123,7 @@ impl PyWebSocketProtocol {
             WebSocketReceiveMachine {
                 state: self.state.clone(),
                 callback: self.receive_callback.clone_ref(py),
-                state_at_start: None,
+                client_state_at_start: None,
             },
         )
     }
@@ -316,7 +316,7 @@ impl PyWebSocketProtocol {
 struct WebSocketReceiveMachine {
     state: SharedProtocolState,
     callback: Py<PyAny>,
-    state_at_start: Option<WebSocketStateMachine>,
+    client_state_at_start: Option<WebSocketState>,
 }
 
 impl AwaitableStateMachine for WebSocketReceiveMachine {
@@ -341,92 +341,59 @@ impl AwaitableStateMachine for WebSocketReceiveMachine {
 
 impl WebSocketReceiveMachine {
     fn start(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
-        let mut state_at_start = *protocol_state(&self.state)?;
+        let client_state_at_start = protocol_state(&self.state)?.client_state();
         if matches!(
-            state_at_start.client_state(),
+            client_state_at_start,
             WebSocketState::Disconnected | WebSocketState::Response
         ) {
-            let error = match state_at_start.receive("") {
-                Err(error) => error,
-                Ok(()) => {
-                    return Err(PyRuntimeError::new_err(
-                        "Cannot call \"receive\" once a disconnect message has been received.",
-                    ));
-                }
-            };
-            return Err(PyRuntimeError::new_err(error.to_string()));
+            return Err(PyRuntimeError::new_err(
+                "Cannot call \"receive\" once a disconnect message has been received.",
+            ));
         }
 
-        self.state_at_start = Some(state_at_start);
+        self.client_state_at_start = Some(client_state_at_start);
         let awaitable = self.callback.bind(py).call0()?;
         Ok(MachineAction::Await(awaitable.unbind()))
     }
 
     fn record_message(&mut self, py: Python<'_>, message: &Py<PyAny>) -> PyResult<()> {
         let message_type = message.bind(py).get_item("type")?;
-        let mut state_at_start = self
-            .state_at_start
+        let client_state_at_start = self
+            .client_state_at_start
             .take()
             .ok_or_else(|| PyRuntimeError::new_err("no WebSocket receive is pending"))?;
-        let client_state_at_start = state_at_start.client_state();
-
-        // Preserve Starlette's state-specific Python operation on arbitrary
-        // ASGI type values: direct equality while connecting, set membership
-        // while connected. Extracting a Rust String first would change both
-        // their errors and the public protocol state transition.
-        if !message_type.is_instance_of::<PyString>() {
-            match client_state_at_start {
-                WebSocketState::Connecting => {
-                    // Starlette compares directly with the connect event here;
-                    // unlike the connected branch below, it does not hash an
-                    // arbitrary incoming type before producing its RuntimeError.
-                    if message_type.eq("websocket.connect")? {
-                        protocol_state(&self.state)?.set_client_state(WebSocketState::Connected);
-                        return Ok(());
-                    }
+        // Starlette operates on the original Python message value. Preserve
+        // rich comparison, hashing, and their exceptions for str subclasses
+        // as well as other input types instead of extracting a Rust String.
+        match client_state_at_start {
+            WebSocketState::Connecting => {
+                if message_type.ne("websocket.connect")? {
                     let received = message_type.repr()?.extract::<String>()?;
                     return Err(PyRuntimeError::new_err(format!(
                         "Expected ASGI message \"websocket.connect\", but got {received}"
                     )));
                 }
-                WebSocketState::Connected => {
-                    // Starlette validates connected receive types with set
-                    // membership. Preserve Python's TypeError for unhashable
-                    // values, while hashable invalid values get the protocol
-                    // RuntimeError below.
-                    let expected = PySet::new(py, ["websocket.receive", "websocket.disconnect"])?;
-                    if !expected.contains(&message_type)? {
-                        let received = message_type.repr()?.extract::<String>()?;
-                        return Err(PyRuntimeError::new_err(format!(
-                            "Expected ASGI message \"websocket.receive\" or \"websocket.disconnect\", but got {received}"
-                        )));
-                    }
-                    if message_type.eq("websocket.disconnect")? {
-                        protocol_state(&self.state)?.set_client_state(WebSocketState::Disconnected);
-                    }
-                    return Ok(());
+                // Starlette assigns this after the callback returns, so it
+                // overwrites state changes made while that callback was pending.
+                protocol_state(&self.state)?.set_client_state(WebSocketState::Connected);
+            }
+            WebSocketState::Connected => {
+                let expected = PySet::new(py, ["websocket.receive", "websocket.disconnect"])?;
+                if !expected.contains(&message_type)? {
+                    let received = message_type.repr()?.extract::<String>()?;
+                    return Err(PyRuntimeError::new_err(format!(
+                        "Expected ASGI message \"websocket.receive\" or \"websocket.disconnect\", but got {received}"
+                    )));
                 }
-                WebSocketState::Disconnected | WebSocketState::Response => {
-                    return Err(PyRuntimeError::new_err(
-                        "Cannot call \"receive\" once a disconnect message has been received.",
-                    ));
+                if message_type.eq("websocket.disconnect")? {
+                    protocol_state(&self.state)?.set_client_state(WebSocketState::Disconnected);
                 }
             }
-        }
-        let message_type = message_type.extract::<String>()?;
-
-        // Validate against the state that selected the receive branch before
-        // awaiting the callback. Starlette assigns client_state after the
-        // callback returns for connect and disconnect messages, so that
-        // selected branch must overwrite a state assignment made while the
-        // callback was pending.
-        state_at_start
-            .receive(&message_type)
-            .map_err(|error| PyRuntimeError::new_err(error.to_string()))?;
-
-        let client_state_after_receive = state_at_start.client_state();
-        if client_state_after_receive != client_state_at_start {
-            protocol_state(&self.state)?.set_client_state(client_state_after_receive);
+            WebSocketState::Disconnected | WebSocketState::Response => {
+                return Err(PyRuntimeError::new_err(
+                    "Cannot call \"receive\" once a disconnect message has been received.",
+                ));
+            }
         }
         Ok(())
     }

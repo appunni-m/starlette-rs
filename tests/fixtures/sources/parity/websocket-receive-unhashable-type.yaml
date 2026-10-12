@@ -64,6 +64,137 @@
       "observations": [
         "convenience-sequence"
       ]
+    },
+    {
+      "case_id": "starlette.websockets.WebSocket.convenience-sequence.connect-str-subclass-not-equal",
+      "surface": "starlette.websockets.WebSocket",
+      "operation": "convenience-sequence",
+      "covers": [
+        "starlette.websocket.api.receive.raw"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "websocket",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.5"
+        },
+        "http_version": "1.1",
+        "scheme": "ws",
+        "path": "/ws",
+        "raw_path_base64": "L3dz",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "ZXhhbXBsZS50ZXN0"
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ],
+        "subprotocols": []
+      },
+      "incoming": [
+        {
+          "type": {
+            "str_subclass": {
+              "value": "websocket.connect",
+              "not_equal_result": true
+            }
+          },
+          "subprotocols": []
+        }
+      ],
+      "actions": [
+        {
+          "action_id": "receive-connect-str-subclass",
+          "method": "receive",
+          "arguments": {}
+        }
+      ],
+      "observations": [
+        "convenience-sequence"
+      ]
+    },
+    {
+      "case_id": "starlette.websockets.WebSocket.convenience-sequence.connected-str-subclass-hash-error",
+      "surface": "starlette.websockets.WebSocket",
+      "operation": "convenience-sequence",
+      "covers": [
+        "starlette.websocket.api.receive.raw"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "websocket",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.5"
+        },
+        "http_version": "1.1",
+        "scheme": "ws",
+        "path": "/ws",
+        "raw_path_base64": "L3dz",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "ZXhhbXBsZS50ZXN0"
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ],
+        "subprotocols": []
+      },
+      "incoming": [
+        {
+          "type": "websocket.connect",
+          "subprotocols": []
+        },
+        {
+          "type": {
+            "str_subclass": {
+              "value": "websocket.receive",
+              "hash_error": "controlled string hash failure"
+            }
+          },
+          "text": "message"
+        }
+      ],
+      "actions": [
+        {
+          "action_id": "accept",
+          "method": "accept",
+          "arguments": {}
+        },
+        {
+          "action_id": "receive",
+          "method": "receive",
+          "arguments": {}
+        }
+      ],
+      "observations": [
+        "convenience-sequence"
+      ]
     }
   ]
 }

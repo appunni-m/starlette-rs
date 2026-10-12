@@ -9,7 +9,7 @@ incomplete.
 ## Current parity snapshot
 
 Implementation remains the active phase for the full Starlette replacement.
-The working-tree `parity-input@48` contract indexes 2,112 cases across 181
+The working-tree `parity-input@48` contract indexes 2,114 cases across 181
 parity inputs, two benchmark inputs, 134 Starlette compatibility operations, 6 native operations, and 1,115 parity requirements.
 The latest static inventory reports 999/999 API candidates dispositioned and
 839 source rows: 784 input mappings, 55 source-backed `not_applicable` rows,

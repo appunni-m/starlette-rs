@@ -3236,10 +3236,44 @@ def _validate_websocket_message(
 ) -> Any:
     if not isinstance(message, dict):
         raise ContractError(f"{context} must be an ASGI message object")
-    if incoming and allow_unhashable_type and isinstance(message.get("type"), (list, dict)):
+    raw_type = message.get("type")
+    message_type_value = raw_type
+    if (
+        incoming
+        and allow_unhashable_type
+        and isinstance(raw_type, dict)
+        and "str_subclass" in raw_type
+    ):
+        subclass = raw_type["str_subclass"]
+        if not isinstance(subclass, dict):
+            raise ContractError(f"{context}.type.str_subclass must be an object")
+        behavior_fields = set(subclass) - {"value"}
+        if behavior_fields == {"not_equal_result"}:
+            subclass = _exact(
+                subclass,
+                {"value", "not_equal_result"},
+                f"{context}.type.str_subclass",
+            )
+            if type(subclass["not_equal_result"]) is not bool:
+                raise ContractError(
+                    f"{context}.type.str_subclass.not_equal_result must be a boolean"
+                )
+        elif behavior_fields == {"hash_error"}:
+            subclass = _exact(
+                subclass,
+                {"value", "hash_error"},
+                f"{context}.type.str_subclass",
+            )
+            _string(subclass["hash_error"], f"{context}.type.str_subclass.hash_error")
+        else:
+            raise ContractError(
+                f"{context}.type.str_subclass must select not_equal_result or hash_error"
+            )
+        message_type_value = _string(subclass["value"], f"{context}.type.str_subclass.value")
+    elif incoming and allow_unhashable_type and isinstance(raw_type, (list, dict)):
         _exact(message, {"type"}, context)
-        return message["type"]
-    message_type = _string(message.get("type"), f"{context}.type")
+        return raw_type
+    message_type = _string(message_type_value, f"{context}.type")
     if incoming:
         if message_type == "websocket.connect":
             _exact(message, {"type", "subprotocols"}, context)
