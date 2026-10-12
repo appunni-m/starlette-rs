@@ -556,6 +556,9 @@ UPLOAD_FILE_OPERATION = ("starlette.datastructures.UploadFile", "file-operations
 UPLOAD_FILE_ROLLOVER_REQUIREMENT = "starlette.datastructures.UploadFile.spooled-file-rollover"
 UPLOAD_FILE_THREADPOOL_GAP = "starlette.datastructures.UploadFile.threadpool-boundary"
 UPLOAD_FILE_CONSTRUCTOR_GAP = "starlette.datastructures.UploadFile.constructor-and-representation"
+UPLOAD_FILE_WRITE_ERROR_REQUIREMENT = (
+    "starlette.datastructures.UploadFile.rolled-write-error-propagation"
+)
 WSGI_BOUNDARY_SURFACE = "starlette.middleware.wsgi"
 WSGI_BUILD_ENVIRON_OPERATION = (WSGI_BOUNDARY_SURFACE, "build-environ")
 WSGI_MODULE_IMPORT_OPERATION = (WSGI_BOUNDARY_SURFACE, "module-import-warning")
@@ -1081,6 +1084,9 @@ STATIC_FILES_LOOKUP_PATH_OPERATION = "lookup-path"
 STATIC_FILES_OS_SPECIFIC_PATH_BEHAVIOR = "os-specific-path-normalization"
 STATIC_FILES_LOOKUP_PATH_NULL_BYTE_REQUIREMENT = (
     f"{STATIC_FILES_SURFACE}.{STATIC_FILES_LOOKUP_PATH_OPERATION}.null-byte-error"
+)
+STATIC_FILES_STATEFUL_PATHLIKE_REQUIREMENT = (
+    f"{STATIC_FILES_SURFACE}.{STATIC_FILES_LOOKUP_PATH_OPERATION}.stateful-pathlike-root-resolution"
 )
 STATIC_FILES_ASYNC_BOUNDARY_OPERATION = "asgi-call-async-boundary"
 STATIC_FILES_CONFIGURATION_CHECK_OPERATION = "configuration-check"
@@ -6793,15 +6799,15 @@ def _static_files_relative_components(value: Any, context: str, *, allow_parent:
 def _validate_static_files_lookup_path_case(
     case: dict[str, Any], *, validate_covers: bool = True
 ) -> str:
-    _exact(case, STATIC_FILES_LOOKUP_PATH_CASE_KEYS, "StaticFiles lookup-path case")
+    case_keys = STATIC_FILES_LOOKUP_PATH_CASE_KEYS
+    if "directory_pathlike" in case:
+        case_keys = case_keys | {"directory_pathlike"}
+    _exact(case, case_keys, "StaticFiles lookup-path case")
     if (
         case["surface"] != STATIC_FILES_SURFACE
         or case["operation"] != STATIC_FILES_LOOKUP_PATH_OPERATION
     ):
         raise ContractError("case is outside the declared StaticFiles lookup-path operation")
-    if case["observations"] != [STATIC_FILES_LOOKUP_PATH_OPERATION]:
-        raise ContractError("StaticFiles lookup-path observations must select lookup-path")
-
     directory = _string(case["directory"], "StaticFiles lookup-path.directory")
     if (
         not directory
@@ -6813,6 +6819,45 @@ def _validate_static_files_lookup_path_case(
         raise ContractError("StaticFiles lookup-path.directory must be a relative basename")
     if type(case["check_dir"]) is not bool or type(case["follow_symlink"]) is not bool:
         raise ContractError("StaticFiles lookup-path options must be boolean")
+
+    has_directory_pathlike = "directory_pathlike" in case
+    directory_pathlike = case.get("directory_pathlike")
+    expected_observations = [STATIC_FILES_LOOKUP_PATH_OPERATION]
+    if has_directory_pathlike:
+        expected_observations.append("directory-fspath-call-order")
+    if case["observations"] != expected_observations:
+        raise ContractError("StaticFiles lookup-path observations must select lookup-path")
+
+    pathlike_results: list[str] | None = None
+    if has_directory_pathlike:
+        pathlike = _exact(
+            directory_pathlike,
+            {"fspath_results_relative_to_workspace"},
+            "StaticFiles lookup-path directory_pathlike",
+        )
+        raw_results = pathlike["fspath_results_relative_to_workspace"]
+        if not isinstance(raw_results, list) or len(raw_results) < 3:
+            raise ContractError(
+                "StaticFiles directory_pathlike must supply at least three successive fspath results"
+            )
+        pathlike_results = [
+            "/".join(
+                _static_files_relative_components(
+                    value,
+                    f"StaticFiles directory_pathlike.fspath_results_relative_to_workspace[{index}]",
+                    allow_parent=False,
+                )
+            )
+            for index, value in enumerate(raw_results)
+        ]
+        if len(set(pathlike_results[:3])) != 3 or pathlike_results[0] != directory:
+            raise ContractError(
+                "StaticFiles directory_pathlike must select distinct configured, joined, and boundary roots"
+            )
+        if not case["check_dir"]:
+            raise ContractError(
+                "StaticFiles stateful PathLike lookup inputs must check the configured root"
+            )
 
     files = case["files"]
     if not isinstance(files, list):
@@ -6890,6 +6935,16 @@ def _validate_static_files_lookup_path_case(
                 "StaticFiles lookup-path filesystem outside_files paths must be unique"
             )
         outside_file_paths.add(path)
+
+    if pathlike_results is not None:
+        if filesystem["root_symlink_target"] is not None:
+            raise ContractError(
+                "StaticFiles stateful PathLike lookup inputs do not combine with a root symlink"
+            )
+        if any(path not in {directory, *directory_paths} for path in pathlike_results[:3]):
+            raise ContractError(
+                "StaticFiles stateful PathLike roots must name input-defined directories"
+            )
 
     # Infer parent directories created by asset inputs. The explicit directory
     # list is also used for empty directory targets in symlink inputs.
@@ -6987,7 +7042,28 @@ def _validate_static_files_lookup_path_case(
             raise ContractError("StaticFiles lookup-path filesystem has a file above a symlink")
 
     lookup_path = _string(case["lookup_path"], "StaticFiles lookup_path")
-    if "\x00" in lookup_path:
+    if pathlike_results is not None:
+        if "\x00" in lookup_path or lookup_path.startswith(("/", "\\")):
+            raise ContractError(
+                "StaticFiles stateful PathLike lookup paths must be ordinary relative paths"
+            )
+        lookup_components = _static_files_relative_components(
+            lookup_path, "StaticFiles lookup_path", allow_parent=False
+        )
+        candidate_path = _static_files_workspace_path(
+            pathlike_results[1], "/".join(lookup_components), "StaticFiles PathLike candidate"
+        )
+        boundary_root = pathlike_results[2]
+        if candidate_path not in workspace_file_paths:
+            raise ContractError(
+                "StaticFiles stateful PathLike lookup must select an input-defined candidate file"
+            )
+        if candidate_path == boundary_root or candidate_path.startswith(f"{boundary_root}/"):
+            raise ContractError(
+                "StaticFiles stateful PathLike lookup candidate must fall outside the input-defined boundary root"
+            )
+        requirement = "stateful-pathlike-root-resolution"
+    elif "\x00" in lookup_path:
         requirement = "null-byte-error"
     elif lookup_path.startswith(("/", "\\")) or Path(lookup_path).is_absolute():
         requirement = "absolute-path-rejected"
@@ -7053,13 +7129,15 @@ def _validate_static_files_lookup_path_case(
                 requirement = f"{target_relation}-{target_kind}-link.follow-symlink-{setting}"
 
     if validate_covers:
-        expected_covers = {
-            (
-                STATIC_FILES_LOOKUP_PATH_NULL_BYTE_REQUIREMENT
-                if requirement == "null-byte-error"
-                else f"{STATIC_FILES_SURFACE}.{STATIC_FILES_LOOKUP_PATH_OPERATION}.{requirement}"
+        if requirement == "null-byte-error":
+            requirement_id = STATIC_FILES_LOOKUP_PATH_NULL_BYTE_REQUIREMENT
+        elif requirement == "stateful-pathlike-root-resolution":
+            requirement_id = STATIC_FILES_STATEFUL_PATHLIKE_REQUIREMENT
+        else:
+            requirement_id = (
+                f"{STATIC_FILES_SURFACE}.{STATIC_FILES_LOOKUP_PATH_OPERATION}.{requirement}"
             )
-        }
+        expected_covers = {requirement_id}
         if set(case["covers"]) != expected_covers:
             raise ContractError("StaticFiles lookup-path covers must match the selected input path")
     return requirement
@@ -17524,6 +17602,8 @@ def _validate_case_payload(
         expected_case_keys = STATUS_CASE_KEYS
     elif is_session_workflow:
         expected_case_keys = SESSION_WORKFLOW_CASE_KEYS
+    if is_static_files_lookup_path and "directory_pathlike" in case:
+        expected_case_keys = expected_case_keys | {"directory_pathlike"}
     if (case["surface"], case["operation"]) == TEMPLATING_PUBLIC_OPERATION:
         expected_case_keys |= {"hooks", "processor_specs"} & case.keys()
     if (case["surface"], case["operation"]) == (WEBSOCKET_SURFACE, WEBSOCKET_CONVENIENCE_OPERATION):
@@ -26106,6 +26186,7 @@ def _upload_file_semantic_coverage(case: dict[str, Any]) -> set[str]:
     exercised_calls: set[str] = set()
     probed_roll_states: dict[str, set[bool]] = {}
     injected_read_error = False
+    injected_write_error_roll_states: set[bool] = set()
     for scenario in scenarios:
         max_size = scenario["max_size"]
         position = 0
@@ -26122,6 +26203,8 @@ def _upload_file_semantic_coverage(case: dict[str, Any]) -> set[str]:
             if scenario.get("thread_probe") is not None:
                 probed_roll_states.setdefault(call, set()).add(rolled)
             injected_read_error |= call == "read" and "injected_error" in action
+            if call == "write" and "injected_error" in action:
+                injected_write_error_roll_states.add(rolled)
             if call == "read":
                 size = action["size"]
                 remaining = max(file_size - position, 0)
@@ -26156,6 +26239,8 @@ def _upload_file_semantic_coverage(case: dict[str, Any]) -> set[str]:
         and injected_read_error
     ):
         exercised.add(UPLOAD_FILE_THREADPOOL_GAP)
+    if injected_write_error_roll_states == {False, True}:
+        exercised.add(UPLOAD_FILE_WRITE_ERROR_REQUIREMENT)
 
     constructor_probes = case.get("constructor_probes", [])
     required_file_calls = {"read", "write", "seek"}
@@ -26269,7 +26354,6 @@ def _validate_upload_file_case(case: dict[str, Any]) -> None:
     shared_initial_size: int | None = None
     shared_actions: list[dict[str, Any]] | None = None
     shared_thread_probe: dict[str, int] | None = None
-    injected_error_count = 0
     for index, scenario_value in enumerate(scenarios):
         context = f"UploadFile scenarios[{index}]"
         scenario = _exact(
@@ -26341,9 +26425,9 @@ def _validate_upload_file_case(case: dict[str, Any]) -> None:
             if action_fields is None:
                 raise ContractError(f"{action_context}.call is unsupported")
             if "injected_error" in action_value:
-                if call != "read":
+                if call not in {"read", "write"}:
                     raise ContractError(
-                        f"{action_context}.injected_error is supported only for read"
+                        f"{action_context}.injected_error is supported only for read and write"
                     )
                 action_fields = action_fields | {"injected_error"}
             action = _exact(action_value, action_fields, action_context)
@@ -26351,25 +26435,22 @@ def _validate_upload_file_case(case: dict[str, Any]) -> None:
             if not action_id or action_id in action_ids:
                 raise ContractError(f"{action_context}.action_id must be non-empty and unique")
             action_ids.add(action_id)
+            if "injected_error" in action:
+                injected_error = _exact(
+                    action["injected_error"],
+                    {"class", "message"},
+                    f"{action_context}.injected_error",
+                )
+                if injected_error["class"] != "OSError":
+                    raise ContractError(f"{action_context}.injected_error.class must be OSError")
+                _string(
+                    injected_error["message"],
+                    f"{action_context}.injected_error.message",
+                )
             if call == "read":
                 size = action["size"]
                 if type(size) is not int or size < -1:
                     raise ContractError(f"{action_context}.size must be -1 or non-negative")
-                if "injected_error" in action:
-                    injected_error = _exact(
-                        action["injected_error"],
-                        {"class", "message"},
-                        f"{action_context}.injected_error",
-                    )
-                    if injected_error["class"] != "OSError":
-                        raise ContractError(
-                            f"{action_context}.injected_error.class must be OSError"
-                        )
-                    _string(
-                        injected_error["message"],
-                        f"{action_context}.injected_error.message",
-                    )
-                    injected_error_count += 1
             elif call == "write":
                 data_base64 = _string(action["data_base64"], f"{action_context}.data_base64")
                 try:
@@ -26394,12 +26475,6 @@ def _validate_upload_file_case(case: dict[str, Any]) -> None:
             shared_actions = validated_actions
         elif validated_actions != shared_actions:
             raise ContractError("UploadFile threshold scenarios must run the same action sequence")
-
-    if injected_error_count != 2:
-        raise ContractError(
-            "UploadFile threadpool boundary input must inject the same read failure "
-            "for both spool thresholds"
-        )
 
     exercised = _upload_file_semantic_coverage(case)
     if set(case["covers"]) != exercised:

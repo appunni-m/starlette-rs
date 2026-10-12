@@ -30,6 +30,7 @@ from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any
 
+from scripts.parity.adapters.input_pathlike import InputSequencePathLike
 from scripts.parity.adapters.staticfiles_config import (
     STATIC_FILES_CONFIGURATION_OPERATION,
     run_static_files_configuration_case,
@@ -9710,29 +9711,36 @@ def _run_static_files_async_boundary_case(case: dict[str, Any]) -> dict[str, Any
 
 
 def _run_static_files_lookup_path_case(case: dict[str, Any]) -> dict[str, Any]:
+    has_pathlike = "directory_pathlike" in case
+    case_fields = {
+        "case_id",
+        "surface",
+        "operation",
+        "covers",
+        "target_profiles",
+        "assets",
+        "directory",
+        "files",
+        "filesystem",
+        "lookup_path",
+        "check_dir",
+        "follow_symlink",
+        "observations",
+    }
+    if has_pathlike:
+        case_fields.add("directory_pathlike")
     _strict_object(
         case,
-        {
-            "case_id",
-            "surface",
-            "operation",
-            "covers",
-            "target_profiles",
-            "assets",
-            "directory",
-            "files",
-            "filesystem",
-            "lookup_path",
-            "check_dir",
-            "follow_symlink",
-            "observations",
-        },
+        case_fields,
         "StaticFiles lookup-path case",
     )
+    expected_observations = [STATIC_FILES_LOOKUP_PATH_OPERATION]
+    if has_pathlike:
+        expected_observations.append("directory-fspath-call-order")
     if (
         case["surface"] != STATIC_FILES_SURFACE
         or case["operation"] != STATIC_FILES_LOOKUP_PATH_OPERATION
-        or case["observations"] != [STATIC_FILES_LOOKUP_PATH_OPERATION]
+        or case["observations"] != expected_observations
     ):
         raise ValueError("workflow is outside the declared StaticFiles lookup-path operation")
 
@@ -9767,8 +9775,16 @@ def _run_static_files_lookup_path_case(case: dict[str, Any]) -> dict[str, Any]:
             path = root / symlink_spec["path"]
             path.parent.mkdir(parents=True, exist_ok=True)
             os.symlink(symlink_spec["target"], path)
+        directory_pathlike = None
+        configured_directory: Any = root
+        if has_pathlike:
+            directory_pathlike = InputSequencePathLike(
+                workspace,
+                case["directory_pathlike"]["fspath_results_relative_to_workspace"],
+            )
+            configured_directory = directory_pathlike
         application = StaticFiles(
-            directory=root,
+            directory=configured_directory,
             check_dir=case["check_dir"],
             follow_symlink=case["follow_symlink"],
         )
@@ -9782,10 +9798,15 @@ def _run_static_files_lookup_path_case(case: dict[str, Any]) -> dict[str, Any]:
                 }
             }
         else:
-            relative_root = root.absolute() if case["follow_symlink"] else root.resolve()
-            resolved_path = (
-                Path(full_path).relative_to(relative_root).as_posix() if full_path else None
-            )
+            if directory_pathlike is None:
+                relative_root = root.absolute() if case["follow_symlink"] else root.resolve()
+                resolved_path = (
+                    Path(full_path).relative_to(relative_root).as_posix() if full_path else None
+                )
+            else:
+                resolved_path = (
+                    Path(full_path).relative_to(workspace).as_posix() if full_path else None
+                )
             mode_type_bits = stat.S_IFMT(stat_result.st_mode) if stat_result is not None else None
             is_file = stat.S_ISREG(stat_result.st_mode) if stat_result is not None else None
             is_directory = stat.S_ISDIR(stat_result.st_mode) if stat_result is not None else None
@@ -9798,16 +9819,25 @@ def _run_static_files_lookup_path_case(case: dict[str, Any]) -> dict[str, Any]:
                 "size": stat_result.st_size if is_file else None,
                 "mtime_seconds": stat_result.st_mtime if is_file else None,
             }
+    observations = [
+        {
+            "step_id": STATIC_FILES_LOOKUP_PATH_OPERATION,
+            "status": "ok",
+            "value": observation,
+        }
+    ]
+    if directory_pathlike is not None:
+        observations.append(
+            {
+                "step_id": "directory-fspath-call-order",
+                "status": "ok",
+                "value": directory_pathlike.observation(),
+            }
+        )
     return {
         "case_id": case["case_id"],
         "status": "completed",
-        "observations": [
-            {
-                "step_id": STATIC_FILES_LOOKUP_PATH_OPERATION,
-                "status": "ok",
-                "value": observation,
-            }
-        ],
+        "observations": observations,
     }
 
 

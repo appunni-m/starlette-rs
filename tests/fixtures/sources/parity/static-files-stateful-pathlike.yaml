@@ -1,0 +1,40 @@
+{
+  "schema": "migration-parity/parity-input@48",
+  "cases": [
+    {
+      "case_id": "starlette.staticfiles.StaticFiles.lookup-path.stateful-pathlike-root-resolution",
+      "surface": "starlette.staticfiles.StaticFiles",
+      "operation": "lookup-path",
+      "covers": [
+        "starlette.staticfiles.StaticFiles.lookup-path.stateful-pathlike-root-resolution"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "directory": "configured",
+      "directory_pathlike": {
+        "fspath_results_relative_to_workspace": [
+          "configured",
+          "served",
+          "different"
+        ]
+      },
+      "files": [],
+      "filesystem": {
+        "root_symlink_target": null,
+        "directories": ["served", "different"],
+        "outside_files": [
+          {
+            "path": "served/asset.txt",
+            "contents_base64": "c3RhdGVmdWwgcGF0aC1saWtlIGFzc2V0",
+            "mtime_seconds": 1700000000.0
+          }
+        ],
+        "symlinks": []
+      },
+      "lookup_path": "asset.txt",
+      "check_dir": true,
+      "follow_symlink": false,
+      "observations": ["lookup-path", "directory-fspath-call-order"]
+    }
+  ]
+}

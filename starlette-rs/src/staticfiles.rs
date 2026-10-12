@@ -184,6 +184,11 @@ impl StaticFiles {
         let Some(directory) = self.directory.as_ref() else {
             return Ok(());
         };
+        Self::check_config_path(directory)
+    }
+
+    /// Validates a directory supplied by a compatibility boundary at call time.
+    pub fn check_config_path(directory: &Path) -> Result<(), StaticFilesError> {
         let metadata = fs::metadata(directory).map_err(|error| {
             if error.kind() == io::ErrorKind::NotFound {
                 StaticFilesError::DirectoryConfiguration(format!(
@@ -212,72 +217,44 @@ impl StaticFiles {
 
     /// Looks up a relative path while enforcing the configured-root boundary.
     pub fn lookup_path(&self, path: &str) -> Result<Option<StaticFile>, StaticFilesError> {
+        self.lookup_path_with_directory(path, None)
+    }
+
+    /// Looks up a relative path using a directory value resolved at call time.
+    ///
+    /// The first path is joined with the relative request path. The second path
+    /// is used as the root boundary. Keeping them separate preserves Python
+    /// `PathLike` objects whose `__fspath__` result changes between calls.
+    pub fn lookup_path_with_directory(
+        &self,
+        path: &str,
+        directory: Option<(&Path, &Path)>,
+    ) -> Result<Option<StaticFile>, StaticFilesError> {
         if path.starts_with('/') || path.starts_with('\\') {
             return Ok(None);
         }
         if path.contains('\0') {
             return Err(StaticFilesError::InvalidPath);
         }
-        for directory in &self.directories {
-            let joined_path = directory.join(path);
-            let (full_path, root_path) = if self.follow_symlink {
-                (absolute_path(&joined_path)?, absolute_path(directory)?)
-            } else {
-                let full_path = match fs::canonicalize(&joined_path) {
-                    Ok(path) => path,
-                    Err(error) if error.kind() == io::ErrorKind::PermissionDenied => {
-                        return Err(StaticFilesError::PermissionDenied);
-                    }
-                    Err(error) if is_name_too_long(&error) => {
-                        return Err(StaticFilesError::Io(error));
-                    }
-                    Err(error)
-                        if error.kind() == io::ErrorKind::NotFound
-                            || error.kind() == io::ErrorKind::NotADirectory
-                            || error.kind() == io::ErrorKind::InvalidInput =>
-                    {
-                        continue;
-                    }
-                    Err(error) => return Err(StaticFilesError::Io(error)),
-                };
-                let root_path = match fs::canonicalize(directory) {
-                    Ok(path) => path,
-                    Err(error) if error.kind() == io::ErrorKind::PermissionDenied => {
-                        return Err(StaticFilesError::PermissionDenied);
-                    }
-                    Err(error)
-                        if error.kind() == io::ErrorKind::NotFound
-                            || error.kind() == io::ErrorKind::NotADirectory =>
-                    {
-                        continue;
-                    }
-                    Err(error) => return Err(StaticFilesError::Io(error)),
-                };
-                (full_path, root_path)
-            };
-            if !full_path.starts_with(&root_path) {
-                continue;
+        if let Some((joined_directory, boundary_directory)) = directory {
+            if let Some(file) = lookup_in_directory(
+                path,
+                joined_directory,
+                boundary_directory,
+                self.follow_symlink,
+            )? {
+                return Ok(Some(file));
             }
-            match fs::metadata(&full_path) {
-                Ok(metadata) => {
-                    return Ok(Some(static_file(full_path, &metadata)?));
-                }
-                Err(error)
-                    if error.kind() == io::ErrorKind::NotFound
-                        || error.kind() == io::ErrorKind::NotADirectory =>
-                {
-                    continue;
-                }
-                Err(error) if is_name_too_long(&error) => {
-                    return Err(StaticFilesError::Io(error));
-                }
-                Err(error) if error.kind() == io::ErrorKind::InvalidInput => {
-                    return Ok(None);
-                }
-                Err(error) if error.kind() == io::ErrorKind::PermissionDenied => {
-                    return Err(StaticFilesError::PermissionDenied);
-                }
-                Err(error) => return Err(StaticFilesError::Io(error)),
+        }
+        let first_static_directory = usize::from(directory.is_some() && self.directory.is_some());
+        for configured_directory in self.directories.iter().skip(first_static_directory) {
+            if let Some(file) = lookup_in_directory(
+                path,
+                configured_directory,
+                configured_directory,
+                self.follow_symlink,
+            )? {
+                return Ok(Some(file));
             }
         }
         Ok(None)
@@ -484,6 +461,71 @@ fn invalid_response_flow() -> StaticFilesError {
         io::ErrorKind::InvalidInput,
         "static-file response flow has already completed",
     ))
+}
+
+fn lookup_in_directory(
+    path: &str,
+    joined_directory: &Path,
+    boundary_directory: &Path,
+    follow_symlink: bool,
+) -> Result<Option<StaticFile>, StaticFilesError> {
+    let joined_path = joined_directory.join(path);
+    let (full_path, root_path) = if follow_symlink {
+        (
+            absolute_path(&joined_path)?,
+            absolute_path(boundary_directory)?,
+        )
+    } else {
+        let full_path = match fs::canonicalize(&joined_path) {
+            Ok(path) => path,
+            Err(error) if error.kind() == io::ErrorKind::PermissionDenied => {
+                return Err(StaticFilesError::PermissionDenied);
+            }
+            Err(error) if is_name_too_long(&error) => {
+                return Err(StaticFilesError::Io(error));
+            }
+            Err(error)
+                if error.kind() == io::ErrorKind::NotFound
+                    || error.kind() == io::ErrorKind::NotADirectory
+                    || error.kind() == io::ErrorKind::InvalidInput =>
+            {
+                return Ok(None);
+            }
+            Err(error) => return Err(StaticFilesError::Io(error)),
+        };
+        let root_path = match fs::canonicalize(boundary_directory) {
+            Ok(path) => path,
+            Err(error) if error.kind() == io::ErrorKind::PermissionDenied => {
+                return Err(StaticFilesError::PermissionDenied);
+            }
+            Err(error)
+                if error.kind() == io::ErrorKind::NotFound
+                    || error.kind() == io::ErrorKind::NotADirectory =>
+            {
+                return Ok(None);
+            }
+            Err(error) => return Err(StaticFilesError::Io(error)),
+        };
+        (full_path, root_path)
+    };
+    if !full_path.starts_with(&root_path) {
+        return Ok(None);
+    }
+    match fs::metadata(&full_path) {
+        Ok(metadata) => Ok(Some(static_file(full_path, &metadata)?)),
+        Err(error)
+            if error.kind() == io::ErrorKind::NotFound
+                || error.kind() == io::ErrorKind::NotADirectory =>
+        {
+            Ok(None)
+        }
+        Err(error) if is_name_too_long(&error) => Err(StaticFilesError::Io(error)),
+        Err(error) if error.kind() == io::ErrorKind::InvalidInput => Ok(None),
+        Err(error) if error.kind() == io::ErrorKind::PermissionDenied => {
+            Err(StaticFilesError::PermissionDenied)
+        }
+        Err(error) => Err(StaticFilesError::Io(error)),
+    }
 }
 
 fn static_file(path: PathBuf, metadata: &Metadata) -> Result<StaticFile, StaticFilesError> {

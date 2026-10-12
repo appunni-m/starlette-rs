@@ -399,6 +399,7 @@
       "build/parity/inputs/parity/static-files-config-direct-check.json",
       "build/parity/inputs/parity/static-files-docs-inputs.json",
       "build/parity/inputs/parity/static-files-null-byte-lookup.json",
+      "build/parity/inputs/parity/static-files-stateful-pathlike.json",
       "build/parity/inputs/parity/static-files-os-path.json",
       "build/parity/inputs/parity/wsgi-middleware.json",
       "build/parity/inputs/parity/wsgi-boundary.json",
@@ -414,6 +415,7 @@
       "build/parity/inputs/parity/request-form-multipart.json",
       "build/parity/inputs/parity/formdata-constructor.json",
       "build/parity/inputs/parity/upload-file.json",
+      "build/parity/inputs/parity/upload-file-rolled-write-error.json",
       "build/parity/inputs/parity/websocket-endpoint-dispatch.json",
       "build/parity/inputs/parity/websocket-endpoint-docs-inputs.json",
       "build/parity/inputs/parity/http-endpoint-dispatch.json",
@@ -5810,6 +5812,21 @@
               "id": "starlette.datastructures.UploadFile.threadpool-boundary",
               "dimension": "boundary",
               "description": "Compare read, write, seek, and close scheduling across rolled and in-memory spooled files, including event-loop progress while rolled operations are blocked and OSError propagation from a worker operation. Pinned source: starlette/datastructures.py:428-476; docs/threadpool.md:6-14.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
+              "id": "starlette.datastructures.UploadFile.rolled-write-error-propagation",
+              "dimension": "error_path",
+              "description": "Inject an input-defined OSError from UploadFile.write in both rolled and in-memory SpooledTemporaryFile states and observe propagation plus UploadFile.size after each failed write. Pinned source: starlette/datastructures.py::UploadFile.write; tests/test_datastructures.py::test_uploadfile_rolling; docs/requests.md:142-154.",
               "lanes": [
                 "parity"
               ],
@@ -24515,6 +24532,17 @@
                   "kind": "literal",
                   "value": false
                 }
+              },
+              {
+                "id": "directory_pathlike",
+                "style": "option",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": null
+                }
               }
             ],
             "result": {
@@ -24584,6 +24612,15 @@
                   "value_types": [
                     "number",
                     "null"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                },
+                {
+                  "path": "directory-fspath-call-order.results_relative_to_workspace",
+                  "value_types": [
+                    "sequence"
                   ],
                   "comparison": {
                     "kind": "exact"
@@ -24672,6 +24709,17 @@
               ],
               "target_profiles": [
                 "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.staticfiles.StaticFiles.lookup-path.stateful-pathlike-root-resolution",
+              "dimension": "boundary",
+              "description": "Retain an input-defined stateful os.PathLike directory, use its successive fspath values during constructor validation and direct lookup, and compare the selected candidate against the later root-boundary value. Upstream: starlette/staticfiles.py::StaticFiles.__init__, StaticFiles.check_config, and StaticFiles.lookup_path.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
                 "python-package-cpython312"
               ]
             },

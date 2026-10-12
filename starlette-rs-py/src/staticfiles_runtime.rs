@@ -53,8 +53,15 @@ impl PyStaticFiles {
         check_dir: bool,
         follow_symlink: bool,
     ) -> PyResult<Self> {
-        let (all_directories, native_directory) =
-            resolve_directories(py, directory.as_ref(), packages.as_ref())?;
+        let defer_path_like_directory = directory
+            .as_ref()
+            .is_some_and(|value| !value.bind(py).is_instance_of::<PyString>() && !check_dir);
+        let (all_directories, native_directory) = resolve_directories(
+            py,
+            directory.as_ref(),
+            packages.as_ref(),
+            !defer_path_like_directory,
+        )?;
         let inner = NativeStaticFiles::new(
             native_directory,
             all_directories,
@@ -95,7 +102,7 @@ impl PyStaticFiles {
             .inner
             .directories()
             .iter()
-            .skip(usize::from(self.directory.is_some()))
+            .skip(usize::from(self.inner.directory().is_some()))
         {
             paths.append(path_string(path)?)?;
         }
@@ -123,7 +130,7 @@ impl PyStaticFiles {
         directory: Option<Py<PyAny>>,
         packages: Option<Py<PyAny>>,
     ) -> PyResult<Py<PyAny>> {
-        let (directories, _) = resolve_directories(py, None, packages.as_ref())?;
+        let (directories, _) = resolve_directories(py, None, packages.as_ref(), false)?;
         let paths = PyList::empty(py);
         if let Some(directory) = directory.as_ref() {
             paths.append(directory.bind(py))?;
@@ -150,9 +157,25 @@ impl PyStaticFiles {
     fn lookup_path(&self, py: Python<'_>, path: &str) -> PyResult<(String, Py<PyAny>)> {
         let inner = self.inner.clone();
         let path = path.to_owned();
-        let lookup = py
-            .detach(move || inner.lookup_path(&path))
-            .map_err(static_files_error)?;
+        let dynamic_directory = self
+            .directory
+            .as_ref()
+            .filter(|directory| !directory.bind(py).is_instance_of::<PyString>());
+        let lookup = if path.starts_with('/') || path.starts_with('\\') {
+            py.detach(move || inner.lookup_path(&path))
+        } else if let Some(directory) = dynamic_directory {
+            let joined_directory = path_from_python(py, directory.bind(py))?;
+            let boundary_directory = path_from_python(py, directory.bind(py))?;
+            py.detach(move || {
+                inner.lookup_path_with_directory(
+                    &path,
+                    Some((joined_directory.as_path(), boundary_directory.as_path())),
+                )
+            })
+        } else {
+            py.detach(move || inner.lookup_path(&path))
+        }
+        .map_err(static_files_error)?;
         match lookup {
             Some(file) => Ok((
                 path_string(&file.path)?,
@@ -216,8 +239,17 @@ impl PyStaticFiles {
     #[pyo3(name = "_check_config_sync")]
     fn check_config_sync(&self, py: Python<'_>) -> PyResult<()> {
         let inner = self.inner.clone();
-        py.detach(move || inner.check_config())
-            .map_err(static_files_error)
+        let dynamic_directory = self
+            .directory
+            .as_ref()
+            .filter(|directory| !directory.bind(py).is_instance_of::<PyString>());
+        let check = if let Some(directory) = dynamic_directory {
+            let directory = path_from_python(py, directory.bind(py))?;
+            py.detach(move || NativeStaticFiles::check_config_path(&directory))
+        } else {
+            py.detach(move || inner.check_config())
+        };
+        check.map_err(static_files_error)
     }
 
     fn check_config(slf: Py<Self>, py: Python<'_>) -> PyResult<Py<PyAny>> {
@@ -704,14 +736,9 @@ fn resolve_directories(
     py: Python<'_>,
     directory: Option<&Py<PyAny>>,
     packages: Option<&Py<PyAny>>,
+    include_directory: bool,
 ) -> PyResult<(Vec<PathBuf>, Option<PathBuf>)> {
-    let native_directory = directory
-        .map(|directory| path_from_python(py, directory.bind(py)))
-        .transpose()?;
-    let directories = PyList::empty(py);
-    if let Some(directory) = directory {
-        directories.append(directory.bind(py))?;
-    }
+    let mut package_paths = Vec::new();
     if let Some(packages) = packages {
         for item in packages.bind(py).try_iter()? {
             let item = item?;
@@ -752,13 +779,18 @@ fn resolve_directories(
                     "Directory {statics_repr} in package {package_repr} could not be found."
                 )));
             }
-            directories.append(package_directory)?;
+            package_paths.push(path_from_python(py, &package_directory)?);
         }
     }
-    let mut paths = Vec::new();
-    for directory in directories.iter() {
-        paths.push(path_from_python(py, &directory)?);
-    }
+    let native_directory = if include_directory {
+        directory
+            .map(|directory| path_from_python(py, directory.bind(py)))
+            .transpose()?
+    } else {
+        None
+    };
+    let mut paths = native_directory.iter().cloned().collect::<Vec<_>>();
+    paths.extend(package_paths);
     Ok((paths, native_directory))
 }
 
