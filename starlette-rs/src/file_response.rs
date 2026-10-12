@@ -1135,19 +1135,28 @@ fn parse_range_header(
             let Some(suffix) = parse_decimal(end_text) else {
                 continue;
             };
-            file_size.saturating_sub(suffix)
+            if suffix.negative {
+                file_size.saturating_add(suffix.value)
+            } else {
+                file_size.saturating_sub(suffix.value)
+            }
         } else {
             let Some(start) = parse_decimal(start_text) else {
                 continue;
             };
-            start
+            if start.negative {
+                return Err(RangeParseError::NotSatisfiable);
+            }
+            start.value
         };
         let end = if !start_text.is_empty() && !end_text.is_empty() {
             let Some(raw_end) = parse_decimal(end_text) else {
                 continue;
             };
-            if raw_end < file_size {
-                raw_end.saturating_add(1)
+            if raw_end.negative {
+                0
+            } else if raw_end.value < file_size {
+                raw_end.value.saturating_add(1)
             } else {
                 file_size
             }
@@ -1188,8 +1197,20 @@ fn parse_range_header(
     Ok(merged)
 }
 
-fn parse_decimal(value: &str) -> Option<u64> {
-    let digits = value.strip_prefix('+').unwrap_or(value);
+#[derive(Clone, Copy)]
+struct ParsedDecimal {
+    value: u64,
+    negative: bool,
+}
+
+fn parse_decimal(value: &str) -> Option<ParsedDecimal> {
+    let (negative, digits) = if let Some(digits) = value.strip_prefix('+') {
+        (false, digits)
+    } else if let Some(digits) = value.strip_prefix('-') {
+        (true, digits)
+    } else {
+        (false, value)
+    };
     let bytes = digits.as_bytes();
     if bytes.is_empty()
         || bytes.iter().enumerate().any(|(index, byte)| {
@@ -1205,17 +1226,19 @@ fn parse_decimal(value: &str) -> Option<u64> {
     {
         return None;
     }
-    Some(
-        bytes
-            .iter()
-            .copied()
-            .filter(|byte| *byte != b'_')
-            .fold(0_u64, |number, byte| {
-                number
-                    .saturating_mul(10)
-                    .saturating_add(u64::from(byte - b'0'))
-            }),
-    )
+    let value = bytes
+        .iter()
+        .copied()
+        .filter(|byte| *byte != b'_')
+        .fold(0_u64, |number, byte| {
+            number
+                .saturating_mul(10)
+                .saturating_add(u64::from(byte - b'0'))
+        });
+    Some(ParsedDecimal {
+        value,
+        negative: negative && value != 0,
+    })
 }
 
 fn normalize_headers(headers: &[(String, String)]) -> Result<RawHeaders, FileResponseError> {

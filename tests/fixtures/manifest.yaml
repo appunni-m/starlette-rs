@@ -347,6 +347,7 @@
       "build/parity/inputs/parity/router-slash-redirect.json",
       "build/parity/inputs/parity/router-cache-invalidation.json",
       "build/parity/inputs/parity/router-mounted-child-live-add.json",
+      "build/parity/inputs/parity/router-method-mutation-head.json",
       "build/parity/inputs/parity/router-class-based-endpoints.json",
       "build/parity/inputs/parity/route-middleware-dispatch.json",
       "build/parity/inputs/parity/route-local-middleware-semantics.json",
@@ -386,6 +387,7 @@
       "build/parity/inputs/parity/file-response.json",
       "build/parity/inputs/parity/file-response-range-decimal-inputs.json",
       "build/parity/inputs/parity/file-response-if-range-last-modified.json",
+      "build/parity/inputs/parity/file-response-signed-zero-range.json",
       "build/parity/inputs/parity/lifespan-generators.json",
       "build/parity/inputs/parity/lifespan-native-failure-transitions.json",
       "build/parity/inputs/parity/authentication-runtime.json",
@@ -414,6 +416,7 @@
       "build/parity/inputs/parity/templating-docs-inputs.json",
       "build/parity/inputs/parity/request-form-urlencoded.json",
       "build/parity/inputs/parity/request-form-multipart.json",
+      "build/parity/inputs/parity/request-form-multipart-iso-8859-1.json",
       "build/parity/inputs/parity/formdata-constructor.json",
       "build/parity/inputs/parity/upload-file.json",
       "build/parity/inputs/parity/upload-file-rolled-write-error.json",
@@ -16842,6 +16845,18 @@
               "id": "starlette.responses.FileResponse.asgi-call.unsatisfiable-range-416",
               "dimension": "error_path",
               "description": "Request a byte range beyond the deterministic file size and observe the 416 Content-Range response. Upstream: starlette/responses.py::RangeNotSatisfiable; tests/test_responses.py::test_file_response_range_416.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.FileResponse.asgi-call.signed-zero-range-end",
+              "dimension": "boundary",
+              "description": "Parse `bytes=0--0` with Python integer semantics so the negative-zero end selects byte zero in the emitted 206 response. Pinned source: starlette/responses.py:501-530; tests/test_responses.py::test_file_response_range.",
               "lanes": [
                 "parity"
               ],

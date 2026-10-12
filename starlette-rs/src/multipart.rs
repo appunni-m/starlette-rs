@@ -440,6 +440,12 @@ fn request_charset(content_type: &str) -> String {
 }
 
 fn user_safe_decode(bytes: &[u8], charset: &str) -> String {
+    // Python's ISO-8859-1 codec maps every byte directly, while encoding_rs
+    // follows the web encoding registry and aliases this label to Windows-1252.
+    if is_iso_8859_1_charset(charset) {
+        return bytes.iter().map(|byte| char::from(*byte)).collect();
+    }
+
     if let Some(encoding) = Encoding::for_label(charset.as_bytes()) {
         let (decoded, had_errors) = encoding.decode_without_bom_handling(bytes);
         if !had_errors {
@@ -447,4 +453,26 @@ fn user_safe_decode(bytes: &[u8], charset: &str) -> String {
         }
     }
     bytes.iter().map(|byte| char::from(*byte)).collect()
+}
+
+fn is_iso_8859_1_charset(charset: &str) -> bool {
+    let normalized = charset
+        .bytes()
+        .filter(u8::is_ascii_alphanumeric)
+        .map(|byte| byte.to_ascii_lowercase() as char)
+        .collect::<String>();
+    matches!(
+        normalized.as_str(),
+        "8859"
+            | "cp819"
+            | "csisolatin1"
+            | "ibm819"
+            | "iso8859"
+            | "iso88591"
+            | "iso885911987"
+            | "isoir100"
+            | "l1"
+            | "latin"
+            | "latin1"
+    )
 }

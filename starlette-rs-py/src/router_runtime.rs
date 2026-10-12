@@ -345,9 +345,16 @@ impl RouteTypes {
             "path"
         };
         let path_value = route.getattr(path_attribute)?;
-        let custom = route
+        let mut custom = route
             .getattr("_uses_custom_convertors")?
             .extract::<bool>()?;
+        if matches!(kind, RouteKind::Http) && !custom {
+            let methods = route.getattr("methods")?;
+            if !methods.is_none() && methods.contains("GET")? && !methods.contains("HEAD")? {
+                // Route.__init__ infers HEAD from GET once; later method mutations are exact.
+                custom = true;
+            }
+        }
         let identity = route.as_ptr() as usize;
         let cached =
             cached.filter(|signature| signature.identity == identity && signature.kind == kind);
