@@ -2585,7 +2585,7 @@
             {
               "id": "starlette.request.path-param-int-digit-limit",
               "dimension": "error_path",
-              "description": "A 5001-digit path parameter matches the int regex but exceeds CPython’s configured integer-string conversion limit when Starlette converts Request.path_params. Observe the live exception boundary in the source and installed Python package. Upstream: starlette/convertors.py::IntegerConvertor.convert and starlette/routing.py::Route.matches.",
+              "description": "A 5001-digit path parameter matches the int regex but exceeds CPython\u2019s configured integer-string conversion limit when Starlette converts Request.path_params. Observe the live exception boundary in the source and installed Python package. Upstream: starlette/convertors.py::IntegerConvertor.convert and starlette/routing.py::Route.matches.",
               "lanes": [
                 "parity"
               ],
@@ -2596,7 +2596,7 @@
             {
               "id": "starlette.request.receive-worker-access",
               "dimension": "boundary",
-              "description": "Read Request.receive from a synchronous routed endpoint running in AnyIO’s worker thread and observe that the callback is callable without invoking it. Upstream: starlette/requests.py:231-232; starlette/routing.py::request_response; tests/test_requests.py.",
+              "description": "Read Request.receive from a synchronous routed endpoint running in AnyIO\u2019s worker thread and observe that the callback is callable without invoking it. Upstream: starlette/requests.py:231-232; starlette/routing.py::request_response; tests/test_requests.py.",
               "lanes": [
                 "parity"
               ],
@@ -2607,7 +2607,7 @@
             {
               "id": "starlette.request.stream-construction-worker",
               "dimension": "boundary",
-              "description": "Construct Request.stream() in a synchronous routed endpoint running in AnyIO’s worker thread and observe its live async-iterator methods without consuming the receive callback. Upstream: starlette/requests.py:234-252; starlette/routing.py::request_response; tests/test_requests.py::test_request_stream.",
+              "description": "Construct Request.stream() in a synchronous routed endpoint running in AnyIO\u2019s worker thread and observe its live async-iterator methods without consuming the receive callback. Upstream: starlette/requests.py:234-252; starlette/routing.py::request_response; tests/test_requests.py::test_request_stream.",
               "lanes": [
                 "parity"
               ],
@@ -2618,7 +2618,7 @@
             {
               "id": "starlette.request.body-awaitable-construction-worker",
               "dimension": "boundary",
-              "description": "Construct Request.body() in a synchronous routed endpoint running in AnyIO’s worker thread and observe the returned awaitable; close it before execution so the ASGI receive callback is not consumed. Upstream: starlette/requests.py:254-260; starlette/routing.py::request_response; tests/test_requests.py::test_request_body.",
+              "description": "Construct Request.body() in a synchronous routed endpoint running in AnyIO\u2019s worker thread and observe the returned awaitable; close it before execution so the ASGI receive callback is not consumed. Upstream: starlette/requests.py:254-260; starlette/routing.py::request_response; tests/test_requests.py::test_request_body.",
               "lanes": [
                 "parity"
               ],
@@ -2629,7 +2629,7 @@
             {
               "id": "starlette.request.json-awaitable-construction-worker",
               "dimension": "boundary",
-              "description": "Construct Request.json() in a synchronous routed endpoint running in AnyIO’s worker thread and observe the returned awaitable; close it before execution so the ASGI receive callback is not consumed. Upstream: starlette/requests.py:262-266; starlette/routing.py::request_response; tests/test_requests.py::test_request_json.",
+              "description": "Construct Request.json() in a synchronous routed endpoint running in AnyIO\u2019s worker thread and observe the returned awaitable; close it before execution so the ASGI receive callback is not consumed. Upstream: starlette/requests.py:262-266; starlette/routing.py::request_response; tests/test_requests.py::test_request_json.",
               "lanes": [
                 "parity"
               ],
@@ -15075,7 +15075,7 @@
             {
               "id": "starlette.request.is-disconnected.cache-observed-disconnect",
               "dimension": "boundary",
-              "description": "Once http.disconnect is observed, repeated checks return the cached state without another Receive call. Upstream: starlette/requests.py::Request.is_disconnected.",
+              "description": "Once http.disconnect is observed by Request.is_disconnected(), Request.body(), or Request.stream(), later Request.is_disconnected() calls return the cached state without another Receive call. Upstream: starlette/requests.py::Request.stream and Request.is_disconnected.",
               "lanes": [
                 "parity"
               ],
@@ -15457,7 +15457,7 @@
           "source": {
             "oracle_id": "starlette-python",
             "path": "starlette.requests.Request.body, Request.stream, and Request.json",
-            "signature": "Drive body(), stream().__anext__(), form(), and json() actions on one Request instance with an input-defined ASGI receive tape.",
+            "signature": "Drive body(), stream().__anext__(), form(), json(), and is_disconnected() actions on one Request instance with an input-defined ASGI receive tape.",
             "parameters": [
               {
                 "id": "scope",
@@ -15527,8 +15527,8 @@
             },
             {
               "target_id": "python-package",
-              "path": "starlette.requests.Request.body, Request.stream, Request.form, and Request.json",
-              "signature": "The installed starlette-rs-py Request facade forwards body, stream, form, and JSON state to Rust.",
+              "path": "starlette.requests.Request.body, Request.stream, Request.form, Request.json, and Request.is_disconnected",
+              "signature": "The installed starlette-rs-py Request facade forwards body, stream, form, JSON, and disconnect state to Rust.",
               "support": {
                 "status": "supported"
               }
@@ -17159,7 +17159,7 @@
             {
               "id": "starlette.responses.FileResponse.asgi-call.range-inverted-single-byte",
               "dimension": "error_path",
-              "description": "Submit `bytes=5-4` and compare Starlette’s malformed-range response. Upstream: starlette/responses.py::FileResponse._parse_range_header; tests/test_responses.py::test_file_response_inverted_single_byte_range.",
+              "description": "Submit `bytes=5-4` and compare Starlette\u2019s malformed-range response. Upstream: starlette/responses.py::FileResponse._parse_range_header; tests/test_responses.py::test_file_response_inverted_single_byte_range.",
               "lanes": [
                 "parity"
               ],
@@ -17171,7 +17171,7 @@
             {
               "id": "starlette.responses.FileResponse.asgi-call.range-start-after-end",
               "dimension": "error_path",
-              "description": "Submit `bytes=100-0` and compare Starlette’s malformed-range response. Upstream: starlette/responses.py::FileResponse._parse_range_header; tests/test_responses.py::test_file_response_start_must_be_less_than_end.",
+              "description": "Submit `bytes=100-0` and compare Starlette\u2019s malformed-range response. Upstream: starlette/responses.py::FileResponse._parse_range_header; tests/test_responses.py::test_file_response_start_must_be_less_than_end.",
               "lanes": [
                 "parity"
               ],
@@ -17267,7 +17267,7 @@
             {
               "id": "starlette.responses.FileResponse.asgi-call.range-count-limit-exceeded",
               "dimension": "parameter_combination",
-              "description": "Submit 101 valid ranges and compare Starlette’s full-file fallback. Upstream: starlette/responses.py::FileResponse._parse_range_header; tests/test_responses.py::test_file_response_range_count_limit_exceeded.",
+              "description": "Submit 101 valid ranges and compare Starlette\u2019s full-file fallback. Upstream: starlette/responses.py::FileResponse._parse_range_header; tests/test_responses.py::test_file_response_range_count_limit_exceeded.",
               "lanes": [
                 "parity"
               ],
@@ -17279,7 +17279,7 @@
             {
               "id": "starlette.responses.FileResponse.asgi-call.range-max-ranges-override",
               "dimension": "parameter_combination",
-              "description": "Change the response instance’s `max_ranges` before ASGI dispatch and compare the configured fallback behavior. Upstream: starlette/responses.py::FileResponse.max_ranges and FileResponse._parse_range_header.",
+              "description": "Change the response instance\u2019s `max_ranges` before ASGI dispatch and compare the configured fallback behavior. Upstream: starlette/responses.py::FileResponse.max_ranges and FileResponse._parse_range_header.",
               "lanes": [
                 "parity"
               ],
@@ -19310,6 +19310,17 @@
               "id": "starlette.responses.Response.consumer-construction.live-asgi-state-and-lifetime",
               "dimension": "boundary",
               "description": "Compare raw header and body aliasing, mutations during send callbacks, late background selection, original callback errors, and user callback/header ownership graphs with suspended coroutine finalization on caller/worker collection. Only public response attributes and the coroutine returned by __call__ are consumed. Pinned source: starlette/responses.py:29-200; docs/responses.md:10-118; AGENTS.md ASGI callbacks and lifetime boundary. Every stimulus is input-derived.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.Response.consumer-construction.sync-background-contextvar-worker-propagation",
+              "dimension": "boundary",
+              "description": "Attach an input-defined synchronous BackgroundTask to Response with an input-named ContextVar and value set by the caller. Compare the response ASGI tape, callback order, callback thread role relative to the event loop, and the value read in the worker. Pinned source: starlette/background.py:12-23; starlette/concurrency.py:32-34; starlette/responses.py:163-170; docs/threadpool.md:8-14. The asyncio target uses locked AnyIO 4.15.1, whose backend copies the current context before queuing worker execution at anyio/_backends/_asyncio.py:2698-2705.",
               "lanes": [
                 "parity"
               ],
@@ -22628,7 +22639,7 @@
             {
               "id": "starlette.routing.Router.route-dispatch.http-endpoint-sync-handler",
               "dimension": "boundary",
-              "description": "HTTPEndpoint dispatches a synchronous HTTP verb handler through Starlette’s worker-thread boundary.",
+              "description": "HTTPEndpoint dispatches a synchronous HTTP verb handler through Starlette\u2019s worker-thread boundary.",
               "lanes": [
                 "parity"
               ],
@@ -24153,7 +24164,7 @@
             {
               "id": "starlette.schemas.SchemaGenerator.module-import-policy.dependency-errors-and-selection",
               "dimension": "error_path",
-              "description": "With PyYAML absent, a schema route with no endpoint docstring returns the base schema while a truthy docstring preserves Starlette’s assertion. Pinned source: starlette/schemas.py:11-17, 96-120, 128-148.",
+              "description": "With PyYAML absent, a schema route with no endpoint docstring returns the base schema while a truthy docstring preserves Starlette\u2019s assertion. Pinned source: starlette/schemas.py:11-17, 96-120, 128-148.",
               "lanes": [
                 "parity"
               ],
@@ -26548,7 +26559,7 @@
           "source": {
             "oracle_id": "starlette-python",
             "path": "starlette.websockets.WebSocket",
-            "signature": "Parity workflow: call public WebSocket methods from the supplied action sequence, exercise raw and typed receive/send framing, accepted headers, iterator async-for and async-generator controls, and denial-response dispatch with fixed, streaming, or file-backed response inputs; compare returned values/errors, the ASGI callback tape, and final protocol states.",
+            "signature": "Parity workflow: call public WebSocket methods from the supplied action sequence, exercise raw and typed receive/send framing, accepted headers, iterator async-for and async-generator controls, denial-response dispatch with fixed, streaming, or file-backed response inputs, and optional input-defined client_state assignments inside awaited receive callbacks; compare returned values/errors, the ASGI callback tape, and final protocol states.",
             "parameters": [
               {
                 "id": "scope",
@@ -26600,6 +26611,17 @@
                 "omission": {
                   "kind": "literal",
                   "value": "caller"
+                }
+              },
+              {
+                "id": "receive_callback_actions",
+                "style": "option",
+                "value_types": [
+                  "sequence"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": []
                 }
               }
             ],
@@ -26722,6 +26744,17 @@
               "id": "starlette.websocket.api.receive.raw",
               "dimension": "boundary",
               "description": "Call WebSocket.receive with an input-supplied ASGI message and compare its returned message and protocol state. Upstream: starlette/websockets.py:47-61; tests/test_websockets.py::test_send_denial_response_with_streaming_response and test_send_denial_response_with_file_response.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.websocket.state.receive-callback-state-overwrite",
+              "dimension": "protocol_variant",
+              "description": "Assign the public WebSocket.client_state from inside the awaited ASGI receive callback while a valid websocket.connect or websocket.disconnect transition is pending, then compare the final state selected by WebSocket.receive. The callback may assign a different enum state, but the pending connect/disconnect transition overwrites it after the callback returns. Pinned source: starlette/websockets.py:39-55 at the pinned Starlette commit.",
               "lanes": [
                 "parity"
               ],
@@ -27928,6 +27961,17 @@
               "id": "starlette.testclient.TestClient.request-response.exception-policy",
               "dimension": "error_path",
               "description": "Propagate application exceptions by default, return a 500 response when raise_server_exceptions is false before response start, and return an already completed response when the app raises afterward. Pinned source: starlette/testclient.py:348-367; docs/testclient.md:74-77; tests/middleware/test_errors.py:25-48.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.request-response.normal-return-without-response",
+              "dimension": "error_path",
+              "description": "When a raw ASGI app returns normally without sending any event, raise AssertionError('TestClient did not receive any response.') with raise_server_exceptions=true and return an empty 500 response with it false. Pinned source: starlette/testclient.py:352-367; docs/testclient.md:74-77.",
               "lanes": [
                 "parity"
               ],

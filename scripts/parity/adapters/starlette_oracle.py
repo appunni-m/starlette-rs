@@ -7260,21 +7260,30 @@ def _run_websocket_convenience_case(case: dict[str, Any]) -> dict[str, Any]:
     import builtins
 
     from starlette.responses import FileResponse, Response, StreamingResponse
-    from starlette.websockets import WebSocket, WebSocketDisconnect
+    from starlette.websockets import WebSocket, WebSocketDisconnect, WebSocketState
 
     incoming = [_materialize_websocket_message(message) for message in case["incoming"]]
+    receive_callback_actions = {
+        action["receive_index"]: action["assign_client_state"]
+        for action in case.get("receive_callback_actions", [])
+    }
     incoming_index = 0
     callback_tape: list[dict[str, Any]] = []
     pending_send_error: dict[str, Any] | None = None
     file_response_directory: tempfile.TemporaryDirectory[str] | None = None
     iterator_control_cache: dict[str, Any] = {}
+    websocket: Any = None
 
     async def receive() -> dict[str, Any]:
         nonlocal incoming_index
         if incoming_index >= len(incoming):
             raise ValueError("WebSocket receive action exhausted its input-only message sequence")
+        receive_index = incoming_index
         message = incoming[incoming_index]
         incoming_index += 1
+        if receive_index in receive_callback_actions:
+            await asyncio.sleep(0)
+            websocket.client_state = WebSocketState[receive_callback_actions[receive_index]]
         callback_tape.append(
             {"direction": "receive", "message": _canonical_websocket_message(message)}
         )

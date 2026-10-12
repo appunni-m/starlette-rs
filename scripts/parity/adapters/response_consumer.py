@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import contextvars
 import json
 import math
 import os
 import tempfile
+import threading
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import ExitStack
 from pathlib import Path
@@ -67,6 +69,14 @@ def _run_response_consumer_case(case: dict[str, Any], resources: ExitStack) -> d
     events: list[Any] = []
     retained_messages: list[Any] = []
     callbacks = case.get("callbacks", {})
+    background_task_spec = case.get("background_task")
+    background_contextvar = None
+    background_contextvar_token = None
+    event_loop_thread_id = None
+    if background_task_spec is not None:
+        contextvar_spec = background_task_spec["contextvar"]
+        background_contextvar = contextvars.ContextVar(contextvar_spec["name"])
+        background_contextvar_token = background_contextvar.set(contextvar_spec["value"])
     callback_errors: list[BaseException] = []
     backgrounds: dict[str, Any] = {}
     render = spec["render"]
@@ -136,6 +146,18 @@ def _run_response_consumer_case(case: dict[str, Any], resources: ExitStack) -> d
     async def background() -> None:
         trace.append({"event": "background", "label": case["background_label"]})
 
+    def read_background_contextvar() -> None:
+        trace.append(
+            {
+                "event": "background",
+                "label": case["background_label"],
+                "thread_role": (
+                    "event-loop" if threading.get_ident() == event_loop_thread_id else "worker"
+                ),
+                "contextvar_value": _observe(background_contextvar.get()),
+            }
+        )
+
     if case["background_label"] is not None:
         kwargs["background"] = background
 
@@ -202,7 +224,11 @@ def _run_response_consumer_case(case: dict[str, Any], resources: ExitStack) -> d
 
         def construct() -> Any:
             selected_kwargs = dict(kwargs)
-            if case.get("background_kind") == "task":
+            if background_task_spec is not None:
+                from starlette.background import BackgroundTask
+
+                selected_kwargs["background"] = BackgroundTask(read_background_contextvar)
+            elif case.get("background_kind") == "task":
                 from starlette.background import BackgroundTask
 
                 selected_kwargs["background"] = BackgroundTask(background)
@@ -260,6 +286,18 @@ def _run_response_consumer_case(case: dict[str, Any], resources: ExitStack) -> d
         async def send(message: dict[str, Any]) -> None:
             retained_messages.append(message)
             events.append(_observe(message))
+            if background_task_spec is not None:
+                trace.append(
+                    {
+                        "event": "asgi-send",
+                        "message_type": message["type"],
+                        "thread_role": (
+                            "event-loop"
+                            if threading.get_ident() == event_loop_thread_id
+                            else "worker"
+                        ),
+                    }
+                )
             if callbacks.get("inspect_aliases"):
                 trace.append(
                     {
@@ -307,6 +345,7 @@ def _run_response_consumer_case(case: dict[str, Any], resources: ExitStack) -> d
         scope["headers"] = [
             tuple(base64.b64decode(item) for item in pair) for pair in scope.get("headers", [])
         ]
+        event_loop_thread_id = threading.get_ident()
         asyncio.run(response(scope, receive, send))
         outcome["completed"] = True
     except BaseException as error:
@@ -332,6 +371,9 @@ def _run_response_consumer_case(case: dict[str, Any], resources: ExitStack) -> d
             outcome["error"]["attribute_name"] = error.name
             owner = locals().get("response")
             outcome["error"]["attribute_owner"] = owner is not None and error.obj is owner
+    finally:
+        if background_contextvar is not None and background_contextvar_token is not None:
+            background_contextvar.reset(background_contextvar_token)
     attribute_probe["enabled"] = False
     if callbacks and outcome["constructed"]:
         outcome["retained_messages"] = _observe(retained_messages)

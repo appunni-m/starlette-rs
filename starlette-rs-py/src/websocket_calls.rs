@@ -393,19 +393,17 @@ impl WebSocketReceiveMachine {
         let message_type = message_type.extract::<String>()?;
 
         // Validate against the state that selected the receive branch before
-        // awaiting the callback. This also preserves overlapping receive calls:
-        // a concurrent receive may already have advanced the shared state.
+        // awaiting the callback. Starlette assigns client_state after the
+        // callback returns for connect and disconnect messages, so that
+        // selected branch must overwrite a state assignment made while the
+        // callback was pending.
         state_at_start
             .receive(&message_type)
             .map_err(|error| PyRuntimeError::new_err(error.to_string()))?;
 
-        let mut shared = protocol_state(&self.state)?;
-        if shared.client_state() == client_state_at_start
-            && state_at_start.client_state() != client_state_at_start
-        {
-            shared
-                .receive(&message_type)
-                .map_err(|error| PyRuntimeError::new_err(error.to_string()))?;
+        let client_state_after_receive = state_at_start.client_state();
+        if client_state_after_receive != client_state_at_start {
+            protocol_state(&self.state)?.set_client_state(client_state_after_receive);
         }
         Ok(())
     }

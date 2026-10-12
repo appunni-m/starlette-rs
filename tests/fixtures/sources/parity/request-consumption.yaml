@@ -721,6 +721,81 @@
       "observations": [
         "request-consumption"
       ]
+    },
+    {
+      "case_id": "starlette.requests.Request.body-stream-json.body-disconnect-is-disconnected-cached",
+      "surface": "starlette.requests.Request",
+      "operation": "body-stream-json",
+      "covers": [
+        "starlette.request.stream-client-disconnect",
+        "starlette.request.is-disconnected.cache-observed-disconnect"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "http"
+      },
+      "receive": [
+        {
+          "type": "http.disconnect"
+        }
+      ],
+      "blocked_receive_calls": [],
+      "actions": [
+        {
+          "operation": "body"
+        },
+        {
+          "operation": "is-disconnected"
+        }
+      ],
+      "observations": [
+        "request-consumption"
+      ]
+    },
+    {
+      "case_id": "starlette.requests.Request.body-stream-json.stream-disconnect-is-disconnected-cached",
+      "surface": "starlette.requests.Request",
+      "operation": "body-stream-json",
+      "covers": [
+        "starlette.request.stream-client-disconnect",
+        "starlette.request.is-disconnected.cache-observed-disconnect"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "http"
+      },
+      "receive": [
+        {
+          "type": "http.disconnect"
+        }
+      ],
+      "blocked_receive_calls": [],
+      "actions": [
+        {
+          "operation": "stream-next",
+          "stream_id": "observed-disconnect"
+        },
+        {
+          "operation": "is-disconnected"
+        }
+      ],
+      "observations": [
+        "request-consumption"
+      ]
     }
   ]
 }

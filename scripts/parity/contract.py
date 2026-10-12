@@ -241,6 +241,7 @@ TESTCLIENT_REQUIREMENTS = {
     "asgi3_asyncio_marker": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.asyncio-marked-asgi3-callable",
     "timeout_warning": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.timeout-deprecation-warning",
     "exception_policy": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.exception-policy",
+    "no_response_return": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.normal-return-without-response",
     "incomplete_response_exception": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.exception-after-incomplete-response",
     "incomplete_response_return": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.incomplete-response-without-exception",
     "exception_identity_chain": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.exception-identity-and-chaining",
@@ -1181,6 +1182,7 @@ RESPONSE_BACKGROUND_REQUIREMENTS = {
     "task_list_live_mutation": "starlette.responses.Response.asgi-call.background-task-live-list-mutation",
     "sync_noncallable_error": "starlette.responses.Response.asgi-call.background-sync-noncallable-error",
 }
+RESPONSE_BACKGROUND_CONTEXTVAR_REQUIREMENT = "starlette.responses.Response.consumer-construction.sync-background-contextvar-worker-propagation"
 FILE_RESPONSE_PATHSEND_REQUIREMENT = f"{FILE_RESPONSE_SURFACE}.{RESPONSE_OPERATION}.pathsend"
 FILE_RESPONSE_ASYNC_FILE_OPEN_SCHEDULING_REQUIREMENT = (
     f"{FILE_RESPONSE_SURFACE}.{RESPONSE_OPERATION}.async-file-open-scheduling"
@@ -1448,6 +1450,7 @@ REQUEST_CONSUMPTION_REQUIREMENTS = {
     "optional_receive_fields": "starlette.request.receive-optional-body-fields",
     "body_stream_overlap": "starlette.request.concurrent-body-stream-consumption",
     "stream_client_disconnect": "starlette.request.stream-client-disconnect",
+    "cached_disconnect_followup": "starlette.request.is-disconnected.cache-observed-disconnect",
     "body_disconnect_retry": "starlette.request.body-disconnect-retry",
     "body_receive_error": "starlette.request.body.receive-error-propagation",
     "body_receive_error_retry": "starlette.request.body.retry-after-receive-error",
@@ -3900,8 +3903,36 @@ def _validate_websocket_convenience_case_stimulus(case: dict[str, Any]) -> None:
         _validate_websocket_message(message, f"WebSocket incoming[{index}]", incoming=True)
         for index, message in enumerate(incoming)
     ]
+    callback_actions: dict[int, str] = {}
+    callback_actions_input = case.get("receive_callback_actions", [])
+    if not isinstance(callback_actions_input, list):
+        raise ContractError("WebSocket receive_callback_actions must be an array")
+    for index, callback_action in enumerate(callback_actions_input):
+        context = f"WebSocket receive_callback_actions[{index}]"
+        callback_action = _exact(
+            callback_action,
+            {"receive_index", "assign_client_state"},
+            context,
+        )
+        receive_index = callback_action["receive_index"]
+        if type(receive_index) is not int or not 0 <= receive_index < len(incoming_types):
+            raise ContractError(f"{context}.receive_index must select a supplied incoming message")
+        if receive_index in callback_actions:
+            raise ContractError(f"{context}.receive_index must be unique")
+        client_state_assignment = _string(
+            callback_action["assign_client_state"], f"{context}.assign_client_state"
+        )
+        if client_state_assignment not in {
+            "CONNECTING",
+            "CONNECTED",
+            "DISCONNECTED",
+            "RESPONSE",
+        }:
+            raise ContractError(f"{context}.assign_client_state must be a WebSocketState name")
+        callback_actions[receive_index] = client_state_assignment
     action_ids: set[str] = set()
     incoming_index = 0
+    consumed_callback_actions: set[int] = set()
     preaccept_receive_count = 0
     client_state = "CONNECTING"
     application_state = "CONNECTING"
@@ -3934,20 +3965,31 @@ def _validate_websocket_convenience_case_stimulus(case: dict[str, Any]) -> None:
             raise ContractError(f"{context} cannot receive after websocket.disconnect")
         if incoming_index >= len(incoming_types):
             raise ContractError(f"{context} has no supplied incoming message")
+        receive_index = incoming_index
+        client_state_at_start = client_state
         message = incoming[incoming_index]
         message_type = incoming_types[incoming_index]
         incoming_index += 1
-        if client_state == "CONNECTING":
+        callback_state_assignment = callback_actions.get(receive_index)
+        if callback_state_assignment is not None:
+            consumed_callback_actions.add(receive_index)
+        if client_state_at_start == "CONNECTING":
             if message_type != "websocket.connect":
                 raise ContractError(f"{context} must first receive websocket.connect")
             client_state = "CONNECTED"
+            if callback_state_assignment is not None and callback_state_assignment != client_state:
+                exercised.add("starlette.websocket.state.receive-callback-state-overwrite")
             return message_type
         if message_type == "websocket.disconnect":
             client_state = "DISCONNECTED"
             exercised.add("starlette.websocket.api.disconnect.details")
+            if callback_state_assignment is not None and callback_state_assignment != client_state:
+                exercised.add("starlette.websocket.state.receive-callback-state-overwrite")
             return message_type
         if message_type != "websocket.receive":
             raise ContractError(f"{context} requires websocket.receive or websocket.disconnect")
+        if callback_state_assignment is not None:
+            client_state = callback_state_assignment
         if expected_payload is not None and expected_payload not in message:
             raise ContractError(f"{context} requires incoming payload field {expected_payload!r}")
         return message_type
@@ -4293,6 +4335,10 @@ def _validate_websocket_convenience_case_stimulus(case: dict[str, Any]) -> None:
     ):
         raise ContractError(
             "WebSocket convenience sequence must consume every supplied incoming message exactly once"
+        )
+    if consumed_callback_actions != set(callback_actions):
+        raise ContractError(
+            "WebSocket receive_callback_actions must select callbacks invoked by the action sequence"
         )
     if case["observations"] != [WEBSOCKET_CONVENIENCE_OPERATION]:
         raise ContractError(
@@ -13934,13 +13980,9 @@ def _validate_testclient_case(
             raise ContractError(
                 "TestClient generator requests must remain unread or be consumed through their terminal event"
             )
-        if (
-            not isinstance(messages, list)
-            or (messages and len(messages) < 2)
-            or (not messages and exception_spec is None)
-        ):
+        if not isinstance(messages, list) or (messages and len(messages) < 2):
             raise ContractError(
-                "TestClient ASGI app must send a complete response, or raise before sending one"
+                "TestClient ASGI messages must be empty or contain a complete response"
             )
         if messages and (
             not isinstance(messages[0], dict)
@@ -14121,6 +14163,7 @@ def _validate_testclient_case(
         expected_covers.add(TESTCLIENT_REQUIREMENTS["response"])
     if is_starlette_app_host_method and "path_params_probe" in asgi_app:
         expected_covers.add(TESTCLIENT_REQUEST_REQUIREMENTS["path_params"])
+    incomplete_response = False
     if exception_spec is not None:
         exception_keys = {"class", "message"}
         if isinstance(exception_spec, dict) and "chain" in exception_spec:
@@ -14177,10 +14220,17 @@ def _validate_testclient_case(
             and messages[-1].get("type") == "http.response.body"
             and messages[-1].get("more_body") is True
         )
-        if incomplete_response:
-            expected_covers.add(TESTCLIENT_REQUIREMENTS["incomplete_response_exception"])
-    elif (
-        messages
+    if incomplete_response:
+        expected_covers.add(TESTCLIENT_REQUIREMENTS["incomplete_response_exception"])
+    if (
+        asgi_app["kind"] in {"asgi2", "asgi3", "asgi3-asyncio-marked"}
+        and not messages
+        and "exception" not in asgi_app
+    ):
+        expected_covers.add(TESTCLIENT_REQUIREMENTS["no_response_return"])
+    if (
+        "exception" not in asgi_app
+        and messages
         and isinstance(messages[-1], dict)
         and messages[-1].get("type") == "http.response.body"
         and messages[-1].get("more_body") is True
@@ -18140,6 +18190,7 @@ def _validate_case_payload(
                 "cookie_protocol",
                 "constructor_thread",
                 "background_kind",
+                "background_task",
                 "protocols",
             }
             & case.keys()
@@ -18160,7 +18211,7 @@ def _validate_case_payload(
         expected_case_keys |= {"hooks", "processor_specs"} & case.keys()
     if (case["surface"], case["operation"]) == (WEBSOCKET_SURFACE, WEBSOCKET_CONVENIENCE_OPERATION):
         expected_case_keys = expected_case_keys | (
-            {"constructor_thread", "iterator_thread"} & case.keys()
+            {"constructor_thread", "iterator_thread", "receive_callback_actions"} & case.keys()
         )
     if is_streaming_response:
         expected_case_keys = expected_case_keys | {
@@ -23767,6 +23818,8 @@ def _validate_request_body_stream_json_case(case: dict[str, Any]) -> None:
         action_operations.append(operation)
         if operation in {"body", "form", "json"}:
             _exact(action, {"operation"}, context)
+        elif operation == "is-disconnected":
+            _exact(action, {"operation"}, context)
         elif operation == "stream-next":
             _exact(action, {"operation", "stream_id"}, context)
             stream_ids.append(_string(action["stream_id"], f"{context}.stream_id"))
@@ -23796,6 +23849,15 @@ def _validate_request_body_stream_json_case(case: dict[str, Any]) -> None:
         raise ContractError("every started body task must be awaited exactly once")
     if released_calls != set(blocked_receive_calls):
         raise ContractError("every blocked receive callback must be released exactly once")
+    if "is-disconnected" in action_operations and (
+        action_operations not in (["body", "is-disconnected"], ["stream-next", "is-disconnected"])
+        or receive != [{"type": "http.disconnect"}]
+        or blocked_receive_calls
+    ):
+        raise ContractError(
+            "Request cached-disconnect follow-up requires body() or stream() to observe one "
+            "http.disconnect before is_disconnected()"
+        )
     receive_error_probe = bool(receive_error_indices)
     if receive_error_probe and (
         receive_error_indices != [0]
@@ -23935,6 +23997,11 @@ def _validate_request_body_stream_json_case(case: dict[str, Any]) -> None:
         message.get("type") == "http.disconnect" for message in receive
     ):
         expected_covers.add(REQUEST_CONSUMPTION_REQUIREMENTS["stream_client_disconnect"])
+    if action_operations in (
+        ["body", "is-disconnected"],
+        ["stream-next", "is-disconnected"],
+    ):
+        expected_covers.add(REQUEST_CONSUMPTION_REQUIREMENTS["cached_disconnect_followup"])
     if (
         len(stream_ids) >= 4
         and not receive_error_probe
@@ -35502,6 +35569,26 @@ def _validate_response_consumer_case(case: dict[str, Any]) -> None:
             raise ContractError(
                 "Response background constructors require a variant response, kind and input label"
             )
+    if "background_task" in case:
+        background_task = _exact(
+            case["background_task"], {"kind", "contextvar"}, "Response background task probe"
+        )
+        if (
+            case["surface"] != "starlette.responses.Response"
+            or case["background_label"] is None
+            or "callbacks" not in case
+            or "background_kind" in case
+            or background_task["kind"] != "sync-contextvar-reader"
+        ):
+            raise ContractError(
+                "ContextVar background probes require Response, a callback trace and a synchronous task"
+            )
+        contextvar = _exact(
+            background_task["contextvar"], {"name", "value"}, "Response task ContextVar"
+        )
+        _string(contextvar["name"], "Response task ContextVar name")
+        _string(contextvar["value"], "Response task ContextVar value")
+        expected_requirements.append(RESPONSE_BACKGROUND_CONTEXTVAR_REQUIREMENT)
     if "constructor_thread" in case:
         if case["constructor_thread"] not in {"caller", "worker"} or case["surface"] not in {
             "starlette.responses.StreamingResponse",

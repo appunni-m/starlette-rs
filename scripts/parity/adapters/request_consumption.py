@@ -122,6 +122,13 @@ async def _observe(case: dict[str, Any], request_type: Callable[..., Any]) -> di
             else:
                 observations.append(_value(operation, list(value.multi_items()), previous_values))
                 await request.close()
+        elif operation == "is-disconnected":
+            try:
+                value = await request.is_disconnected()
+            except BaseException as exc:
+                observations.append(_error(operation, exc))
+            else:
+                observations.append(_value(operation, value, previous_values))
         elif operation == "stream-next":
             stream_id = action["stream_id"]
             if stream_id not in streams:

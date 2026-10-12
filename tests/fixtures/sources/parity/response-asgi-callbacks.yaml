@@ -5722,6 +5722,54 @@
           "background"
         ]
       }
+    },
+    {
+      "case_id": "starlette.responses.Response.consumer-construction.sync-background-contextvar-propagation",
+      "surface": "starlette.responses.Response",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.Response.consumer-construction.public-render-and-asgi",
+        "starlette.responses.Response.consumer-construction.live-asgi-state-and-lifetime",
+        "starlette.responses.Response.consumer-construction.sync-background-contextvar-worker-propagation"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "task initiated"
+        },
+        "omit_content": false,
+        "kwargs": {},
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/background-contextvar"
+      },
+      "send_failure": null,
+      "background_label": "contextvar-reader",
+      "background_task": {
+        "kind": "sync-contextvar-reader",
+        "contextvar": {
+          "name": "starlette-background-task-trace",
+          "value": "caller-defined-value"
+        }
+      },
+      "callbacks": {
+        "send_actions": [],
+        "inspect_aliases": false,
+        "background_definitions": []
+      }
     }
   ]
 }

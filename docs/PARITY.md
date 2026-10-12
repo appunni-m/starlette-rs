@@ -1,8 +1,8 @@
 # Migration parity contract and evidence
 
-The working-tree input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@5`, `scope.mode: slice`, and `parity-input@48`. It currently contains 2,074 cases across 174 parity inputs, two benchmark inputs, 134 operations, and 1,089 parity requirements. The source inventory has 833 rows: 778 input mappings, 55 source-backed `not_applicable` rows, and zero fixture-backlog rows.
+The working-tree input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@5`, `scope.mode: slice`, and `parity-input@48`. It currently contains 2,080 cases across 174 parity inputs, two benchmark inputs, 134 operations, and 1,092 parity requirements. The source inventory has 837 rows: 782 input mappings, 55 source-backed `not_applicable` rows, and zero fixture-backlog rows.
 
-The latest clean full parity preflight, `dc8c8ca6-f2b7-449b-9f53-45860e3cad4c`, passed 2,254/2,254 comparisons for the preceding 1,992-case contract: 1,988 Python-package and 266 Rust-native comparisons, with zero failures, infrastructure errors, or `not_run` rows. Both target-only fault contracts passed on clean revision `57aab659fb09cd252df110cc9daef7eeaec1ea1a`. Later @48 additions cover optional-backend behavior, WebSocket authorization, Router truthiness, BaseHTTPMiddleware iterator cancellation, response subclasses, Python-version applicability, StaticFiles OS-specific paths and NUL handling, StreamingResponse OSError mapping and await-factory exhaustion, TestClient callback decoding, BaseException and close-code behavior, WebSocket close-code forwarding, CPython custom-regex syntax, AuthenticationMiddleware iterable backend results, nested Host/Mount reverse lookup, and Request body retry and interleaved iterator consumption after `http.disconnect`, and async background-list failure ordering. The additional BackgroundTasks live-list mutation and StreamingResponse caller-cancellation inputs also remain unexecuted; full parity remains deferred until implementation closes.
+The latest clean full parity preflight, `dc8c8ca6-f2b7-449b-9f53-45860e3cad4c`, passed 2,254/2,254 comparisons for the preceding 1,992-case contract: 1,988 Python-package and 266 Rust-native comparisons, with zero failures, infrastructure errors, or `not_run` rows. Both target-only fault contracts passed on clean revision `57aab659fb09cd252df110cc9daef7eeaec1ea1a`. Later @48 additions cover optional-backend behavior, WebSocket authorization, Router truthiness, BaseHTTPMiddleware iterator cancellation, response subclasses, Python-version applicability, StaticFiles OS-specific paths and NUL handling, StreamingResponse OSError mapping and await-factory exhaustion, TestClient callback decoding, BaseException and close-code behavior, WebSocket close-code forwarding, CPython custom-regex syntax, AuthenticationMiddleware iterable backend results, nested Host/Mount reverse lookup, Request body retry and interleaved iterator consumption after `http.disconnect`, cached Request.is_disconnected() state after body/stream disconnect observations, and async background-list failure ordering. The additional BackgroundTasks live-list mutation and StreamingResponse caller-cancellation inputs also remain unexecuted; full parity remains deferred until implementation closes.
 
 Coverage MCP run `fd5b3b63-9ddc-44bd-bf38-35ecbc260dbe` measured 19,909/28,139 Rust lines (70.7%), with 8,230 uncovered lines, for the preceding contract. It reported `status=measured`, `source=matches_receipt`, and `tests=passed`. The LCOV report and receipt remain under ignored `build/parity/coverage/full-starlette-1.6.0-20261012-57aab65/`; this measurement is not current for the post-run contract and WebSocket input changes.
 
@@ -912,9 +912,21 @@ worker callback until cancellation reaches the response task, then compares
 worker completion and propagated `CancelledError`. Rust owns callback
 classification, task sequencing, and dispatch in the installed package; the
 Python adapter supplies and observes user callbacks at the Python boundary.
-Additional synchronous cancellation schedules, context variables, concurrency,
-and broader middleware/error interactions with background failures remain
-unproven.
+Additional synchronous cancellation schedules, context-variable behavior
+beyond the separate input below, concurrency, and broader middleware/error
+interactions with background failures remain unproven.
+
+The separate
+[`response-asgi-callbacks.yaml`](../tests/fixtures/sources/parity/response-asgi-callbacks.yaml)
+input sets an input-named `ContextVar` on the caller thread, attaches an
+input-driven synchronous `BackgroundTask` to public `Response`, and records the
+callback's ContextVar value and thread role relative to the event loop in the
+response trace. The pinned path is `BackgroundTask.__call__` to
+`run_in_threadpool` to `anyio.to_thread.run_sync`; locked AnyIO 4.15.1 copies
+the current context before queueing worker execution in its asyncio backend
+(`anyio/_backends/_asyncio.py:2698-2705`). The Rust-backed bridge uses that same
+AnyIO API. This input remains unexecuted, and broader background-task context,
+cancellation, and concurrency behavior remains unproven.
 
 ### BaseHTTPMiddleware waits for a response background task
 
@@ -1942,13 +1954,19 @@ reports and receipts remain under ignored
 ### TestClient exception policy
 
 [`testclient-http.yaml`](../tests/fixtures/sources/parity/testclient-http.yaml)
-also describes application exceptions as input. The three exception-policy
-cases compare default exception propagation, the synthesized 500 response when
-an app fails before sending a response with `raise_server_exceptions=False`,
-and preservation of a completed response when the app raises after sending it.
-The adapter records the live response or exception and partial ASGI observations;
-the case ID does not select the behavior. Rust owns this policy in the transport,
-and the Python `starlette.testclient` methods forward to it.
+describes application exceptions and response completion as input. The cases
+compare default exception propagation, an empty 500 when an app fails before
+response start with `raise_server_exceptions=False`, preservation of a completed
+response after an exception, exception propagation after response start, and the
+empty body from an incomplete response. Two additional raw ASGI3 cases return
+normally without sending any ASGI message: the default flag raises TestClient's
+`AssertionError`, while `raise_server_exceptions=False` returns an empty 500.
+These direct cases are distinct from the existing BaseHTTPMiddleware
+`/no-response` workflow, which raises from `call_next`. The reusable adapter
+records normal completion of the input ASGI body alongside the live response or
+exception and ASGI event tape. Rust owns this policy in the transport, and the
+Python `starlette.testclient` methods forward to it. All active @48 comparisons
+remain deferred to the full parity phase.
 
 ### TestClient debug response observations
 
