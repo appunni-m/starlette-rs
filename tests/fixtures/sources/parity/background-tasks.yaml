@@ -1336,6 +1336,205 @@
           }
         ]
       }
+    },
+    {
+      "case_id": "starlette.responses.Response.asgi-call.background-task-live-list-mutation",
+      "surface": "starlette.responses.Response",
+      "operation": "asgi-call",
+      "covers": [
+        "starlette.responses.Response.asgi-call.background-task-add",
+        "starlette.responses.Response.asgi-call.background-task-order",
+        "starlette.responses.Response.asgi-call.background-task-live-list-mutation"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "content": {
+        "kind": "text",
+        "value": "task initiated"
+      },
+      "status_code": 200,
+      "header_pairs": [],
+      "media_type": "text/plain",
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "asgi-call"
+      ],
+      "background": {
+        "kind": "task-list",
+        "tasks": [
+          {
+            "mode": "async",
+            "args": [
+              "append-while-running"
+            ],
+            "kwargs": {
+              "label": "mutator"
+            },
+            "failure": null,
+            "append_tasks": [
+              {
+                "mode": "async",
+                "args": [
+                  "appended-during-iteration"
+                ],
+                "kwargs": {
+                  "label": "appended"
+                },
+                "failure": null
+              }
+            ]
+          },
+          {
+            "mode": "async",
+            "args": [
+              "preexisting-after-mutator"
+            ],
+            "kwargs": {
+              "label": "preexisting"
+            },
+            "failure": null
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.responses.Response.asgi-call.background-task-live-list-mutation-error",
+      "surface": "starlette.responses.Response",
+      "operation": "asgi-call",
+      "covers": [
+        "starlette.responses.Response.asgi-call.background-task-add",
+        "starlette.responses.Response.asgi-call.background-task-order",
+        "starlette.responses.Response.asgi-call.background-task-live-list-mutation"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "content": {
+        "kind": "text",
+        "value": "task initiated"
+      },
+      "status_code": 200,
+      "header_pairs": [],
+      "media_type": "text/plain",
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "asgi-call"
+      ],
+      "background": {
+        "kind": "task-list",
+        "tasks": [
+          {
+            "mode": "async",
+            "args": [
+              "append-while-running"
+            ],
+            "kwargs": {
+              "label": "mutator"
+            },
+            "failure": null,
+            "append_tasks": [
+              {
+                "mode": "async",
+                "args": [
+                  "appended-before-failure"
+                ],
+                "kwargs": {
+                  "label": "appended-success"
+                },
+                "failure": null
+              },
+              {
+                "mode": "async",
+                "args": [
+                  "appended-fails"
+                ],
+                "kwargs": {
+                  "label": "appended-failure"
+                },
+                "failure": {
+                  "kind": "Exception",
+                  "message": "appended background task failed"
+                }
+              },
+              {
+                "mode": "async",
+                "args": [
+                  "must-remain-unstarted"
+                ],
+                "kwargs": {
+                  "label": "appended-pending"
+                },
+                "failure": null
+              }
+            ]
+          },
+          {
+            "mode": "async",
+            "args": [
+              "preexisting-before-appended-tasks"
+            ],
+            "kwargs": {
+              "label": "preexisting"
+            },
+            "failure": null
+          }
+        ]
+      }
     }
   ]
 }

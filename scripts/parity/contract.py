@@ -1156,6 +1156,9 @@ STREAMING_RESPONSE_FINAL_SEND_DISCONNECT_REQUIREMENT = f"{STREAMING_RESPONSE_SUR
 STREAMING_RESPONSE_BACKPRESSURE_REQUIREMENT = (
     f"{STREAMING_RESPONSE_SURFACE}.{STREAMING_RESPONSE_OPERATION}.send-backpressure"
 )
+STREAMING_RESPONSE_CALLER_CANCELLATION_REQUIREMENT = (
+    f"{STREAMING_RESPONSE_SURFACE}.{STREAMING_RESPONSE_OPERATION}.caller-cancellation-during-send"
+)
 STREAMING_RESPONSE_AWAIT_FACTORY_STOP_MODE = "async-iterator-await-factory-stop"
 RESPONSE_OPERATION = "asgi-call"
 RESPONSE_PARTITIONED_COOKIE_REQUIREMENT = (
@@ -1175,6 +1178,7 @@ RESPONSE_BACKGROUND_REQUIREMENTS = {
     "task_cancelled_exception": "starlette.responses.Response.asgi-call.background-task-cancellation-exception-propagates",
     "sync_task_cancellation": "starlette.responses.Response.asgi-call.background-sync-task-cancellation",
     "task_list_sync_cancellation": "starlette.responses.Response.asgi-call.background-task-list-sync-cancellation",
+    "task_list_live_mutation": "starlette.responses.Response.asgi-call.background-task-live-list-mutation",
     "sync_noncallable_error": "starlette.responses.Response.asgi-call.background-sync-noncallable-error",
 }
 FILE_RESPONSE_PATHSEND_REQUIREMENT = f"{FILE_RESPONSE_SURFACE}.{RESPONSE_OPERATION}.pathsend"
@@ -5568,6 +5572,7 @@ def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
             failures = []
             has_callable_shape = False
             has_noncallable_shape = False
+            has_live_task_list_mutation = False
             for index, raw_task in enumerate(tasks):
                 context = f"Response background.tasks[{index}]"
                 task_fields = {"mode", "args", "kwargs", "failure"}
@@ -5575,6 +5580,8 @@ def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
                     task_fields.add("callable")
                 if isinstance(raw_task, dict) and "kwargs_mapping" in raw_task:
                     task_fields.add("kwargs_mapping")
+                if isinstance(raw_task, dict) and "append_tasks" in raw_task:
+                    task_fields.add("append_tasks")
                 task = _exact(raw_task, task_fields, context)
                 if task["mode"] not in {"sync", "async"}:
                     raise ContractError(f"{context}.mode must be sync or async")
@@ -5612,6 +5619,51 @@ def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
                             raise ContractError(
                                 f"{context}.kwargs_mapping.items[{item_index}] must be a string and string or integer pair"
                             )
+                if "append_tasks" in task:
+                    if kind != "task-list":
+                        raise ContractError(
+                            f"{context}.append_tasks requires a mutable BackgroundTasks list"
+                        )
+                    appended_tasks = task["append_tasks"]
+                    if not isinstance(appended_tasks, list) or not appended_tasks:
+                        raise ContractError(f"{context}.append_tasks must be a non-empty array")
+                    for appended_index, raw_appended_task in enumerate(appended_tasks):
+                        appended_context = f"{context}.append_tasks[{appended_index}]"
+                        appended_task = _exact(
+                            raw_appended_task,
+                            {"mode", "args", "kwargs", "failure"},
+                            appended_context,
+                        )
+                        if appended_task["mode"] not in {"sync", "async"}:
+                            raise ContractError(f"{appended_context}.mode must be sync or async")
+                        if not isinstance(appended_task["args"], list) or any(
+                            type(value) not in {str, int} for value in appended_task["args"]
+                        ):
+                            raise ContractError(
+                                f"{appended_context}.args must contain only strings or integers"
+                            )
+                        if not isinstance(appended_task["kwargs"], dict) or any(
+                            not isinstance(key, str) or type(value) not in {str, int}
+                            for key, value in appended_task["kwargs"].items()
+                        ):
+                            raise ContractError(
+                                f"{appended_context}.kwargs must map strings to strings or integers"
+                            )
+                        appended_failure = appended_task["failure"]
+                        if appended_failure is not None:
+                            appended_failure = _exact(
+                                appended_failure,
+                                {"kind", "message"},
+                                f"{appended_context}.failure",
+                            )
+                            if appended_failure["kind"] != "Exception":
+                                raise ContractError(
+                                    f"{appended_context}.failure.kind must be Exception"
+                                )
+                            _string(
+                                appended_failure["message"], f"{appended_context}.failure.message"
+                            )
+                    has_live_task_list_mutation = True
                 failure = task["failure"]
                 if failure is not None:
                     failure = _exact(failure, {"kind", "message"}, f"{context}.failure")
@@ -5685,7 +5737,7 @@ def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
                     has_callable_shape |= callable_kind != "function"
 
             if background_control is not None:
-                if failures or has_callable_shape:
+                if failures or has_callable_shape or has_live_task_list_mutation:
                     raise ContractError(
                         "Response background cancellation requires plain callbacks without failures"
                     )
@@ -5704,6 +5756,16 @@ def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
                     )
             elif has_noncallable_shape:
                 derived = [RESPONSE_BACKGROUND_REQUIREMENTS["sync_noncallable_error"]]
+            elif has_live_task_list_mutation:
+                if kind != "task-list" or failures:
+                    raise ContractError(
+                        "live BackgroundTasks list mutation requires a non-failing task-list callback"
+                    )
+                derived = [
+                    RESPONSE_BACKGROUND_REQUIREMENTS["task_add"],
+                    RESPONSE_BACKGROUND_REQUIREMENTS["task_order"],
+                    RESPONSE_BACKGROUND_REQUIREMENTS["task_list_live_mutation"],
+                ]
             elif kind == "single-task":
                 derived = [
                     RESPONSE_BACKGROUND_REQUIREMENTS[
@@ -7904,6 +7966,9 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
     send_uses_checkpoint_gate = isinstance(send, dict) and send.get("kind") == (
         "capture-asgi-send-with-checkpoint-gate"
     )
+    send_uses_caller_cancellation = isinstance(send, dict) and send.get("kind") == (
+        "capture-asgi-send-with-caller-cancellation"
+    )
 
     stimulus = (tuple(chunks), tuple(tuple(pair) for pair in headers), media_type)
     allowed_sync = {
@@ -8055,6 +8120,48 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
             raise ContractError(
                 "StreamingResponse await-factory exhaustion input is limited to its declared Python-package case"
             )
+    elif send_uses_caller_cancellation:
+        cancelled_send = _exact(
+            send,
+            {"kind", "event_index"},
+            "StreamingResponse caller-cancelled send",
+        )
+        if (
+            case["streaming"] != "async-generator"
+            or case["operation"] != STREAMING_RESPONSE_TRACE_OPERATION
+            or repeating_chunks
+            or file_like_content is not None
+            or len(chunks) < 2
+            or stream_lifecycle is None
+            or stream_lifecycle["kind"] != "finally-recorder"
+            or receive_behavior is not None
+            or background is None
+            or background.get("kind") != "async-values-recorder"
+            or case["target_profiles"] != ["python-package-cpython312"]
+            or type(cancelled_send["event_index"]) is not int
+            or cancelled_send["event_index"] != 1
+            or case["covers"] != [STREAMING_RESPONSE_CALLER_CANCELLATION_REQUIREMENT]
+        ):
+            raise ContractError(
+                "StreamingResponse caller cancellation must cancel the first blocked async-generator body send and observe finalization/background behavior"
+            )
+        try:
+            asgi = case["scope"].get("asgi", {})
+            spec_version = tuple(int(part) for part in asgi.get("spec_version", "2.0").split("."))
+        except (AttributeError, KeyError, TypeError, ValueError) as exc:
+            raise ContractError("StreamingResponse ASGI spec_version must be numeric") from exc
+        if spec_version < (2, 4):
+            raise ContractError("StreamingResponse caller-cancellation input requires ASGI 2.4")
+        first_chunk_kind, first_chunk_value = chunks[0]
+        first_chunk_bytes = (
+            first_chunk_value.encode("utf-8")
+            if first_chunk_kind == "text"
+            else base64.b64decode(first_chunk_value, validate=True)
+        )
+        if not first_chunk_bytes:
+            raise ContractError(
+                "StreamingResponse caller-cancellation input requires a non-empty first chunk"
+            )
     elif send_uses_checkpoint_gate:
         gated_send = _exact(
             send,
@@ -8175,6 +8282,7 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
         send != {"kind": "capture-asgi-send"}
         and not send_raises_oserror
         and not send_uses_checkpoint_gate
+        and not send_uses_caller_cancellation
     ):
         raise ContractError("StreamingResponse asgi-call uses empty receive and a declared send")
     if send_raises_oserror:
@@ -8227,7 +8335,11 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
                 raise ContractError(
                     "finite StreamingResponse OSError input must fail the terminal send under ASGI 2.4 and map its input-derived requirement"
                 )
-    dispatch_send = {"kind": "capture-asgi-send"} if send_uses_checkpoint_gate else send
+    dispatch_send = (
+        {"kind": "capture-asgi-send"}
+        if send_uses_checkpoint_gate or send_uses_caller_cancellation
+        else send
+    )
     _validate_dispatch_stimulus(
         {
             "scope": case["scope"],

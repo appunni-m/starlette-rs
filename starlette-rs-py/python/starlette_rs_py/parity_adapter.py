@@ -30,7 +30,7 @@ import sys
 import tempfile
 import threading
 import warnings
-from collections.abc import AsyncIterator, Iterator
+from collections.abc import AsyncIterator, Callable, Iterator
 from dataclasses import dataclass
 from html.parser import HTMLParser
 from pathlib import Path
@@ -247,6 +247,7 @@ def _record_input_background_task(
     failure: dict[str, str] | None,
     execution_trace: list[dict[str, Any]],
     event_loop_thread_id: list[int | None],
+    before_complete: Callable[[], None] | None = None,
 ) -> None:
     execution_trace.append(
         {
@@ -271,6 +272,8 @@ def _record_input_background_task(
         if failure["kind"] == "CancelledError":
             raise asyncio.CancelledError(failure["message"])
         raise Exception(failure["message"])
+    if before_complete is not None:
+        before_complete()
     execution_trace.append({"event": "task-complete", "task_index": task_index})
 
 
@@ -292,15 +295,49 @@ def _input_background_tasks(
         raise ValueError("Response background task count does not match its kind")
     if spec["kind"] != "single-task" and len(spec["tasks"]) < 2:
         raise ValueError("Response background task lists must contain multiple tasks")
+    background_tasks = BackgroundTasks() if spec["kind"] == "task-list" else None
+
+    def append_input_tasks(appended_specs: list[dict[str, Any]], parent_task_index: int) -> None:
+        if not appended_specs:
+            return
+        if background_tasks is None:
+            raise RuntimeError("live task-list mutation requires BackgroundTasks")
+        appended_task_indices = []
+        for appended_spec in appended_specs:
+            task_index = len(background_tasks.tasks)
+            callback = make_callback(task_index, appended_spec)
+            background_tasks.tasks.append(
+                BackgroundTask(callback, *appended_spec["args"], **appended_spec["kwargs"])
+            )
+            appended_task_indices.append(task_index)
+        execution_trace.append(
+            {
+                "event": "task-list-mutated",
+                "task_index": parent_task_index,
+                "appended_task_indices": appended_task_indices,
+            }
+        )
 
     def make_callback(task_index: int, task_spec: dict[str, Any]) -> Any:
         failure = task_spec["failure"]
+        append_specs = task_spec.get("append_tasks", [])
+
+        def append_scheduled_tasks() -> None:
+            append_input_tasks(append_specs, task_index)
+
+        before_complete = append_scheduled_tasks if append_specs else None
         if task_spec["mode"] == "async":
 
             async def base_callback(*args: Any, **kwargs: Any) -> None:
                 if cancellation_started is None:
                     _record_input_background_task(
-                        task_index, args, kwargs, failure, execution_trace, event_loop_thread_id
+                        task_index,
+                        args,
+                        kwargs,
+                        failure,
+                        execution_trace,
+                        event_loop_thread_id,
+                        before_complete,
                     )
                     return
 
@@ -331,7 +368,13 @@ def _input_background_tasks(
             def base_callback(*args: Any, **kwargs: Any) -> None:
                 if cancellation_started is None:
                     _record_input_background_task(
-                        task_index, args, kwargs, failure, execution_trace, event_loop_thread_id
+                        task_index,
+                        args,
+                        kwargs,
+                        failure,
+                        execution_trace,
+                        event_loop_thread_id,
+                        before_complete,
                     )
                     return
                 if cancellation_release is None or event_loop is None or event_loop[0] is None:
@@ -414,13 +457,14 @@ def _input_background_tasks(
         return callback
 
     tasks = []
-    background_tasks = BackgroundTasks() if spec["kind"] == "task-list" else None
     for task_index, task_spec in enumerate(spec["tasks"]):
         task_fields = {"mode", "args", "kwargs", "failure"}
         if isinstance(task_spec, dict) and "callable" in task_spec:
             task_fields.add("callable")
         if isinstance(task_spec, dict) and "kwargs_mapping" in task_spec:
             task_fields.add("kwargs_mapping")
+        if isinstance(task_spec, dict) and "append_tasks" in task_spec:
+            task_fields.add("append_tasks")
         task_spec = _exact_object(
             task_spec,
             task_fields,
@@ -430,6 +474,39 @@ def _input_background_tasks(
             raise ValueError("Response background task mode is unsupported")
         if not isinstance(task_spec["args"], list) or not isinstance(task_spec["kwargs"], dict):
             raise ValueError("Response background task arguments must be arrays and objects")
+        if "append_tasks" in task_spec:
+            if background_tasks is None:
+                raise ValueError("live task-list mutation requires a BackgroundTasks list")
+            appended_specs = task_spec["append_tasks"]
+            if not isinstance(appended_specs, list) or not appended_specs:
+                raise ValueError("Response background append_tasks must be a non-empty array")
+            validated_appended_specs = []
+            for appended_index, appended_spec in enumerate(appended_specs):
+                appended_spec = _exact_object(
+                    appended_spec,
+                    {"mode", "args", "kwargs", "failure"},
+                    f"Response background task[{task_index}].append_tasks[{appended_index}]",
+                )
+                if appended_spec["mode"] not in {"sync", "async"}:
+                    raise ValueError("Response appended background task mode is unsupported")
+                if not isinstance(appended_spec["args"], list) or not isinstance(
+                    appended_spec["kwargs"], dict
+                ):
+                    raise ValueError("Response appended background task arguments are invalid")
+                appended_failure = appended_spec["failure"]
+                if appended_failure is not None:
+                    appended_failure = _exact_object(
+                        appended_failure,
+                        {"kind", "message"},
+                        f"Response background task[{task_index}].append_tasks[{appended_index}].failure",
+                    )
+                    if appended_failure["kind"] != "Exception" or not isinstance(
+                        appended_failure["message"], str
+                    ):
+                        raise ValueError("Response appended background task failure is unsupported")
+                    appended_spec["failure"] = appended_failure
+                validated_appended_specs.append(appended_spec)
+            task_spec["append_tasks"] = validated_appended_specs
         failure = task_spec["failure"]
         if failure is not None:
             failure = _exact_object(
@@ -7337,6 +7414,7 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("Response ASGI-call requires an empty incoming stream")
     send_error_spec: dict[str, Any] | None = None
     send_gate_spec: dict[str, Any] | None = None
+    send_cancellation_spec: dict[str, Any] | None = None
     if case["send"] != {"kind": "capture-asgi-send"}:
         if surface != STREAMING_RESPONSE_SURFACE:
             raise ValueError("send input must select the declared ASGI message collector")
@@ -7353,6 +7431,18 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
                 or send_gate_spec["release_after_checkpoints"] < 1
             ):
                 raise ValueError("StreamingResponse gated send input is invalid")
+        elif case["send"].get("kind") == "capture-asgi-send-with-caller-cancellation":
+            send_cancellation_spec = _exact_object(
+                case["send"],
+                {"kind", "event_index"},
+                "StreamingResponse caller-cancelled send",
+            )
+            if (
+                send_cancellation_spec["kind"] != "capture-asgi-send-with-caller-cancellation"
+                or type(send_cancellation_spec["event_index"]) is not int
+                or send_cancellation_spec["event_index"] != 1
+            ):
+                raise ValueError("StreamingResponse caller-cancelled send input is invalid")
         else:
             send_error_spec = _exact_object(
                 case["send"],
@@ -7633,15 +7723,30 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
         return message
 
     send_index = 0
-    send_gate_entered = asyncio.Event() if send_gate_spec is not None else None
-    send_gate_release = asyncio.Event() if send_gate_spec is not None else None
+    send_gate_entered = (
+        asyncio.Event()
+        if send_gate_spec is not None or send_cancellation_spec is not None
+        else None
+    )
+    send_gate_release = (
+        asyncio.Event()
+        if send_gate_spec is not None or send_cancellation_spec is not None
+        else None
+    )
 
     async def send(message: dict[str, Any]) -> None:
         nonlocal send_index, sent_body_bytes
         if send_error_spec is not None and send_index == send_error_spec["event_index"]:
             send_index += 1
             raise OSError(send_error_spec["message"])
-        if send_gate_spec is not None and send_index == send_gate_spec["event_index"]:
+        gated_event_index = (
+            send_gate_spec["event_index"]
+            if send_gate_spec is not None
+            else send_cancellation_spec["event_index"]
+            if send_cancellation_spec is not None
+            else None
+        )
+        if gated_event_index is not None and send_index == gated_event_index:
             if execution_trace is None or send_gate_entered is None or send_gate_release is None:
                 raise RuntimeError("StreamingResponse send gate requires its execution trace")
             execution_trace.append(
@@ -7662,7 +7767,7 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
             )
         if execution_trace is not None:
             execution_trace.append({"event": "asgi-send", "message": _canonical_message(message)})
-            if send_gate_spec is not None and send_index == send_gate_spec["event_index"]:
+            if gated_event_index is not None and send_index == gated_event_index:
                 execution_trace.append({"event": "asgi-send-complete", "event_index": send_index})
         if (
             receive_behavior is not None
@@ -7678,7 +7783,31 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
 
     captured_error: BaseException | None = None
     try:
-        if send_gate_spec is not None:
+        if send_cancellation_spec is not None:
+
+            async def dispatch_and_cancel_response_on_blocked_send() -> None:
+                nonlocal captured_error
+                if send_gate_entered is None or execution_trace is None:
+                    raise RuntimeError("StreamingResponse cancellation gate events are unavailable")
+                response_task = asyncio.create_task(response(scope, receive, send))
+                try:
+                    await asyncio.wait_for(send_gate_entered.wait(), timeout=5.0)
+                    execution_trace.append({"event": "response-cancellation-requested"})
+                    response_task.cancel()
+                    try:
+                        await response_task
+                    except asyncio.CancelledError as exc:
+                        captured_error = exc
+                finally:
+                    if not response_task.done():
+                        response_task.cancel()
+                        try:
+                            await response_task
+                        except BaseException:
+                            pass
+
+            asyncio.run(dispatch_and_cancel_response_on_blocked_send())
+        elif send_gate_spec is not None:
 
             async def dispatch_with_gated_send() -> None:
                 if send_gate_entered is None or send_gate_release is None:

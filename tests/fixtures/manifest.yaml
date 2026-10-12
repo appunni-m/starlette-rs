@@ -19082,6 +19082,17 @@
               "target_profiles": [
                 "python-package-cpython312"
               ]
+            },
+            {
+              "id": "starlette.responses.Response.asgi-call.background-task-live-list-mutation",
+              "dimension": "protocol_variant",
+              "description": "Compare BackgroundTasks iteration when an awaited callback appends new BackgroundTask instances directly to the same public tasks list. Preserve Python list-iterator growth semantics, callback order, and propagation of an appended callback error after earlier callbacks complete. Pinned source: starlette/background.py:26-36; starlette/responses.py:163-170; docs/background.md:42-78. All callback actions and task values are input-derived.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
             }
           ],
           "parity": {
@@ -19957,7 +19968,8 @@
                   "starlette.responses.StreamingResponse.asgi-call.pre-asgi24-stream-completes-first",
                   "starlette.responses.StreamingResponse.asgi-call.websocket-scope-background",
                   "starlette.responses.StreamingResponse.asgi-call.client-disconnect-final-send-oserror",
-                  "starlette.responses.StreamingResponse.asgi-call.send-backpressure"
+                  "starlette.responses.StreamingResponse.asgi-call.send-backpressure",
+                  "starlette.responses.StreamingResponse.asgi-call.caller-cancellation-during-send"
                 ]
               }
             },
@@ -20030,6 +20042,17 @@
               "id": "starlette.responses.StreamingResponse.asgi-call.send-backpressure",
               "dimension": "protocol_variant",
               "description": "At the public ASGI-call boundary, gate the first async-generator body send for an input-defined event-loop checkpoint, then capture iterator yields, send entry/completion, gate release, and generator finalization order. This checks that the iterator does not advance while its preceding send is still awaited. Pinned source: starlette/responses.py:248-255.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.StreamingResponse.asgi-call.caller-cancellation-during-send",
+              "dimension": "protocol_variant",
+              "description": "Under ASGI 2.4, block the first async-generator body send, cancel the caller awaiting StreamingResponse.__call__, and observe the propagated cancellation, partial event tape, iterator finalization, and that the supplied background callback is skipped. Pinned source: starlette/responses.py:248-283.",
               "lanes": [
                 "parity"
               ],
