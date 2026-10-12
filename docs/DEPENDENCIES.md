@@ -83,7 +83,7 @@ python3 scripts/inventory_upstream_dependencies.py \
 
 ## Starlette-RS dependency policy
 
-The additive Rust-native HTTP service uses `http` 1.5.0, `bytes` 1.12.1,
+The Rust-native HTTP service uses `http` 1.5.0, `bytes` 1.12.1,
 `http-body` 1.1.0, `http-body-util` 0.1.5, `tower-service` 0.3.3, and
 `tower-layer` 0.3.3, all resolved in the workspace `Cargo.lock`. They are
 Python-free runtime dependencies of the `starlette-rs` core. `http-body-util`

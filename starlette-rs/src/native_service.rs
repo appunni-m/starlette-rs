@@ -25,13 +25,26 @@ use tower_service::Service;
 
 use crate::{DetailedRouteMatch, Response, ResponseError, RouteError, RouteTable};
 
-/// An error produced by an application endpoint or an HTTP body.
+/// A boxed source error carried by native HTTP bodies and endpoint failures.
+///
+/// Body boxing retains the concrete `http_body::Body::Error` type for
+/// `downcast_ref` inspection; it does not convert the error to text.
 pub type NativeBodyError = Box<dyn Error + Send + Sync + 'static>;
 
-/// A streaming request body passed to a native Starlette endpoint.
+/// A pull-based request body passed to a native Starlette endpoint.
+///
+/// [`NativeApplication`] does not poll this body while routing or constructing
+/// the endpoint future. The endpoint or a Tower layer is the first consumer;
+/// each call to [`Body::poll_frame`] advances the source according to that
+/// body's implementation. Dropping the body drops the boxed source.
 pub type NativeRequestBody = UnsyncBoxBody<Bytes, NativeBodyError>;
 
-/// A streaming response body returned by a native Starlette endpoint.
+/// A pull-based response body returned by a native Starlette endpoint.
+///
+/// The application returns this body without polling it. The service consumer
+/// or an outer Tower layer drives it by requesting frames. Dropping the body
+/// drops the boxed source; transport-specific cancellation is outside this
+/// server-neutral API.
 pub type NativeResponseBody = UnsyncBoxBody<Bytes, NativeBodyError>;
 
 /// A native HTTP response returned by a route endpoint.
@@ -41,10 +54,13 @@ type EndpointFuture =
     Pin<Box<dyn Future<Output = Result<NativeHttpResponse, NativeApplicationError>> + Send>>;
 type Endpoint = dyn Fn(NativeRequest) -> EndpointFuture + Send + Sync;
 
-/// Boxes a body at the dynamic endpoint boundary without collecting its frames.
+/// Boxes a body at the dynamic endpoint boundary without polling or collecting
+/// its frames.
 ///
-/// The body is polled only when the next layer asks for a frame. Each data
-/// frame moves its `Bytes` value; this function does not copy payload bytes.
+/// The body is polled only when a consumer asks for a frame. Each frame moves
+/// through the box, and each data frame moves its `Bytes` value; this function
+/// does not read ahead, collect frames, or copy payload bytes. Dropping the
+/// returned body drops the wrapped body.
 pub fn box_native_body<B>(body: B) -> UnsyncBoxBody<Bytes, NativeBodyError>
 where
     B: Body<Data = Bytes> + Send + 'static,
@@ -125,11 +141,12 @@ impl NativeRequest {
         &self.path_params
     }
 
-    /// Returns the streaming request body for incremental polling.
+    /// Returns the request body for incremental, pull-based polling.
     ///
-    /// Each data or trailer frame is consumed when polled. Dropping the body
-    /// drops the underlying transport body; any request-cancellation behavior
-    /// beyond that is provided by the body implementation or server adapter.
+    /// The application does not poll the body before passing this request to
+    /// the endpoint. Each data or trailer frame is consumed when polled.
+    /// Dropping the body drops its source; any transport cancellation beyond
+    /// that drop is provided by the body implementation or server adapter.
     pub fn body_mut(&mut self) -> &mut NativeRequestBody {
         &mut self.body
     }
@@ -145,7 +162,8 @@ impl NativeRequest {
 ///
 /// Applications can be cloned across connections, so endpoint closures must
 /// be `Sync` and may be called concurrently. Each returned future is `Send`;
-/// dropping it cancels its Rust future by normal future-drop semantics.
+/// dropping it drops the endpoint future and any request body it still owns,
+/// using normal Rust future-drop semantics.
 pub struct NativeRoute {
     path: String,
     methods: Vec<String>,
@@ -181,8 +199,12 @@ impl NativeRoute {
 /// A server-neutral Starlette route application implementing Tower `Service`.
 ///
 /// The service is immediately ready and routes each request when `call` is
-/// invoked. Cloned applications share their immutable route table and endpoint
-/// closures. It does not create a runtime; its caller supplies the executor.
+/// invoked. It does not poll the request body during routing or poll the
+/// response body before returning the response. Endpoints and outer Tower
+/// layers control when they poll bodies, so `http_body::Body` demand propagates
+/// through this service without framework read-ahead. Cloned applications
+/// share their immutable route table and endpoint closures. It does not create
+/// a runtime; its caller supplies the executor.
 #[derive(Clone)]
 pub struct NativeApplication {
     routes: RouteTable,
@@ -293,7 +315,10 @@ pub enum NativeApplicationError {
     MissingFallbackResponse,
     /// A legacy Starlette response field could not be converted to `http` types.
     InvalidLegacyResponse(NativeResponseConversionError),
-    /// A route endpoint returned an application error.
+    /// A route endpoint returned an application or request-body error.
+    ///
+    /// The original error remains available through [`Error::source`] and can
+    /// be downcast to its concrete type.
     Endpoint(NativeBodyError),
 }
 

@@ -119,7 +119,7 @@ impl MountDispatchTreeResult {
 ///
 /// This type handles the Mount prefix, root-path extension, parameter merging,
 /// child route selection, nested Mount composition, and standalone 404/405
-/// responses in Rust. It is an additive native API for fixed-response routes;
+/// responses in Rust. It is a Rust-native API for fixed-response routes;
 /// it does not invoke Python endpoints or model arbitrary ASGI child
 /// applications.
 #[derive(Clone, Debug, PartialEq, Eq)]

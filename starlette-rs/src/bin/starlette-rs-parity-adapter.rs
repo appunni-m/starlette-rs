@@ -1,14 +1,17 @@
 //! Process-isolated native adapter for the first Starlette migration-parity slice.
 
-use std::collections::HashSet;
+use std::collections::{HashSet, VecDeque};
 use std::env;
+use std::error::Error;
 use std::fs;
-use std::future::{Future, ready};
+use std::future::{Future, pending, ready};
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
+use std::pin::Pin;
 use std::process::ExitCode;
 use std::str::FromStr;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll, Waker};
 use std::time::{Duration, UNIX_EPOCH};
 
@@ -22,14 +25,19 @@ use std::os::unix::fs::PermissionsExt;
 // The workspace's flate2 dependency is used by the companion library target.
 use base64 as _;
 use bytes as _;
+use bytes::Bytes;
 use encoding_rs as _;
 use flate2 as _;
 use futures as _;
+use futures::executor::block_on;
 use getrandom as _;
 use hmac as _;
 use http as _;
+use http::{HeaderMap, HeaderName, HeaderValue, Method, Request, Response as HttpResponse, Uri};
 use http_body as _;
+use http_body::{Body, Frame};
 use http_body_util as _;
+use http_body_util::BodyExt;
 use md5 as _;
 use mime_guess as _;
 use multer as _;
@@ -37,13 +45,17 @@ use serde_json::{Map, Number, Value, json};
 use sha1 as _;
 use sha2 as _;
 use starlette_rs::{
-    ApplicationRoute, AsgiScopeKind, CommaSeparatedStrings, CookieOptions, Cookies,
-    DEFAULT_EXCLUDED_CONTENT_TYPES, DetailedRouteMatch, FileMetadata,
+    ActiveNativeLifespan, ApplicationRoute, AsgiScopeKind, CommaSeparatedStrings, CookieOptions,
+    Cookies, DEFAULT_EXCLUDED_CONTENT_TYPES, DetailedRouteMatch, FileMetadata,
     FileResponse as NativeFileResponse, FileResponseCallInput, FileResponseCallStep,
     FileResponseError, FileResponseEvent, FileResponseOptions, GzipConfig, GzipHeader,
     GzipResponseStart, HostPattern, HttpScope, LifespanAction, LifespanState, Mount as NativeMount,
     MountChild, MountScope, MultiDict as NativeMultiDict, NamedRoute as NativeNamedRoute,
-    NamedRouteError, NamedRouteTable, PathConverter, PathParameterCapture, QueryParams,
+    NamedRouteError, NamedRouteTable, NativeApplicationError, NativeLifespan, NativeLifespanError,
+    NativeLifespanState, NativeRoute, NativeWebSocketAcceptance, NativeWebSocketClose,
+    NativeWebSocketDriver, NativeWebSocketError, NativeWebSocketEvent, NativeWebSocketHandshake,
+    NativeWebSocketMessage, NativeWebSocketPeerClose, NativeWebSocketRoute, NativeWebSocketRouter,
+    NativeWebSocketTransportError, PathConverter, PathParameterCapture, QueryParams,
     RequestBodyAccumulator, RequestHeaders, Response, ResponseEvent, RouteTable,
     Starlette as NativeApplication, StaticFiles as NativeStaticFiles, StaticFilesError,
     StaticFilesResponse, StreamingResponse, StreamingResponseEvent, WebSocketState,
@@ -78,6 +90,8 @@ const ROUTER_URL_PATH_OPERATION: &str = "url_path_for";
 const WEBSOCKET_SURFACE: &str = "starlette.websockets.WebSocket";
 const WEBSOCKET_OPERATION: &str = "protocol-sequence";
 const WEBSOCKET_STATE_OPERATION: &str = "state-sequence";
+const NATIVE_WEBSOCKET_SURFACE: &str = "starlette-rs.NativeWebSocket";
+const NATIVE_WEBSOCKET_OPERATION: &str = "native-session-sequence";
 // The Python facade maps Rust state-transition errors through PyRuntimeError.
 const WEBSOCKET_STATE_ERROR_COMPATIBILITY_CLASS: &str = "builtins.RuntimeError";
 const WEBSOCKET_CALLBACK_OSERROR_CLASS: &str = "builtins.OSError";
@@ -365,6 +379,28 @@ fn exact_object<'a>(
     Ok(object)
 }
 
+fn object_with_optional_keys<'a>(
+    value: &'a Value,
+    required: &[&str],
+    optional: &[&str],
+    context: &str,
+) -> Result<&'a Map<String, Value>, String> {
+    let object = value
+        .as_object()
+        .ok_or_else(|| format!("{context} must be a JSON object"))?;
+    for required_key in required {
+        if !object.contains_key(*required_key) {
+            return Err(format!("{context} misses required field {required_key:?}"));
+        }
+    }
+    for actual_key in object.keys() {
+        if !required.contains(&actual_key.as_str()) && !optional.contains(&actual_key.as_str()) {
+            return Err(format!("{context} has unsupported field {actual_key:?}"));
+        }
+    }
+    Ok(object)
+}
+
 fn string_field<'a>(
     object: &'a Map<String, Value>,
     field: &str,
@@ -420,6 +456,11 @@ fn identity() -> Result<Value, String> {
 }
 
 fn run_case(case: &Value) -> Result<Value, String> {
+    if case.get("surface").and_then(Value::as_str) == Some(NATIVE_WEBSOCKET_SURFACE)
+        && case.get("operation").and_then(Value::as_str) == Some(NATIVE_WEBSOCKET_OPERATION)
+    {
+        return run_native_websocket_case(case);
+    }
     if case.get("surface").and_then(Value::as_str) == Some(WEBSOCKET_SURFACE) {
         return match case.get("operation").and_then(Value::as_str) {
             Some(WEBSOCKET_STATE_OPERATION) => run_websocket_state_case(case),
@@ -431,6 +472,15 @@ fn run_case(case: &Value) -> Result<Value, String> {
         case.get("surface").and_then(Value::as_str),
         case.get("operation").and_then(Value::as_str),
     ) {
+        (Some("starlette-rs.NativeApplication"), Some("service-body-streaming")) => {
+            return run_native_service_case(case);
+        }
+        (
+            Some("starlette-rs.NativeLifespan"),
+            Some("native-lifespan" | "start" | "shutdown" | "active-shutdown"),
+        ) => {
+            return run_native_lifespan_case(case);
+        }
         (Some("starlette.middleware.gzip.GZipMiddleware"), Some("__call__")) => {
             return run_gzip_case(case);
         }
@@ -484,6 +534,1551 @@ fn run_case(case: &Value) -> Result<Value, String> {
     }
 
     run_application_case(case)
+}
+
+#[derive(Clone)]
+enum NativeProbeFrame {
+    Data(Bytes),
+    Error { kind: String, message: String },
+    Pending,
+    End,
+}
+
+#[derive(Debug)]
+struct NativeProbeBodyError {
+    kind: String,
+    message: String,
+}
+
+impl std::fmt::Display for NativeProbeBodyError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(&self.message)
+    }
+}
+
+impl Error for NativeProbeBodyError {}
+
+struct NativeProbeBody {
+    frames: VecDeque<NativeProbeFrame>,
+    trace: Arc<Mutex<Vec<Value>>>,
+    dropped: Arc<AtomicBool>,
+    ended: bool,
+}
+
+impl NativeProbeBody {
+    fn new(
+        frames: Vec<NativeProbeFrame>,
+        trace: Arc<Mutex<Vec<Value>>>,
+        dropped: Arc<AtomicBool>,
+    ) -> Self {
+        Self {
+            frames: frames.into(),
+            trace,
+            dropped,
+            ended: false,
+        }
+    }
+
+    fn record(&self, event: Value) {
+        if let Ok(mut trace) = self.trace.lock() {
+            trace.push(event);
+        }
+    }
+}
+
+impl Body for NativeProbeBody {
+    type Data = Bytes;
+    type Error = NativeProbeBodyError;
+
+    fn poll_frame(
+        mut self: Pin<&mut Self>,
+        _context: &mut Context<'_>,
+    ) -> Poll<Option<Result<Frame<Self::Data>, Self::Error>>> {
+        let this = self.as_mut().get_mut();
+        if this.ended {
+            return Poll::Ready(None);
+        }
+        match this.frames.front().cloned() {
+            Some(NativeProbeFrame::Pending) => {
+                this.record(json!({"event": "pending"}));
+                Poll::Pending
+            }
+            Some(NativeProbeFrame::Data(data)) => {
+                let _ = this.frames.pop_front();
+                this.record(json!({
+                    "event": "data",
+                    "data_base64": encode_base64(&data),
+                }));
+                Poll::Ready(Some(Ok(Frame::data(data))))
+            }
+            Some(NativeProbeFrame::Error { kind, message }) => {
+                let _ = this.frames.pop_front();
+                this.record(json!({
+                    "event": "error",
+                    "kind": kind,
+                    "message": message,
+                }));
+                Poll::Ready(Some(Err(NativeProbeBodyError { kind, message })))
+            }
+            Some(NativeProbeFrame::End) | None => {
+                let _ = this.frames.pop_front();
+                this.ended = true;
+                this.record(json!({"event": "end"}));
+                Poll::Ready(None)
+            }
+        }
+    }
+}
+
+impl Drop for NativeProbeBody {
+    fn drop(&mut self) {
+        self.dropped.store(true, Ordering::Release);
+    }
+}
+
+#[derive(Default)]
+struct NativeServiceObservations {
+    handler_entered: bool,
+    request_chunks: Vec<String>,
+    request_error: Option<(String, String)>,
+}
+
+fn run_native_service_case(case: &Value) -> Result<Value, String> {
+    let case = exact_object(
+        case,
+        &[
+            "case_id",
+            "surface",
+            "operation",
+            "covers",
+            "target_profiles",
+            "assets",
+            "application",
+            "request",
+            "drive",
+            "observations",
+        ],
+        "native service case",
+    )?;
+    let case_id = string_field(case, "case_id", "native service case")?;
+    if string_field(case, "surface", "native service case")? != "starlette-rs.NativeApplication"
+        || string_field(case, "operation", "native service case")? != "service-body-streaming"
+    {
+        return Err(String::from(
+            "case is outside the native service streaming operation",
+        ));
+    }
+
+    let input_profiles = case
+        .get("target_profiles")
+        .and_then(Value::as_array)
+        .ok_or_else(|| String::from("native service target_profiles must be an array"))?;
+    if input_profiles
+        .iter()
+        .any(|profile| profile.as_str().is_none())
+    {
+        return Err(String::from(
+            "native service target_profiles must contain strings",
+        ));
+    }
+
+    let request = exact_object(
+        case.get("request")
+            .ok_or_else(|| String::from("native service case misses request"))?,
+        &["method", "uri", "body"],
+        "native service request",
+    )?;
+    let request_body = exact_object(
+        request
+            .get("body")
+            .ok_or_else(|| String::from("native service request misses body"))?,
+        &["frames"],
+        "native service request body",
+    )?;
+    let request_frames = parse_native_probe_frames(
+        request_body
+            .get("frames")
+            .ok_or_else(|| String::from("native service request body misses frames"))?,
+        "native service request body frames",
+    )?;
+    let request_trace = Arc::new(Mutex::new(Vec::new()));
+    let request_dropped = Arc::new(AtomicBool::new(false));
+    let request_body = NativeProbeBody::new(
+        request_frames,
+        Arc::clone(&request_trace),
+        Arc::clone(&request_dropped),
+    );
+
+    let observations = Arc::new(Mutex::new(NativeServiceObservations::default()));
+    let response_trace = Arc::new(Mutex::new(Vec::new()));
+    let response_dropped = Arc::new(AtomicBool::new(false));
+    let application = exact_object(
+        case.get("application")
+            .ok_or_else(|| String::from("native service case misses application"))?,
+        &["routes"],
+        "native service application",
+    )?;
+    let route_values = application
+        .get("routes")
+        .and_then(Value::as_array)
+        .filter(|routes| !routes.is_empty())
+        .ok_or_else(|| String::from("native service application routes must be non-empty"))?;
+    let mut routes = Vec::with_capacity(route_values.len());
+    for (index, route_value) in route_values.iter().enumerate() {
+        let context = format!("native service route[{index}]");
+        let route = exact_object(route_value, &["path", "methods", "endpoint"], &context)?;
+        let path = string_field(route, "path", &context)?.to_owned();
+        let methods = string_array_field(route, "methods", &context)?;
+        let endpoint = exact_object(
+            route
+                .get("endpoint")
+                .ok_or_else(|| format!("{context} misses endpoint"))?,
+            &["request_body_action", "response_body"],
+            &format!("{context}.endpoint"),
+        )?;
+        let request_action = string_field(endpoint, "request_body_action", &context)?.to_owned();
+        if !matches!(
+            request_action.as_str(),
+            "read-all" | "read-all-and-propagate-error" | "leave-unread"
+        ) {
+            return Err(format!("{context}.request_body_action is unsupported"));
+        }
+        let response_body = exact_object(
+            endpoint
+                .get("response_body")
+                .ok_or_else(|| format!("{context}.endpoint misses response_body"))?,
+            &["frames"],
+            &format!("{context}.endpoint.response_body"),
+        )?;
+        let response_frames = parse_native_probe_frames(
+            response_body
+                .get("frames")
+                .ok_or_else(|| format!("{context}.endpoint.response_body misses frames"))?,
+            &format!("{context}.endpoint.response_body.frames"),
+        )?;
+        let observations = Arc::clone(&observations);
+        let response_trace = Arc::clone(&response_trace);
+        let response_dropped = Arc::clone(&response_dropped);
+        let endpoint = move |mut request: starlette_rs::NativeRequest| {
+            let observations = Arc::clone(&observations);
+            let response_trace = Arc::clone(&response_trace);
+            let response_dropped = Arc::clone(&response_dropped);
+            let request_action = request_action.clone();
+            let response_frames = response_frames.clone();
+            async move {
+                {
+                    let mut captured = observations.lock().map_err(|_| {
+                        NativeApplicationError::Endpoint(Box::new(io::Error::other(
+                            "native service observation lock is poisoned",
+                        )))
+                    })?;
+                    captured.handler_entered = true;
+                }
+                if request_action != "leave-unread" {
+                    let mut chunks = Vec::new();
+                    let body = request.body_mut();
+                    while let Some(frame) = body.frame().await {
+                        match frame {
+                            Ok(frame) => {
+                                if let Ok(data) = frame.into_data() {
+                                    chunks.push(encode_base64(&data));
+                                }
+                            }
+                            Err(error) => {
+                                let error_text = error.to_string();
+                                let error_kind =
+                                    error.downcast_ref::<NativeProbeBodyError>().map_or_else(
+                                        || String::from("body-error"),
+                                        |source| source.kind.clone(),
+                                    );
+                                if let Ok(mut captured) = observations.lock() {
+                                    captured.request_chunks = chunks;
+                                    captured.request_error = Some((error_kind, error_text));
+                                }
+                                return Err(NativeApplicationError::Endpoint(error));
+                            }
+                        }
+                    }
+                    if let Ok(mut captured) = observations.lock() {
+                        captured.request_chunks = chunks;
+                    }
+                }
+                let body = NativeProbeBody::new(response_frames, response_trace, response_dropped);
+                Ok(HttpResponse::new(starlette_rs::box_native_body(body)))
+            }
+        };
+        routes.push(NativeRoute::new(path, methods, endpoint));
+    }
+
+    let mut application =
+        starlette_rs::NativeApplication::new(routes).map_err(|error| error.to_string())?;
+    let method =
+        Method::from_bytes(string_field(request, "method", "native service request")?.as_bytes())
+            .map_err(|error| format!("native service request method is invalid: {error}"))?;
+    let uri = Uri::from_str(string_field(request, "uri", "native service request")?)
+        .map_err(|error| format!("native service request URI is invalid: {error}"))?;
+    let request = Request::builder()
+        .method(method)
+        .uri(uri)
+        .body(request_body)
+        .map_err(|error| format!("cannot construct native service request: {error}"))?;
+
+    let drive = object_with_optional_keys(
+        case.get("drive")
+            .ok_or_else(|| String::from("native service case misses drive"))?,
+        &["service_future"],
+        &["response_body"],
+        "native service drive",
+    )?;
+    let service_mode = string_field(drive, "service_future", "native service drive")?;
+    let mut service_error = None;
+    let mut response = if service_mode == "resolve" {
+        match block_on(tower_service::Service::call(&mut application, request)) {
+            Ok(response) => Some(response),
+            Err(error) => {
+                service_error = Some(error.to_string());
+                None
+            }
+        }
+    } else if service_mode == "poll-until-pending-then-drop" {
+        let mut future = Box::pin(tower_service::Service::call(&mut application, request));
+        let poll = poll_future_once(future.as_mut());
+        match poll {
+            Poll::Ready(Ok(response)) => Some(response),
+            Poll::Ready(Err(error)) => {
+                service_error = Some(error.to_string());
+                None
+            }
+            Poll::Pending => None,
+        }
+    } else {
+        return Err(String::from(
+            "native service drive.service_future is unsupported",
+        ));
+    };
+
+    let response_drive = drive.get("response_body");
+    let mut response_chunks = Vec::new();
+    let mut response_error = None;
+    let mut response_status = None;
+    if let Some(mut response) = response.take() {
+        response_status = Some(response.status().as_u16());
+        if let Some(response_drive) = response_drive {
+            if response_drive == "drop-without-poll" {
+                drop(response);
+            } else if response_drive == "read-to-end" || response_drive == "read-to-error" {
+                block_on(async {
+                    while let Some(frame) = response.body_mut().frame().await {
+                        match frame {
+                            Ok(frame) => {
+                                if let Ok(data) = frame.into_data() {
+                                    response_chunks.push(encode_base64(&data));
+                                }
+                            }
+                            Err(error) => {
+                                let error_kind =
+                                    error.downcast_ref::<NativeProbeBodyError>().map_or_else(
+                                        || String::from("body-error"),
+                                        |source| source.kind.clone(),
+                                    );
+                                response_error = Some((error_kind, error.to_string()));
+                                break;
+                            }
+                        }
+                    }
+                });
+            } else if let Some(read_schedule) = response_drive.get("read_frames") {
+                let reads = read_schedule.as_array().ok_or_else(|| {
+                    String::from("native service drive.response_body.read_frames must be an array")
+                })?;
+                let mut ended = false;
+                let counts = reads
+                    .iter()
+                    .enumerate()
+                    .map(|(index, read)| {
+                        if read.as_str() == Some("to-end") {
+                            Ok(None)
+                        } else {
+                            read.as_u64().map(Some).ok_or_else(|| {
+                                format!("native service read_frames[{index}] must be a positive count or to-end")
+                            })
+                        }
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                block_on(async {
+                    for count in counts {
+                        if let Some(count) = count {
+                            for _ in 0..count {
+                                match response.body_mut().frame().await {
+                                    Some(Ok(frame)) => {
+                                        if let Ok(data) = frame.into_data() {
+                                            response_chunks.push(encode_base64(&data));
+                                        }
+                                    }
+                                    Some(Err(error)) => {
+                                        let error_kind = error
+                                            .downcast_ref::<NativeProbeBodyError>()
+                                            .map_or_else(
+                                                || String::from("body-error"),
+                                                |source| source.kind.clone(),
+                                            );
+                                        response_error = Some((error_kind, error.to_string()));
+                                        ended = true;
+                                        break;
+                                    }
+                                    None => {
+                                        ended = true;
+                                        break;
+                                    }
+                                }
+                            }
+                        } else {
+                            while let Some(frame) = response.body_mut().frame().await {
+                                match frame {
+                                    Ok(frame) => {
+                                        if let Ok(data) = frame.into_data() {
+                                            response_chunks.push(encode_base64(&data));
+                                        }
+                                    }
+                                    Err(error) => {
+                                        let error_kind = error
+                                            .downcast_ref::<NativeProbeBodyError>()
+                                            .map_or_else(
+                                                || String::from("body-error"),
+                                                |source| source.kind.clone(),
+                                            );
+                                        response_error = Some((error_kind, error.to_string()));
+                                        break;
+                                    }
+                                }
+                            }
+                            ended = true;
+                        }
+                        if ended {
+                            break;
+                        }
+                    }
+                });
+                drop(response);
+            } else {
+                return Err(String::from(
+                    "native service response_body drive is unsupported",
+                ));
+            }
+        } else {
+            // An omitted body schedule means the consumer stops after receiving
+            // the response and drops its body without polling another frame.
+            drop(response);
+        }
+    }
+
+    let captured = observations
+        .lock()
+        .map_err(|_| String::from("native service observation lock is poisoned"))?;
+    let request_chunks = captured.request_chunks.clone();
+    let handler_entered = captured.handler_entered;
+    let request_error = captured.request_error.clone();
+    drop(captured);
+    let response_available = response_status.map(|status| json!({"status": status}));
+    let mut values = Map::new();
+    values.insert(String::from("handler-entry"), json!(handler_entered));
+    values.insert(String::from("request-body-chunks"), json!(request_chunks));
+    values.insert(String::from("response-body-chunks"), json!(response_chunks));
+    values.insert(
+        String::from("response-available"),
+        response_available.unwrap_or(Value::Null),
+    );
+    values.insert(
+        String::from("request-body-error-propagation"),
+        request_error.map_or(Value::Null, |(_kind, message)| json!({"message": message})),
+    );
+    values.insert(
+        String::from("response-body-error-propagation"),
+        response_error.map_or(Value::Null, |(_kind, message)| json!({"message": message})),
+    );
+    values.insert(
+        String::from("service-error"),
+        service_error.map_or(Value::Null, |message| json!({"message": message})),
+    );
+    native_observation_result(case_id, case, values, "native service")
+}
+
+fn parse_native_probe_frames(
+    value: &Value,
+    context: &str,
+) -> Result<Vec<NativeProbeFrame>, String> {
+    let frames = value
+        .as_array()
+        .ok_or_else(|| format!("{context} must be an array"))?;
+    let mut parsed = Vec::with_capacity(frames.len());
+    for (index, frame) in frames.iter().enumerate() {
+        let frame_context = format!("{context}[{index}]");
+        let object = frame
+            .as_object()
+            .ok_or_else(|| format!("{frame_context} must be an object"))?;
+        if object.contains_key("data_base64") {
+            exact_keys(object, &["data_base64"], &frame_context)?;
+            let encoded = string_field(object, "data_base64", &frame_context)?;
+            parsed.push(NativeProbeFrame::Data(Bytes::from(decode_base64(
+                encoded,
+                &format!("{frame_context}.data_base64"),
+            )?)));
+        } else if object.contains_key("error") {
+            exact_keys(object, &["error"], &frame_context)?;
+            let error = exact_object(
+                object
+                    .get("error")
+                    .ok_or_else(|| format!("{frame_context} misses error"))?,
+                &["kind", "message"],
+                &format!("{frame_context}.error"),
+            )?;
+            parsed.push(NativeProbeFrame::Error {
+                kind: string_field(error, "kind", &frame_context)?.to_owned(),
+                message: string_field(error, "message", &frame_context)?.to_owned(),
+            });
+        } else if object.get("pending").and_then(Value::as_bool) == Some(true) {
+            exact_keys(object, &["pending"], &frame_context)?;
+            parsed.push(NativeProbeFrame::Pending);
+        } else if object.get("end").and_then(Value::as_bool) == Some(true) {
+            exact_keys(object, &["end"], &frame_context)?;
+            parsed.push(NativeProbeFrame::End);
+        } else {
+            return Err(format!(
+                "{frame_context} must declare data_base64, error, pending, or end"
+            ));
+        }
+    }
+    Ok(parsed)
+}
+
+fn poll_future_once<F: Future>(future: Pin<&mut F>) -> Poll<F::Output> {
+    let waker = futures::task::noop_waker();
+    let mut context = Context::from_waker(&waker);
+    future.poll(&mut context)
+}
+
+fn string_array_field(
+    object: &Map<String, Value>,
+    key: &str,
+    context: &str,
+) -> Result<Vec<String>, String> {
+    object
+        .get(key)
+        .and_then(Value::as_array)
+        .ok_or_else(|| format!("{context}.{key} must be an array"))?
+        .iter()
+        .enumerate()
+        .map(|(index, value)| {
+            value
+                .as_str()
+                .map(str::to_owned)
+                .ok_or_else(|| format!("{context}.{key}[{index}] must be a string"))
+        })
+        .collect()
+}
+
+fn native_observation_result(
+    case_id: &str,
+    case: &Map<String, Value>,
+    values: Map<String, Value>,
+    context: &str,
+) -> Result<Value, String> {
+    let selectors = case
+        .get("observations")
+        .and_then(Value::as_array)
+        .ok_or_else(|| format!("{context} observations must be an array"))?;
+    if selectors.len() != 1 || selectors.first().and_then(Value::as_str) != Some("workflow") {
+        return Err(format!(
+            "{context} must select exactly one workflow observation"
+        ));
+    }
+    Ok(json!({
+        "case_id": case_id,
+        "status": "completed",
+        "observations": [{
+            "step_id": "workflow",
+            "status": "ok",
+            "value": {"workflow": Value::Object(values)},
+        }],
+    }))
+}
+
+#[derive(Default)]
+struct NativeWebSocketProbe {
+    acceptance: Option<Value>,
+    messages: Vec<Value>,
+    close: Option<Value>,
+    peer_close: Option<Value>,
+    path_params: Option<Value>,
+    handshake: Option<Value>,
+    application_error: Option<Value>,
+    result_error_kind: Option<String>,
+    receive_started: bool,
+    receive_cancelled: bool,
+}
+
+struct NativeWebSocketDriverProbe {
+    incoming: Mutex<VecDeque<NativeWebSocketEvent>>,
+    pending_receive: bool,
+    cancel_receive: bool,
+    observations: Arc<Mutex<NativeWebSocketProbe>>,
+}
+
+impl NativeWebSocketDriver for NativeWebSocketDriverProbe {
+    fn accept(
+        &self,
+        acceptance: NativeWebSocketAcceptance,
+    ) -> futures::future::BoxFuture<'_, Result<(), NativeWebSocketTransportError>> {
+        Box::pin(async move {
+            let (subprotocol, headers) = acceptance.into_parts();
+            let mut probe = self.observations.lock().map_err(|_| {
+                Box::new(io::Error::other("WebSocket observation lock is poisoned"))
+                    as NativeWebSocketTransportError
+            })?;
+            probe.acceptance = Some(json!({
+                "accepted": true,
+                "subprotocol": subprotocol,
+                "headers": native_header_pairs(&headers),
+            }));
+            Ok(())
+        })
+    }
+
+    fn receive(
+        &self,
+    ) -> futures::future::BoxFuture<'_, Result<NativeWebSocketEvent, NativeWebSocketTransportError>>
+    {
+        Box::pin(async move {
+            if let Ok(mut probe) = self.observations.lock() {
+                probe.receive_started = true;
+            }
+            if self.pending_receive {
+                return pending::<Result<NativeWebSocketEvent, NativeWebSocketTransportError>>()
+                    .await;
+            }
+            let event = self
+                .incoming
+                .lock()
+                .map_err(|_| {
+                    Box::new(io::Error::other("WebSocket input queue is poisoned"))
+                        as NativeWebSocketTransportError
+                })?
+                .pop_front()
+                .ok_or_else(|| {
+                    Box::new(io::Error::other("WebSocket input has no next event"))
+                        as NativeWebSocketTransportError
+                })?;
+            if let Ok(mut probe) = self.observations.lock() {
+                match &event {
+                    NativeWebSocketEvent::Message(message) => {
+                        probe.messages.push(json!({
+                            "direction": "received",
+                            "message": native_websocket_message_value(message),
+                        }));
+                    }
+                    NativeWebSocketEvent::PeerClosed(close) => {
+                        let value = json!({"code": close.code, "reason": close.reason});
+                        probe.peer_close = Some(value.clone());
+                        probe.messages.push(json!({
+                            "direction": "received",
+                            "peer_close": value,
+                        }));
+                    }
+                }
+            }
+            Ok(event)
+        })
+    }
+
+    fn send(
+        &self,
+        message: NativeWebSocketMessage,
+    ) -> futures::future::BoxFuture<'_, Result<(), NativeWebSocketTransportError>> {
+        Box::pin(async move {
+            let mut probe = self.observations.lock().map_err(|_| {
+                Box::new(io::Error::other("WebSocket observation lock is poisoned"))
+                    as NativeWebSocketTransportError
+            })?;
+            probe.messages.push(json!({
+                "direction": "sent",
+                "message": native_websocket_message_value(&message),
+            }));
+            Ok(())
+        })
+    }
+
+    fn close(
+        &self,
+        close: NativeWebSocketClose,
+    ) -> futures::future::BoxFuture<'_, Result<(), NativeWebSocketTransportError>> {
+        Box::pin(async move {
+            let value = json!({"code": close.code(), "reason": close.reason()});
+            let mut probe = self.observations.lock().map_err(|_| {
+                Box::new(io::Error::other("WebSocket observation lock is poisoned"))
+                    as NativeWebSocketTransportError
+            })?;
+            probe.close = Some(value);
+            Ok(())
+        })
+    }
+
+    fn cancelled(&self) -> futures::future::BoxFuture<'_, ()> {
+        if self.cancel_receive {
+            Box::pin(async move {
+                if let Ok(mut probe) = self.observations.lock() {
+                    probe.receive_cancelled = true;
+                }
+            })
+        } else {
+            Box::pin(pending())
+        }
+    }
+}
+
+fn run_native_websocket_case(case: &Value) -> Result<Value, String> {
+    let case = exact_object(
+        case,
+        &[
+            "case_id",
+            "surface",
+            "operation",
+            "covers",
+            "target_profiles",
+            "assets",
+            "input",
+            "observations",
+        ],
+        "native WebSocket case",
+    )?;
+    let case_id = string_field(case, "case_id", "native WebSocket case")?;
+    if string_field(case, "surface", "native WebSocket case")? != NATIVE_WEBSOCKET_SURFACE
+        || string_field(case, "operation", "native WebSocket case")? != NATIVE_WEBSOCKET_OPERATION
+    {
+        return Err(String::from(
+            "case is outside the native WebSocket session operation",
+        ));
+    }
+    let target_profiles = case
+        .get("target_profiles")
+        .and_then(Value::as_array)
+        .ok_or_else(|| String::from("native WebSocket target_profiles must be an array"))?;
+    if target_profiles
+        .iter()
+        .any(|profile| profile.as_str().is_none())
+        || case.get("assets") != Some(&json!([]))
+    {
+        return Err(String::from(
+            "native WebSocket target_profiles must contain strings and assets must be empty",
+        ));
+    }
+    let input = object_with_optional_keys(
+        case.get("input")
+            .ok_or_else(|| String::from("native WebSocket case misses input"))?,
+        &["handshake", "route", "actions"],
+        &["incoming", "cancellation"],
+        "native WebSocket input",
+    )?;
+    let handshake_input = exact_object(
+        input
+            .get("handshake")
+            .ok_or_else(|| String::from("native WebSocket input misses handshake"))?,
+        &[
+            "method",
+            "uri",
+            "version",
+            "headers",
+            "offered_subprotocols",
+        ],
+        "native WebSocket handshake",
+    )?;
+    let method = Method::from_bytes(
+        string_field(handshake_input, "method", "native WebSocket handshake")?.as_bytes(),
+    )
+    .map_err(|error| format!("native WebSocket method is invalid: {error}"))?;
+    let uri = Uri::from_str(string_field(
+        handshake_input,
+        "uri",
+        "native WebSocket handshake",
+    )?)
+    .map_err(|error| format!("native WebSocket URI is invalid: {error}"))?;
+    let version = match string_field(handshake_input, "version", "native WebSocket handshake")? {
+        "HTTP/0.9" => http::Version::HTTP_09,
+        "HTTP/1.0" => http::Version::HTTP_10,
+        "HTTP/1.1" => http::Version::HTTP_11,
+        "HTTP/2" => http::Version::HTTP_2,
+        "HTTP/3" => http::Version::HTTP_3,
+        version => {
+            return Err(format!(
+                "unsupported native WebSocket HTTP version {version:?}"
+            ));
+        }
+    };
+    let headers = parse_native_headers(
+        handshake_input
+            .get("headers")
+            .ok_or_else(|| String::from("native WebSocket handshake misses headers"))?,
+        "native WebSocket handshake headers",
+    )?;
+    let offered = string_array_field(
+        handshake_input,
+        "offered_subprotocols",
+        "native WebSocket handshake",
+    )?;
+    let request = Request::builder()
+        .method(method)
+        .uri(uri)
+        .version(version)
+        .body(())
+        .map_err(|error| format!("cannot construct WebSocket handshake head: {error}"))?;
+    let (mut parts, _) = request.into_parts();
+    parts.headers = headers;
+    let handshake = NativeWebSocketHandshake::from_parts(parts, offered);
+
+    let route = exact_object(
+        input
+            .get("route")
+            .ok_or_else(|| String::from("native WebSocket input misses route"))?,
+        &["path", "preferred_subprotocols"],
+        "native WebSocket route",
+    )?;
+    let route_path = string_field(route, "path", "native WebSocket route")?.to_owned();
+    let preferred = string_array_field(route, "preferred_subprotocols", "native WebSocket route")?;
+    let actions = input
+        .get("actions")
+        .and_then(Value::as_array)
+        .cloned()
+        .ok_or_else(|| String::from("native WebSocket actions must be an array"))?;
+    let pending_receive = actions.iter().any(|action| {
+        action.get("action").and_then(Value::as_str) == Some("receive")
+            && action.get("pending").and_then(Value::as_bool) == Some(true)
+    });
+    let cancel_receive = if let Some(cancellation) = input.get("cancellation") {
+        let cancellation = exact_object(
+            cancellation,
+            &["operation", "timing"],
+            "native WebSocket cancellation",
+        )?;
+        if string_field(cancellation, "operation", "native WebSocket cancellation")? != "receive"
+            || string_field(cancellation, "timing", "native WebSocket cancellation")?
+                != "after-operation-started"
+        {
+            return Err(String::from(
+                "native WebSocket cancellation input is unsupported",
+            ));
+        }
+        true
+    } else {
+        false
+    };
+    if pending_receive && !cancel_receive {
+        return Err(String::from(
+            "pending WebSocket receive requires an input-defined cancellation event",
+        ));
+    }
+    let incoming = input
+        .get("incoming")
+        .and_then(Value::as_array)
+        .map(|events| {
+            events
+                .iter()
+                .enumerate()
+                .map(|(index, event)| parse_native_websocket_event(event, index))
+                .collect::<Result<VecDeque<_>, _>>()
+        })
+        .transpose()?
+        .unwrap_or_default();
+    let observations = Arc::new(Mutex::new(NativeWebSocketProbe::default()));
+    let driver: Arc<dyn NativeWebSocketDriver> = Arc::new(NativeWebSocketDriverProbe {
+        incoming: Mutex::new(incoming),
+        pending_receive,
+        cancel_receive,
+        observations: Arc::clone(&observations),
+    });
+    let route_observations = Arc::clone(&observations);
+    let route = NativeWebSocketRoute::new(route_path, preferred, move |mut session| {
+        let observations = Arc::clone(&route_observations);
+        let actions = actions.clone();
+        async move {
+            let params = session
+                .path_params()
+                .iter()
+                .map(|(key, value)| (key.clone(), json!(value)))
+                .collect::<Map<_, _>>();
+            let handshake = json!({
+                "method": session.handshake().method().as_str(),
+                "uri": session.handshake().uri().to_string(),
+                "version": native_http_version_name(session.handshake().version()),
+                "headers": native_header_pairs(session.handshake().headers()),
+                "offered_subprotocols": session.handshake().offered_subprotocols(),
+            });
+            if let Ok(mut probe) = observations.lock() {
+                probe.path_params = Some(Value::Object(params));
+                probe.handshake = Some(handshake);
+            }
+            let mut last_message = None::<NativeWebSocketMessage>;
+            for (index, action_value) in actions.iter().enumerate() {
+                let context = format!("native WebSocket actions[{index}]");
+                let action = action_value.as_object().ok_or_else(|| {
+                    NativeWebSocketError::application(io::Error::other(format!(
+                        "{context} must be an object"
+                    )))
+                })?;
+                match action.get("action").and_then(Value::as_str) {
+                    Some("accept-preferred") => {
+                        let headers = parse_native_headers(
+                            action.get("headers").ok_or_else(|| {
+                                NativeWebSocketError::application(io::Error::other(format!(
+                                    "{context} misses headers"
+                                )))
+                            })?,
+                            &format!("{context}.headers"),
+                        )
+                        .map_err(|error| {
+                            NativeWebSocketError::application(io::Error::other(error))
+                        })?;
+                        session.accept_preferred(headers).await?;
+                    }
+                    Some("receive") => match session.receive().await {
+                        Ok(NativeWebSocketEvent::Message(message)) => {
+                            last_message = Some(message);
+                        }
+                        Ok(NativeWebSocketEvent::PeerClosed(_)) => {
+                            last_message = None;
+                        }
+                        Err(error) => {
+                            let error_kind = match &error {
+                                NativeWebSocketError::Cancelled => "cancelled",
+                                NativeWebSocketError::Transport(_) => "transport",
+                                NativeWebSocketError::Application(_) => "application",
+                                _ => "protocol",
+                            };
+                            if let Ok(mut probe) = observations.lock() {
+                                probe.result_error_kind = Some(error_kind.to_owned());
+                            }
+                            return Err(error);
+                        }
+                    },
+                    Some("send-received") => {
+                        if let Some(message) = last_message.take() {
+                            session.send(message).await?;
+                        }
+                    }
+                    Some("close") => {
+                        let code = action
+                            .get("code")
+                            .and_then(Value::as_u64)
+                            .and_then(|code| u16::try_from(code).ok())
+                            .ok_or_else(|| {
+                                NativeWebSocketError::application(io::Error::other(format!(
+                                    "{context}.code must be a u16"
+                                )))
+                            })?;
+                        let reason =
+                            action
+                                .get("reason")
+                                .and_then(Value::as_str)
+                                .ok_or_else(|| {
+                                    NativeWebSocketError::application(io::Error::other(format!(
+                                        "{context}.reason must be a string"
+                                    )))
+                                })?;
+                        let close = NativeWebSocketClose::new(code, reason).map_err(|error| {
+                            NativeWebSocketError::application(io::Error::other(error.to_string()))
+                        })?;
+                        session.close(close).await?;
+                    }
+                    Some("return-application-error") => {
+                        let error =
+                            action
+                                .get("error")
+                                .and_then(Value::as_object)
+                                .ok_or_else(|| {
+                                    NativeWebSocketError::application(io::Error::other(format!(
+                                        "{context}.error must be an object"
+                                    )))
+                                })?;
+                        let kind = error.get("kind").and_then(Value::as_str).ok_or_else(|| {
+                            NativeWebSocketError::application(io::Error::other(format!(
+                                "{context}.error.kind must be a string"
+                            )))
+                        })?;
+                        if kind != "io-error" {
+                            return Err(NativeWebSocketError::application(io::Error::other(
+                                format!("{context}.error.kind must select io-error"),
+                            )));
+                        }
+                        let message =
+                            error
+                                .get("message")
+                                .and_then(Value::as_str)
+                                .ok_or_else(|| {
+                                    NativeWebSocketError::application(io::Error::other(format!(
+                                        "{context}.error.message must be a string"
+                                    )))
+                                })?;
+                        if let Ok(mut probe) = observations.lock() {
+                            probe.application_error =
+                                Some(json!({"kind": "OSError", "message": message}));
+                        }
+                        return Err(NativeWebSocketError::application(io::Error::other(
+                            message.to_owned(),
+                        )));
+                    }
+                    Some(unsupported) => {
+                        return Err(NativeWebSocketError::application(io::Error::other(
+                            format!("{context}.action {unsupported:?} is unsupported"),
+                        )));
+                    }
+                    None => {
+                        return Err(NativeWebSocketError::application(io::Error::other(
+                            format!("{context}.action must be a string"),
+                        )));
+                    }
+                }
+            }
+            Ok(())
+        }
+    });
+    let router = NativeWebSocketRouter::new([route]).map_err(|error| error.to_string())?;
+    let dispatch_result = block_on(router.dispatch(handshake, driver));
+    if let Err(error) = dispatch_result {
+        if let Ok(mut probe) = observations.lock() {
+            if probe.result_error_kind.is_none() {
+                probe.result_error_kind = Some(match &error {
+                    NativeWebSocketError::Cancelled => String::from("cancelled"),
+                    NativeWebSocketError::Transport(_) => String::from("transport"),
+                    NativeWebSocketError::Application(_) => String::from("application"),
+                    _ => String::from("protocol"),
+                });
+            }
+        }
+    }
+    let probe = observations
+        .lock()
+        .map_err(|_| String::from("native WebSocket observation lock is poisoned"))?;
+    let mut values = Map::new();
+    values.insert(
+        String::from("handshake.acceptance"),
+        probe.acceptance.clone().unwrap_or(Value::Null),
+    );
+    values.insert(
+        String::from("handshake.selected_subprotocol"),
+        probe
+            .acceptance
+            .as_ref()
+            .and_then(|accepted| accepted.get("subprotocol"))
+            .cloned()
+            .unwrap_or(Value::Null),
+    );
+    values.insert(
+        String::from("session.handshake"),
+        probe.handshake.clone().unwrap_or(Value::Null),
+    );
+    values.insert(
+        String::from("session.path_params"),
+        probe.path_params.clone().unwrap_or(Value::Null),
+    );
+    values.insert(String::from("session.messages"), json!(probe.messages));
+    values.insert(
+        String::from("session.close"),
+        probe.close.clone().unwrap_or(Value::Null),
+    );
+    values.insert(
+        String::from("session.peer_close"),
+        probe.peer_close.clone().unwrap_or(Value::Null),
+    );
+    values.insert(
+        String::from("application_error.kind"),
+        probe
+            .application_error
+            .as_ref()
+            .and_then(|error| error.get("kind"))
+            .cloned()
+            .unwrap_or(Value::Null),
+    );
+    values.insert(
+        String::from("application_error.message"),
+        probe
+            .application_error
+            .as_ref()
+            .and_then(|error| error.get("message"))
+            .cloned()
+            .unwrap_or(Value::Null),
+    );
+    values.insert(
+        String::from("application_result.error_kind"),
+        probe
+            .result_error_kind
+            .clone()
+            .map_or(Value::Null, |kind| json!(kind)),
+    );
+    values.insert(
+        String::from("transport.receive_cancelled"),
+        json!(probe.receive_cancelled && probe.receive_started),
+    );
+    native_observation_result(case_id, case, values, "native WebSocket")
+}
+
+fn parse_native_websocket_event(
+    value: &Value,
+    index: usize,
+) -> Result<NativeWebSocketEvent, String> {
+    let context = format!("native WebSocket incoming[{index}]");
+    let object = value
+        .as_object()
+        .ok_or_else(|| format!("{context} must be an object"))?;
+    match string_field(object, "kind", &context)? {
+        "text" => {
+            exact_keys(object, &["kind", "value"], &context)?;
+            Ok(NativeWebSocketEvent::Message(NativeWebSocketMessage::Text(
+                string_field(object, "value", &context)?.to_owned(),
+            )))
+        }
+        "binary" => {
+            exact_keys(object, &["kind", "base64"], &context)?;
+            Ok(NativeWebSocketEvent::Message(
+                NativeWebSocketMessage::Binary(Bytes::from(decode_base64(
+                    string_field(object, "base64", &context)?,
+                    &format!("{context}.base64"),
+                )?)),
+            ))
+        }
+        "peer-close" => {
+            object_with_optional_keys(value, &["kind", "reason"], &["code"], &context)?;
+            let code = object
+                .get("code")
+                .and_then(Value::as_u64)
+                .and_then(|code| u16::try_from(code).ok());
+            Ok(NativeWebSocketEvent::PeerClosed(NativeWebSocketPeerClose {
+                code,
+                reason: string_field(object, "reason", &context)?.to_owned(),
+            }))
+        }
+        kind => Err(format!("{context}.kind {kind:?} is unsupported")),
+    }
+}
+
+fn parse_native_headers(value: &Value, context: &str) -> Result<HeaderMap, String> {
+    let pairs = value
+        .as_array()
+        .ok_or_else(|| format!("{context} must be an array"))?;
+    let mut headers = HeaderMap::new();
+    for (index, pair) in pairs.iter().enumerate() {
+        let pair = pair
+            .as_array()
+            .filter(|pair| pair.len() == 2)
+            .ok_or_else(|| format!("{context}[{index}] must be a two-element pair"))?;
+        let name = pair[0]
+            .as_str()
+            .ok_or_else(|| format!("{context}[{index}][0] must be a string"))?;
+        let value = pair[1]
+            .as_str()
+            .ok_or_else(|| format!("{context}[{index}][1] must be a string"))?;
+        let name = HeaderName::from_bytes(name.as_bytes())
+            .map_err(|error| format!("{context}[{index}] header name is invalid: {error}"))?;
+        let value = HeaderValue::from_bytes(value.as_bytes())
+            .map_err(|error| format!("{context}[{index}] header value is invalid: {error}"))?;
+        headers.append(name, value);
+    }
+    Ok(headers)
+}
+
+fn native_header_pairs(headers: &HeaderMap) -> Vec<Value> {
+    headers
+        .iter()
+        .map(|(name, value)| json!([name.as_str(), encode_base64(value.as_bytes())]))
+        .collect()
+}
+
+fn native_websocket_message_value(message: &NativeWebSocketMessage) -> Value {
+    match message {
+        NativeWebSocketMessage::Text(value) => json!({"kind": "text", "value": value}),
+        NativeWebSocketMessage::Binary(value) => {
+            json!({"kind": "binary", "base64": encode_base64(value)})
+        }
+    }
+}
+
+fn native_http_version_name(version: http::Version) -> &'static str {
+    match version {
+        http::Version::HTTP_09 => "HTTP/0.9",
+        http::Version::HTTP_10 => "HTTP/1.0",
+        http::Version::HTTP_11 => "HTTP/1.1",
+        http::Version::HTTP_2 => "HTTP/2",
+        http::Version::HTTP_3 => "HTTP/3",
+        _ => "unknown",
+    }
+}
+
+#[derive(Debug)]
+struct NativeLifespanFixtureError(String);
+
+impl std::fmt::Display for NativeLifespanFixtureError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(&self.0)
+    }
+}
+
+impl Error for NativeLifespanFixtureError {}
+
+#[derive(Default)]
+struct NativeLifespanProbe {
+    events: Vec<String>,
+}
+
+fn run_native_lifespan_case(case: &Value) -> Result<Value, String> {
+    let case = object_with_optional_keys(
+        case,
+        &[
+            "case_id",
+            "surface",
+            "operation",
+            "covers",
+            "target_profiles",
+            "assets",
+            "inputs",
+            "observations",
+        ],
+        &["oracle_applicability", "fault_contract"],
+        "native lifespan case",
+    )?;
+    let case_id = string_field(case, "case_id", "native lifespan case")?;
+    let surface = string_field(case, "surface", "native lifespan case")?;
+    let operation = string_field(case, "operation", "native lifespan case")?;
+    if surface != "starlette-rs.NativeLifespan"
+        || !matches!(
+            operation,
+            "native-lifespan" | "start" | "shutdown" | "active-shutdown"
+        )
+    {
+        return Err(String::from(
+            "native lifespan surface or operation is unsupported",
+        ));
+    }
+    let inputs = exact_object(
+        case.get("inputs")
+            .ok_or_else(|| String::from("native lifespan case misses inputs"))?,
+        &["registrations", "host_actions"],
+        "native lifespan inputs",
+    )?;
+    let registrations = inputs
+        .get("registrations")
+        .and_then(Value::as_array)
+        .ok_or_else(|| String::from("native lifespan registrations must be an array"))?;
+    let host_actions = inputs
+        .get("host_actions")
+        .and_then(Value::as_array)
+        .ok_or_else(|| String::from("native lifespan host_actions must be an array"))?
+        .iter()
+        .map(|action| {
+            action
+                .as_str()
+                .ok_or_else(|| String::from("native lifespan host_actions must contain strings"))
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+
+    let mut hook_specs = Vec::with_capacity(registrations.len());
+    for (index, registration) in registrations.iter().enumerate() {
+        let context = format!("native lifespan registrations[{index}]");
+        let registration = exact_object(registration, &["name", "startup", "shutdown"], &context)?;
+        let _ = string_field(registration, "name", &context)?;
+        let startup = exact_object(
+            registration
+                .get("startup")
+                .ok_or_else(|| format!("{context} misses startup"))?,
+            &["actions"],
+            &format!("{context}.startup"),
+        )?;
+        let shutdown = exact_object(
+            registration
+                .get("shutdown")
+                .ok_or_else(|| format!("{context} misses shutdown"))?,
+            &["actions"],
+            &format!("{context}.shutdown"),
+        )?;
+        hook_specs.push((
+            parse_lifespan_actions(startup, &format!("{context}.startup"))?,
+            parse_lifespan_actions(shutdown, &format!("{context}.shutdown"))?,
+        ));
+    }
+
+    let probe = Arc::new(Mutex::new(NativeLifespanProbe::default()));
+    let mut builder = NativeLifespan::builder();
+    for (startup_actions, shutdown_actions) in hook_specs {
+        let startup_probe = Arc::clone(&probe);
+        let shutdown_probe = Arc::clone(&probe);
+        builder = builder.on_lifecycle(
+            move |state| {
+                let actions = startup_actions.clone();
+                let probe = Arc::clone(&startup_probe);
+                async move { run_lifespan_actions(&actions, state, Arc::clone(&probe)).await }
+            },
+            move |state| {
+                let actions = shutdown_actions.clone();
+                let probe = Arc::clone(&shutdown_probe);
+                async move { run_lifespan_actions(&actions, state, Arc::clone(&probe)).await }
+            },
+        );
+    }
+    let lifecycle = builder.build();
+
+    let mut state_before_shutdown = Value::Null;
+    let mut startup_failure = Value::Null;
+    let mut shutdown_failure = Value::Null;
+    let mut lifecycle = Some(lifecycle);
+    let mut active = None::<ActiveNativeLifespan>;
+    let mut pending_start_future =
+        None::<Pin<Box<dyn Future<Output = Result<ActiveNativeLifespan, NativeLifespanError>>>>>;
+    let mut pending_shutdown_future =
+        None::<Pin<Box<dyn Future<Output = Result<(), NativeLifespanError>>>>>;
+
+    for action in host_actions.iter().copied() {
+        match action {
+            "start-to-completion" => {
+                let lifecycle_to_start = lifecycle
+                    .take()
+                    .ok_or_else(|| String::from("native lifespan start was requested twice"))?;
+                match block_on(lifecycle_to_start.start()) {
+                    Ok(started) => active = Some(started),
+                    Err(error) => {
+                        startup_failure = native_lifespan_error_value(&error);
+                        break;
+                    }
+                }
+            }
+            "observe-state" => {
+                let active_lifecycle = active.as_ref().ok_or_else(|| {
+                    String::from("native lifespan state observation requires startup")
+                })?;
+                state_before_shutdown =
+                    native_lifespan_state_snapshot(active_lifecycle.state(), registrations)?;
+            }
+            "shutdown-to-completion" => {
+                let active_lifecycle = active
+                    .take()
+                    .ok_or_else(|| String::from("native lifespan shutdown requires startup"))?;
+                if let Err(error) = block_on(active_lifecycle.shutdown()) {
+                    shutdown_failure = if operation == "shutdown" {
+                        native_lifespan_aggregated_shutdown_error_value(&error)
+                    } else {
+                        native_lifespan_error_value(&error)
+                    };
+                }
+            }
+            "start-to-cache-suspension" => {
+                let lifecycle_to_start = lifecycle
+                    .take()
+                    .ok_or_else(|| String::from("native lifespan start was requested twice"))?;
+                let mut start_future = Box::pin(lifecycle_to_start.start());
+                match poll_future_once(start_future.as_mut()) {
+                    Poll::Pending => pending_start_future = Some(start_future),
+                    Poll::Ready(Ok(started)) => {
+                        active = Some(started);
+                    }
+                    Poll::Ready(Err(error)) => {
+                        startup_failure = native_lifespan_error_value(&error);
+                    }
+                }
+            }
+            "drive-shutdown-until-host-deadline" => {
+                let active_lifecycle = active.take().ok_or_else(|| {
+                    String::from("native lifespan deadline requires completed startup")
+                })?;
+                let mut shutdown_future = Box::pin(active_lifecycle.shutdown());
+                match poll_future_once(shutdown_future.as_mut()) {
+                    Poll::Pending => pending_shutdown_future = Some(shutdown_future),
+                    Poll::Ready(Ok(())) => {}
+                    Poll::Ready(Err(error)) => {
+                        shutdown_failure = native_lifespan_error_value(&error);
+                    }
+                }
+            }
+            "drop-start-future" => {
+                if pending_start_future.take().is_none() {
+                    return Err(String::from(
+                        "drop-start-future requires a startup future suspended by the host",
+                    ));
+                }
+            }
+            "drop-shutdown-future" => {
+                if pending_shutdown_future.take().is_none() {
+                    return Err(String::from(
+                        "drop-shutdown-future requires a shutdown future suspended by the host",
+                    ));
+                }
+            }
+            _ => {
+                return Err(format!(
+                    "native lifespan host action {action:?} is unsupported"
+                ));
+            }
+        }
+    }
+    if pending_start_future.is_some() || pending_shutdown_future.is_some() {
+        return Err(String::from(
+            "native lifespan host_actions must explicitly drop each pending future",
+        ));
+    }
+    let event_sequence = native_lifespan_events(&probe)?;
+    let record = json!({
+        "lifecycle-event-sequence": event_sequence,
+        "lifecycle-state-before-shutdown": state_before_shutdown,
+        "startup-failure": startup_failure,
+        "shutdown-failure": shutdown_failure,
+    });
+    let mut values = Map::new();
+    if let Some(record) = record.as_object() {
+        for (key, value) in record {
+            values.insert(key.clone(), value.clone());
+        }
+    }
+    native_observation_result(case_id, case, values, "native lifespan")
+}
+
+fn parse_lifespan_actions(hook: &Map<String, Value>, context: &str) -> Result<Vec<Value>, String> {
+    let actions = hook
+        .get("actions")
+        .and_then(Value::as_array)
+        .ok_or_else(|| format!("{context}.actions must be an array"))?;
+    Ok(actions.clone())
+}
+
+async fn run_lifespan_actions(
+    actions: &[Value],
+    state: NativeLifespanState,
+    probe: Arc<Mutex<NativeLifespanProbe>>,
+) -> Result<(), NativeLifespanFixtureError> {
+    for action in actions {
+        let object = action.as_object().ok_or_else(|| {
+            NativeLifespanFixtureError(String::from("lifespan hook action must be an object"))
+        })?;
+        if let Some(raw_event) = object.get("append-event") {
+            let event = raw_event.as_str().ok_or_else(|| {
+                NativeLifespanFixtureError(String::from("append-event value must be a string"))
+            })?;
+            probe
+                .lock()
+                .map_err(|_| {
+                    NativeLifespanFixtureError(String::from("lifespan probe is poisoned"))
+                })?
+                .events
+                .push(event.to_owned());
+        } else if let Some(raw_state) = object.get("insert-state") {
+            let state_spec = raw_state.as_object().ok_or_else(|| {
+                NativeLifespanFixtureError(String::from("insert-state must be an object"))
+            })?;
+            let key = state_spec
+                .get("key")
+                .and_then(Value::as_str)
+                .ok_or_else(|| {
+                    NativeLifespanFixtureError(String::from("state key must be a string"))
+                })?;
+            let value = state_spec
+                .get("value")
+                .and_then(Value::as_str)
+                .ok_or_else(|| {
+                    NativeLifespanFixtureError(String::from("state value must be a string"))
+                })?;
+            state
+                .insert(key, value.to_owned())
+                .map_err(|error| NativeLifespanFixtureError(error.to_string()))?;
+        } else if let Some(raw_key) = object.get("remove-state") {
+            let key = raw_key.as_str().ok_or_else(|| {
+                NativeLifespanFixtureError(String::from("remove-state value must be a string"))
+            })?;
+            let _ = state
+                .remove::<String>(key)
+                .map_err(|error| NativeLifespanFixtureError(error.to_string()))?;
+        } else if let Some(raw_error) = object.get("raise") {
+            let error = raw_error.as_object().ok_or_else(|| {
+                NativeLifespanFixtureError(String::from("raise action must be an object"))
+            })?;
+            let message = error
+                .get("message")
+                .and_then(Value::as_str)
+                .ok_or_else(|| {
+                    NativeLifespanFixtureError(String::from("raise message must be a string"))
+                })?;
+            return Err(NativeLifespanFixtureError(message.to_owned()));
+        } else if object.get("suspend-until-host-release") == Some(&Value::Bool(true)) {
+            pending::<()>().await;
+        } else {
+            return Err(NativeLifespanFixtureError(String::from(
+                "lifespan hook action is unsupported",
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn native_lifespan_events(probe: &Arc<Mutex<NativeLifespanProbe>>) -> Result<Vec<String>, String> {
+    probe
+        .lock()
+        .map(|probe| probe.events.clone())
+        .map_err(|_| String::from("native lifespan probe lock is poisoned"))
+}
+
+fn native_lifespan_state_snapshot(
+    state: &NativeLifespanState,
+    registrations: &[Value],
+) -> Result<Value, String> {
+    let mut snapshot = Map::new();
+    for registration in registrations {
+        let registration = registration
+            .as_object()
+            .ok_or_else(|| String::from("native lifespan registration must be an object"))?;
+        for hook_name in ["startup", "shutdown"] {
+            let hook = registration
+                .get(hook_name)
+                .and_then(Value::as_object)
+                .ok_or_else(|| format!("native lifespan registration misses {hook_name}"))?;
+            let actions = hook
+                .get("actions")
+                .and_then(Value::as_array)
+                .ok_or_else(|| format!("native lifespan {hook_name} actions must be an array"))?;
+            for action in actions {
+                if let Some(state_spec) = action.get("insert-state").and_then(Value::as_object) {
+                    let key = state_spec
+                        .get("key")
+                        .and_then(Value::as_str)
+                        .ok_or_else(|| {
+                            String::from("native lifespan state key must be a string")
+                        })?;
+                    if let Some(value) = state
+                        .get::<String>(key)
+                        .map_err(|error| error.to_string())?
+                    {
+                        snapshot.insert(key.to_owned(), json!(value.as_str()));
+                    }
+                }
+            }
+        }
+    }
+    Ok(Value::Object(snapshot))
+}
+
+fn native_lifespan_error_value(error: &NativeLifespanError) -> Value {
+    match error {
+        NativeLifespanError::Startup { source, .. } => {
+            json!({"message": source.to_string()})
+        }
+        NativeLifespanError::Shutdown { failures } => failures.first().map_or(
+            Value::Null,
+            |failure| json!({"message": failure.source_error().to_string()}),
+        ),
+    }
+}
+
+fn native_lifespan_aggregated_shutdown_error_value(error: &NativeLifespanError) -> Value {
+    match error {
+        NativeLifespanError::Shutdown { failures } => json!({
+            "failures": failures.iter().map(|failure| json!({
+                "hook_index": failure.hook_index(),
+                "message": failure.source_error().to_string(),
+            })).collect::<Vec<_>>(),
+        }),
+        NativeLifespanError::Startup { .. } => native_lifespan_error_value(error),
+    }
 }
 
 fn run_query_params_case(case: &Value) -> Result<Value, String> {

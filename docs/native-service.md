@@ -1,7 +1,7 @@
 # Rust-native HTTP service API
 
-`starlette-rs` exposes an additive, server-neutral HTTP service surface through
-`NativeApplication`, `NativeRoute`, and `NativeRequest`. This path accepts Rust
+The crate exposes a server-neutral Rust HTTP API through `NativeApplication`,
+`NativeRoute`, and `NativeRequest`. This path accepts Rust
 `http::Request` values and does not invoke Python or ASGI dictionaries. The
 existing Python-compatible Starlette/ASGI path remains a separate API.
 
@@ -35,8 +35,8 @@ parameters, and extensions. Its URI path preserves percent escapes; query
 returns the value without `?`. `HeaderMap` retains repeated values. The body is
 exposed as `NativeRequestBody` and can be polled frame-by-frame; consumers can
 explicitly collect it if their handler requires buffering. Dropping the body
-releases its transport body, but this API does not yet expose an explicit
-request cancellation token or typed peer/TLS metadata.
+releases its source, but this API does not expose an explicit request
+cancellation token or typed peer/TLS metadata.
 
 Response bodies are `http_body::Body` values erased to
 `UnsyncBoxBody<Bytes, NativeBodyError>` at the heterogeneous route endpoint
@@ -47,12 +47,46 @@ outer layers receive requests first and responses last. Middleware ordering is
 the standard Tower layer order, not a claim that every Python Starlette
 middleware feature is implemented in this native API.
 
-The endpoint/service error and response-body error remain distinct. A service
-error occurs before the server commits the response and is handled by the
-server's documented error policy. A body error after commitment terminates the
-response stream; it cannot start a second response. The framework service
-preserves the body error as the body's error value, but server diagnostics and
-typed transport context are still being developed.
+### Pull polling and backpressure
+
+`NativeApplication` does not poll a request body while matching a route,
+constructing the `NativeRequest`, or invoking the endpoint to obtain its
+future. The endpoint or an outer Tower layer is the first consumer. Each
+`Body::poll_frame` request advances the supplied body according to that body's
+implementation.
+
+The service also returns a response without polling its body. The service
+consumer or an outer Tower layer requests each response frame. The body box
+does not read ahead, collect frames, or copy data-frame payloads. This gives
+pull-based backpressure at the `http_body::Body` boundary: the service does not
+advance a body until a consumer polls it. A user-supplied body can still do
+work or buffer internally when it is constructed or polled, and a Tower layer
+may choose to poll or buffer it.
+
+### Errors and cancellation
+
+`box_native_body` preserves the concrete body error as the dynamic error
+carried by `NativeBodyError`, without converting it to text. A request-body
+polling error is returned to the endpoint;
+the endpoint decides whether to handle it or return it as
+`NativeApplicationError::Endpoint`. A response-body polling error is returned
+to the consumer from that frame poll. The service does not turn a response-body
+error into a second response. The endpoint/service error and response-body
+error therefore remain separate: the former occurs before a response is
+returned, while the latter occurs as the returned response stream is consumed.
+`NativeBodyError` is an erased `Error` trait object; callers can use
+`downcast_ref` to recover a concrete source error such as `std::io::Error`.
+For an endpoint error, the same source is available through
+`std::error::Error::source` on `NativeApplicationError`.
+
+Dropping the service future uses ordinary Rust future-drop semantics. If the
+endpoint future still owns the request, dropping it drops that future and its
+request body. After the response is returned, dropping its body drops the
+wrapped response source. These are the cancellation and resource-release
+guarantees available at this API boundary. There is no explicit cancellation
+token, peer-disconnect signal, or guarantee about how a transport reacts to a
+dropped body; those behaviors belong to a server adapter and its body
+implementation.
 
 ## Copies and limits
 
@@ -67,9 +101,9 @@ This is an initial HTTP service surface. It does not implement the Python
 Starlette application model, route-level dependency injection, Starlette
 middleware semantics as a full catalog, WebSockets, lifespan hooks, mounts,
 server protocol negotiation, or a cross-repository FastAPI composition. The
-request body is represented as a stream, but transport backpressure and
-disconnect cancellation must be verified with the server integration before
-the API claims those behaviors end-to-end.
+pulling and drop behavior above is guaranteed by this service boundary; an
+end-to-end transport's buffering and disconnect behavior still depends on its
+server adapter.
 
 ## Executable example
 
@@ -79,7 +113,8 @@ Run the service example from the repository root:
 cargo run -p starlette-rs-native-service-example --locked
 ```
 
-It consumes a POST body, routes an integer path parameter, reads the query and
-a middleware-inserted request header, and prints response frames as they arrive.
-The example shows the public service and body APIs; it does not measure
+It records request-body polling while the endpoint consumes a POST body, routes
+an integer path parameter, reads the query and a middleware-inserted request
+header, and records response-body polling as the consumer asks for frames. The
+example demonstrates the service-local pull boundary; it does not measure
 transport backpressure, disconnect behavior, Python parity, or performance.

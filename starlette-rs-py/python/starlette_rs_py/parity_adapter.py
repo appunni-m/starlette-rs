@@ -138,6 +138,11 @@ SCHEMA_OPERATIONS = {
 }
 URL_QUERY_OPERATION = ("starlette.datastructures.URL", "query-parameter-operations")
 URL_SCOPE_OPERATION = ("starlette.datastructures.URL", "scope-construction")
+NATIVE_SERVICE_SURFACE = "starlette-rs.NativeApplication"
+NATIVE_SERVICE_OPERATION = "service-body-streaming"
+NATIVE_WEBSOCKET_SURFACE = "starlette-rs.NativeWebSocket"
+NATIVE_WEBSOCKET_OPERATION = "native-session-sequence"
+NATIVE_LIFESPAN_OPERATION = "native-lifespan"
 _MISSING = object()
 
 
@@ -3736,6 +3741,641 @@ def _canonical_websocket_message(message: dict[str, Any]) -> dict[str, Any]:
         else:
             result[name] = _json_safe(value)
     return result
+
+
+class _InputProbeBodyError(OSError):
+    """Materialize a body-source failure specified by one parity input."""
+
+    def __init__(self, kind: str, message: str) -> None:
+        super().__init__(message)
+        self.kind = kind
+
+
+def _native_error_value(exc: BaseException) -> dict[str, str]:
+    return {
+        "kind": str(getattr(exc, "kind", type(exc).__qualname__)),
+        "message": str(exc),
+    }
+
+
+def _native_workflow_result(case: dict[str, Any], workflow: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "case_id": case["case_id"],
+        "status": "completed",
+        "observations": [{"step_id": "workflow", "status": "ok", "value": {"workflow": workflow}}],
+    }
+
+
+def _run_native_service_streaming_case(case: dict[str, Any]) -> dict[str, Any]:
+    _exact_object(
+        case,
+        {
+            "case_id",
+            "surface",
+            "operation",
+            "covers",
+            "target_profiles",
+            "assets",
+            "application",
+            "request",
+            "drive",
+            "observations",
+        },
+        "native service streaming case",
+    )
+    if case["surface"] != NATIVE_SERVICE_SURFACE or case["operation"] != NATIVE_SERVICE_OPERATION:
+        raise ValueError("case is outside the native service streaming operation")
+
+    from starlette.applications import Starlette
+    from starlette.requests import Request
+    from starlette.responses import StreamingResponse
+    from starlette.routing import Route
+
+    request_spec = case["request"]
+    request_body_frames = request_spec["body"]["frames"]
+    request_state: dict[str, Any] = {
+        "index": 0,
+        "handler_entered": False,
+        "request_chunks": [],
+        "request_error": None,
+        "response_status": None,
+        "response_chunks": [],
+        "response_error": None,
+    }
+    response_drive = case["drive"].get("response_body")
+    response_queue: asyncio.Queue[tuple[dict[str, Any], asyncio.Future[None]] | None] = (
+        asyncio.Queue()
+    )
+    response_started = asyncio.Event()
+    release_response_start = asyncio.Event()
+
+    def make_endpoint(route_spec: dict[str, Any]) -> Callable[[Request], Any]:
+        endpoint_spec = route_spec["endpoint"]
+
+        async def endpoint(request: Request) -> StreamingResponse:
+            request_state["handler_entered"] = True
+            if endpoint_spec["request_body_action"] != "leave-unread":
+                try:
+                    async for chunk in request.stream():
+                        if chunk:
+                            request_state["request_chunks"].append(
+                                base64.b64encode(chunk).decode("ascii")
+                            )
+                except Exception as exc:
+                    request_state["request_error"] = _native_error_value(exc)
+                    raise
+
+            async def response_body() -> AsyncIterator[bytes]:
+                for frame in endpoint_spec["response_body"]["frames"]:
+                    if "data_base64" in frame:
+                        yield _decode_base64(frame["data_base64"], "response frame data_base64")
+                    elif "error" in frame:
+                        error_spec = frame["error"]
+                        raise _InputProbeBodyError(error_spec["kind"], error_spec["message"])
+                    elif frame.get("end") is True:
+                        return
+                    else:
+                        raise ValueError("unsupported native service response body frame")
+
+            return StreamingResponse(response_body())
+
+        return endpoint
+
+    routes = [
+        Route(
+            route_spec["path"],
+            make_endpoint(route_spec),
+            methods=route_spec["methods"],
+        )
+        for route_spec in case["application"]["routes"]
+    ]
+    app = Starlette(routes=routes)
+
+    async def receive() -> dict[str, Any]:
+        index = request_state["index"]
+        if index >= len(request_body_frames):
+            return {"type": "http.request", "body": b"", "more_body": False}
+        frame = request_body_frames[index]
+        request_state["index"] = index + 1
+        if "data_base64" in frame:
+            more_body = index + 1 < len(request_body_frames)
+            return {
+                "type": "http.request",
+                "body": _decode_base64(frame["data_base64"], "request frame data_base64"),
+                "more_body": more_body,
+            }
+        if "error" in frame:
+            error_spec = frame["error"]
+            raise _InputProbeBodyError(error_spec["kind"], error_spec["message"])
+        if frame.get("end") is True:
+            return {"type": "http.request", "body": b"", "more_body": False}
+        if frame.get("pending") is True:
+            await asyncio.Future()
+        raise ValueError("unsupported native service request body frame")
+
+    async def send(message: dict[str, Any]) -> None:
+        if request_state["request_error"] is not None:
+            return
+        if message["type"] == "http.response.start":
+            if request_state["response_status"] is None:
+                request_state["response_status"] = message["status"]
+            response_started.set()
+            if response_drive == "drop-without-poll":
+                await release_response_start.wait()
+            return
+        if message["type"] == "http.response.body":
+            acknowledgement = asyncio.get_running_loop().create_future()
+            await response_queue.put((message, acknowledgement))
+            await acknowledgement
+
+    parsed_uri = request_spec["uri"]
+    path, separator, query = parsed_uri.partition("?")
+    scope = {
+        "type": "http",
+        "asgi": {"version": "3.0", "spec_version": "2.4"},
+        "http_version": request_spec["version"] if "version" in request_spec else "1.1",
+        "method": request_spec["method"],
+        "scheme": "http",
+        "path": path,
+        "raw_path": path.encode("utf-8"),
+        "query_string": query.encode("utf-8") if separator else b"",
+        "root_path": "",
+        "headers": [(b"host", b"example.test")],
+        "client": ("127.0.0.1", 12345),
+        "server": ("example.test", 80),
+    }
+
+    async def invoke() -> None:
+        try:
+            await app(scope, receive, send)
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            if (
+                request_state["request_error"] is None
+                and request_state["response_status"] is not None
+            ):
+                request_state["response_error"] = _native_error_value(exc)
+        finally:
+            await response_queue.put(None)
+
+    async def consume_body_message() -> bool:
+        item = await response_queue.get()
+        if item is None:
+            return False
+        message, acknowledgement = item
+        body = message.get("body", b"")
+        if body:
+            request_state["response_chunks"].append(base64.b64encode(body).decode("ascii"))
+        more_body = bool(message.get("more_body", False))
+        acknowledgement.set_result(None)
+        return more_body
+
+    async def run() -> dict[str, Any]:
+        app_task = asyncio.create_task(invoke())
+        if response_drive == "drop-without-poll":
+            await response_started.wait()
+            app_task.cancel()
+            try:
+                await app_task
+            except asyncio.CancelledError:
+                pass
+        elif request_state["request_error"] is None and response_drive is not None:
+            await response_started.wait()
+            if isinstance(response_drive, str) and response_drive in {
+                "read-to-end",
+                "read-to-error",
+            }:
+                while await consume_body_message():
+                    pass
+            elif isinstance(response_drive, dict):
+                response_body_complete = False
+                for read in response_drive["read_frames"]:
+                    if read == "to-end":
+                        while await consume_body_message():
+                            pass
+                        response_body_complete = True
+                        break
+                    remaining = read
+                    while remaining > 0:
+                        has_more = await consume_body_message()
+                        if not has_more:
+                            response_body_complete = True
+                            break
+                        remaining -= 1
+                    if response_body_complete:
+                        break
+                if not response_body_complete:
+                    app_task.cancel()
+                    try:
+                        await app_task
+                    except asyncio.CancelledError:
+                        pass
+                else:
+                    await app_task
+            else:
+                raise ValueError("unsupported native service response body drive")
+        else:
+            await app_task
+
+        request_error = request_state["request_error"]
+        response_error = request_state["response_error"]
+        workflow = {
+            "handler-entry": request_state["handler_entered"],
+            "request-body-chunks": request_state["request_chunks"],
+            "response-available": (
+                {"status": request_state["response_status"]}
+                if request_state["response_status"] is not None and request_error is None
+                else None
+            ),
+            "response-body-chunks": request_state["response_chunks"],
+            "request-body-error-propagation": (
+                {"message": request_error["message"]} if request_error else None
+            ),
+            "response-body-error-propagation": (
+                {"message": response_error["message"]} if response_error else None
+            ),
+            "service-error": {"message": request_error["message"]} if request_error else None,
+        }
+        return workflow
+
+    return _native_workflow_result(case, asyncio.run(run()))
+
+
+def _run_native_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
+    _exact_object(
+        case,
+        {
+            "case_id",
+            "surface",
+            "operation",
+            "covers",
+            "target_profiles",
+            "assets",
+            "input",
+            "observations",
+        },
+        "native WebSocket case",
+    )
+    if (
+        case["surface"] != NATIVE_WEBSOCKET_SURFACE
+        or case["operation"] != NATIVE_WEBSOCKET_OPERATION
+    ):
+        raise ValueError("case is outside the native WebSocket session operation")
+
+    from starlette.applications import Starlette
+    from starlette.routing import WebSocketRoute
+
+    input_spec = case["input"]
+    handshake = input_spec["handshake"]
+    route_spec = input_spec["route"]
+    offered = list(handshake["offered_subprotocols"])
+    incoming_specs = list(input_spec.get("incoming", []))
+    actions = input_spec["actions"]
+    cancellation = input_spec.get("cancellation")
+    websocket_state: dict[str, Any] = {
+        "incoming_index": 0,
+        "connect_sent": False,
+        "pending_requested": False,
+        "accepted": None,
+        "handshake": None,
+        "path_params": {},
+        "messages": [],
+        "peer_close": None,
+        "close": None,
+        "application_error": None,
+        "application_result_error_kind": None,
+        "receive_cancelled": False,
+    }
+    pending_receive_started = asyncio.Event()
+
+    async def receive() -> dict[str, Any]:
+        if not websocket_state["connect_sent"]:
+            websocket_state["connect_sent"] = True
+            return {"type": "websocket.connect"}
+        index = websocket_state["incoming_index"]
+        if index < len(incoming_specs):
+            spec = incoming_specs[index]
+            websocket_state["incoming_index"] = index + 1
+            if spec["kind"] == "text":
+                return {"type": "websocket.receive", "text": spec["value"]}
+            if spec["kind"] == "binary":
+                return {
+                    "type": "websocket.receive",
+                    "bytes": _decode_base64(spec["base64"], "WebSocket input binary message"),
+                }
+            if spec["kind"] == "peer-close":
+                return {
+                    "type": "websocket.disconnect",
+                    "code": spec["code"],
+                    "reason": spec["reason"],
+                }
+            raise ValueError("unsupported native WebSocket incoming event")
+        if websocket_state["pending_requested"]:
+            pending_receive_started.set()
+            try:
+                await asyncio.Future()
+            except asyncio.CancelledError:
+                websocket_state["receive_cancelled"] = True
+                raise
+        return {"type": "websocket.disconnect", "code": 1000, "reason": ""}
+
+    async def send(message: dict[str, Any]) -> None:
+        if message["type"] == "websocket.accept":
+            websocket_state["accepted"] = message
+        elif message["type"] == "websocket.close":
+            websocket_state["close"] = {
+                "code": message["code"],
+                "reason": message.get("reason", ""),
+            }
+
+    async def endpoint(websocket: Any) -> None:
+        scope_uri = bytes(websocket.scope["raw_path"]).decode("ascii")
+        scope_query = bytes(websocket.scope["query_string"]).decode("ascii")
+        websocket_state["handshake"] = {
+            "method": websocket.scope["method"],
+            "uri": f"{scope_uri}?{scope_query}" if scope_query else scope_uri,
+            "version": f"HTTP/{websocket.scope['http_version']}",
+            "headers": [
+                [name.decode("ascii").lower(), base64.b64encode(value).decode("ascii")]
+                for name, value in websocket.headers.raw
+            ],
+            "offered_subprotocols": list(websocket.scope["subprotocols"]),
+        }
+        websocket_state["path_params"] = {
+            key: str(value) for key, value in websocket.path_params.items()
+        }
+        last_message: dict[str, Any] | None = None
+        for action in actions:
+            if action["action"] == "accept-preferred":
+                selected = next(
+                    (
+                        protocol
+                        for protocol in route_spec["preferred_subprotocols"]
+                        if protocol in offered
+                    ),
+                    None,
+                )
+                headers = [
+                    (name.encode("latin-1"), value.encode("latin-1"))
+                    for name, value in action["headers"]
+                ]
+                await websocket.accept(subprotocol=selected, headers=headers)
+            elif action["action"] == "receive":
+                if action.get("pending") is True:
+                    websocket_state["pending_requested"] = True
+                message = await websocket.receive()
+                if message["type"] == "websocket.disconnect":
+                    peer_close = {
+                        "code": message["code"],
+                        "reason": message.get("reason", ""),
+                    }
+                    websocket_state["peer_close"] = peer_close
+                    websocket_state["messages"].append(
+                        {"direction": "received", "peer_close": peer_close}
+                    )
+                elif "text" in message:
+                    last_message = {"kind": "text", "value": message["text"]}
+                    websocket_state["messages"].append(
+                        {"direction": "received", "message": last_message}
+                    )
+                else:
+                    payload = message.get("bytes", b"")
+                    last_message = {
+                        "kind": "binary",
+                        "base64": base64.b64encode(payload).decode("ascii"),
+                    }
+                    websocket_state["messages"].append(
+                        {"direction": "received", "message": last_message}
+                    )
+            elif action["action"] == "send-received":
+                if last_message is None:
+                    raise ValueError("send-received requires a prior data message")
+                if last_message["kind"] == "text":
+                    await websocket.send_text(last_message["value"])
+                else:
+                    await websocket.send_bytes(
+                        base64.b64decode(last_message["base64"], validate=True)
+                    )
+                websocket_state["messages"].append({"direction": "sent", "message": last_message})
+            elif action["action"] == "close":
+                await websocket.close(code=action["code"], reason=action["reason"])
+            elif action["action"] == "return-application-error":
+                error_spec = action["error"]
+                error = OSError(error_spec["message"])
+                websocket_state["application_error"] = {
+                    "kind": type(error).__name__,
+                    "message": str(error),
+                }
+                raise error
+            else:
+                raise ValueError("unsupported native WebSocket action")
+
+    from urllib.parse import urlsplit
+
+    uri = urlsplit(handshake["uri"])
+    path = uri.path or "/"
+    scope = {
+        "type": "websocket",
+        "asgi": {"version": "3.0", "spec_version": "2.4"},
+        "method": handshake["method"],
+        "http_version": handshake["version"].replace("HTTP/", ""),
+        "scheme": "ws",
+        "path": path,
+        "raw_path": path.encode("utf-8"),
+        "query_string": uri.query.encode("utf-8"),
+        "root_path": "",
+        "headers": [
+            (name.lower().encode("latin-1"), value.encode("latin-1"))
+            for name, value in handshake["headers"]
+        ],
+        "client": ("127.0.0.1", 12345),
+        "server": ("example.test", 80),
+        "subprotocols": offered,
+    }
+    app = Starlette(routes=[WebSocketRoute(route_spec["path"], endpoint)])
+
+    async def invoke() -> None:
+        try:
+            await app(scope, receive, send)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            websocket_state["application_result_error_kind"] = "application"
+
+    async def run() -> dict[str, Any]:
+        app_task = asyncio.create_task(invoke())
+        if cancellation is not None:
+            await pending_receive_started.wait()
+            app_task.cancel()
+            try:
+                await app_task
+            except asyncio.CancelledError:
+                websocket_state["application_result_error_kind"] = "cancelled"
+        else:
+            await app_task
+
+        accept_message = websocket_state["accepted"]
+        acceptance = None
+        selected_subprotocol = None
+        if accept_message is not None:
+            selected_subprotocol = accept_message.get("subprotocol")
+            acceptance = {
+                "accepted": True,
+                "subprotocol": selected_subprotocol,
+                "headers": [
+                    [key.decode("ascii").lower(), base64.b64encode(value).decode("ascii")]
+                    for key, value in accept_message.get("headers", [])
+                ],
+            }
+        application_error = websocket_state["application_error"]
+        return {
+            "handshake.acceptance": acceptance,
+            "handshake.selected_subprotocol": selected_subprotocol,
+            "session.handshake": websocket_state["handshake"],
+            "session.path_params": websocket_state["path_params"],
+            "session.messages": websocket_state["messages"],
+            "session.close": websocket_state["close"],
+            "session.peer_close": websocket_state["peer_close"],
+            "application_error.kind": (
+                application_error["kind"] if application_error is not None else None
+            ),
+            "application_error.message": (
+                application_error["message"] if application_error is not None else None
+            ),
+            "application_result.error_kind": websocket_state["application_result_error_kind"],
+            "transport.receive_cancelled": websocket_state["receive_cancelled"]
+            and pending_receive_started.is_set(),
+        }
+
+    return _native_workflow_result(case, asyncio.run(run()))
+
+
+def _run_native_lifespan_case(case: dict[str, Any]) -> dict[str, Any]:
+    _exact_object(
+        case,
+        {
+            "case_id",
+            "surface",
+            "operation",
+            "covers",
+            "target_profiles",
+            "assets",
+            "inputs",
+            "observations",
+        },
+        "native lifespan case",
+    )
+    if (
+        case["surface"] != "starlette.applications.Starlette"
+        or case["operation"] != NATIVE_LIFESPAN_OPERATION
+    ):
+        raise ValueError("case is outside the Starlette native-lifespan workflow")
+
+    from starlette.applications import Starlette
+
+    input_spec = case["inputs"]
+    registrations = input_spec["registrations"]
+    host_actions = input_spec["host_actions"]
+    events: list[str] = []
+    state: dict[str, Any] = {}
+    observation: dict[str, Any] = {
+        "state_before_shutdown": None,
+        "startup_failure": None,
+        "shutdown_failure": None,
+        "phase": None,
+    }
+
+    async def apply_actions(actions: list[dict[str, Any]]) -> None:
+        for action in actions:
+            if "append-event" in action:
+                events.append(action["append-event"])
+            elif "insert-state" in action:
+                item = action["insert-state"]
+                state[item["key"]] = item["value"]
+            elif "remove-state" in action:
+                state.pop(action["remove-state"], None)
+            elif "raise" in action:
+                error_spec = action["raise"]
+                exception_type = getattr(builtins, error_spec["exception"], None)
+                if not isinstance(exception_type, type) or not issubclass(
+                    exception_type, Exception
+                ):
+                    raise ValueError("unsupported input-defined lifespan exception")
+                raise exception_type(error_spec["message"])
+            elif action.get("suspend-until-host-release") is True:
+                await asyncio.Future()
+            else:
+                raise ValueError("unsupported native lifespan callback action")
+
+    def make_registration_context(registration: dict[str, Any]) -> Callable[..., Any]:
+        @contextlib.asynccontextmanager
+        async def registration_context(_app: Any) -> AsyncIterator[None]:
+            await apply_actions(registration["startup"]["actions"])
+            try:
+                yield
+            finally:
+                await apply_actions(registration["shutdown"]["actions"])
+
+        return registration_context
+
+    @contextlib.asynccontextmanager
+    async def lifespan(_app: Any) -> AsyncIterator[dict[str, Any]]:
+        async with contextlib.AsyncExitStack() as stack:
+            for registration in registrations:
+                context = make_registration_context(registration)
+                await stack.enter_async_context(context(_app))
+            yield state
+
+    app = Starlette(lifespan=lifespan)
+    messages = []
+    for action in host_actions:
+        if action == "start-to-completion":
+            messages.append({"type": "lifespan.startup"})
+        elif action == "shutdown-to-completion":
+            messages.append({"type": "lifespan.shutdown"})
+    message_index = 0
+    scope: dict[str, Any] = {
+        "type": "lifespan",
+        "asgi": {"version": "3.0", "spec_version": "2.0"},
+        "state": {},
+    }
+
+    async def receive() -> dict[str, Any]:
+        nonlocal message_index
+        if message_index >= len(messages):
+            await asyncio.Future()
+        message = messages[message_index]
+        message_index += 1
+        observation["phase"] = "startup" if message["type"] == "lifespan.startup" else "shutdown"
+        return message
+
+    async def send(message: dict[str, Any]) -> None:
+        if message["type"] == "lifespan.startup.complete" and "observe-state" in host_actions:
+            observation["state_before_shutdown"] = dict(scope.get("state", {}))
+
+    async def invoke() -> None:
+        try:
+            await app(scope, receive, send)
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            error_value = _native_error_value(exc)
+            if observation["phase"] == "startup":
+                observation["startup_failure"] = error_value
+            elif observation["phase"] == "shutdown":
+                observation["shutdown_failure"] = error_value
+
+    async def run() -> dict[str, Any]:
+        await invoke()
+        return {
+            "lifecycle-event-sequence": events,
+            "lifecycle-state-before-shutdown": observation["state_before_shutdown"],
+            "startup-failure": observation["startup_failure"],
+            "shutdown-failure": observation["shutdown_failure"],
+        }
+
+    return _native_workflow_result(case, asyncio.run(run()))
 
 
 def _websocket_action_error(exc: Exception) -> dict[str, Any]:
@@ -13742,6 +14382,21 @@ def _run_starlette_add_route_case(case: dict[str, Any]) -> dict[str, Any]:
 
 
 def _run_case(case: dict[str, Any]) -> dict[str, Any]:
+    if (case.get("surface"), case.get("operation")) == (
+        NATIVE_SERVICE_SURFACE,
+        NATIVE_SERVICE_OPERATION,
+    ):
+        return _run_native_service_streaming_case(case)
+    if (case.get("surface"), case.get("operation")) == (
+        NATIVE_WEBSOCKET_SURFACE,
+        NATIVE_WEBSOCKET_OPERATION,
+    ):
+        return _run_native_websocket_case(case)
+    if (case.get("surface"), case.get("operation")) == (
+        "starlette.applications.Starlette",
+        NATIVE_LIFESPAN_OPERATION,
+    ):
+        return _run_native_lifespan_case(case)
     if (case.get("surface"), case.get("operation")) == ("starlette", "public-api-inspection"):
         from scripts.parity.adapters.public_api_inspection import run_public_api_inspection_case
 

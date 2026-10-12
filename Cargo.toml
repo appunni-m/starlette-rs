@@ -1,5 +1,10 @@
 [workspace]
-members = ["starlette-rs", "starlette-rs-py", "examples/native-service-example"]
+members = [
+    "starlette-rs",
+    "starlette-rs-py",
+    "examples/native-service-example",
+    "examples/native-lifespan-example",
+]
 resolver = "3"
 
 [workspace.package]

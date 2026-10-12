@@ -21,6 +21,7 @@ from .contract import (
     RESULT_SCHEMA,
     UPSTREAM_BENCHMARK_RESULT_SCHEMA,
     ContractError,
+    _all_manifest_surfaces,
     load_json,
     load_manifest,
     validate_benchmark_inputs,
@@ -332,9 +333,12 @@ def validate_contract_repository(
         "cases": len(cases),
         "target_profiles": len(manifest["target_profiles"]),
         "operations": sum(len(surface["operations"]) for surface in manifest["surfaces"]),
+        "native_operations": sum(
+            len(surface["operations"]) for surface in manifest["native_surfaces"]
+        ),
         "parity_requirements": sum(
             requirement["lanes"] == ["parity"]
-            for surface in manifest["surfaces"]
+            for surface in _all_manifest_surfaces(manifest)
             for operation in surface["operations"]
             for requirement in operation["requirements"]
         ),
@@ -354,7 +358,7 @@ def _find_case(cases: list[dict[str, Any]], case_id: str) -> dict[str, Any]:
 def _find_operation(manifest: dict[str, Any], case: dict[str, Any]) -> dict[str, Any]:
     return next(
         operation
-        for surface in manifest["surfaces"]
+        for surface in _all_manifest_surfaces(manifest)
         for operation in surface["operations"]
         if surface["id"] == case["surface"] and operation["id"] == case["operation"]
     )
@@ -384,7 +388,7 @@ def _lane_empty(root: Path, manifest_path: Path | None, lane: str) -> int:
         raise ContractError(
             f"{lane} inputs are present but this CLI does not execute that evidence lane"
         )
-    for surface in manifest["surfaces"]:
+    for surface in _all_manifest_surfaces(manifest):
         for operation in surface["operations"]:
             if operation[lane]["applicability"] != "not_applicable":
                 raise ContractError(

@@ -13,10 +13,11 @@ implementation closes, run the complete source/package and Rust-native parity
 matrix, repair mismatches across families, measure coverage from that full
 matrix, reconcile the source atlas, then run all correctness-gated benchmarks.
 
-The working-tree contract currently declares 2,082 input cases across 174
-parity inputs and two benchmark inputs, 134 operations, and 1,094 parity
-requirements. The generated atlas has 839 source rows: 784 input mappings, 55
-source-backed `not_applicable` dispositions, and zero fixture-backlog rows.
+The working-tree contract currently declares 2,106 input cases across 177
+parity inputs and two benchmark inputs, 134 Starlette compatibility operations,
+6 Rust-native operations, and 1,112 parity requirements (1,094 compatibility
+and 18 native). The generated atlas has 839 source rows: 784 input mappings,
+55 source-backed `not_applicable` dispositions, and zero fixture-backlog rows.
 These counts describe inventory and evidence coverage; they do not establish
 that every documented behavior is implemented or compatible.
 
@@ -24,7 +25,7 @@ that every documented behavior is implemented or compatible.
 
 | Phase | State | Evidence |
 | --- | --- | --- |
-| Implementation | In progress. | `make contract-check` passes for the current 2,082-case input set. Source inventory passes with 839 rows / 784 input mappings / 55 reasoned `not_applicable` / zero backlog; `make lint`, `make check`, `git diff --check`, and `python3 scripts/check_docs.py` pass. Recent source-backed implementation inputs also cover Request.body()/Request.stream() disconnect state reused by Request.is_disconnected(); those comparisons remain unexecuted. Recent source-backed implementation inputs cover BaseHTTP response-header mapping lookup, BackgroundTasks synchronous non-callable and async cancellation errors, ExceptionMiddleware live handler registration, GZip raw-header case-insensitive lookup, Request cached-header behavior after scope replacement, Request.body retry after cancellation during partial receive, StaticFiles named-timezone and omitted-timezone parsing, TestClient WebSocket cleanup-error precedence/context, reentrant lifespan entry, mutable WebSocket.application_state assignment, empty-path root Mount dispatch, StreamingResponse AsyncIterable classification with descriptor errors deferred until iteration, BackgroundTasks live-list mutation and async-list cancellation, synchronous cancellation followed by a worker error, and caller cancellation during a blocked StreamingResponse send. Two raw TestClient inputs now cover normal return without any ASGI message with both raise_server_exceptions settings; these comparisons remain unexecuted. A separate response-consumer input covers synchronous BackgroundTask ContextVar propagation and remains unexecuted. The Request cached-header case is Python-package-only because the public Rust-native API has no Request consumer interface. All new comparisons remain unexecuted. Previous source audits fixed multipart ISO-8859-1 decoding, FileResponse negative-zero range parsing, live Router method mutation, WebSocket send errors for non-string event types, BackgroundTask `kwargs` mapping expansion, synchronous WebSocketEndpoint `on_disconnect` failures being retried, and SessionMiddleware's out-of-range signed timestamp conversion. The new lowercase-method Router case and session timestamp case remain unexecuted. Earlier StaticFiles `get_response`, TestClient accepted-session app-error stream closure and completed-response exception propagation, StreamingResponse gated-send backpressure, WebSocketEndpoint hook-failure/context, and bracketed IPv6 Host cases also remain unexecuted. The stateful StaticFiles PathLike, UploadFile write-error, TestClient asyncio-marked ASGI3, and background/WebSocket comparisons are authored but unexecuted. BaseHTTP pathsend/error, StreamingResponse ordering, StaticFiles stateful PathLike, and ExceptionMiddleware WebSocket exception audits found no additional source-confirmed mismatch. No full parity, coverage, or benchmark phase has run for these additions. |
+| Implementation | In progress. | `make contract-check` passes for the current 2,106-case input set across 177 parity files. The manifest keeps 134 Starlette compatibility operations separate from 6 Rust-native operations; all 18 native parity requirements are authored but unexecuted. Source inventory passes with 839 rows / 784 input mappings / 55 reasoned `not_applicable` / zero backlog; `make lint`, `make check`, `git diff --check`, and `python3 scripts/check_docs.py` pass. Recent source-backed implementation inputs also cover Request.body()/Request.stream() disconnect state reused by Request.is_disconnected(); those comparisons remain unexecuted. Recent source-backed implementation inputs cover BaseHTTP response-header mapping lookup, BackgroundTasks synchronous non-callable and async cancellation errors, ExceptionMiddleware live handler registration, GZip raw-header case-insensitive lookup, Request cached-header behavior after scope replacement, Request.body retry after cancellation during partial receive, StaticFiles named-timezone and omitted-timezone parsing, TestClient WebSocket cleanup-error precedence/context, reentrant lifespan entry, mutable WebSocket.application_state assignment, empty-path root Mount dispatch, StreamingResponse AsyncIterable classification with descriptor errors deferred until iteration, BackgroundTasks live-list mutation and async-list cancellation, synchronous cancellation followed by a worker error, and caller cancellation during a blocked StreamingResponse send. Two raw TestClient inputs now cover normal return without any ASGI message with both raise_server_exceptions settings; these comparisons remain unexecuted. A separate response-consumer input covers synchronous BackgroundTask ContextVar propagation and remains unexecuted. The Request cached-header case is Python-package-only because the public Rust-native API has no Request consumer interface. All new comparisons remain unexecuted. Previous source audits fixed multipart ISO-8859-1 decoding, FileResponse negative-zero range parsing, live Router method mutation, WebSocket send errors for non-string event types, BackgroundTask `kwargs` mapping expansion, synchronous WebSocketEndpoint `on_disconnect` failures being retried, and SessionMiddleware's out-of-range signed timestamp conversion. The new lowercase-method Router case and session timestamp case remain unexecuted. Earlier StaticFiles `get_response`, TestClient accepted-session app-error stream closure and completed-response exception propagation, StreamingResponse gated-send backpressure, WebSocketEndpoint hook-failure/context, and bracketed IPv6 Host cases also remain unexecuted. The stateful StaticFiles PathLike, UploadFile write-error, TestClient asyncio-marked ASGI3, and background/WebSocket comparisons are authored but unexecuted. BaseHTTP pathsend/error, StreamingResponse ordering, StaticFiles stateful PathLike, and ExceptionMiddleware WebSocket exception audits found no additional source-confirmed mismatch. No full parity, coverage, or benchmark phase has run for these additions. |
 | Full parity and grouped repairs | Deferred until implementation closes. | The latest clean run, `dc8c8ca6-f2b7-449b-9f53-45860e3cad4c`, passed 2,254/2,254 comparisons for the preceding 1,992-case, 140-parity-input contract. Later optional-backend, WebSocket authorization, Router truthiness, BaseHTTPMiddleware iterator, StaticFiles path, response-protocol, close-code, TestClient exception, raw TestClient no-response return, custom-regex, Request stream retry, WebSocketEndpoint error-finalization, BaseHTTPMiddleware dispatch short-circuiting, StreamingResponse terminal-send failure, TestClient streamed request bodies, invalid initial WebSocket.accept events, Last-Modified If-Range matching, exception-class MRO precedence, Request receive-error retry, Request body retry after partial receive cancellation, empty root Mount dispatch, lazy StreamingResponse iterator acquisition after a failed response-start send, AsyncIterable descriptor failure after response-start, normal-return incomplete TestClient response, asyncio-marked TestClient ASGI3, WebSocketEndpoint hook-failure/context, bracketed IPv6 Host, StaticFiles `get_response` override, TestClient accepted-session error stream closure and completed-response exception propagation, StreamingResponse gated-send backpressure, WebSocket non-string send-type, BackgroundTask `kwargs` mapping expansion, and synchronous WebSocketEndpoint `on_disconnect` failure cases are not included. The stateful StaticFiles PathLike, UploadFile write-error, BackgroundTasks live-list mutation, and StreamingResponse caller-cancellation comparisons are also outside that run. |
 | Full coverage and source reconciliation | Deferred until the full parity phase. | The latest measured run, `fd5b3b63-9ddc-44bd-bf38-35ecbc260dbe`, covered 19,909/28,139 Rust lines (70.7%) for the preceding contract. |
 | All benchmarks | Deferred until coverage. | The latest run, `13ea2d04-7f31-4c12-93cd-855df93df8b0`, measured 74/74 source/package workloads for the preceding contract: six Router and 68 GZip workloads. |
@@ -36,6 +37,10 @@ functions and 24 documented pages. Derive changing mapping and backlog counts
 from the generated [`coverage matrix`](atlas/coverage-matrix.csv) and
 [`fixture backlog`](atlas/fixture-backlog.csv). Coverage is a measurement, not
 a parity score. The full-replacement goal remains active.
+
+`python3 scripts/check_docs.py` passes its 24-file link check. The aggregate
+`make docs-check` still needs a benchmark receipt bound to the current manifest;
+refresh it only during the planned full benchmark phase.
 
 Boundary details: [response protocols](RESPONSE_RENDER_BOUNDARY.md),
 [server-error traceback data](SERVER_ERROR_BOUNDARY.md),
@@ -52,14 +57,19 @@ callbacks, convert values at the PyO3 boundary, and await Python callables on
 their owning event loop. The runtime-wrapper policy check rejects Python
 control flow in these facades.
 
-An additive native HTTP service exposes Rust `http::Request`/`Response`,
-streaming `http_body::Body`, and Tower `Service`/`Layer` contracts without
-invoking Python. Its executable example demonstrates body-aware route dispatch,
-Tower middleware composition, and streamed request and response bodies. This
-is an initial server-neutral service surface; transport backpressure, explicit
-cancellation context, Starlette's complete middleware catalog, WebSockets,
-and lifespan remain open. FastAPI composition is outside this project's scope.
-See [`native-service.md`](native-service.md) for the API and boundaries.
+The greenfield Rust-native API exposes a body-aware HTTP service over
+`http::Request`/`Response`, streaming `http_body::Body`, and Tower `Service`/
+`Layer` contracts, plus native WebSocket routing and lifespan management. Its
+examples exercise streamed bodies, handshake/message sequences, hook ordering,
+and host-owned future cancellation without invoking Python. Input-only
+Starlette ASGI analogues are authored for all three surfaces and remain
+unexecuted until the integrated parity phase. Three target-only lifespan fault
+contracts cover shutdown error aggregation and dropping pending startup and
+shutdown futures; they are authored and statically validated, but remain
+unexecuted until the integrated parity phase. FastAPI composition is outside
+this project's scope. See [`native-service.md`](native-service.md),
+[`native-websocket.md`](native-websocket.md), and
+[`native-lifespan.md`](native-lifespan.md) for the APIs and boundaries.
 
 ## 0. Establish the contract
 
@@ -80,8 +90,9 @@ also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
 The active parity contract is `parity-input@48`: the working tree currently
-indexes 2,082 input cases across 174 parity files, two benchmark files, 134
-operations, and 1,094 parity requirements. The latest clean full parity,
+indexes 2,106 input cases across 177 parity files, two benchmark files, 134
+Starlette compatibility operations, 6 Rust-native operations, and 1,112
+parity requirements. The latest clean full parity,
 coverage, and benchmark receipts belong to the preceding 1,992-case, 140-file
 contract. The generated source-row,
 mapping, `not_applicable`, and backlog totals live in

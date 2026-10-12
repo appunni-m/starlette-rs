@@ -1,0 +1,239 @@
+{
+  "schema": "migration-parity/parity-input@48",
+  "cases": [
+    {
+      "case_id": "starlette-rs.NativeWebSocket.native-session-sequence.accept-text-binary-close",
+      "surface": "starlette-rs.NativeWebSocket",
+      "operation": "native-session-sequence",
+      "covers": [
+        "starlette.websocket.native.handshake-metadata",
+        "starlette.websocket.native.subprotocol-preference-order",
+        "starlette.websocket.native.text-binary-messages",
+        "starlette.websocket.native.close-code-reason"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "input": {
+        "handshake": {
+          "method": "GET",
+          "uri": "/rooms/17?mode=live",
+          "version": "HTTP/1.1",
+          "headers": [
+            [
+              "host",
+              "example.test"
+            ],
+            [
+              "x-session",
+              "native-websocket"
+            ]
+          ],
+          "offered_subprotocols": [
+            "chat.v1",
+            "json.v2"
+          ]
+        },
+        "route": {
+          "path": "/rooms/{room_id:int}",
+          "preferred_subprotocols": [
+            "json.v2",
+            "chat.v1"
+          ]
+        },
+        "incoming": [
+          {
+            "kind": "text",
+            "value": "hello"
+          },
+          {
+            "kind": "binary",
+            "base64": "AAECAw=="
+          }
+        ],
+        "actions": [
+          {
+            "action": "accept-preferred",
+            "headers": [
+              [
+                "x-accepted",
+                "yes"
+              ]
+            ]
+          },
+          {
+            "action": "receive"
+          },
+          {
+            "action": "send-received"
+          },
+          {
+            "action": "receive"
+          },
+          {
+            "action": "send-received"
+          },
+          {
+            "action": "close",
+            "code": 1000,
+            "reason": "finished"
+          }
+        ]
+      },
+      "observations": [
+        "workflow"
+      ]
+    },
+    {
+      "case_id": "starlette-rs.NativeWebSocket.native-session-sequence.application-error",
+      "surface": "starlette-rs.NativeWebSocket",
+      "operation": "native-session-sequence",
+      "covers": [
+        "starlette.websocket.native.application-errors"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "input": {
+        "handshake": {
+          "method": "GET",
+          "uri": "/rooms/18",
+          "version": "HTTP/1.1",
+          "headers": [
+            [
+              "host",
+              "example.test"
+            ]
+          ],
+          "offered_subprotocols": []
+        },
+        "route": {
+          "path": "/rooms/{room_id:int}",
+          "preferred_subprotocols": []
+        },
+        "actions": [
+          {
+            "action": "accept-preferred",
+            "headers": []
+          },
+          {
+            "action": "return-application-error",
+            "error": {
+              "kind": "io-error",
+              "message": "route failed"
+            }
+          }
+        ]
+      },
+      "observations": [
+        "workflow"
+      ]
+    },
+    {
+      "case_id": "starlette-rs.NativeWebSocket.native-session-sequence.peer-close",
+      "surface": "starlette-rs.NativeWebSocket",
+      "operation": "native-session-sequence",
+      "covers": [
+        "starlette.websocket.native.peer-close-code-reason"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "input": {
+        "handshake": {
+          "method": "GET",
+          "uri": "/rooms/20",
+          "version": "HTTP/1.1",
+          "headers": [
+            [
+              "host",
+              "example.test"
+            ]
+          ],
+          "offered_subprotocols": []
+        },
+        "route": {
+          "path": "/rooms/{room_id:int}",
+          "preferred_subprotocols": []
+        },
+        "incoming": [
+          {
+            "kind": "peer-close",
+            "code": 1001,
+            "reason": "going away"
+          }
+        ],
+        "actions": [
+          {
+            "action": "accept-preferred",
+            "headers": []
+          },
+          {
+            "action": "receive"
+          }
+        ]
+      },
+      "observations": [
+        "workflow"
+      ]
+    },
+    {
+      "case_id": "starlette-rs.NativeWebSocket.native-session-sequence.cancel-pending-receive",
+      "surface": "starlette-rs.NativeWebSocket",
+      "operation": "native-session-sequence",
+      "covers": [
+        "starlette.websocket.native.cancellation"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "input": {
+        "handshake": {
+          "method": "GET",
+          "uri": "/rooms/19",
+          "version": "HTTP/1.1",
+          "headers": [
+            [
+              "host",
+              "example.test"
+            ]
+          ],
+          "offered_subprotocols": [
+            "chat.v1"
+          ]
+        },
+        "route": {
+          "path": "/rooms/{room_id:int}",
+          "preferred_subprotocols": [
+            "chat.v1"
+          ]
+        },
+        "actions": [
+          {
+            "action": "accept-preferred",
+            "headers": []
+          },
+          {
+            "action": "receive",
+            "pending": true
+          }
+        ],
+        "cancellation": {
+          "operation": "receive",
+          "timing": "after-operation-started"
+        }
+      },
+      "observations": [
+        "workflow"
+      ]
+    }
+  ]
+}

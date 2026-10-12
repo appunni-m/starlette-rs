@@ -18,6 +18,7 @@ from .contract import (
     MANIFEST_SCHEMA,
     RESULT_SCHEMA,
     ContractError,
+    _all_manifest_surfaces,
     load_manifest,
     sha256_file,
     upstream_test_applicability_for_profile,
@@ -55,7 +56,7 @@ def _command_map(manifest: dict[str, Any]) -> dict[str, dict[str, Any]]:
 def _operations(manifest: dict[str, Any]) -> dict[tuple[str, str], dict[str, Any]]:
     return {
         (surface["id"], operation["id"]): operation
-        for surface in manifest["surfaces"]
+        for surface in _all_manifest_surfaces(manifest)
         for operation in surface["operations"]
     }
 
@@ -1112,7 +1113,7 @@ def run_parity(
 
         assertion_ids = FAULT_CONTRACT_ASSERTIONS[fault["contract_id"]]
         if target_result["status"] == "completed":
-            assertions = evaluate_fault_contract(fault["contract_id"], target_result)
+            assertions = evaluate_fault_contract(fault["contract_id"], target_result, case)
             outcome = "pass" if all(row["status"] == "pass" for row in assertions) else "fail"
         else:
             assertions = [

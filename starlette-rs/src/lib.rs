@@ -1,13 +1,11 @@
 //! Rust-native pieces for the Starlette replacement.
 //!
-//! The first implementation slice covers ordered HTTP route matching, named
-//! direct-HTTP reverse lookup and path formatting with Starlette's built-in
-//! converters, plain-text and bounded streaming responses, and the successful
-//! ASGI lifespan transition sequence.
-//! The native [`Starlette`] API composes routes with prebuilt responses and
-//! exposes a narrow runtime-agnostic async call boundary for native callers.
-//! The crate does not implement the full Starlette API or claim Python-package
-//! parity.
+//! The crate provides a Rust-native API alongside the Python compatibility
+//! package. Its server-neutral HTTP service, WebSocket session, and lifespan
+//! APIs leave transport framing and executor ownership to their host adapters.
+//! The crate also contains shared routing, request, response, middleware, and
+//! protocol primitives used by the compatibility implementation. The current
+//! implementation does not claim full Starlette compatibility.
 
 // These package dependencies are used by the companion parity-adapter binary.
 use libc as _;
@@ -30,7 +28,9 @@ mod multi_dict;
 mod multipart;
 mod named_route;
 mod named_route_table;
+mod native_lifespan;
 mod native_service;
+mod native_websocket;
 mod request;
 mod response;
 mod route_table;
@@ -75,10 +75,23 @@ pub use multipart::{
 };
 pub use named_route::NamedRoute;
 pub use named_route_table::{NamedRouteError, NamedRouteTable, RouteUrlPath};
+pub use native_lifespan::{
+    ActiveNativeLifespan, NativeLifespan, NativeLifespanBuilder, NativeLifespanError,
+    NativeLifespanHookError, NativeLifespanHookFailure, NativeLifespanState,
+    NativeLifespanStateError,
+};
 pub use native_service::{
     NativeApplication, NativeApplicationError, NativeBodyError, NativeHttpResponse, NativeRequest,
     NativeRequestBody, NativeResponseBody, NativeResponseConversionError, NativeRoute,
     box_native_body, native_body,
+};
+pub use native_websocket::{
+    NativeWebSocketAcceptance, NativeWebSocketApplicationError, NativeWebSocketClose,
+    NativeWebSocketDispatch, NativeWebSocketDriver, NativeWebSocketError, NativeWebSocketEvent,
+    NativeWebSocketHandshake, NativeWebSocketMessage, NativeWebSocketPeerClose,
+    NativeWebSocketRoute, NativeWebSocketRouter, NativeWebSocketRouterError,
+    NativeWebSocketSession, NativeWebSocketState, NativeWebSocketTransportError,
+    select_subprotocol,
 };
 pub use request::{
     BodyProgress, Cookies, QueryParams, RequestBodyAccumulator, RequestBodyError, RequestHeaders,

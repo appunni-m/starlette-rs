@@ -21,6 +21,7 @@ from .api_sources import (
 from .contract import (
     BENCHMARK_INPUT_SCHEMA,
     ContractError,
+    _all_manifest_surfaces,
     load_json,
     load_manifest,
     validate_benchmark_document,
@@ -131,7 +132,7 @@ def _validate_sources(
         raise ContractError("case IDs must be unique across authored parity input sources")
     parity_requirements = {
         requirement["id"]
-        for surface in manifest["surfaces"]
+        for surface in _all_manifest_surfaces(manifest)
         for operation in surface["operations"]
         for requirement in operation["requirements"]
         if "parity" in requirement["lanes"]

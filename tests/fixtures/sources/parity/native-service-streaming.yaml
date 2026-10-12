@@ -1,0 +1,634 @@
+{
+  "schema": "migration-parity/parity-input@48",
+  "cases": [
+    {
+      "case_id": "starlette-rs.NativeApplication.service-body-streaming.request-consumer-pull",
+      "surface": "starlette-rs.NativeApplication",
+      "operation": "service-body-streaming",
+      "covers": [
+        "starlette-rs.NativeApplication.service-body-streaming.request-pull"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [
+
+      ],
+      "application": {
+        "routes": [
+          {
+            "path": "/upload",
+            "methods": [
+              "POST"
+            ],
+            "endpoint": {
+              "request_body_action": "read-all",
+              "response_body": {
+                "frames": [
+                  {
+                    "data_base64": "b2s="
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "request": {
+        "method": "POST",
+        "uri": "/upload",
+        "body": {
+          "frames": [
+            {
+              "data_base64": "YQ=="
+            },
+            {
+              "data_base64": "Yg=="
+            },
+            {
+              "end": true
+            }
+          ]
+        }
+      },
+      "drive": {
+        "service_future": "resolve",
+        "response_body": "read-to-end"
+      },
+      "observations": [
+        "workflow"
+      ]
+    },
+    {
+      "case_id": "starlette-rs.NativeApplication.service-body-streaming.request-unread",
+      "surface": "starlette-rs.NativeApplication",
+      "operation": "service-body-streaming",
+      "covers": [
+        "starlette-rs.NativeApplication.service-body-streaming.request-pull"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [
+
+      ],
+      "application": {
+        "routes": [
+          {
+            "path": "/upload",
+            "methods": [
+              "POST"
+            ],
+            "endpoint": {
+              "request_body_action": "leave-unread",
+              "response_body": {
+                "frames": [
+
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "request": {
+        "method": "POST",
+        "uri": "/upload",
+        "body": {
+          "frames": [
+            {
+              "data_base64": "cGF5bG9hZA=="
+            },
+            {
+              "end": true
+            }
+          ]
+        }
+      },
+      "drive": {
+        "service_future": "resolve",
+        "response_body": "drop-without-poll"
+      },
+      "observations": [
+        "workflow"
+      ]
+    },
+    {
+      "case_id": "starlette-rs.NativeApplication.service-body-streaming.response-consumer-pull",
+      "surface": "starlette-rs.NativeApplication",
+      "operation": "service-body-streaming",
+      "covers": [
+        "starlette-rs.NativeApplication.service-body-streaming.response-pull"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [
+
+      ],
+      "application": {
+        "routes": [
+          {
+            "path": "/download",
+            "methods": [
+              "GET"
+            ],
+            "endpoint": {
+              "request_body_action": "leave-unread",
+              "response_body": {
+                "frames": [
+                  {
+                    "data_base64": "Y2h1bmstMQ=="
+                  },
+                  {
+                    "data_base64": "Y2h1bmstMg=="
+                  },
+                  {
+                    "end": true
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "request": {
+        "method": "GET",
+        "uri": "/download",
+        "body": {
+          "frames": [
+            {
+              "end": true
+            }
+          ]
+        }
+      },
+      "drive": {
+        "service_future": "resolve",
+        "response_body": {
+          "read_frames": [
+            1,
+            1,
+            "to-end"
+          ]
+        }
+      },
+      "observations": [
+        "workflow"
+      ]
+    },
+    {
+      "case_id": "starlette-rs.NativeApplication.service-body-streaming.request-body-error",
+      "surface": "starlette-rs.NativeApplication",
+      "operation": "service-body-streaming",
+      "covers": [
+        "starlette-rs.NativeApplication.service-body-streaming.body-errors"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [
+
+      ],
+      "application": {
+        "routes": [
+          {
+            "path": "/upload",
+            "methods": [
+              "POST"
+            ],
+            "endpoint": {
+              "request_body_action": "read-all-and-propagate-error",
+              "response_body": {
+                "frames": [
+
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "request": {
+        "method": "POST",
+        "uri": "/upload",
+        "body": {
+          "frames": [
+            {
+              "data_base64": "cHJlZml4"
+            },
+            {
+              "error": {
+                "kind": "probe-body-error",
+                "message": "request source marker"
+              }
+            }
+          ]
+        }
+      },
+      "drive": {
+        "service_future": "resolve"
+      },
+      "observations": [
+        "workflow"
+      ]
+    },
+    {
+      "case_id": "starlette-rs.NativeApplication.service-body-streaming.response-body-error",
+      "surface": "starlette-rs.NativeApplication",
+      "operation": "service-body-streaming",
+      "covers": [
+        "starlette-rs.NativeApplication.service-body-streaming.body-errors"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [
+
+      ],
+      "application": {
+        "routes": [
+          {
+            "path": "/download",
+            "methods": [
+              "GET"
+            ],
+            "endpoint": {
+              "request_body_action": "leave-unread",
+              "response_body": {
+                "frames": [
+                  {
+                    "data_base64": "cHJlZml4"
+                  },
+                  {
+                    "error": {
+                      "kind": "probe-body-error",
+                      "message": "response source marker"
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "request": {
+        "method": "GET",
+        "uri": "/download",
+        "body": {
+          "frames": [
+            {
+              "end": true
+            }
+          ]
+        }
+      },
+      "drive": {
+        "service_future": "resolve",
+        "response_body": "read-to-error"
+      },
+      "observations": [
+        "workflow"
+      ]
+    },
+    {
+      "case_id": "starlette-rs.NativeApplication.service-body-streaming.drop-pending-request-future",
+      "surface": "starlette-rs.NativeApplication",
+      "operation": "service-body-streaming",
+      "covers": [
+        "starlette-rs.NativeApplication.service-body-streaming.drop-cancellation"
+      ],
+      "target_profiles": [
+        "rust-native-local"
+      ],
+      "assets": [
+
+      ],
+      "application": {
+        "routes": [
+          {
+            "path": "/upload",
+            "methods": [
+              "POST"
+            ],
+            "endpoint": {
+              "request_body_action": "read-all",
+              "response_body": {
+                "frames": [
+
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "request": {
+        "method": "POST",
+        "uri": "/upload",
+        "body": {
+          "frames": [
+            {
+              "data_base64": "YQ=="
+            },
+            {
+              "pending": true
+            }
+          ]
+        }
+      },
+      "drive": {
+        "service_future": "poll-until-pending-then-drop"
+      },
+      "observations": [
+        "workflow"
+      ]
+    },
+    {
+      "case_id": "starlette-rs.NativeApplication.service-body-streaming.drop-unpolled-response-body",
+      "surface": "starlette-rs.NativeApplication",
+      "operation": "service-body-streaming",
+      "covers": [
+        "starlette-rs.NativeApplication.service-body-streaming.drop-cancellation"
+      ],
+      "target_profiles": [
+        "rust-native-local"
+      ],
+      "assets": [
+
+      ],
+      "application": {
+        "routes": [
+          {
+            "path": "/download",
+            "methods": [
+              "GET"
+            ],
+            "endpoint": {
+              "request_body_action": "leave-unread",
+              "response_body": {
+                "frames": [
+                  {
+                    "data_base64": "Y2h1bmstMQ=="
+                  },
+                  {
+                    "pending": true
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "request": {
+        "method": "GET",
+        "uri": "/download",
+        "body": {
+          "frames": [
+            {
+              "end": true
+            }
+          ]
+        }
+      },
+      "drive": {
+        "service_future": "resolve",
+        "response_body": "drop-without-poll"
+      },
+      "observations": [
+        "workflow"
+      ]
+    },
+    {
+      "case_id": "starlette-rs.NativeApplication.service-body-streaming.request-poll-trace",
+      "surface": "starlette-rs.NativeApplication",
+      "operation": "service-body-streaming",
+      "covers": [
+        "starlette-rs.NativeApplication.service-body-streaming.request-pull"
+      ],
+      "target_profiles": [
+        "rust-native-local"
+      ],
+      "assets": [
+
+      ],
+      "application": {
+        "routes": [
+          {
+            "path": "/upload",
+            "methods": [
+              "POST"
+            ],
+            "endpoint": {
+              "request_body_action": "read-all",
+              "response_body": {
+                "frames": [
+
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "request": {
+        "method": "POST",
+        "uri": "/upload",
+        "body": {
+          "frames": [
+            {
+              "data_base64": "YQ=="
+            },
+            {
+              "end": true
+            }
+          ]
+        }
+      },
+      "drive": {
+        "service_future": "resolve"
+      },
+      "observations": [
+        "workflow"
+      ]
+    },
+    {
+      "case_id": "starlette-rs.NativeApplication.service-body-streaming.unread-request-poll-trace",
+      "surface": "starlette-rs.NativeApplication",
+      "operation": "service-body-streaming",
+      "covers": [
+        "starlette-rs.NativeApplication.service-body-streaming.request-pull"
+      ],
+      "target_profiles": [
+        "rust-native-local"
+      ],
+      "assets": [
+
+      ],
+      "application": {
+        "routes": [
+          {
+            "path": "/upload",
+            "methods": [
+              "POST"
+            ],
+            "endpoint": {
+              "request_body_action": "leave-unread",
+              "response_body": {
+                "frames": [
+
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "request": {
+        "method": "POST",
+        "uri": "/upload",
+        "body": {
+          "frames": [
+            {
+              "data_base64": "cGF5bG9hZA=="
+            },
+            {
+              "end": true
+            }
+          ]
+        }
+      },
+      "drive": {
+        "service_future": "resolve"
+      },
+      "observations": [
+        "workflow"
+      ]
+    },
+    {
+      "case_id": "starlette-rs.NativeApplication.service-body-streaming.response-poll-trace",
+      "surface": "starlette-rs.NativeApplication",
+      "operation": "service-body-streaming",
+      "covers": [
+        "starlette-rs.NativeApplication.service-body-streaming.response-pull"
+      ],
+      "target_profiles": [
+        "rust-native-local"
+      ],
+      "assets": [
+
+      ],
+      "application": {
+        "routes": [
+          {
+            "path": "/download",
+            "methods": [
+              "GET"
+            ],
+            "endpoint": {
+              "request_body_action": "leave-unread",
+              "response_body": {
+                "frames": [
+                  {
+                    "data_base64": "Y2h1bmstMQ=="
+                  },
+                  {
+                    "data_base64": "Y2h1bmstMg=="
+                  },
+                  {
+                    "end": true
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "request": {
+        "method": "GET",
+        "uri": "/download",
+        "body": {
+          "frames": [
+            {
+              "end": true
+            }
+          ]
+        }
+      },
+      "drive": {
+        "service_future": "resolve",
+        "response_body": {
+          "read_frames": [
+            1,
+            1,
+            "to-end"
+          ]
+        }
+      },
+      "observations": [
+        "workflow"
+      ]
+    },
+    {
+      "case_id": "starlette-rs.NativeApplication.service-body-streaming.response-partial-pull",
+      "surface": "starlette-rs.NativeApplication",
+      "operation": "service-body-streaming",
+      "covers": [
+        "starlette-rs.NativeApplication.service-body-streaming.response-pull"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "application": {
+        "routes": [
+          {
+            "path": "/download-partial",
+            "methods": [
+              "GET"
+            ],
+            "endpoint": {
+              "request_body_action": "leave-unread",
+              "response_body": {
+                "frames": [
+                  {
+                    "data_base64": "Y2h1bmstMQ=="
+                  },
+                  {
+                    "data_base64": "Y2h1bmstMg=="
+                  },
+                  {
+                    "end": true
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "request": {
+        "method": "GET",
+        "uri": "/download-partial",
+        "body": {
+          "frames": [
+            {
+              "end": true
+            }
+          ]
+        }
+      },
+      "drive": {
+        "service_future": "resolve",
+        "response_body": {
+          "read_frames": [
+            1
+          ]
+        }
+      },
+      "observations": [
+        "workflow"
+      ]
+    }
+  ]
+}

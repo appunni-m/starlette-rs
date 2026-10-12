@@ -32,7 +32,7 @@ from .fault_contracts import (
     evaluate_fault_contract,
 )
 
-MANIFEST_SCHEMA = "migration-parity/manifest@5"
+MANIFEST_SCHEMA = "migration-parity/manifest@6"
 INPUT_SCHEMA_V45 = "migration-parity/parity-input@45"
 INPUT_SCHEMA_V46 = "migration-parity/parity-input@46"
 INPUT_SCHEMA_V47 = "migration-parity/parity-input@47"
@@ -89,6 +89,7 @@ TOP_KEYS = {
     "input_index",
     "coverage_components",
     "surfaces",
+    "native_surfaces",
     "documentation",
 }
 CASE_KEYS = {
@@ -166,6 +167,13 @@ WEBSOCKET_SURFACE = "starlette.websockets.WebSocket"
 WEBSOCKET_OPERATION = "protocol-sequence"
 WEBSOCKET_STATE_OPERATION = "state-sequence"
 WEBSOCKET_CONVENIENCE_OPERATION = "convenience-sequence"
+NATIVE_SERVICE_SURFACE = "starlette-rs.NativeApplication"
+NATIVE_SERVICE_OPERATION = "service-body-streaming"
+NATIVE_WEBSOCKET_SURFACE = "starlette-rs.NativeWebSocket"
+NATIVE_WEBSOCKET_OPERATION = "native-session-sequence"
+NATIVE_LIFESPAN_OPERATION = "native-lifespan"
+NATIVE_LIFESPAN_SURFACE = "starlette-rs.NativeLifespan"
+NATIVE_WORKFLOW_OBSERVATION = "workflow"
 WEBSOCKET_SEND_OSERROR_REQUIREMENT = "starlette.websocket.api.send.os-error.disconnect-details"
 WEBSOCKET_INVALID_JSON_MODE_REQUIREMENTS = {
     "receive": "starlette.websocket.api.receive.json.invalid-mode",
@@ -1928,6 +1936,11 @@ def _unique_ids(rows: Any, field: str, context: str) -> set[str]:
     return ids
 
 
+def _all_manifest_surfaces(manifest: dict[str, Any]) -> list[dict[str, Any]]:
+    """Return Starlette compatibility surfaces and separate Rust-native surfaces."""
+    return [*manifest["surfaces"], *manifest["native_surfaces"]]
+
+
 def validate_manifest(manifest: dict[str, Any]) -> None:
     _exact(manifest, TOP_KEYS, "manifest")
     if manifest["schema"] != MANIFEST_SCHEMA:
@@ -2062,7 +2075,10 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
         ):
             raise ContractError(f"{context}.requirements must select unique requirement IDs")
         target_profile = profile_by_id.get(fault_contract["target_profile"])
-        if target_profile is None or "fault-contract" not in target_profile["features"]:
+        if target_profile is None or (
+            target_profile["target_id"] == "python-package"
+            and "fault-contract" not in target_profile["features"]
+        ):
             raise ContractError(
                 f"{context}.target_profile must enable fault-contract instrumentation"
             )
@@ -2178,19 +2194,28 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
     surfaces = manifest["surfaces"]
     if not isinstance(surfaces, list) or not surfaces:
         raise ContractError("surfaces must be a non-empty array")
-    _unique_ids(surfaces, "id", "surfaces")
+    native_surfaces = manifest["native_surfaces"]
+    if not isinstance(native_surfaces, list):
+        raise ContractError("native_surfaces must be an array")
+    public_surface_ids = _unique_ids(surfaces, "id", "surfaces")
+    native_surface_ids = _unique_ids(native_surfaces, "id", "native_surfaces")
+    if public_surface_ids & native_surface_ids:
+        raise ContractError("native_surfaces IDs must be separate from Starlette surfaces")
     operation_rows: dict[tuple[str, str], dict[str, Any]] = {}
-    for surface_index, surface in enumerate(surfaces):
+    surface_rows = [(f"surfaces[{index}]", surface) for index, surface in enumerate(surfaces)] + [
+        (f"native_surfaces[{index}]", surface) for index, surface in enumerate(native_surfaces)
+    ]
+    for surface_context, surface in surface_rows:
         _exact(
             surface,
             {"id", "kind", "source_path", "storage_slug", "operations"},
-            f"surfaces[{surface_index}]",
+            surface_context,
         )
         operations = surface["operations"]
         if not isinstance(operations, list) or not operations:
-            raise ContractError(f"surfaces[{surface_index}].operations must be non-empty")
+            raise ContractError(f"{surface_context}.operations must be non-empty")
         for operation_index, operation in enumerate(operations):
-            context = f"surfaces[{surface_index}].operations[{operation_index}]"
+            context = f"{surface_context}.operations[{operation_index}]"
             _exact(
                 operation,
                 {
@@ -2775,6 +2800,12 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                 or key == WEBSOCKET_ENDPOINT_OPERATION_KEY
                 or key == THREADPOOL_OPERATION_KEY
                 or key in AUTHENTICATION_OPERATIONS
+                or key[0]
+                in {
+                    NATIVE_SERVICE_SURFACE,
+                    NATIVE_WEBSOCKET_SURFACE,
+                    NATIVE_LIFESPAN_SURFACE,
+                }
                 else {
                     "class",
                     "kind",
@@ -2925,7 +2956,14 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                 elif lane == "parity":
                     _exact(policy, {"applicability", "target_profiles"}, f"{context}.{lane}")
                     operation_key = (surface["id"], operation["id"])
-                    if operation_key in {
+                    if surface["id"] in native_surface_ids:
+                        expected_parity_profiles = {
+                            profile
+                            for requirement in requirements
+                            if "parity" in requirement["lanes"]
+                            for profile in requirement["target_profiles"]
+                        }
+                    elif operation_key in {
                         TESTCLIENT_OPERATION_KEY,
                         TESTCLIENT_PUBLIC_OPERATION,
                         APPLICATION_TYPING_CONSUMER_OPERATION,
@@ -17168,20 +17206,9 @@ def _validate_fault_contract_case(case: dict[str, Any], manifest: dict[str, Any]
 
     parity_case = {key: value for key, value in case.items() if key != "fault_contract"}
     validated = validate_case(parity_case, manifest, fault_case_spec=contract)
-    if (
-        validated["surface"] != TESTCLIENT_SURFACE
-        or validated["operation"] != TESTCLIENT_OPERATION
-        or validated["target_profiles"] != [contract["target_profile"]]
-        or validated["asgi_app"]["kind"] != "starlette-route"
-        or validated["testclient"]["raise_server_exceptions"]
-        is not FAULT_CONTRACT_TESTCLIENT_RAISE_SERVER_EXCEPTIONS.get(contract["id"])
-    ):
-        raise ContractError(
-            "this fault contract requires the Python-package TestClient Starlette route boundary"
-        )
     requirement_map = {
         requirement["id"]: requirement
-        for surface in manifest["surfaces"]
+        for surface in _all_manifest_surfaces(manifest)
         for operation in surface["operations"]
         for requirement in operation["requirements"]
     }
@@ -17191,6 +17218,44 @@ def _validate_fault_contract_case(case: dict[str, Any], manifest: dict[str, Any]
             raise ContractError(
                 "fault contract requirements must be declared and applicable to its target profile"
             )
+
+    profile_by_id = {profile["id"]: profile for profile in manifest["target_profiles"]}
+    profile = profile_by_id[contract["target_profile"]]
+    if profile["target_id"] == "python-package":
+        if (
+            validated["surface"] != TESTCLIENT_SURFACE
+            or validated["operation"] != TESTCLIENT_OPERATION
+            or validated["target_profiles"] != [contract["target_profile"]]
+            or validated["asgi_app"]["kind"] != "starlette-route"
+            or validated["testclient"]["raise_server_exceptions"]
+            is not FAULT_CONTRACT_TESTCLIENT_RAISE_SERVER_EXCEPTIONS.get(contract["id"])
+        ):
+            raise ContractError(
+                "this Python-package fault contract requires the TestClient Starlette route boundary"
+            )
+    elif profile["target_id"] == "rust-native":
+        operation_keys = {
+            (surface["id"], operation["id"])
+            for surface in _all_manifest_surfaces(manifest)
+            for operation in surface["operations"]
+            if any(
+                requirement["id"] in contract["requirements"]
+                for requirement in operation["requirements"]
+            )
+        }
+        if (
+            len(operation_keys) != 1
+            or (validated["surface"], validated["operation"]) != next(iter(operation_keys))
+            or validated["surface"]
+            not in {NATIVE_SERVICE_SURFACE, NATIVE_WEBSOCKET_SURFACE, NATIVE_LIFESPAN_SURFACE}
+            or validated["target_profiles"] != [contract["target_profile"]]
+            or validated["covers"] != []
+        ):
+            raise ContractError(
+                "a Rust-native fault contract must select one native operation and its target profile"
+            )
+    else:
+        raise ContractError("fault contract target must be a declared executable target")
     return {**validated, "fault_contract": fault}
 
 
@@ -17299,7 +17364,7 @@ def _validate_public_api_inspection_case(
     operation = next(
         (
             item
-            for surface in manifest["surfaces"]
+            for surface in _all_manifest_surfaces(manifest)
             for item in surface["operations"]
             if (surface["id"], item["id"]) == PUBLIC_API_INSPECTION_OPERATION
         ),
@@ -17362,7 +17427,7 @@ def _validate_application_typing_consumer_case(
     operation = next(
         (
             item
-            for surface in manifest["surfaces"]
+            for surface in _all_manifest_surfaces(manifest)
             for item in surface["operations"]
             if (surface["id"], item["id"]) == APPLICATION_TYPING_CONSUMER_OPERATION
         ),
@@ -17448,7 +17513,7 @@ def _validate_application_subclass_builder_case(
     requirement = next(
         (
             item
-            for surface in manifest["surfaces"]
+            for surface in _all_manifest_surfaces(manifest)
             for operation in surface["operations"]
             for item in operation["requirements"]
             if item["id"] == STARLETTE_SUBCLASS_BUILDER_REQUIREMENT
@@ -17535,6 +17600,377 @@ def _validate_upstream_test_applicability(value: Any, case: dict[str, Any]) -> d
     return {"test": test, "profiles": validated_rows}
 
 
+def _validate_native_api_case(
+    case: Any,
+    manifest: dict[str, Any],
+    *,
+    fault_case_spec: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Validate input-only workflows for the Rust-native API surfaces."""
+    if not isinstance(case, dict):
+        raise ContractError("native API case must be an object")
+    operation_key = (case.get("surface"), case.get("operation"))
+    input_fields = {
+        (NATIVE_SERVICE_SURFACE, NATIVE_SERVICE_OPERATION): {"application", "request", "drive"},
+        (NATIVE_WEBSOCKET_SURFACE, NATIVE_WEBSOCKET_OPERATION): {"input"},
+        (NATIVE_LIFESPAN_SURFACE, NATIVE_LIFESPAN_OPERATION): {"inputs"},
+        (NATIVE_LIFESPAN_SURFACE, "start"): {"inputs"},
+        (NATIVE_LIFESPAN_SURFACE, "shutdown"): {"inputs"},
+        (NATIVE_LIFESPAN_SURFACE, "active-shutdown"): {"inputs"},
+    }
+    payload_fields = input_fields.get(operation_key)
+    if payload_fields is None:
+        raise ContractError("native API case uses an undeclared surface operation")
+
+    expected_case_keys = (CASE_KEYS - {"steps", "execution_schedule"}) | payload_fields
+    _exact(case, expected_case_keys, "native API case")
+    case_id = _string(case["case_id"], "native API case.case_id")
+    if not case_id.startswith(f"{operation_key[0]}.{operation_key[1]}."):
+        raise ContractError("native API case ID must bind to its surface operation")
+    if case["assets"] != []:
+        raise ContractError("native API input workflows do not use external assets")
+    if case["observations"] != [NATIVE_WORKFLOW_OBSERVATION]:
+        raise ContractError("native API workflows must select exactly the workflow observation")
+
+    profile_order = [profile["id"] for profile in manifest["target_profiles"]]
+    profiles = case["target_profiles"]
+    if (
+        not isinstance(profiles, list)
+        or not profiles
+        or any(not isinstance(profile, str) for profile in profiles)
+        or len(profiles) != len(set(profiles))
+        or not set(profiles) <= set(profile_order)
+        or profiles != [profile for profile in profile_order if profile in profiles]
+        or "rust-native-local" not in profiles
+    ):
+        raise ContractError("native API cases must select declared profiles in manifest order")
+    rust_only_operation = operation_key in {
+        (NATIVE_LIFESPAN_SURFACE, "start"),
+        (NATIVE_LIFESPAN_SURFACE, "shutdown"),
+        (NATIVE_LIFESPAN_SURFACE, "active-shutdown"),
+    }
+    if rust_only_operation and profiles != ["rust-native-local"]:
+        raise ContractError("Rust-native lifecycle methods select only the Rust target profile")
+
+    operations = {
+        (surface["id"], operation["id"]): operation
+        for surface in _all_manifest_surfaces(manifest)
+        for operation in surface["operations"]
+    }
+    operation = operations.get(operation_key)
+    if operation is None:
+        raise ContractError("native API case has no declared manifest operation")
+    requirements = {item["id"]: item for item in operation["requirements"]}
+    covers = case["covers"]
+    if fault_case_spec is not None:
+        fault_requirements = fault_case_spec["requirements"]
+        if (
+            covers != []
+            or profiles != [fault_case_spec["target_profile"]]
+            or not set(fault_requirements) <= set(requirements)
+        ):
+            raise ContractError(
+                "native fault-contract cases must select only their declared target requirements"
+            )
+    else:
+        if (
+            not isinstance(covers, list)
+            or not covers
+            or any(not isinstance(item, str) for item in covers)
+            or len(covers) != len(set(covers))
+            or not set(covers) <= set(requirements)
+        ):
+            raise ContractError("native API case covers must select declared requirements once")
+        for requirement_id in covers:
+            requirement = requirements[requirement_id]
+            if "parity" not in requirement["lanes"] or not set(profiles) <= set(
+                requirement["target_profiles"]
+            ):
+                raise ContractError(
+                    f"native API requirement is not applicable to all selected profiles: {requirement_id}"
+                )
+
+    if operation_key == (NATIVE_SERVICE_SURFACE, NATIVE_SERVICE_OPERATION):
+        _validate_native_service_input(case)
+    elif operation_key == (NATIVE_WEBSOCKET_SURFACE, NATIVE_WEBSOCKET_OPERATION):
+        _validate_native_websocket_input(case["input"])
+    else:
+        _validate_native_lifespan_input(case["inputs"])
+    return case
+
+
+def _validate_native_service_input(case: dict[str, Any]) -> None:
+    application = _exact(case["application"], {"routes"}, "native service application")
+    routes = application["routes"]
+    if not isinstance(routes, list) or not routes:
+        raise ContractError("native service application.routes must be a non-empty array")
+    for index, route_value in enumerate(routes):
+        context = f"native service application.routes[{index}]"
+        route = _exact(route_value, {"path", "methods", "endpoint"}, context)
+        _string(route["path"], f"{context}.path")
+        methods = route["methods"]
+        if (
+            not isinstance(methods, list)
+            or not methods
+            or any(not isinstance(method, str) or not method for method in methods)
+        ):
+            raise ContractError(f"{context}.methods must be a non-empty string array")
+        endpoint = _exact(
+            route["endpoint"], {"request_body_action", "response_body"}, f"{context}.endpoint"
+        )
+        _string(endpoint["request_body_action"], f"{context}.endpoint.request_body_action")
+        _validate_native_body_source(endpoint["response_body"], f"{context}.endpoint.response_body")
+    request = _exact(case["request"], {"method", "uri", "body"}, "native service request")
+    _string(request["method"], "native service request.method")
+    _string(request["uri"], "native service request.uri")
+    _validate_native_body_source(request["body"], "native service request.body")
+    drive = case["drive"]
+    if not isinstance(drive, (str, dict)):
+        raise ContractError("native service drive must be a string or object")
+    if isinstance(drive, dict):
+        if "service_future" not in drive or set(drive) - {"service_future", "response_body"}:
+            raise ContractError("native service drive has unsupported fields")
+        _string(drive["service_future"], "native service drive.service_future")
+
+
+def _validate_native_body_source(value: Any, context: str) -> None:
+    source = _exact(value, {"frames"}, context)
+    frames = source["frames"]
+    if not isinstance(frames, list):
+        raise ContractError(f"{context}.frames must be an array")
+    for index, frame_value in enumerate(frames):
+        frame_context = f"{context}.frames[{index}]"
+        if not isinstance(frame_value, dict) or len(frame_value) != 1:
+            raise ContractError(f"{frame_context} must contain exactly one frame action")
+        kind = next(iter(frame_value))
+        frame = _exact(frame_value, {kind}, frame_context)
+        if kind == "data_base64":
+            encoded = _string(frame[kind], f"{frame_context}.data_base64")
+            try:
+                base64.b64decode(encoded, validate=True)
+            except (binascii.Error, ValueError) as exc:
+                raise ContractError(f"{frame_context}.data_base64 must be valid Base64") from exc
+        elif kind == "end" or kind == "pending":
+            if frame[kind] is not True:
+                raise ContractError(f"{frame_context}.{kind} must be true")
+        elif kind == "error":
+            error = _exact(frame[kind], {"kind", "message"}, f"{frame_context}.error")
+            _string(error["kind"], f"{frame_context}.error.kind")
+            _string(error["message"], f"{frame_context}.error.message")
+        else:
+            raise ContractError(f"{frame_context} has an unsupported body frame action")
+
+
+def _validate_native_websocket_input(value: Any) -> None:
+    if not isinstance(value, dict) or not {"handshake", "route", "actions"} <= set(value):
+        raise ContractError("native WebSocket input must contain handshake, route, and actions")
+    if set(value) - {"handshake", "route", "incoming", "actions", "cancellation"}:
+        raise ContractError("native WebSocket input contains unsupported fields")
+    input_spec = value
+    handshake = _exact(
+        input_spec["handshake"],
+        {"method", "uri", "version", "headers", "offered_subprotocols"},
+        "native WebSocket handshake",
+    )
+    for field in ("method", "uri", "version"):
+        _string(handshake[field], f"native WebSocket handshake.{field}")
+    if not isinstance(handshake["headers"], list):
+        raise ContractError("native WebSocket handshake.headers must be an array")
+    for header_index, header_value in enumerate(handshake["headers"]):
+        if not isinstance(header_value, list) or len(header_value) != 2:
+            raise ContractError(
+                f"native WebSocket handshake.headers[{header_index}] must be a name/value pair"
+            )
+        header = header_value
+        _string(header[0], f"native WebSocket handshake.headers[{header_index}][0]")
+        _string(header[1], f"native WebSocket handshake.headers[{header_index}][1]")
+    offered = handshake["offered_subprotocols"]
+    if not isinstance(offered, list) or any(not isinstance(item, str) for item in offered):
+        raise ContractError("native WebSocket offered_subprotocols must be a string array")
+    route = _exact(
+        input_spec["route"], {"path", "preferred_subprotocols"}, "native WebSocket route"
+    )
+    _string(route["path"], "native WebSocket route.path")
+    preferred = route["preferred_subprotocols"]
+    if not isinstance(preferred, list) or any(not isinstance(item, str) for item in preferred):
+        raise ContractError("native WebSocket preferred_subprotocols must be a string array")
+    incoming = input_spec.get("incoming", [])
+    if not isinstance(incoming, list) or any(not isinstance(event, dict) for event in incoming):
+        raise ContractError("native WebSocket incoming must be an array of event objects")
+    actions = input_spec["actions"]
+    if not isinstance(actions, list) or any(not isinstance(action, dict) for action in actions):
+        raise ContractError("native WebSocket actions must be an array of action objects")
+    if "cancellation" in input_spec:
+        _exact(input_spec["cancellation"], {"operation", "timing"}, "native WebSocket cancellation")
+
+
+def _validate_native_lifespan_input(value: Any) -> None:
+    input_spec = _exact(value, {"registrations", "host_actions"}, "native lifespan input")
+    registrations = input_spec["registrations"]
+    if not isinstance(registrations, list) or not registrations:
+        raise ContractError("native lifespan registrations must be a non-empty array")
+    names: set[str] = set()
+    startup_actions_by_hook: list[list[dict[str, Any]]] = []
+    shutdown_actions_by_hook: list[list[dict[str, Any]]] = []
+    for index, registration_value in enumerate(registrations):
+        context = f"native lifespan registrations[{index}]"
+        registration = _exact(registration_value, {"name", "startup", "shutdown"}, context)
+        name = _string(registration["name"], f"{context}.name")
+        if name in names:
+            raise ContractError("native lifespan registration names must be unique")
+        names.add(name)
+        phase_actions: dict[str, list[dict[str, Any]]] = {}
+        for phase in ("startup", "shutdown"):
+            hook = _exact(registration[phase], {"actions"}, f"{context}.{phase}")
+            actions = hook["actions"]
+            if not isinstance(actions, list):
+                raise ContractError(f"{context}.{phase}.actions must be an array")
+            validated_actions: list[dict[str, Any]] = []
+            for action_index, action_value in enumerate(actions):
+                action_context = f"{context}.{phase}.actions[{action_index}]"
+                if not isinstance(action_value, dict) or len(action_value) != 1:
+                    raise ContractError(f"{action_context} must contain exactly one action")
+                kind = next(iter(action_value))
+                action = _exact(action_value, {kind}, action_context)
+                validated_actions.append(action)
+                if kind in {"append-event", "remove-state"}:
+                    _string(action[kind], f"{action_context}.{kind}")
+                elif kind == "insert-state":
+                    state = _exact(action[kind], {"key", "value"}, f"{action_context}.insert-state")
+                    _string(state["key"], f"{action_context}.insert-state.key")
+                    try:
+                        json.dumps(state["value"], allow_nan=False)
+                    except (TypeError, ValueError) as exc:
+                        raise ContractError(
+                            f"{action_context}.insert-state.value must be JSON"
+                        ) from exc
+                elif kind == "raise":
+                    error = _exact(
+                        action[kind], {"exception", "message"}, f"{action_context}.raise"
+                    )
+                    _string(error["exception"], f"{action_context}.raise.exception")
+                    _string(error["message"], f"{action_context}.raise.message")
+                elif kind == "suspend-until-host-release":
+                    if action[kind] is not True:
+                        raise ContractError(
+                            f"{action_context}.suspend-until-host-release must be true"
+                        )
+                else:
+                    raise ContractError(f"{action_context} has an unsupported lifespan action")
+            phase_actions[phase] = validated_actions
+        startup_actions_by_hook.append(phase_actions["startup"])
+        shutdown_actions_by_hook.append(phase_actions["shutdown"])
+
+    host_actions = input_spec["host_actions"]
+    supported_host_actions = {
+        "start-to-completion",
+        "observe-state",
+        "shutdown-to-completion",
+        "start-to-cache-suspension",
+        "drive-shutdown-until-host-deadline",
+        "drop-start-future",
+        "drop-shutdown-future",
+    }
+    if not isinstance(host_actions, list) or not host_actions:
+        raise ContractError("native lifespan host_actions must be a non-empty array")
+    if any(not isinstance(action, str) for action in host_actions):
+        raise ContractError("native lifespan host_actions must contain strings")
+    unsupported_actions = set(host_actions) - supported_host_actions
+    if unsupported_actions:
+        raise ContractError(
+            f"native lifespan host_actions contain unsupported actions: {sorted(unsupported_actions)!r}"
+        )
+
+    def startup_reaches_suspension() -> bool:
+        for actions in startup_actions_by_hook:
+            for action in actions:
+                if "suspend-until-host-release" in action:
+                    return True
+                if "raise" in action:
+                    return False
+        return False
+
+    def shutdown_reaches_suspension() -> bool:
+        for actions in reversed(shutdown_actions_by_hook):
+            for action in actions:
+                if "suspend-until-host-release" in action:
+                    return True
+                if "raise" in action:
+                    break
+        return False
+
+    startup_suspends = startup_reaches_suspension()
+    startup_fails = any(
+        "raise" in action for actions in startup_actions_by_hook for action in actions
+    )
+    shutdown_suspends = shutdown_reaches_suspension()
+    lifecycle_state = "not-started"
+    for action_index, action in enumerate(host_actions):
+        if lifecycle_state in {"startup-failed", "finished"}:
+            raise ContractError(
+                f"native lifespan host_actions[{action_index}] follows a terminal lifecycle action"
+            )
+        if lifecycle_state == "start-pending" and action != "drop-start-future":
+            raise ContractError(
+                "a pending native lifespan start future must be dropped before another host action"
+            )
+        if lifecycle_state == "shutdown-pending" and action != "drop-shutdown-future":
+            raise ContractError(
+                "a pending native lifespan shutdown future must be dropped before another host action"
+            )
+
+        if action == "start-to-completion":
+            if lifecycle_state != "not-started":
+                raise ContractError("native lifespan start can only be driven once")
+            if startup_suspends:
+                raise ContractError(
+                    "start-to-completion cannot complete while a startup hook suspends"
+                )
+            lifecycle_state = "startup-failed" if startup_fails else "active"
+        elif action == "start-to-cache-suspension":
+            if lifecycle_state != "not-started":
+                raise ContractError("native lifespan start can only be driven once")
+            if not startup_suspends:
+                raise ContractError(
+                    "start-to-cache-suspension requires a reachable startup suspension"
+                )
+            lifecycle_state = "start-pending"
+        elif action == "observe-state":
+            if lifecycle_state != "active":
+                raise ContractError("native lifespan state observation requires completed startup")
+        elif action == "shutdown-to-completion":
+            if lifecycle_state != "active":
+                raise ContractError(
+                    "shutdown-to-completion requires a successfully started lifecycle"
+                )
+            if shutdown_suspends:
+                raise ContractError(
+                    "shutdown-to-completion cannot complete while a shutdown hook suspends"
+                )
+            lifecycle_state = "finished"
+        elif action == "drive-shutdown-until-host-deadline":
+            if lifecycle_state != "active":
+                raise ContractError(
+                    "drive-shutdown-until-host-deadline requires a successfully started lifecycle"
+                )
+            if not shutdown_suspends:
+                raise ContractError(
+                    "drive-shutdown-until-host-deadline requires a reachable shutdown suspension"
+                )
+            lifecycle_state = "shutdown-pending"
+        elif action == "drop-start-future":
+            if lifecycle_state != "start-pending":
+                raise ContractError("drop-start-future requires a pending startup future")
+            lifecycle_state = "finished"
+        elif action == "drop-shutdown-future":
+            if lifecycle_state != "shutdown-pending":
+                raise ContractError("drop-shutdown-future requires a pending shutdown future")
+            lifecycle_state = "finished"
+
+    if lifecycle_state in {"start-pending", "shutdown-pending"}:
+        raise ContractError("native lifespan host_actions must drop each pending future")
+
+
 def upstream_test_applicability_for_profile(
     case: dict[str, Any], profile_id: str
 ) -> dict[str, str | None]:
@@ -17557,6 +17993,19 @@ def _validate_case_payload(
     fault_case_spec: dict[str, Any] | None = None,
     public_modules: frozenset[str] | None = None,
 ) -> dict[str, Any]:
+    if isinstance(case, dict) and "fault_contract" in case:
+        return _validate_fault_contract_case(case, manifest)
+    if isinstance(case, dict):
+        native_surface = case.get("surface")
+        if isinstance(native_surface, str) and (
+            native_surface
+            in {
+                NATIVE_SERVICE_SURFACE,
+                NATIVE_WEBSOCKET_SURFACE,
+                NATIVE_LIFESPAN_SURFACE,
+            }
+        ):
+            return _validate_native_api_case(case, manifest, fault_case_spec=fault_case_spec)
     if (
         isinstance(case, dict)
         and (case.get("surface"), case.get("operation")) == PUBLIC_API_INSPECTION_OPERATION
@@ -17567,8 +18016,6 @@ def _validate_case_payload(
         and (case.get("surface"), case.get("operation")) == APPLICATION_TYPING_CONSUMER_OPERATION
     ):
         return _validate_application_typing_consumer_case(case, manifest)
-    if isinstance(case, dict) and "fault_contract" in case:
-        return _validate_fault_contract_case(case, manifest)
     if (
         isinstance(case, dict)
         and (case.get("surface"), case.get("operation")) == EXCEPTION_MIDDLEWARE_TYPING_OPERATION
@@ -18039,7 +18486,7 @@ def _validate_case_payload(
         websocket_operation = next(
             (
                 operation
-                for surface in manifest["surfaces"]
+                for surface in _all_manifest_surfaces(manifest)
                 for operation in surface["operations"]
                 if (surface["id"], operation["id"]) == TESTCLIENT_WEBSOCKET_OPERATION_KEY
             ),
@@ -18542,7 +18989,7 @@ def _validate_case_payload(
         )
     requirements: dict[str, dict[str, Any]] = {}
     operations: dict[tuple[str, str], dict[str, Any]] = {}
-    for surface in manifest["surfaces"]:
+    for surface in _all_manifest_surfaces(manifest):
         for operation in surface["operations"]:
             operations[(surface["id"], operation["id"])] = operation
             for requirement in operation["requirements"]:
@@ -20244,7 +20691,7 @@ def _validate_server_error_middleware_case(
     operation = next(
         (
             item
-            for surface in manifest["surfaces"]
+            for surface in _all_manifest_surfaces(manifest)
             if surface["id"] == SERVER_ERROR_MIDDLEWARE_SURFACE
             for item in surface["operations"]
             if item["id"] == operation_id
@@ -27895,7 +28342,7 @@ def _validate_exception_middleware_typing_case(
     operation = next(
         (
             operation
-            for surface in manifest["surfaces"]
+            for surface in _all_manifest_surfaces(manifest)
             for operation in surface["operations"]
             if (surface["id"], operation["id"]) == EXCEPTION_MIDDLEWARE_TYPING_OPERATION
         ),
@@ -31726,7 +32173,7 @@ def validate_benchmark_document(
     _exact(suite["members"][0], {"workload_id", "weight"}, "benchmark suite member")
     requirement_rows = [
         requirement
-        for surface in manifest["surfaces"]
+        for surface in _all_manifest_surfaces(manifest)
         for operation in surface["operations"]
         for requirement in operation["requirements"]
         if requirement["id"] == workload["covers"][0]
@@ -31812,7 +32259,7 @@ def validate_inputs(
     parity_cases = [case for case in all_cases if "fault_contract" not in case]
     parity_requirements = {
         requirement["id"]
-        for surface in manifest["surfaces"]
+        for surface in _all_manifest_surfaces(manifest)
         for operation in surface["operations"]
         for requirement in operation["requirements"]
         if "parity" in requirement["lanes"]
@@ -31825,7 +32272,7 @@ def validate_inputs(
         )
     required_profiles_by_requirement = {
         requirement["id"]: set(requirement["target_profiles"])
-        for surface in manifest["surfaces"]
+        for surface in _all_manifest_surfaces(manifest)
         for operation in surface["operations"]
         for requirement in operation["requirements"]
         if "parity" in requirement["lanes"]
@@ -34597,7 +35044,7 @@ def _validate_parity_result_against_active_contract(
 
     operations = {
         (surface["id"], operation["id"]): operation
-        for surface in manifest["surfaces"]
+        for surface in _all_manifest_surfaces(manifest)
         for operation in surface["operations"]
     }
     case_by_id = {case["case_id"]: case for case in cases}
@@ -34695,7 +35142,7 @@ def _validate_parity_result_against_active_contract(
         target_result = row["target"]
         assertion_ids = FAULT_CONTRACT_ASSERTIONS[row["contract_id"]]
         if target_result["status"] == "completed":
-            expected_assertions = evaluate_fault_contract(row["contract_id"], target_result)
+            expected_assertions = evaluate_fault_contract(row["contract_id"], target_result, case)
             expected_outcome = (
                 "pass"
                 if all(assertion["status"] == "pass" for assertion in expected_assertions)

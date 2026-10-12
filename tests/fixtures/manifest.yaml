@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/manifest@5",
+  "schema": "migration-parity/manifest@6",
   "scope": {
     "id": "starlette-1.6.0-asgi-http-config-session-slice",
     "mode": "slice",
@@ -302,6 +302,42 @@
       "target_profile": "python-package-cpython312",
       "oracle_applicability": "not_applicable",
       "oracle_reason": "The poisoned Rust route-cache mutex is an injected target-internal condition with no corresponding upstream Starlette state; only the public TestClient exception outcome with raise_server_exceptions enabled is asserted."
+    },
+    {
+      "id": "starlette-rs.native-lifespan.shutdown-error-aggregation",
+      "fault_points": [
+        "starlette-rs.native-lifespan.shutdown-error-aggregation"
+      ],
+      "requirements": [
+        "starlette_rs.native_lifespan.shutdown-error-aggregation"
+      ],
+      "target_profile": "rust-native-local",
+      "oracle_applicability": "not_applicable",
+      "oracle_reason": "The ordered typed NativeLifespan aggregate has no equivalent Python error object, so its failure list is a Rust-native assertion; ordinary input-only Starlette ASGI lifespan analogue cases compare shared shutdown event order and public failure effects."
+    },
+    {
+      "id": "starlette-rs.native-lifespan.start-future-drop",
+      "fault_points": [
+        "starlette-rs.native-lifespan.start-future-drop"
+      ],
+      "requirements": [
+        "starlette_rs.native_lifespan.future-drop-boundary"
+      ],
+      "target_profile": "rust-native-local",
+      "oracle_applicability": "not_applicable",
+      "oracle_reason": "Dropping a pending Rust start future is a target-only host cancellation assertion; ordinary input-only Starlette ASGI lifespan analogue cases compare the shared lifecycle event sequence and observable startup effects."
+    },
+    {
+      "id": "starlette-rs.native-lifespan.shutdown-future-drop",
+      "fault_points": [
+        "starlette-rs.native-lifespan.shutdown-future-drop"
+      ],
+      "requirements": [
+        "starlette_rs.native_lifespan.host-owned-deadline-boundary"
+      ],
+      "target_profile": "rust-native-local",
+      "oracle_applicability": "not_applicable",
+      "oracle_reason": "Dropping a pending Rust shutdown future at the host deadline is a target-only host cancellation assertion; ordinary input-only Starlette ASGI lifespan analogue cases compare the shared lifecycle event sequence and observable shutdown effects."
     }
   ],
   "input_index": {
@@ -479,7 +515,10 @@
       "build/parity/inputs/parity/request-cached-headers-scope-replacement.json",
       "build/parity/inputs/parity/static-files-named-timezone.json",
       "build/parity/inputs/parity/static-files-omitted-timezone.json",
-      "build/parity/inputs/parity/testclient-reentrant-lifespan-entry.json"
+      "build/parity/inputs/parity/testclient-reentrant-lifespan-entry.json",
+      "build/parity/inputs/parity/native-service-streaming.json",
+      "build/parity/inputs/parity/native-websocket.json",
+      "build/parity/inputs/parity/native-lifespan.json"
     ],
     "coverage": [],
     "benchmark": [
@@ -2585,7 +2624,7 @@
             {
               "id": "starlette.request.path-param-int-digit-limit",
               "dimension": "error_path",
-              "description": "A 5001-digit path parameter matches the int regex but exceeds CPython\u2019s configured integer-string conversion limit when Starlette converts Request.path_params. Observe the live exception boundary in the source and installed Python package. Upstream: starlette/convertors.py::IntegerConvertor.convert and starlette/routing.py::Route.matches.",
+              "description": "A 5001-digit path parameter matches the int regex but exceeds CPython’s configured integer-string conversion limit when Starlette converts Request.path_params. Observe the live exception boundary in the source and installed Python package. Upstream: starlette/convertors.py::IntegerConvertor.convert and starlette/routing.py::Route.matches.",
               "lanes": [
                 "parity"
               ],
@@ -2596,7 +2635,7 @@
             {
               "id": "starlette.request.receive-worker-access",
               "dimension": "boundary",
-              "description": "Read Request.receive from a synchronous routed endpoint running in AnyIO\u2019s worker thread and observe that the callback is callable without invoking it. Upstream: starlette/requests.py:231-232; starlette/routing.py::request_response; tests/test_requests.py.",
+              "description": "Read Request.receive from a synchronous routed endpoint running in AnyIO’s worker thread and observe that the callback is callable without invoking it. Upstream: starlette/requests.py:231-232; starlette/routing.py::request_response; tests/test_requests.py.",
               "lanes": [
                 "parity"
               ],
@@ -2607,7 +2646,7 @@
             {
               "id": "starlette.request.stream-construction-worker",
               "dimension": "boundary",
-              "description": "Construct Request.stream() in a synchronous routed endpoint running in AnyIO\u2019s worker thread and observe its live async-iterator methods without consuming the receive callback. Upstream: starlette/requests.py:234-252; starlette/routing.py::request_response; tests/test_requests.py::test_request_stream.",
+              "description": "Construct Request.stream() in a synchronous routed endpoint running in AnyIO’s worker thread and observe its live async-iterator methods without consuming the receive callback. Upstream: starlette/requests.py:234-252; starlette/routing.py::request_response; tests/test_requests.py::test_request_stream.",
               "lanes": [
                 "parity"
               ],
@@ -2618,7 +2657,7 @@
             {
               "id": "starlette.request.body-awaitable-construction-worker",
               "dimension": "boundary",
-              "description": "Construct Request.body() in a synchronous routed endpoint running in AnyIO\u2019s worker thread and observe the returned awaitable; close it before execution so the ASGI receive callback is not consumed. Upstream: starlette/requests.py:254-260; starlette/routing.py::request_response; tests/test_requests.py::test_request_body.",
+              "description": "Construct Request.body() in a synchronous routed endpoint running in AnyIO’s worker thread and observe the returned awaitable; close it before execution so the ASGI receive callback is not consumed. Upstream: starlette/requests.py:254-260; starlette/routing.py::request_response; tests/test_requests.py::test_request_body.",
               "lanes": [
                 "parity"
               ],
@@ -2629,7 +2668,7 @@
             {
               "id": "starlette.request.json-awaitable-construction-worker",
               "dimension": "boundary",
-              "description": "Construct Request.json() in a synchronous routed endpoint running in AnyIO\u2019s worker thread and observe the returned awaitable; close it before execution so the ASGI receive callback is not consumed. Upstream: starlette/requests.py:262-266; starlette/routing.py::request_response; tests/test_requests.py::test_request_json.",
+              "description": "Construct Request.json() in a synchronous routed endpoint running in AnyIO’s worker thread and observe the returned awaitable; close it before execution so the ASGI receive callback is not consumed. Upstream: starlette/requests.py:262-266; starlette/routing.py::request_response; tests/test_requests.py::test_request_json.",
               "lanes": [
                 "parity"
               ],
@@ -6788,7 +6827,7 @@
               "support": {
                 "status": "out_of_scope",
                 "reason": "State is the Python starlette.* compatibility wrapper contract and has no direct Rust-native object surface.",
-                "authority": "AGENTS.md: preserve documented starlette.* imports and keep the Rust-native API additive."
+                "authority": "AGENTS.md: preserve documented starlette.* imports and keep Rust-native APIs distinct from the compatibility surface."
               }
             },
             {
@@ -7965,7 +8004,7 @@
               "support": {
                 "status": "out_of_scope",
                 "reason": "URLPath is part of the Python starlette.* compatibility surface and has no direct Rust-native object API.",
-                "authority": "AGENTS.md: preserve documented starlette.* imports and keep the Rust-native API additive."
+                "authority": "AGENTS.md: preserve documented starlette.* imports and keep Rust-native APIs distinct from the compatibility surface."
               }
             },
             {
@@ -11525,7 +11564,7 @@
               "signature": null,
               "support": {
                 "status": "out_of_scope",
-                "reason": "This contract checks the Python starlette.* static type surface; the additive Rust-native API has its own Rust signatures.",
+                "reason": "This contract checks the Python starlette.* static type surface; the separate Rust-native API has its own Rust signatures.",
                 "authority": "AGENTS.md Python typing and Rust-native API rules"
               }
             },
@@ -12507,7 +12546,7 @@
               "support": {
                 "status": "out_of_scope",
                 "reason": "This operation is the Python starlette.* compatibility middleware constructor, outside the native Rust consumer API.",
-                "authority": "AGENTS.md: keep the documented starlette.* Python compatibility surface and make the Rust-native API additive."
+                "authority": "AGENTS.md: keep the documented starlette.* Python compatibility surface and keep Rust-native APIs distinct from that surface."
               }
             },
             {
@@ -12745,7 +12784,7 @@
               "support": {
                 "status": "out_of_scope",
                 "reason": "This operation is the Python starlette.* compatibility middleware constructor, outside the native Rust consumer API.",
-                "authority": "AGENTS.md: keep the documented starlette.* Python compatibility surface and make the Rust-native API additive."
+                "authority": "AGENTS.md: keep the documented starlette.* Python compatibility surface and keep Rust-native APIs distinct from that surface."
               }
             },
             {
@@ -17159,7 +17198,7 @@
             {
               "id": "starlette.responses.FileResponse.asgi-call.range-inverted-single-byte",
               "dimension": "error_path",
-              "description": "Submit `bytes=5-4` and compare Starlette\u2019s malformed-range response. Upstream: starlette/responses.py::FileResponse._parse_range_header; tests/test_responses.py::test_file_response_inverted_single_byte_range.",
+              "description": "Submit `bytes=5-4` and compare Starlette’s malformed-range response. Upstream: starlette/responses.py::FileResponse._parse_range_header; tests/test_responses.py::test_file_response_inverted_single_byte_range.",
               "lanes": [
                 "parity"
               ],
@@ -17171,7 +17210,7 @@
             {
               "id": "starlette.responses.FileResponse.asgi-call.range-start-after-end",
               "dimension": "error_path",
-              "description": "Submit `bytes=100-0` and compare Starlette\u2019s malformed-range response. Upstream: starlette/responses.py::FileResponse._parse_range_header; tests/test_responses.py::test_file_response_start_must_be_less_than_end.",
+              "description": "Submit `bytes=100-0` and compare Starlette’s malformed-range response. Upstream: starlette/responses.py::FileResponse._parse_range_header; tests/test_responses.py::test_file_response_start_must_be_less_than_end.",
               "lanes": [
                 "parity"
               ],
@@ -17267,7 +17306,7 @@
             {
               "id": "starlette.responses.FileResponse.asgi-call.range-count-limit-exceeded",
               "dimension": "parameter_combination",
-              "description": "Submit 101 valid ranges and compare Starlette\u2019s full-file fallback. Upstream: starlette/responses.py::FileResponse._parse_range_header; tests/test_responses.py::test_file_response_range_count_limit_exceeded.",
+              "description": "Submit 101 valid ranges and compare Starlette’s full-file fallback. Upstream: starlette/responses.py::FileResponse._parse_range_header; tests/test_responses.py::test_file_response_range_count_limit_exceeded.",
               "lanes": [
                 "parity"
               ],
@@ -17279,7 +17318,7 @@
             {
               "id": "starlette.responses.FileResponse.asgi-call.range-max-ranges-override",
               "dimension": "parameter_combination",
-              "description": "Change the response instance\u2019s `max_ranges` before ASGI dispatch and compare the configured fallback behavior. Upstream: starlette/responses.py::FileResponse.max_ranges and FileResponse._parse_range_header.",
+              "description": "Change the response instance’s `max_ranges` before ASGI dispatch and compare the configured fallback behavior. Upstream: starlette/responses.py::FileResponse.max_ranges and FileResponse._parse_range_header.",
               "lanes": [
                 "parity"
               ],
@@ -17521,7 +17560,7 @@
               "support": {
                 "status": "out_of_scope",
                 "reason": "This workflow observes Python subclass rendering, class defaults, Python values, user exception identity, and mutable Python response attributes. Native response construction remains covered through the existing native ASGI operation.",
-                "authority": "AGENTS.md: preserve documented starlette.* imports and keep the Rust-native API additive."
+                "authority": "AGENTS.md: preserve documented starlette.* imports and keep Rust-native APIs distinct from the compatibility surface."
               }
             },
             {
@@ -17984,7 +18023,7 @@
               "support": {
                 "status": "out_of_scope",
                 "reason": "This workflow observes Python subclass rendering, class defaults, Python values, user exception identity, and mutable Python response attributes. Native response construction remains covered through the existing native ASGI operation.",
-                "authority": "AGENTS.md: preserve documented starlette.* imports and keep the Rust-native API additive."
+                "authority": "AGENTS.md: preserve documented starlette.* imports and keep Rust-native APIs distinct from the compatibility surface."
               }
             },
             {
@@ -18468,7 +18507,7 @@
               "support": {
                 "status": "out_of_scope",
                 "reason": "This workflow observes Python subclass rendering, class defaults, Python values, user exception identity, and mutable Python response attributes. Native response construction remains covered through the existing native ASGI operation.",
-                "authority": "AGENTS.md: preserve documented starlette.* imports and keep the Rust-native API additive."
+                "authority": "AGENTS.md: preserve documented starlette.* imports and keep Rust-native APIs distinct from the compatibility surface."
               }
             },
             {
@@ -19304,7 +19343,7 @@
               "support": {
                 "status": "out_of_scope",
                 "reason": "This workflow observes Python subclass rendering, class defaults, Python values, user exception identity, and mutable Python response attributes. Native response construction remains covered through the existing native ASGI operation.",
-                "authority": "AGENTS.md: preserve documented starlette.* imports and keep the Rust-native API additive."
+                "authority": "AGENTS.md: preserve documented starlette.* imports and keep Rust-native APIs distinct from the compatibility surface."
               }
             },
             {
@@ -20262,7 +20301,7 @@
               "support": {
                 "status": "out_of_scope",
                 "reason": "This workflow observes Python subclass rendering, class defaults, Python values, user exception identity, and mutable Python response attributes. Native response construction remains covered through the existing native ASGI operation.",
-                "authority": "AGENTS.md: preserve documented starlette.* imports and keep the Rust-native API additive."
+                "authority": "AGENTS.md: preserve documented starlette.* imports and keep Rust-native APIs distinct from the compatibility surface."
               }
             },
             {
@@ -22661,7 +22700,7 @@
             {
               "id": "starlette.routing.Router.route-dispatch.http-endpoint-sync-handler",
               "dimension": "boundary",
-              "description": "HTTPEndpoint dispatches a synchronous HTTP verb handler through Starlette\u2019s worker-thread boundary.",
+              "description": "HTTPEndpoint dispatches a synchronous HTTP verb handler through Starlette’s worker-thread boundary.",
               "lanes": [
                 "parity"
               ],
@@ -24186,7 +24225,7 @@
             {
               "id": "starlette.schemas.SchemaGenerator.module-import-policy.dependency-errors-and-selection",
               "dimension": "error_path",
-              "description": "With PyYAML absent, a schema route with no endpoint docstring returns the base schema while a truthy docstring preserves Starlette\u2019s assertion. Pinned source: starlette/schemas.py:11-17, 96-120, 128-148.",
+              "description": "With PyYAML absent, a schema route with no endpoint docstring returns the base schema while a truthy docstring preserves Starlette’s assertion. Pinned source: starlette/schemas.py:11-17, 96-120, 128-148.",
               "lanes": [
                 "parity"
               ],
@@ -27822,7 +27861,7 @@
               "signature": null,
               "support": {
                 "status": "unimplemented",
-                "reason": "The additive Rust-native API does not expose the documented Python synchronous HTTPX TestClient interface.",
+                "reason": "The separate Rust-native API does not expose the documented Python synchronous HTTPX TestClient interface.",
                 "blocker": "TestClient is a Python consumer API; the declared parity profile exercises Rust-owned semantics through the installed package."
               }
             },
@@ -28655,7 +28694,7 @@
               "signature": null,
               "support": {
                 "status": "unimplemented",
-                "reason": "The additive Rust-native API does not expose the documented Python synchronous HTTPX TestClient WebSocket session interface.",
+                "reason": "The separate Rust-native API does not expose the documented Python synchronous HTTPX TestClient WebSocket session interface.",
                 "blocker": "TestClient is a Python consumer API; the declared parity profile exercises Rust-owned semantics through the installed package."
               }
             },
@@ -29491,7 +29530,7 @@
               "signature": null,
               "support": {
                 "status": "unimplemented",
-                "reason": "The additive Rust-native API does not expose the documented Python synchronous TestClient context-managed lifespan interface.",
+                "reason": "The separate Rust-native API does not expose the documented Python synchronous TestClient context-managed lifespan interface.",
                 "blocker": "TestClient is a Python consumer API; the declared parity profile exercises Rust-owned semantics through the installed package."
               }
             },
@@ -31299,7 +31338,7 @@
               "support": {
                 "status": "out_of_scope",
                 "reason": "This workflow observes Python subclass rendering, class defaults, Python values, user exception identity, and mutable Python response attributes. Native response construction remains covered through the existing native ASGI operation.",
-                "authority": "AGENTS.md: preserve documented starlette.* imports and keep the Rust-native API additive."
+                "authority": "AGENTS.md: preserve documented starlette.* imports and keep Rust-native APIs distinct from the compatibility surface."
               }
             },
             {
@@ -31580,7 +31619,7 @@
               "support": {
                 "status": "out_of_scope",
                 "reason": "This workflow observes Python subclass rendering, class defaults, Python values, user exception identity, and mutable Python response attributes. Native response construction remains covered through the existing native ASGI operation.",
-                "authority": "AGENTS.md: preserve documented starlette.* imports and keep the Rust-native API additive."
+                "authority": "AGENTS.md: preserve documented starlette.* imports and keep Rust-native APIs distinct from the compatibility surface."
               }
             },
             {
@@ -31710,5 +31749,732 @@
       "build/parity/benchmark-result.json",
       "build/parity/upstream-benchmark-result.json"
     ]
-  }
+  },
+  "native_surfaces": [
+    {
+      "id": "starlette-rs.NativeApplication",
+      "kind": "type",
+      "source_path": "starlette-rs/src/native_service.rs",
+      "storage_slug": "starlette-rs-NativeApplication",
+      "operations": [
+        {
+          "id": "service-body-streaming",
+          "kind": "protocol_operation",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.applications.Starlette.__call__",
+            "signature": "Construct the pinned Starlette ASGI application from the supplied input case and drive request and response body streams using the declared host schedule.",
+            "parameters": [
+              {
+                "id": "input_case",
+                "style": "keyword",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "workflow",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": "starlette_rs::NativeApplication",
+              "signature": "NativeApplication implements Service<Request<B>>; Service::call(&mut application, request) returns a future yielding Result<NativeHttpResponse, NativeApplicationError>",
+              "support": {
+                "status": "supported"
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.applications.Starlette.__call__",
+              "signature": "async __call__(scope, receive, send) -> None; drive the public ASGI request and response streams from the supplied input case",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette-rs.NativeApplication.service-body-streaming.request-pull",
+              "dimension": "protocol_variant",
+              "description": "Read input-defined request body frames only when the ASGI application requests them, preserving byte content and order.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette-rs.NativeApplication.service-body-streaming.response-pull",
+              "dimension": "protocol_variant",
+              "description": "Expose input-defined response body frames according to the consumer pull schedule.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette-rs.NativeApplication.service-body-streaming.body-errors",
+              "dimension": "protocol_variant",
+              "description": "Propagate input-defined request and response body source errors through the public service result.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette-rs.NativeApplication.service-body-streaming.drop-cancellation",
+              "dimension": "protocol_variant",
+              "description": "When a host drops a pending request or response operation, expose the resulting cancellation and cleanup through public ASGI effects.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "rust-native-local",
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This API-contract slice makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "This API-contract slice does not declare a benchmark workload."
+          }
+        }
+      ]
+    },
+    {
+      "id": "starlette-rs.NativeWebSocket",
+      "kind": "type",
+      "source_path": "starlette-rs/src/native_websocket.rs",
+      "storage_slug": "starlette-rs-NativeWebSocket",
+      "operations": [
+        {
+          "id": "native-session-sequence",
+          "kind": "protocol_operation",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.websockets.WebSocket",
+            "signature": "Construct a pinned Starlette WebSocket route from the supplied handshake and route input, then drive its public accept, receive, send, close, and cancellation behavior.",
+            "parameters": [
+              {
+                "id": "input_case",
+                "style": "keyword",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "workflow",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": "starlette_rs::NativeWebSocketRouter",
+              "signature": "NativeWebSocketRouter::dispatch(handshake, driver) -> Result<NativeWebSocketDispatch, NativeWebSocketError>",
+              "support": {
+                "status": "supported"
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.websockets.WebSocket",
+              "signature": "Drive a public Starlette WebSocketRoute through ASGI callbacks using the supplied input case",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.websocket.native.handshake-metadata",
+              "dimension": "protocol_variant",
+              "description": "Preserve the input-defined handshake method, URI, version, headers, and offered subprotocols through the public WebSocket session.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.websocket.native.subprotocol-preference-order",
+              "dimension": "protocol_variant",
+              "description": "Select the first route-preferred subprotocol also offered by the client.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.websocket.native.text-binary-messages",
+              "dimension": "protocol_variant",
+              "description": "Receive and send ordered text and binary WebSocket messages while preserving payload bytes.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.websocket.native.close-code-reason",
+              "dimension": "protocol_variant",
+              "description": "Send the input-defined close code and reason through the public WebSocket API.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.websocket.native.peer-close-code-reason",
+              "dimension": "protocol_variant",
+              "description": "Preserve the peer close code and reason from the incoming WebSocket event.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.websocket.native.application-errors",
+              "dimension": "protocol_variant",
+              "description": "Propagate an input-defined application error after a WebSocket session is accepted.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.websocket.native.cancellation",
+              "dimension": "protocol_variant",
+              "description": "Propagate cancellation of an input-defined pending WebSocket receive and expose its cleanup result.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "rust-native-local",
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This API-contract slice makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "This API-contract slice does not declare a benchmark workload."
+          }
+        }
+      ]
+    },
+    {
+      "id": "starlette-rs.NativeLifespan",
+      "kind": "type",
+      "source_path": "starlette-rs/src/native_lifespan.rs",
+      "storage_slug": "starlette-rs-NativeLifespan",
+      "operations": [
+        {
+          "id": "native-lifespan",
+          "kind": "protocol_operation",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.applications.Starlette",
+            "signature": "Construct the pinned Starlette lifespan lifecycle from the supplied hooks and host actions, then compare lifecycle messages, state, and failure effects.",
+            "parameters": [
+              {
+                "id": "input_case",
+                "style": "keyword",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "workflow",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": "starlette_rs::NativeLifespan",
+              "signature": "NativeLifespan::start() -> Result<ActiveNativeLifespan, NativeLifespanError>; ActiveNativeLifespan::shutdown() -> Result<(), NativeLifespanError>",
+              "support": {
+                "status": "supported"
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.applications.Starlette",
+              "signature": "Drive the Starlette ASGI lifespan protocol using the supplied hooks and host actions",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.asgi.lifespan.native-lifecycle-order",
+              "dimension": "protocol_variant",
+              "description": "Run input-defined startup and shutdown hooks in registration order and observe the public lifecycle events.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.asgi.lifespan.native-lifecycle-state",
+              "dimension": "protocol_variant",
+              "description": "Expose state inserted by completed input-defined startup hooks before shutdown.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.asgi.lifespan.native-lifecycle-startup-failure",
+              "dimension": "protocol_variant",
+              "description": "Expose the message and lifecycle effects of an input-defined startup hook failure and rollback.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.asgi.lifespan.native-lifecycle-shutdown-failure",
+              "dimension": "protocol_variant",
+              "description": "Expose the message and lifecycle effects of an input-defined shutdown hook failure.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "rust-native-local",
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This API-contract slice makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "This API-contract slice does not declare a benchmark workload."
+          }
+        },
+        {
+          "id": "start",
+          "kind": "protocol_operation",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.applications.Starlette",
+            "signature": "Run the input-defined Starlette ASGI lifespan analogue and observe ordered lifecycle messages and cleanup effects.",
+            "parameters": [
+              {
+                "id": "input_case",
+                "style": "keyword",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "workflow",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": "starlette_rs::NativeLifespan",
+              "signature": "Drive the input-defined native lifespan start or shutdown future and capture public cleanup effects.",
+              "support": {
+                "status": "supported"
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.applications.Starlette",
+              "signature": "Run the pinned Starlette ASGI lifespan analogue using the input-defined host actions",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette_rs.native_lifespan.future-drop-boundary",
+              "dimension": "protocol_variant",
+              "description": "Observe cleanup effects when the host drops a pending Rust-native startup future.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "rust-native-local"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This API-contract slice makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "This API-contract slice does not declare a benchmark workload."
+          }
+        },
+        {
+          "id": "shutdown",
+          "kind": "protocol_operation",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.applications.Starlette",
+            "signature": "Run the input-defined Starlette ASGI lifespan analogue and observe ordered lifecycle messages and cleanup effects.",
+            "parameters": [
+              {
+                "id": "input_case",
+                "style": "keyword",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "workflow",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": "starlette_rs::NativeLifespan",
+              "signature": "Drive the input-defined native lifespan start or shutdown future and capture public cleanup effects.",
+              "support": {
+                "status": "supported"
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.applications.Starlette",
+              "signature": "Run the pinned Starlette ASGI lifespan analogue using the input-defined host actions",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette_rs.native_lifespan.shutdown-error-aggregation",
+              "dimension": "protocol_variant",
+              "description": "Keep all input-defined shutdown failures available in hook-execution order in the Rust-native error, with their original registration indexes.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "rust-native-local"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This API-contract slice makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "This API-contract slice does not declare a benchmark workload."
+          }
+        },
+        {
+          "id": "active-shutdown",
+          "kind": "protocol_operation",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.applications.Starlette",
+            "signature": "Run the input-defined Starlette ASGI lifespan analogue and observe ordered lifecycle messages and cleanup effects.",
+            "parameters": [
+              {
+                "id": "input_case",
+                "style": "keyword",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "workflow",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": "starlette_rs::NativeLifespan",
+              "signature": "Drive the input-defined native lifespan start or shutdown future and capture public cleanup effects.",
+              "support": {
+                "status": "supported"
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.applications.Starlette",
+              "signature": "Run the pinned Starlette ASGI lifespan analogue using the input-defined host actions",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette_rs.native_lifespan.host-owned-deadline-boundary",
+              "dimension": "protocol_variant",
+              "description": "Observe cleanup effects when the host drops a pending Rust-native shutdown future at its deadline.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "rust-native-local"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This API-contract slice makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "This API-contract slice does not declare a benchmark workload."
+          }
+        }
+      ]
+    }
+  ]
 }

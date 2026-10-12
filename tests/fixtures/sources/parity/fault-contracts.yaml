@@ -175,6 +175,202 @@
           "extensions"
         ]
       }
+    },
+    {
+      "case_id": "starlette-rs.NativeLifespan.shutdown.fault-contract.aggregates-errors",
+      "surface": "starlette-rs.NativeLifespan",
+      "operation": "shutdown",
+      "covers": [],
+      "target_profiles": [
+        "rust-native-local"
+      ],
+      "assets": [],
+      "observations": [
+        "workflow"
+      ],
+      "fault_contract": {
+        "fault_point": "starlette-rs.native-lifespan.shutdown-error-aggregation",
+        "contract_id": "starlette-rs.native-lifespan.shutdown-error-aggregation"
+      },
+      "inputs": {
+        "registrations": [
+          {
+            "name": "database",
+            "startup": {
+              "actions": [
+                {
+                  "append-event": "database.open"
+                }
+              ]
+            },
+            "shutdown": {
+              "actions": [
+                {
+                  "append-event": "database.close"
+                },
+                {
+                  "raise": {
+                    "exception": "RuntimeError",
+                    "message": "database-shutdown-failed"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "cache",
+            "startup": {
+              "actions": [
+                {
+                  "append-event": "cache.open"
+                }
+              ]
+            },
+            "shutdown": {
+              "actions": [
+                {
+                  "append-event": "cache.close"
+                },
+                {
+                  "raise": {
+                    "exception": "RuntimeError",
+                    "message": "cache-shutdown-failed"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "host_actions": [
+          "start-to-completion",
+          "shutdown-to-completion"
+        ]
+      }
+    },
+    {
+      "case_id": "starlette-rs.NativeLifespan.start.fault-contract.drop-pending-start",
+      "surface": "starlette-rs.NativeLifespan",
+      "operation": "start",
+      "covers": [],
+      "target_profiles": [
+        "rust-native-local"
+      ],
+      "assets": [],
+      "observations": [
+        "workflow"
+      ],
+      "fault_contract": {
+        "fault_point": "starlette-rs.native-lifespan.start-future-drop",
+        "contract_id": "starlette-rs.native-lifespan.start-future-drop"
+      },
+      "inputs": {
+        "registrations": [
+          {
+            "name": "database",
+            "startup": {
+              "actions": [
+                {
+                  "append-event": "database.open"
+                }
+              ]
+            },
+            "shutdown": {
+              "actions": [
+                {
+                  "append-event": "database.close"
+                }
+              ]
+            }
+          },
+          {
+            "name": "cache",
+            "startup": {
+              "actions": [
+                {
+                  "append-event": "cache.open"
+                },
+                {
+                  "suspend-until-host-release": true
+                }
+              ]
+            },
+            "shutdown": {
+              "actions": [
+                {
+                  "append-event": "cache.close"
+                }
+              ]
+            }
+          }
+        ],
+        "host_actions": [
+          "start-to-cache-suspension",
+          "drop-start-future"
+        ]
+      }
+    },
+    {
+      "case_id": "starlette-rs.NativeLifespan.active-shutdown.fault-contract.drop-at-deadline",
+      "surface": "starlette-rs.NativeLifespan",
+      "operation": "active-shutdown",
+      "covers": [],
+      "target_profiles": [
+        "rust-native-local"
+      ],
+      "assets": [],
+      "observations": [
+        "workflow"
+      ],
+      "fault_contract": {
+        "fault_point": "starlette-rs.native-lifespan.shutdown-future-drop",
+        "contract_id": "starlette-rs.native-lifespan.shutdown-future-drop"
+      },
+      "inputs": {
+        "registrations": [
+          {
+            "name": "database",
+            "startup": {
+              "actions": [
+                {
+                  "append-event": "database.open"
+                }
+              ]
+            },
+            "shutdown": {
+              "actions": [
+                {
+                  "append-event": "database.close"
+                }
+              ]
+            }
+          },
+          {
+            "name": "cache",
+            "startup": {
+              "actions": [
+                {
+                  "append-event": "cache.open"
+                }
+              ]
+            },
+            "shutdown": {
+              "actions": [
+                {
+                  "append-event": "cache.close-started"
+                },
+                {
+                  "suspend-until-host-release": true
+                }
+              ]
+            }
+          }
+        ],
+        "host_actions": [
+          "start-to-completion",
+          "drive-shutdown-until-host-deadline",
+          "drop-shutdown-future"
+        ]
+      }
     }
   ]
 }
