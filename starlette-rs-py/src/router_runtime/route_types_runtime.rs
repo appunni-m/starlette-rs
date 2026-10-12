@@ -1119,7 +1119,7 @@ fn initialize_router_state(
         mount_type,
         host_route_type,
     ))?;
-    let middleware_stack = apply_middleware_inner(
+    let middleware_stack = apply_router_middleware_inner(
         py,
         &router_bound.getattr("app")?,
         middleware.as_ref().map(|value| value.bind(py)),
@@ -2012,6 +2012,21 @@ fn apply_middleware_inner(
         }
     }
     apply_body_limit(py, app, max_body_size)
+}
+
+fn apply_router_middleware_inner(
+    py: Python<'_>,
+    app: &Bound<'_, PyAny>,
+    middleware: Option<&Bound<'_, PyAny>>,
+    max_body_size: Option<&Bound<'_, PyAny>>,
+) -> PyResult<Py<PyAny>> {
+    // Starlette Router uses `if middleware`, while Route, WebSocketRoute, and
+    // Mount use `if middleware is not None` before constructing their stacks.
+    let middleware = match middleware {
+        Some(middleware) if middleware.is_truthy()? => Some(middleware),
+        _ => None,
+    };
+    apply_middleware_inner(py, app, middleware, max_body_size)
 }
 
 fn apply_body_limit(

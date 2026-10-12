@@ -24,95 +24,27 @@ with no conventional Python or Rust unit-test suite.
 
 ## Current implementation status
 
-The source atlas is complete, while the full Starlette replacement remains
-active and incomplete. The current contract has 929 input-only cases across
-91 indexed files (927 oracle parity cases and two target-only fault contracts),
-104 operations, and 901 requirements. It includes direct
-UploadFile constructor/repr, rollover, and threadpool-boundary cases, a ten-chunk 400-byte GZip streaming-response case using public defaults, GZip thread-threshold cases, a shared
-AnyIO thread-pool limiter case, and the
-generic Request/WebSocket lifespan-state typing contract, WebSocket text,
-bytes, and JSON send/receive exchange cases, a send-callback `OSError`
-disconnect case, and four TestClient TrustedHost
-cases for exact/wildcard acceptance, invalid-host rejection, and HTTPS www
-redirect following, plus TestClient base-URL path-prefix merging, default redirect following, and nested-client execution from a synchronous endpoint. Seven QueryParams cases
-map equality and blank-value behavior to two pinned test rows. A FileResponse
-case compares input-defined background-task completion after response sends. The literal GET
-`/func` Router case maps the upstream dispatch check and passes on both target
-profiles; the upstream test does not call `Router.add_route`. The live-route
-mutation case also passes on both profiles, exercising method addition and
-route append after earlier dispatches. Latest clean full-slice preflight
-`d3ebe854-b035-45af-98b5-45ae6e72d83d` passed 1,171 of 1,175 selected profile
-comparisons, with zero failures or infrastructure errors and four Rust-native
-Python-callable rows `not_run`. The Python package passed 925/925; Rust-native
-passed 246/250. Both target-only fault contracts passed 2/2 and remain
-`not_applicable` to the source oracle. The nested TestClient case passed 1/1
-source/package comparison. TestClient HEAD through pass-through BaseHTTPMiddleware and
-CWD-relative StaticFiles with follow_symlink enabled both matched the pinned
-source. The TestClient lifespan state-support case, URL-prefix merge, and followed-redirect
-cases passed source/package comparison, as did both TestClient Request.url_for
-cases: the bare-ASGI case preserves the missing-context exception, and
-the custom-middleware case resolves `homepage` to `http://testserver/home`.
-The root-Mount and Router-middleware cases, live Router mutation, and literal
-GET `/func` case also passed; the upstream `/func` test does not call
-`Router.add_route`. The FileResponse background-task case matched on both
-target profiles. The direct-ASGI BaseHTTPMiddleware request-stream case
-matched on the Python-package profile, preserving its minimal HTTP scope and
-three-event receive boundary from `tests/middleware/test_base.py:777-832`.
-The strict parity command exits 2 while the four Rust-native callable rows
-remain `not_run`.
-The background-task server-error case
-and latest WebSocket header input pass source/package comparison. The GZip streaming-response case
-passes against both targets. Six protected WebSocket authentication
-cases pass source/package comparison for plain and injection-wrapped routes
-with missing, malformed, and valid Basic credentials. Three documentation-derived
-BasicAuth cases also pass for wrong-scheme, malformed base64, and non-ASCII
-credentials. Authentication inputs also compare custom `BaseUser` property
-overrides, concrete `Request.user` types, and middleware-populated
-`Request.auth.scopes`, plus the documented login `next` query redirect. The UploadFile input compares direct
-construction, omitted-size operations, default and explicit-header repr values,
-rolled/in-memory scheduling, event-loop progress, and OSError propagation. The
-thread-pool limiter input observed the
-same default capacity of 40, configured limit of 2, one waiting worker, and
-restored capacity of 40 on source and package. Three BaseHTTPMiddleware
-exception-context cases, covering no chain, implicit context, and explicit cause, pass with empty
-diffs. Three
-StaticFiles HTML fallback scenarios and seven built-in float/UUID converter
-cases pass on both target profiles. Default-string match
-and slash-boundary inputs and int/path converter observations also pass on both
-profiles. Both input-defined datetime-converter cases pass on the Python
-package. All nine selected
-`CommaSeparatedStrings` comparisons pass,
-including lone-surrogate strings through parsing, sequence values, and subclass
-`__repr__`. The PyO3 boundary uses UTF-32LE with `surrogatepass`; parsing and
-formatting remain Rust-owned. Asyncio and Trio TestClient lifespan task-group
-child lifecycle cases also pass on the Python package. The WebSocket state
-sequence covers twelve cases, including four denial-response transitions and
-connected invalid-send/invalid-receive cases;
-package-only convenience inputs
-check fresh-iterator `asend(non-None)` and invalid JSON modes. GZip adds direct
-package-profile `GZipResponder` checks for exclusion normalization and
-compression without negotiation, plus final and streaming middleware inputs
-at the `thread_minimum_size` boundary. The four native rows are synchronous
-Request endpoint, bound-method endpoint, partial endpoint, and callable-instance ASGI
-dispatch. Full run and wheel identities are recorded in
-[Migration parity contract and evidence](../PARITY.md); this bounded evidence
-does not establish full Starlette parity or release readiness.
+Implementation remains active for the full Starlette 1.6.0 replacement. The
+working-tree `parity-input@47` contract indexes 1,995 cases across 142 parity
+files, two benchmark files, 133 operations, and 1,028 requirements. The latest
+static source-inventory check passed: all 999 API candidates are dispositioned,
+and the generated atlas has 816 source rows with 761 input mappings, 55
+source-backed `not_applicable` rows, and zero backlog items.
 
-The generated coverage matrix currently has 806 source rows: 679 input
-mappings, 52 reasoned `not_applicable` rows, and 75 fixture-backlog rows.
-Derive these changing counts from the generated atlas CSV files.
+The missing-TestClient-backend case, WebSocket authorization input update,
+Router truthiness case, and BaseHTTPMiddleware iterator case were made after
+the latest complete parity, coverage, and benchmark receipts. The previous clean full run
+`dc8c8ca6-f2b7-449b-9f53-45860e3cad4c` passed 2,254/2,254 comparisons for the
+preceding 1,992-case contract; its coverage and 74-workload benchmark receipts
+also apply only to that earlier contract. The current input set has not been
+through those phases. Continue implementation across feature families, then
+run full parity and grouped fixes, full coverage, and benchmarks in that order.
 
-The latest correctness-gated Router/GZip benchmark is recorded in
-[Benchmark mapping](../BENCHMARKS.md). Run
-`eaea39eb-c40f-448a-b2fd-1907c75f4ae7` measured all 74 source/package
-workloads on clean commit
-`b56ee2a609c07c62c03291c7441b228db5c73351`: six Router and 68 GZip, with zero
-failures and matching normalized observations for all 74. Its correctness
-preflight `d3ebe854-b035-45af-98b5-45ae6e72d83d` selected 1,175 comparisons
-(1,171 passed, zero failures, zero infrastructure errors, four declared
-Rust-native `not_run`). The Python package passed 925/925; Rust-native passed
-246/250. All 74 Rust-native benchmark workload boundaries remain `not_run`.
-These results do not establish full Starlette compatibility.
+Fixed source denominators are 514 upstream test functions and 24 documentation
+pages. The complete replacement remains unproven; these inventory counts and
+the previous slice results do not establish full compatibility.
+
+## Historical atlas checkpoints
 
 At the source-mapping checkpoint, the parity manifest indexed 118 input-only cases
 across 18 files: 38 request/routing cases, 21 reverse-URL cases, four direct

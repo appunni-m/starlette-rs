@@ -1583,6 +1583,7 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
                 )
             await websocket.accept(subprotocol=authorized_subprotocol)
             await websocket.send_text(app_input["response_text"])
+            await websocket.close()
 
         starlette_application = Starlette(
             debug=app_input["debug"],

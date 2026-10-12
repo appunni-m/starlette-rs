@@ -1569,9 +1569,12 @@ def _materialize_application(
                     routes=[make_middleware_route(child) for child in route_spec["routes"]]
                 )
             if kind == "router":
+                middleware = _build_reverse_route_middleware(route_spec.get("middleware", []))
+                if route_spec.get("middleware_sequence_truthy") is False:
+                    middleware = _InputFalseyMiddlewareSequence(middleware)
                 return Router(
                     routes=[make_middleware_route(child) for child in route_spec["routes"]],
-                    middleware=_build_reverse_route_middleware(route_spec.get("middleware", [])),
+                    middleware=middleware,
                 )
             if kind == "http-route":
                 endpoint_spec = route_spec["endpoint"]
@@ -7576,6 +7579,11 @@ def _build_reverse_route_middleware(specs: list[dict[str, Any]]) -> list[Any]:
     return configurations
 
 
+class _InputFalseyMiddlewareSequence(list[Any]):
+    def __bool__(self) -> bool:
+        return False
+
+
 def _request_url_value(request: Any, lookup: dict[str, Any]) -> dict[str, Any]:
     try:
         return {"url": str(request.url_for(lookup["name"], **_reverse_lookup_path_params(lookup)))}
@@ -10163,6 +10171,7 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
     saw_header_mutation = False
     saw_disconnect_check = False
     saw_response_body_read = False
+    saw_response_iterator_overlap = False
     saw_response_header_observation = False
     for index, raw_action in enumerate(dispatch_actions):
         context = f"BaseHTTPMiddleware dispatch_actions[{index}]"
@@ -10207,6 +10216,22 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                     "call_next response body read requires one awaited response and must precede return"
                 )
             saw_response_body_read = True
+        elif kind == "overlap-call-next-response-body-reads":
+            action = _exact_object(raw_action, {"kind", "timeout_ms"}, context)
+            if (
+                not awaited
+                or returned is not None
+                or saw_response_body_read
+                or saw_response_iterator_overlap
+            ):
+                raise ValueError(
+                    "overlapping call_next response body reads require one awaited response"
+                )
+            if type(action["timeout_ms"]) is not int or not 10 <= action["timeout_ms"] <= 10_000:
+                raise ValueError(
+                    "overlapping response body read timeout_ms must be between 10 and 10000"
+                )
+            saw_response_iterator_overlap = True
         elif kind == "await-call-next":
             _exact_object(raw_action, {"kind"}, context)
             if awaited or returned is not None:
@@ -10350,6 +10375,10 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
             response_started = False
             body_send_count = 0
             for step_index, raw_step in enumerate(steps[:-1]):
+                if raw_step == {"kind": "receive"}:
+                    if saw_response_iterator_overlap and step_index == 1 and len(steps) == 3:
+                        continue
+                    raise ValueError("downstream ASGI steps before final receive must send")
                 send_step = _exact_object(
                     raw_step,
                     {"kind", "message"},
@@ -10420,7 +10449,9 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                 and steps[-2]["message"].get("type") == "http.response.body"
                 and steps[-2]["message"].get("more_body") is False
             )
-            if not response_started or (body_send_count < 2 and not terminal_body_case):
+            if not response_started or (
+                body_send_count < 2 and not terminal_body_case and not saw_response_iterator_overlap
+            ):
                 raise ValueError(
                     "downstream ASGI receive input requires response.start and at least two body sends, except for a completed call_next header observation"
                 )
@@ -11116,6 +11147,36 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
             required_covers.add(
                 f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.response-completion-unblocks-downstream-receive"
             )
+            if saw_response_iterator_overlap:
+                request_body_events = [
+                    event for event in request_event_specs if event["type"] == "http.request"
+                ]
+                downstream_steps = downstream_spec["steps"]
+                if (
+                    scope_spec["method"] != "GET"
+                    or len(request_body_events) != 1
+                    or len(request_event_specs) != 1
+                    or _decode_base64(
+                        request_body_events[0]["body_base64"],
+                        "BaseHTTPMiddleware request body",
+                    )
+                    or request_body_events[0]["more_body"]
+                    or disconnect_event_indices
+                    or len(dispatch_actions) != 3
+                    or dispatch_actions[0] != {"kind": "await-call-next"}
+                    or dispatch_actions[1]["kind"] != "overlap-call-next-response-body-reads"
+                    or dispatch_actions[2]["kind"] != "return-plain-text-response"
+                    or len(downstream_steps) != 3
+                    or downstream_steps[0]["kind"] != "send"
+                    or downstream_steps[0]["message"]["type"] != "http.response.start"
+                    or downstream_steps[1:] != [{"kind": "receive"}, {"kind": "receive"}]
+                ):
+                    raise ValueError(
+                        "overlapping response body reads require one empty GET request, a pending response body, cancellation and iterator close before replacement, and two downstream receives"
+                    )
+                required_covers.add(
+                    f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.body-iterator-overlapping-read-and-cancellation"
+                )
         elif not (
             returned == "call-next"
             and saw_response_header_observation
@@ -11479,6 +11540,111 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                         {
                             "action_index": action_index,
                             "body_base64": base64.b64encode(chunk).decode("ascii"),
+                        }
+                    )
+                elif kind == "overlap-call-next-response-body-reads":
+                    body_iterator = response.body_iterator
+                    first_read_started = anyio.Event()
+                    first_read_scopes: list[Any] = []
+                    first_read_outcome: dict[str, Any] = {}
+                    cancelled_exception_class = anyio.get_cancelled_exc_class()
+
+                    async def read_first_body_chunk(
+                        iterator: Any = body_iterator,
+                        started: Any = first_read_started,
+                        scopes: list[Any] = first_read_scopes,
+                        outcome: dict[str, Any] = first_read_outcome,
+                        cancelled_class: type[BaseException] = cancelled_exception_class,
+                    ) -> None:
+                        with anyio.CancelScope() as cancel_scope:
+                            scopes.append(cancel_scope)
+                            started.set()
+                            try:
+                                value = await iterator.__anext__()
+                            except StopAsyncIteration:
+                                outcome.update({"kind": "exhausted"})
+                            except cancelled_class:
+                                outcome.update({"kind": "cancelled"})
+                            except Exception as exc:
+                                outcome.update(
+                                    {
+                                        "kind": "exception",
+                                        "class": f"{type(exc).__module__}.{type(exc).__qualname__}",
+                                        "message": str(exc),
+                                    }
+                                )
+                            else:
+                                if isinstance(value, bytes):
+                                    result = {
+                                        "kind": "yielded",
+                                        "body_base64": base64.b64encode(value).decode("ascii"),
+                                    }
+                                elif isinstance(value, dict):
+                                    result = {
+                                        "kind": "yielded",
+                                        "message": _canonical_http_message(value),
+                                    }
+                                else:
+                                    result = {
+                                        "kind": "yielded",
+                                        "type": f"{type(value).__module__}.{type(value).__qualname__}",
+                                    }
+                                outcome.update(result)
+
+                    concurrent_read_outcome: dict[str, Any] = {}
+                    async with anyio.create_task_group() as task_group:
+                        task_group.start_soon(read_first_body_chunk)
+                        await first_read_started.wait()
+                        with anyio.move_on_after(action["timeout_ms"] / 1000) as timeout_scope:
+                            try:
+                                value = await body_iterator.__anext__()
+                            except StopAsyncIteration:
+                                concurrent_read_outcome.update({"kind": "exhausted"})
+                            except Exception as exc:
+                                concurrent_read_outcome.update(
+                                    {
+                                        "kind": "exception",
+                                        "class": f"{type(exc).__module__}.{type(exc).__qualname__}",
+                                        "message": str(exc),
+                                    }
+                                )
+                            else:
+                                if isinstance(value, bytes):
+                                    result = {
+                                        "kind": "yielded",
+                                        "body_base64": base64.b64encode(value).decode("ascii"),
+                                    }
+                                elif isinstance(value, dict):
+                                    result = {
+                                        "kind": "yielded",
+                                        "message": _canonical_http_message(value),
+                                    }
+                                else:
+                                    result = {
+                                        "kind": "yielded",
+                                        "type": f"{type(value).__module__}.{type(value).__qualname__}",
+                                    }
+                                concurrent_read_outcome.update(result)
+                        if timeout_scope.cancel_called and not concurrent_read_outcome:
+                            concurrent_read_outcome.update({"kind": "timed-out"})
+                        first_read_scopes[0].cancel()
+
+                    try:
+                        await body_iterator.aclose()
+                    except Exception as exc:
+                        close_outcome = {
+                            "kind": "exception",
+                            "class": f"{type(exc).__module__}.{type(exc).__qualname__}",
+                            "message": str(exc),
+                        }
+                    else:
+                        close_outcome = {"kind": "completed"}
+                    dispatch_response_stream_reads.append(
+                        {
+                            "action_index": action_index,
+                            "concurrent_read": concurrent_read_outcome,
+                            "first_read": first_read_outcome,
+                            "aclose_after_cancel": close_outcome,
                         }
                     )
                 elif kind == "await-call-next":

@@ -1531,9 +1531,12 @@ def _materialize_application(
                     routes=[make_middleware_route(child) for child in route_spec["routes"]]
                 )
             if kind == "router":
+                middleware = _build_reverse_route_middleware(route_spec.get("middleware", []))
+                if route_spec.get("middleware_sequence_truthy") is False:
+                    middleware = _InputFalseyMiddlewareSequence(middleware)
                 return Router(
                     routes=[make_middleware_route(child) for child in route_spec["routes"]],
-                    middleware=_build_reverse_route_middleware(route_spec.get("middleware", [])),
+                    middleware=middleware,
                 )
             if kind == "http-route":
                 endpoint_spec = route_spec["endpoint"]
@@ -10496,6 +10499,11 @@ def _build_reverse_route_middleware(specs: list[dict[str, Any]]) -> list[Any]:
             )
         )
     return configurations
+
+
+class _InputFalseyMiddlewareSequence(list[Any]):
+    def __bool__(self) -> bool:
+        return False
 
 
 def _build_reverse_route_node(

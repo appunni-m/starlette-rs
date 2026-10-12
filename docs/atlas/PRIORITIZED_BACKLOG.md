@@ -8,17 +8,24 @@ incomplete.
 
 ## Current parity snapshot
 
-The active contract uses `parity-input@43` with 940 input-only cases in 93
-indexed files: 938 oracle parity cases and two target-only fault contracts. It
-covers 105 operations and 908 parity requirements. The latest inputs compare
-direct Request and WebSocket constructor behavior for invalid scope types. The
-preceding inputs compare URL-encoded `Request.form` field-count and part-size
-errors with each body delivered in one ASGI chunk. The earlier input maps
-`routing.test_partial_async_ws_endpoint` and compares partial-wrapped async
-function and bound class-method WebSocketRoute endpoints through a mounted
-Router. The private parser-counter and stress-bound assertions in the upstream
-one-chunk limit test are source-backed `not_applicable`; public errors remain
-covered.
+Implementation remains the active phase for the full Starlette replacement.
+The working-tree `parity-input@47` contract indexes 1,995 cases across 142
+parity inputs, two benchmark inputs, 133 operations, and 1,028 requirements.
+The latest static inventory reports 999/999 API candidates dispositioned and
+816 source rows: 761 input mappings, 55 source-backed `not_applicable` rows,
+and zero fixture backlog. Fixed source denominators are 514 upstream test
+functions and 24 documentation pages.
+
+The latest clean full parity run, `dc8c8ca6-f2b7-449b-9f53-45860e3cad4c`,
+passed 2,254/2,254 comparisons for the preceding 1,992-case, 140-input
+contract. The subsequently added TestClient missing-backend case, updated
+WebSocket authorization input, Router truthiness case, and BaseHTTPMiddleware
+iterator case are not yet included. The matching full coverage and 74-workload benchmark receipts also
+belong to the preceding contract. Continue implementation across feature
+families, then run full parity and grouped repairs, coverage, and benchmarks in
+that order. The full-replacement objective remains active and incomplete.
+
+## Historical parity, coverage, and feature notes
 
 Selected run `a0b78286-3bd7-419f-bca3-93a2da652f8e` passed both form-limit
 comparisons and the route-cache unpoisoned control (3/3), plus both route-cache

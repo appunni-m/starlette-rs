@@ -121,7 +121,7 @@
         "denial_status_code": 401,
         "denial_detail": "Unauthorized",
         "response_text": "Hello, world!",
-        "debug": false,
+        "debug": true,
         "scope_fields": ["type", "path", "subprotocols", "extensions"]
       }
     },
@@ -160,7 +160,7 @@
         "denial_status_code": 401,
         "denial_detail": "Unauthorized",
         "response_text": "Hello, world!",
-        "debug": false,
+        "debug": true,
         "scope_fields": ["type", "path", "subprotocols", "extensions"]
       }
     }

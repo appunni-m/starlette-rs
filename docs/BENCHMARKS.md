@@ -1,9 +1,12 @@
 # Benchmark mapping
 
-The active `parity-input@47` contract has completed its full parity and coverage
-gates and has been benchmarked. The latest paired run and correctness preflight
-are recorded below. Results apply to the listed clean revision and declared
-workload slice only.
+The latest paired benchmark and correctness preflight below apply to the
+preceding 1,992-case `parity-input@47` contract. The working tree now indexes
+1,995 cases across 142 parity inputs, including the later optional-backend,
+WebSocket authorization, Router truthiness, and BaseHTTPMiddleware iterator
+inputs. These changes have not gone through parity, coverage, or benchmark
+reruns. Implementation remains active,
+so these receipts are historical evidence for the earlier contract only.
 
 The pinned Starlette 1.6.0 benchmark suite has six Router workloads and 68
 GZip workloads. The dedicated runner measures all 74 against both pinned

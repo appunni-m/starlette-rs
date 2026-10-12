@@ -344,6 +344,7 @@
       "build/parity/inputs/parity/router-mounted-child-live-add.json",
       "build/parity/inputs/parity/router-class-based-endpoints.json",
       "build/parity/inputs/parity/route-middleware-dispatch.json",
+      "build/parity/inputs/parity/route-local-middleware-semantics.json",
       "build/parity/inputs/parity/request-path-param-types.json",
       "build/parity/inputs/parity/request-cookies.json",
       "build/parity/inputs/parity/mount-route-dispatch.json",
@@ -440,6 +441,7 @@
       "build/parity/inputs/parity/response-variants.json",
       "build/parity/inputs/parity/templating-protocols.json",
       "build/parity/inputs/parity/optional-imports.json",
+      "build/parity/inputs/parity/optional-testclient-missing-backend.json",
       "build/parity/inputs/parity/response-call-protocols.json",
       "build/parity/inputs/parity/websocket-thread-ownership.json",
       "build/parity/inputs/parity/public-api-inspection.json",
@@ -9905,6 +9907,17 @@
               "id": "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.response-completion-unblocks-downstream-receive",
               "dimension": "boundary",
               "description": "A direct downstream ASGI app sends response.start and two non-terminal body chunks, then blocks in receive while dispatch returns a replacement response; outer-send checkpoints expose response completion waking that receive as http.disconnect. Upstream: tests/middleware/test_base.py:549-596; starlette/middleware/base.py:108-139,190-197.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.body-iterator-overlapping-read-and-cancellation",
+              "dimension": "boundary",
+              "description": "Overlapping reads from call_next's response body iterator raise the async-generator running error; cancelling the in-flight read and closing the iterator must release downstream receive and preserve the replacement response. Pinned source: starlette/middleware/base.py:173-186,191-196.",
               "lanes": [
                 "parity"
               ],
@@ -22039,6 +22052,17 @@
               "id": "starlette.routing.Router.route-dispatch.max-body-size",
               "dimension": "boundary",
               "description": "Apply Router.max_body_size while dispatching a matching child Route and reject a declared oversized body. Pinned source: starlette/routing.py::Router.__init__; tests/middleware/test_body_limit.py::test_router_limit.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Router.route-dispatch.middleware-truthiness",
+              "dimension": "boundary",
+              "description": "Router constructs its configured middleware stack only when the supplied middleware sequence is truthy; a nonempty falsey sequence therefore leaves its middleware unapplied. Pinned source: starlette/routing.py:609-614.",
               "lanes": [
                 "parity"
               ],

@@ -362,6 +362,7 @@ BASE_HTTP_REQUIREMENTS = {
     "replacement_response": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.return-replacement-response",
     "body_cache_replay": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.body-cache-replay",
     "response_completion_unblocks_receive": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.response-completion-unblocks-downstream-receive",
+    "body_iterator_overlapping_read_and_cancellation": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.body-iterator-overlapping-read-and-cancellation",
     "discarded_stream_cancellation": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.discarded-stream-cancelled-on-disconnect",
     "exception_context_propagation": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.exception-context-propagation",
     "caught_exception_response": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.catch-call-next-exception",
@@ -1236,6 +1237,7 @@ STARLETTE_ROUTE_MIDDLEWARE_REQUIREMENTS = {
     "mounted_app_exception_propagation": (
         "starlette.applications.Starlette.__call__.mounted-app-exception-propagation"
     ),
+    "router_middleware_truthiness": "starlette.routing.Router.route-dispatch.middleware-truthiness",
 }
 STARLETTE_ADD_ROUTE_OPERATION_KEY = ("starlette.applications.Starlette", "add_route")
 STARLETTE_ADD_MIDDLEWARE_REQUIREMENTS = {
@@ -10285,6 +10287,7 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
     saw_header_mutation = False
     saw_disconnect_check = False
     saw_response_body_read = False
+    saw_response_iterator_overlap = False
     saw_response_header_observation = False
     for index, raw_action in enumerate(actions):
         context = f"BaseHTTPMiddleware dispatch_actions[{index}]"
@@ -10329,6 +10332,20 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
                     "call_next response body read requires one awaited response and must precede return"
                 )
             saw_response_body_read = True
+        elif kind == "overlap-call-next-response-body-reads":
+            action = _exact(raw_action, {"kind", "timeout_ms"}, context)
+            if (
+                not awaited
+                or returned is not None
+                or saw_response_body_read
+                or saw_response_iterator_overlap
+                or type(action["timeout_ms"]) is not int
+                or not 1 <= action["timeout_ms"] <= 10_000
+            ):
+                raise ContractError(
+                    "overlapping call_next response body reads require one awaited response and a bounded timeout"
+                )
+            saw_response_iterator_overlap = True
         elif kind == "await-call-next":
             _exact(raw_action, {"kind"}, context)
             if awaited or returned is not None:
@@ -10460,6 +10477,13 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
             response_started = False
             body_send_count = 0
             for step_index, raw_step in enumerate(steps[:-1]):
+                if isinstance(raw_step, dict) and raw_step.get("kind") == "receive":
+                    _exact(raw_step, {"kind"}, f"downstream ASGI receive step[{step_index}]")
+                    if not saw_response_iterator_overlap or not response_started or body_send_count:
+                        raise ContractError(
+                            "downstream receive before completion is supported only while an overlapping response body read is pending"
+                        )
+                    continue
                 send_step = _exact(
                     raw_step,
                     {"kind", "message"},
@@ -10541,7 +10565,17 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
                 and steps[-2]["message"].get("type") == "http.response.body"
                 and steps[-2]["message"].get("more_body") is False
             )
-            if not response_started or (body_send_count < 2 and not terminal_body_case):
+            if saw_response_iterator_overlap:
+                if (
+                    len(steps) != 3
+                    or steps[1:] != [{"kind": "receive"}, {"kind": "receive"}]
+                    or not response_started
+                    or body_send_count != 0
+                ):
+                    raise ContractError(
+                        "overlapping response body reads require response.start followed by two downstream receive calls"
+                    )
+            elif not response_started or (body_send_count < 2 and not terminal_body_case):
                 raise ContractError(
                     "downstream ASGI receive input requires response.start and at least two body sends, except for a completed call_next header observation"
                 )
@@ -11196,6 +11230,36 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
                     "downstream receive race requires a blocking receive, replacement response, and checkpoints after both outer sends"
                 )
             requirements.add(BASE_HTTP_REQUIREMENTS["response_completion_unblocks_receive"])
+            if saw_response_iterator_overlap:
+                request_body_events = [
+                    event for event in request_events if event["type"] == "http.request"
+                ]
+                downstream_steps = downstream["steps"]
+                if (
+                    scope["method"] != "GET"
+                    or len(request_body_events) != 1
+                    or len(request_events) != 1
+                    or base64.b64decode(request_body_events[0]["body_base64"], validate=True)
+                    or request_body_events[0]["more_body"]
+                    or disconnect_events
+                    or len(actions) != 3
+                    or [action["kind"] for action in actions]
+                    != [
+                        "await-call-next",
+                        "overlap-call-next-response-body-reads",
+                        "return-plain-text-response",
+                    ]
+                    or len(downstream_steps) != 3
+                    or downstream_steps[0]["kind"] != "send"
+                    or downstream_steps[0]["message"]["type"] != "http.response.start"
+                    or downstream_steps[1:] != [{"kind": "receive"}, {"kind": "receive"}]
+                ):
+                    raise ContractError(
+                        "overlapping response body reads require one empty GET request, a pending response body, cancellation and iterator close before replacement, and two downstream receives"
+                    )
+                requirements.add(
+                    BASE_HTTP_REQUIREMENTS["body_iterator_overlapping_read_and_cancellation"]
+                )
         elif not (
             returned == "call-next"
             and saw_response_header_observation
@@ -13690,8 +13754,10 @@ def _validate_testclient_websocket_authorization_route_case(
         raise ContractError(
             "WebSocket authorization input must use the pinned TestClient protocol scope"
         )
-    if type(app["debug"]) is not bool or app["debug"]:
-        raise ContractError("WebSocket authorization route must use the non-debug Starlette app")
+    if type(app["debug"]) is not bool or not app["debug"]:
+        raise ContractError(
+            "WebSocket authorization route must preserve the documentation's debug=True app"
+        )
     if type(app["denial_status_code"]) is not int or not 100 <= app["denial_status_code"] <= 599:
         raise ContractError("WebSocket authorization denial status must be an HTTP status code")
     _string(app["denial_detail"], "TestClient authorization denial detail")
@@ -19727,13 +19793,19 @@ def _validate_route_middleware_node(node: Any, context: str) -> dict[str, Any]:
             _validate_route_middleware_node(child, f"{context}.routes[{index}]")
         return node
     if node["kind"] == "router":
-        allowed = {"kind", "routes", "middleware"}
+        allowed = {"kind", "routes", "middleware", "middleware_sequence_truthy"}
         if node.keys() - allowed or not {"kind", "routes"} <= node.keys():
             raise ContractError(f"{context} Router fields are invalid")
         if not isinstance(node["routes"], list) or not node["routes"]:
             raise ContractError(f"{context}.routes must be a non-empty array")
         for index, child in enumerate(node["routes"]):
             _validate_route_middleware_node(child, f"{context}.routes[{index}]")
+        if "middleware_sequence_truthy" in node and (
+            "middleware" not in node or node["middleware_sequence_truthy"] is not False
+        ):
+            raise ContractError(
+                f"{context}.middleware_sequence_truthy is only supported as false for an explicit middleware sequence"
+            )
         if "middleware" in node:
             if not isinstance(node["middleware"], list):
                 raise ContractError(f"{context}.middleware must be an array")
@@ -19839,6 +19911,20 @@ def _route_middleware_topology(routes: list[dict[str, Any]]) -> str | None:
         and routes[0].get("path") == "/group"
         and isinstance(routes[0].get("app"), dict)
         and routes[0]["app"].get("kind") == "router"
+        and routes[0]["app"].get("middleware_sequence_truthy") is False
+        and isinstance(routes[0]["app"].get("routes"), list)
+        and [route.get("path") for route in routes[0]["app"]["routes"] if isinstance(route, dict)]
+        == ["/inside"]
+        and routes[1].get("kind") == "http-route"
+        and routes[1].get("path") == "/outside"
+    ):
+        return "falsey_router_middleware"
+    if (
+        len(routes) == 2
+        and routes[0].get("kind") == "mount"
+        and routes[0].get("path") == "/group"
+        and isinstance(routes[0].get("app"), dict)
+        and routes[0]["app"].get("kind") == "router"
         and routes[0]["app"].get("middleware")
         and isinstance(routes[0]["app"].get("routes"), list)
         and [route.get("path") for route in routes[0]["app"]["routes"] if isinstance(route, dict)]
@@ -19937,6 +20023,58 @@ def _validate_route_middleware_workflow(case: dict[str, Any]) -> None:
     if topology is None or len(case["steps"]) != expected_step_count:
         raise ContractError("route middleware workflow must exercise one declared route topology")
     root = routes[0]
+    if topology == "falsey_router_middleware":
+        expected_router = {
+            "kind": "router",
+            "routes": [
+                {
+                    "kind": "http-route",
+                    "path": "/inside",
+                    "methods": ["GET"],
+                    "endpoint": {
+                        "kind": "plain-response",
+                        "content": "inside",
+                        "media_type": "text/plain",
+                    },
+                }
+            ],
+            "middleware": [{"kind": "append-response-header", "name": "RouterSkipped"}],
+            "middleware_sequence_truthy": False,
+        }
+        expected_mount = {
+            "kind": "mount",
+            "path": "/group",
+            "app": expected_router,
+            "middleware": [{"kind": "append-response-header", "name": "Mount"}],
+        }
+        expected_outside = {
+            "kind": "http-route",
+            "path": "/outside",
+            "methods": ["GET"],
+            "endpoint": {
+                "kind": "plain-response",
+                "content": "outside",
+                "media_type": "text/plain",
+            },
+        }
+        if routes != [expected_mount, expected_outside]:
+            raise ContractError(
+                "falsey Router middleware input differs from its declared route tree"
+            )
+        if [step["step_id"] for step in case["steps"][1:]] != [
+            "dispatch-mounted",
+            "dispatch-outside",
+        ]:
+            raise ContractError("falsey Router middleware dispatches must preserve source order")
+        expected_paths = ["/group/inside", "/outside"]
+        for index, step in enumerate(case["steps"][1:]):
+            arguments = {key: item["value"] for key, item in step["arguments"].items()}
+            scope = arguments["scope"]
+            if scope["type"] != "http" or scope["method"] != "GET":
+                raise ContractError("falsey Router middleware requires HTTP GET dispatches")
+            if scope["path"] != expected_paths[index]:
+                raise ContractError("falsey Router middleware paths must preserve source order")
+        return
     if topology == "placement_stack":
         router = root["app"]
         expected_route_middleware = [
@@ -29237,6 +29375,7 @@ def _semantic_coverage(case: dict[str, Any]) -> set[str]:
             "mount_exception": "mount_exception",
             "mounted_app_exception_propagation": "mounted_app_exception_propagation",
             "placement_stack": "route",
+            "falsey_router_middleware": "router_middleware_truthiness",
         }.get(topology)
         return (
             {STARLETTE_ROUTE_MIDDLEWARE_REQUIREMENTS[requirement_key]}

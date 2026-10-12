@@ -1540,53 +1540,38 @@ impl AwaitableStateMachine for BodyIteratorMachine {
 
     fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
         match input {
-            MachineResume::Start => self.receive(py),
+            MachineResume::Start => self.start(py),
             MachineResume::Value(message) if self.waiting => {
                 self.waiting = false;
                 self.pending.store(false, Ordering::SeqCst);
-                let message = message.bind(py).cast::<PyDict>()?;
-                let message_type = message
-                    .get_item("type")?
-                    .ok_or_else(|| PyKeyError::new_err("type"))?
-                    .extract::<String>()?;
-                if message_type == "http.response.pathsend" {
-                    self.finished.store(true, Ordering::SeqCst);
-                    return Ok(MachineAction::Complete(message.clone().into_any().unbind()));
-                }
-                if message_type != "http.response.body" {
-                    return Err(PyAssertionError::new_err(format!(
-                        "Unexpected message: {}",
-                        message.repr()?.extract::<String>()?
-                    )));
-                }
-                let body = message
-                    .get_item("body")?
-                    .unwrap_or_else(|| PyBytes::new(py, b"").into_any());
-                let more_body = message
-                    .get_item("more_body")?
-                    .map(|value| value.extract::<bool>())
-                    .transpose()?
-                    .unwrap_or(false);
-                if !more_body {
-                    self.finished.store(true, Ordering::SeqCst);
-                }
-                if body.is_truthy()? {
-                    return Ok(MachineAction::Complete(body.unbind()));
-                }
-                if more_body {
-                    self.receive(py)
-                } else {
-                    Err(PyStopAsyncIteration::new_err(()))
-                }
-            }
-            MachineResume::AsyncIterationComplete(error) | MachineResume::Error(error) => {
-                if self.waiting && is_end_of_stream(py, &error)? {
+                let result = self.process_message(py, message);
+                if result.is_err() {
                     self.finished.store(true, Ordering::SeqCst);
                     self.pending.store(false, Ordering::SeqCst);
+                }
+                result
+            }
+            MachineResume::Error(error) if self.waiting => {
+                self.waiting = false;
+                self.pending.store(false, Ordering::SeqCst);
+                self.finished.store(true, Ordering::SeqCst);
+                if is_end_of_stream(py, &error)? {
                     Err(PyStopAsyncIteration::new_err(()))
                 } else {
+                    // A body-stream error or cancellation closes Starlette's
+                    // async generator. Clear the shared running flag so a later
+                    // aclose() observes the same completed iterator state.
                     Err(error)
                 }
+            }
+            MachineResume::AsyncIterationComplete(error) if self.waiting => {
+                self.waiting = false;
+                self.pending.store(false, Ordering::SeqCst);
+                self.finished.store(true, Ordering::SeqCst);
+                Err(error)
+            }
+            MachineResume::Error(error) | MachineResume::AsyncIterationComplete(error) => {
+                Err(error)
             }
             MachineResume::Value(_) => Err(PyRuntimeError::new_err(
                 "body stream received an unexpected result",
@@ -1596,11 +1581,68 @@ impl AwaitableStateMachine for BodyIteratorMachine {
 }
 
 impl BodyIteratorMachine {
-    fn receive(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
+    fn start(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
         if self.finished.load(Ordering::SeqCst) {
             return Err(PyStopAsyncIteration::new_err(()));
         }
-        let awaitable = self.receive_stream.bind(py).call_method0("receive")?;
+        if self.pending.swap(true, Ordering::SeqCst) {
+            return Err(PyRuntimeError::new_err(
+                "anext(): asynchronous generator is already running",
+            ));
+        }
+        self.receive(py)
+    }
+
+    fn process_message(&mut self, py: Python<'_>, message: Py<PyAny>) -> PyResult<MachineAction> {
+        let message = message.bind(py).cast::<PyDict>()?;
+        let message_type = message
+            .get_item("type")?
+            .ok_or_else(|| PyKeyError::new_err("type"))?
+            .extract::<String>()?;
+        if message_type == "http.response.pathsend" {
+            self.finished.store(true, Ordering::SeqCst);
+            return Ok(MachineAction::Complete(message.clone().into_any().unbind()));
+        }
+        if message_type != "http.response.body" {
+            return Err(PyAssertionError::new_err(format!(
+                "Unexpected message: {}",
+                message.repr()?.extract::<String>()?
+            )));
+        }
+        let body = message
+            .get_item("body")?
+            .unwrap_or_else(|| PyBytes::new(py, b"").into_any());
+        let more_body = message
+            .get_item("more_body")?
+            .map(|value| value.extract::<bool>())
+            .transpose()?
+            .unwrap_or(false);
+        if !more_body {
+            self.finished.store(true, Ordering::SeqCst);
+        }
+        if body.is_truthy()? {
+            return Ok(MachineAction::Complete(body.unbind()));
+        }
+        if more_body {
+            self.receive(py)
+        } else {
+            Err(PyStopAsyncIteration::new_err(()))
+        }
+    }
+
+    fn receive(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
+        if self.finished.load(Ordering::SeqCst) {
+            self.pending.store(false, Ordering::SeqCst);
+            return Err(PyStopAsyncIteration::new_err(()));
+        }
+        let awaitable = match self.receive_stream.bind(py).call_method0("receive") {
+            Ok(awaitable) => awaitable,
+            Err(error) => {
+                self.finished.store(true, Ordering::SeqCst);
+                self.pending.store(false, Ordering::SeqCst);
+                return Err(error);
+            }
+        };
         self.waiting = true;
         self.pending.store(true, Ordering::SeqCst);
         Ok(MachineAction::Await(awaitable.unbind()))

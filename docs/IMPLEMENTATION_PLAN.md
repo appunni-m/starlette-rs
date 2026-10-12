@@ -7,46 +7,35 @@ Pydantic are outside this project's scope.
 
 ## Execution order and current status
 
-The requested whole-project sequence has completed for the active @47 contract:
+Implementation remains the active phase. Keep implementing across feature
+families and author input-only comparisons alongside the behavior. After
+implementation closes, run the complete source/package and Rust-native parity
+matrix, repair mismatches across families, measure coverage from that full
+matrix, reconcile the source atlas, then run all correctness-gated benchmarks.
 
-1. Implement across the mapped response, request, routing, application,
-   middleware, WebSocket, integration, TestClient, and typing feature families;
-   author input-only comparisons alongside implementation.
-2. Run the complete source/package and Rust-native parity matrix, then repair
-   mismatches together.
-3. Measure Rust coverage from the full matrix and reconcile the source atlas.
-4. Run all correctness-gated benchmark workloads together.
-
-The contract declares 1,992 input cases across 140 parity inputs and two
-benchmark inputs, 133 operations, and 1,026 parity requirements. Generated
-atlas inventory has 814 source rows: 759 mapped to input comparisons and 55
-source-backed `not_applicable` rows, with zero fixture-backlog rows. These
-counts describe this pinned contract and do not establish unqualified,
-drop-in compatibility.
+The working-tree contract currently declares 1,995 input cases across 142
+parity inputs and two benchmark inputs, 133 operations, and 1,028 parity
+requirements. The generated atlas has 816 source rows: 761 input mappings, 55
+source-backed `not_applicable` dispositions, and zero fixture-backlog rows.
+These counts describe inventory and evidence coverage; they do not establish
+that every documented behavior is implemented or compatible.
 
 ### Execution ledger
 
 | Phase | State | Evidence |
 | --- | --- | --- |
-| Implementation | Complete across mapped feature families. | `make lint`, `make contract-check`, and `make source-inventory-check` passed; generated atlas has zero backlog. |
-| Full parity and grouped repairs | Complete for @47. | Clean-checkout preflight `dc8c8ca6-f2b7-449b-9f53-45860e3cad4c`: 2,254/2,254 comparisons passed (1,988 Python package, 266 Rust native), zero failures, infrastructure errors, or `not_run`; both fault contracts passed and both targets identify clean revision `57aab65`. |
-| Full coverage and source reconciliation | Measured for the full matrix. | Coverage MCP status `measured`, `source=matches_receipt`, `tests=passed`: 19,909/28,139 Rust lines (70.7%), with 8,230 uncovered lines; source atlas has zero backlog. Instrumented run `fd5b3b63-9ddc-44bd-bf38-35ecbc260dbe`. |
-| All benchmarks | Complete. | Run `13ea2d04-7f31-4c12-93cd-855df93df8b0`: 74/74 source/package workloads measured, zero failed or not-run; 6 Router and 68 GZip workloads. |
-| Packaging and interpreter qualification | Complete for the local macOS arm64 build. | Built and inspected five CPython 3.10–3.14 wheels, an sdist, and the Rust crate; all contain the BSD license and generated third-party notices. Each wheel installed the `full` extra and passed public ASGI smoke plus `pip check` in an isolated environment. `cargo package` verification, Cargo license/source/advisory checks, and artifact identity checks passed. No publication. |
+| Implementation | In progress. | Static contract and source-inventory checks pass for the current 1,995-case input set. Rust behavior and documented boundaries still need implementation audit and integration. |
+| Full parity and grouped repairs | Deferred until implementation closes. | The latest clean run, `dc8c8ca6-f2b7-449b-9f53-45860e3cad4c`, passed 2,254/2,254 comparisons for the preceding 1,992-case, 140-parity-input contract. The later optional-backend, WebSocket authorization, Router truthiness, and BaseHTTPMiddleware iterator inputs are not included. |
+| Full coverage and source reconciliation | Deferred until the full parity phase. | The latest measured run, `fd5b3b63-9ddc-44bd-bf38-35ecbc260dbe`, covered 19,909/28,139 Rust lines (70.7%) for the preceding contract. |
+| All benchmarks | Deferred until coverage. | The latest run, `13ea2d04-7f31-4c12-93cd-855df93df8b0`, measured 74/74 source/package workloads for the preceding contract: six Router and 68 GZip workloads. |
+| Packaging and interpreter qualification | Complete for the local macOS arm64 build. | Five CPython 3.10–3.14 wheels, an sdist, and the Rust crate were inspected; isolated wheel installs passed public ASGI smoke and `pip check`. Other platform builds remain unqualified. |
 
-The full-suite benchmark report is in [`BENCHMARKS.md`](BENCHMARKS.md), and
-parity run history is in [`PARITY.md`](PARITY.md). Generated JSON, LCOV, and
-coverage receipts remain under ignored `build/parity/`. Fixed denominators are
-514 upstream test functions and 24 documented pages; the changing mapping and
-backlog counts come from the generated
-[`coverage matrix`](atlas/coverage-matrix.csv) and
-[`fixture backlog`](atlas/fixture-backlog.csv).
-
-The active implementation, parity, coverage, benchmark, and local packaging
-gates are complete for this contract. The broader full-replacement goal remains
-active: this contract is a declared slice on macOS arm64, and its passing result
-does not establish unqualified drop-in compatibility or other platform builds.
-Coverage at 70.7% is a measurement, not a parity score.
+Prior parity, coverage, and benchmark receipts remain under ignored
+`build/parity/`. The fixed compatibility denominators are 514 upstream test
+functions and 24 documented pages. Derive changing mapping and backlog counts
+from the generated [`coverage matrix`](atlas/coverage-matrix.csv) and
+[`fixture backlog`](atlas/fixture-backlog.csv). Coverage is a measurement, not
+a parity score. The full-replacement goal remains active.
 
 Boundary details: [response protocols](RESPONSE_RENDER_BOUNDARY.md),
 [template callbacks](TEMPLATE_PROTOCOL_BOUNDARY.md),
@@ -89,11 +78,11 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The active parity contract is `parity-input@47`: 1,992 input cases across 140
-indexed parity files, two benchmark files, 133 operations, and 1,026 parity
-requirements. Clean-checkout full parity passed 2,254/2,254 selected profile
-comparisons; both target-only fault contracts passed. Coverage MCP measured
-19,909/28,139 Rust lines from the full matrix. The generated source-row,
+The active parity contract is `parity-input@47`: the working tree currently
+indexes 1,995 input cases across 142 parity files, two benchmark files, 133
+operations, and 1,028 parity requirements. The latest clean full parity,
+coverage, and benchmark receipts belong to the preceding 1,992-case, 140-file
+contract. The generated source-row,
 mapping, `not_applicable`, and backlog totals live in
 [`coverage-matrix.csv`](atlas/coverage-matrix.csv) and
 [`fixture-backlog.csv`](atlas/fixture-backlog.csv); regenerate them after
@@ -175,7 +164,7 @@ That integrated run includes the focused `parity-input@23` through `@27` additio
 The two BaseHTTPMiddleware ContextVar observer comparisons pass exactly against
 the pinned source and installed package in the integrated run.
 
-The latest generated coverage matrix contains 814 source rows: 759 input
+The latest generated coverage matrix contains 816 source rows: 761 input
 mappings, 55 source-backed `not_applicable` rows, and zero fixture-backlog rows.
 Refresh these counts from the generated atlas CSV files after changing fixture
 dispositions.
