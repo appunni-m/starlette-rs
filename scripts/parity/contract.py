@@ -227,6 +227,7 @@ TESTCLIENT_REQUIREMENTS = {
     "scope": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.scope-projection",
     "receive": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.request-message",
     "request_body_lazy_read": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.request-body-read-on-receive",
+    "request_body_streaming": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.request-body-streaming-chunks",
     "response": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.response-and-debug",
     "template_debug_extension": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.template-response-debug-extension",
     "follow_redirects_disabled": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.follow-redirects-disabled",
@@ -1102,6 +1103,7 @@ STREAMING_RESPONSE_AWAIT_FACTORY_STOP_REQUIREMENT = (
     f"{STREAMING_RESPONSE_SURFACE}.{STREAMING_RESPONSE_OPERATION}.async-iterator-await-factory-stop"
 )
 STREAMING_RESPONSE_START_SEND_DISCONNECT_REQUIREMENT = f"{STREAMING_RESPONSE_SURFACE}.{STREAMING_RESPONSE_OPERATION}.client-disconnect-start-send-oserror"
+STREAMING_RESPONSE_FINAL_SEND_DISCONNECT_REQUIREMENT = f"{STREAMING_RESPONSE_SURFACE}.{STREAMING_RESPONSE_OPERATION}.client-disconnect-final-send-oserror"
 STREAMING_RESPONSE_AWAIT_FACTORY_STOP_MODE = "async-iterator-await-factory-stop"
 RESPONSE_OPERATION = "asgi-call"
 RESPONSE_PARTITIONED_COOKIE_REQUIREMENT = (
@@ -3718,6 +3720,8 @@ def _validate_websocket_case_stimulus(case: dict[str, Any]) -> None:
     ]:
         coverage.add("starlette.websocket.state.connected-receive-invalid-type")
     if operation == WEBSOCKET_STATE_OPERATION:
+        if incoming_types == ["websocket.receive"] and action_signature == [("accept", None)]:
+            coverage.add("starlette.websocket.state.accept-invalid-connect-event")
         if denial_response_started:
             coverage.add("starlette.websocket.state.denial-response-start")
         if denial_response_body_continued:
@@ -7829,6 +7833,27 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
             if case["covers"] != [disconnect_requirement]:
                 raise ContractError(
                     "repeating StreamingResponse OSError coverage must match the failing send position"
+                )
+        else:
+            terminal_send_index = len(chunks) + 1
+            try:
+                spec_version = tuple(
+                    int(part)
+                    for part in case["scope"].get("asgi", {}).get("spec_version", "2.0").split(".")
+                )
+            except (AttributeError, TypeError, ValueError) as exc:
+                raise ContractError("StreamingResponse ASGI spec_version must be numeric") from exc
+            if (
+                case["streaming"] != "async-generator"
+                or case["operation"] != STREAMING_RESPONSE_TRACE_OPERATION
+                or background is None
+                or receive_behavior is not None
+                or spec_version < (2, 4)
+                or send["event_index"] != terminal_send_index
+                or case["covers"] != [STREAMING_RESPONSE_FINAL_SEND_DISCONNECT_REQUIREMENT]
+            ):
+                raise ContractError(
+                    "finite StreamingResponse OSError input must fail the terminal send under ASGI 2.4 and map its input-derived requirement"
                 )
     _validate_dispatch_stimulus(
         {
@@ -13361,9 +13386,28 @@ def _validate_testclient_case(
     ):
         raise ContractError("TestClient ASGI app scope_fields must be unique supported scope keys")
     if asgi_app["kind"] in {"asgi2", "asgi3"}:
-        if type(asgi_app["receive_count"]) is not int or asgi_app["receive_count"] not in {0, 1}:
+        receive_count = asgi_app["receive_count"]
+        if type(receive_count) is not int or receive_count < 0:
+            raise ContractError("TestClient receive_count must be a non-negative integer")
+        if receive_count > 1 and (
+            "content_generator_chunks_base64" not in request
+            or followup_requests
+            or receive_count != len(request["content_generator_chunks_base64"]) + 1
+        ):
             raise ContractError(
-                "This TestClient request workflow consumes zero or one request message"
+                "multiple TestClient receives require draining the input request generator through its terminal event"
+            )
+        if (
+            "content_generator_chunks_base64" in request
+            and not followup_requests
+            and receive_count
+            not in {
+                0,
+                len(request["content_generator_chunks_base64"]) + 1,
+            }
+        ):
+            raise ContractError(
+                "TestClient generator requests must remain unread or be consumed through their terminal event"
             )
         if not isinstance(messages, list) or (
             len(messages) not in {2, 3} and not (exception_spec is not None and not messages)
@@ -13406,6 +13450,11 @@ def _validate_testclient_case(
             expected_covers.add(TESTCLIENT_REQUIREMENTS["receive"])
         if asgi_app["receive_count"] == 0 and "content_generator_chunks_base64" in request:
             expected_covers.add(TESTCLIENT_REQUIREMENTS["request_body_lazy_read"])
+        if (
+            "content_generator_chunks_base64" in request
+            and asgi_app["receive_count"] == len(request["content_generator_chunks_base64"]) + 1
+        ):
+            expected_covers.add(TESTCLIENT_REQUIREMENTS["request_body_streaming"])
     elif is_sync_route:
         expected_covers.add(TESTCLIENT_REQUIREMENTS["response"])
         expected_covers.add(TESTCLIENT_REQUIREMENTS["sync_route_worker_thread"])

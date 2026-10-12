@@ -340,6 +340,7 @@
       "build/parity/inputs/parity/route-representations.json",
       "build/parity/inputs/parity/route-constructor-errors.json",
       "build/parity/inputs/parity/websocket-state-sequence.json",
+      "build/parity/inputs/parity/websocket-accept-invalid-connect-event.json",
       "build/parity/inputs/parity/router-converter-dispatch.json",
       "build/parity/inputs/parity/router-slash-redirect.json",
       "build/parity/inputs/parity/router-cache-invalidation.json",
@@ -356,6 +357,7 @@
       "build/parity/inputs/parity/responses-basic.json",
       "build/parity/inputs/parity/background-tasks.json",
       "build/parity/inputs/parity/streaming-response.json",
+      "build/parity/inputs/parity/streaming-response-final-send-disconnect.json",
       "build/parity/inputs/parity/websocket-convenience.json",
       "build/parity/inputs/parity/websocket-iterator-disconnect-athrow.json",
       "build/parity/inputs/parity/exception-values.json",
@@ -412,6 +414,7 @@
       "build/parity/inputs/parity/websocket-endpoint-docs-inputs.json",
       "build/parity/inputs/parity/http-endpoint-dispatch.json",
       "build/parity/inputs/parity/testclient-http.json",
+      "build/parity/inputs/parity/testclient-streaming-request-body.json",
       "build/parity/inputs/parity/testclient-template-debug-extension.json",
       "build/parity/inputs/parity/testclient-partial-endpoints.json",
       "build/parity/inputs/parity/testclient-partial-websocket-endpoints.json",
@@ -19586,7 +19589,8 @@
                   "starlette.responses.StreamingResponse.asgi-call.async-generator-background",
                   "starlette.responses.StreamingResponse.asgi-call.pre-asgi24-disconnect-cancellation",
                   "starlette.responses.StreamingResponse.asgi-call.pre-asgi24-stream-completes-first",
-                  "starlette.responses.StreamingResponse.asgi-call.websocket-scope-background"
+                  "starlette.responses.StreamingResponse.asgi-call.websocket-scope-background",
+                  "starlette.responses.StreamingResponse.asgi-call.client-disconnect-final-send-oserror"
                 ]
               }
             },
@@ -19637,6 +19641,17 @@
               "id": "starlette.responses.StreamingResponse.asgi-call.websocket-scope-background",
               "dimension": "protocol_variant",
               "description": "Invoke StreamingResponse.__call__ with a WebSocket ASGI scope, stream the source test's single bytes chunk from an async generator, and run one sync background callback after the response events. Capture response start/body event types, status, ordered headers, body bytes, stream yields, and the background callback trace. Pinned source: tests/test_responses.py::test_streaming_response_runs_background_on_websocket_scope; starlette/responses.py::StreamingResponse.__call__.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.StreamingResponse.asgi-call.client-disconnect-final-send-oserror",
+              "dimension": "error_path",
+              "description": "Run a finite async generator under ASGI 2.4 and raise OSError on the terminal empty-body send after all chunks have been yielded. Compare the propagated ClientDisconnect, partial ASGI event tape, completed generator trace, and skipped background callback. Pinned source: starlette/responses.py::StreamingResponse.stream_response and __call__; starlette/background.py::BackgroundTask.__call__.",
               "lanes": [
                 "parity"
               ],
@@ -25955,6 +25970,18 @@
                 "rust-native-local",
                 "python-package-cpython312"
               ]
+            },
+            {
+              "id": "starlette.websocket.state.accept-invalid-connect-event",
+              "dimension": "error_path",
+              "description": "Call WebSocket.accept() while client_state is CONNECTING with websocket.receive as the first ASGI event. Starlette consumes the event through receive(), raises the exact RuntimeError before sending websocket.accept, and leaves both protocol states CONNECTING. Pinned source: starlette/websockets.py:35-44,100-110.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
             }
           ],
           "parity": {
@@ -27818,6 +27845,17 @@
               "id": "starlette.testclient.TestClient.request-response.request-path-params-dictionary",
               "dimension": "boundary",
               "description": "Observe the mapping produced by a parameterized Host route through Request.path_params, then index an input-selected absent key and capture the live lookup exception. Pinned sources: docs/requests.md:55-59; starlette/requests.py:145-147; starlette/routing.py:466-490; tests/test_applications.py::test_subdomain_route.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.request-response.request-body-streaming-chunks",
+              "dimension": "protocol_variant",
+              "description": "Consume an input generator-backed POST body through repeated TestClient receive calls: one http.request per yielded chunk with more_body true, followed by an empty terminal http.request. Compare the exact receive message sequence and which input chunks the generator yielded. Pinned source: starlette/testclient.py:293-325.",
               "lanes": [
                 "parity"
               ],
