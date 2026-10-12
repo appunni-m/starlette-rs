@@ -199,6 +199,7 @@ WEBSOCKET_ENDPOINT_REQUIREMENTS = {
     "callback_error": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.callback-error-propagation",
     "invalid_encoding": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.invalid-encoding",
     "cancellation": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.cancellation-finalization",
+    "invalid_message_type": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.invalid-asgi-message-type-finalization",
 }
 SESSION_MIDDLEWARE_SURFACE = "starlette.middleware.sessions.SessionMiddleware"
 SESSION_WORKFLOW_OPERATION = "session-workflow"
@@ -362,6 +363,7 @@ BASE_HTTP_CONTEXTVARS_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) 
 }
 BASE_HTTP_REQUIREMENTS = {
     "construct": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.construct-configured-middleware",
+    "dispatch_short_circuit": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.dispatch-short-circuits-downstream-app",
     "header_mutation": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.await-call-next-header-mutation",
     "replacement_response": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.return-replacement-response",
     "body_cache_replay": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.body-cache-replay",
@@ -1385,6 +1387,7 @@ REQUEST_CONSUMPTION_REQUIREMENTS = {
     "body_stream_overlap": "starlette.request.concurrent-body-stream-consumption",
     "stream_client_disconnect": "starlette.request.stream-client-disconnect",
     "body_disconnect_retry": "starlette.request.body-disconnect-retry",
+    "stream_disconnect_retry": "starlette.request.stream-disconnect-retry",
 }
 SYNC_REQUEST_RUNTIME_REQUIREMENTS = {
     "receive": "starlette.request.receive-worker-access",
@@ -3340,18 +3343,35 @@ def _validate_websocket_endpoint_case_stimulus(case: dict[str, Any]) -> None:
         incoming = session["incoming"]
         if not isinstance(incoming, list):
             raise ContractError(f"{context}.incoming must be an ASGI message array")
-        message_types = [
-            _validate_websocket_message(
-                message, f"{context}.incoming[{message_index}]", incoming=True
-            )
-            for message_index, message in enumerate(incoming)
-        ]
+        message_types: list[str | None] = []
+        for message_index, message in enumerate(incoming):
+            message_context = f"{context}.incoming[{message_index}]"
+            if isinstance(message, dict) and "type" in message and message["type"] is None:
+                _exact(message, {"type"}, message_context)
+                message_types.append(None)
+            else:
+                message_types.append(
+                    _validate_websocket_message(message, message_context, incoming=True)
+                )
         if message_types[0] != "websocket.connect":
             raise ContractError(f"{context}.incoming must begin with websocket.connect")
         if incoming[0]["subprotocols"] != session["scope"]["subprotocols"]:
             raise ContractError(
                 f"{context}.incoming connect subprotocols must match the scope offer"
             )
+        if message_types == ["websocket.connect", None]:
+            if (
+                cancel_at is not None
+                or encoding is not None
+                or on_receive["kind"] != "no-op"
+                or on_disconnect["kind"] != "record-and-close"
+            ):
+                raise ContractError(
+                    f"{context} invalid ASGI message type requires default decoding and "
+                    "observed on_disconnect finalization"
+                )
+            exercised_requirements.add(WEBSOCKET_ENDPOINT_REQUIREMENTS["invalid_message_type"])
+            continue
         if cancel_at == "receive":
             if message_types != ["websocket.connect"]:
                 raise ContractError(
@@ -10614,22 +10634,20 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
         elif kind == "return-plain-text-response":
             action = _exact(raw_action, {"kind", "content", "status_code"}, context)
             if (
-                not awaited
-                or returned is not None
+                returned is not None
                 or saw_header_mutation
+                or (not awaited and index != 0)
                 or index != len(actions) - 1
                 or not isinstance(action["content"], str)
                 or type(action["status_code"]) is not int
                 or not 100 <= action["status_code"] <= 599
             ):
-                raise ContractError("replacement response must follow call_next and end dispatch")
+                raise ContractError("replacement response must be final dispatch action")
             returned = "replacement"
         else:
             raise ContractError(f"{context} has an unsupported action kind")
-    if not awaited or returned is None:
-        raise ContractError(
-            "BaseHTTPMiddleware dispatch must await call_next and return a response"
-        )
+    if returned is None:
+        raise ContractError("BaseHTTPMiddleware dispatch must return a response")
     if saw_header_mutation and returned != "call-next":
         raise ContractError("only the call_next response can be mutated")
 
@@ -11188,6 +11206,27 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
     if returned == "replacement":
         requirements.add(BASE_HTTP_REQUIREMENTS["replacement_response"])
     body = b"".join(base64.b64decode(event["body_base64"]) for event in request_events)
+    if not awaited:
+        if (
+            returned != "replacement"
+            or len(actions) != 1
+            or route_kind != "raise-exception"
+            or route_methods != ["GET"]
+            or downstream is not None
+            or scope["method"] != "GET"
+            or len(receive) != 1
+            or len(request_events) != 1
+            or not body
+            or request_events[0]["more_body"]
+            or disconnect_events
+            or request["receive_after_events"] != "block"
+            or send_checkpoints
+        ):
+            raise ContractError(
+                "dispatch short-circuit requires one GET raising route, a non-empty terminal "
+                "request event, a blocking receive, and an input-defined replacement response"
+            )
+        requirements.add(BASE_HTTP_REQUIREMENTS["dispatch_short_circuit"])
     reads_body_before_call_next = (
         route_kind in {"request-body-response", "request-body-empty-response"}
         and body
@@ -22893,12 +22932,26 @@ def _validate_request_body_stream_json_case(case: dict[str, Any]) -> None:
             json.loads(payload)
         except (json.JSONDecodeError, UnicodeDecodeError):
             expected_covers.add(REQUEST_CONSUMPTION_REQUIREMENTS["json_decode_error"])
-    if len(set(stream_ids)) > 1:
+    first_stream_ended_on_disconnect = (
+        len(stream_ids) > 1
+        and receive[0]["type"] == "http.disconnect"
+        and stream_ids.count(stream_ids[0]) == 1
+    )
+    if len(set(stream_ids)) > 1 and not first_stream_ended_on_disconnect:
         expected_covers.add(REQUEST_CONSUMPTION_REQUIREMENTS["stream_interleaving"])
     if (stream_positions or direct_body_positions) and any(
         message["type"] == "http.disconnect" for message in receive
     ):
         expected_covers.add(REQUEST_CONSUMPTION_REQUIREMENTS["stream_client_disconnect"])
+    if (
+        len(stream_ids) >= 4
+        and stream_ids[0] != stream_ids[1]
+        and stream_ids.count(stream_ids[0]) == 1
+        and len(set(stream_ids[1:])) == 1
+        and receive[0]["type"] == "http.disconnect"
+        and any(message["type"] == "http.request" for message in receive[1:])
+    ):
+        expected_covers.add(REQUEST_CONSUMPTION_REQUIREMENTS["stream_disconnect_retry"])
     if (
         direct_body_positions
         and json_positions

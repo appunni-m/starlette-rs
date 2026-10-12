@@ -3933,20 +3933,20 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
         elif kind == "return-plain-text-response":
             action = _strict_object(raw_action, {"kind", "content", "status_code"}, context)
             if (
-                not awaited
-                or returned is not None
+                returned is not None
                 or saw_header_mutation
+                or (not awaited and index != 0)
                 or index != len(dispatch_actions) - 1
                 or not isinstance(action["content"], str)
                 or type(action["status_code"]) is not int
                 or not 100 <= action["status_code"] <= 599
             ):
-                raise ValueError("replacement response must follow call_next and end dispatch")
+                raise ValueError("replacement response must be final dispatch action")
             returned = "replacement"
         else:
             raise ValueError(f"{context} has an unsupported action kind")
-    if not awaited or returned is None:
-        raise ValueError("BaseHTTPMiddleware dispatch action sequence is incomplete")
+    if returned is None:
+        raise ValueError("BaseHTTPMiddleware dispatch action sequence has no response")
     if saw_header_mutation and returned != "call-next":
         raise ValueError("only the call_next response can be mutated")
     if returned == "call-next" and route_spec is None and "downstream" not in application:
@@ -4457,6 +4457,30 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
         _decode_b64(item["body_base64"], "BaseHTTPMiddleware request body")
         for item in request_event_specs
     )
+    if not awaited:
+        if (
+            returned != "replacement"
+            or len(dispatch_actions) != 1
+            or route_kind != "raise-exception"
+            or route_spec is None
+            or route_spec["methods"] != ["GET"]
+            or downstream_spec is not None
+            or scope_spec["method"] != "GET"
+            or len(receive_specs) != 1
+            or len(request_event_specs) != 1
+            or not request_body
+            or request_event_specs[0]["more_body"]
+            or disconnect_event_indices
+            or request["receive_after_events"] != "block"
+            or send_checkpoints
+        ):
+            raise ValueError(
+                "dispatch short-circuit requires one GET raising route, a non-empty terminal "
+                "request event, a blocking receive, and an input-defined replacement response"
+            )
+        required_covers.add(
+            f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.dispatch-short-circuits-downstream-app"
+        )
     reads_body_before_call_next = (
         route_kind in {"request-body-response", "request-body-empty-response"}
         and request_body

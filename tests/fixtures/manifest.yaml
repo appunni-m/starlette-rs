@@ -320,6 +320,7 @@
       "build/parity/inputs/parity/request-client-address.json",
       "build/parity/inputs/parity/request-scope-interface.json",
       "build/parity/inputs/parity/request-consumption.json",
+      "build/parity/inputs/parity/request-stream-disconnect-retry.json",
       "build/parity/inputs/parity/gzip-middleware.json",
       "build/parity/inputs/parity/gzip-responder.json",
       "build/parity/inputs/parity/body-limit-middleware.json",
@@ -334,6 +335,7 @@
       "build/parity/inputs/parity/websocket-protocol.json",
       "build/parity/inputs/parity/websocket-route-dispatch.json",
       "build/parity/inputs/parity/websocket-docs-inputs.json",
+      "build/parity/inputs/parity/websocket-endpoint-invalid-message-type.json",
       "build/parity/inputs/parity/http-route-call.json",
       "build/parity/inputs/parity/route-representations.json",
       "build/parity/inputs/parity/route-constructor-errors.json",
@@ -396,6 +398,7 @@
       "build/parity/inputs/parity/wsgi-boundary.json",
       "build/parity/inputs/parity/session-middleware.json",
       "build/parity/inputs/parity/base-http-middleware.json",
+      "build/parity/inputs/parity/base-http-lifecycle-short-circuit.json",
       "build/parity/inputs/parity/base-http-duplicate-response-headers.json",
       "build/parity/inputs/parity/middleware-docs-base-http.json",
       "build/parity/inputs/parity/base-http-contextvars.json",
@@ -8817,6 +8820,17 @@
               "target_profiles": [
                 "python-package-cpython312"
               ]
+            },
+            {
+              "id": "starlette.endpoints.WebSocketEndpoint.dispatch.invalid-asgi-message-type-finalization",
+              "dimension": "error_path",
+              "description": "When a receive callback yields an ASGI message with a non-string type, preserve the source RuntimeError formatting, set the close code to 1011, run the input-selected on_disconnect hook, and propagate the original error. Pinned source: starlette/websockets.py:35-58; starlette/endpoints.py:75-89.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
             }
           ],
           "parity": {
@@ -9888,6 +9902,17 @@
               "id": "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.construct-configured-middleware",
               "dimension": "success_path",
               "description": "Construct a Starlette app with Middleware(CustomMiddleware) or wrap a direct ASGI app with BaseHTTPMiddleware, then invoke the public ASGI interface. Upstream: tests/middleware/test_base.py:179-187,473-596; starlette/middleware/base.py:96-203.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.dispatch-short-circuits-downstream-app",
+              "dimension": "protocol_variant",
+              "description": "Return an input-defined response from BaseHTTPMiddleware.dispatch without awaiting call_next while the selected downstream route would raise. Compare the live response and event trace to prove dispatch short-circuits downstream execution. Pinned source: starlette/middleware/base.py:112-148,190-195.",
               "lanes": [
                 "parity"
               ],
@@ -15564,6 +15589,21 @@
               "id": "starlette.request.body-disconnect-retry",
               "dimension": "error_path",
               "description": "When Request.body() receives http.disconnect, it raises ClientDisconnect without marking the stream consumed; a later Request.json() calls receive again and can collect a subsequent http.request body. Pinned source: starlette/requests.py:239-264; tests/test_requests.py::test_request_disconnect.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
+              "id": "starlette.request.stream-disconnect-retry",
+              "dimension": "error_path",
+              "description": "Let Request.stream() receive http.disconnect and raise ClientDisconnect, then create a fresh stream iterator and consume a later http.request body to completion. The comparison observes the live exception, yielded chunks, and receive ordering. Pinned source: starlette/requests.py:234-252.",
               "lanes": [
                 "parity"
               ],
