@@ -851,8 +851,7 @@ def run_parity(
     fault_cases = [
         case
         for case in cases
-        if "fault_contract" in case
-        and case["fault_contract"]["target_profile"] in active_profile_ids
+        if "fault_contract" in case and set(case["target_profiles"]) & set(active_profile_ids)
     ]
     started = _now()
     infra: list[dict[str, Any]] = list(environment_errors)

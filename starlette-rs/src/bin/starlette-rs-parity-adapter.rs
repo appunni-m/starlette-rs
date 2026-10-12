@@ -7857,44 +7857,22 @@ fn lifespan_failure_event(message_type: &str, error: Option<&Value>) -> Result<V
         ));
     }
     let error = error.ok_or_else(|| String::from("lifespan failure event omitted its error"))?;
-    let message = string_field(
-        exact_object(
-            error,
-            &[
-                "class",
-                "kind",
-                "message",
-                "stage",
-                "code",
-                "cause",
-                "suppress_context",
-            ],
-            "lifespan failure error",
-        )?,
-        "message",
+    let fields = exact_object(
+        error,
+        &[
+            "class",
+            "kind",
+            "message",
+            "stage",
+            "code",
+            "cause",
+            "suppress_context",
+        ],
         "lifespan failure error",
     )?;
-    let class = string_field(
-        error
-            .as_object()
-            .ok_or_else(|| String::from("lifespan failure error must be an object"))?,
-        "class",
-        "lifespan failure error",
-    )?;
-    let short_class = class
-        .rsplit('.')
-        .next()
-        .filter(|name| !name.is_empty())
-        .ok_or_else(|| String::from("lifespan failure exception class is empty"))?;
-    let exception_summary = if message.is_empty() {
-        short_class.to_owned()
-    } else {
-        format!("{short_class}: {message}")
-    };
-    Ok(json!({
-        "type": message_type,
-        "message": format!("Traceback (most recent call last):\n{exception_summary}\n"),
-    }))
+    string_field(fields, "class", "lifespan failure error")?;
+    string_field(fields, "message", "lifespan failure error")?;
+    Ok(json!({"type": message_type}))
 }
 
 fn lifecycle_observation_value(

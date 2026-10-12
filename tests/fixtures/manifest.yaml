@@ -2117,15 +2117,10 @@
               "signature": "Run the declared routing and request-data workflow through the Rust-native adapter and observe the selected request and ASGI values.",
               "support": {
                 "status": "partial",
-                "reason": "The Rust-native profile cannot invoke arbitrary Python endpoint callables; synchronous and async Request endpoint boundaries and ASGI callable-instance dispatch observations are unsupported.",
+                "reason": "The Rust-native API is a separate fixed-response Rust surface: starlette-rs/src/application.rs documents that it does not invoke endpoints or provide Python Starlette behavior. Pinned Starlette 1.6.0 implements Request callable and ASGI callable-instance dispatch in starlette/routing.py, so those Python callback requirements apply only to the installed Python compatibility package.",
                 "missing_requirements": [
-                  "starlette.routing.sync-endpoint-contextvar-propagation",
-                  "starlette.routing.sync-endpoint-worker-thread",
-                  "starlette.routing.sync-endpoint-single-invocation",
                   "starlette.routing.sync-endpoint-worker-cancellation",
-                  "starlette.routing.sync-endpoint-callable-form",
                   "starlette.routing.async-endpoint-callable-form",
-                  "starlette.routing.asgi-callable-instance-dispatch",
                   "starlette.routing.asgi-callable-http-exception-before-start",
                   "starlette.routing.asgi-callable-http-exception-after-start",
                   "starlette.request.path-param-string",
@@ -2333,36 +2328,33 @@
             {
               "id": "starlette.routing.sync-endpoint-contextvar-propagation",
               "dimension": "boundary",
-              "description": "A synchronous Python endpoint observes the caller's ContextVar value after Starlette dispatches it through AnyIO's worker-thread boundary. Upstream: starlette/routing.py::request_response; starlette/concurrency.py::run_in_threadpool; tests/test_routing.py sync endpoint cases; tests/test_concurrency.py::test_accessing_context_from_threaded_sync_endpoint.",
+              "description": "Python-package-only: a synchronous Python endpoint observes the caller's ContextVar value after Starlette dispatches it through AnyIO's worker-thread boundary. Pinned source: starlette/routing.py::request_response; starlette/concurrency.py::run_in_threadpool; tests/test_routing.py sync endpoint cases; tests/test_concurrency.py::test_accessing_context_from_threaded_sync_endpoint. The native starlette-rs API exposes fixed Rust Response routes and documents no endpoint invocation in starlette-rs/src/application.rs.",
               "lanes": [
                 "parity"
               ],
               "target_profiles": [
-                "rust-native-local",
                 "python-package-cpython312"
               ]
             },
             {
               "id": "starlette.routing.sync-endpoint-worker-thread",
               "dimension": "boundary",
-              "description": "A synchronous Python endpoint runs on a worker thread distinct from the caller thread. Upstream: starlette/routing.py::request_response; starlette/concurrency.py::run_in_threadpool; tests/test_routing.py sync endpoint cases.",
+              "description": "Python-package-only: a synchronous Python endpoint runs on an AnyIO worker thread distinct from the caller thread. Pinned source: starlette/routing.py::request_response; starlette/concurrency.py::run_in_threadpool; tests/test_routing.py sync endpoint cases. The native starlette-rs API exposes fixed Rust Response routes and documents no endpoint invocation in starlette-rs/src/application.rs.",
               "lanes": [
                 "parity"
               ],
               "target_profiles": [
-                "rust-native-local",
                 "python-package-cpython312"
               ]
             },
             {
               "id": "starlette.routing.sync-endpoint-single-invocation",
               "dimension": "boundary",
-              "description": "A synchronous Python endpoint is invoked exactly once for one matching routed request. Upstream: starlette/routing.py::request_response; starlette/concurrency.py::run_in_threadpool; tests/test_routing.py sync endpoint cases.",
+              "description": "Python-package-only: a synchronous Python endpoint is invoked exactly once for one matching routed request. Pinned source: starlette/routing.py::request_response; starlette/concurrency.py::run_in_threadpool; tests/test_routing.py sync endpoint cases. The native starlette-rs API exposes fixed Rust Response routes and documents no endpoint invocation in starlette-rs/src/application.rs.",
               "lanes": [
                 "parity"
               ],
               "target_profiles": [
-                "rust-native-local",
                 "python-package-cpython312"
               ]
             },
@@ -2380,12 +2372,11 @@
             {
               "id": "starlette.routing.sync-endpoint-callable-form",
               "dimension": "boundary",
-              "description": "Route synchronous Request endpoints supplied as a function, bound method, or functools.partial. Observe actual callable type, partial depth, Request path parameter, context-variable transfer, and execution on a distinct AnyIO worker thread. Upstream: starlette/routing.py::request_response; starlette/concurrency.py::run_in_threadpool; tests/test_routing.py callable-form cases.",
+              "description": "Python-package-only: route synchronous Request endpoints supplied as a function, bound method, or functools.partial; observe actual callable type, partial depth, Request path parameter, context-variable transfer, and distinct AnyIO worker-thread execution. Pinned source: starlette/routing.py::Route.__init__ and request_response; starlette/concurrency.py::run_in_threadpool. The native starlette-rs API exposes fixed Rust Response routes and documents no endpoint invocation in starlette-rs/src/application.rs.",
               "lanes": [
                 "parity"
               ],
               "target_profiles": [
-                "rust-native-local",
                 "python-package-cpython312"
               ]
             },
@@ -2403,12 +2394,11 @@
             {
               "id": "starlette.routing.asgi-callable-instance-dispatch",
               "dimension": "boundary",
-              "description": "A callable instance supplied as a Route endpoint is invoked with the matched ASGI scope, receive callback, and send callback. Observe its actual endpoint type, arguments, response status, headers, bytes, and ordered ASGI events. Upstream: starlette/routing.py:215-225 and Route.handle; tests/test_routing.py callable-instance case.",
+              "description": "Python-package-only: a callable instance supplied as a Route endpoint is invoked with the matched ASGI scope, receive callback, and send callback. Pinned source: starlette/routing.py::Route.__init__ selects the callable app and Route.handle invokes it. The native starlette-rs API exposes fixed Rust Response routes and documents no endpoint invocation in starlette-rs/src/application.rs; it has no Python ASGI callback boundary.",
               "lanes": [
                 "parity"
               ],
               "target_profiles": [
-                "rust-native-local",
                 "python-package-cpython312"
               ]
             },
@@ -9139,6 +9129,9 @@
                   ],
                   "comparison": {
                     "kind": "exact"
+                  },
+                  "condition": {
+                    "input_key": "asgi_workflow"
                   }
                 }
               ],
@@ -9590,6 +9583,15 @@
                   }
                 },
                 {
+                  "path": "dispatch_request_helper_observations",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
                   "path": "dispatch_disconnect_checks",
                   "value_types": [
                     "sequence"
@@ -9640,6 +9642,15 @@
                 },
                 {
                   "path": "dispatch_response_stream_reads",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "dispatch_response_header_observations",
                   "value_types": [
                     "sequence"
                   ],
@@ -16035,6 +16046,10 @@
                   ],
                   "comparison": {
                     "kind": "exact"
+                  },
+                  "normalization": {
+                    "kind": "starlette-import-warning-origin",
+                    "reason": "Oracle and Rust-backed facades emit this legacy multipart warning from different checked-out Python files; compare its warning category, message, and owning Starlette module while ignoring absolute roots and source line numbers."
                   }
                 }
               ],
@@ -28213,6 +28228,10 @@
                   ],
                   "comparison": {
                     "kind": "exact"
+                  },
+                  "condition": {
+                    "input_key": "asgi_app.kind",
+                    "not_equals": "starlette-lifespan-backend-probe"
                   }
                 },
                 {
@@ -28234,6 +28253,10 @@
                   ],
                   "comparison": {
                     "kind": "ordered"
+                  },
+                  "condition": {
+                    "input_key": "asgi_app.kind",
+                    "not_equals": "starlette-lifespan-backend-probe"
                   }
                 },
                 {
@@ -28246,6 +28269,10 @@
                   },
                   "normalization": {
                     "kind": "starlette-lifespan-failure-frames"
+                  },
+                  "condition": {
+                    "input_key": "asgi_app.kind",
+                    "not_equals": "starlette-lifespan-backend-probe"
                   }
                 },
                 {
@@ -28264,6 +28291,10 @@
                   ],
                   "comparison": {
                     "kind": "ordered"
+                  },
+                  "condition": {
+                    "input_key": "asgi_app.kind",
+                    "not_equals": "starlette-lifespan-backend-probe"
                   }
                 },
                 {
@@ -28273,6 +28304,10 @@
                   ],
                   "comparison": {
                     "kind": "ordered"
+                  },
+                  "condition": {
+                    "input_key": "asgi_app.kind",
+                    "not_equals": "starlette-lifespan-backend-probe"
                   }
                 },
                 {
@@ -28291,6 +28326,10 @@
                   ],
                   "comparison": {
                     "kind": "ordered"
+                  },
+                  "condition": {
+                    "input_key": "asgi_app.kind",
+                    "not_equals": "starlette-lifespan-backend-probe"
                   }
                 },
                 {
@@ -28300,6 +28339,10 @@
                   ],
                   "comparison": {
                     "kind": "ordered"
+                  },
+                  "condition": {
+                    "input_key": "asgi_app.kind",
+                    "not_equals": "starlette-lifespan-backend-probe"
                   }
                 },
                 {
@@ -28309,6 +28352,10 @@
                   ],
                   "comparison": {
                     "kind": "ordered"
+                  },
+                  "condition": {
+                    "input_key": "asgi_app.kind",
+                    "not_equals": "starlette-lifespan-backend-probe"
                   }
                 },
                 {
@@ -28318,6 +28365,10 @@
                   ],
                   "comparison": {
                     "kind": "ordered"
+                  },
+                  "condition": {
+                    "input_key": "asgi_app.kind",
+                    "not_equals": "starlette-lifespan-backend-probe"
                   }
                 },
                 {
@@ -28336,6 +28387,10 @@
                   ],
                   "comparison": {
                     "kind": "exact"
+                  },
+                  "condition": {
+                    "input_key": "asgi_app.kind",
+                    "not_equals": "starlette-lifespan-backend-probe"
                   }
                 },
                 {
@@ -28396,6 +28451,58 @@
                   },
                   "condition": {
                     "input_key": "asgi_app.lifespan_state"
+                  }
+                },
+                {
+                  "path": "action_trace",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  },
+                  "condition": {
+                    "input_key": "asgi_app.kind",
+                    "equals": "starlette-lifespan-backend-probe"
+                  }
+                },
+                {
+                  "path": "execution_contexts",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  },
+                  "condition": {
+                    "input_key": "asgi_app.kind",
+                    "equals": "starlette-lifespan-backend-probe"
+                  }
+                },
+                {
+                  "path": "lifecycle_trace",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  },
+                  "condition": {
+                    "input_key": "asgi_app.kind",
+                    "equals": "starlette-lifespan-backend-probe"
+                  }
+                },
+                {
+                  "path": "lifespan_scopes",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  },
+                  "condition": {
+                    "input_key": "asgi_app.kind",
+                    "equals": "starlette-lifespan-backend-probe"
                   }
                 }
               ],

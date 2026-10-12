@@ -7,9 +7,11 @@ from typing import Any, Literal
 from starlette_rs_py import _core
 from typing_extensions import Self
 
+from starlette.types import ASGIApp
 from starlette.websockets import WebSocketDisconnect
 
-_httpx = _core.testclient_httpx()
+httpx = _core.testclient_httpx()
+_httpx = httpx
 
 
 async def _run_asgi3(app: Any, scope: Any, receive: Any, send: Any) -> None:
@@ -88,13 +90,13 @@ class TestClient(_httpx.Client):
 
     def __init__(
         self,
-        app: Any,
+        app: ASGIApp,
         base_url: str = "http://testserver",
         raise_server_exceptions: bool = True,
         root_path: str = "",
-        backend: str = "asyncio",
+        backend: Literal["asyncio", "trio"] = "asyncio",
         backend_options: dict[str, Any] | None = None,
-        cookies: Any = None,
+        cookies: httpx._types.CookieTypes | None = None,
         headers: dict[str, str] | None = None,
         follow_redirects: bool = True,
         client: tuple[str, int] = ("testclient", 50000),

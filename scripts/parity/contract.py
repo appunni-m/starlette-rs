@@ -2186,11 +2186,23 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                     raise ContractError(f"{octx}.path is duplicated")
                 obs_paths.add(observation["path"])
                 if "condition" in observation:
+                    condition_value = observation["condition"]
+                    condition_keys = {"input_key"}
+                    if isinstance(condition_value, dict):
+                        condition_keys.update(
+                            key for key in ("equals", "not_equals") if key in condition_value
+                        )
                     condition = _exact(
-                        observation["condition"],
-                        {"input_key"},
+                        condition_value,
+                        condition_keys,
                         f"{octx}.condition",
                     )
+                    if ("equals" in condition and "not_equals" in condition) or any(
+                        key in condition
+                        and (not isinstance(condition[key], str) or not condition[key])
+                        for key in ("equals", "not_equals")
+                    ):
+                        raise ContractError(f"{octx}.condition value selector is invalid")
                     response_header_probe = (
                         condition["input_key"] == "header_view_probe"
                         and key
@@ -2343,6 +2355,47 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         and key == HTTP_ENDPOINT_OPERATION_KEY
                         and observation["path"] == "method_reads"
                     )
+                    middleware_asgi_workflow = (
+                        condition["input_key"] == "asgi_workflow"
+                        and key == ("starlette.middleware.Middleware", "value-formatting")
+                        and observation["path"] == "asgi_workflow"
+                    )
+                    testclient_lifespan_other_app_kind = (
+                        condition["input_key"] == "asgi_app.kind"
+                        and condition.get("not_equals") == "starlette-lifespan-backend-probe"
+                        and key == TESTCLIENT_LIFESPAN_OPERATION_KEY
+                        and observation["path"]
+                        in {
+                            "action_errors",
+                            "http_receive_messages",
+                            "http_scopes",
+                            "http_send_messages",
+                            "lifespan_receive_messages",
+                            "lifespan_scope",
+                            "lifespan_send_messages",
+                            "loop_relations",
+                            "request_results",
+                            "websocket_receive_messages",
+                            "websocket_results",
+                            "websocket_scopes",
+                            "websocket_send_messages",
+                        }
+                    )
+                    testclient_lifespan_backend_probe = (
+                        condition["input_key"] == "asgi_app.kind"
+                        and condition.get("equals") == "starlette-lifespan-backend-probe"
+                        and key == TESTCLIENT_LIFESPAN_OPERATION_KEY
+                        and observation["path"]
+                        in {
+                            "action_errors",
+                            "action_trace",
+                            "execution_contexts",
+                            "http_scopes",
+                            "lifecycle_trace",
+                            "lifespan_scopes",
+                            "request_results",
+                        }
+                    )
                     if (
                         not response_header_probe
                         and not file_response_scheduling_probe
@@ -2367,6 +2420,9 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         and not base_http_background_task_completion
                         and not templating_hook_trace
                         and not http_endpoint_method_reads
+                        and not middleware_asgi_workflow
+                        and not testclient_lifespan_other_app_kind
+                        and not testclient_lifespan_backend_probe
                     ):
                         raise ContractError(
                             f"{octx}.condition is not a supported input-gated observation"
@@ -2514,6 +2570,21 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         ):
                             raise ContractError(
                                 f"{octx} permits isolated environment path normalization only for TestClient warnings"
+                            )
+                    elif normalization_kind == "starlette-import-warning-origin":
+                        normalization_spec = _exact(
+                            normalization_spec,
+                            {"kind", "reason"},
+                            f"{octx}.normalization",
+                        )
+                        _string(normalization_spec["reason"], f"{octx}.normalization.reason")
+                        if (
+                            key != ("starlette.requests.Request", "module-import-policy")
+                            or observation["path"] != "import-policy"
+                            or comparison["kind"] != "exact"
+                        ):
+                            raise ContractError(
+                                f"{octx} permits warning-origin normalization only for Request import policy"
                             )
                     elif normalization_kind == "sequence":
                         _exact(
@@ -30342,9 +30413,12 @@ def _active_result_inputs(
         raise ContractError("active parity manifest must be inside the repository root") from exc
     manifest = load_manifest(active_manifest_path)
     validate_manifest(manifest)
+    from .api_sources import load_api_metadata, public_module_names
+
+    public_modules = public_module_names(load_api_metadata(root))
     from .generate_inputs import _check_generated, _validate_sources
 
-    _check_generated(root, _validate_sources(root, manifest))
+    _check_generated(root, _validate_sources(root, manifest, public_modules))
     indexed_inputs, cases = validate_inputs(root, manifest)
     benchmark_inputs = validate_benchmark_inputs(root, manifest, cases)
     return active_manifest_path, manifest, indexed_inputs, benchmark_inputs
@@ -32344,12 +32418,13 @@ def _validate_parity_result_against_active_contract(
 
     manifest = load_manifest(active_manifest_path)
     validate_manifest(manifest)
-    from .api_sources import load_api_metadata
+    from .api_sources import load_api_metadata, public_module_names
 
-    package_path = Path(load_api_metadata(root)["authority"]["package_path"])
+    metadata = load_api_metadata(root)
+    package_path = Path(metadata["authority"]["package_path"])
     from .generate_inputs import _check_generated, _validate_sources
 
-    generated_inputs = _validate_sources(root, manifest)
+    generated_inputs = _validate_sources(root, manifest, public_module_names(metadata))
     _check_generated(root, generated_inputs)
     indexed_inputs, cases = validate_inputs(root, manifest)
     expected_manifest_identity = {
@@ -32793,7 +32868,7 @@ def _validate_parity_result_against_active_contract(
         for case in cases
         if case["case_id"] in selected_case_ids
         and "fault_contract" in case
-        and case["fault_contract"]["target_profile"] in selected_profiles
+        and set(case["target_profiles"]) & set(selected_profiles)
     ]
     expected_fault_rows = [(case["case_id"], case["target_profiles"][0]) for case in fault_cases]
     actual_fault_rows = [

@@ -128,7 +128,7 @@ def _normalize_python_object_address(path: str, value: Any) -> str:
 
 
 _ISOLATED_PYTHON_SITE_PACKAGES = re.compile(
-    r"(^|/)build/parity/envs/[^/]+/(?:lib/python[0-9.]+|Lib)/site-packages/"
+    r"(^|/)build/parity/envs/[^/]+/(?:oracle|python-package)/(?:lib/python[0-9.]+|Lib)/site-packages/"
 )
 
 
@@ -149,6 +149,33 @@ def _normalize_isolated_python_environment_path(path: str, value: Any) -> Any:
         )
         normalized.append(normalized_warning)
     return normalized
+
+
+def _normalize_starlette_import_warning_origin(path: str, value: Any) -> Any:
+    """Compare the owning Starlette module, not checkout-specific warning frames."""
+    if path != "import-policy" or not isinstance(value, dict):
+        raise ContractError(
+            "Starlette import warning origin normalization requires import-policy observations"
+        )
+    warnings = value.get("warnings")
+    if not isinstance(warnings, list):
+        raise ContractError("import-policy observations must contain a warning sequence")
+    normalized_value = dict(value)
+    normalized_warnings = []
+    for warning in warnings:
+        if not isinstance(warning, dict) or not isinstance(warning.get("filename"), str):
+            raise ContractError("import-policy warnings must contain a filename")
+        filename = warning["filename"].replace("\\", "/")
+        marker = "/starlette/"
+        module_index = filename.rfind(marker)
+        if module_index < 0:
+            raise ContractError("import-policy warning filename must originate in Starlette")
+        normalized_warning = dict(warning)
+        normalized_warning["filename"] = filename[module_index + 1 :]
+        normalized_warning.pop("lineno", None)
+        normalized_warnings.append(normalized_warning)
+    normalized_value["warnings"] = normalized_warnings
+    return normalized_value
 
 
 def _is_starlette_frame(filename: str) -> bool:
@@ -958,7 +985,7 @@ _PYTHON_EXCEPTION_SUMMARY = re.compile(r"^[A-Za-z_][A-Za-z_0-9.]*(?::.*)?(?:\r?\
 
 
 def _normalize_lifespan_failure_traceback(message: Any) -> Any:
-    """Drop only canonical Python traceback frame blocks from a failure message."""
+    """Drop Python traceback framing while preserving the exception summary."""
     if not isinstance(message, str) or not message.startswith("Traceback (most recent call last)"):
         return message
 
@@ -983,7 +1010,7 @@ def _normalize_lifespan_failure_traceback(message: Any) -> Any:
             "lifespan failure event contains malformed or unsupported traceback text"
         )
 
-    return lines[0] + "".join(summary)
+    return "".join(summary)
 
 
 def _normalize_lifespan_failure_events(value: Any) -> list[Any]:
@@ -1044,20 +1071,33 @@ def compare_workflows(
 
     selectors = operation["source"]["result"]["observations"]
 
-    def input_path_present(input_path: str) -> bool:
+    def input_path_value(input_path: str) -> tuple[bool, Any]:
         value: Any = case
         for component in input_path.split("."):
             if isinstance(value, dict):
                 if component not in value:
-                    return False
+                    return False, None
                 value = value[component]
             elif isinstance(value, list) and component.isdecimal():
                 index = int(component)
                 if index >= len(value):
-                    return False
+                    return False, None
                 value = value[index]
             else:
-                return False
+                return False, None
+        return True, value
+
+    def selector_is_active(selector: dict[str, Any]) -> bool:
+        if "condition" not in selector:
+            return True
+        condition = selector["condition"]
+        exists, value = input_path_value(condition["input_key"])
+        if not exists:
+            return False
+        if "equals" in condition:
+            return value == condition["equals"]
+        if "not_equals" in condition:
+            return value != condition["not_equals"]
         return True
 
     for step_id in selected:
@@ -1117,9 +1157,7 @@ def compare_workflows(
             )
             continue
         expected_paths = {
-            selector["path"]
-            for selector in selectors
-            if "condition" not in selector or input_path_present(selector["condition"]["input_key"])
+            selector["path"] for selector in selectors if selector_is_active(selector)
         }
         if set(left_value) != expected_paths or set(right_value) != expected_paths:
             differences.append(
@@ -1136,9 +1174,7 @@ def compare_workflows(
         left_has_debug_traceback = _observation_has_debug_traceback(left_value)
         right_has_debug_traceback = _observation_has_debug_traceback(right_value)
         for selector in selectors:
-            if "condition" in selector and not input_path_present(
-                selector["condition"]["input_key"]
-            ):
+            if not selector_is_active(selector):
                 continue
             path = selector["path"]
             left_field = left_value[path]
@@ -1172,6 +1208,16 @@ def compare_workflows(
                             )
                         left_field = _normalize_isolated_python_environment_path(path, left_field)
                         right_field = _normalize_isolated_python_environment_path(path, right_field)
+                    elif kind == "starlette-import-warning-origin":
+                        if (
+                            case.get("surface") != "starlette.requests.Request"
+                            or case.get("operation") != "module-import-policy"
+                        ):
+                            raise ContractError(
+                                "Starlette import warning origin normalization is only allowed for Request import policy"
+                            )
+                        left_field = _normalize_starlette_import_warning_origin(path, left_field)
+                        right_field = _normalize_starlette_import_warning_origin(path, right_field)
                     elif kind == "multipart-range-boundary":
                         left_field = _normalize_multipart_range_boundary(
                             path, left_field, observation=left_value

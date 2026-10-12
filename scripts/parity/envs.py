@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 import hashlib
 import json
 import os
@@ -37,9 +38,27 @@ _PROCESS_ENVIRONMENT_POLICY = {
 }
 _PROBE = r"""
 import importlib.metadata as metadata
+import hashlib
 import json, platform, sys
 packages = sorted(
-    ({"name": item.metadata["Name"].lower().replace("_", "-"), "version": item.version} for item in metadata.distributions()),
+    (
+        {
+            "name": item.metadata["Name"].lower().replace("_", "-"),
+            "version": item.version,
+            **(
+                {
+                    "metadata_sha256": hashlib.sha256(
+                        item.read_text("METADATA").encode("utf-8")
+                    ).hexdigest(),
+                    "provides_extra": item.metadata.get_all("Provides-Extra") or [],
+                    "requires_dist": item.requires or [],
+                }
+                if item.metadata["Name"].lower().replace("_", "-") == "starlette"
+                else {}
+            ),
+        }
+        for item in metadata.distributions()
+    ),
     key=lambda item: item["name"],
 )
 print(json.dumps({
@@ -281,14 +300,40 @@ def _probe(python: Path, root: Path) -> dict[str, Any]:
         ) from exc
     package_rows = value["packages"]
     if not isinstance(package_rows, list) or any(
-        not isinstance(item, dict) or set(item) != {"name", "version"} for item in package_rows
+        not isinstance(item, dict)
+        or set(item)
+        != (
+            {"name", "version", "metadata_sha256", "provides_extra", "requires_dist"}
+            if item.get("name") == "starlette"
+            else {"name", "version"}
+        )
+        for item in package_rows
     ):
         raise ContractError("environment package inventory is malformed")
+    for item in package_rows:
+        if item["name"] == "starlette" and (
+            not isinstance(item["metadata_sha256"], str)
+            or len(item["metadata_sha256"]) != 64
+            or any(character not in "0123456789abcdef" for character in item["metadata_sha256"])
+            or not isinstance(item["provides_extra"], list)
+            or not all(isinstance(extra, str) for extra in item["provides_extra"])
+            or not isinstance(item["requires_dist"], list)
+            or not all(isinstance(requirement, str) for requirement in item["requires_dist"])
+        ):
+            raise ContractError("Starlette source distribution metadata identity is malformed")
     if [item["name"] for item in package_rows] != sorted(item["name"] for item in package_rows):
         raise ContractError("environment package inventory must be sorted and unique")
     if len({item["name"] for item in package_rows}) != len(package_rows):
         raise ContractError("environment contains duplicate distribution names")
     return value
+
+
+def _validate_oracle_source_distribution(probe: dict[str, Any]) -> None:
+    distributions = [item for item in probe["packages"] if item["name"] == "starlette"]
+    if len(distributions) != 1 or "full" not in distributions[0]["provides_extra"]:
+        raise ContractError(
+            "prepared oracle environment lacks pinned Starlette [full] metadata; rerun `make parity-env`"
+        )
 
 
 def _environment_fingerprints(
@@ -338,6 +383,119 @@ def _source_revision(upstream: Path) -> tuple[str, str]:
     if revision != ORACLE_COMMIT:
         raise ContractError(f"expected Starlette source {ORACLE_COMMIT}, found {revision}")
     return revision, str((upstream / "starlette").resolve())
+
+
+def _source_distribution_metadata(upstream: Path) -> tuple[str, str]:
+    """Project the pinned source's PEP 621 metadata to the fields its oracle exposes."""
+    pyproject_path = upstream / "pyproject.toml"
+    try:
+        document = tomllib.loads(pyproject_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, tomllib.TOMLDecodeError) as exc:
+        raise ContractError(f"cannot parse pinned Starlette pyproject.toml: {exc}") from exc
+    project = document.get("project")
+    if not isinstance(project, dict) or project.get("name") != "starlette":
+        raise ContractError("pinned Starlette project metadata must declare name = 'starlette'")
+
+    version = project.get("version")
+    if version is None and "version" in project.get("dynamic", []):
+        version_path = document.get("tool", {}).get("hatch", {}).get("version", {}).get("path")
+        if version_path != "starlette/__init__.py":
+            raise ContractError("pinned Starlette dynamic version path is not recognized")
+        try:
+            version_source = (upstream / version_path).read_text(encoding="utf-8")
+            version_module = ast.parse(version_source, filename=version_path)
+        except (OSError, UnicodeError, SyntaxError) as exc:
+            raise ContractError(f"cannot read pinned Starlette package version: {exc}") from exc
+        version_values = [
+            node.value.value
+            for node in version_module.body
+            if isinstance(node, ast.Assign)
+            and any(
+                isinstance(target, ast.Name) and target.id == "__version__"
+                for target in node.targets
+            )
+            and isinstance(node.value, ast.Constant)
+            and isinstance(node.value.value, str)
+        ]
+        if len(version_values) != 1:
+            raise ContractError("pinned Starlette package must declare one literal __version__")
+        version = version_values[0]
+    if not isinstance(version, str) or not version or any(char in version for char in "\r\n/\\"):
+        raise ContractError("pinned Starlette project version is malformed")
+
+    requires_python = project.get("requires-python")
+    if not isinstance(requires_python, str) or not requires_python:
+        raise ContractError("pinned Starlette project omits requires-python")
+    dependencies = project.get("dependencies", [])
+    optional_dependencies = project.get("optional-dependencies", {})
+    if not isinstance(dependencies, list) or not all(
+        isinstance(requirement, str) and requirement for requirement in dependencies
+    ):
+        raise ContractError("pinned Starlette project dependencies are malformed")
+    if not isinstance(optional_dependencies, dict) or any(
+        not isinstance(extra, str)
+        or not extra
+        or not isinstance(requirements, list)
+        or not all(isinstance(requirement, str) and requirement for requirement in requirements)
+        for extra, requirements in optional_dependencies.items()
+    ):
+        raise ContractError("pinned Starlette optional dependencies are malformed")
+    if "full" not in optional_dependencies:
+        raise ContractError("pinned Starlette project metadata omits its full extra")
+
+    lines = [
+        "Metadata-Version: 2.4",
+        "Name: starlette",
+        f"Version: {version}",
+        f"Requires-Python: {requires_python}",
+    ]
+    lines.extend(f"Requires-Dist: {requirement}" for requirement in dependencies)
+    for extra, requirements in optional_dependencies.items():
+        lines.append(f"Provides-Extra: {extra}")
+        for requirement in requirements:
+            expression, separator, marker = requirement.partition(";")
+            marker = f"({marker.strip()}) and " if separator else ""
+            lines.append(f"Requires-Dist: {expression.strip()}; {marker}extra == '{extra}'")
+    return version, "\n".join(lines) + "\n"
+
+
+def _install_source_distribution_metadata(
+    upstream: Path,
+    environment: Path,
+    interpreter: Path,
+    root: Path,
+) -> None:
+    """Expose source project metadata to importlib.metadata in the oracle venv."""
+    version, metadata_text = _source_distribution_metadata(upstream)
+    process = _run(
+        [
+            str(interpreter),
+            "-c",
+            "import json, sysconfig; print(json.dumps(sysconfig.get_path('purelib')))",
+        ],
+        cwd=root,
+        env=base_environment(),
+        timeout=30,
+    )
+    try:
+        site_packages_value = json.loads(process.stdout)
+    except json.JSONDecodeError as exc:
+        raise ContractError(
+            f"oracle interpreter emitted invalid site-packages path: {exc}"
+        ) from exc
+    if not isinstance(site_packages_value, str):
+        raise ContractError("oracle interpreter site-packages path is malformed")
+    site_packages = Path(site_packages_value).resolve()
+    if not site_packages.is_relative_to(environment.resolve()):
+        raise ContractError("oracle interpreter site-packages path escapes its virtual environment")
+
+    distribution_info = site_packages / f"starlette-{version}.dist-info"
+    if distribution_info.exists():
+        raise ContractError(
+            "oracle virtual environment already contains Starlette distribution metadata"
+        )
+    distribution_info.mkdir(parents=True)
+    (distribution_info / "METADATA").write_text(metadata_text, encoding="utf-8")
 
 
 def validate_runtime_lock(root: Path, upstream: Path) -> str:
@@ -604,6 +762,13 @@ def prepare_environments(
             timeout=600,
         )
 
+    _install_source_distribution_metadata(
+        upstream,
+        version_root / "oracle",
+        source_path,
+        root,
+    )
+
     _run(
         [str(target_path), "-m", "pip", "install", "--no-deps", str(wheel.resolve())],
         cwd=root,
@@ -616,6 +781,8 @@ def prepare_environments(
         (environment_pair[1], target_path, wheel_digest, RUNTIME_LOCK_RELATIVE, lock_digest),
     ):
         probe = _probe(interpreter, root)
+        if environment_id == environment_pair[0]:
+            _validate_oracle_source_distribution(probe)
         relative_python = interpreter.relative_to(root).as_posix()
         records.append(
             _environment_fingerprints(
@@ -757,6 +924,8 @@ def load_prepared_environments(
         ):
             raise ContractError(f"{row['id']} interpreter is not under build/parity/envs")
         probe = _probe(interpreter, root)
+        if row["id"] == environment_pair[0]:
+            _validate_oracle_source_distribution(probe)
         actual = _environment_fingerprints(
             row["id"],
             row["python"],

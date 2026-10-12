@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Collection, Iterable, Sequence
 from enum import Enum
 from re import Pattern
 from typing import Any
@@ -16,6 +16,7 @@ from starlette.exceptions import HTTPException, StarletteDeprecationWarning
 from starlette.middleware import Middleware
 from starlette.requests import Request
 from starlette.responses import PlainTextResponse, RedirectResponse
+from starlette.types import ASGIApp, Lifespan
 from starlette.websockets import WebSocket, WebSocketClose
 
 
@@ -157,7 +158,7 @@ class Route(BaseRoute):
         path: str,
         endpoint: Callable[..., Any],
         *,
-        methods: Iterable[str] | None = None,
+        methods: Collection[str] | None = None,
         name: str | None = None,
         include_in_schema: bool = True,
         middleware: Sequence[Middleware] | None = None,
@@ -487,8 +488,8 @@ class Router:
         self,
         routes: Sequence[BaseRoute] | None = None,
         redirect_slashes: bool = True,
-        default: Callable[..., Any] | None = None,
-        lifespan: Callable[..., Any] | None = None,
+        default: ASGIApp | None = None,
+        lifespan: Lifespan[Any] | None = None,
         *,
         middleware: Sequence[Middleware] | None = None,
         max_body_size: int | None = None,

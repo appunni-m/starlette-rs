@@ -4300,7 +4300,13 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
             )
         )
         or not isinstance(path, str)
-        or (not source_sparse_scope and scope_spec["scheme"] != "http")
+        or (
+            not source_sparse_scope
+            and (
+                not isinstance(scope_spec["scheme"], str)
+                or scope_spec["scheme"] not in {"http", "https"}
+            )
+        )
         or (not source_sparse_scope and not isinstance(scope_spec["http_version"], str))
         or (route_spec is not None and path != route_spec["path"])
         or (route_spec is None and downstream_spec is None and path == "/")
@@ -4334,8 +4340,9 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
     if not source_sparse_scope:
         if _decode_b64(scope_spec["raw_path_base64"], "BaseHTTPMiddleware raw path") != path.encode(
             "ascii"
-        ) or _decode_b64(scope_spec["query_string_base64"], "BaseHTTPMiddleware query string"):
-            raise ValueError("BaseHTTPMiddleware scope raw path or query input is invalid")
+        ):
+            raise ValueError("BaseHTTPMiddleware scope raw path input is invalid")
+        _decode_b64(scope_spec["query_string_base64"], "BaseHTTPMiddleware query string")
         headers = scope_spec["headers_base64_pairs"]
         if not isinstance(headers, list):
             raise ValueError("BaseHTTPMiddleware scope headers must be an array")
@@ -11743,7 +11750,8 @@ def _run_value_formatting_case(case: dict[str, Any]) -> dict[str, Any]:
         )
 
         middleware_traces: list[dict[str, Any]] = []
-        if case["asgi_workflow"]["kind"] == "pure-asgi":
+        workflow_kind = case["asgi_workflow"].get("kind")
+        if workflow_kind == "pure-asgi":
             middleware_class = make_input_pure_asgi_middleware(
                 spec["class_name"], middleware_traces, _canonical_message
             )
@@ -11765,7 +11773,7 @@ def _run_value_formatting_case(case: dict[str, Any]) -> dict[str, Any]:
             run_pure_asgi_workflow,
         )
 
-        if case["asgi_workflow"]["kind"] == "pure-asgi":
+        if workflow_kind == "pure-asgi":
             values["asgi_workflow"] = run_pure_asgi_workflow(
                 case["asgi_workflow"],
                 middleware,
@@ -13355,6 +13363,7 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         ("starlette.requests.Request", "module-import-policy"),
         ("starlette.schemas.OpenAPIResponse", "module-import-policy"),
         ("starlette.schemas.BaseSchemaGenerator", "module-import-policy"),
+        ("starlette.schemas.SchemaGenerator", "module-import-policy"),
     }:
         from scripts.parity.adapters.optional_imports import run_optional_import_case
 

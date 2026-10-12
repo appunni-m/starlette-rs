@@ -8,6 +8,8 @@ from typing import Any
 import anyio.lowlevel
 from starlette_rs_py import _core
 
+from starlette.types import ASGIApp
+
 DEFAULT_EXCLUDED_CONTENT_TYPES: tuple[str, ...] = _core.GZIP_DEFAULT_EXCLUDED_CONTENT_TYPES
 
 _gzip_capacity_limiter: anyio.lowlevel.RunVar[anyio.CapacityLimiter] = anyio.lowlevel.RunVar(
@@ -31,7 +33,7 @@ class GZipMiddleware:
 
     def __init__(
         self,
-        app: Callable[..., Any],
+        app: ASGIApp,
         minimum_size: int = 500,
         compresslevel: int = 9,
         thread_minimum_size: int = 128 * 1024,
@@ -63,7 +65,7 @@ class GZipResponder:
 
     def __init__(
         self,
-        app: Callable[..., Any],
+        app: ASGIApp,
         minimum_size: int,
         compresslevel: int = 9,
         *,

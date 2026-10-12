@@ -432,7 +432,6 @@
         "dispatch"
       ],
       "target_profiles": [
-        "rust-native-local",
         "python-package-cpython312"
       ],
       "assets": [],
@@ -564,7 +563,6 @@
         "dispatch"
       ],
       "target_profiles": [
-        "rust-native-local",
         "python-package-cpython312"
       ],
       "assets": [],
@@ -696,7 +694,6 @@
         "dispatch"
       ],
       "target_profiles": [
-        "rust-native-local",
         "python-package-cpython312"
       ],
       "assets": [],
@@ -824,7 +821,6 @@
         "dispatch"
       ],
       "target_profiles": [
-        "rust-native-local",
         "python-package-cpython312"
       ],
       "assets": [],

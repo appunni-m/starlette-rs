@@ -9,6 +9,7 @@ from typing import Any, Literal
 
 from starlette_rs_py import _core
 
+from starlette.background import BackgroundTask
 from starlette.datastructures import URL, MutableHeaders
 
 _ContentChunk = str | bytes | memoryview
@@ -141,7 +142,7 @@ class StreamingResponse(Response):
         status_code: int = 200,
         headers: Mapping[str, str] | None = None,
         media_type: str | None = None,
-        background: Any = None,
+        background: BackgroundTask | None = None,
     ) -> None:
         _core.Response.initialize_stream(
             self, (content, status_code, headers, media_type, background)
@@ -171,7 +172,7 @@ class FileResponse(Response):
         status_code: int = 200,
         headers: Mapping[str, str] | None = None,
         media_type: str | None = None,
-        background: Any = None,
+        background: BackgroundTask | None = None,
         filename: str | None = None,
         stat_result: os.stat_result | None = None,
         content_disposition_type: str = "attachment",
@@ -273,7 +274,7 @@ class JSONResponse(Response):
         status_code: int = 200,
         headers: Mapping[str, str] | None = None,
         media_type: str | None = None,
-        background: Any = None,
+        background: BackgroundTask | None = None,
     ) -> None:
         super().__init__(content, status_code, headers, media_type, background)
 

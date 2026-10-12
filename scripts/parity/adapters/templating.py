@@ -57,7 +57,6 @@ def run_template_public_case(case: dict[str, Any]) -> dict[str, Any]:
         "rendered_templates": [],
         "responses": [],
         "processor_trace": [],
-        "processor_await_trace": [],
         "middleware_trace": [],
         "asgi_events": [],
     }
@@ -109,10 +108,7 @@ def run_template_public_case(case: dict[str, Any]) -> dict[str, Any]:
         return processor
 
     def async_processor(additions: dict[str, Any]) -> Any:
-        async def processor(request: Any) -> dict[str, Any]:
-            observed["processor_await_trace"].append(
-                {"request_path": request.url.path, "additions": dict(additions)}
-            )
+        async def processor(_request: Any) -> dict[str, Any]:
             return dict(additions)
 
         return processor
@@ -163,8 +159,8 @@ def run_template_public_case(case: dict[str, Any]) -> dict[str, Any]:
                     [roots[item] for item in environment["directory_ids"]]
                 ),
                 autoescape=environment["autoescape"],
-                filters=custom_filters,
             )
+            supplied_environment.filters.update(custom_filters)
             arguments["env"] = supplied_environment
 
         try:
@@ -340,8 +336,6 @@ def _run_template_client(
             )
     finally:
         client.close()
-
-    observed["processor_await_count"] = len(observed["processor_await_trace"])
 
 
 def _make_scope(spec: dict[str, Any]) -> dict[str, Any]:
