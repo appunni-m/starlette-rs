@@ -1179,6 +1179,7 @@ RESPONSE_BACKGROUND_REQUIREMENTS = {
     "task_cancelled_exception": "starlette.responses.Response.asgi-call.background-task-cancellation-exception-propagates",
     "sync_task_cancellation": "starlette.responses.Response.asgi-call.background-sync-task-cancellation",
     "task_list_sync_cancellation": "starlette.responses.Response.asgi-call.background-task-list-sync-cancellation",
+    "task_list_async_cancellation": "starlette.responses.Response.asgi-call.background-task-list-async-cancellation",
     "task_list_live_mutation": "starlette.responses.Response.asgi-call.background-task-live-list-mutation",
     "sync_noncallable_error": "starlette.responses.Response.asgi-call.background-sync-noncallable-error",
 }
@@ -5794,11 +5795,16 @@ def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
                         else "sync_task_cancellation"
                     )
                     derived = [RESPONSE_BACKGROUND_REQUIREMENTS[cancellation_requirement]]
-                elif kind == "task-list" and len(tasks) >= 2 and tasks[0]["mode"] == "sync":
-                    derived = [RESPONSE_BACKGROUND_REQUIREMENTS["task_list_sync_cancellation"]]
+                elif kind == "task-list" and len(tasks) >= 2:
+                    cancellation_requirement = (
+                        "task_list_sync_cancellation"
+                        if tasks[0]["mode"] == "sync"
+                        else "task_list_async_cancellation"
+                    )
+                    derived = [RESPONSE_BACKGROUND_REQUIREMENTS[cancellation_requirement]]
                 else:
                     raise ContractError(
-                        "Response background cancellation requires one task or a list beginning with a sync callback"
+                        "Response background cancellation requires one task or a BackgroundTasks list"
                     )
             elif has_noncallable_shape:
                 derived = [RESPONSE_BACKGROUND_REQUIREMENTS["sync_noncallable_error"]]

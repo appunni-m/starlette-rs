@@ -1,8 +1,8 @@
 # Migration parity contract and evidence
 
-The working-tree input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@5`, `scope.mode: slice`, and `parity-input@48`. It currently contains 2,080 cases across 174 parity inputs, two benchmark inputs, 134 operations, and 1,092 parity requirements. The source inventory has 837 rows: 782 input mappings, 55 source-backed `not_applicable` rows, and zero fixture-backlog rows.
+The working-tree input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@5`, `scope.mode: slice`, and `parity-input@48`. It currently contains 2,081 cases across 174 parity inputs, two benchmark inputs, 134 operations, and 1,093 parity requirements. The source inventory has 838 rows: 783 input mappings, 55 source-backed `not_applicable` rows, and zero fixture-backlog rows.
 
-The latest clean full parity preflight, `dc8c8ca6-f2b7-449b-9f53-45860e3cad4c`, passed 2,254/2,254 comparisons for the preceding 1,992-case contract: 1,988 Python-package and 266 Rust-native comparisons, with zero failures, infrastructure errors, or `not_run` rows. Both target-only fault contracts passed on clean revision `57aab659fb09cd252df110cc9daef7eeaec1ea1a`. Later @48 additions cover optional-backend behavior, WebSocket authorization, Router truthiness, BaseHTTPMiddleware iterator cancellation, response subclasses, Python-version applicability, StaticFiles OS-specific paths and NUL handling, StreamingResponse OSError mapping and await-factory exhaustion, TestClient callback decoding, BaseException and close-code behavior, WebSocket close-code forwarding, CPython custom-regex syntax, AuthenticationMiddleware iterable backend results, nested Host/Mount reverse lookup, Request body retry and interleaved iterator consumption after `http.disconnect`, cached Request.is_disconnected() state after body/stream disconnect observations, and async background-list failure ordering. The additional BackgroundTasks live-list mutation and StreamingResponse caller-cancellation inputs also remain unexecuted; full parity remains deferred until implementation closes.
+The latest clean full parity preflight, `dc8c8ca6-f2b7-449b-9f53-45860e3cad4c`, passed 2,254/2,254 comparisons for the preceding 1,992-case contract: 1,988 Python-package and 266 Rust-native comparisons, with zero failures, infrastructure errors, or `not_run` rows. Both target-only fault contracts passed on clean revision `57aab659fb09cd252df110cc9daef7eeaec1ea1a`. Later @48 additions cover optional-backend behavior, WebSocket authorization, Router truthiness, BaseHTTPMiddleware iterator cancellation, response subclasses, Python-version applicability, StaticFiles OS-specific paths and NUL handling, StreamingResponse OSError mapping and await-factory exhaustion, TestClient callback decoding, BaseException and close-code behavior, WebSocket close-code forwarding, CPython custom-regex syntax, AuthenticationMiddleware iterable backend results, nested Host/Mount reverse lookup, Request body retry and interleaved iterator consumption after `http.disconnect`, cached Request.is_disconnected() state after body/stream disconnect observations, and async background-list failure ordering. The additional BackgroundTasks live-list mutation and async-list cancellation, plus StreamingResponse caller-cancellation inputs also remain unexecuted; full parity remains deferred until implementation closes.
 
 Coverage MCP run `fd5b3b63-9ddc-44bd-bf38-35ecbc260dbe` measured 19,909/28,139 Rust lines (70.7%), with 8,230 uncovered lines, for the preceding contract. It reported `status=measured`, `source=matches_receipt`, and `tests=passed`. The LCOV report and receipt remain under ignored `build/parity/coverage/full-starlette-1.6.0-20261012-57aab65/`; this measurement is not current for the post-run contract and WebSocket input changes.
 
@@ -915,6 +915,13 @@ Python adapter supplies and observes user callbacks at the Python boundary.
 Additional synchronous cancellation schedules, context-variable behavior
 beyond the separate input below, concurrency, and broader middleware/error
 interactions with background failures remain unproven.
+
+The active contract now also contains an unexecuted input-only case for
+cancellation inside an async `BackgroundTasks` list. It cancels the response
+after the first callback starts waiting, observes its cancellation and
+finalization plus the propagated `CancelledError`, and records that the later
+callback stays unstarted. The case uses the same live source/package adapters;
+it does not add runtime behavior.
 
 The separate
 [`response-asgi-callbacks.yaml`](../tests/fixtures/sources/parity/response-asgi-callbacks.yaml)
