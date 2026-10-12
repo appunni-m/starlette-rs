@@ -1,8 +1,8 @@
 # Migration parity contract and evidence
 
-The working-tree input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@5`, `scope.mode: slice`, and `parity-input@48`. It currently contains 2,081 cases across 174 parity inputs, two benchmark inputs, 134 operations, and 1,093 parity requirements. The source inventory has 838 rows: 783 input mappings, 55 source-backed `not_applicable` rows, and zero fixture-backlog rows.
+The working-tree input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@5`, `scope.mode: slice`, and `parity-input@48`. It currently contains 2,082 cases across 174 parity inputs, two benchmark inputs, 134 operations, and 1,094 parity requirements. The source inventory has 839 rows: 784 input mappings, 55 source-backed `not_applicable` rows, and zero fixture-backlog rows.
 
-The latest clean full parity preflight, `dc8c8ca6-f2b7-449b-9f53-45860e3cad4c`, passed 2,254/2,254 comparisons for the preceding 1,992-case contract: 1,988 Python-package and 266 Rust-native comparisons, with zero failures, infrastructure errors, or `not_run` rows. Both target-only fault contracts passed on clean revision `57aab659fb09cd252df110cc9daef7eeaec1ea1a`. Later @48 additions cover optional-backend behavior, WebSocket authorization, Router truthiness, BaseHTTPMiddleware iterator cancellation, response subclasses, Python-version applicability, StaticFiles OS-specific paths and NUL handling, StreamingResponse OSError mapping and await-factory exhaustion, TestClient callback decoding, BaseException and close-code behavior, WebSocket close-code forwarding, CPython custom-regex syntax, AuthenticationMiddleware iterable backend results, nested Host/Mount reverse lookup, Request body retry and interleaved iterator consumption after `http.disconnect`, cached Request.is_disconnected() state after body/stream disconnect observations, and async background-list failure ordering. The additional BackgroundTasks live-list mutation and async-list cancellation, plus StreamingResponse caller-cancellation inputs also remain unexecuted; full parity remains deferred until implementation closes.
+The latest clean full parity preflight, `dc8c8ca6-f2b7-449b-9f53-45860e3cad4c`, passed 2,254/2,254 comparisons for the preceding 1,992-case contract: 1,988 Python-package and 266 Rust-native comparisons, with zero failures, infrastructure errors, or `not_run` rows. Both target-only fault contracts passed on clean revision `57aab659fb09cd252df110cc9daef7eeaec1ea1a`. Later @48 additions cover optional-backend behavior, WebSocket authorization, Router truthiness, BaseHTTPMiddleware iterator cancellation, response subclasses, Python-version applicability, StaticFiles OS-specific paths and NUL handling, StreamingResponse OSError mapping and await-factory exhaustion, TestClient callback decoding, BaseException and close-code behavior, WebSocket close-code forwarding, CPython custom-regex syntax, AuthenticationMiddleware iterable backend results, nested Host/Mount reverse lookup, Request body retry and interleaved iterator consumption after `http.disconnect`, cached Request.is_disconnected() state after body/stream disconnect observations, and async background-list failure ordering. The additional BackgroundTasks live-list mutation, async-list cancellation, and sync cancellation-then-worker-error inputs, plus StreamingResponse caller-cancellation inputs also remain unexecuted; full parity remains deferred until implementation closes.
 
 Coverage MCP run `fd5b3b63-9ddc-44bd-bf38-35ecbc260dbe` measured 19,909/28,139 Rust lines (70.7%), with 8,230 uncovered lines, for the preceding contract. It reported `status=measured`, `source=matches_receipt`, and `tests=passed`. The LCOV report and receipt remain under ignored `build/parity/coverage/full-starlette-1.6.0-20261012-57aab65/`; this measurement is not current for the post-run contract and WebSocket input changes.
 
@@ -898,14 +898,15 @@ full-slice run; the Python facade and Rust-backed `Config` preserve Starlette's
 ### Response background tasks: bounded parity
 
 [`background-tasks.yaml`](../tests/fixtures/sources/parity/background-tasks.yaml)
-contains fourteen package-profile cases with callback mode, arguments, failure,
+contains twenty-two package-profile cases with callback mode, arguments, failure,
 callable shape, and task-list construction supplied by each input. They cover
 async and sync functions, bound methods, callable objects, partials, nested
 partials, sequential ordering, both task-list construction paths, and failure
 propagation that prevents later callbacks from running. The response send tape
 and background callback trace are observed from both pinned source and installed
-package; no output values are encoded in the fixture. All fourteen cases pass
-exact source/package comparison in the latest integrated run. The async
+package; no output values are encoded in the fixture. The earlier integrated run
+covered the fourteen cases then indexed; all passed exact source/package
+comparison. The async
 cancellation case records propagated `CancelledError`, callback cancellation,
 finalization, and response events. The synchronous cancellation case holds its
 worker callback until cancellation reaches the response task, then compares
@@ -922,6 +923,15 @@ after the first callback starts waiting, observes its cancellation and
 finalization plus the propagated `CancelledError`, and records that the later
 callback stays unstarted. The case uses the same live source/package adapters;
 it does not add runtime behavior.
+
+Another unexecuted input cancels `Response.__call__` while a synchronous
+callback waits in its AnyIO worker, then releases the callback to raise. It
+records the send tape, callback start, release, error and finalization,
+worker-thread role, and the public exception. Starlette uses
+`anyio.to_thread.run_sync`; locked AnyIO 4.15.1's asyncio backend awaits a
+worker future and only publishes its error while that future is not cancelled
+(`anyio/_backends/_asyncio.py:2650-2706, 1068-1084`). The cancellation and
+worker-error interaction remains unverified until parity runs.
 
 The separate
 [`response-asgi-callbacks.yaml`](../tests/fixtures/sources/parity/response-asgi-callbacks.yaml)

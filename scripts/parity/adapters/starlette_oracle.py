@@ -283,6 +283,7 @@ def _input_background_tasks(
     event_loop_thread_id: list[int | None],
     cancellation_started: asyncio.Event | None = None,
     cancellation_release: threading.Event | None = None,
+    cancellation_finished: asyncio.Event | None = None,
     event_loop: list[asyncio.AbstractEventLoop | None] | None = None,
 ) -> Any:
     from starlette.background import BackgroundTask, BackgroundTasks
@@ -377,7 +378,12 @@ def _input_background_tasks(
                         before_complete,
                     )
                     return
-                if cancellation_release is None or event_loop is None or event_loop[0] is None:
+                if (
+                    cancellation_release is None
+                    or cancellation_finished is None
+                    or event_loop is None
+                    or event_loop[0] is None
+                ):
                     raise RuntimeError(
                         "synchronous background cancellation controls are unavailable"
                     )
@@ -396,20 +402,37 @@ def _input_background_tasks(
                 )
                 execution_trace.append({"event": "task-awaiting-release", "task_index": task_index})
                 event_loop[0].call_soon_threadsafe(cancellation_started.set)
-                if not cancellation_release.wait(timeout=5.0):
-                    raise TimeoutError("synchronous background task was not released")
-                execution_trace.append({"event": "task-release-observed", "task_index": task_index})
-                if failure is not None:
+                try:
+                    if not cancellation_release.wait(timeout=5.0):
+                        raise TimeoutError("synchronous background task was not released")
+                    execution_trace.append(
+                        {"event": "task-release-observed", "task_index": task_index}
+                    )
+                    if failure is not None:
+                        execution_trace.append(
+                            {
+                                "event": "task-error",
+                                "task_index": task_index,
+                                "class": failure["kind"],
+                                "message": failure["message"],
+                                "thread": "worker",
+                            }
+                        )
+                        raise Exception(failure["message"])
+                    execution_trace.append({"event": "task-complete", "task_index": task_index})
+                finally:
                     execution_trace.append(
                         {
-                            "event": "task-error",
+                            "event": "task-finally",
                             "task_index": task_index,
-                            "class": failure["kind"],
-                            "message": failure["message"],
+                            "thread": (
+                                "event-loop"
+                                if threading.get_ident() == event_loop_thread_id[0]
+                                else "worker"
+                            ),
                         }
                     )
-                    raise Exception(failure["message"])
-                execution_trace.append({"event": "task-complete", "task_index": task_index})
+                    event_loop[0].call_soon_threadsafe(cancellation_finished.set)
 
         callable_spec = task_spec.get("callable", {"kind": "function"})
         callable_kind = callable_spec["kind"]
@@ -10514,6 +10537,7 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
         )
     )
     background_release = threading.Event() if synchronous_background_control else None
+    background_finished = asyncio.Event() if synchronous_background_control else None
     background_event_loop: list[asyncio.AbstractEventLoop | None] = [None]
 
     from starlette.responses import JSONResponse, Response, StreamingResponse
@@ -10601,6 +10625,7 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
             event_loop_thread_id,
             background_started,
             background_release,
+            background_finished,
             background_event_loop,
         )
     response = response_type(**response_arguments)
@@ -10826,14 +10851,23 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
                     raise
                 response_task.cancel()
                 if synchronous_background_control:
-                    await asyncio.sleep(0)
-                    if background_execution_trace is None or background_release is None:
+                    if (
+                        background_execution_trace is None
+                        or background_release is None
+                        or background_finished is None
+                    ):
                         raise RuntimeError(
                             "synchronous background cancellation state is unavailable"
                         )
+                    await asyncio.sleep(0)
                     background_execution_trace.append({"event": "response-cancellation-requested"})
                     background_release.set()
-                await response_task
+                    try:
+                        await response_task
+                    finally:
+                        await asyncio.wait_for(background_finished.wait(), timeout=5.0)
+                else:
+                    await response_task
 
             try:
                 asyncio.run(dispatch_and_cancel_background())

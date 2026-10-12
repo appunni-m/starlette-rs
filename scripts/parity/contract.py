@@ -1178,6 +1178,7 @@ RESPONSE_BACKGROUND_REQUIREMENTS = {
     "task_cancellation": "starlette.responses.Response.asgi-call.background-task-cancellation",
     "task_cancelled_exception": "starlette.responses.Response.asgi-call.background-task-cancellation-exception-propagates",
     "sync_task_cancellation": "starlette.responses.Response.asgi-call.background-sync-task-cancellation",
+    "sync_task_cancellation_worker_error": "starlette.responses.Response.asgi-call.background-sync-task-cancellation-worker-error",
     "task_list_sync_cancellation": "starlette.responses.Response.asgi-call.background-task-list-sync-cancellation",
     "task_list_async_cancellation": "starlette.responses.Response.asgi-call.background-task-list-async-cancellation",
     "task_list_live_mutation": "starlette.responses.Response.asgi-call.background-task-live-list-mutation",
@@ -5784,11 +5785,25 @@ def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
                     has_callable_shape |= callable_kind != "function"
 
             if background_control is not None:
-                if failures or has_callable_shape or has_live_task_list_mutation:
+                if has_callable_shape or has_live_task_list_mutation:
                     raise ContractError(
-                        "Response background cancellation requires plain callbacks without failures"
+                        "Response background cancellation requires plain callbacks without live list mutation"
                     )
-                if kind == "single-task" and len(tasks) == 1:
+                if failures:
+                    if (
+                        kind != "single-task"
+                        or len(tasks) != 1
+                        or tasks[0]["mode"] != "sync"
+                        or failures != [0]
+                        or tasks[0]["failure"]["kind"] != "Exception"
+                    ):
+                        raise ContractError(
+                            "Response cancellation with a worker error requires one synchronous callback that raises Exception"
+                        )
+                    derived = [
+                        RESPONSE_BACKGROUND_REQUIREMENTS["sync_task_cancellation_worker_error"]
+                    ]
+                elif kind == "single-task" and len(tasks) == 1:
                     cancellation_requirement = (
                         "task_cancellation"
                         if tasks[0]["mode"] == "async"

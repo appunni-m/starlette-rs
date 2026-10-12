@@ -13,9 +13,9 @@ implementation closes, run the complete source/package and Rust-native parity
 matrix, repair mismatches across families, measure coverage from that full
 matrix, reconcile the source atlas, then run all correctness-gated benchmarks.
 
-The working-tree contract currently declares 2,081 input cases across 174
-parity inputs and two benchmark inputs, 134 operations, and 1,093 parity
-requirements. The generated atlas has 838 source rows: 783 input mappings, 55
+The working-tree contract currently declares 2,082 input cases across 174
+parity inputs and two benchmark inputs, 134 operations, and 1,094 parity
+requirements. The generated atlas has 839 source rows: 784 input mappings, 55
 source-backed `not_applicable` dispositions, and zero fixture-backlog rows.
 These counts describe inventory and evidence coverage; they do not establish
 that every documented behavior is implemented or compatible.
@@ -24,7 +24,7 @@ that every documented behavior is implemented or compatible.
 
 | Phase | State | Evidence |
 | --- | --- | --- |
-| Implementation | In progress. | `make contract-check` passes for the current 2,081-case input set. Source inventory passes with 838 rows / 783 input mappings / 55 reasoned `not_applicable` / zero backlog; `make lint`, `make check`, `git diff --check`, and `python3 scripts/check_docs.py` pass. Recent source-backed implementation inputs also cover Request.body()/Request.stream() disconnect state reused by Request.is_disconnected(); those comparisons remain unexecuted. Recent source-backed implementation inputs cover BaseHTTP response-header mapping lookup, BackgroundTasks synchronous non-callable and async cancellation errors, ExceptionMiddleware live handler registration, GZip raw-header case-insensitive lookup, Request cached-header behavior after scope replacement, Request.body retry after cancellation during partial receive, StaticFiles named-timezone and omitted-timezone parsing, TestClient WebSocket cleanup-error precedence/context, reentrant lifespan entry, mutable WebSocket.application_state assignment, empty-path root Mount dispatch, StreamingResponse AsyncIterable classification with descriptor errors deferred until iteration, BackgroundTasks live-list mutation and async-list cancellation, and caller cancellation during a blocked StreamingResponse send. Two raw TestClient inputs now cover normal return without any ASGI message with both raise_server_exceptions settings; these comparisons remain unexecuted. A separate response-consumer input covers synchronous BackgroundTask ContextVar propagation and remains unexecuted. The Request cached-header case is Python-package-only because the public Rust-native API has no Request consumer interface. All new comparisons remain unexecuted. Previous source audits fixed multipart ISO-8859-1 decoding, FileResponse negative-zero range parsing, live Router method mutation, WebSocket send errors for non-string event types, BackgroundTask `kwargs` mapping expansion, synchronous WebSocketEndpoint `on_disconnect` failures being retried, and SessionMiddleware's out-of-range signed timestamp conversion. The new lowercase-method Router case and session timestamp case remain unexecuted. Earlier StaticFiles `get_response`, TestClient accepted-session app-error stream closure and completed-response exception propagation, StreamingResponse gated-send backpressure, WebSocketEndpoint hook-failure/context, and bracketed IPv6 Host cases also remain unexecuted. The stateful StaticFiles PathLike, UploadFile write-error, TestClient asyncio-marked ASGI3, and background/WebSocket comparisons are authored but unexecuted. BaseHTTP pathsend/error, StreamingResponse ordering, StaticFiles stateful PathLike, and ExceptionMiddleware WebSocket exception audits found no additional source-confirmed mismatch. No full parity, coverage, or benchmark phase has run for these additions. |
+| Implementation | In progress. | `make contract-check` passes for the current 2,082-case input set. Source inventory passes with 839 rows / 784 input mappings / 55 reasoned `not_applicable` / zero backlog; `make lint`, `make check`, `git diff --check`, and `python3 scripts/check_docs.py` pass. Recent source-backed implementation inputs also cover Request.body()/Request.stream() disconnect state reused by Request.is_disconnected(); those comparisons remain unexecuted. Recent source-backed implementation inputs cover BaseHTTP response-header mapping lookup, BackgroundTasks synchronous non-callable and async cancellation errors, ExceptionMiddleware live handler registration, GZip raw-header case-insensitive lookup, Request cached-header behavior after scope replacement, Request.body retry after cancellation during partial receive, StaticFiles named-timezone and omitted-timezone parsing, TestClient WebSocket cleanup-error precedence/context, reentrant lifespan entry, mutable WebSocket.application_state assignment, empty-path root Mount dispatch, StreamingResponse AsyncIterable classification with descriptor errors deferred until iteration, BackgroundTasks live-list mutation and async-list cancellation, synchronous cancellation followed by a worker error, and caller cancellation during a blocked StreamingResponse send. Two raw TestClient inputs now cover normal return without any ASGI message with both raise_server_exceptions settings; these comparisons remain unexecuted. A separate response-consumer input covers synchronous BackgroundTask ContextVar propagation and remains unexecuted. The Request cached-header case is Python-package-only because the public Rust-native API has no Request consumer interface. All new comparisons remain unexecuted. Previous source audits fixed multipart ISO-8859-1 decoding, FileResponse negative-zero range parsing, live Router method mutation, WebSocket send errors for non-string event types, BackgroundTask `kwargs` mapping expansion, synchronous WebSocketEndpoint `on_disconnect` failures being retried, and SessionMiddleware's out-of-range signed timestamp conversion. The new lowercase-method Router case and session timestamp case remain unexecuted. Earlier StaticFiles `get_response`, TestClient accepted-session app-error stream closure and completed-response exception propagation, StreamingResponse gated-send backpressure, WebSocketEndpoint hook-failure/context, and bracketed IPv6 Host cases also remain unexecuted. The stateful StaticFiles PathLike, UploadFile write-error, TestClient asyncio-marked ASGI3, and background/WebSocket comparisons are authored but unexecuted. BaseHTTP pathsend/error, StreamingResponse ordering, StaticFiles stateful PathLike, and ExceptionMiddleware WebSocket exception audits found no additional source-confirmed mismatch. No full parity, coverage, or benchmark phase has run for these additions. |
 | Full parity and grouped repairs | Deferred until implementation closes. | The latest clean run, `dc8c8ca6-f2b7-449b-9f53-45860e3cad4c`, passed 2,254/2,254 comparisons for the preceding 1,992-case, 140-parity-input contract. Later optional-backend, WebSocket authorization, Router truthiness, BaseHTTPMiddleware iterator, StaticFiles path, response-protocol, close-code, TestClient exception, raw TestClient no-response return, custom-regex, Request stream retry, WebSocketEndpoint error-finalization, BaseHTTPMiddleware dispatch short-circuiting, StreamingResponse terminal-send failure, TestClient streamed request bodies, invalid initial WebSocket.accept events, Last-Modified If-Range matching, exception-class MRO precedence, Request receive-error retry, Request body retry after partial receive cancellation, empty root Mount dispatch, lazy StreamingResponse iterator acquisition after a failed response-start send, AsyncIterable descriptor failure after response-start, normal-return incomplete TestClient response, asyncio-marked TestClient ASGI3, WebSocketEndpoint hook-failure/context, bracketed IPv6 Host, StaticFiles `get_response` override, TestClient accepted-session error stream closure and completed-response exception propagation, StreamingResponse gated-send backpressure, WebSocket non-string send-type, BackgroundTask `kwargs` mapping expansion, and synchronous WebSocketEndpoint `on_disconnect` failure cases are not included. The stateful StaticFiles PathLike, UploadFile write-error, BackgroundTasks live-list mutation, and StreamingResponse caller-cancellation comparisons are also outside that run. |
 | Full coverage and source reconciliation | Deferred until the full parity phase. | The latest measured run, `fd5b3b63-9ddc-44bd-bf38-35ecbc260dbe`, covered 19,909/28,139 Rust lines (70.7%) for the preceding contract. |
 | All benchmarks | Deferred until coverage. | The latest run, `13ea2d04-7f31-4c12-93cd-855df93df8b0`, measured 74/74 source/package workloads for the preceding contract: six Router and 68 GZip workloads. |
@@ -80,8 +80,8 @@ also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
 The active parity contract is `parity-input@48`: the working tree currently
-indexes 2,081 input cases across 174 parity files, two benchmark files, 134
-operations, and 1,093 parity requirements. The latest clean full parity,
+indexes 2,082 input cases across 174 parity files, two benchmark files, 134
+operations, and 1,094 parity requirements. The latest clean full parity,
 coverage, and benchmark receipts belong to the preceding 1,992-case, 140-file
 contract. The generated source-row,
 mapping, `not_applicable`, and backlog totals live in
@@ -170,7 +170,7 @@ That integrated run includes the focused `parity-input@23` through `@27` additio
 The two BaseHTTPMiddleware ContextVar observer comparisons pass exactly against
 the pinned source and installed package in the integrated run.
 
-The latest generated coverage matrix contains 838 source rows: 783 input
+The latest generated coverage matrix contains 839 source rows: 784 input
 mappings, 55 source-backed `not_applicable` rows, and zero fixture-backlog rows.
 Refresh these counts from the generated atlas CSV files after changing fixture
 dispositions.
@@ -181,7 +181,7 @@ Additional bounded comparisons include six WSGIMiddleware cases, two direct
 `build_environ` cases, and the module-import deprecation warning case. The
 async endpoint-boundary input checks caller loop/task/thread ownership,
 cancellation, and endpoint finalization. Current fixture coverage also includes
-14 response-background-task workflows, 31 FileResponse behavior cases, 20 URL
+22 response-background-task workflows, 31 FileResponse behavior cases, 20 URL
 scope cases, 14 URL component cases, ten Headers/MutableHeaders cases, and
 24 BaseHTTPMiddleware cases. These slices pass only for their declared inputs
 and profiles; detailed observations, limitations, and run identities remain in
@@ -600,7 +600,7 @@ synchronous background-callback cancellation through StreamingResponse, ASGI 2.4
 ### Completed bounded goal: Response background task sequencing
 
 [`background-tasks.yaml`](../tests/fixtures/sources/parity/background-tasks.yaml)
-contains fourteen package-profile cases with callback mode, arguments, failure,
+contains twenty-two package-profile cases with callback mode, arguments, failure,
 callable shape, and task-list construction supplied by each input. They cover
 async and sync functions, bound methods, callable objects, partials, nested
 partials, callback arguments, response-send ordering, worker-thread execution
@@ -608,15 +608,23 @@ for synchronous callbacks, both `BackgroundTasks` construction paths,
 sequential execution, and propagation that stops later tasks after the first
 failure. The cancellation case cancels a response after its async callback
 starts and compares the propagated `CancelledError`, callback cancellation,
-finalizer, and response event tape. The latest integrated run covers all
-fourteen cases, and each passes exact source/package comparison. The
-synchronous cancellation case is included in that full profile. The active
+finalizer, and response event tape. The earlier integrated run covered the fourteen cases then indexed, and each
+passed exact source/package comparison. The single-task async and sync
+cancellation cases are included in that historical profile. The active
 fixture crosswalk promotes the
 callable-shape behavior alongside the previously mapped BackgroundTask
 behaviors. A new input-only case also cancels `Response.__call__` while the
 first async callback in a two-task `BackgroundTasks` list is awaiting; it
 records cancellation/finalization, the propagated `CancelledError`, and that
 the second callback never starts. This comparison is authored but unexecuted.
+Another input cancels `Response.__call__` while a synchronous `BackgroundTask`
+waits in its AnyIO worker, then releases the callback to raise. Its trace
+records the response send tape, worker callback start, release, error and
+finalization, plus the propagated public exception. Starlette routes the
+callback through `anyio.to_thread.run_sync`; the locked AnyIO 4.15.1 asyncio
+backend awaits the worker future and publishes worker errors only while that
+future is not cancelled (`anyio/_backends/_asyncio.py:2650-2706, 1068-1084`).
+The cancellation/error interaction remains unverified until parity runs.
 
 This remains a bounded slice. Additional synchronous cancellation schedules,
 context-variable behavior beyond the separate input below, concurrency, and
