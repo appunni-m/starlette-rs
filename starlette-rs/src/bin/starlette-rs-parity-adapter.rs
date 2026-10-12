@@ -845,7 +845,7 @@ fn run_native_service_case(case: &Value) -> Result<Value, String> {
         match block_on(tower_service::Service::call(&mut application, request)) {
             Ok(response) => Some(response),
             Err(error) => {
-                service_error = Some(error.to_string());
+                service_error = Some(native_application_error_message(&error));
                 None
             }
         }
@@ -855,7 +855,7 @@ fn run_native_service_case(case: &Value) -> Result<Value, String> {
         match poll {
             Poll::Ready(Ok(response)) => Some(response),
             Poll::Ready(Err(error)) => {
-                service_error = Some(error.to_string());
+                service_error = Some(native_application_error_message(&error));
                 None
             }
             Poll::Pending => None,
@@ -1240,7 +1240,7 @@ where
                     Ok(response)
                 }
                 Err(error) => {
-                    let message = native_tower_error_message(&error);
+                    let message = native_application_error_message(&error);
                     layer.record_event(call_id.as_deref(), "error", None, Some(&message));
                     Err(error)
                 }
@@ -1249,7 +1249,7 @@ where
     }
 }
 
-fn native_tower_error_message(error: &NativeApplicationError) -> String {
+fn native_application_error_message(error: &NativeApplicationError) -> String {
     error
         .source()
         .map_or_else(|| error.to_string(), std::string::ToString::to_string)
@@ -1637,7 +1637,7 @@ fn run_native_service_middleware_case(case: &Value) -> Result<Value, String> {
             Err(error) => service_results.push(json!({
                 "call_id": call_id.clone(),
                 "kind": "error",
-                "message": native_tower_error_message(&error),
+                "message": native_application_error_message(&error),
             })),
         }
         let count = request_poll_trace

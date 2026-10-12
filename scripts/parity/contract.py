@@ -413,6 +413,7 @@ BASE_HTTP_REQUIREMENTS = {
     "shared_request_state": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.shared-request-state-across-middleware-layers",
     "stacked_disconnect_background_lifecycle": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.stacked-client-disconnect-background-lifecycle",
     "response_header_get_missing": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.call-next-response-headers-mapping-get",
+    "return_call_next_response_with_closed_body_iterator": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.return-call-next-response-with-closed-body-iterator",
 }
 SESSION_REQUIREMENTS = {
     "construct": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.construct",
@@ -12198,6 +12199,7 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
             requirements.add(
                 BASE_HTTP_REQUIREMENTS["dispatch_stream_after_downstream_stream_consumption"]
             )
+    closed_response_body_iterator = False
     if downstream is not None and downstream["kind"] == "asgi-sequence":
         if returned == "replacement":
             if request["receive_after_events"] != "block" or send_checkpoints != [0, 1]:
@@ -12243,6 +12245,42 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
         ):
             raise ContractError(
                 "downstream ASGI pass-through requires a completed call_next header observation and blocking receive"
+            )
+        if saw_response_body_read:
+            downstream_steps = downstream["steps"]
+            body_messages = [
+                step["message"]
+                for step in downstream_steps[:-1]
+                if step.get("kind") == "send"
+                and isinstance(step.get("message"), dict)
+                and step["message"].get("type") == "http.response.body"
+            ]
+            action_kinds = [action["kind"] for action in actions]
+            closed_response_body_iterator = (
+                returned == "call-next"
+                and action_kinds
+                == [
+                    "await-call-next",
+                    "observe-call-next-response-headers",
+                    "read-call-next-response-body-next-and-close",
+                    "return-call-next-response",
+                ]
+                and not saw_response_iterator_overlap
+                and request["receive_after_events"] == "block"
+                and not send_checkpoints
+                and len(body_messages) >= 2
+                and all(message.get("more_body") is True for message in body_messages)
+                and all(
+                    bool(base64.b64decode(message["body_base64"], validate=True))
+                    for message in body_messages
+                )
+            )
+            if not closed_response_body_iterator:
+                raise ContractError(
+                    "closing a call_next response body iterator requires a returned call_next response, one body read/close, at least two non-empty nonterminal body sends, and a blocked downstream receive"
+                )
+            requirements.add(
+                BASE_HTTP_REQUIREMENTS["return_call_next_response_with_closed_body_iterator"]
             )
     elif downstream is not None and downstream["kind"] == "stream-until-disconnect-app":
         request_body_events = [event for event in request_events if event["type"] == "http.request"]
@@ -12354,8 +12392,9 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
         raise ContractError(
             "Request.is_disconnected BaseHTTP input requires a receive-sequence app"
         )
-    if saw_response_body_read and (
-        downstream is None or downstream["kind"] != "stream-until-disconnect-app"
+    if saw_response_body_read and not (
+        (downstream is not None and downstream["kind"] == "stream-until-disconnect-app")
+        or closed_response_body_iterator
     ):
         raise ContractError(
             "call_next response body read requires a streaming-until-disconnect app"

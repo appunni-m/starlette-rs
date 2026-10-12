@@ -452,6 +452,7 @@
       "build/parity/inputs/parity/session-middleware.json",
       "build/parity/inputs/parity/session-future-timestamp.json",
       "build/parity/inputs/parity/base-http-middleware.json",
+      "build/parity/inputs/parity/base-http-return-closed-body-iterator.json",
       "build/parity/inputs/parity/base-http-lifecycle-short-circuit.json",
       "build/parity/inputs/parity/base-http-duplicate-response-headers.json",
       "build/parity/inputs/parity/middleware-docs-base-http.json",
@@ -521,6 +522,7 @@
       "build/parity/inputs/parity/static-files-omitted-timezone.json",
       "build/parity/inputs/parity/testclient-reentrant-lifespan-entry.json",
       "build/parity/inputs/parity/native-service-streaming.json",
+      "build/parity/inputs/parity/native-service-error-boundaries.json",
       "build/parity/inputs/parity/native-service-middleware.json",
       "build/parity/inputs/parity/native-websocket.json",
       "build/parity/inputs/parity/native-lifespan.json",
@@ -10363,6 +10365,17 @@
               "id": "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.call-next-response-headers-mapping-get",
               "dimension": "boundary",
               "description": "Read a missing name through the MutableHeaders mapping returned by BaseHTTPMiddleware.call_next and preserve Mapping.get default behavior. Pinned source: starlette/middleware/base.py::BaseHTTPMiddleware.call_next and starlette/datastructures.py::MutableHeaders.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.return-call-next-response-with-closed-body-iterator",
+              "dimension": "protocol_variant",
+              "description": "When dispatch reads one body chunk from call_next's streaming response, closes that exact iterator, and returns the same response, send only the consumed chunk and a final empty body. Pinned source: starlette/middleware/base.py:173-187,214,232-241.",
               "lanes": [
                 "parity"
               ],
@@ -31906,6 +31919,18 @@
               "id": "starlette-rs.NativeApplication.service-body-streaming.body-errors",
               "dimension": "protocol_variant",
               "description": "Propagate input-defined request and response body source errors through the public service result.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette-rs.NativeApplication.service-body-streaming.error-phase-boundaries",
+              "dimension": "protocol_variant",
+              "description": "Preserve the distinction between a request-body source error before response commitment and a response-body source error after response start, including the underlying error message and event tape.",
               "lanes": [
                 "parity"
               ],

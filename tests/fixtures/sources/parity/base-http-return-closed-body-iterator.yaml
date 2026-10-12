@@ -1,0 +1,116 @@
+{
+  "schema": "migration-parity/parity-input@48",
+  "cases": [
+    {
+      "case_id": "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.return-call-next-response-with-closed-body-iterator",
+      "surface": "starlette.middleware.base.BaseHTTPMiddleware",
+      "operation": "base-http-workflow",
+      "covers": [
+        "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.construct-configured-middleware",
+        "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.return-call-next-response-with-closed-body-iterator"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "application": {
+        "debug": false,
+        "routes": [],
+        "middleware": [
+          {
+            "kind": "base-http-middleware",
+            "dispatch_actions": [
+              {
+                "kind": "await-call-next"
+              },
+              {
+                "kind": "observe-call-next-response-headers",
+                "name": "content-type"
+              },
+              {
+                "kind": "read-call-next-response-body-next-and-close"
+              },
+              {
+                "kind": "return-call-next-response"
+              }
+            ]
+          }
+        ],
+        "downstream": {
+          "kind": "asgi-sequence",
+          "steps": [
+            {
+              "kind": "send",
+              "message": {
+                "type": "http.response.start",
+                "status": 200,
+                "headers_base64_pairs": []
+              }
+            },
+            {
+              "kind": "send",
+              "message": {
+                "type": "http.response.body",
+                "body_base64": "Zmlyc3QtY2h1bms=",
+                "more_body": true
+              }
+            },
+            {
+              "kind": "send",
+              "message": {
+                "type": "http.response.body",
+                "body_base64": "dW5yZWFkLWNodW5r",
+                "more_body": true
+              }
+            },
+            {
+              "kind": "receive"
+            }
+          ]
+        }
+      },
+      "request": {
+        "scope": {
+          "type": "http",
+          "asgi": {
+            "version": "3.0",
+            "spec_version": "2.4"
+          },
+          "http_version": "1.1",
+          "method": "GET",
+          "scheme": "http",
+          "path": "/does_not_exist",
+          "raw_path_base64": "L2RvZXNfbm90X2V4aXN0",
+          "query_string_base64": "",
+          "root_path": "",
+          "headers_base64_pairs": [
+            [
+              "aG9zdA==",
+              "dGVzdHNlcnZlcg=="
+            ]
+          ],
+          "client": [
+            "127.0.0.1",
+            12345
+          ],
+          "server": [
+            "testserver",
+            80
+          ]
+        },
+        "receive": [
+          {
+            "type": "http.request",
+            "body_base64": "",
+            "more_body": false
+          }
+        ],
+        "receive_after_events": "block",
+        "send_checkpoints": []
+      },
+      "observations": [
+        "base-http-workflow"
+      ]
+    }
+  ]
+}
