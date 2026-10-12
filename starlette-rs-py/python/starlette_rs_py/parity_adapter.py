@@ -4730,7 +4730,8 @@ async def _await_cancelled_websocket_endpoint(
     task.cancel()
     try:
         await task
-    except asyncio.CancelledError as exc:
+    except (Exception, asyncio.CancelledError) as exc:
+        # A finalizer error replaces cancellation and is the task's result.
         return _websocket_endpoint_error(exc)
     return None
 

@@ -211,6 +211,7 @@ WEBSOCKET_ENDPOINT_REQUIREMENTS = {
     "callback_error": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.callback-error-propagation",
     "invalid_encoding": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.invalid-encoding",
     "cancellation": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.cancellation-finalization",
+    "cancellation_disconnect_error": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.cancellation-finalizer-error-context",
     "invalid_message_type": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.invalid-asgi-message-type-finalization",
 }
 SESSION_MIDDLEWARE_SURFACE = "starlette.middleware.sessions.SessionMiddleware"
@@ -249,6 +250,7 @@ TESTCLIENT_REQUIREMENTS = {
     "asgi3_asyncio_marker": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.asyncio-marked-asgi3-callable",
     "timeout_warning": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.timeout-deprecation-warning",
     "exception_policy": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.exception-policy",
+    "non_string_message_exception": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.non-string-asgi-message-before-exception",
     "no_response_return": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.normal-return-without-response",
     "incomplete_response_exception": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.exception-after-incomplete-response",
     "incomplete_response_return": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.incomplete-response-without-exception",
@@ -1466,6 +1468,7 @@ REQUEST_CONSUMPTION_REQUIREMENTS = {
     "body_receive_error_retry": "starlette.request.body.retry-after-receive-error",
     "body_cancellation_retry": "starlette.request.body.retry-after-cancellation",
     "stream_disconnect_retry": "starlette.request.stream-disconnect-retry",
+    "stream_close_recovery": "starlette.request.stream-close-recovers-remaining-body",
 }
 SYNC_REQUEST_RUNTIME_REQUIREMENTS = {
     "receive": "starlette.request.receive-worker-access",
@@ -3522,15 +3525,19 @@ def _validate_websocket_endpoint_case_stimulus(case: dict[str, Any]) -> None:
                 raise ContractError(
                     f"{context} cancellation must occur while waiting after websocket.connect"
                 )
-            if (
-                encoding is not None
-                or on_receive["kind"] != "no-op"
-                or on_disconnect["kind"] != "record-and-close"
-            ):
+            if encoding is not None or on_receive["kind"] != "no-op":
                 raise ContractError(
                     f"{context} cancellation requires default decoding and observed disconnect finalization"
                 )
             exercised_requirements.add(WEBSOCKET_ENDPOINT_REQUIREMENTS["cancellation"])
+            if on_disconnect["kind"] == "raise-runtime-error":
+                exercised_requirements.add(
+                    WEBSOCKET_ENDPOINT_REQUIREMENTS["cancellation_disconnect_error"]
+                )
+            elif on_disconnect["kind"] != "record-and-close":
+                raise ContractError(
+                    f"{context} cancellation requires an observable finalizer or a finalizer error"
+                )
             continue
         if len(incoming) not in {2, 3}:
             raise ContractError(f"{context}.incoming must contain two or three ASGI messages")
@@ -12448,6 +12455,7 @@ def _validate_testclient_case(
     is_request_observer = app_kind == "request-observer"
     is_starlette_app_host_route = app_kind == "starlette-app-host-route"
     is_starlette_app_host_method = app_kind == "starlette-app-host-method"
+    ignored_non_string_type_prefix = False
 
     def validate_request(value: Any, context: str) -> dict[str, Any]:
         request_keys = {"method", "url", "headers_base64_pairs", "body_base64"}
@@ -14039,15 +14047,48 @@ def _validate_testclient_case(
             raise ContractError(
                 "TestClient generator requests must remain unread or be consumed through their terminal event"
             )
-        if not isinstance(messages, list) or (messages and len(messages) < 2):
+        if not isinstance(messages, list):
             raise ContractError(
                 "TestClient ASGI messages must be empty or contain a complete response"
             )
+        if messages:
+            first_message = messages[0]
+            first_message_type = (
+                first_message.get("type") if isinstance(first_message, dict) else None
+            )
+            ignored_non_string_type_prefix = (
+                isinstance(first_message, dict)
+                and set(first_message) == {"type"}
+                and (
+                    first_message_type is None
+                    or type(first_message_type) in {bool, int}
+                    or (type(first_message_type) is float and math.isfinite(first_message_type))
+                )
+                and len(messages) >= 3
+                and exception_spec is not None
+                and settings["raise_server_exceptions"] is False
+            )
+        if messages and not ignored_non_string_type_prefix and len(messages) < 2:
+            raise ContractError(
+                "TestClient ASGI messages must be empty or contain a complete response"
+            )
+        if ignored_non_string_type_prefix and (
+            not isinstance(messages[1], dict) or messages[1].get("type") != "http.response.start"
+        ):
+            raise ContractError(
+                "a non-string ASGI type input must precede a complete TestClient response"
+            )
+        if (
+            messages
+            and not ignored_non_string_type_prefix
+            and (
+                not isinstance(messages[0], dict)
+                or messages[0].get("type") != "http.response.start"
+            )
+        ):
+            raise ContractError("TestClient ASGI response must start before its final body")
         if messages and (
-            not isinstance(messages[0], dict)
-            or messages[0].get("type") != "http.response.start"
-            or not isinstance(messages[-1], dict)
-            or messages[-1].get("type") != "http.response.body"
+            not isinstance(messages[-1], dict) or messages[-1].get("type") != "http.response.body"
         ):
             raise ContractError("TestClient ASGI response must start before its final body")
         if (
@@ -14281,6 +14322,8 @@ def _validate_testclient_case(
         )
     if incomplete_response:
         expected_covers.add(TESTCLIENT_REQUIREMENTS["incomplete_response_exception"])
+    if ignored_non_string_type_prefix:
+        expected_covers.add(TESTCLIENT_REQUIREMENTS["non_string_message_exception"])
     if (
         asgi_app["kind"] in {"asgi2", "asgi3", "asgi3-asyncio-marked"}
         and not messages
@@ -14312,6 +14355,13 @@ def _validate_testclient_case(
         raise ContractError("TestClient covers must match the input app and request workflow")
     for index, message in enumerate(messages):
         message_type = message.get("type") if isinstance(message, dict) else None
+        if ignored_non_string_type_prefix and index == 0:
+            _exact(
+                message,
+                {"type"},
+                f"TestClient ignored ASGI message[{index}]",
+            )
+            continue
         if message_type == "http.response.start":
             message = _exact(
                 message,
@@ -24277,6 +24327,7 @@ def _validate_request_body_stream_json_case(case: dict[str, Any]) -> None:
     awaited_tasks: set[str] = set()
     released_calls: set[int] = set()
     stream_ids: list[str] = []
+    closed_stream_ids: list[str] = []
     action_operations: list[str] = []
     for index, action in enumerate(actions):
         context = f"Request body/stream/json action[{index}]"
@@ -24291,6 +24342,9 @@ def _validate_request_body_stream_json_case(case: dict[str, Any]) -> None:
         elif operation == "stream-next":
             _exact(action, {"operation", "stream_id"}, context)
             stream_ids.append(_string(action["stream_id"], f"{context}.stream_id"))
+        elif operation == "stream-close":
+            _exact(action, {"operation", "stream_id"}, context)
+            closed_stream_ids.append(_string(action["stream_id"], f"{context}.stream_id"))
         elif operation == "start-body":
             _exact(action, {"operation", "task_id"}, context)
             task_id = _string(action["task_id"], f"{context}.task_id")
@@ -24377,7 +24431,50 @@ def _validate_request_body_stream_json_case(case: dict[str, Any]) -> None:
                 "then a final request and a new body() call"
             )
 
+    stream_close_recovery_probe = bool(closed_stream_ids)
+    if stream_close_recovery_probe:
+        close_stream_id = closed_stream_ids[0] if len(closed_stream_ids) == 1 else None
+        replay_stream_ids = stream_ids[2:]
+        valid_close_recovery = (
+            len(closed_stream_ids) == 1
+            and action_operations
+            == [
+                "stream-next",
+                "stream-close",
+                "stream-next",
+                "body",
+                "stream-next",
+                "stream-next",
+                "stream-next",
+            ]
+            and len(stream_ids) == 5
+            and stream_ids[0] == stream_ids[1] == close_stream_id
+            and len(replay_stream_ids) == 3
+            and len(set(replay_stream_ids)) == 1
+            and replay_stream_ids[0] != close_stream_id
+            and len(receive) == 2
+            and all(message.get("type") == "http.request" for message in receive)
+            and bool(base64.b64decode(receive[0].get("body_base64", ""), validate=True))
+            and receive[0].get("more_body") is True
+            and bool(base64.b64decode(receive[1].get("body_base64", ""), validate=True))
+            and receive[1].get("more_body") is False
+            and not blocked_receive_calls
+            and not scope_headers
+        )
+        if not valid_close_recovery:
+            raise ContractError(
+                "Request stream-close recovery requires a partial read, close and exhausted "
+                "iterator, body collection of the remaining message, and fresh cached replay"
+            )
+
     expected_covers: set[str] = set()
+    if stream_close_recovery_probe:
+        expected_covers.update(
+            {
+                REQUEST_CONSUMPTION_REQUIREMENTS["stream_close_recovery"],
+                REQUEST_CONSUMPTION_REQUIREMENTS["body_stream_replay"],
+            }
+        )
     if receive_cancellation_probe:
         expected_covers.add(REQUEST_CONSUMPTION_REQUIREMENTS["body_cancellation_retry"])
     if receive_error_probe:
@@ -24417,6 +24514,7 @@ def _validate_request_body_stream_json_case(case: dict[str, Any]) -> None:
         and all(message.get("more_body", False) for message in request_messages[:-1])
         and not request_messages[-1].get("more_body", False)
         and all(message.get("type") == "http.request" for message in receive)
+        and not stream_close_recovery_probe
     ):
         expected_covers.add(REQUEST_CONSUMPTION_REQUIREMENTS["body_chunks"])
     if (
@@ -24429,6 +24527,7 @@ def _validate_request_body_stream_json_case(case: dict[str, Any]) -> None:
         direct_body_positions
         and stream_positions
         and stream_positions[0] < direct_body_positions[0]
+        and not stream_close_recovery_probe
     ):
         expected_covers.add(REQUEST_CONSUMPTION_REQUIREMENTS["stream_body_consumed"])
     if stream_positions and form_positions and stream_positions[0] < form_positions[0]:
@@ -24459,7 +24558,11 @@ def _validate_request_body_stream_json_case(case: dict[str, Any]) -> None:
         and receive[0]["type"] == "http.disconnect"
         and stream_ids.count(stream_ids[0]) == 1
     )
-    if len(set(stream_ids)) > 1 and not first_stream_ended_on_disconnect:
+    if (
+        len(set(stream_ids)) > 1
+        and not first_stream_ended_on_disconnect
+        and not stream_close_recovery_probe
+    ):
         expected_covers.add(REQUEST_CONSUMPTION_REQUIREMENTS["stream_interleaving"])
     if (stream_positions or direct_body_positions) and any(
         message.get("type") == "http.disconnect" for message in receive

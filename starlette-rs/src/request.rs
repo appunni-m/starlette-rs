@@ -809,8 +809,17 @@ impl RequestStreamState {
         }
     }
 
+    /// Closes this iterator without marking the shared request body complete.
+    ///
+    /// This matches an async generator receiving `aclose()` while suspended
+    /// after a partial request chunk: the iterator ends, while a later
+    /// `Request.body()` call may continue reading the remaining ASGI messages.
+    pub fn close(&mut self) {
+        self.phase = RequestStreamPhase::Complete;
+    }
+
     /// Closes the iterator after the awaited receive callback raises.
     pub fn fail(&mut self) {
-        self.phase = RequestStreamPhase::Complete;
+        self.close();
     }
 }

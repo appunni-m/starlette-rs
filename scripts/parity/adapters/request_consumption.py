@@ -141,6 +141,18 @@ async def _observe(case: dict[str, Any], request_type: Callable[..., Any]) -> di
                 observations.append(
                     _value(operation, value, previous_values) | {"stream_id": stream_id}
                 )
+        elif operation == "stream-close":
+            stream_id = action["stream_id"]
+            if stream_id not in streams:
+                streams[stream_id] = request.stream()
+            try:
+                value = await streams[stream_id].aclose()
+            except BaseException as exc:
+                observations.append(_error(operation, exc) | {"stream_id": stream_id})
+            else:
+                observations.append(
+                    _value(operation, value, previous_values) | {"stream_id": stream_id}
+                )
         elif operation == "start-body":
             task_id = action["task_id"]
 

@@ -1743,9 +1743,13 @@ fn apply_send_message(
     let message = message.cast::<PyDict>()?;
     let message_type = message
         .get_item("type")?
-        .ok_or_else(|| PyKeyError::new_err("type"))?
-        .extract::<String>()
-        .map_err(|_| PyKeyError::new_err("type"))?;
+        .ok_or_else(|| PyKeyError::new_err("type"))?;
+    // Starlette's transport compares the ASGI type against known string names
+    // and ignores anything that matches none of them, including non-strings.
+    if !message_type.is_instance_of::<PyString>() {
+        return Ok(());
+    }
+    let message_type = message_type.extract::<String>()?;
     let mut set_complete_event: Option<Py<PyAny>> = None;
     {
         let mut state = lock_state(shared)?;

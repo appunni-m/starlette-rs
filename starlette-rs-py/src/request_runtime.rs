@@ -1225,6 +1225,8 @@ impl StreamMachine {
         match &self.command {
             StreamCommand::Close if protocol.closed || !protocol.started => {
                 protocol.closed = true;
+                drop(protocol);
+                self.close_stream();
                 return Ok(MachineAction::Complete(py.None()));
             }
             StreamCommand::Advance(_) if protocol.closed => {
@@ -1249,7 +1251,7 @@ impl StreamMachine {
             StreamCommand::Close => {
                 protocol.closed = true;
                 drop(protocol);
-                self.fail_stream();
+                self.close_stream();
                 return Ok(MachineAction::Complete(py.None()));
             }
             StreamCommand::Advance(_) => {
@@ -1341,6 +1343,12 @@ impl StreamMachine {
     fn fail_stream(&self) {
         if let Ok(mut state) = self.state.try_lock() {
             state.fail();
+        }
+    }
+
+    fn close_stream(&self) {
+        if let Ok(mut state) = self.state.try_lock() {
+            state.close();
         }
     }
 

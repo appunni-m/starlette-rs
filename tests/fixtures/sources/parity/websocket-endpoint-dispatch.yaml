@@ -1371,6 +1371,81 @@
       "observations": [
         "dispatch"
       ]
+    },
+    {
+      "case_id": "starlette.endpoints.WebSocketEndpoint.dispatch.cancellation-finalizer-error-context",
+      "surface": "starlette.endpoints.WebSocketEndpoint",
+      "operation": "dispatch",
+      "covers": [
+        "starlette.endpoints.WebSocketEndpoint.dispatch.lifecycle",
+        "starlette.endpoints.WebSocketEndpoint.dispatch.cancellation-finalization",
+        "starlette.endpoints.WebSocketEndpoint.dispatch.cancellation-finalizer-error-context"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "endpoint": {
+        "encoding": null,
+        "on_connect": {
+          "kind": "default"
+        },
+        "on_receive": {
+          "kind": "no-op"
+        },
+        "on_disconnect": {
+          "kind": "raise-runtime-error",
+          "message": "disconnect hook failed during cancellation"
+        }
+      },
+      "sessions": [
+        {
+          "scope": {
+            "type": "websocket",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.5"
+            },
+            "http_version": "1.1",
+            "scheme": "ws",
+            "path": "/ws",
+            "raw_path_base64": "L3dz",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [
+              [
+                "aG9zdA==",
+                "ZXhhbXBsZS50ZXN0"
+              ]
+            ],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ],
+            "subprotocols": [
+              "soap",
+              "wamp"
+            ]
+          },
+          "cancel_at": "receive",
+          "incoming": [
+            {
+              "type": "websocket.connect",
+              "subprotocols": [
+                "soap",
+                "wamp"
+              ]
+            }
+          ]
+        }
+      ],
+      "observations": [
+        "dispatch"
+      ]
     }
   ]
 }

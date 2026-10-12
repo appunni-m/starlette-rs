@@ -356,6 +356,7 @@
       "build/parity/inputs/parity/request-client-address.json",
       "build/parity/inputs/parity/request-scope-interface.json",
       "build/parity/inputs/parity/request-consumption.json",
+      "build/parity/inputs/parity/request-stream-close-recovery.json",
       "build/parity/inputs/parity/request-body-receive-error-retry.json",
       "build/parity/inputs/parity/request-stream-disconnect-retry.json",
       "build/parity/inputs/parity/gzip-middleware.json",
@@ -8957,6 +8958,17 @@
               ]
             },
             {
+              "id": "starlette.endpoints.WebSocketEndpoint.dispatch.cancellation-finalizer-error-context",
+              "dimension": "error_path",
+              "description": "When cancellation interrupts receive and on_disconnect raises, preserve the finalizer exception with the CancelledError as its Python exception context, report the source default close code to the hook, and invoke it once. Pinned source: starlette/endpoints.py:70-89.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.endpoints.WebSocketEndpoint.dispatch.invalid-asgi-message-type-finalization",
               "dimension": "error_path",
               "description": "When a receive callback yields an ASGI message with a non-string type, preserve the source RuntimeError formatting, set the close code to 1011, run the input-selected on_disconnect hook, and propagate the original error. Pinned source: starlette/websockets.py:35-58; starlette/endpoints.py:75-89.",
@@ -15818,6 +15830,21 @@
               "id": "starlette.request.stream-disconnect-retry",
               "dimension": "error_path",
               "description": "Let Request.stream() receive http.disconnect and raise ClientDisconnect, then create a fresh stream iterator and consume a later http.request body to completion. The comparison observes the live exception, yielded chunks, and receive ordering. Pinned source: starlette/requests.py:234-252.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
+              "id": "starlette.request.stream-close-recovers-remaining-body",
+              "dimension": "runtime",
+              "description": "After Request.stream() yields a partial chunk, close that iterator before the final ASGI message. The iterator stays exhausted while Request.body() reads and caches only the remaining messages for a fresh stream replay. Pinned source: starlette/requests.py:234-260; docs/requests.md:104-106.",
               "lanes": [
                 "parity"
               ],
@@ -28022,6 +28049,17 @@
               "id": "starlette.testclient.TestClient.request-response.exception-policy",
               "dimension": "error_path",
               "description": "Propagate application exceptions by default, return a 500 response when raise_server_exceptions is false before response start, and return an already completed response when the app raises afterward. Pinned source: starlette/testclient.py:348-367; docs/testclient.md:74-77; tests/middleware/test_errors.py:25-48.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.request-response.non-string-asgi-message-before-exception",
+              "dimension": "error_path",
+              "description": "Ignore an input-defined ASGI message whose type is a non-string JSON scalar, then process a complete response and suppress the app's later exception when raise_server_exceptions is false. Compare the completed response and event order. Pinned source: starlette/testclient.py:327-367.",
               "lanes": [
                 "parity"
               ],
