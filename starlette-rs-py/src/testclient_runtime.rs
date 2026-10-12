@@ -543,9 +543,6 @@ impl TestClientLifespan {
 
 impl PyTestClientTransport {
     fn start_lifespan(&mut self, py: Python<'_>) -> PyResult<()> {
-        if self.lifespan.is_some() {
-            return Err(PyRuntimeError::new_err("TestClient is already entered"));
-        }
         let runner = if is_asgi3(py, self.app.bind(py))? {
             self.asgi3_runner.clone_ref(py)
         } else {
@@ -866,7 +863,10 @@ impl PyWebSocketTestSession {
                 task.bind(py).call_method0("cancel")?;
             }
             if let Err(error) = task.bind(py).call_method0("result") {
-                if !is_cancelled_error(py, &error)? && task_error.is_none() {
+                if !is_cancelled_error(py, &error)? {
+                    if let Some(previous_error) = task_error.take() {
+                        chain_exception_context(py, &error, &previous_error)?;
+                    }
                     task_error = Some(error);
                 }
             }
@@ -2100,4 +2100,26 @@ fn exit_portal(py: Python<'_>, manager: Bound<'_, PyAny>, error: Option<&PyErr>)
         }
     }
     Ok(())
+}
+
+fn chain_exception_context(py: Python<'_>, error: &PyErr, previous_error: &PyErr) -> PyResult<()> {
+    // ExitStack reports the last failing callback and attaches earlier failures
+    // to the new exception's context chain.
+    let previous_value = previous_error.value(py);
+    let mut context = error.value(py).clone().into_any();
+    let mut seen = Vec::new();
+
+    loop {
+        if context.is(previous_value) || seen.iter().any(|value| context.is(value)) {
+            return Ok(());
+        }
+        seen.push(context.clone());
+
+        let next = context.getattr("__context__")?;
+        if next.is_none() {
+            context.setattr("__context__", previous_value)?;
+            return Ok(());
+        }
+        context = next;
+    }
 }

@@ -601,7 +601,7 @@ fn parse_http_date_ignoring_weekday(value: &str) -> Option<SystemTime> {
     ];
 
     let value = value.trim();
-    let normalized_timezone = normalize_email_numeric_timezone(value);
+    let normalized_timezone = normalize_email_timezone(value);
     let value = normalized_timezone.as_deref().unwrap_or(value);
     if let Ok(timestamp) = httpdate::parse_http_date(value) {
         return Some(timestamp);
@@ -633,23 +633,29 @@ fn parse_http_date_ignoring_weekday(value: &str) -> Option<SystemTime> {
         } else {
             format!("{replacement}{rest}")
         };
-        httpdate::parse_http_date(&normalized).ok()
+        httpdate::parse_http_date(&normalized)
+            .ok()
+            .or_else(|| httpdate::parse_http_date(&format!("{normalized} GMT")).ok())
     })
 }
 
-fn normalize_email_numeric_timezone(value: &str) -> Option<String> {
+fn normalize_email_timezone(value: &str) -> Option<String> {
     let (date, timezone) = value.rsplit_once(' ')?;
     let timezone = timezone.as_bytes();
-    if timezone.len() != 5
-        || !matches!(timezone[0], b'+' | b'-')
-        || !timezone[1..].iter().all(u8::is_ascii_digit)
-    {
+    let numeric_offset = timezone.len() == 5
+        && matches!(timezone[0], b'+' | b'-')
+        && timezone[1..].iter().all(u8::is_ascii_digit);
+    let named_timezone = !timezone.is_empty() && timezone.iter().all(u8::is_ascii_alphabetic);
+    if !numeric_offset && !named_timezone {
         return None;
     }
 
     // Starlette's email.utils.parsedate discards the parsed timezone from its
     // returned tuple, so the compatibility comparison uses the date fields as
-    // written rather than converting the timestamp to UTC.
+    // written rather than converting the timestamp to UTC. The source parser
+    // also accepts an omitted timezone and treats its date fields the same as
+    // GMT. It accepts both numeric offsets and named timezone tokens, including
+    // names outside its known offset table, and discards them for comparison.
     Some(format!("{date} GMT"))
 }
 

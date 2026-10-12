@@ -530,6 +530,10 @@
         {
           "operation_id": "module-import-policy",
           "source_path": "starlette.requests module import and public consumer"
+        },
+        {
+          "operation_id": "header-cache-sequence",
+          "source_path": "starlette.requests.HTTPConnection.headers, Request.cookies, and Request.send_push_promise"
         }
       ]
     },

@@ -114,6 +114,7 @@ VALUE_FORMATTING_OPERATION = "value-formatting"
 REQUEST_DEFAULT_RECEIVE_OPERATION = ("starlette.requests.Request", "default-receive")
 REQUEST_CLIENT_OPERATION = ("starlette.requests.Request", "client")
 REQUEST_SCOPE_MAPPING_OPERATION = ("starlette.requests.Request", "scope-mapping")
+REQUEST_HEADER_CACHE_SEQUENCE_OPERATION = ("starlette.requests.Request", "header-cache-sequence")
 REQUEST_CONSTRUCTOR_OPERATION = ("starlette.requests.Request", "constructor-contract")
 WEBSOCKET_SCOPE_MAPPING_OPERATION = ("starlette.websockets.WebSocket", "scope-mapping")
 WEBSOCKET_CONSTRUCTOR_OPERATION = ("starlette.websockets.WebSocket", "constructor-contract")
@@ -267,6 +268,8 @@ def _record_input_background_task(
                 "message": failure["message"],
             }
         )
+        if failure["kind"] == "CancelledError":
+            raise asyncio.CancelledError(failure["message"])
         raise Exception(failure["message"])
     execution_trace.append({"event": "task-complete", "task_index": task_index})
 
@@ -2527,10 +2530,14 @@ def _materialize_application(
 
             class ASGICallableActionSequence:
                 def __init__(
-                    self, actions: list[dict[str, Any]], observations: list[dict[str, Any]]
+                    self,
+                    actions: list[dict[str, Any]],
+                    observations: list[dict[str, Any]],
+                    registered_exception_types: dict[str, Any],
                 ) -> None:
                     self.actions = actions
                     self.observations = observations
+                    self.registered_exception_types = registered_exception_types
 
                 async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
                     self.observations.append(
@@ -2544,6 +2551,25 @@ def _materialize_application(
                         }
                     )
                     for index, action in enumerate(self.actions):
+                        if action.get("action") == "register-status-handler-from-exception-class":
+                            _exact_object(
+                                action,
+                                {"action", "status_code", "exception_class"},
+                                f"ASGI action[{index}]",
+                            )
+                            if type(action["status_code"]) is not int or not isinstance(
+                                action["exception_class"], str
+                            ):
+                                raise ValueError("dynamic status handler registration is invalid")
+                            exception_handlers, _ = scope["starlette.exception_handlers"]
+                            exception_class = self.registered_exception_types[
+                                action["exception_class"]
+                            ]
+                            exception_middleware = scope["app"].middleware_stack.app
+                            exception_middleware.add_exception_handler(
+                                action["status_code"], exception_handlers[exception_class]
+                            )
+                            continue
                         action_kind, value = _materialize_asgi_action(action, index)
                         if action_kind == "send":
                             await send(value)
@@ -2551,7 +2577,7 @@ def _materialize_application(
                             raise value
 
             route_endpoint = ASGICallableActionSequence(
-                response_spec["actions"], request_observations
+                response_spec["actions"], request_observations, exception_types
             )
         else:
             raise ValueError(f"unsupported endpoint kind: {response_spec['kind']!r}")
@@ -3786,9 +3812,11 @@ def _run_websocket_state_case(case: dict[str, Any]) -> dict[str, Any]:
                         pending_send_error = None
                 elif action["action"] == "set-client-state":
                     websocket.client_state = WebSocketState[action["state"]]
+                elif action["action"] == "set-application-state":
+                    websocket.application_state = WebSocketState[action["state"]]
                 else:
                     raise ValueError(
-                        "unsupported state-sequence action; only accept, raw receive/send, and client-state assignment are declared"
+                        "unsupported state-sequence action; only accept, raw receive/send, and state assignments are declared"
                     )
             except WebSocketDisconnect as exc:
                 if action.get("send_error") is not None:
@@ -7722,6 +7750,10 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
                 asyncio.run(dispatch_and_cancel_background())
             except asyncio.CancelledError as exc:
                 captured_error = exc
+    except asyncio.CancelledError as exc:
+        if background_tasks_spec is None:
+            raise
+        captured_error = exc
     except Exception as exc:
         if send_error_spec is None and background_tasks_spec is None:
             raise
@@ -13700,6 +13732,17 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         and (case.get("surface"), case.get("operation")) in AUTHENTICATION_OPERATIONS
     ):
         return _run_authentication_case(case)
+    if (
+        isinstance(case, dict)
+        and (case.get("surface"), case.get("operation")) == REQUEST_HEADER_CACHE_SEQUENCE_OPERATION
+    ):
+        from starlette.requests import Request
+
+        from scripts.parity.adapters.request_header_cache_sequence import (
+            run_request_header_cache_sequence_case,
+        )
+
+        return run_request_header_cache_sequence_case(case, Request)
     if (
         isinstance(case, dict)
         and (

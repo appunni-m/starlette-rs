@@ -1064,20 +1064,19 @@ fn threadpool_awaitable(
     args: &Py<PyAny>,
     kwargs: &Py<PyAny>,
 ) -> PyResult<Py<PyAny>> {
+    // Starlette's run_in_threadpool expands positional arguments before
+    // keyword arguments, then constructs functools.partial on the caller's
+    // event-loop thread. Keep both the expansion order and partial's eager
+    // callable validation at this boundary.
+    let args = positional_args(py, func, args)?;
     let kwargs = keyword_mapping_to_dict(py, kwargs.bind(py))?;
-    let call = if kwargs.is_empty() {
-        func.clone_ref(py)
-    } else {
-        py.import("functools")?
-            .getattr("partial")?
-            .call((func.bind(py),), Some(&kwargs))?
-            .unbind()
-    };
-
-    let args = positional_args(py, &call, args)?;
+    let call = py
+        .import("functools")?
+        .getattr("partial")?
+        .call(&args, Some(&kwargs))?;
     py.import("anyio.to_thread")?
         .getattr("run_sync")?
-        .call1(args)
+        .call1((call,))
         .map(Bound::unbind)
 }
 

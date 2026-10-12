@@ -55,6 +55,22 @@ def _safe(value: Any) -> Any:
     return value
 
 
+def _exception_context_chain(error: BaseException) -> list[dict[str, str]]:
+    chain = []
+    seen = {id(error)}
+    context = error.__context__
+    while context is not None and id(context) not in seen:
+        seen.add(id(context))
+        chain.append(
+            {
+                "class": f"{type(context).__module__}.{type(context).__qualname__}",
+                "message": str(context),
+            }
+        )
+        context = context.__context__
+    return chain
+
+
 def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
     from starlette.testclient import TestClient
 
@@ -1917,6 +1933,7 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
                 "message": str(captured_error),
                 "stage": captured_error_stage,
                 "code": getattr(captured_error, "code", None),
+                "context_chain": _exception_context_chain(captured_error),
                 "cause": (
                     {
                         "class": f"{type(cause).__module__}.{type(cause).__qualname__}",

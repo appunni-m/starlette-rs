@@ -310,6 +310,7 @@ TESTCLIENT_LIFESPAN_REQUIREMENTS = {
     "task_group_lifecycle": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.task-group-child-lifecycle",
     "task_runvar_context": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.same-task-and-runvar-context-continuity",
     "backend_loop_selection": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.backend-loop-selection",
+    "reentrant_context_entry": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.reentrant-context-entry",
 }
 ASGI_LIFESPAN_SCOPE_STATE_REQUIRED_REQUIREMENT = "starlette.asgi.lifespan.scope-state-required"
 TESTCLIENT_LIFESPAN_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
@@ -321,6 +322,7 @@ TESTCLIENT_WEBSOCKET_REQUIREMENTS = {
     "scope": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.scope-projection",
     "application_exception": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.application-exception-propagation",
     "app_error_stream_closure": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.app-error-closes-client-stream",
+    "app_error_wins_cleanup_close_error": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.app-error-wins-cleanup-close-error",
     "duplicate_disconnect": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.duplicate-disconnect-error-propagation",
     "rejected_connection": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.rejected-connection-disconnect",
     "query_params": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.query-params-raw-path",
@@ -398,6 +400,7 @@ BASE_HTTP_REQUIREMENTS = {
     "context_manager_cleanup": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.async-context-manager-cleanup-completes",
     "shared_request_state": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.shared-request-state-across-middleware-layers",
     "stacked_disconnect_background_lifecycle": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.stacked-client-disconnect-background-lifecycle",
+    "response_header_get_missing": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.call-next-response-headers-mapping-get",
 }
 SESSION_REQUIREMENTS = {
     "construct": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.construct",
@@ -471,9 +474,19 @@ VALUE_FORMATTING_OPERATIONS = {
 }
 REQUEST_DEFAULT_RECEIVE_OPERATION = ("starlette.requests.Request", "default-receive")
 REQUEST_CLIENT_OPERATION = ("starlette.requests.Request", "client")
+REQUEST_HEADER_CACHE_SEQUENCE_OPERATION = ("starlette.requests.Request", "header-cache-sequence")
 REQUEST_SCOPE_MAPPING_OPERATION = ("starlette.requests.Request", "scope-mapping")
 REQUEST_CONSTRUCTOR_OPERATION = ("starlette.requests.Request", "constructor-contract")
 REQUEST_CLIENT_REQUIREMENT = "starlette.request.client-address"
+REQUEST_HEADER_CACHE_SEQUENCE_REQUIREMENTS = {
+    "cookies": "starlette.request.cookies.use-cached-headers-property",
+    "push_promise": "starlette.request.send-push-promise.use-cached-headers-property",
+}
+REQUEST_HEADER_CACHE_SEQUENCE_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
+    "scope",
+    "replacement_scope",
+    "actions",
+}
 REQUEST_SCOPE_MAPPING_REQUIREMENT = "starlette.requests.Request.scope-mapping.minimal-http-scope"
 REQUEST_CONSTRUCTOR_REQUIREMENT = "starlette.requests.Request.constructor.scope-type-validation"
 REQUEST_CONSTRUCTOR_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {"scope"}
@@ -677,6 +690,7 @@ PYTHON_VERSION_MATRIX_OPERATIONS = {
     THREADPOOL_OPERATION_KEY,
     TESTCLIENT_LIFESPAN_OPERATION_KEY,
     ("starlette.requests.Request", "client"),
+    REQUEST_HEADER_CACHE_SEQUENCE_OPERATION,
     REQUEST_BODY_STREAM_JSON_OPERATION,
     REQUEST_FORM_OPERATION,
     REQUEST_IS_DISCONNECTED_OPERATION,
@@ -1157,8 +1171,10 @@ RESPONSE_BACKGROUND_REQUIREMENTS = {
     "task_sequence_constructor": "starlette.responses.Response.asgi-call.background-task-sequence-constructor",
     "callable_shapes": "starlette.responses.Response.asgi-call.background-callable-shapes",
     "task_cancellation": "starlette.responses.Response.asgi-call.background-task-cancellation",
+    "task_cancelled_exception": "starlette.responses.Response.asgi-call.background-task-cancellation-exception-propagates",
     "sync_task_cancellation": "starlette.responses.Response.asgi-call.background-sync-task-cancellation",
     "task_list_sync_cancellation": "starlette.responses.Response.asgi-call.background-task-list-sync-cancellation",
+    "sync_noncallable_error": "starlette.responses.Response.asgi-call.background-sync-noncallable-error",
 }
 FILE_RESPONSE_PATHSEND_REQUIREMENT = f"{FILE_RESPONSE_SURFACE}.{RESPONSE_OPERATION}.pathsend"
 FILE_RESPONSE_ASYNC_FILE_OPEN_SCHEDULING_REQUIREMENT = (
@@ -1602,6 +1618,7 @@ GZIP_REQUIREMENTS = {
     "streaming-empty-chunk": "starlette.middleware.gzip.GZipMiddleware.streaming-empty-chunk",
     "thread-minimum-size": "starlette.middleware.gzip.GZipMiddleware.thread-minimum-size",
     "pathsend": "starlette.middleware.gzip.GZipMiddleware.pathsend",
+    "case-insensitive-header-names": "starlette.middleware.gzip.GZipMiddleware.case-insensitive-header-names",
 }
 # Synchronized with the pinned Starlette 1.6.0 source at
 # starlette/middleware/gzip.py:13-27. These values classify authored inputs;
@@ -2729,6 +2746,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                 or key == COMMA_SEPARATED_STRINGS_OPERATION
                 or key == REQUEST_DEFAULT_RECEIVE_OPERATION
                 or key == REQUEST_CLIENT_OPERATION
+                or key == REQUEST_HEADER_CACHE_SEQUENCE_OPERATION
                 or key == REQUEST_SCOPE_MAPPING_OPERATION
                 or key == REQUEST_CONSTRUCTOR_OPERATION
                 or key == WEBSOCKET_SCOPE_MAPPING_OPERATION
@@ -2977,6 +2995,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                             in {
                                 REQUEST_DEFAULT_RECEIVE_OPERATION,
                                 REQUEST_CLIENT_OPERATION,
+                                REQUEST_HEADER_CACHE_SEQUENCE_OPERATION,
                                 REQUEST_SCOPE_MAPPING_OPERATION,
                                 REQUEST_CONSTRUCTOR_OPERATION,
                                 WEBSOCKET_SCOPE_MAPPING_OPERATION,
@@ -3612,6 +3631,7 @@ def _validate_websocket_case_stimulus(case: dict[str, Any]) -> None:
     denial_response_invalid_message = False
     client_state_reset_pending = False
     invalid_receive_after_client_state_reset = False
+    application_state_assignment_observed = False
     for index, action in enumerate(actions):
         context = f"WebSocket actions[{index}]"
         if not isinstance(action, dict):
@@ -3727,6 +3747,17 @@ def _validate_websocket_case_stimulus(case: dict[str, Any]) -> None:
                 client_state == "CONNECTED" and requested_state == "CONNECTING"
             )
             client_state = requested_state
+        elif action_kind == "set-application-state":
+            if operation != WEBSOCKET_STATE_OPERATION:
+                raise ContractError(
+                    f"{context}.set-application-state is supported only by state-sequence"
+                )
+            _exact(action, {"action_id", "action", "state"}, context)
+            requested_state = _string(action["state"], f"{context}.state")
+            if requested_state not in {"CONNECTING", "CONNECTED", "DISCONNECTED", "RESPONSE"}:
+                raise ContractError(f"{context}.state is not a WebSocketState name")
+            application_state_assignment_observed |= requested_state != application_state
+            application_state = requested_state
         else:
             raise ContractError(
                 f"{context}.action is unsupported by the Rust-equivalent raw protocol surface; "
@@ -3840,6 +3871,8 @@ def _validate_websocket_case_stimulus(case: dict[str, Any]) -> None:
             coverage.add("starlette.websocket.state.denial-response-invalid-message")
         if invalid_receive_after_client_state_reset:
             coverage.add("starlette.websocket.state.client-state-reset-invalid-receive")
+        if application_state_assignment_observed:
+            coverage.add("starlette.websocket.state.application-state-assignment")
     unexercised = set(case["covers"]) - coverage
     if unexercised:
         raise ContractError(
@@ -5532,6 +5565,7 @@ def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
 
             failures = []
             has_callable_shape = False
+            has_noncallable_shape = False
             for index, raw_task in enumerate(tasks):
                 context = f"Response background.tasks[{index}]"
                 task_fields = {"mode", "args", "kwargs", "failure"}
@@ -5579,8 +5613,14 @@ def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
                 failure = task["failure"]
                 if failure is not None:
                     failure = _exact(failure, {"kind", "message"}, f"{context}.failure")
-                    if failure["kind"] != "Exception":
-                        raise ContractError(f"{context}.failure.kind must be Exception")
+                    if failure["kind"] not in {"Exception", "CancelledError"}:
+                        raise ContractError(
+                            f"{context}.failure.kind must be Exception or CancelledError"
+                        )
+                    if failure["kind"] == "CancelledError" and task["mode"] != "async":
+                        raise ContractError(
+                            f"{context}.failure.kind CancelledError requires an async task"
+                        )
                     _string(failure["message"], f"{context}.failure.message")
                     failures.append(index)
                 if "callable" in task:
@@ -5590,6 +5630,13 @@ def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
                     callable_kind = _string(callable_input.get("kind"), f"{context}.callable.kind")
                     if callable_kind in {"function", "bound-method", "callable-object"}:
                         _exact(callable_input, {"kind"}, f"{context}.callable")
+                    elif callable_kind == "non-callable-object":
+                        _exact(callable_input, {"kind"}, f"{context}.callable")
+                        if kind != "single-task" or task["mode"] != "sync":
+                            raise ContractError(
+                                f"{context}.callable non-callable object requires one synchronous task"
+                            )
+                        has_noncallable_shape = True
                     elif callable_kind in {"partial", "nested-partial"}:
                         callable_input = _exact(
                             callable_input,
@@ -5653,6 +5700,8 @@ def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
                     raise ContractError(
                         "Response background cancellation requires one task or a list beginning with a sync callback"
                     )
+            elif has_noncallable_shape:
+                derived = [RESPONSE_BACKGROUND_REQUIREMENTS["sync_noncallable_error"]]
             elif kind == "single-task":
                 derived = [
                     RESPONSE_BACKGROUND_REQUIREMENTS[
@@ -5666,7 +5715,17 @@ def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
                     raise ContractError(
                         "task-list failure input must have one failing task with a following callback"
                     )
-                failure_requirement = "task_failure" if failures[0] == 0 else "task_late_failure"
+                failure = tasks[failures[0]]["failure"]
+                if failure["kind"] == "CancelledError":
+                    if kind != "task-list":
+                        raise ContractError(
+                            "CancelledError task failures require BackgroundTasks.add_task inputs"
+                        )
+                    failure_requirement = "task_cancelled_exception"
+                else:
+                    failure_requirement = (
+                        "task_failure" if failures[0] == 0 else "task_late_failure"
+                    )
                 derived = [RESPONSE_BACKGROUND_REQUIREMENTS[failure_requirement]]
                 if kind == "task-list":
                     derived.insert(0, RESPONSE_BACKGROUND_REQUIREMENTS["task_add"])
@@ -5682,7 +5741,7 @@ def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
                     RESPONSE_BACKGROUND_REQUIREMENTS["task_add"],
                     RESPONSE_BACKGROUND_REQUIREMENTS["task_order"],
                 ]
-            if has_callable_shape:
+            if has_callable_shape and not has_noncallable_shape:
                 derived.append(RESPONSE_BACKGROUND_REQUIREMENTS["callable_shapes"])
             if case["covers"] != derived:
                 raise ContractError(
@@ -6794,6 +6853,7 @@ def _validate_static_files_case_stimulus(
         derived.add("html-only-files-no-index-or-404")
     conditional_match = False
     conditional_numeric_timezone = False
+    conditional_named_timezone = False
     request_headers: dict[str, str] = {}
     if method == "GET" and normalized_path in selected_files and not os_specific_path_normalization:
         if permission_denial_stress is not None:
@@ -6811,6 +6871,15 @@ def _validate_static_files_case_stimulus(
             request_headers[name] = value
             if name == "if-modified-since":
                 conditional_numeric_timezone = bool(re.search(r"[+-][0-9]{4}$", value.strip()))
+                timezone_token = value.strip().rsplit(" ", 1)[-1]
+                conditional_named_timezone = (
+                    timezone_token.isascii()
+                    and timezone_token.isalpha()
+                    and timezone_token.upper() != "GMT"
+                )
+                conditional_omitted_timezone = bool(
+                    re.search(r"\d{1,2}:\d{2}:\d{2}$", value.strip())
+                )
                 try:
                     request_date = parsedate(value)
                     last_modified = datetime.fromtimestamp(
@@ -6860,7 +6929,11 @@ def _validate_static_files_case_stimulus(
                     )
             elif conditional_match:
                 derived.add(
-                    "if-modified-since-numeric-timezone"
+                    "if-modified-since-omitted-timezone"
+                    if conditional_omitted_timezone
+                    else "if-modified-since-named-timezone"
+                    if conditional_named_timezone
+                    else "if-modified-since-numeric-timezone"
                     if conditional_numeric_timezone
                     else "conditional-date-match"
                 )
@@ -10830,6 +10903,7 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
     saw_response_body_read = False
     saw_response_iterator_overlap = False
     saw_response_header_observation = False
+    response_header_observation_name: str | None = None
     for index, raw_action in enumerate(actions):
         context = f"BaseHTTPMiddleware dispatch_actions[{index}]"
         if not isinstance(raw_action, dict) or not isinstance(raw_action.get("kind"), str):
@@ -10924,6 +10998,7 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
             if not name or any(char in name for char in "\r\n:"):
                 raise ContractError("call_next response header lookup name is invalid")
             saw_response_header_observation = True
+            response_header_observation_name = name
         elif kind == "set-call-next-response-header":
             action = _exact(raw_action, {"kind", "name", "value"}, context)
             if not awaited or returned is not None or saw_header_mutation:
@@ -11541,6 +11616,13 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
         raise ContractError("middleware lifecycle stack requires one initial http.disconnect event")
 
     requirements = {BASE_HTTP_REQUIREMENTS["construct"]}
+    if (
+        saw_response_header_observation
+        and route_kind == "plain-text-response"
+        and response_header_observation_name is not None
+        and response_header_observation_name.lower() not in {"content-length", "content-type"}
+    ):
+        requirements.add(BASE_HTTP_REQUIREMENTS["response_header_get_missing"])
     if saw_header_mutation or stacked_state_header_mutation:
         requirements.add(BASE_HTTP_REQUIREMENTS["header_mutation"])
     if stacked_request_state:
@@ -15230,6 +15312,7 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
         and app_actions[0]["message"].get("type") == "websocket.accept"
         and app_actions[1].get("operation") == "raise"
     )
+    app_error_cleanup_close_error_workflow = app_error_stream_closure_workflow and no_client_actions
     application_exception_workflow = (
         is_starlette_websocket_route_error
         or (
@@ -15247,6 +15330,7 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
             settings["raise_server_exceptions"] is not True
             or (
                 app_error_stream_closure_workflow
+                and not app_error_cleanup_close_error_workflow
                 and (len(session_actions) != 1 or not client_exception_capture_workflow)
             )
             or (not app_error_stream_closure_workflow and not no_client_actions)
@@ -15302,11 +15386,18 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
             TESTCLIENT_WEBSOCKET_REQUIREMENTS["application_exception"],
             TESTCLIENT_WEBSOCKET_REQUIREMENTS["portal_cleanup"],
         }
-        if app_error_stream_closure_workflow:
+        if app_error_stream_closure_workflow and not app_error_cleanup_close_error_workflow:
             expected_covers.update(
                 {
                     TESTCLIENT_WEBSOCKET_REQUIREMENTS["handshake"],
                     TESTCLIENT_WEBSOCKET_REQUIREMENTS["app_error_stream_closure"],
+                }
+            )
+        if app_error_cleanup_close_error_workflow:
+            expected_covers.update(
+                {
+                    TESTCLIENT_WEBSOCKET_REQUIREMENTS["handshake"],
+                    TESTCLIENT_WEBSOCKET_REQUIREMENTS["app_error_wins_cleanup_close_error"],
                 }
             )
         if set(case["covers"]) != expected_covers:
@@ -15933,6 +16024,7 @@ def _validate_testclient_lifespan_case(case: dict[str, Any]) -> None:
         ["enter", "request", "exit"],
         ["enter", "request", "request", "websocket", "exit"],
         ["enter", "request", "request", "exit"],
+        ["enter", "enter", "exit", "exit"],
         [
             "enter",
             "request",
@@ -16811,6 +16903,7 @@ def _validate_testclient_lifespan_case(case: dict[str, Any]) -> None:
             TESTCLIENT_LIFESPAN_REQUIREMENTS["task_group_lifecycle"],
             TESTCLIENT_LIFESPAN_REQUIREMENTS["task_runvar_context"],
             TESTCLIENT_LIFESPAN_REQUIREMENTS["backend_loop_selection"],
+            TESTCLIENT_LIFESPAN_REQUIREMENTS["reentrant_context_entry"],
         }
     elif (client_operations, lifespan_operations) == (["enter"], ["receive", "raise"]):
         expected_covers = {TESTCLIENT_LIFESPAN_REQUIREMENTS["startup_error"]}
@@ -16821,6 +16914,15 @@ def _validate_testclient_lifespan_case(case: dict[str, Any]) -> None:
         expected_covers = {
             TESTCLIENT_LIFESPAN_REQUIREMENTS["startup"],
             TESTCLIENT_LIFESPAN_REQUIREMENTS["shutdown_error"],
+        }
+    elif (client_operations, lifespan_operations) == (
+        ["enter", "enter", "exit", "exit"],
+        ["receive", "send", "receive", "send"],
+    ):
+        expected_covers = {
+            TESTCLIENT_LIFESPAN_REQUIREMENTS["startup"],
+            TESTCLIENT_LIFESPAN_REQUIREMENTS["shutdown"],
+            TESTCLIENT_LIFESPAN_REQUIREMENTS["reentrant_context_entry"],
         }
     else:
         raise ContractError("TestClient client actions and lifespan app actions do not align")
@@ -17431,6 +17533,10 @@ def _validate_case_payload(
         isinstance(case, dict)
         and (case.get("surface"), case.get("operation")) == REQUEST_CLIENT_OPERATION
     )
+    is_request_header_cache_sequence = (
+        isinstance(case, dict)
+        and (case.get("surface"), case.get("operation")) == REQUEST_HEADER_CACHE_SEQUENCE_OPERATION
+    )
     is_request_scope_mapping = (
         isinstance(case, dict)
         and (case.get("surface"), case.get("operation")) == REQUEST_SCOPE_MAPPING_OPERATION
@@ -17604,6 +17710,8 @@ def _validate_case_payload(
         if is_request_body_stream_json
         else (CASE_KEYS - {"steps", "execution_schedule"}) | {"scope_cases"}
         if is_request_client
+        else REQUEST_HEADER_CACHE_SEQUENCE_CASE_KEYS
+        if is_request_header_cache_sequence
         else REQUEST_CONSTRUCTOR_CASE_KEYS
         if is_request_constructor
         else (CASE_KEYS - {"steps", "execution_schedule"}) | {"scope"}
@@ -17696,6 +17804,10 @@ def _validate_case_payload(
     if is_request_client:
         _exact(case, expected_case_keys, "Request.client case")
         _validate_request_client_case(case)
+        return case
+    if is_request_header_cache_sequence:
+        _exact(case, expected_case_keys, "Request header-cache sequence case")
+        _validate_request_header_cache_sequence_case(case)
         return case
     if is_request_scope_mapping:
         _exact(case, expected_case_keys, "Request scope-mapping case")
@@ -21172,6 +21284,64 @@ def _validate_route_middleware_workflow(case: dict[str, Any]) -> None:
         )
 
 
+def _validate_live_status_handler_registration_application(
+    route: Any, handlers: list[dict[str, Any]]
+) -> None:
+    """Validate a callable that registers an exception's handler as a status handler."""
+    route = _exact(route, {"kind", "path", "methods", "endpoint"}, "dynamic-handler route")
+    if (
+        route["kind"] != "http-route"
+        or not isinstance(route["path"], str)
+        or not route["path"].startswith("/")
+        or route["methods"] != ["GET"]
+    ):
+        raise ContractError("dynamic status-handler registration requires an absolute GET route")
+    endpoint = _exact(route["endpoint"], {"kind", "actions"}, "dynamic status-handler endpoint")
+    actions = endpoint["actions"]
+    if endpoint["kind"] != "asgi-callable-action-sequence" or not isinstance(actions, list):
+        raise ContractError("dynamic status-handler registration requires an ASGI action sequence")
+    if len(actions) != 2:
+        raise ContractError("dynamic status-handler registration requires registration then raise")
+    registration = _exact(
+        actions[0],
+        {"action", "status_code", "exception_class"},
+        "dynamic status-handler registration action",
+    )
+    failure = _exact(
+        actions[1],
+        {"action", "status_code", "detail", "headers"},
+        "dynamic status-handler exception action",
+    )
+    if (
+        registration["action"] != "register-status-handler-from-exception-class"
+        or type(registration["status_code"]) is not int
+        or not 100 <= registration["status_code"] <= 599
+        or not isinstance(registration["exception_class"], str)
+        or not registration["exception_class"]
+    ):
+        raise ContractError("dynamic status-handler registration action is invalid")
+    if (
+        failure["action"] != "raise-http-exception"
+        or failure["status_code"] != registration["status_code"]
+    ):
+        raise ContractError("dynamic status-handler action must raise its registered status")
+    _validate_asgi_callable_action_sequence(
+        {"kind": "asgi-callable-action-sequence", "actions": [failure]}
+    )
+    matching_handlers = [
+        handler
+        for handler in handlers
+        if isinstance(handler, dict)
+        and isinstance(handler.get("key"), dict)
+        and handler["key"].get("kind") == "exception-class"
+        and handler["key"].get("name") == registration["exception_class"]
+    ]
+    if len(matching_handlers) != 1:
+        raise ContractError(
+            "dynamic status-handler registration must reference one registered exception handler"
+        )
+
+
 def _validate_application_stimulus(
     args: dict[str, Any], request_dispatch: bool, allow_lifespan_variants: bool = False
 ) -> None:
@@ -21380,6 +21550,16 @@ def _validate_application_stimulus(
 
     if isinstance(route["endpoint"], dict) and route["endpoint"].get("kind") == "http-exception":
         _validate_http_exception_application(route, handlers)
+        return
+
+    endpoint = route.get("endpoint")
+    actions = endpoint.get("actions") if isinstance(endpoint, dict) else None
+    if isinstance(actions, list) and any(
+        isinstance(action, dict)
+        and action.get("action") == "register-status-handler-from-exception-class"
+        for action in actions
+    ):
+        _validate_live_status_handler_registration_application(route, handlers)
         return
 
     if handlers != []:
@@ -22775,6 +22955,15 @@ def _validate_exception_handler_dispatch(
     elif endpoint.get("kind") == "http-exception":
         if scope["method"] != "GET" or route["methods"] != ["GET"]:
             raise ContractError("HTTPException handler input must dispatch its declared GET route")
+    elif endpoint.get("kind") == "asgi-callable-action-sequence" and any(
+        isinstance(action, dict)
+        and action.get("action") == "register-status-handler-from-exception-class"
+        for action in endpoint.get("actions", [])
+    ):
+        if scope["method"] != "GET" or route["methods"] != ["GET"]:
+            raise ContractError(
+                "dynamic status-handler registration must dispatch its declared GET route"
+            )
     elif scope["method"] != "POST" or route["methods"] != ["GET"]:
         raise ContractError("status-code precedence input must POST to its GET-only route")
 
@@ -22997,6 +23186,127 @@ def _validate_request_client_case(case: dict[str, Any]) -> None:
                 raise ContractError(f"{context}.scope.client must be a host/port pair or null")
     if case["covers"] != [REQUEST_CLIENT_REQUIREMENT]:
         raise ContractError("Request.client case must cover the client-address requirement")
+
+
+def _validate_request_header_cache_sequence_case(case: dict[str, Any]) -> None:
+    if case["target_profiles"] != list(PYTHON_PROFILE_IDS):
+        raise ContractError(
+            "Request header-cache sequence parity targets all supported Python package profiles"
+        )
+    if case["assets"] != [] or case["observations"] != ["header-cache-sequence"]:
+        raise ContractError("Request header-cache sequence selects one observation without assets")
+    if not case["case_id"].startswith("starlette.requests.Request.header-cache-sequence."):
+        raise ContractError("Request header-cache sequence case ID must bind to its operation")
+
+    def validate_scope(
+        value: Any,
+        context: str,
+        *,
+        push_enabled: bool,
+    ) -> tuple[dict[str, str], dict[str, Any]]:
+        scope = _exact(
+            value,
+            {
+                "type",
+                "asgi",
+                "http_version",
+                "method",
+                "scheme",
+                "path",
+                "raw_path_base64",
+                "query_string_base64",
+                "root_path",
+                "headers_base64_pairs",
+                "client",
+                "server",
+                "extensions",
+            },
+            context,
+        )
+        extension_keys = {"http.response.push"} if push_enabled else set()
+        extensions = _exact(scope["extensions"], extension_keys, f"{context}.extensions")
+        if push_enabled and extensions["http.response.push"] != {}:
+            raise ContractError(f"{context}.extensions.http.response.push must be empty")
+        _validate_dispatch_stimulus(
+            {
+                "scope": {key: item for key, item in scope.items() if key != "extensions"},
+                "receive": [],
+                "send": {"kind": "capture-asgi-send"},
+            },
+            request_dispatch=True,
+            allow_headers=True,
+        )
+        headers: dict[str, str] = {}
+        for index, pair in enumerate(scope["headers_base64_pairs"]):
+            if not isinstance(pair, list) or len(pair) != 2:
+                raise ContractError(f"{context}.headers_base64_pairs[{index}] must be a pair")
+            try:
+                name_bytes = base64.b64decode(pair[0], validate=True)
+                value_bytes = base64.b64decode(pair[1], validate=True)
+                if (
+                    base64.b64encode(name_bytes).decode("ascii") != pair[0]
+                    or base64.b64encode(value_bytes).decode("ascii") != pair[1]
+                ):
+                    raise ValueError("non-canonical base64")
+                name = name_bytes.decode("latin-1").lower()
+                header_value = value_bytes.decode("latin-1")
+            except (ValueError, TypeError, UnicodeDecodeError) as exc:
+                raise ContractError(f"{context} contains an invalid header pair") from exc
+            headers.setdefault(name, header_value)
+        return headers, extensions
+
+    original_headers, _original_extensions = validate_scope(
+        case["scope"], "Request header-cache original scope", push_enabled=False
+    )
+    replacement_headers, replacement_extensions = validate_scope(
+        case["replacement_scope"], "Request header-cache replacement scope", push_enabled=True
+    )
+    actions = case["actions"]
+    if not isinstance(actions, list) or len(actions) != 4:
+        raise ContractError("Request header-cache sequence requires four ordered actions")
+    read_headers = _exact(actions[0], {"operation", "names"}, "Request cached-header read")
+    if read_headers["operation"] != "read-headers":
+        raise ContractError("Request header-cache sequence must first materialize headers")
+    names = read_headers["names"]
+    if (
+        not isinstance(names, list)
+        or not names
+        or any(not isinstance(name, str) or not name for name in names)
+        or len(names) != len(set(names))
+    ):
+        raise ContractError("Request cached-header names must be unique non-empty strings")
+    _exact(actions[1], {"operation"}, "Request scope replacement")
+    if actions[1]["operation"] != "replace-scope":
+        raise ContractError("Request header-cache sequence must replace scope second")
+    _exact(actions[2], {"operation"}, "Request cached-cookie read")
+    if actions[2]["operation"] != "read-cookies":
+        raise ContractError(
+            "Request header-cache sequence must read cookies after scope replacement"
+        )
+    push = _exact(actions[3], {"operation", "path"}, "Request cached-header push promise")
+    if push["operation"] != "send-push-promise":
+        raise ContractError("Request header-cache sequence must send its push promise last")
+    _string(push["path"], "Request cached-header push promise path")
+
+    derived: set[str] = set()
+    if (
+        "cookie" in original_headers
+        and "cookie" in replacement_headers
+        and original_headers["cookie"] != replacement_headers["cookie"]
+        and "cookie" in {name.lower() for name in names}
+        and replacement_headers["cookie"]
+    ):
+        derived.add(REQUEST_HEADER_CACHE_SEQUENCE_REQUIREMENTS["cookies"])
+    if (
+        "http.response.push" in replacement_extensions
+        and "user-agent" in original_headers
+        and "user-agent" in replacement_headers
+        and original_headers["user-agent"] != replacement_headers["user-agent"]
+        and "user-agent" in {name.lower() for name in names}
+    ):
+        derived.add(REQUEST_HEADER_CACHE_SEQUENCE_REQUIREMENTS["push_promise"])
+    if set(case["covers"]) != derived or not derived:
+        raise ContractError("Request header-cache covers must match the supplied scope sequence")
 
 
 def _validate_request_scope_mapping_case(case: dict[str, Any]) -> None:
@@ -30197,6 +30507,8 @@ def _gzip_single_dispatch_semantic_coverage(case: dict[str, Any]) -> set[str]:
     thread_minimum_size = constructor_args.get("thread_minimum_size", 128 * 1024)
     compressible = not content_encoded and not partial_response and not excluded
     coverage = {GZIP_REQUIREMENT_CONSTRUCTION}
+    if any(name != name.lower() for name, _value in [*response_headers, *request_headers]):
+        coverage.add(GZIP_REQUIREMENTS["case-insensitive-header-names"])
 
     if (
         gzip_accepted
@@ -30644,6 +30956,17 @@ def _semantic_coverage(case: dict[str, Any]) -> set[str]:
                         "starlette.asgi.exception-handler.async-callback",
                     }
                 )
+            elif endpoint["kind"] == "asgi-callable-action-sequence" and any(
+                isinstance(action, dict)
+                and action.get("action") == "register-status-handler-from-exception-class"
+                for action in endpoint["actions"]
+            ):
+                registration = endpoint["actions"][0]
+                handler_entry = entries_by_key.get(
+                    ("exception-class", registration["exception_class"])
+                )
+                if path_matches and method_matches and handler_entry is not None:
+                    coverage.add("starlette.asgi.exception-handler.live-handler-dictionary")
             elif endpoint["kind"] == "http-exception-after-body":
                 subclass_key = ("exception-class", endpoint["exception_class"])
                 handler_entry = entries_by_key.get(subclass_key)

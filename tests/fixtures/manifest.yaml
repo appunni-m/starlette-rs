@@ -323,6 +323,7 @@
       "build/parity/inputs/parity/request-body-receive-error-retry.json",
       "build/parity/inputs/parity/request-stream-disconnect-retry.json",
       "build/parity/inputs/parity/gzip-middleware.json",
+      "build/parity/inputs/parity/gzip-header-case-insensitive.json",
       "build/parity/inputs/parity/gzip-responder.json",
       "build/parity/inputs/parity/body-limit-middleware.json",
       "build/parity/inputs/parity/route-body-limits.json",
@@ -473,7 +474,12 @@
       "build/parity/inputs/parity/public-api-inspection.json",
       "build/parity/inputs/parity/public-exceptions-api.json",
       "build/parity/inputs/parity/application-typing-consumer.json",
-      "build/parity/inputs/parity/application-exception-bool-int-key.json"
+      "build/parity/inputs/parity/application-exception-bool-int-key.json",
+      "build/parity/inputs/parity/background-task-sync-noncallable.json",
+      "build/parity/inputs/parity/request-cached-headers-scope-replacement.json",
+      "build/parity/inputs/parity/static-files-named-timezone.json",
+      "build/parity/inputs/parity/static-files-omitted-timezone.json",
+      "build/parity/inputs/parity/testclient-reentrant-lifespan-entry.json"
     ],
     "coverage": [],
     "benchmark": [
@@ -1962,6 +1968,17 @@
               "target_profiles": [
                 "python-package-cpython312"
               ]
+            },
+            {
+              "id": "starlette.asgi.exception-handler.live-handler-dictionary",
+              "dimension": "boundary",
+              "description": "Register a status handler in the live ExceptionMiddleware handler mappings during request execution, then raise a matching HTTPException and compare post-await status-handler lookup. Pinned source: starlette/middleware/exceptions.py::ExceptionMiddleware.add_exception_handler and starlette/_exception_handler.py::wrap_app_handling_exceptions.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
             }
           ],
           "parity": {
@@ -2568,7 +2585,7 @@
             {
               "id": "starlette.request.path-param-int-digit-limit",
               "dimension": "error_path",
-              "description": "A 5001-digit path parameter matches the int regex but exceeds CPython\u2019s configured integer-string conversion limit when Starlette converts Request.path_params. Observe the live exception boundary in the source and installed Python package. Upstream: starlette/convertors.py::IntegerConvertor.convert and starlette/routing.py::Route.matches.",
+              "description": "A 5001-digit path parameter matches the int regex but exceeds CPython’s configured integer-string conversion limit when Starlette converts Request.path_params. Observe the live exception boundary in the source and installed Python package. Upstream: starlette/convertors.py::IntegerConvertor.convert and starlette/routing.py::Route.matches.",
               "lanes": [
                 "parity"
               ],
@@ -2579,7 +2596,7 @@
             {
               "id": "starlette.request.receive-worker-access",
               "dimension": "boundary",
-              "description": "Read Request.receive from a synchronous routed endpoint running in AnyIO\u2019s worker thread and observe that the callback is callable without invoking it. Upstream: starlette/requests.py:231-232; starlette/routing.py::request_response; tests/test_requests.py.",
+              "description": "Read Request.receive from a synchronous routed endpoint running in AnyIO’s worker thread and observe that the callback is callable without invoking it. Upstream: starlette/requests.py:231-232; starlette/routing.py::request_response; tests/test_requests.py.",
               "lanes": [
                 "parity"
               ],
@@ -2590,7 +2607,7 @@
             {
               "id": "starlette.request.stream-construction-worker",
               "dimension": "boundary",
-              "description": "Construct Request.stream() in a synchronous routed endpoint running in AnyIO\u2019s worker thread and observe its live async-iterator methods without consuming the receive callback. Upstream: starlette/requests.py:234-252; starlette/routing.py::request_response; tests/test_requests.py::test_request_stream.",
+              "description": "Construct Request.stream() in a synchronous routed endpoint running in AnyIO’s worker thread and observe its live async-iterator methods without consuming the receive callback. Upstream: starlette/requests.py:234-252; starlette/routing.py::request_response; tests/test_requests.py::test_request_stream.",
               "lanes": [
                 "parity"
               ],
@@ -2601,7 +2618,7 @@
             {
               "id": "starlette.request.body-awaitable-construction-worker",
               "dimension": "boundary",
-              "description": "Construct Request.body() in a synchronous routed endpoint running in AnyIO\u2019s worker thread and observe the returned awaitable; close it before execution so the ASGI receive callback is not consumed. Upstream: starlette/requests.py:254-260; starlette/routing.py::request_response; tests/test_requests.py::test_request_body.",
+              "description": "Construct Request.body() in a synchronous routed endpoint running in AnyIO’s worker thread and observe the returned awaitable; close it before execution so the ASGI receive callback is not consumed. Upstream: starlette/requests.py:254-260; starlette/routing.py::request_response; tests/test_requests.py::test_request_body.",
               "lanes": [
                 "parity"
               ],
@@ -2612,7 +2629,7 @@
             {
               "id": "starlette.request.json-awaitable-construction-worker",
               "dimension": "boundary",
-              "description": "Construct Request.json() in a synchronous routed endpoint running in AnyIO\u2019s worker thread and observe the returned awaitable; close it before execution so the ASGI receive callback is not consumed. Upstream: starlette/requests.py:262-266; starlette/routing.py::request_response; tests/test_requests.py::test_request_json.",
+              "description": "Construct Request.json() in a synchronous routed endpoint running in AnyIO’s worker thread and observe the returned awaitable; close it before execution so the ASGI receive callback is not consumed. Upstream: starlette/requests.py:262-266; starlette/routing.py::request_response; tests/test_requests.py::test_request_json.",
               "lanes": [
                 "parity"
               ],
@@ -10284,6 +10301,17 @@
               "target_profiles": [
                 "python-package-cpython312"
               ]
+            },
+            {
+              "id": "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.call-next-response-headers-mapping-get",
+              "dimension": "boundary",
+              "description": "Read a missing name through the MutableHeaders mapping returned by BaseHTTPMiddleware.call_next and preserve Mapping.get default behavior. Pinned source: starlette/middleware/base.py::BaseHTTPMiddleware.call_next and starlette/datastructures.py::MutableHeaders.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
             }
           ],
           "parity": {
@@ -11991,6 +12019,18 @@
               "id": "starlette.middleware.gzip.GZipMiddleware.identity-excluded-content-type",
               "dimension": "parameter_combination",
               "description": "Preserve a large explicitly excluded response unchanged for an identity-only client without adding gzip or Vary headers.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.gzip.GZipMiddleware.case-insensitive-header-names",
+              "dimension": "parameter_combination",
+              "description": "Resolve request and response header names case-insensitively when selecting GZip negotiation and content-type exclusions.",
               "lanes": [
                 "parity"
               ],
@@ -15858,6 +15898,143 @@
           }
         },
         {
+          "id": "header-cache-sequence",
+          "kind": "protocol_operation",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.requests.HTTPConnection.headers, Request.cookies, and Request.send_push_promise",
+            "signature": "Materialize Request.headers, replace the Request scope, then read cookies and send an HTTP response push promise.",
+            "parameters": [
+              {
+                "id": "scope",
+                "style": "positional",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "replacement_scope",
+                "style": "positional",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "actions",
+                "style": "positional",
+                "value_types": [
+                  "sequence"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "header-cache-sequence",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "The public Rust-native API has request-header and cookie primitives but no Request scope replacement or ASGI send-promise consumer interface.",
+                "blocker": "No public Rust-native Request/HTTPConnection object combines cached headers, cookies, mutable scope, and ASGI send callbacks for this workflow."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.requests.Request.headers, Request.cookies, Request.send_push_promise",
+              "signature": "Request(scope); cached headers property; cookies property; async send_push_promise(path).",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.request.cookies.use-cached-headers-property",
+              "dimension": "boundary",
+              "description": "After Request.headers is materialized, replace Request.scope and observe that Request.cookies continues to parse the cached headers object. Pinned source: starlette/requests.py::HTTPConnection.headers and Request.cookies.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
+              "id": "starlette.request.send-push-promise.use-cached-headers-property",
+              "dimension": "boundary",
+              "description": "After Request.headers is materialized, replace Request.scope with an HTTP push extension and observe that send_push_promise copies the original cached header values. Pinned source: starlette/requests.py::HTTPConnection.headers and Request.send_push_promise.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython310",
+              "python-package-cpython311",
+              "python-package-cpython312",
+              "python-package-cpython313",
+              "python-package-cpython314"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This input-only Request compatibility sequence makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "This Request cache-semantics sequence declares no benchmark workload."
+          }
+        },
+        {
           "id": "scope-mapping",
           "kind": "protocol_operation",
           "classification": "endpoint",
@@ -16967,7 +17144,7 @@
             {
               "id": "starlette.responses.FileResponse.asgi-call.range-inverted-single-byte",
               "dimension": "error_path",
-              "description": "Submit `bytes=5-4` and compare Starlette\u2019s malformed-range response. Upstream: starlette/responses.py::FileResponse._parse_range_header; tests/test_responses.py::test_file_response_inverted_single_byte_range.",
+              "description": "Submit `bytes=5-4` and compare Starlette’s malformed-range response. Upstream: starlette/responses.py::FileResponse._parse_range_header; tests/test_responses.py::test_file_response_inverted_single_byte_range.",
               "lanes": [
                 "parity"
               ],
@@ -16979,7 +17156,7 @@
             {
               "id": "starlette.responses.FileResponse.asgi-call.range-start-after-end",
               "dimension": "error_path",
-              "description": "Submit `bytes=100-0` and compare Starlette\u2019s malformed-range response. Upstream: starlette/responses.py::FileResponse._parse_range_header; tests/test_responses.py::test_file_response_start_must_be_less_than_end.",
+              "description": "Submit `bytes=100-0` and compare Starlette’s malformed-range response. Upstream: starlette/responses.py::FileResponse._parse_range_header; tests/test_responses.py::test_file_response_start_must_be_less_than_end.",
               "lanes": [
                 "parity"
               ],
@@ -17075,7 +17252,7 @@
             {
               "id": "starlette.responses.FileResponse.asgi-call.range-count-limit-exceeded",
               "dimension": "parameter_combination",
-              "description": "Submit 101 valid ranges and compare Starlette\u2019s full-file fallback. Upstream: starlette/responses.py::FileResponse._parse_range_header; tests/test_responses.py::test_file_response_range_count_limit_exceeded.",
+              "description": "Submit 101 valid ranges and compare Starlette’s full-file fallback. Upstream: starlette/responses.py::FileResponse._parse_range_header; tests/test_responses.py::test_file_response_range_count_limit_exceeded.",
               "lanes": [
                 "parity"
               ],
@@ -17087,7 +17264,7 @@
             {
               "id": "starlette.responses.FileResponse.asgi-call.range-max-ranges-override",
               "dimension": "parameter_combination",
-              "description": "Change the response instance\u2019s `max_ranges` before ASGI dispatch and compare the configured fallback behavior. Upstream: starlette/responses.py::FileResponse.max_ranges and FileResponse._parse_range_header.",
+              "description": "Change the response instance’s `max_ranges` before ASGI dispatch and compare the configured fallback behavior. Upstream: starlette/responses.py::FileResponse.max_ranges and FileResponse._parse_range_header.",
               "lanes": [
                 "parity"
               ],
@@ -18837,6 +19014,17 @@
               ]
             },
             {
+              "id": "starlette.responses.Response.asgi-call.background-task-cancellation-exception-propagates",
+              "dimension": "error_path",
+              "description": "Let an input-defined async BackgroundTasks callback raise asyncio.CancelledError after an earlier task completes; observe propagation after response send and that later tasks remain unstarted. Pinned source: starlette/background.py:19-23,34-36; starlette/responses.py:163-170; docs/background.md:76-78.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.responses.Response.asgi-call.background-task-add",
               "dimension": "parameter_combination",
               "description": "Construct BackgroundTasks with its default empty task list, call add_task with input-defined sync callbacks and captured arguments, attach it to Response, and observe callback execution. Upstream: starlette/background.py:26-33; tests/test_background.py::test_multiple_tasks.",
@@ -18862,6 +19050,17 @@
               "id": "starlette.responses.Response.asgi-call.background-callable-shapes",
               "dimension": "boundary",
               "description": "Attach input-defined async and sync BackgroundTask callbacks as bound methods, callable objects, partials, and nested partials; compare invocation arguments, response-send order, completion, and worker-thread classification. Upstream: starlette/background.py::BackgroundTask; starlette/_utils.py::is_async_callable; tests/test__utils.py:15-96.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.Response.asgi-call.background-sync-noncallable-error",
+              "dimension": "error_path",
+              "description": "Attach a non-callable object to a synchronous BackgroundTask and observe the live response-send followed by the eager functools.partial TypeError raised by run_in_threadpool. Pinned source: starlette/background.py::BackgroundTask.__call__, starlette/concurrency.py::run_in_threadpool, and starlette/responses.py::Response.__call__.",
               "lanes": [
                 "parity"
               ],
@@ -22368,7 +22567,7 @@
             {
               "id": "starlette.routing.Router.route-dispatch.http-endpoint-sync-handler",
               "dimension": "boundary",
-              "description": "HTTPEndpoint dispatches a synchronous HTTP verb handler through Starlette\u2019s worker-thread boundary.",
+              "description": "HTTPEndpoint dispatches a synchronous HTTP verb handler through Starlette’s worker-thread boundary.",
               "lanes": [
                 "parity"
               ],
@@ -23893,7 +24092,7 @@
             {
               "id": "starlette.schemas.SchemaGenerator.module-import-policy.dependency-errors-and-selection",
               "dimension": "error_path",
-              "description": "With PyYAML absent, a schema route with no endpoint docstring returns the base schema while a truthy docstring preserves Starlette\u2019s assertion. Pinned source: starlette/schemas.py:11-17, 96-120, 128-148.",
+              "description": "With PyYAML absent, a schema route with no endpoint docstring returns the base schema while a truthy docstring preserves Starlette’s assertion. Pinned source: starlette/schemas.py:11-17, 96-120, 128-148.",
               "lanes": [
                 "parity"
               ],
@@ -24558,6 +24757,30 @@
               "id": "starlette.staticfiles.StaticFiles.asgi-call.os-specific-path-normalization",
               "dimension": "input_family",
               "description": "Request an input-defined file with backslash path components and compare the live response selected by StaticFiles path normalization. The same input exercises POSIX literal backslashes and Windows separator/component handling. Pinned source: starlette/staticfiles.py:101-107, whose get_path contract explicitly uses OS-specific separators and removes dot components.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.staticfiles.StaticFiles.asgi-call.if-modified-since-named-timezone",
+              "dimension": "boundary",
+              "description": "Evaluate If-Modified-Since values with a named timezone token using the pinned parser tuple comparison, which discards the timezone field. Pinned source: starlette/staticfiles.py::StaticFiles.is_not_modified.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.staticfiles.StaticFiles.asgi-call.if-modified-since-omitted-timezone",
+              "dimension": "boundary",
+              "description": "Compare an If-Modified-Since date without a timezone suffix to the input asset's Last-Modified fields; the pinned email.utils.parsedate accepts the date and yields the same comparison fields as GMT. Pinned source: starlette/staticfiles.py:205-218.",
               "lanes": [
                 "parity"
               ],
@@ -25940,7 +26163,7 @@
           "source": {
             "oracle_id": "starlette-python",
             "path": "starlette.websockets.WebSocket",
-            "signature": "Parity workflow: drive public WebSocket.accept(), receive(), and send(message) calls plus input-defined client_state assignment, project each outcome to ok/error-class-and-message/send-error-handled, and observe both state enums. Python targets report the fully qualified class of the actual exception; the Rust-native adapter models accept with receive/send state transitions and reports the Python compatibility class associated with its typed state error (PyRuntimeError -> builtins.RuntimeError) or input-declared callback OSError. Exception causes and context remain excluded; adapter/runtime failures are top-level infrastructure errors.",
+            "signature": "Parity workflow: drive public WebSocket.accept(), receive(), and send(message) calls plus input-defined client_state and application_state assignments, project each outcome to ok/error-class-and-message/send-error-handled, and observe both state enums. Python targets report the fully qualified class of the actual exception; the Rust-native adapter models accept with receive/send state transitions and reports the Python compatibility class associated with its typed state error (PyRuntimeError -> builtins.RuntimeError) or input-declared callback OSError. Exception causes and context remain excluded; adapter/runtime failures are top-level infrastructure errors.",
             "parameters": [
               {
                 "id": "scope",
@@ -26018,7 +26241,7 @@
             {
               "target_id": "rust-native",
               "path": "starlette_rs::WebSocketStateMachine",
-              "signature": "WebSocketStateMachine::new(); model public accept() through receive(message_type) and begin_send(\"websocket.accept\", false); receive(message_type); begin_send(message_type, more_body); apply input-defined client_state assignment; send_failed(); project typed state errors to the PyO3-compatible Python class and exact message; observe both states",
+              "signature": "WebSocketStateMachine::new(); model public accept() through receive(message_type) and begin_send(\"websocket.accept\", false); receive(message_type); begin_send(message_type, more_body); apply input-defined client_state and application_state assignments; send_failed(); project typed state errors to the PyO3-compatible Python class and exact message; observe both states",
               "support": {
                 "status": "supported"
               }
@@ -26026,7 +26249,7 @@
             {
               "target_id": "python-package",
               "path": "starlette.websockets.WebSocket",
-              "signature": "WebSocket(scope, receive, send); async accept(); async receive(); async send(message); apply input-defined client_state assignment; project actual Python exception class and exact message for error outcomes; observe both states",
+              "signature": "WebSocket(scope, receive, send); async accept(); async receive(); async send(message); apply input-defined client_state and application_state assignments; project actual Python exception class and exact message for error outcomes; observe both states",
               "support": {
                 "status": "supported"
               }
@@ -26205,6 +26428,18 @@
               "id": "starlette.websocket.state.client-state-reset-invalid-receive",
               "dimension": "error_path",
               "description": "Accept a connection, assign WebSocket.client_state back to CONNECTING, then receive a websocket.receive event; compare the RuntimeError class and exact expected-websocket.connect message with both state enums. This preserves Starlette's public, assignable state attribute behavior. Upstream: tests/test_websockets.py::test_receive_before_accept and starlette/websockets.py::WebSocket.receive at the pinned Starlette commit.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.websocket.state.application-state-assignment",
+              "dimension": "error_path",
+              "description": "Assign WebSocket.application_state through its public attribute, then send messages whose acceptance and state transitions depend on CONNECTED, RESPONSE, and DISCONNECTED; compare action outcomes and both final state enums. The Rust-native adapter applies the same input state through WebSocketStateMachine::set_application_state. Upstream: starlette/websockets.py:33,63-96.",
               "lanes": [
                 "parity"
               ],
@@ -28671,6 +28906,17 @@
               ]
             },
             {
+              "id": "starlette.testclient.TestClient.websocket-session.app-error-wins-cleanup-close-error",
+              "dimension": "error_path",
+              "description": "After a successful WebSocket accept, let the app fail before context exit. The disconnect-send cleanup callback fails first, then ExitStack propagates the app task error and retains the earlier close error in __context__. Pinned source: starlette/testclient.py:115-125; context-manager callback ordering in contextlib.ExitStack.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.testclient.TestClient.websocket-session.duplicate-disconnect-error-propagation",
               "dimension": "error_path",
               "description": "After accepting, consume the input client websocket.disconnect and call WebSocket.receive() again; compare the live application exception, TestClient session-exit propagation, event tape, app completion, and portal cleanup. Pinned source: tests/test_websockets.py::test_duplicate_disconnect; starlette/testclient.py:102-125,169-171; starlette/websockets.py:36-61.",
@@ -29391,6 +29637,21 @@
               "id": "starlette.testclient.TestClient.lifespan-context.router-lifespan-state",
               "dimension": "boundary",
               "description": "Run a Router with an async lifespan context manager that yields mutable state; send two requests to the same route and observe request-local top-level assignments, shared nested mutation, lifecycle cleanup state, and the yielded mapping. Pinned source: tests/test_routing.py::test_lifespan_state_async_cm; starlette/routing.py::Router.lifespan.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.lifespan-context.reentrant-context-entry",
+              "dimension": "boundary",
+              "description": "Enter one TestClient context twice before exiting twice and compare the live lifespan handshakes and context-manager behavior. Pinned source: starlette/testclient.py::TestClient.__enter__ and TestClient.__exit__.",
               "lanes": [
                 "parity"
               ],

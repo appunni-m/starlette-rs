@@ -488,9 +488,11 @@ impl PyHTTPConnection {
         if let Some(headers) = self.request_headers.as_ref() {
             return Ok(headers.clone_ref(py));
         }
-        let raw = self.scope.bind(py).get_item("headers")?;
-        let raw = py.import("builtins")?.getattr("list")?.call1((raw,))?;
-        self.scope.bind(py).set_item("headers", &raw)?;
+        // Upstream cookies and push-promise handling read through the cached
+        // `self.headers` property. Reuse that object so replacing `scope` after
+        // the first header access does not switch these paths to new headers.
+        let headers = self.headers(py)?;
+        let raw = headers.bind(py).getattr("raw")?;
         let headers = py
             .import("starlette_rs_py._core")?
             .getattr("RequestHeaders")?

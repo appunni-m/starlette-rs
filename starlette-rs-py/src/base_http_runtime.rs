@@ -1353,6 +1353,21 @@ impl PyBaseHTTPHeaders {
             .map(Bound::unbind)
     }
 
+    #[pyo3(signature = (key, default=None))]
+    fn get(&self, py: Python<'_>, key: &str, default: Option<Py<PyAny>>) -> PyResult<Py<PyAny>> {
+        let key = key.to_ascii_lowercase().into_bytes();
+        let values = self.values.borrow(py);
+        match values
+            .iter()
+            .find(|(name, _)| name.eq_ignore_ascii_case(&key))
+        {
+            Some((_, value)) => PyBytes::new(py, value)
+                .call_method1("decode", ("latin-1",))
+                .map(Bound::unbind),
+            None => Ok(default.unwrap_or_else(|| py.None())),
+        }
+    }
+
     fn __setitem__(&self, py: Python<'_>, key: &str, value: &str) -> PyResult<()> {
         let key = key.to_ascii_lowercase().into_bytes();
         let value = PyString::new(py, value)

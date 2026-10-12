@@ -1,0 +1,71 @@
+{
+  "schema": "migration-parity/parity-input@48",
+  "cases": [
+    {
+      "case_id": "starlette.testclient.TestClient.lifespan-context.reentrant-context-entry",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "lifespan-context",
+      "covers": [
+        "starlette.testclient.TestClient.lifespan-context.startup-handshake",
+        "starlette.testclient.TestClient.lifespan-context.shutdown-handshake",
+        "starlette.testclient.TestClient.lifespan-context.reentrant-context-entry"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "observations": ["lifespan-context"],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": ["testclient", 50000],
+        "headers": [],
+        "backend": "asyncio",
+        "backend_options": {}
+      },
+      "client_actions": [
+        {"operation": "enter"},
+        {"operation": "enter"},
+        {"operation": "exit"},
+        {"operation": "exit"}
+      ],
+      "asgi_app": {
+        "kind": "asgi3",
+        "scope_fields": ["type"],
+        "loop_relations": ["active_lifespan", "previous_http_request"],
+        "lifespan_actions": [
+          {"operation": "receive"},
+          {
+            "operation": "send",
+            "message": {"type": "lifespan.startup.complete"}
+          },
+          {"operation": "receive"},
+          {
+            "operation": "send",
+            "message": {"type": "lifespan.shutdown.complete"}
+          }
+        ],
+        "http": {
+          "receive_count": 1,
+          "messages": [
+            {
+              "type": "http.response.start",
+              "status": 200,
+              "headers_base64_pairs": []
+            },
+            {
+              "type": "http.response.body",
+              "body_base64": "",
+              "more_body": false
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

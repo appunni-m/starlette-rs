@@ -12,7 +12,6 @@ use pyo3::class::gc::{PyTraverseError, PyVisit};
 use pyo3::exceptions::{PyAssertionError, PyException, PyRuntimeError, PyStopAsyncIteration};
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyInt, PyList, PyModule, PyTuple};
-use starlette_rs::ExceptionHandlerTable;
 
 use crate::awaitable::{
     AwaitableStateMachine, MachineAction, MachineResume, into_sendable_python_awaitable,
@@ -354,8 +353,6 @@ struct ExceptionMiddlewareArgs {
 #[pyclass(name = "ExceptionMiddlewareRuntime")]
 pub(crate) struct PyExceptionMiddlewareRuntime {
     app: Py<PyAny>,
-    handlers: Vec<Py<PyAny>>,
-    table: ExceptionHandlerTable<u64>,
     exception_handlers: Py<PyDict>,
     status_handlers: Py<PyDict>,
     http_exception_type: Py<PyAny>,
@@ -382,8 +379,6 @@ impl PyExceptionMiddlewareRuntime {
         } = args;
         let mut runtime = Self {
             app,
-            handlers: Vec::new(),
-            table: ExceptionHandlerTable::new(),
             exception_handlers: PyDict::new(py).unbind(),
             status_handlers: PyDict::new(py).unbind(),
             http_exception_type,
@@ -430,12 +425,6 @@ impl PyExceptionMiddlewareRuntime {
             py,
             ExceptionMiddlewareCall {
                 app: runtime.app.clone_ref(py),
-                handlers: runtime
-                    .handlers
-                    .iter()
-                    .map(|handler| handler.clone_ref(py))
-                    .collect(),
-                table: runtime.table.clone(),
                 exception_handlers: runtime.exception_handlers.clone_ref(py),
                 status_handlers: runtime.status_handlers.clone_ref(py),
                 http_exception_type: runtime.http_exception_type.clone_ref(py),
@@ -518,9 +507,6 @@ impl PyExceptionMiddlewareRuntime {
 
     fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
         visit.call(&self.app)?;
-        for handler in &self.handlers {
-            visit.call(handler)?;
-        }
         visit.call(&self.exception_handlers)?;
         visit.call(&self.status_handlers)?;
         visit.call(&self.http_exception_type)?;
@@ -533,7 +519,6 @@ impl PyExceptionMiddlewareRuntime {
 
     fn __clear__(&mut self, py: Python<'_>) {
         self.app = py.None();
-        self.handlers.clear();
         self.exception_handlers.bind(py).clear();
         self.status_handlers.bind(py).clear();
         self.http_exception_type = py.None();
@@ -553,14 +538,10 @@ impl PyExceptionMiddlewareRuntime {
         handler: Py<PyAny>,
     ) -> PyResult<()> {
         let key = key.bind(py);
-        let handler_index = self.handlers.len();
         if key.is_instance(&py.get_type::<PyInt>())? {
-            let key_string = integer_key_string(py, key)?;
             self.status_handlers
                 .bind(py)
                 .set_item(key, handler.bind(py))?;
-            self.handlers.push(handler);
-            self.table.insert_status(key_string, handler_index);
             return Ok(());
         }
 
@@ -572,24 +553,11 @@ impl PyExceptionMiddlewareRuntime {
         if !is_exception_subclass {
             return Err(PyAssertionError::new_err(()));
         }
-        let class_id = key.as_ptr() as usize as u64;
         self.exception_handlers
             .bind(py)
             .set_item(key, handler.bind(py))?;
-        self.handlers.push(handler);
-        self.table.insert_class(class_id, handler_index);
         Ok(())
     }
-}
-
-// Normalize Python integer keys before stringifying: `True` and `1` are the
-// same dictionary key in Starlette, even though `str(True)` is "True".
-fn integer_key_string(py: Python<'_>, value: &Bound<'_, PyAny>) -> PyResult<String> {
-    let integer = py.get_type::<PyInt>().call_method1("__int__", (value,))?;
-    py.import("builtins")?
-        .getattr("str")?
-        .call1((integer,))?
-        .extract::<String>()
 }
 
 #[pyclass(name = "_ExceptionSendProxy")]
@@ -688,8 +656,6 @@ enum ExceptionPending {
 
 struct ExceptionMiddlewareCall {
     app: Py<PyAny>,
-    handlers: Vec<Py<PyAny>>,
-    table: ExceptionHandlerTable<u64>,
     exception_handlers: Py<PyDict>,
     status_handlers: Py<PyDict>,
     http_exception_type: Py<PyAny>,
@@ -799,22 +765,7 @@ impl ExceptionMiddlewareCall {
             return Err(error);
         }
         let error_value = error.value(py);
-        let status_key = if error_value.is_instance(self.http_exception_type.bind(py))? {
-            let status_code = error_value.getattr("status_code")?;
-            if status_code.is_instance(&py.get_type::<PyInt>())? {
-                Some(integer_key_string(py, &status_code)?)
-            } else {
-                None
-            }
-        } else {
-            None
-        };
-        let mro = error_value.get_type().getattr("__mro__")?;
-        let exception_mro = mro
-            .try_iter()?
-            .map(|class| class.map(|class| class.as_ptr() as usize as u64))
-            .collect::<PyResult<Vec<_>>>()?;
-        let Some(handler_index) = self.table.select(status_key.as_deref(), &exception_mro) else {
+        let Some(handler) = self.lookup_handler(py, error_value)? else {
             return Err(error);
         };
         if self.response_started.load(Ordering::Relaxed) {
@@ -832,10 +783,6 @@ impl ExceptionMiddlewareCall {
 
         let exception = error_value.clone().into_any().unbind();
         self.original_exception = Some(exception.clone_ref(py));
-        let handler = self
-            .handlers
-            .get(handler_index)
-            .ok_or_else(|| PyRuntimeError::new_err("Rust selected a missing exception handler"))?;
         let connection = self
             .connection
             .as_ref()
@@ -854,6 +801,29 @@ impl ExceptionMiddlewareCall {
         let awaitable = awaitable.map_err(|error| self.chain_to_original(py, error))?;
         self.pending = Some(ExceptionPending::Handler);
         Ok(MachineAction::Await(awaitable.unbind()))
+    }
+
+    fn lookup_handler(
+        &self,
+        py: Python<'_>,
+        exception: &Bound<'_, PyAny>,
+    ) -> PyResult<Option<Py<PyAny>>> {
+        if exception.is_instance(self.http_exception_type.bind(py))? {
+            let status_code = exception.getattr("status_code")?;
+            if let Some(handler) = self.status_handlers.bind(py).get_item(status_code)? {
+                if !handler.is_none() {
+                    return Ok(Some(handler.unbind()));
+                }
+            }
+        }
+
+        let mro = exception.get_type().getattr("__mro__")?;
+        for class in mro.try_iter()? {
+            if let Some(handler) = self.exception_handlers.bind(py).get_item(class?)? {
+                return Ok((!handler.is_none()).then(|| handler.unbind()));
+            }
+        }
+        Ok(None)
     }
 
     fn handle_response(&mut self, py: Python<'_>, response: Py<PyAny>) -> PyResult<MachineAction> {

@@ -1402,6 +1402,154 @@
       "observations": [
         "dispatch"
       ]
+    },
+    {
+      "case_id": "starlette.applications.Starlette.__call__.exception-handler.live-status-registration",
+      "surface": "starlette.applications.Starlette",
+      "operation": "__call__",
+      "covers": [
+        "starlette.asgi.exception-handler.live-handler-dictionary"
+      ],
+      "execution_schedule": [
+        "dispatch"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "steps": [
+        {
+          "step_id": "application",
+          "surface": "starlette.applications.Starlette",
+          "operation": "__init__",
+          "receiver": null,
+          "arguments": {
+            "debug": {
+              "kind": "literal",
+              "value": false
+            },
+            "routes": {
+              "kind": "literal",
+              "value": [
+                {
+                  "kind": "http-route",
+                  "path": "/dynamic-handler",
+                  "methods": [
+                    "GET"
+                  ],
+                  "endpoint": {
+                    "kind": "asgi-callable-action-sequence",
+                    "actions": [
+                      {
+                        "action": "register-status-handler-from-exception-class",
+                        "status_code": 406,
+                        "exception_class": "CustomWSException"
+                      },
+                      {
+                        "action": "raise-http-exception",
+                        "status_code": 406,
+                        "detail": "unhandled without live lookup",
+                        "headers": null
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            "middleware": {
+              "kind": "literal",
+              "value": []
+            },
+            "exception_handlers": {
+              "kind": "literal",
+              "value": [
+                {
+                  "key": {
+                    "kind": "exception-class",
+                    "name": "CustomWSException",
+                    "base_class": "Exception"
+                  },
+                  "handler": {
+                    "kind": "json-literal-response",
+                    "status_code": 418,
+                    "content": {
+                      "handler": "registered-during-request"
+                    }
+                  }
+                }
+              ]
+            },
+            "lifespan": {
+              "kind": "literal",
+              "value": {
+                "kind": "async-context-manager",
+                "record_entry": true,
+                "record_exit": true
+              }
+            },
+            "max_body_size": {
+              "kind": "literal",
+              "value": null
+            }
+          }
+        },
+        {
+          "step_id": "dispatch",
+          "surface": "starlette.applications.Starlette",
+          "operation": "__call__",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "application"
+          },
+          "arguments": {
+            "scope": {
+              "kind": "literal",
+              "value": {
+                "type": "http",
+                "asgi": {
+                  "version": "3.0",
+                  "spec_version": "2.4"
+                },
+                "http_version": "1.1",
+                "scheme": "http",
+                "query_string_base64": "",
+                "root_path": "",
+                "headers_base64_pairs": [],
+                "client": [
+                  "127.0.0.1",
+                  12345
+                ],
+                "server": [
+                  "testserver",
+                  80
+                ],
+                "method": "GET",
+                "path": "/dynamic-handler",
+                "raw_path_base64": "L2R5bmFtaWMtaGFuZGxlcg=="
+              }
+            },
+            "receive": {
+              "kind": "literal",
+              "value": [
+                {
+                  "type": "http.request",
+                  "body_base64": "",
+                  "more_body": false
+                }
+              ]
+            },
+            "send": {
+              "kind": "literal",
+              "value": {
+                "kind": "capture-asgi-send"
+              }
+            }
+          }
+        }
+      ],
+      "observations": [
+        "dispatch"
+      ]
     }
   ]
 }

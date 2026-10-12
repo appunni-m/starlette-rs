@@ -1,0 +1,112 @@
+{
+  "schema": "migration-parity/parity-input@48",
+  "cases": [
+    {
+      "case_id": "starlette.requests.Request.header-cache-sequence.scope-replacement",
+      "surface": "starlette.requests.Request",
+      "operation": "header-cache-sequence",
+      "covers": [
+        "starlette.request.cookies.use-cached-headers-property",
+        "starlette.request.send-push-promise.use-cached-headers-property"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "Y29va2ll",
+            "c2Vzc2lvbj1vbGQ="
+          ],
+          [
+            "dXNlci1hZ2VudA==",
+            "b2xkLWFnZW50"
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ],
+        "extensions": {}
+      },
+      "replacement_scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "Y29va2ll",
+            "c2Vzc2lvbj1uZXc="
+          ],
+          [
+            "dXNlci1hZ2VudA==",
+            "bmV3LWFnZW50"
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ],
+        "extensions": {
+          "http.response.push": {}
+        }
+      },
+      "actions": [
+        {
+          "operation": "read-headers",
+          "names": [
+            "cookie",
+            "user-agent"
+          ]
+        },
+        {
+          "operation": "replace-scope"
+        },
+        {
+          "operation": "read-cookies"
+        },
+        {
+          "operation": "send-push-promise",
+          "path": "/style.css"
+        }
+      ],
+      "observations": [
+        "header-cache-sequence"
+      ]
+    }
+  ]
+}

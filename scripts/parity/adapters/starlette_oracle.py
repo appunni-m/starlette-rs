@@ -114,6 +114,7 @@ VALUE_FORMATTING_OPERATION = "value-formatting"
 REQUEST_DEFAULT_RECEIVE_OPERATION = ("starlette.requests.Request", "default-receive")
 REQUEST_CLIENT_OPERATION = ("starlette.requests.Request", "client")
 REQUEST_SCOPE_MAPPING_OPERATION = ("starlette.requests.Request", "scope-mapping")
+REQUEST_HEADER_CACHE_SEQUENCE_OPERATION = ("starlette.requests.Request", "header-cache-sequence")
 REQUEST_CONSTRUCTOR_OPERATION = ("starlette.requests.Request", "constructor-contract")
 WEBSOCKET_SCOPE_MAPPING_OPERATION = ("starlette.websockets.WebSocket", "scope-mapping")
 WEBSOCKET_CONSTRUCTOR_OPERATION = ("starlette.websockets.WebSocket", "constructor-contract")
@@ -267,6 +268,8 @@ def _record_input_background_task(
                 "message": failure["message"],
             }
         )
+        if failure["kind"] == "CancelledError":
+            raise asyncio.CancelledError(failure["message"])
         raise Exception(failure["message"])
     execution_trace.append({"event": "task-complete", "task_index": task_index})
 
@@ -368,7 +371,9 @@ def _input_background_tasks(
         callable_spec = task_spec.get("callable", {"kind": "function"})
         callable_kind = callable_spec["kind"]
         callback = base_callback
-        if callable_kind == "bound-method":
+        if callable_kind == "non-callable-object":
+            callback = object()
+        elif callable_kind == "bound-method":
             if task_spec["mode"] == "async":
 
                 class BoundCallback:
@@ -5148,7 +5153,7 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                         {
                             "action_index": action_index,
                             "lookup_name": name,
-                            "lookup_value": response.headers[name],
+                            "lookup_value": response.headers.get(name),
                             "iterated_names": list(response.headers),
                             "length": len(response.headers),
                             "items": response.headers.items(),
@@ -6741,9 +6746,11 @@ def _run_websocket_state_case(case: dict[str, Any]) -> dict[str, Any]:
                         pending_send_error = None
                 elif action["action"] == "set-client-state":
                     websocket.client_state = WebSocketState[action["state"]]
+                elif action["action"] == "set-application-state":
+                    websocket.application_state = WebSocketState[action["state"]]
                 else:
                     raise ValueError(
-                        "unsupported state-sequence action; only accept, raw receive/send, and client-state assignment are declared"
+                        "unsupported state-sequence action; only accept, raw receive/send, and state assignments are declared"
                     )
             except WebSocketDisconnect as exc:
                 if action.get("send_error") is not None:
@@ -10694,6 +10701,10 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
                 asyncio.run(dispatch_and_cancel_background())
             except asyncio.CancelledError as exc:
                 captured_error = exc
+    except asyncio.CancelledError as exc:
+        if background_tasks_spec is None:
+            raise
+        captured_error = exc
     except Exception as exc:
         if send_error_spec is None and background_tasks_spec is None:
             raise
@@ -13877,6 +13888,17 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         and (case.get("surface"), case.get("operation")) == REQUEST_DEFAULT_RECEIVE_OPERATION
     ):
         return _run_default_receive_case(case)
+    if (
+        isinstance(case, dict)
+        and (case.get("surface"), case.get("operation")) == REQUEST_HEADER_CACHE_SEQUENCE_OPERATION
+    ):
+        from starlette.requests import Request
+
+        from scripts.parity.adapters.request_header_cache_sequence import (
+            run_request_header_cache_sequence_case,
+        )
+
+        return run_request_header_cache_sequence_case(case, Request)
     if (
         isinstance(case, dict)
         and (

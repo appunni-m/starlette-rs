@@ -952,6 +952,93 @@
       ]
     },
     {
+      "case_id": "starlette.websockets.WebSocket.state-sequence.application-state-assignment",
+      "surface": "starlette.websockets.WebSocket",
+      "operation": "state-sequence",
+      "covers": [
+        "starlette.websocket.state.application-state-assignment"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "websocket",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.5"
+        },
+        "http_version": "1.1",
+        "scheme": "ws",
+        "path": "/chat",
+        "raw_path_base64": "L2NoYXQ=",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "ZXhhbXBsZS50ZXN0"
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ],
+        "subprotocols": []
+      },
+      "incoming": [],
+      "actions": [
+        {
+          "action_id": "assign-connected",
+          "action": "set-application-state",
+          "state": "CONNECTED"
+        },
+        {
+          "action_id": "send-connected-message",
+          "action": "send",
+          "message": {
+            "type": "websocket.send",
+            "text": "assigned"
+          }
+        },
+        {
+          "action_id": "assign-response",
+          "action": "set-application-state",
+          "state": "RESPONSE"
+        },
+        {
+          "action_id": "continue-response",
+          "action": "send",
+          "message": {
+            "type": "websocket.http.response.body",
+            "body_base64": "cGFydGlhbA==",
+            "more_body": true
+          }
+        },
+        {
+          "action_id": "assign-disconnected",
+          "action": "set-application-state",
+          "state": "DISCONNECTED"
+        },
+        {
+          "action_id": "send-after-assigned-disconnect",
+          "action": "send",
+          "message": {
+            "type": "websocket.send",
+            "text": "late"
+          }
+        }
+      ],
+      "observations": [
+        "state-sequence"
+      ]
+    },
+    {
       "case_id": "starlette.websockets.WebSocket.state-sequence.send-after-peer-disconnect",
       "surface": "starlette.websockets.WebSocket",
       "operation": "state-sequence",

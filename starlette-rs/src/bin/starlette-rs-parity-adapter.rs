@@ -5303,9 +5303,19 @@ fn run_websocket_state_case(case: &Value) -> Result<Value, String> {
                     "outcome": "ok",
                 })
             }
+            "set-application-state" => {
+                exact_keys(action_object, &["action_id", "action", "state"], &context)?;
+                let state =
+                    websocket_state_from_name(string_field(action_object, "state", &context)?)?;
+                machine.set_application_state(state);
+                json!({
+                    "action_id": action_id,
+                    "outcome": "ok",
+                })
+            }
             _ => {
                 return Err(format!(
-                    "{context}.action is unsupported by the WebSocketStateMachine surface; only accept, receive, send, and set-client-state are declared"
+                    "{context}.action is unsupported by the WebSocketStateMachine surface; only accept, receive, send, and state assignments are declared"
                 ));
             }
         };
