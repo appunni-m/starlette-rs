@@ -1022,6 +1022,18 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
 
             return instance
 
+    elif app_input["kind"] == "asgi3-asyncio-marked":
+
+        def app(scope: dict[str, Any], receive: Any, send: Any) -> Any:
+            record_scope(scope)
+
+            async def instance() -> None:
+                await run_app_body(receive, send)
+
+            return instance()
+
+        app.__dict__["_is_coroutine"] = asyncio.coroutines._is_coroutine
+
     else:
 
         async def app(scope: dict[str, Any], receive: Any, send: Any) -> None:

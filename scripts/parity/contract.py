@@ -234,6 +234,7 @@ TESTCLIENT_REQUIREMENTS = {
     "follow_redirects_enabled": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.follow-redirects-enabled",
     "response_history": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.response-history",
     "asgi2": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.asgi2-callable",
+    "asgi3_asyncio_marker": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.asyncio-marked-asgi3-callable",
     "timeout_warning": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.timeout-deprecation-warning",
     "exception_policy": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.exception-policy",
     "incomplete_response_exception": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.exception-after-incomplete-response",
@@ -13437,8 +13438,16 @@ def _validate_testclient_case(
         if isinstance(raw_asgi_app, dict) and "exception" in raw_asgi_app:
             asgi_app_keys.add("exception")
         asgi_app = _exact(raw_asgi_app, asgi_app_keys, "TestClient ASGI app")
-        if asgi_app["kind"] not in {"asgi2", "asgi3"}:
-            raise ContractError("TestClient ASGI app kind must be asgi2 or asgi3")
+        if asgi_app["kind"] not in {"asgi2", "asgi3", "asgi3-asyncio-marked"}:
+            raise ContractError(
+                "TestClient ASGI app kind must be asgi2, asgi3, or asgi3-asyncio-marked"
+            )
+        if asgi_app["kind"] == "asgi3-asyncio-marked" and case["target_profiles"] != [
+            "python-package-cpython312"
+        ]:
+            raise ContractError(
+                "asyncio-marked ASGI3 inputs select the pre-3.13 CPython 3.12 profile"
+            )
         messages = asgi_app["messages"]
         exception_spec = asgi_app.get("exception")
     scope_fields = asgi_app["scope_fields"]
@@ -13467,7 +13476,7 @@ def _validate_testclient_case(
         or len(scope_fields) != len(set(scope_fields))
     ):
         raise ContractError("TestClient ASGI app scope_fields must be unique supported scope keys")
-    if asgi_app["kind"] in {"asgi2", "asgi3"}:
+    if asgi_app["kind"] in {"asgi2", "asgi3", "asgi3-asyncio-marked"}:
         receive_count = asgi_app["receive_count"]
         if type(receive_count) is not int or receive_count < 0:
             raise ContractError("TestClient receive_count must be a non-negative integer")
@@ -13491,8 +13500,10 @@ def _validate_testclient_case(
             raise ContractError(
                 "TestClient generator requests must remain unread or be consumed through their terminal event"
             )
-        if not isinstance(messages, list) or (
-            len(messages) not in {2, 3} and not (exception_spec is not None and not messages)
+        if (
+            not isinstance(messages, list)
+            or (messages and len(messages) < 2)
+            or (not messages and exception_spec is None)
         ):
             raise ContractError(
                 "TestClient ASGI app must send a complete response, or raise before sending one"
@@ -13527,7 +13538,7 @@ def _validate_testclient_case(
         expected_covers.add(TESTCLIENT_REQUIREMENTS["authentication_option"])
     if any("files" in item for item in observed_requests):
         expected_covers.add(TESTCLIENT_REQUIREMENTS["multipart_file_upload"])
-    if asgi_app["kind"] in {"asgi2", "asgi3"}:
+    if asgi_app["kind"] in {"asgi2", "asgi3", "asgi3-asyncio-marked"}:
         if asgi_app["receive_count"]:
             expected_covers.add(TESTCLIENT_REQUIREMENTS["receive"])
         if asgi_app["receive_count"] == 0 and "content_generator_chunks_base64" in request:
@@ -13699,7 +13710,7 @@ def _validate_testclient_case(
         expected_covers.add(TESTCLIENT_REQUIREMENTS["exception_policy"])
         if "chain" in exception_spec:
             if (
-                asgi_app["kind"] not in {"asgi2", "asgi3"}
+                asgi_app["kind"] not in {"asgi2", "asgi3", "asgi3-asyncio-marked"}
                 or settings["raise_server_exceptions"] is not True
                 or messages
             ):
@@ -13745,6 +13756,8 @@ def _validate_testclient_case(
         expected_covers.add(TESTCLIENT_REQUIREMENTS["response"])
     if asgi_app["kind"] == "asgi2":
         expected_covers.add(TESTCLIENT_REQUIREMENTS["asgi2"])
+    if asgi_app["kind"] == "asgi3-asyncio-marked":
+        expected_covers.add(TESTCLIENT_REQUIREMENTS["asgi3_asyncio_marker"])
     if any("timeout" in item for item in [request, *followup_requests]):
         expected_covers.add(TESTCLIENT_REQUIREMENTS["timeout_warning"])
     if settings.get("follow_redirects") is False:
@@ -13782,11 +13795,24 @@ def _validate_testclient_case(
             validate_base64(message["body_base64"], f"response message[{index}].body")
             if type(message["more_body"]) is not bool:
                 raise ContractError("TestClient response body message more_body must be boolean")
-            if message["more_body"] and not (
-                index == len(messages) - 1
-                and (exception_spec is None or settings["raise_server_exceptions"] is False)
+            later_body_exists = any(
+                isinstance(later, dict) and later.get("type") == "http.response.body"
+                for later in messages[index + 1 :]
+            )
+            if (
+                message["more_body"]
+                and not later_body_exists
+                and not (
+                    index == len(messages) - 1
+                    and (exception_spec is None or settings["raise_server_exceptions"] is False)
+                )
             ):
-                raise ContractError("TestClient response body message must be terminal")
+                raise ContractError(
+                    "TestClient response body with more_body must be followed by another body "
+                    "or be an allowed incomplete response"
+                )
+            if not message["more_body"] and later_body_exists:
+                raise ContractError("TestClient response body cannot follow a terminal body")
         else:
             raise ContractError(f"TestClient response message[{index}] has an unsupported type")
 

@@ -1,0 +1,141 @@
+{
+  "schema": "migration-parity/parity-input@48",
+  "cases": [
+    {
+      "case_id": "starlette.testclient.TestClient.request-response.asgi2-streaming-receive-and-send-order",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "request-response",
+      "covers": [
+        "starlette.testclient.TestClient.request-response.scope-projection",
+        "starlette.testclient.TestClient.request-response.request-message",
+        "starlette.testclient.TestClient.request-response.asgi2-callable",
+        "starlette.testclient.TestClient.request-response.request-body-streaming-chunks",
+        "starlette.testclient.TestClient.request-response.response-and-debug"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "request-response"
+      ],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": [
+          "testclient",
+          50000
+        ],
+        "headers": []
+      },
+      "request": {
+        "method": "POST",
+        "client_method": "post",
+        "url": "/stream",
+        "headers_base64_pairs": [],
+        "body_base64": "",
+        "content_generator_chunks_base64": [
+          "YWxwaGE=",
+          "YmV0YQ=="
+        ]
+      },
+      "asgi_app": {
+        "kind": "asgi2",
+        "scope_fields": [
+          "type",
+          "method",
+          "path"
+        ],
+        "receive_count": 3,
+        "messages": [
+          {
+            "type": "http.response.start",
+            "status": 200,
+            "headers_base64_pairs": [
+              [
+                "Y29udGVudC10eXBl",
+                "dGV4dC9wbGFpbg=="
+              ]
+            ]
+          },
+          {
+            "type": "http.response.body",
+            "body_base64": "Zmlyc3Q=",
+            "more_body": true
+          },
+          {
+            "type": "http.response.body",
+            "body_base64": "c2Vjb25k",
+            "more_body": false
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.testclient.TestClient.request-response.asyncio-marked-asgi3-dispatch",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "request-response",
+      "covers": [
+        "starlette.testclient.TestClient.request-response.scope-projection",
+        "starlette.testclient.TestClient.request-response.request-message",
+        "starlette.testclient.TestClient.request-response.request-body-streaming-chunks",
+        "starlette.testclient.TestClient.request-response.response-and-debug",
+        "starlette.testclient.TestClient.request-response.asyncio-marked-asgi3-callable"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "request-response"
+      ],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": [
+          "testclient",
+          50000
+        ],
+        "headers": []
+      },
+      "request": {
+        "method": "POST",
+        "client_method": "post",
+        "url": "/marked",
+        "headers_base64_pairs": [],
+        "body_base64": "",
+        "content_generator_chunks_base64": [
+          "cGF5bG9hZA=="
+        ]
+      },
+      "asgi_app": {
+        "kind": "asgi3-asyncio-marked",
+        "scope_fields": [
+          "type",
+          "method",
+          "path"
+        ],
+        "receive_count": 2,
+        "messages": [
+          {
+            "type": "http.response.start",
+            "status": 200,
+            "headers_base64_pairs": [
+              [
+                "Y29udGVudC10eXBl",
+                "dGV4dC9wbGFpbg=="
+              ]
+            ]
+          },
+          {
+            "type": "http.response.body",
+            "body_base64": "bWFya2Vk",
+            "more_body": false
+          }
+        ]
+      }
+    }
+  ]
+}

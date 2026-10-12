@@ -419,6 +419,7 @@
       "build/parity/inputs/parity/websocket-endpoint-dispatch.json",
       "build/parity/inputs/parity/websocket-endpoint-docs-inputs.json",
       "build/parity/inputs/parity/http-endpoint-dispatch.json",
+      "build/parity/inputs/parity/testclient-asgi-callable-protocol.json",
       "build/parity/inputs/parity/testclient-http.json",
       "build/parity/inputs/parity/testclient-incomplete-response-return.json",
       "build/parity/inputs/parity/testclient-streaming-request-body.json",
@@ -27463,6 +27464,17 @@
               "id": "starlette.testclient.TestClient.request-response.asgi2-callable",
               "dimension": "protocol_variant",
               "description": "Adapt the supplied two-stage ASGI2 callable to the TestClient ASGI3 transport without changing its scope, receive, send, or response behavior. Pinned source: starlette/testclient.py:59-69,395-401; tests/test_testclient.py::test_testclient_asgi2.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.request-response.asyncio-marked-asgi3-callable",
+              "dimension": "protocol_variant",
+              "description": "Classify a regular ASGI3 function marked with asyncio's legacy coroutine sentinel as ASGI3 on CPython 3.12, then invoke it with scope, receive, and send. Compare the live request and ordered response events. Pinned source: starlette/testclient.py:59-66; starlette/_utils.py:10-16,42-46.",
               "lanes": [
                 "parity"
               ],

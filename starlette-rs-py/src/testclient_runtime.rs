@@ -1669,29 +1669,7 @@ fn is_asgi3(py: Python<'_>, app: &Bound<'_, PyAny>) -> PyResult<bool> {
         return app.hasattr("__await__");
     }
 
-    let partial_type = py.import("functools")?.getattr("partial")?;
-    let mut candidate = app.clone();
-    while candidate.is_instance(&partial_type)? {
-        candidate = candidate.getattr("func")?;
-    }
-    let is_coroutine_function = inspect.getattr("iscoroutinefunction")?;
-    if is_coroutine_function
-        .call1((&candidate,))?
-        .extract::<bool>()?
-    {
-        return Ok(true);
-    }
-    let is_callable = py
-        .import("builtins")?
-        .getattr("callable")?
-        .call1((&candidate,))?
-        .extract::<bool>()?;
-    if is_callable {
-        return is_coroutine_function
-            .call1((candidate.getattr("__call__")?,))?
-            .extract::<bool>();
-    }
-    Ok(false)
+    crate::background::is_async_callable(py, app)
 }
 
 fn lock_state(state: &SharedResponseState) -> PyResult<MutexGuard<'_, TestClientResponseState>> {
