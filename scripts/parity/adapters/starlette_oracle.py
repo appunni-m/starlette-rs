@@ -1153,8 +1153,8 @@ def _materialize_exception_handlers(
                     {"kind", "code"},
                     "WebSocketException close handler",
                 )
-                if type(spec["code"]) is not int or spec["code"] < 0:
-                    raise ValueError("WebSocketException handler close code must be non-negative")
+                if type(spec["code"]) is not int:
+                    raise ValueError("WebSocketException handler close code must be an integer")
 
                 async def websocket_exception_close_handler(
                     websocket: Any, _exc: Exception
@@ -9670,21 +9670,32 @@ def _run_static_files_lookup_path_case(case: dict[str, Any]) -> dict[str, Any]:
             check_dir=case["check_dir"],
             follow_symlink=case["follow_symlink"],
         )
-        full_path, stat_result = application.lookup_path(case["lookup_path"])
-        relative_root = root.absolute() if case["follow_symlink"] else root.resolve()
-        resolved_path = Path(full_path).relative_to(relative_root).as_posix() if full_path else None
-        mode_type_bits = stat.S_IFMT(stat_result.st_mode) if stat_result is not None else None
-        is_file = stat.S_ISREG(stat_result.st_mode) if stat_result is not None else None
-        is_directory = stat.S_ISDIR(stat_result.st_mode) if stat_result is not None else None
-        observation = {
-            "resolved_path": resolved_path,
-            "stat_result_present": stat_result is not None,
-            "mode_type_bits": mode_type_bits,
-            "is_file": is_file,
-            "is_directory": is_directory,
-            "size": stat_result.st_size if is_file else None,
-            "mtime_seconds": stat_result.st_mtime if is_file else None,
-        }
+        try:
+            full_path, stat_result = application.lookup_path(case["lookup_path"])
+        except Exception as exc:
+            observation = {
+                "lookup_error": {
+                    "class": f"{type(exc).__module__}.{type(exc).__qualname__}",
+                    "message": str(exc),
+                }
+            }
+        else:
+            relative_root = root.absolute() if case["follow_symlink"] else root.resolve()
+            resolved_path = (
+                Path(full_path).relative_to(relative_root).as_posix() if full_path else None
+            )
+            mode_type_bits = stat.S_IFMT(stat_result.st_mode) if stat_result is not None else None
+            is_file = stat.S_ISREG(stat_result.st_mode) if stat_result is not None else None
+            is_directory = stat.S_ISDIR(stat_result.st_mode) if stat_result is not None else None
+            observation = {
+                "resolved_path": resolved_path,
+                "stat_result_present": stat_result is not None,
+                "mode_type_bits": mode_type_bits,
+                "is_file": is_file,
+                "is_directory": is_directory,
+                "size": stat_result.st_size if is_file else None,
+                "mtime_seconds": stat_result.st_mtime if is_file else None,
+            }
     return {
         "case_id": case["case_id"],
         "status": "completed",
@@ -12118,6 +12129,23 @@ def _run_authentication_case(case: dict[str, Any]) -> dict[str, Any]:
                     result = _backend_spec["outcome"]
                     if not isinstance(result, dict):
                         return None
+                    if "container" in result:
+
+                        def unpack_value(item: dict[str, Any]) -> Any:
+                            if item["kind"] == "credentials":
+                                return AuthCredentials(item["scopes"])
+                            if item["kind"] == "simple-user":
+                                return SimpleUser(item["username"])
+                            raise ValueError(item["message"])
+
+                        if result["container"] == "list":
+                            return [unpack_value(item) for item in result["items"]]
+
+                        def result_iterator() -> Any:
+                            for item in result["items"]:
+                                yield unpack_value(item)
+
+                        return result_iterator()
                     return AuthCredentials(result["credentials"]), SimpleUser(result["user"])
 
             async def app(
@@ -12196,7 +12224,12 @@ def _run_authentication_case(case: dict[str, Any]) -> dict[str, Any]:
                 Backend(),
                 on_error if scenario["error_handler"] == "custom-response" else None,
             )
-            asyncio.run(middleware(scope, receive, send))
+            try:
+                asyncio.run(middleware(scope, receive, send))
+            except Exception as exc:
+                middleware_outcome = {"outcome": "error", "error": _error_snapshot(exc)}
+            else:
+                middleware_outcome = {"outcome": "completed"}
             results.append(
                 {
                     "backend_calls": calls,
@@ -12211,6 +12244,7 @@ def _run_authentication_case(case: dict[str, Any]) -> dict[str, Any]:
                         else None
                     ),
                     "sent": sent,
+                    "middleware_outcome": middleware_outcome,
                 }
             )
         observed = {"scenarios": results}

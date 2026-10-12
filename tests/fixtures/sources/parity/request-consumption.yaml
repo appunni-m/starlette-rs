@@ -555,6 +555,48 @@
       ]
     },
     {
+      "case_id": "starlette.requests.Request.body-stream-json.body-disconnect-json-retry",
+      "surface": "starlette.requests.Request",
+      "operation": "body-stream-json",
+      "covers": [
+        "starlette.request.stream-client-disconnect",
+        "starlette.request.body-disconnect-retry"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "http"
+      },
+      "receive": [
+        {
+          "type": "http.disconnect"
+        },
+        {
+          "type": "http.request",
+          "body_base64": "eyJvayI6dHJ1ZX0=",
+          "more_body": false
+        }
+      ],
+      "blocked_receive_calls": [],
+      "actions": [
+        {
+          "operation": "body"
+        },
+        {
+          "operation": "json"
+        }
+      ],
+      "observations": [
+        "request-consumption"
+      ]
+    },
+    {
       "case_id": "starlette.requests.Request.body-stream-json.overlapping-body-and-stream-receives",
       "surface": "starlette.requests.Request",
       "operation": "body-stream-json",

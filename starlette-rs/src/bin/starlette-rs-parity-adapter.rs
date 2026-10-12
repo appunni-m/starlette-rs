@@ -3641,11 +3641,15 @@ fn run_static_files_lookup_path_case(case: &Value) -> Result<Value, String> {
         follow_symlink,
     )
     .map_err(|error| format!("StaticFiles lookup-path construction failed: {error:?}"))?;
-    let lookup = static_files
-        .lookup_path(lookup_path)
-        .map_err(|error| format!("StaticFiles lookup_path failed: {error:?}"))?;
-    let observation = match lookup {
-        Some(file) => {
+    let observation = match static_files.lookup_path(lookup_path) {
+        Err(StaticFilesError::InvalidPath) => json!({
+            "lookup_error": {
+                "class": "builtins.ValueError",
+                "message": "embedded null byte",
+            }
+        }),
+        Err(error) => return Err(format!("StaticFiles lookup_path failed: {error:?}")),
+        Ok(Some(file)) => {
             let resolved_root = if follow_symlink {
                 root
             } else {
@@ -3687,7 +3691,7 @@ fn run_static_files_lookup_path_case(case: &Value) -> Result<Value, String> {
                 },
             })
         }
-        None => json!({
+        Ok(None) => json!({
             "resolved_path": null,
             "stat_result_present": false,
             "mode_type_bits": null,

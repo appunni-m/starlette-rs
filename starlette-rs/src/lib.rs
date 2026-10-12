@@ -103,6 +103,6 @@ pub use server_error::{ServerErrorPlan, ServerErrorPolicy, ServerErrorState};
 pub use sessions::{SessionSignatureError, timestamp_sign, timestamp_unsign};
 pub use staticfiles::{
     StaticFile, StaticFiles, StaticFilesError, StaticFilesResponse, StaticFilesResponseFlow,
-    StaticFilesResponseStep,
+    StaticFilesResponseStep, is_not_modified_headers, not_modified_headers,
 };
 pub use websocket::{WebSocketState, WebSocketStateError, WebSocketStateMachine};

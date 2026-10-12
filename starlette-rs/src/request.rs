@@ -503,9 +503,8 @@ impl RequestBodyAccumulator {
     ) -> Result<BodyProgress, RequestBodyError> {
         match message_type {
             "http.request" => {
-                if self.disconnected {
-                    return Err(RequestBodyError::ClientDisconnect);
-                }
+                // Starlette records disconnection separately from body-stream
+                // consumption and does not suppress later receive messages.
                 if self.complete {
                     return Err(RequestBodyError::AlreadyComplete);
                 }
@@ -540,9 +539,6 @@ impl RequestBodyAccumulator {
     ) -> Result<BodyProgress, RequestBodyError> {
         match message_type {
             "http.request" => {
-                if self.disconnected {
-                    return Err(RequestBodyError::ClientDisconnect);
-                }
                 self.complete |= !more_body;
                 Ok(BodyProgress::RequestChunk {
                     chunk_length: body.len(),
@@ -578,13 +574,11 @@ impl RequestBodyAccumulator {
 
     /// Begins collecting chunks for `Request.body()`. Call this before the
     /// receive loop; a stream already consumed without a cache cannot later be
-    /// converted into a cached body.
+    /// converted into a cached body. A previously observed disconnect does not
+    /// end a new receive loop; the receive callback determines its next event.
     pub fn begin_body_collection(&mut self) -> Result<(), RequestBodyError> {
         if self.cached_body.is_some() {
             return Ok(());
-        }
-        if self.disconnected {
-            return Err(RequestBodyError::ClientDisconnect);
         }
         if self.complete {
             return Err(RequestBodyError::StreamConsumed);
@@ -604,9 +598,6 @@ impl RequestBodyAccumulator {
     /// cached bytes.
     pub fn cache_body(&mut self) -> Result<&[u8], RequestBodyError> {
         if self.cached_body.is_none() {
-            if self.disconnected {
-                return Err(RequestBodyError::ClientDisconnect);
-            }
             if !self.collecting_body {
                 return Err(RequestBodyError::BodyCollectionNotStarted);
             }
@@ -622,11 +613,10 @@ impl RequestBodyAccumulator {
 
     /// Stores bytes collected by one body consumer after its receive loop
     /// finishes. The caller owns the local chunks because concurrent stream
-    /// consumers may have received other messages from the same callback.
+    /// consumers may have received other messages from the same callback. A
+    /// disconnect observed by another consumer does not block caching a body
+    /// completed by this consumer.
     pub fn cache_body_from(&mut self, body: &[u8]) -> Result<&[u8], RequestBodyError> {
-        if self.disconnected {
-            return Err(RequestBodyError::ClientDisconnect);
-        }
         if !self.collecting_body && self.cached_body.is_none() {
             return Err(RequestBodyError::BodyCollectionNotStarted);
         }
@@ -660,12 +650,11 @@ impl RequestBodyAccumulator {
     }
 
     /// Checks whether a fresh stream can begin under Starlette's stream rules.
-    /// A body cache permits replay after the original receive stream ends.
+    /// A body cache permits replay after the original receive stream ends. A
+    /// previously observed disconnect does not prevent a new call to receive.
     pub fn check_stream_start(&self) -> Result<(), RequestBodyError> {
         if self.cached_body.is_some() {
             Ok(())
-        } else if self.disconnected {
-            Err(RequestBodyError::ClientDisconnect)
         } else if self.complete {
             Err(RequestBodyError::StreamConsumed)
         } else {

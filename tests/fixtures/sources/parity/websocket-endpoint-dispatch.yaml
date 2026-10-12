@@ -429,6 +429,76 @@
       ]
     },
     {
+      "case_id": "starlette.endpoints.WebSocketEndpoint.dispatch.json-binary-invalid-utf8-propagates-1011",
+      "surface": "starlette.endpoints.WebSocketEndpoint",
+      "operation": "dispatch",
+      "covers": [
+        "starlette.endpoints.WebSocketEndpoint.dispatch.lifecycle",
+        "starlette.endpoints.WebSocketEndpoint.dispatch.decode-json-malformed"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "endpoint": {
+        "encoding": "json",
+        "on_connect": {
+          "kind": "default"
+        },
+        "on_receive": {
+          "kind": "no-op"
+        },
+        "on_disconnect": {
+          "kind": "record-and-close"
+        }
+      },
+      "sessions": [
+        {
+          "scope": {
+            "type": "websocket",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.5"
+            },
+            "http_version": "1.1",
+            "scheme": "ws",
+            "path": "/ws",
+            "raw_path_base64": "L3dz",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [
+              [
+                "aG9zdA==",
+                "ZXhhbXBsZS50ZXN0"
+              ]
+            ],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ],
+            "subprotocols": []
+          },
+          "incoming": [
+            {
+              "type": "websocket.connect",
+              "subprotocols": []
+            },
+            {
+              "type": "websocket.receive",
+              "bytes_base64": "/w=="
+            }
+          ]
+        }
+      ],
+      "observations": [
+        "dispatch"
+      ]
+    },
+    {
       "case_id": "starlette.endpoints.WebSocketEndpoint.dispatch.test-websocket-endpoint-on-receive-json-binary",
       "surface": "starlette.endpoints.WebSocketEndpoint",
       "operation": "dispatch",
@@ -566,6 +636,76 @@
             {
               "type": "websocket.disconnect",
               "code": 1001
+            }
+          ]
+        }
+      ],
+      "observations": [
+        "dispatch"
+      ]
+    },
+    {
+      "case_id": "starlette.endpoints.WebSocketEndpoint.dispatch.disconnect-falsy-code-fallback",
+      "surface": "starlette.endpoints.WebSocketEndpoint",
+      "operation": "dispatch",
+      "covers": [
+        "starlette.endpoints.WebSocketEndpoint.dispatch.lifecycle",
+        "starlette.endpoints.WebSocketEndpoint.dispatch.on-disconnect-close-code"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "endpoint": {
+        "encoding": null,
+        "on_connect": {
+          "kind": "default"
+        },
+        "on_receive": {
+          "kind": "no-op"
+        },
+        "on_disconnect": {
+          "kind": "record-and-close"
+        }
+      },
+      "sessions": [
+        {
+          "scope": {
+            "type": "websocket",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.5"
+            },
+            "http_version": "1.1",
+            "scheme": "ws",
+            "path": "/ws",
+            "raw_path_base64": "L3dz",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [
+              [
+                "aG9zdA==",
+                "ZXhhbXBsZS50ZXN0"
+              ]
+            ],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ],
+            "subprotocols": []
+          },
+          "incoming": [
+            {
+              "type": "websocket.connect",
+              "subprotocols": []
+            },
+            {
+              "type": "websocket.disconnect",
+              "code": 0
             }
           ]
         }

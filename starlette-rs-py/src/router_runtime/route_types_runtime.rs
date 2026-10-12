@@ -1704,7 +1704,6 @@ fn compile_path_parts<'py>(
         path_format.push('{');
         path_format.push_str(&parameter.name);
         path_format.push('}');
-
         if !parameter_names.insert(parameter.name.clone()) {
             duplicated_params.insert(parameter.name.clone());
         }
@@ -1735,7 +1734,10 @@ fn compile_path_parts<'py>(
     }
     path_regex.push('$');
     path_format.push_str(tail);
-    let pattern = py.import("re")?.getattr("compile")?.call1((path_regex,))?;
+    let pattern = py
+        .import("re")?
+        .getattr("compile")?
+        .call1((path_regex.as_str(),))?;
     Ok((pattern, path_format, convertors, has_custom))
 }
 
@@ -2071,7 +2073,7 @@ fn route_matches(
     scope: &Bound<'_, PyDict>,
     match_type: &Bound<'_, PyAny>,
     route_kind: &str,
-    builtin_convertors: &Bound<'_, PyDict>,
+    _builtin_convertors: &Bound<'_, PyDict>,
 ) -> PyResult<Py<PyAny>> {
     let scope_type = optional_string(scope, "type", "")?;
     let protocol_matches = match route_kind {
@@ -2093,14 +2095,7 @@ fn route_matches(
     }
 
     let path = route_path_from_scope(scope)?;
-    let custom = route
-        .getattr("_uses_custom_convertors")?
-        .extract::<bool>()?;
-    let mut matched = if custom {
-        python_regex_match(py, route, &path)?
-    } else {
-        native_regex_match(py, route, scope, &path, route_kind, builtin_convertors)?
-    };
+    let mut matched = python_regex_match(py, route, &path)?;
     let Some(matched_params) = matched.take() else {
         return match_result(py, match_type, "NONE", PyDict::new(py));
     };
@@ -2112,7 +2107,7 @@ fn route_matches(
     let match_name = if route_kind == "websocket" {
         "FULL"
     } else {
-        http_match_name(route, scope, custom)?
+        http_match_name(route, scope)?
     };
     let path_params = merged_path_params(py, scope, matched_params.bind(py))?;
     let child_scope = PyDict::new(py);
@@ -2138,14 +2133,7 @@ fn host_route_child_scope(
 ) -> PyResult<Option<Py<PyDict>>> {
     let host = host_header_value(py, scope)?;
     let hostname = host.split(':').next().unwrap_or_default();
-    let custom = route
-        .getattr("_uses_custom_convertors")?
-        .extract::<bool>()?;
-    let matched_params = if custom {
-        python_regex_match(py, route, hostname)?
-    } else {
-        native_host_match(py, route, hostname)?
-    };
+    let matched_params = python_regex_match(py, route, hostname)?;
     let Some(converted) = matched_params else {
         return Ok(None);
     };
@@ -2154,33 +2142,6 @@ fn host_route_child_scope(
     child_scope.set_item("path_params", path_params.bind(py))?;
     child_scope.set_item("endpoint", route.getattr("app")?)?;
     Ok(Some(child_scope.unbind()))
-}
-
-fn native_host_match(
-    py: Python<'_>,
-    route: &Bound<'_, PyAny>,
-    hostname: &str,
-) -> PyResult<Option<Py<PyDict>>> {
-    let table = route.getattr("_route_table")?;
-    if table.is_none() {
-        return Err(PyRuntimeError::new_err(
-            "native Host route did not have a Rust route table",
-        ));
-    }
-    let decision = table.call_method1(
-        "match_route_with_root_path",
-        (format!("/{hostname}"), "", "GET"),
-    )?;
-    let decision = decision.cast::<PyTuple>()?;
-    if decision.get_item(0)?.extract::<String>()? == "not_found" {
-        return Ok(None);
-    }
-    let captures = decision.get_item(3)?.extract::<Vec<(String, String)>>()?;
-    let captured = PyDict::new(py);
-    for (name, value) in captures {
-        captured.set_item(name, value)?;
-    }
-    convert_capture_dict(py, route, &captured).map(Some)
 }
 
 fn host_header_value(py: Python<'_>, scope: &Bound<'_, PyDict>) -> PyResult<String> {
@@ -2215,109 +2176,20 @@ fn match_result(
         .unbind())
 }
 
+// CPython's compiled pattern remains the exact matching boundary for converter syntax such as `\N{name}`.
+// Route selection, capture conversion, and converter callback ordering stay in Rust after this call.
 fn python_regex_match(
     py: Python<'_>,
     route: &Bound<'_, PyAny>,
     path: &str,
 ) -> PyResult<Option<Py<PyDict>>> {
-    let regex = route.getattr("path_regex")?;
-    let match_object = regex.call_method1("match", (path,))?;
-    if match_object.is_none() {
+    let pattern = route.getattr("path_regex")?;
+    let matched = pattern.call_method1("match", (path,))?;
+    if matched.is_none() {
         return Ok(None);
     }
-    let captured = match_object
-        .call_method0("groupdict")?
-        .cast_into::<PyDict>()?;
+    let captured = matched.call_method0("groupdict")?.cast_into::<PyDict>()?;
     convert_capture_dict(py, route, &captured).map(Some)
-}
-
-fn native_regex_match(
-    py: Python<'_>,
-    route: &Bound<'_, PyAny>,
-    scope: &Bound<'_, PyDict>,
-    path: &str,
-    route_kind: &str,
-    builtin_convertors: &Bound<'_, PyDict>,
-) -> PyResult<Option<Py<PyDict>>> {
-    let table = route.getattr("_route_table")?;
-    if table.is_none() {
-        return Err(PyRuntimeError::new_err(
-            "native route did not have a Rust route table",
-        ));
-    }
-    let root_path = optional_string(scope, "root_path", "")?;
-    let method = if route_kind == "websocket" {
-        "GET".to_owned()
-    } else {
-        optional_string(scope, "method", "GET")?
-    };
-    let decision = table.call_method1(
-        "match_route_with_root_path",
-        (required_string(scope, "path")?, root_path, method),
-    )?;
-    let decision = decision.cast::<PyTuple>()?;
-    let decision_name = decision.get_item(0)?.extract::<String>()?;
-    if decision_name == "not_found" {
-        return Ok(None);
-    }
-    let rust_captured = decision.get_item(3)?.extract::<Vec<(String, String)>>()?;
-    let regex_match = route
-        .getattr("path_regex")?
-        .call_method1("match", (path,))?;
-    if regex_match.is_none() {
-        return Err(PyRuntimeError::new_err(
-            "Rust matched a route that the path converter regex did not match",
-        ));
-    }
-    let captured_dict = regex_match
-        .call_method0("groupdict")?
-        .cast_into::<PyDict>()?;
-    let captured_items = dict_string_items(&captured_dict)?;
-    let rust_names = rust_captured
-        .iter()
-        .map(|(name, _)| name.as_str())
-        .collect::<Vec<_>>();
-    let python_names = captured_items
-        .iter()
-        .map(|(name, _)| name.as_str())
-        .collect::<Vec<_>>();
-    let convertors = route.getattr("param_convertors")?.cast_into::<PyDict>()?;
-    let parameter_names = dict_keys_as_strings(&convertors)?;
-    if python_names != parameter_names || rust_names != parameter_names {
-        return Err(PyRuntimeError::new_err(format!(
-            "Rust and Python route matchers captured different path parameters (Rust: {rust_names:?}, Python: {python_names:?})"
-        )));
-    }
-
-    let converted = convert_capture_dict(py, route, &captured_dict)?;
-    let rust_values = rust_captured
-        .into_iter()
-        .collect::<std::collections::HashMap<_, _>>();
-    for (name, raw_value) in captured_items {
-        let converter = convertors.get_item(&name)?.ok_or_else(|| {
-            PyRuntimeError::new_err(format!("route converter missing parameter '{name}'"))
-        })?;
-        let builtin_int = builtin_convertors
-            .get_item("int")?
-            .is_some_and(|value| converter.is(&value));
-        let expected = if builtin_int {
-            converted
-                .bind(py)
-                .get_item(&name)?
-                .ok_or_else(|| PyRuntimeError::new_err("converted path parameter disappeared"))?
-                .str()?
-                .to_str()?
-                .to_owned()
-        } else {
-            raw_value
-        };
-        if rust_values.get(&name) != Some(&expected) {
-            return Err(PyRuntimeError::new_err(format!(
-                "Rust and Python route matchers captured different values for {name:?}"
-            )));
-        }
-    }
-    Ok(Some(converted))
 }
 
 fn convert_capture_dict<'py>(
@@ -2327,20 +2199,16 @@ fn convert_capture_dict<'py>(
 ) -> PyResult<Py<PyDict>> {
     let converted = PyDict::new(py);
     let convertors = route.getattr("param_convertors")?.cast_into::<PyDict>()?;
-    for (name, value) in dict_string_items(captures)? {
-        let convertor = convertors.get_item(&name)?.ok_or_else(|| {
-            PyRuntimeError::new_err(format!("route converter missing parameter '{name}'"))
-        })?;
-        converted.set_item(name, convertor.call_method1("convert", (value,))?)?;
+    for (name, value) in dict_items_as_py(captures)? {
+        let convertor = convertors
+            .get_item(&name)?
+            .ok_or_else(|| PyKeyError::new_err(name.clone()))?;
+        converted.set_item(name, convertor.call_method1("convert", (value.bind(py),))?)?;
     }
     Ok(converted.unbind())
 }
 
-fn http_match_name(
-    route: &Bound<'_, PyAny>,
-    scope: &Bound<'_, PyDict>,
-    custom: bool,
-) -> PyResult<&'static str> {
+fn http_match_name(route: &Bound<'_, PyAny>, scope: &Bound<'_, PyDict>) -> PyResult<&'static str> {
     let methods = route.getattr("methods")?;
     if methods.is_none() || !methods.is_truthy()? {
         return Ok("FULL");
@@ -2348,24 +2216,8 @@ fn http_match_name(
     let method = required_string(scope, "method")?;
     if methods.contains(&method)? {
         Ok("FULL")
-    } else if custom {
-        Ok("PARTIAL")
     } else {
-        let table = route.getattr("_route_table")?;
-        let decision = table.call_method1(
-            "match_route_with_root_path",
-            (
-                required_string(scope, "path")?,
-                optional_string(scope, "root_path", "")?,
-                &method,
-            ),
-        )?;
-        let decision_name = decision.get_item(0)?.extract::<String>()?;
-        Ok(if decision_name == "method_not_allowed" {
-            "PARTIAL"
-        } else {
-            "FULL"
-        })
+        Ok("PARTIAL")
     }
 }
 
@@ -2449,19 +2301,6 @@ fn optional_string(scope: &Bound<'_, PyDict>, name: &str, default: &str) -> PyRe
     scope
         .get_item(name)?
         .map_or_else(|| Ok(default.to_owned()), |value| value.extract::<String>())
-}
-
-fn dict_string_items(dict: &Bound<'_, PyDict>) -> PyResult<Vec<(String, String)>> {
-    dict.items()
-        .try_iter()?
-        .map(|item| {
-            let item = item?.cast_into::<PyTuple>()?;
-            Ok((
-                item.get_item(0)?.extract::<String>()?,
-                item.get_item(1)?.extract::<String>()?,
-            ))
-        })
-        .collect()
 }
 
 fn dict_keys_as_strings(dict: &Bound<'_, PyDict>) -> PyResult<Vec<String>> {

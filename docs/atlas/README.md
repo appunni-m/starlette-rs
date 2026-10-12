@@ -25,15 +25,16 @@ with no conventional Python or Rust unit-test suite.
 ## Current implementation status
 
 Implementation remains active for the full Starlette 1.6.0 replacement. The
-working-tree `parity-input@47` contract indexes 1,995 cases across 142 parity
-files, two benchmark files, 133 operations, and 1,028 requirements. The latest
+working-tree `parity-input@48` contract indexes 2,013 cases across 145 parity
+files, two benchmark files, 133 operations, and 1,036 requirements. The latest
 static source-inventory check passed: all 999 API candidates are dispositioned,
-and the generated atlas has 816 source rows with 761 input mappings, 55
+and the generated atlas has 817 source rows with 762 input mappings, 55
 source-backed `not_applicable` rows, and zero backlog items.
 
-The missing-TestClient-backend case, WebSocket authorization input update,
-Router truthiness case, and BaseHTTPMiddleware iterator case were made after
-the latest complete parity, coverage, and benchmark receipts. The previous clean full run
+StaticFiles, response-protocol, TestClient exception/close-code, WebSocket
+close-code, custom-regex, AuthenticationMiddleware iterable-result, nested
+Host/Mount reverse-lookup, and Request disconnect-retry inputs were also added after the latest complete
+parity, coverage, and benchmark receipts. The previous clean full run
 `dc8c8ca6-f2b7-449b-9f53-45860e3cad4c` passed 2,254/2,254 comparisons for the
 preceding 1,992-case contract; its coverage and 74-workload benchmark receipts
 also apply only to that earlier contract. The current input set has not been

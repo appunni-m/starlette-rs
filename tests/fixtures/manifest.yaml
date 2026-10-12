@@ -390,6 +390,8 @@
       "build/parity/inputs/parity/static-files-config.json",
       "build/parity/inputs/parity/static-files-config-direct-check.json",
       "build/parity/inputs/parity/static-files-docs-inputs.json",
+      "build/parity/inputs/parity/static-files-null-byte-lookup.json",
+      "build/parity/inputs/parity/static-files-os-path.json",
       "build/parity/inputs/parity/wsgi-middleware.json",
       "build/parity/inputs/parity/wsgi-boundary.json",
       "build/parity/inputs/parity/session-middleware.json",
@@ -9414,6 +9416,39 @@
               ]
             },
             {
+              "id": "starlette.middleware.authentication.AuthenticationMiddleware.iterable-backend-result",
+              "dimension": "parameter_combination",
+              "description": "Unpack the backend result from a list or one-shot generator using Python's two-target iteration semantics before installing auth and user. Upstream: starlette/middleware/authentication.py:45-48.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.authentication.AuthenticationMiddleware.backend-result-arity-error",
+              "dimension": "error_path",
+              "description": "A backend iterable with fewer or more than two values propagates Python's tuple-unpacking TypeError before app dispatch. Upstream: starlette/middleware/authentication.py:45-48.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.authentication.AuthenticationMiddleware.backend-result-iteration-error",
+              "dimension": "error_path",
+              "description": "An exception raised while consuming a backend result iterator propagates before app dispatch. Upstream: starlette/middleware/authentication.py:45-48.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.middleware.authentication.AuthenticationMiddleware.http-error-handler",
               "dimension": "error_path",
               "description": "An AuthenticationError from an HTTP backend is passed to the configured error handler and response. Upstream: starlette/middleware/authentication.py:34-43, 50-52.",
@@ -15524,6 +15559,21 @@
                 "python-package-cpython313",
                 "python-package-cpython314"
               ]
+            },
+            {
+              "id": "starlette.request.body-disconnect-retry",
+              "dimension": "error_path",
+              "description": "When Request.body() receives http.disconnect, it raises ClientDisconnect without marking the stream consumed; a later Request.json() calls receive again and can collect a subsequent http.request body. Pinned source: starlette/requests.py:239-264; tests/test_requests.py::test_request_disconnect.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
             }
           ],
           "parity": {
@@ -19451,6 +19501,7 @@
                 "missing_requirements": [
                   "starlette.responses.StreamingResponse.asgi-call.async-generator-background",
                   "starlette.responses.StreamingResponse.asgi-call.pre-asgi24-disconnect-cancellation",
+                  "starlette.responses.StreamingResponse.asgi-call.pre-asgi24-stream-completes-first",
                   "starlette.responses.StreamingResponse.asgi-call.websocket-scope-background"
                 ]
               }
@@ -19479,7 +19530,18 @@
             {
               "id": "starlette.responses.StreamingResponse.asgi-call.pre-asgi24-disconnect-cancellation",
               "dimension": "protocol_variant",
-              "description": "Run an async generator that yields its input chunks after the declared event-loop checkpoint, under an ASGI 2.3 scope. Block receive until the input-defined body-byte threshold has been sent, then return http.disconnect. Observe partial ASGI events, the generator's cancellation and finally recorder, and the supplied background recorder through StreamingResponse.__call__. Pinned sources: tests/test_responses.py::test_streaming_response_stops_if_receiving_http_disconnect; starlette/responses.py::StreamingResponse.__call__, listen_for_disconnect, stream_response; starlette/background.py::BackgroundTask.",
+              "description": "Run a repeating async generator that yields its input chunks after the declared event-loop checkpoint, under explicit ASGI 2.3 or the upstream test's minimal scope containing only type=http, where the missing ASGI spec version defaults to 2.0. Block receive until the input-defined body-byte threshold has been sent, then return http.disconnect. Observe partial ASGI events, the generator's cancellation and finally recorder, and the supplied background recorder through StreamingResponse.__call__. Pinned sources: tests/test_responses.py::test_streaming_response_stops_if_receiving_http_disconnect; starlette/responses.py:StreamingResponse.__call__, listen_for_disconnect, stream_response; starlette/background.py:BackgroundTask.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.StreamingResponse.asgi-call.pre-asgi24-stream-completes-first",
+              "dimension": "protocol_variant",
+              "description": "Invoke a finite input-defined async generator under ASGI 2.3 while receive remains behind a body-byte threshold greater than the encoded stream length. The stream must finish first, cancel the still-waiting disconnect listener, exit the concurrent task group, then run the background callback; capture the full send and background trace through the public ASGI call. Pinned source: starlette/responses.py:257-283; tests/test_responses.py:605-632 demonstrates the same task-group race with the listener finishing first.",
               "lanes": [
                 "parity"
               ],
@@ -19727,7 +19789,7 @@
             {
               "id": "starlette.responses.StreamingResponse.consumer-construction.user-call-protocols",
               "dimension": "protocol_variant",
-              "description": "Compare input-selected public denial and stat hooks, synchronous/awaited iterator completion, original callback errors and source event ordering. Pinned source: starlette/responses.py:164-181, 241-490; docs/responses.md.",
+              "description": "Compare input-selected public denial and stat hooks, synchronous/awaited iterator completion, iterator failures including ASGI 2.4 OSError-to-ClientDisconnect conversion, original callback errors and source event ordering. Pinned source: starlette/responses.py:164-181, 241-490; docs/responses.md.",
               "lanes": [
                 "parity"
               ],
@@ -19864,7 +19926,7 @@
             {
               "id": "starlette.routing.Host.url_path_for.nested-route",
               "dimension": "success_path",
-              "description": "Generate a nested named route URLPath through a Host route using input-defined host and path parameters. Upstream: starlette/routing.py:493.",
+              "description": "Generate a nested named Route URLPath through a Host route, including recursively nested Mount and Host children, using input-defined host and path parameters. Pinned source: starlette/routing.py:427-452, 493-511; tests/test_routing.py::test_host_reverse_urls and tests/test_routing.py::test_url_for_with_double_mount.",
               "lanes": [
                 "parity"
               ],
@@ -24159,6 +24221,18 @@
                 "rust-native-local",
                 "python-package-cpython312"
               ]
+            },
+            {
+              "id": "starlette.staticfiles.StaticFiles.asgi-call.os-specific-path-normalization",
+              "dimension": "input_family",
+              "description": "Request an input-defined file with backslash path components and compare the live response selected by StaticFiles path normalization. The same input exercises POSIX literal backslashes and Windows separator/component handling. Pinned source: starlette/staticfiles.py:101-107, whose get_path contract explicitly uses OS-specific separators and removes dot components.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
             }
           ],
           "parity": {
@@ -24390,6 +24464,18 @@
               "id": "starlette.staticfiles.StaticFiles.lookup-path.absolute-path-rejected",
               "dimension": "error_path",
               "description": "Reject Unix and UNC-style absolute paths with an empty resolved path and no stat result. Upstream: tests/test_staticfiles.py::test_staticfiles_rejects_absolute_paths and ::test_staticfiles_rejects_absolute_windows_paths.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.staticfiles.StaticFiles.lookup-path.null-byte-error",
+              "dimension": "error_path",
+              "description": "Pass an input-defined path containing an embedded NUL to lookup_path and compare its direct ValueError outcome. Upstream: starlette/staticfiles.py:154-173; tests/test_staticfiles.py::test_staticfiles_null_byte_in_path covers the corresponding ASGI 404 mapping at lines 466-472.",
               "lanes": [
                 "parity"
               ],
@@ -24729,6 +24815,17 @@
               "id": "starlette.staticfiles.StaticFiles.configuration-check.constructor-missing-directory",
               "dimension": "error_path",
               "description": "Construct StaticFiles with check_dir enabled and an input-defined missing root, then record the live constructor exception. Upstream: tests/test_staticfiles.py::test_staticfiles_instantiated_with_missing_directory; starlette/staticfiles.py:55-56.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.staticfiles.StaticFiles.configuration-check.constructor-not-directory",
+              "dimension": "error_path",
+              "description": "Construct StaticFiles with check_dir enabled and an input-defined regular file as the configured root, then compare the live constructor exception. Pinned source: starlette/staticfiles.py:54-56; the source rejects every path for which os.path.isdir returns false.",
               "lanes": [
                 "parity"
               ],

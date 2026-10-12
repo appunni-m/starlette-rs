@@ -101,9 +101,11 @@ def stream_content(spec: dict[str, Any], trace: list[Any], errors: list[BaseExce
 
     failure = spec["failure"]
     error = (
-        {"RuntimeError": RuntimeError, "StopAsyncIteration": StopAsyncIteration}[failure["class"]](
-            failure["message"]
-        )
+        {
+            "RuntimeError": RuntimeError,
+            "OSError": OSError,
+            "StopAsyncIteration": StopAsyncIteration,
+        }[failure["class"]](failure["message"])
         if failure
         else None
     )

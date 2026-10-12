@@ -127,6 +127,7 @@ Crichton and the Tokio authors). The resolved transitive parser crates are
 listed in [`docs/DEPENDENCIES.md`](docs/DEPENDENCIES.md). Their full license
 texts and the other resolved Rust dependency licenses are included in the
 generated Rust bundle; the repository does not copy dependency source files.
+
 ## TestClient traceback lifetime comparisons
 
 `tests/fixtures/sources/parity/testclient-traceback-cleanup.yaml` extends the

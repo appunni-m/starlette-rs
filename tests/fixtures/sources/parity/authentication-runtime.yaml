@@ -535,6 +535,135 @@
       "observations": [
         "scenarios"
       ]
+    },
+    {
+      "case_id": "starlette.middleware.authentication.AuthenticationMiddleware.dispatch.iterable-backend-results",
+      "surface": "starlette.middleware.authentication.AuthenticationMiddleware",
+      "operation": "dispatch",
+      "covers": [
+        "starlette.middleware.authentication.AuthenticationMiddleware.scope-user-install",
+        "starlette.middleware.authentication.AuthenticationMiddleware.iterable-backend-result",
+        "starlette.middleware.authentication.AuthenticationMiddleware.backend-result-arity-error",
+        "starlette.middleware.authentication.AuthenticationMiddleware.backend-result-iteration-error"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scenarios": [
+        {
+          "scope_type": "http",
+          "backend": {
+            "outcome": {
+              "container": "list",
+              "items": [
+                {
+                  "kind": "credentials",
+                  "scopes": [
+                    "authenticated",
+                    "read"
+                  ]
+                },
+                {
+                  "kind": "simple-user",
+                  "username": "alice"
+                }
+              ]
+            }
+          },
+          "error_handler": "default"
+        },
+        {
+          "scope_type": "http",
+          "backend": {
+            "outcome": {
+              "container": "generator",
+              "items": [
+                {
+                  "kind": "credentials",
+                  "scopes": [
+                    "authenticated",
+                    "read"
+                  ]
+                },
+                {
+                  "kind": "simple-user",
+                  "username": "alice"
+                }
+              ]
+            }
+          },
+          "error_handler": "default"
+        },
+        {
+          "scope_type": "http",
+          "backend": {
+            "outcome": {
+              "container": "generator",
+              "items": [
+                {
+                  "kind": "credentials",
+                  "scopes": [
+                    "authenticated"
+                  ]
+                }
+              ]
+            }
+          },
+          "error_handler": "default"
+        },
+        {
+          "scope_type": "http",
+          "backend": {
+            "outcome": {
+              "container": "list",
+              "items": [
+                {
+                  "kind": "credentials",
+                  "scopes": [
+                    "authenticated"
+                  ]
+                },
+                {
+                  "kind": "simple-user",
+                  "username": "alice"
+                },
+                {
+                  "kind": "credentials",
+                  "scopes": [
+                    "extra"
+                  ]
+                }
+              ]
+            }
+          },
+          "error_handler": "default"
+        },
+        {
+          "scope_type": "http",
+          "backend": {
+            "outcome": {
+              "container": "generator",
+              "items": [
+                {
+                  "kind": "credentials",
+                  "scopes": [
+                    "authenticated"
+                  ]
+                },
+                {
+                  "kind": "raise",
+                  "message": "backend result iterator failed"
+                }
+              ]
+            }
+          },
+          "error_handler": "default"
+        }
+      ],
+      "observations": [
+        "scenarios"
+      ]
     }
   ]
 }

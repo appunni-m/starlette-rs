@@ -1448,6 +1448,61 @@
       "custom_convertors": [],
       "redirect_slashes": true,
       "observe_router_scope": true
+    },
+    {
+      "case_id": "starlette.routing.Host.url_path_for.nested-host-mount-host-route",
+      "surface": "starlette.routing.Host",
+      "operation": "url_path_for",
+      "covers": [
+        "starlette.routing.Host.url_path_for.nested-route"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "route_graph": {
+        "kind": "host-route",
+        "host": "{tenant}.example.test",
+        "name": "tenant",
+        "routes": [
+          {
+            "kind": "mount",
+            "path": "/api",
+            "name": "api",
+            "routes": [
+              {
+                "kind": "host-route",
+                "host": "{region}.internal.example.test",
+                "name": "region",
+                "routes": [
+                  {
+                    "kind": "http-route",
+                    "path": "/users/{user_id:int}",
+                    "name": "user",
+                    "methods": [
+                      "GET"
+                    ],
+                    "observer": null
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "lookup": {
+        "name": "tenant:api:region:user",
+        "path_params": {
+          "tenant": "acme",
+          "region": "west",
+          "user_id": 17
+        }
+      },
+      "request_scope": null,
+      "custom_convertors": [],
+      "observations": [
+        "reverse-url"
+      ]
     }
   ]
 }

@@ -8,6 +8,7 @@ import hashlib
 import json
 import keyword
 import math
+import ntpath
 import os
 import re
 import statistics
@@ -1071,6 +1072,10 @@ STREAMING_RESPONSE_SURFACE = "starlette.responses.StreamingResponse"
 FILE_RESPONSE_SURFACE = "starlette.responses.FileResponse"
 STATIC_FILES_SURFACE = "starlette.staticfiles.StaticFiles"
 STATIC_FILES_LOOKUP_PATH_OPERATION = "lookup-path"
+STATIC_FILES_OS_SPECIFIC_PATH_BEHAVIOR = "os-specific-path-normalization"
+STATIC_FILES_LOOKUP_PATH_NULL_BYTE_REQUIREMENT = (
+    f"{STATIC_FILES_SURFACE}.{STATIC_FILES_LOOKUP_PATH_OPERATION}.null-byte-error"
+)
 STATIC_FILES_ASYNC_BOUNDARY_OPERATION = "asgi-call-async-boundary"
 STATIC_FILES_CONFIGURATION_CHECK_OPERATION = "configuration-check"
 STATIC_FILES_CONFIGURATION_CHECK_OPERATION_KEY = (
@@ -1079,6 +1084,7 @@ STATIC_FILES_CONFIGURATION_CHECK_OPERATION_KEY = (
 )
 STATIC_FILES_CONFIGURATION_CHECK_REQUIREMENTS = {
     "constructor_missing": f"{STATIC_FILES_SURFACE}.{STATIC_FILES_CONFIGURATION_CHECK_OPERATION}.constructor-missing-directory",
+    "constructor_not_directory": f"{STATIC_FILES_SURFACE}.{STATIC_FILES_CONFIGURATION_CHECK_OPERATION}.constructor-not-directory",
     "lazy_missing": f"{STATIC_FILES_SURFACE}.{STATIC_FILES_CONFIGURATION_CHECK_OPERATION}.lazy-missing-directory",
     "lazy_not_directory": f"{STATIC_FILES_SURFACE}.{STATIC_FILES_CONFIGURATION_CHECK_OPERATION}.lazy-not-directory",
     "repeated_call": f"{STATIC_FILES_SURFACE}.{STATIC_FILES_CONFIGURATION_CHECK_OPERATION}.repeated-call-state-and-asgi-events",
@@ -1369,6 +1375,7 @@ REQUEST_CONSUMPTION_REQUIREMENTS = {
     "optional_receive_fields": "starlette.request.receive-optional-body-fields",
     "body_stream_overlap": "starlette.request.concurrent-body-stream-consumption",
     "stream_client_disconnect": "starlette.request.stream-client-disconnect",
+    "body_disconnect_retry": "starlette.request.body-disconnect-retry",
 }
 SYNC_REQUEST_RUNTIME_REQUIREMENTS = {
     "receive": "starlette.request.receive-worker-access",
@@ -6405,6 +6412,9 @@ def _validate_static_files_case_stimulus(
     normalized_path = (
         "/".join(part for part in route_path.split("/") if part not in {"", "."}) or "."
     )
+    windows_normalized_path = ntpath.normpath(ntpath.join(*route_path.split("/"))).replace(
+        "\\", "/"
+    )
     selected_files = {file_path: (mtime, False) for file_path, mtime in file_inputs}
     for package in packages:
         for file_input in package["files"]:
@@ -6424,6 +6434,14 @@ def _validate_static_files_case_stimulus(
         for index in range(1, len(requested_components))
     )
     method = scope["method"]
+    os_specific_path_normalization = (
+        method == "GET"
+        and not case["html"]
+        and not scope["headers_base64_pairs"]
+        and case["filesystem"] is None
+        and windows_normalized_path != normalized_path
+        and (normalized_path in selected_files) != (windows_normalized_path in selected_files)
+    )
     derived: set[str] = set()
     filesystem_requirement_by_lookup = {
         "external-file-link.follow-symlink-disabled": "follow-symlink-file-rejected",
@@ -6440,6 +6458,8 @@ def _validate_static_files_case_stimulus(
             raise ContractError(
                 "StaticFiles ASGI filesystem inputs currently require one followed external symlink"
             ) from exc
+    if os_specific_path_normalization:
+        derived.add(STATIC_FILES_OS_SPECIFIC_PATH_BEHAVIOR)
     if path_limit_stress is not None:
         package_asset_paths = {
             file_input["path"] for package in packages for file_input in package["files"]
@@ -6505,7 +6525,7 @@ def _validate_static_files_case_stimulus(
         derived.add("html-only-files-no-index-or-404")
     conditional_match = False
     request_headers: dict[str, str] = {}
-    if method == "GET" and normalized_path in selected_files:
+    if method == "GET" and normalized_path in selected_files and not os_specific_path_normalization:
         if permission_denial_stress is not None:
             derived.add("permission-denied-maps-401")
         elif path_limit_stress is not None:
@@ -6576,12 +6596,14 @@ def _validate_static_files_case_stimulus(
     if (
         method == "GET"
         and case["html"]
+        and not os_specific_path_normalization
         and normalized_path not in selected_files
         and "404.html" in selected_files
     ):
         derived.add("html-not-found-fallback")
     elif (
         method == "GET"
+        and not os_specific_path_normalization
         and normalized_path not in selected_files
         and not (case["html"] and index_path in selected_files)
         and filesystem_lookup_requirement is None
@@ -6837,8 +6859,9 @@ def _validate_static_files_lookup_path_case(
             raise ContractError("StaticFiles lookup-path filesystem has a file above a symlink")
 
     lookup_path = _string(case["lookup_path"], "StaticFiles lookup_path")
-    is_absolute = lookup_path.startswith(("/", "\\")) or Path(lookup_path).is_absolute()
-    if is_absolute:
+    if "\x00" in lookup_path:
+        requirement = "null-byte-error"
+    elif lookup_path.startswith(("/", "\\")) or Path(lookup_path).is_absolute():
         requirement = "absolute-path-rejected"
     else:
         lookup_components = _static_files_relative_components(
@@ -6903,7 +6926,11 @@ def _validate_static_files_lookup_path_case(
 
     if validate_covers:
         expected_covers = {
-            f"{STATIC_FILES_SURFACE}.{STATIC_FILES_LOOKUP_PATH_OPERATION}.{requirement}"
+            (
+                STATIC_FILES_LOOKUP_PATH_NULL_BYTE_REQUIREMENT
+                if requirement == "null-byte-error"
+                else f"{STATIC_FILES_SURFACE}.{STATIC_FILES_LOOKUP_PATH_OPERATION}.{requirement}"
+            )
         }
         if set(case["covers"]) != expected_covers:
             raise ContractError("StaticFiles lookup-path covers must match the selected input path")
@@ -7159,6 +7186,8 @@ def _validate_static_files_configuration_check_case(case: dict[str, Any]) -> Non
 
     if directory_kind == "missing" and case["check_dir"] and not calls:
         requirement = STATIC_FILES_CONFIGURATION_CHECK_REQUIREMENTS["constructor_missing"]
+    elif directory_kind == "file" and case["check_dir"] and not calls:
+        requirement = STATIC_FILES_CONFIGURATION_CHECK_REQUIREMENTS["constructor_not_directory"]
     elif directory_kind == "missing" and not case["check_dir"] and len(calls) == 1:
         requirement = STATIC_FILES_CONFIGURATION_CHECK_REQUIREMENTS["lazy_missing"]
     elif directory_kind == "file" and not case["check_dir"] and len(calls) == 1:
@@ -7570,9 +7599,8 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
                 "repeating StreamingResponse generators require lifecycle and gated-disconnect inputs"
             )
         try:
-            spec_version = tuple(
-                int(part) for part in case["scope"]["asgi"].get("spec_version", "2.0").split(".")
-            )
+            asgi = case["scope"].get("asgi", {})
+            spec_version = tuple(int(part) for part in asgi.get("spec_version", "2.0").split("."))
         except (AttributeError, KeyError, TypeError, ValueError) as exc:
             raise ContractError("StreamingResponse ASGI spec_version must be numeric") from exc
         receive_kind = receive_behavior["kind"]
@@ -7601,13 +7629,34 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
         stimulus != async_generator_stimulus
         or background is None
         or stream_lifecycle is not None
-        or receive_behavior is not None
         or case["operation"] != STREAMING_RESPONSE_TRACE_OPERATION
         or case["target_profiles"] != ["python-package-cpython312"]
     ):
         raise ContractError(
             "StreamingResponse async-generator/background input is limited to its declared Python-package case"
         )
+    elif receive_behavior is not None:
+        try:
+            asgi = case["scope"].get("asgi", {})
+            spec_version = tuple(int(part) for part in asgi.get("spec_version", "2.0").split("."))
+        except (AttributeError, KeyError, TypeError, ValueError) as exc:
+            raise ContractError("StreamingResponse ASGI spec_version must be numeric") from exc
+        streamed_body_bytes = sum(
+            len(value.encode("utf-8"))
+            if kind == "text"
+            else len(base64.b64decode(value, validate=True))
+            for kind, value in chunks
+        )
+        if (
+            spec_version >= (2, 4)
+            or receive_behavior["kind"] != "disconnect-after-body-bytes"
+            or send_raises_oserror
+            or receive_behavior["minimum_body_bytes"] <= streamed_body_bytes
+        ):
+            raise ContractError(
+                "finite StreamingResponse generators require a pre-ASGI-2.4 receive gate "
+                "that stays closed until stream completion"
+            )
     if case["streaming"] != "async-generator" and case["operation"] != STREAMING_RESPONSE_OPERATION:
         raise ContractError(
             "StreamingResponse execution-trace operation requires an async generator"
@@ -7647,11 +7696,12 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
             receive_behavior is not None
             and receive_behavior["kind"] == "disconnect-after-body-bytes"
         ),
+        allow_minimal_http_scope=repeating_chunks,
     )
     if not websocket_scope:
         if (
-            case["scope"]["query_string_base64"] != ""
-            or case["scope"]["headers_base64_pairs"] != []
+            case["scope"].get("query_string_base64", "") != ""
+            or case["scope"].get("headers_base64_pairs", []) != []
         ):
             raise ContractError("Response asgi-call scope uses the direct HTTP baseline")
     elif (
@@ -13341,9 +13391,9 @@ def _validate_testclient_case(
         )
         exception_class = _string(exception_spec["class"], "TestClient ASGI app exception.class")
         exception_type = getattr(builtins, exception_class, None)
-        if not isinstance(exception_type, type) or not issubclass(exception_type, Exception):
+        if not isinstance(exception_type, type) or not issubclass(exception_type, BaseException):
             raise ContractError(
-                "TestClient ASGI app exception.class must name a built-in Exception"
+                "TestClient ASGI app exception.class must name a built-in BaseException"
             )
         if is_starlette_app_debug or is_raw_asgi_error:
             if not isinstance(exception_spec["message"], str):
@@ -13565,10 +13615,8 @@ def _validate_testclient_websocket_flow(app_actions: Any) -> str:
                     {"operation"} | (value.keys() & {"code", "reason"}),
                     item_context,
                 )
-                if "code" in action and (
-                    type(action["code"]) is not int or not 0 <= action["code"] <= 65535
-                ):
-                    raise ContractError(f"{item_context}.code must fit an unsigned 16-bit integer")
+                if "code" in action and (type(action["code"]) is not int or action["code"] < 0):
+                    raise ContractError(f"{item_context}.code must be a non-negative integer")
                 if "reason" in action:
                     _string(action["reason"], f"{item_context}.reason")
             elif operation == "receive_json":
@@ -13711,6 +13759,12 @@ def _validate_testclient_websocket_flow(app_actions: Any) -> str:
         "close",
     ]:
         return "application-close"
+    if len(actions) == 3 and [action.get("operation") for action in actions] == [
+        "accept",
+        "receive",
+        "close",
+    ]:
+        return "client-close-then-application-close"
     if len(actions) == 2 and actions[1].get("operation") == "wait_forever":
         return "cancellation"
     if len(actions) == 2 and [action.get("operation") for action in actions] == [
@@ -13911,12 +13965,8 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
             raise ContractError(
                 "Stream echo client must exchange JSON then disconnect and drain close"
             )
-        if (
-            type(close_action["code"]) is not int
-            or not 0 <= close_action["code"] <= 65535
-            or not isinstance(close_action["reason"], str)
-        ):
-            raise ContractError("Stream echo close must supply a valid code and reason")
+        if type(close_action["code"]) is not int or not isinstance(close_action["reason"], str):
+            raise ContractError("Stream echo close must supply an integer code and string reason")
         client_stream_echo_workflow = True
     elif (
         len(session_actions) == 2
@@ -13971,11 +14021,36 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
             receive_operation = "receive_bytes"
             exchange_requirement = TESTCLIENT_WEBSOCKET_REQUIREMENTS["binary_messages"]
             frame_mode = "bytes"
+        elif send_operation == "close":
+            close_action = _exact(
+                session_actions[0],
+                {"operation"} | (session_actions[0].keys() & {"code", "reason"}),
+                "TestClient WebSocket close action",
+            )
+            close_code = close_action.get("code", 1000)
+            close_reason = close_action.get("reason")
+            if type(close_code) is not int:
+                raise ContractError("TestClient WebSocket close code must be an integer")
+            if close_reason is not None and not isinstance(close_reason, str):
+                raise ContractError("TestClient WebSocket close reason must be a string or null")
+            receive_action = _exact(
+                session_actions[1],
+                {"operation"} | (session_actions[1].keys() & {"capture_disconnect"}),
+                "TestClient WebSocket disconnect receive action",
+            )
+            if (
+                receive_action["operation"] != "receive_text"
+                or receive_action.get("capture_disconnect") is not True
+            ):
+                raise ContractError(
+                    "TestClient WebSocket close must be followed by disconnect capture"
+                )
+            client_close_workflow = True
         else:
             raise ContractError(
-                "TestClient WebSocket send operation must be send_json, send_text, or send_bytes"
+                "TestClient WebSocket send operation must be close, send_json, send_text, or send_bytes"
             )
-        if send_operation != "send_json":
+        if send_operation not in {"send_json", "close"}:
             receive_action = _exact(
                 session_actions[1], {"operation"}, "TestClient WebSocket receive action"
             )
@@ -13992,10 +14067,8 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
             )
             close_code = close_action.get("code", 1000)
             close_reason = close_action.get("reason")
-            if type(close_code) is not int or not 0 <= close_code <= 65535:
-                raise ContractError(
-                    "TestClient WebSocket close code must fit an unsigned 16-bit integer"
-                )
+            if type(close_code) is not int:
+                raise ContractError("TestClient WebSocket close code must be an integer")
             if close_reason is not None and not isinstance(close_reason, str):
                 raise ContractError("TestClient WebSocket close reason must be a string or null")
             client_close_workflow = True
@@ -14802,6 +14875,13 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
             raise ContractError(
                 "TestClient disconnect capture flow requires one declared client close action"
             )
+        if flow_kind == "client-close-then-application-close" and (
+            not client_close_workflow
+            or [action.get("operation") for action in session_actions] != ["close", "receive_text"]
+        ):
+            raise ContractError(
+                "TestClient close then application-close flow requires client disconnect capture"
+            )
         if flow_kind == "application-query-params" and (
             len(session_actions) != 1
             or not client_json_workflow
@@ -14926,6 +15006,17 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
                     TESTCLIENT_WEBSOCKET_REQUIREMENTS["client_close"],
                 }
             )
+        elif flow_kind == "client-close-then-application-close":
+            close_action = app_actions[0]["actions"][2]
+            expected_covers.update(
+                {
+                    TESTCLIENT_WEBSOCKET_REQUIREMENTS["disconnect_details"],
+                    TESTCLIENT_WEBSOCKET_REQUIREMENTS["client_close"],
+                    TESTCLIENT_WEBSOCKET_REQUIREMENTS["application_close_code"],
+                }
+            )
+            if "reason" in close_action:
+                expected_covers.add(TESTCLIENT_WEBSOCKET_REQUIREMENTS["application_close_reason"])
         elif flow_kind == "iterator-text":
             if [action.get("operation") for action in session_actions] != [
                 "send_text",
@@ -21437,12 +21528,12 @@ def _validate_exception_handler_recipe(value: Any, context: str) -> None:
         _string(value["label"], f"{context}.label")
         if value["callable_kind"] != "sync-from-thread":
             raise ContractError(f"{context}.callable_kind must preserve the source sync handler")
-        if type(value["code"]) is not int or value["code"] < 0:
-            raise ContractError(f"{context}.code must be a non-negative integer")
+        if type(value["code"]) is not int:
+            raise ContractError(f"{context}.code must be an integer")
     elif kind == "websocket-exception-close-handler":
         _exact(value, {"kind", "code"}, context)
-        if type(value["code"]) is not int or value["code"] < 0:
-            raise ContractError(f"{context}.code must be a non-negative integer")
+        if type(value["code"]) is not int:
+            raise ContractError(f"{context}.code must be an integer")
     else:
         raise ContractError(f"{context} uses an unsupported handler recipe: {kind!r}")
 
@@ -21518,8 +21609,8 @@ def _validate_websocket_exception_application(args: dict[str, Any]) -> None:
         allowed = {"action", "code", "reason"}
         if set(raise_action) not in ({"action", "code"}, allowed):
             raise ContractError("WebSocketException action has invalid fields")
-        if type(raise_action["code"]) is not int or raise_action["code"] < 0:
-            raise ContractError("WebSocketException code must be a non-negative integer")
+        if type(raise_action["code"]) is not int:
+            raise ContractError("WebSocketException code must be an integer")
         if "reason" in raise_action and not isinstance(raise_action["reason"], str):
             raise ContractError("WebSocketException reason must be a string")
         if handlers:
@@ -21690,6 +21781,7 @@ def _validate_dispatch_stimulus(
     allow_http_disconnect: bool = False,
     allow_pre_asgi24_disconnect: bool = False,
     allow_scope_app: bool = False,
+    allow_minimal_http_scope: bool = False,
 ) -> None:
     if set(args) != {"scope", "receive", "send"}:
         raise ContractError(
@@ -21717,6 +21809,11 @@ def _validate_dispatch_stimulus(
             raise ContractError("lifespan input must include startup followed by shutdown")
         elif args["send"] != {"kind": "capture-asgi-send"}:
             raise ContractError("send input must contain the fixed ASGI capture selector")
+    elif scope.get("type") == "http" and allow_minimal_http_scope and scope == {"type": "http"}:
+        if not allow_pre_asgi24_disconnect or args["receive"] != []:
+            raise ContractError(
+                "minimal HTTP scope is limited to pre-ASGI-2.4 disconnect workflows"
+            )
     elif scope.get("type") == "http":
         scope_fields = {
             "type",
@@ -22589,6 +22686,14 @@ def _validate_request_body_stream_json_case(case: dict[str, Any]) -> None:
         message["type"] == "http.disconnect" for message in receive
     ):
         expected_covers.add(REQUEST_CONSUMPTION_REQUIREMENTS["stream_client_disconnect"])
+    if (
+        direct_body_positions
+        and json_positions
+        and direct_body_positions[0] < json_positions[0]
+        and receive[0]["type"] == "http.disconnect"
+        and any(message["type"] == "http.request" for message in receive[1:])
+    ):
+        expected_covers.add(REQUEST_CONSUMPTION_REQUIREMENTS["body_disconnect_retry"])
     if (
         0 in blocked_receive_calls
         and "start-body" in action_operations
@@ -27206,15 +27311,80 @@ def _validate_authentication_case(case: dict[str, Any]) -> None:
             elif isinstance(backend, dict) and set(backend) == {"outcome"}:
                 outcome = backend["outcome"]
                 if isinstance(outcome, dict):
-                    result = _exact(outcome, {"credentials", "user"}, f"{context}.backend.outcome")
-                    if not isinstance(result["credentials"], list) or any(
-                        not isinstance(scope, str) for scope in result["credentials"]
-                    ):
-                        raise ContractError(f"{context}.backend credentials must be a string array")
-                    _string(result["user"], f"{context}.backend user")
-                    exercised.add(
-                        "starlette.middleware.authentication.AuthenticationMiddleware.scope-user-install"
-                    )
+                    if "container" in outcome or "items" in outcome:
+                        result = _exact(
+                            outcome,
+                            {"container", "items"},
+                            f"{context}.backend.outcome",
+                        )
+                        if not isinstance(result["container"], str) or result["container"] not in {
+                            "list",
+                            "generator",
+                        }:
+                            raise ContractError(
+                                f"{context}.backend result container must be list or generator"
+                            )
+                        if not isinstance(result["items"], list):
+                            raise ContractError(f"{context}.backend result items must be an array")
+                        raises_during_iteration = False
+                        for item_index, raw_item in enumerate(result["items"]):
+                            item_context = f"{context}.backend.outcome.items[{item_index}]"
+                            if not isinstance(raw_item, dict) or not isinstance(
+                                raw_item.get("kind"), str
+                            ):
+                                raise ContractError(f"{item_context} requires an item kind")
+                            if raw_item["kind"] == "credentials":
+                                item = _exact(raw_item, {"kind", "scopes"}, item_context)
+                                if not isinstance(item["scopes"], list) or any(
+                                    not isinstance(scope, str) for scope in item["scopes"]
+                                ):
+                                    raise ContractError(
+                                        f"{item_context}.scopes must be a string array"
+                                    )
+                            elif raw_item["kind"] == "simple-user":
+                                item = _exact(raw_item, {"kind", "username"}, item_context)
+                                _string(item["username"], f"{item_context}.username")
+                            elif raw_item["kind"] == "raise":
+                                item = _exact(raw_item, {"kind", "message"}, item_context)
+                                if result["container"] != "generator":
+                                    raise ContractError(
+                                        f"{item_context} errors require a lazy generator"
+                                    )
+                                _string(item["message"], f"{item_context}.message")
+                                raises_during_iteration = True
+                            else:
+                                raise ContractError(f"{item_context}.kind is unsupported")
+                        if raises_during_iteration:
+                            exercised.add(
+                                "starlette.middleware.authentication.AuthenticationMiddleware.backend-result-iteration-error"
+                            )
+                        elif len(result["items"]) == 2:
+                            exercised.add(
+                                "starlette.middleware.authentication.AuthenticationMiddleware.scope-user-install"
+                            )
+                            exercised.add(
+                                "starlette.middleware.authentication.AuthenticationMiddleware.iterable-backend-result"
+                            )
+                        else:
+                            exercised.add(
+                                "starlette.middleware.authentication.AuthenticationMiddleware.backend-result-arity-error"
+                            )
+                    else:
+                        result = _exact(
+                            outcome,
+                            {"credentials", "user"},
+                            f"{context}.backend.outcome",
+                        )
+                        if not isinstance(result["credentials"], list) or any(
+                            not isinstance(scope, str) for scope in result["credentials"]
+                        ):
+                            raise ContractError(
+                                f"{context}.backend credentials must be a string array"
+                            )
+                        _string(result["user"], f"{context}.backend user")
+                        exercised.add(
+                            "starlette.middleware.authentication.AuthenticationMiddleware.scope-user-install"
+                        )
                 elif isinstance(outcome, str) and outcome in {"none", "must-not-run"}:
                     if outcome == "none":
                         exercised.add(
@@ -27260,6 +27430,17 @@ def _validate_authentication_case(case: dict[str, Any]) -> None:
                     and isinstance(backend, dict)
                     and set(backend) == {"outcome"}
                     and isinstance(backend["outcome"], dict)
+                    and (
+                        set(backend["outcome"]) == {"credentials", "user"}
+                        or (
+                            set(backend["outcome"]) == {"container", "items"}
+                            and len(backend["outcome"]["items"]) == 2
+                            and all(
+                                item["kind"] in {"credentials", "simple-user"}
+                                for item in backend["outcome"]["items"]
+                            )
+                        )
+                    )
                 ):
                     raise ContractError(
                         f"{context}.application_response requires an HTTP backend result"
@@ -33914,9 +34095,11 @@ def _validate_response_consumer_content(value: Any) -> None:
         failure = definition["failure"]
         if failure is not None:
             failure = _exact(failure, {"class", "message"}, "Response iterator failure")
-            if failure["class"] not in {"RuntimeError", "StopAsyncIteration"} or not isinstance(
-                failure["message"], str
-            ):
+            if failure["class"] not in {
+                "RuntimeError",
+                "OSError",
+                "StopAsyncIteration",
+            } or not isinstance(failure["message"], str):
                 raise ContractError("Response iterator failure requires a supported class and text")
     elif kind == "file":
         definition = _exact(

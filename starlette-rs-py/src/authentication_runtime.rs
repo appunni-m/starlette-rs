@@ -6,7 +6,7 @@
 
 use pyo3::class::gc::{PyTraverseError, PyVisit};
 use pyo3::exceptions::{
-    PyAssertionError, PyException, PyKeyError, PyNotImplementedError, PyRuntimeError,
+    PyAssertionError, PyException, PyKeyError, PyNotImplementedError, PyRuntimeError, PyTypeError,
 };
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList, PyModule, PyString, PyTuple};
@@ -751,7 +751,7 @@ impl AuthenticationMiddlewareCall {
                 runtime.unauthenticated_user_type.bind(py).call0()?.unbind(),
             )
         } else {
-            result.bind(py).extract::<(Py<PyAny>, Py<PyAny>)>()?
+            unpack_authentication_result(result.bind(py))?
         };
         let scope = self.scope.bind(py).cast::<PyDict>()?;
         scope.set_item("auth", credentials)?;
@@ -799,4 +799,25 @@ impl AuthenticationMiddlewareCall {
         });
         Ok(MachineAction::Await(operation.unbind()))
     }
+}
+
+/// Match Starlette's two-target assignment from the backend result. Python
+/// tuple unpacking accepts any iterator, including a one-shot generator, so
+/// require only two yielded values and probe once for an extra value.
+fn unpack_authentication_result(result: &Bound<'_, PyAny>) -> PyResult<(Py<PyAny>, Py<PyAny>)> {
+    let mut result = result.try_iter()?;
+    let credentials = result
+        .next()
+        .transpose()?
+        .ok_or_else(|| PyTypeError::new_err("not enough values to unpack (expected 2, got 0)"))?;
+    let user = result
+        .next()
+        .transpose()?
+        .ok_or_else(|| PyTypeError::new_err("not enough values to unpack (expected 2, got 1)"))?;
+    if result.next().transpose()?.is_some() {
+        return Err(PyTypeError::new_err(
+            "too many values to unpack (expected 2)",
+        ));
+    }
+    Ok((credentials.unbind(), user.unbind()))
 }

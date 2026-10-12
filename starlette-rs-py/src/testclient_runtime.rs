@@ -10,7 +10,7 @@ use pyo3::exceptions::{
     PyStopIteration,
 };
 use pyo3::prelude::*;
-use pyo3::types::{PyBytes, PyDict, PyList, PyModule, PyString, PyTuple};
+use pyo3::types::{PyBytes, PyDict, PyInt, PyList, PyModule, PyString, PyTuple};
 
 use crate::awaitable::{
     AwaitableStateMachine, MachineAction, MachineResume, into_sendable_python_awaitable,
@@ -830,7 +830,7 @@ impl PyWebSocketTestSession {
     fn close_inner(
         &mut self,
         py: Python<'_>,
-        code: u16,
+        code: &Bound<'_, PyAny>,
         reason: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<()> {
         let message = websocket_disconnect_message(py, code, reason)?;
@@ -842,7 +842,7 @@ impl PyWebSocketTestSession {
     fn teardown(&mut self, py: Python<'_>) -> PyResult<()> {
         let mut task_error = None;
         if self.portal.is_some() && self.accepted && !self.client_closed {
-            if let Err(error) = self.close_inner(py, 1000, None) {
+            if let Err(error) = self.close_inner(py, &PyInt::new(py, 1000).into_any(), None) {
                 task_error = Some(error);
             }
         }
@@ -1043,9 +1043,18 @@ impl PyWebSocketTestSession {
             .map(Bound::unbind)
     }
 
-    #[pyo3(signature = (code=1000, reason=None))]
-    fn close(&mut self, py: Python<'_>, code: u16, reason: Option<Py<PyAny>>) -> PyResult<()> {
-        self.close_inner(py, code, reason.as_ref().map(|value| value.bind(py)))
+    #[pyo3(signature = (code, reason=None))]
+    fn close(
+        &mut self,
+        py: Python<'_>,
+        code: Py<PyAny>,
+        reason: Option<Py<PyAny>>,
+    ) -> PyResult<()> {
+        self.close_inner(
+            py,
+            code.bind(py),
+            reason.as_ref().map(|value| value.bind(py)),
+        )
     }
 }
 
@@ -1949,7 +1958,7 @@ fn websocket_connect_message(py: Python<'_>) -> PyResult<Py<PyAny>> {
 
 fn websocket_disconnect_message(
     py: Python<'_>,
-    code: u16,
+    code: &Bound<'_, PyAny>,
     reason: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<Py<PyAny>> {
     let message = PyDict::new(py);
@@ -1966,9 +1975,7 @@ fn websocket_disconnect_message(
 fn websocket_disconnect(py: Python<'_>, message: &Bound<'_, PyDict>) -> PyResult<PyErr> {
     let code = message
         .get_item("code")?
-        .map(|value| value.extract::<u16>())
-        .transpose()?
-        .unwrap_or(1000);
+        .unwrap_or_else(|| PyInt::new(py, 1000).into_any());
     let reason = message
         .get_item("reason")?
         .unwrap_or_else(|| PyString::new(py, "").into_any());

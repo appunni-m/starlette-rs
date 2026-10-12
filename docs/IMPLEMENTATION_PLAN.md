@@ -13,9 +13,9 @@ implementation closes, run the complete source/package and Rust-native parity
 matrix, repair mismatches across families, measure coverage from that full
 matrix, reconcile the source atlas, then run all correctness-gated benchmarks.
 
-The working-tree contract currently declares 1,996 input cases across 143
-parity inputs and two benchmark inputs, 133 operations, and 1,028 parity
-requirements. The generated atlas has 816 source rows: 761 input mappings, 55
+The working-tree contract currently declares 2,013 input cases across 145
+parity inputs and two benchmark inputs, 133 operations, and 1,036 parity
+requirements. The generated atlas has 817 source rows: 762 input mappings, 55
 source-backed `not_applicable` dispositions, and zero fixture-backlog rows.
 These counts describe inventory and evidence coverage; they do not establish
 that every documented behavior is implemented or compatible.
@@ -24,8 +24,8 @@ that every documented behavior is implemented or compatible.
 
 | Phase | State | Evidence |
 | --- | --- | --- |
-| Implementation | In progress. | Static contract and source-inventory checks pass for the current 1,996-case input set. Rust behavior and documented boundaries still need implementation audit and integration. |
-| Full parity and grouped repairs | Deferred until implementation closes. | The latest clean run, `dc8c8ca6-f2b7-449b-9f53-45860e3cad4c`, passed 2,254/2,254 comparisons for the preceding 1,992-case, 140-parity-input contract. The later optional-backend, WebSocket authorization, Router truthiness, and BaseHTTPMiddleware iterator inputs are not included. |
+| Implementation | In progress. | Static contract, source-inventory, policy, format, and lint checks pass for the current 2,013-case input set. Remaining implementation and documented boundaries still need review and integration. |
+| Full parity and grouped repairs | Deferred until implementation closes. | The latest clean run, `dc8c8ca6-f2b7-449b-9f53-45860e3cad4c`, passed 2,254/2,254 comparisons for the preceding 1,992-case, 140-parity-input contract. Later optional-backend, WebSocket authorization, Router truthiness, BaseHTTPMiddleware iterator, StaticFiles path, response-protocol, close-code, TestClient exception, and custom-regex inputs are not included. |
 | Full coverage and source reconciliation | Deferred until the full parity phase. | The latest measured run, `fd5b3b63-9ddc-44bd-bf38-35ecbc260dbe`, covered 19,909/28,139 Rust lines (70.7%) for the preceding contract. |
 | All benchmarks | Deferred until coverage. | The latest run, `13ea2d04-7f31-4c12-93cd-855df93df8b0`, measured 74/74 source/package workloads for the preceding contract: six Router and 68 GZip workloads. |
 | Packaging and interpreter qualification | Complete for the local macOS arm64 build. | Five CPython 3.10–3.14 wheels, an sdist, and the Rust crate were inspected; isolated wheel installs passed public ASGI smoke and `pip check`. Other platform builds remain unqualified. |
@@ -80,8 +80,8 @@ also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
 The active parity contract is `parity-input@48`: the working tree currently
-indexes 1,996 input cases across 143 parity files, two benchmark files, 133
-operations, and 1,028 parity requirements. The latest clean full parity,
+indexes 2,013 input cases across 145 parity files, two benchmark files, 133
+operations, and 1,036 parity requirements. The latest clean full parity,
 coverage, and benchmark receipts belong to the preceding 1,992-case, 140-file
 contract. The generated source-row,
 mapping, `not_applicable`, and backlog totals live in
@@ -92,8 +92,13 @@ the input set grew; current gate states are in the execution ledger above.
 The preceding @44 working-tree matrix and instrumented coverage run passed with four
 unsupported native cases retained. Clean commit `553a06a` also passed the full
 parity gate and all 74 source/package benchmarks; native benchmark interfaces
-remain unavailable. See [current parity evidence](PARITY.md). The earlier addition
-maps static and path-parameter WebSocketRoute matching through TestClient for
+remain unavailable. See [current parity evidence](PARITY.md). The latest
+implementation batch also adds an input-only nested Host→Mount→Host→Route
+reverse-lookup case, AuthenticationMiddleware list and generator result
+unpacking cases including malformed iterators, and a Request body-to-JSON retry
+after `http.disconnect`. The Rust behavior and source mapping are in place;
+these inputs remain unexecuted in the deferred full parity phase. The earlier
+addition maps static and path-parameter WebSocketRoute matching through TestClient for
 `tests/test_routing.py::test_router_add_websocket_route`; that test does not call
 `Router.add_websocket_route`, so the method candidate remains uncertain. The
 preceding addition compares invalid direct `Request` and `WebSocket` scope
@@ -165,7 +170,7 @@ That integrated run includes the focused `parity-input@23` through `@27` additio
 The two BaseHTTPMiddleware ContextVar observer comparisons pass exactly against
 the pinned source and installed package in the integrated run.
 
-The latest generated coverage matrix contains 816 source rows: 761 input
+The latest generated coverage matrix contains 817 source rows: 762 input
 mappings, 55 source-backed `not_applicable` rows, and zero fixture-backlog rows.
 Refresh these counts from the generated atlas CSV files after changing fixture
 dispositions.
@@ -200,9 +205,10 @@ source-compatible 404 before a later root can serve its matching asset, under
 both symlink settings. Permission inputs deny search access to a root containing
 an asset and match the 401 error for both symlink settings. Python package
 discovery is profile-specific; Rust-native uses explicit package roots.
-Remaining gaps include broader Windows path normalization and path semantics,
-`check_config` scheduling, constructor errors, remaining validators and
-subclass hooks, and the rest of the 36 upstream StaticFiles tests.
+Windows path normalization is implemented and has an authored ASGI input, but
+Windows execution remains unverified. Constructor error boundaries, unresolved
+subclass-hook candidates, remaining validators, and the rest of the upstream
+StaticFiles behaviors still need review; full parity remains deferred.
 
 ## 1. Completed bounded goal: lifespan state and cancellation
 
@@ -350,8 +356,19 @@ result is local evidence from dirty trees, not an all-target or release pass.
 The 21-case reverse URL slice covers the named Python route surfaces and
 `Request.url_for`; a separate bounded Rust-native slice now covers two flat
 `Router.url_path_for` cases. Direct `Route.url_path_for`, nested Router route
-graphs, and Rust custom converter registration remain open. Route/router/mount-
-local middleware has selected input-only cases in
+graphs remain open. Rust owns compatibility route ordering, method
+FULL/PARTIAL decisions, capture conversion, and reverse formatting. It invokes
+each route's source-compiled `path_regex.match` as a narrow Python boundary
+because CPython's `re` syntax and matching semantics define the public custom
+converter contract. For example, CPython interprets `\N{LATIN SMALL LETTER A}`
+as the named Unicode character `a`; the former Rust `fancy-regex` matcher
+interpreted `\N` as “not newline” and could not preserve this behavior. The
+Python `convert`/`to_string` methods remain callbacks. The input-only dispatch
+case exercises the Python-only Unicode character-name escape, while the
+reverse-URL case exercises custom `to_string`; parity execution remains
+deferred to the integrated parity phase. The separate Rust-native `RouteTable`
+API still exposes its built-in converter model only. Route/router/mount-local
+middleware has selected input-only cases in
 [`route-local-middleware-semantics.yaml`](../tests/fixtures/sources/parity/route-local-middleware-semantics.yaml)
 and [`route-middleware-dispatch.yaml`](../tests/fixtures/sources/parity/route-middleware-dispatch.yaml).
 Those inputs still need the deferred full parity run; broader combinations
@@ -364,10 +381,11 @@ The input-only `reverse-url-routing.yaml` slice covers `Route`,
 It exercises built-in converter formatting and errors, a Python custom
 converter override, first-success router selection, direct and nested mounts,
 `app_root_path`, provider fallback, missing context, and the top-level
-application forwarder. All 21 source/package comparisons passed. Rust owns the
-built-in path substitution primitive used by the Python package; the separate
-Rust-native Router URLPath comparisons and their limits are recorded below.
-Rust custom converter registration remains open. A separate bounded Host case
+application forwarder. All 21 source/package comparisons passed in the earlier
+checkpoint. Rust owns the Python package's path substitution primitive and now
+invokes custom `to_string` methods as boundary callbacks; the updated reverse
+URL input has not yet been rerun. The separate Rust-native Router URLPath
+comparisons and their limits are recorded below. A separate bounded Host case
 is also recorded below.
 
 ### Completed bounded goal: direct Host reverse URL formatting
@@ -419,11 +437,13 @@ mutation. The direct cases are source-backed probes; the custom-handler input
 also maps to the pinned `tests/middleware/test_errors.py::test_handler`.
 Their complete comparisons remain part of the deferred full parity phase.
 Further implementation work includes broader HTTP/WebSocket connection and
-request-body behavior, streaming backpressure and iterator lifecycle, nested
-Host reverse lookup, broader WebSocket exception flows, remaining TestClient
-exception-propagation modes, authentication, additional synchronous
-background-cancellation schedules, context variables, and broader
-background-task error interactions.
+request-body behavior, streaming backpressure and iterator lifecycle, broader
+WebSocket exception flows, remaining TestClient exception-propagation modes,
+additional synchronous background-cancellation schedules, context variables,
+and broader background-task error interactions. The latest input-only batch
+also closes the identified runtime gaps for nested Host reverse lookup,
+AuthenticationMiddleware iterator results, and Request body retry after
+disconnect; aggregate parity for those inputs remains deferred.
 
 ## 4. Optional and edge features
 

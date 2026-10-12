@@ -14,6 +14,7 @@ use pyo3::types::{PyBytes, PyDict, PyInt, PyList, PyModule, PyString, PyTuple};
 use starlette_rs::{
     FileMetadata, FileStat, FileStatTimestamp, StaticFile, StaticFiles as NativeStaticFiles,
     StaticFilesError, StaticFilesResponse, StaticFilesResponseFlow, StaticFilesResponseStep,
+    is_not_modified_headers, not_modified_headers,
 };
 
 /// Registers the native static-file runtime.
@@ -161,6 +162,57 @@ impl PyStaticFiles {
         }
     }
 
+    #[pyo3(signature = (full_path, stat_result, scope, is_not_modified, status_code=200))]
+    fn file_response(
+        &self,
+        py: Python<'_>,
+        full_path: &str,
+        stat_result: &Bound<'_, PyAny>,
+        scope: &Bound<'_, PyDict>,
+        is_not_modified: Py<PyAny>,
+        status_code: u16,
+    ) -> PyResult<Py<PyAny>> {
+        let response_type = PyModule::import(py, "starlette.responses")?.getattr("FileResponse")?;
+        let kwargs = PyDict::new(py);
+        kwargs.set_item("status_code", status_code)?;
+        kwargs.set_item("stat_result", stat_result)?;
+        let response = response_type.call((full_path,), Some(&kwargs))?;
+        let response_headers = response.getattr("headers")?;
+        let datastructures = PyModule::import(py, "starlette.datastructures")?;
+        let headers_type = datastructures.getattr("Headers")?;
+        let request_headers_kwargs = PyDict::new(py);
+        request_headers_kwargs.set_item("scope", scope)?;
+        let request_headers = headers_type.call((), Some(&request_headers_kwargs))?;
+        let is_not_modified = is_not_modified
+            .bind(py)
+            .call1((response_headers.clone(), request_headers))?
+            .is_truthy()?;
+        if is_not_modified {
+            let response_headers = header_pairs(&response_headers)?;
+            let response_headers = not_modified_headers(&response_headers);
+            let response_type = PyModule::import(py, "starlette.responses")?.getattr("Response")?;
+            let kwargs = PyDict::new(py);
+            kwargs.set_item("status_code", 304)?;
+            kwargs.set_item("headers", headers_mapping(py, response_headers)?)?;
+            response_type
+                .call((PyBytes::new(py, b""),), Some(&kwargs))
+                .map(Bound::unbind)
+        } else {
+            Ok(response.unbind())
+        }
+    }
+
+    fn is_not_modified(
+        &self,
+        response_headers: &Bound<'_, PyAny>,
+        request_headers: &Bound<'_, PyAny>,
+    ) -> PyResult<bool> {
+        Ok(is_not_modified_headers(
+            &header_pairs(response_headers)?,
+            &header_pairs(request_headers)?,
+        ))
+    }
+
     #[pyo3(name = "_check_config_sync")]
     fn check_config_sync(&self, py: Python<'_>) -> PyResult<()> {
         let inner = self.inner.clone();
@@ -185,6 +237,7 @@ impl PyStaticFiles {
         path: &str,
         scope: &Bound<'_, PyDict>,
         lookup_path: Py<PyAny>,
+        file_response: Py<PyAny>,
     ) -> PyResult<Py<PyAny>> {
         into_sendable_python_awaitable(
             py,
@@ -192,6 +245,7 @@ impl PyStaticFiles {
                 slf,
                 scope.clone().into_any().unbind(),
                 lookup_path,
+                file_response,
                 None,
                 None,
                 None,
@@ -211,6 +265,7 @@ impl PyStaticFiles {
         send: Py<PyAny>,
         get_path: Py<PyAny>,
         lookup_path: Py<PyAny>,
+        file_response: Py<PyAny>,
         check_config: Py<PyAny>,
     ) -> PyResult<Py<PyAny>> {
         let scope_type = scope
@@ -226,6 +281,7 @@ impl PyStaticFiles {
                 slf,
                 scope.clone().into_any().unbind(),
                 lookup_path,
+                file_response,
                 Some(check_config),
                 Some(get_path),
                 Some((receive, send)),
@@ -304,6 +360,7 @@ struct StaticFilesCallMachine {
     owner: Py<PyStaticFiles>,
     scope: Py<PyAny>,
     lookup_path: Py<PyAny>,
+    file_response: Py<PyAny>,
     check_config: Option<Py<PyAny>>,
     get_path: Option<Py<PyAny>>,
     response_callbacks: Option<(Py<PyAny>, Py<PyAny>)>,
@@ -321,6 +378,7 @@ impl StaticFilesCallMachine {
         owner: Py<PyStaticFiles>,
         scope: Py<PyAny>,
         lookup_path: Py<PyAny>,
+        file_response: Py<PyAny>,
         check_config: Option<Py<PyAny>>,
         get_path: Option<Py<PyAny>>,
         response_callbacks: Option<(Py<PyAny>, Py<PyAny>)>,
@@ -331,6 +389,7 @@ impl StaticFilesCallMachine {
             owner,
             scope,
             lookup_path,
+            file_response,
             check_config,
             get_path,
             response_callbacks,
@@ -389,6 +448,29 @@ impl StaticFilesCallMachine {
                 self.state = StaticFilesCallState::AwaitLookup;
                 Ok(MachineAction::Await(awaitable))
             }
+            StaticFilesResponseStep::SelectFileResponse { file, status_code } => {
+                let scope = self.scope.bind(py).cast::<PyDict>()?;
+                let stat_result = match self.selected_stat_result.as_ref() {
+                    Some(stat_result) => stat_result.clone_ref(py),
+                    None => stat_result(py, &file.path, file.metadata.stat_result())?,
+                };
+                let full_path = path_string(&file.path)?;
+                let response = if status_code == 200 {
+                    self.file_response.bind(py).call1((
+                        full_path.as_str(),
+                        stat_result.bind(py),
+                        scope,
+                    ))?
+                } else {
+                    let kwargs = PyDict::new(py);
+                    kwargs.set_item("status_code", status_code)?;
+                    self.file_response.bind(py).call(
+                        (full_path.as_str(), stat_result.bind(py), scope),
+                        Some(&kwargs),
+                    )?
+                };
+                self.complete_python_response(py, response.unbind())
+            }
             StaticFilesResponseStep::Complete(response) => {
                 let scope = self.scope.bind(py).cast::<PyDict>()?;
                 let response = PyStaticFiles::prepare_response(
@@ -399,21 +481,29 @@ impl StaticFilesCallMachine {
                         .as_ref()
                         .map(|value| value.bind(py)),
                 )?;
-                match self.purpose {
-                    StaticFilesCallPurpose::Response => Ok(MachineAction::Complete(response)),
-                    StaticFilesCallPurpose::Asgi => {
-                        let (receive, send) =
-                            self.response_callbacks.as_ref().ok_or_else(|| {
-                                PyRuntimeError::new_err("StaticFiles ASGI callbacks are missing")
-                            })?;
-                        let awaitable =
-                            response
-                                .bind(py)
-                                .call1((scope, receive.bind(py), send.bind(py)))?;
-                        self.state = StaticFilesCallState::AwaitResponse;
-                        Ok(MachineAction::Await(awaitable.unbind()))
-                    }
-                }
+                self.complete_python_response(py, response)
+            }
+        }
+    }
+
+    fn complete_python_response(
+        &mut self,
+        py: Python<'_>,
+        response: Py<PyAny>,
+    ) -> PyResult<MachineAction> {
+        match self.purpose {
+            StaticFilesCallPurpose::Response => Ok(MachineAction::Complete(response)),
+            StaticFilesCallPurpose::Asgi => {
+                let scope = self.scope.bind(py).cast::<PyDict>()?;
+                let (receive, send) = self.response_callbacks.as_ref().ok_or_else(|| {
+                    PyRuntimeError::new_err("StaticFiles ASGI callbacks are missing")
+                })?;
+                let awaitable =
+                    response
+                        .bind(py)
+                        .call1((scope, receive.bind(py), send.bind(py)))?;
+                self.state = StaticFilesCallState::AwaitResponse;
+                Ok(MachineAction::Await(awaitable.unbind()))
             }
         }
     }
@@ -455,6 +545,7 @@ impl AwaitableStateMachine for StaticFilesCallMachine {
         visit.call(&self.owner)?;
         visit.call(&self.scope)?;
         visit.call(&self.lookup_path)?;
+        visit.call(&self.file_response)?;
         visit.call(&self.check_config)?;
         visit.call(&self.get_path)?;
         visit.call(&self.selected_stat_result)?;
@@ -762,6 +853,10 @@ fn headers_mapping<'py>(
     Ok(mapping)
 }
 
+fn header_pairs(headers: &Bound<'_, PyAny>) -> PyResult<Vec<(Vec<u8>, Vec<u8>)>> {
+    headers.getattr("raw")?.extract()
+}
+
 fn latin1_string<'py>(py: Python<'py>, bytes: &[u8]) -> PyResult<Bound<'py, PyAny>> {
     PyBytes::new(py, bytes).call_method1("decode", ("latin-1",))
 }
@@ -771,6 +866,7 @@ fn static_files_http_error(py: Python<'_>, error: StaticFilesError) -> PyErr {
         StaticFilesError::MethodNotAllowed => http_exception(py, 405),
         StaticFilesError::NotFound => http_exception(py, 404),
         StaticFilesError::PermissionDenied => http_exception(py, 401),
+        StaticFilesError::InvalidPath => http_exception(py, 404),
         error => static_files_error(error),
     }
 }
@@ -785,6 +881,7 @@ fn http_exception(py: Python<'_>, status_code: u16) -> PyErr {
 fn static_files_error(error: StaticFilesError) -> PyErr {
     match error {
         StaticFilesError::DirectoryConfiguration(message) => PyRuntimeError::new_err(message),
+        StaticFilesError::InvalidPath => PyValueError::new_err("embedded null byte"),
         StaticFilesError::PermissionDenied => PyPermissionError::new_err("permission denied"),
         StaticFilesError::Io(error) if error.kind() == std::io::ErrorKind::PermissionDenied => {
             PyPermissionError::new_err(error.to_string())

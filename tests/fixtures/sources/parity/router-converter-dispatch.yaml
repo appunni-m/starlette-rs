@@ -1214,7 +1214,7 @@
       "custom_convertors": [
         {
           "name": "str",
-          "regex": "[A-Za-z]+",
+          "regex": "(?=[A-Za-z]+-)[A-Za-z-]+",
           "lowercase": true
         }
       ],
@@ -1242,8 +1242,73 @@
         "http_version": "1.1",
         "method": "GET",
         "scheme": "http",
-        "path": "/custom/MiXeD",
-        "raw_path_base64": "L2N1c3RvbS9NaVhlRA==",
+        "path": "/custom/MiXeD-MiXeD",
+        "raw_path_base64": "L2N1c3RvbS9NaVhlRC1NaVhlRA==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "route-dispatch"
+      ],
+      "redirect_slashes": true
+    },
+    {
+      "case_id": "starlette.routing.Router.route-dispatch.custom-converter-python-named-unicode-escape",
+      "surface": "starlette.routing.Router",
+      "operation": "route-dispatch",
+      "covers": [
+        "starlette.routing.Router.route-dispatch.custom-converter-override"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "custom_convertors": [
+        {
+          "name": "str",
+          "regex": "\\N{LATIN SMALL LETTER A}",
+          "lowercase": true
+        }
+      ],
+      "routes": [
+        {
+          "kind": "http-route",
+          "path": "/custom/{value:str}",
+          "methods": [
+            "GET"
+          ],
+          "endpoint": {
+            "kind": "converted-path-response",
+            "path_parameter": "value",
+            "status_code": 200,
+            "media_type": "text/plain"
+          }
+        }
+      ],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/custom/a",
+        "raw_path_base64": "L2N1c3RvbS9h",
         "query_string_base64": "",
         "root_path": "",
         "headers_base64_pairs": [],

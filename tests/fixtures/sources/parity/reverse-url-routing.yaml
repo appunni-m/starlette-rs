@@ -276,14 +276,14 @@
       "lookup": {
         "name": "custom",
         "path_params": {
-          "slug": "MiXeD"
+          "slug": "MiXeD-MiXeD"
         }
       },
       "request_scope": null,
       "custom_convertors": [
         {
           "name": "str",
-          "regex": "[A-Za-z]+",
+          "regex": "(?=[A-Za-z]+-)[A-Za-z-]+",
           "lowercase": true,
           "lowercase_to_string": true
         }

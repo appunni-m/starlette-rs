@@ -60,10 +60,28 @@ class StaticFiles:
         return self._inner.get_path(scope)
 
     async def get_response(self, path: str, scope: dict[str, object]) -> object:
-        return await self._inner.get_response(path, scope, self.lookup_path)
+        return await self._inner.get_response(path, scope, self.lookup_path, self.file_response)
 
     def lookup_path(self, path: str) -> tuple[str, os.stat_result | None]:
         return self._inner.lookup_path(path)
+
+    def file_response(
+        self,
+        full_path: PathLike,
+        stat_result: os.stat_result,
+        scope: dict[str, object],
+        status_code: int = 200,
+    ) -> object:
+        return self._inner.file_response(
+            full_path,
+            stat_result,
+            scope,
+            self.is_not_modified,
+            status_code,
+        )
+
+    def is_not_modified(self, response_headers: object, request_headers: object) -> bool:
+        return self._inner.is_not_modified(response_headers, request_headers)
 
     async def check_config(self) -> None:
         await self._inner.check_config()
@@ -75,5 +93,6 @@ class StaticFiles:
             send,
             self.get_path,
             self.lookup_path,
+            self.file_response,
             self.check_config,
         )

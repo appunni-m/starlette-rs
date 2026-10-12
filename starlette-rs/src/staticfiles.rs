@@ -77,6 +77,13 @@ pub enum StaticFilesResponse {
 pub enum StaticFilesResponseStep {
     /// Look up this path and resume the flow with its result.
     Lookup(String),
+    /// Invoke the consumer's `StaticFiles.file_response` hook with this file.
+    SelectFileResponse {
+        /// Resolved file and response metadata.
+        file: StaticFile,
+        /// HTTP status selected for the file response.
+        status_code: u16,
+    },
     /// The Rust response policy has selected its final response.
     Complete(StaticFilesResponse),
 }
@@ -87,7 +94,6 @@ pub enum StaticFilesResponseStep {
 pub struct StaticFilesResponseFlow {
     path: String,
     scope_path: String,
-    request_headers: Vec<(Vec<u8>, Vec<u8>)>,
     phase: ResponseFlowPhase,
 }
 
@@ -110,6 +116,8 @@ pub enum StaticFilesError {
     PermissionDenied,
     /// The initial directory check failed.
     DirectoryConfiguration(String),
+    /// The lookup path contains a character that the operating system cannot represent.
+    InvalidPath,
     /// A filesystem operation failed for another reason.
     Io(io::Error),
     /// A file response could not be constructed.
@@ -207,6 +215,9 @@ impl StaticFiles {
         if path.starts_with('/') || path.starts_with('\\') {
             return Ok(None);
         }
+        if path.contains('\0') {
+            return Err(StaticFilesError::InvalidPath);
+        }
         for directory in &self.directories {
             let joined_path = directory.join(path);
             let (full_path, root_path) = if self.follow_symlink {
@@ -287,6 +298,9 @@ impl StaticFiles {
                 StaticFilesResponseStep::Lookup(path) => {
                     step = flow.resume_lookup(self, self.lookup_path(&path))?;
                 }
+                StaticFilesResponseStep::SelectFileResponse { file, status_code } => {
+                    return self.file_response(file, status_code, request_headers, true);
+                }
                 StaticFilesResponseStep::Complete(response) => return Ok(response),
             }
         }
@@ -302,7 +316,7 @@ impl StaticFiles {
         path: &str,
         scope_path: &str,
         method: &str,
-        request_headers: &[(Vec<u8>, Vec<u8>)],
+        _request_headers: &[(Vec<u8>, Vec<u8>)],
     ) -> Result<(StaticFilesResponseFlow, StaticFilesResponseStep), StaticFilesError> {
         if method != "GET" && method != "HEAD" {
             return Err(StaticFilesError::MethodNotAllowed);
@@ -312,7 +326,6 @@ impl StaticFiles {
             StaticFilesResponseFlow {
                 path: path.to_owned(),
                 scope_path: scope_path.to_owned(),
-                request_headers: request_headers.to_vec(),
                 phase: ResponseFlowPhase::InitialLookup,
             },
             StaticFilesResponseStep::Lookup(path.to_owned()),
@@ -338,23 +351,8 @@ impl StaticFiles {
                 },
             )
             .map_err(StaticFilesError::FileResponse)?;
-            if is_not_modified(response.headers(), request_headers) {
-                let headers = response
-                    .headers()
-                    .iter()
-                    .filter(|(name, _)| {
-                        matches!(
-                            name.as_slice(),
-                            b"cache-control"
-                                | b"content-location"
-                                | b"date"
-                                | b"etag"
-                                | b"expires"
-                                | b"vary"
-                        )
-                    })
-                    .cloned()
-                    .collect();
+            if is_not_modified_headers(response.headers(), request_headers) {
+                let headers = not_modified_headers(response.headers());
                 return Ok(StaticFilesResponse::NotModified { headers });
             }
         }
@@ -380,6 +378,10 @@ impl StaticFilesResponseFlow {
 
         let lookup = match result {
             Ok(lookup) => lookup,
+            Err(StaticFilesError::InvalidPath) => {
+                self.phase = ResponseFlowPhase::Complete;
+                return Err(StaticFilesError::NotFound);
+            }
             Err(StaticFilesError::Io(error)) if is_name_too_long(&error) => {
                 self.phase = ResponseFlowPhase::Complete;
                 return Err(StaticFilesError::NotFound);
@@ -405,10 +407,11 @@ impl StaticFilesResponseFlow {
     ) -> Result<StaticFilesResponseStep, StaticFilesError> {
         if let Some(file) = lookup {
             if file.is_file {
-                let response =
-                    static_files.file_response(file, 200, &self.request_headers, true)?;
                 self.phase = ResponseFlowPhase::Complete;
-                return Ok(StaticFilesResponseStep::Complete(response));
+                return Ok(StaticFilesResponseStep::SelectFileResponse {
+                    file,
+                    status_code: 200,
+                });
             }
             if file.is_directory && static_files.html {
                 self.phase = ResponseFlowPhase::IndexLookup;
@@ -428,15 +431,19 @@ impl StaticFilesResponseFlow {
         lookup: Option<StaticFile>,
     ) -> Result<StaticFilesResponseStep, StaticFilesError> {
         if let Some(index) = lookup.filter(|file| file.is_file) {
-            let response = if self.scope_path.ends_with('/') {
-                static_files.file_response(index, 200, &self.request_headers, true)?
+            if self.scope_path.ends_with('/') {
+                self.phase = ResponseFlowPhase::Complete;
+                return Ok(StaticFilesResponseStep::SelectFileResponse {
+                    file: index,
+                    status_code: 200,
+                });
             } else {
-                StaticFilesResponse::Redirect {
+                let response = StaticFilesResponse::Redirect {
                     path: format!("{}/", self.scope_path),
-                }
-            };
-            self.phase = ResponseFlowPhase::Complete;
-            return Ok(StaticFilesResponseStep::Complete(response));
+                };
+                self.phase = ResponseFlowPhase::Complete;
+                return Ok(StaticFilesResponseStep::Complete(response));
+            }
         }
 
         self.start_not_found_lookup(static_files)
@@ -491,7 +498,9 @@ fn static_file(path: PathBuf, metadata: &Metadata) -> Result<StaticFile, StaticF
     })
 }
 
-fn is_not_modified(
+/// Returns whether the response validators satisfy the request headers.
+#[must_use]
+pub fn is_not_modified_headers(
     response_headers: &[(Vec<u8>, Vec<u8>)],
     request_headers: &[(Vec<u8>, Vec<u8>)],
 ) -> bool {
@@ -520,6 +529,21 @@ fn is_not_modified(
         (Some(request_time), Some(modified_time)) => request_time >= modified_time,
         _ => false,
     }
+}
+
+/// Selects the response headers retained by a 304 Not Modified response.
+#[must_use]
+pub fn not_modified_headers(headers: &[(Vec<u8>, Vec<u8>)]) -> Vec<(Vec<u8>, Vec<u8>)> {
+    headers
+        .iter()
+        .filter(|(name, _)| {
+            matches!(
+                name.as_slice(),
+                b"cache-control" | b"content-location" | b"date" | b"etag" | b"expires" | b"vary"
+            )
+        })
+        .cloned()
+        .collect()
 }
 
 fn parse_http_date_ignoring_weekday(value: &str) -> Option<SystemTime> {
@@ -590,6 +614,19 @@ fn route_path<'a>(path: &'a str, root_path: &str) -> &'a str {
 }
 
 fn normalize_route_path(path: &str) -> String {
+    #[cfg(windows)]
+    {
+        return normalize_windows_route_path(path);
+    }
+
+    #[cfg(not(windows))]
+    {
+        normalize_posix_route_path(path)
+    }
+}
+
+#[cfg(not(windows))]
+fn normalize_posix_route_path(path: &str) -> String {
     let mut components = Vec::new();
     for component in path.split('/') {
         match component {
@@ -605,6 +642,37 @@ fn normalize_route_path(path: &str) -> String {
         ".".to_owned()
     } else {
         components.join("/")
+    }
+}
+
+#[cfg(windows)]
+fn normalize_windows_route_path(path: &str) -> String {
+    let mut joined = PathBuf::new();
+    for component in path.split('/') {
+        joined.push(component);
+    }
+
+    let mut normalized = PathBuf::new();
+    for component in joined.components() {
+        match component {
+            Component::CurDir => {}
+            Component::ParentDir => match normalized.components().next_back() {
+                Some(Component::Normal(_)) => {
+                    normalized.pop();
+                }
+                Some(Component::ParentDir) | None if !normalized.has_root() => {
+                    normalized.push("..");
+                }
+                Some(Component::Prefix(_)) | Some(Component::RootDir) | _ => {}
+            },
+            other => normalized.push(other.as_os_str()),
+        }
+    }
+
+    if normalized.as_os_str().is_empty() {
+        ".".to_owned()
+    } else {
+        normalized.to_string_lossy().into_owned()
     }
 }
 

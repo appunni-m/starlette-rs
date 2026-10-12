@@ -21,6 +21,25 @@
       "observations": ["configuration-check"]
     },
     {
+      "case_id": "starlette.staticfiles.StaticFiles.configuration-check.constructor-not-directory",
+      "surface": "starlette.staticfiles.StaticFiles",
+      "operation": "configuration-check",
+      "covers": [
+        "starlette.staticfiles.StaticFiles.configuration-check.constructor-not-directory"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "directory_path": "build/parity/static-files-config/constructor-file-root",
+      "directory_kind": "file",
+      "root_file_contents_base64": "PGZpbGUgY29udGVudD4=",
+      "files": [],
+      "html": false,
+      "check_dir": true,
+      "follow_symlink": false,
+      "calls": [],
+      "observations": ["configuration-check"]
+    },
+    {
       "case_id": "starlette.staticfiles.StaticFiles.configuration-check.lazy-missing-directory",
       "surface": "starlette.staticfiles.StaticFiles",
       "operation": "configuration-check",

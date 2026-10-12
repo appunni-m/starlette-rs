@@ -9,10 +9,10 @@ incomplete.
 ## Current parity snapshot
 
 Implementation remains the active phase for the full Starlette replacement.
-The working-tree `parity-input@48` contract indexes 1,996 cases across 143
-parity inputs, two benchmark inputs, 133 operations, and 1,028 requirements.
+The working-tree `parity-input@48` contract indexes 2,013 cases across 145
+parity inputs, two benchmark inputs, 133 operations, and 1,036 requirements.
 The latest static inventory reports 999/999 API candidates dispositioned and
-816 source rows: 761 input mappings, 55 source-backed `not_applicable` rows,
+817 source rows: 762 input mappings, 55 source-backed `not_applicable` rows,
 and zero fixture backlog. Fixed source denominators are 514 upstream test
 functions and 24 documentation pages.
 
@@ -20,7 +20,10 @@ The latest clean full parity run, `dc8c8ca6-f2b7-449b-9f53-45860e3cad4c`,
 passed 2,254/2,254 comparisons for the preceding 1,992-case, 140-input
 contract. It does not include the later TestClient missing-backend,
 WebSocket authorization, Router truthiness, BaseHTTPMiddleware iterator,
-response-subclass, or version-applicability updates. The matching full
+response-subclass, version-applicability, StaticFiles path, response-protocol,
+close-code, TestClient exception, custom-regex, AuthenticationMiddleware
+iterable-result, nested Host/Mount reverse-lookup, and Request disconnect-retry
+updates. The matching full
 coverage and 74-workload benchmark receipts also belong to the preceding
 contract. Continue implementation across feature families, then run full
 parity and grouped repairs, coverage, and benchmarks in that order. The
