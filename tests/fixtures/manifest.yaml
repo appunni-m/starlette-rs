@@ -400,6 +400,7 @@
       "build/parity/inputs/parity/request-path-param-types.json",
       "build/parity/inputs/parity/request-cookies.json",
       "build/parity/inputs/parity/mount-route-dispatch.json",
+      "build/parity/inputs/parity/mount-router-scope-composition.json",
       "build/parity/inputs/parity/reverse-url-routing.json",
       "build/parity/inputs/parity/route-url-path-native.json",
       "build/parity/inputs/parity/redirect-response.json",

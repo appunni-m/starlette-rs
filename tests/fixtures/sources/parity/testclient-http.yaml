@@ -4194,6 +4194,81 @@
           "message": "failure after completed response"
         }
       }
+    },
+    {
+      "case_id": "starlette.testclient.TestClient.request-response.redirect-cookie-jar-sequence",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "request-response",
+      "covers": [
+        "starlette.testclient.TestClient.request-response.follow-redirects-enabled",
+        "starlette.testclient.TestClient.request-response.follow-up-request-sequence",
+        "starlette.testclient.TestClient.request-response.cookie-persistence-round-trip",
+        "starlette.testclient.TestClient.request-response.request-headers-mapping",
+        "starlette.testclient.TestClient.request-response.scope-projection",
+        "starlette.testclient.TestClient.request-response.response-and-debug"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "observations": ["request-response"],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": ["testclient", 50000],
+        "headers": [["X-Fixture", "defaults"]],
+        "cookies": {"seed": "configured"},
+        "follow_redirects": true
+      },
+      "request": {
+        "method": "GET",
+        "client_method": "get",
+        "url": "/start",
+        "headers_base64_pairs": [],
+        "body_base64": ""
+      },
+      "followup_requests": [
+        {
+          "method": "GET",
+          "client_method": "get",
+          "url": "/confirm",
+          "headers_base64_pairs": [],
+          "body_base64": ""
+        }
+      ],
+      "asgi_app": {
+        "kind": "path-response-map",
+        "responses": [
+          {
+            "path": "/start",
+            "response": {
+              "kind": "redirect",
+              "url": "/landing",
+              "status_code": 302,
+              "headers_base64_pairs": [
+                ["c2V0LWNvb2tpZQ==", "aG9wPXJlZGlyZWN0OyBQYXRoPS8="]
+              ]
+            }
+          },
+          {
+            "path": "/landing",
+            "response": {
+              "kind": "response",
+              "content": "landed",
+              "headers_base64_pairs": [
+                ["c2V0LWNvb2tpZQ==", "ZmluaXNoPWxhbmRlZDsgUGF0aD0v"]
+              ]
+            }
+          },
+          {
+            "path": "/confirm",
+            "response": {
+              "kind": "response",
+              "content": "confirmed"
+            }
+          }
+        ],
+        "scope_fields": ["type", "path", "headers"]
+      }
     }
   ]
 }

@@ -339,11 +339,14 @@ impl MultipartFormParser {
     }
 
     fn start_part(&mut self, field: Field<'static>) -> Result<(), MultipartFormParseError> {
-        let name = field
-            .name()
-            .ok_or(MultipartFormParseError::MissingName)?
-            .to_owned();
-        let filename = field.file_name().map(str::to_owned);
+        let disposition = field.headers().get("content-disposition");
+        let name = disposition
+            .and_then(|value| disposition_parameter(value.as_bytes(), "name"))
+            .map(|value| user_safe_decode(&value, &self.charset))
+            .ok_or(MultipartFormParseError::MissingName)?;
+        let filename = disposition
+            .and_then(|value| disposition_parameter(value.as_bytes(), "filename"))
+            .map(|value| user_safe_decode(&value, &self.charset));
         if filename.is_some() {
             self.files += 1;
             if self.files as f64 > self.max_files {
@@ -426,6 +429,72 @@ fn part_size_exceeded(current_size: usize, chunk_size: usize, limit: i64) -> boo
     let current_size = i128::try_from(current_size).unwrap_or(i128::MAX);
     let chunk_size = i128::try_from(chunk_size).unwrap_or(i128::MAX);
     current_size.saturating_add(chunk_size) > i128::from(limit)
+}
+
+fn disposition_parameter(header: &[u8], wanted: &str) -> Option<Vec<u8>> {
+    // Starlette passes the parser's original header bytes through
+    // `parse_options_header`, then decodes the `name` and `filename` options
+    // with the request charset (falling back to Latin-1). Multer's convenience
+    // accessors require UTF-8 and would reject otherwise valid legacy form
+    // submissions before that compatibility decoding can happen.
+    let header: String = header.iter().map(|byte| char::from(*byte)).collect();
+    let mut value = None;
+    for segment in split_disposition_parameters(&header).into_iter().skip(1) {
+        let Some((key, raw_value)) = segment.split_once('=') else {
+            continue;
+        };
+        let key = key.trim().to_ascii_lowercase();
+        if key.contains('*') || key != wanted {
+            continue;
+        }
+
+        let raw_value = raw_value.trim();
+        let quoted = raw_value.len() >= 2 && raw_value.starts_with('"') && raw_value.ends_with('"');
+        let mut parsed = if quoted {
+            raw_value[1..raw_value.len() - 1]
+                .replace("\\\\", "\\")
+                .replace("\\\"", "\"")
+        } else {
+            raw_value.to_owned()
+        };
+
+        if wanted == "filename"
+            && (parsed.as_bytes().get(1..3) == Some(b":\\") || parsed.starts_with("\\\\"))
+        {
+            if let Some(separator) = parsed.rfind('\\') {
+                parsed = parsed[separator + 1..].to_owned();
+            }
+        }
+
+        value = Some(parsed.chars().map(|character| character as u8).collect());
+    }
+    value
+}
+
+fn split_disposition_parameters(header: &str) -> Vec<&str> {
+    let mut segments = Vec::new();
+    let mut segment_start = 0;
+    let mut quoted = false;
+    let mut backslashes = 0usize;
+    for (index, character) in header.char_indices() {
+        match character {
+            '"' => {
+                if backslashes % 2 == 0 {
+                    quoted = !quoted;
+                }
+                backslashes = 0;
+            }
+            '\\' => backslashes += 1,
+            ';' if !quoted => {
+                segments.push(&header[segment_start..index]);
+                segment_start = index + character.len_utf8();
+                backslashes = 0;
+            }
+            _ => backslashes = 0,
+        }
+    }
+    segments.push(&header[segment_start..]);
+    segments
 }
 
 fn request_charset(content_type: &str) -> String {

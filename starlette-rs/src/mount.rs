@@ -279,9 +279,17 @@ impl Mount {
             .ok_or(MountError::MissingMountRemainder)?;
         let remaining_path = format!("/{}", mount_remainder.value);
         let route_path = get_route_path(scope.path, scope.root_path);
+        // Starlette slices by Python characters after its regex match. `$`
+        // may match immediately before a final newline, so the captured
+        // remainder need not be a literal suffix of the original path.
+        let matched_character_count = route_path
+            .chars()
+            .count()
+            .saturating_sub(remaining_path.chars().count());
         let matched_path = route_path
-            .strip_suffix(&remaining_path)
-            .ok_or(MountError::MountRemainderNotSuffix)?;
+            .chars()
+            .take(matched_character_count)
+            .collect::<String>();
         let root_path = format!("{}{matched_path}", scope.root_path);
         let app_root_path = scope.app_root_path.unwrap_or(scope.root_path).to_owned();
 
@@ -365,8 +373,6 @@ pub enum MountError {
     UnexpectedMountRouteIndex(usize),
     /// The Mount matcher did not provide its internal catch-all path capture.
     MissingMountRemainder,
-    /// The Mount remainder was not a suffix of the root-path-relative input.
-    MountRemainderNotSuffix,
     /// A matched child route had no corresponding configured response.
     MissingChildResponse(usize),
     /// A non-match did not provide a fallback response.
@@ -391,9 +397,6 @@ impl Display for MountError {
             Self::MissingMountRemainder => {
                 formatter.write_str("Mount match omitted its catch-all path capture")
             }
-            Self::MountRemainderNotSuffix => {
-                formatter.write_str("Mount remainder is not a suffix of the request path")
-            }
             Self::MissingChildResponse(index) => {
                 write!(formatter, "child route {index} has no configured response")
             }
@@ -411,7 +414,6 @@ impl Error for MountError {
             Self::ResponseConstruction(error) => Some(error),
             Self::UnexpectedMountRouteIndex(_)
             | Self::MissingMountRemainder
-            | Self::MountRemainderNotSuffix
             | Self::MissingChildResponse(_)
             | Self::MissingFallbackResponse => None,
         }

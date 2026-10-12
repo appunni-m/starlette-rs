@@ -1021,9 +1021,18 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
             record_scope(scope)
             response_input = responses_by_path[scope["path"]]
             if response_input["kind"] == "redirect":
-                response = RedirectResponse(response_input["url"])
+                response = RedirectResponse(
+                    response_input["url"],
+                    status_code=response_input.get("status_code", 307),
+                )
             else:
-                response = Response(response_input["content"])
+                response = Response(
+                    response_input["content"],
+                    status_code=response_input.get("status_code", 200),
+                )
+            response.raw_headers.extend(
+                _decoded_pairs(response_input.get("headers_base64_pairs", []))
+            )
 
             async def observed_send(message: dict[str, Any]) -> None:
                 asgi_events.append(_safe(message))
@@ -1067,6 +1076,7 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
         client=tuple(settings["client"]),
         headers=dict(settings["headers"]),
         follow_redirects=settings.get("follow_redirects", True),
+        cookies=settings.get("cookies"),
     )
     if "client_headers_assignment" in case:
         client.headers = dict(case["client_headers_assignment"])
@@ -1120,6 +1130,8 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
                 request_kwargs = {
                     "headers": _decoded_pairs(current_request["headers_base64_pairs"]),
                 }
+                if "cookies" in current_request:
+                    request_kwargs["cookies"] = current_request["cookies"]
                 if "params" in current_request:
                     request_kwargs["params"] = current_request["params"]
                 if "timeout" in current_request:

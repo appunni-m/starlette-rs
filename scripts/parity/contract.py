@@ -4874,7 +4874,10 @@ def _route_template_capture(
         return None
     fragments.append(re.escape(template[offset:]))
     try:
-        matched = re.fullmatch("".join(fragments), path)
+        # Starlette compiles route expressions with `^...$` and calls `match`.
+        # Python's `$` accepts a position immediately before a final newline,
+        # unlike `fullmatch`; keep the input validator aligned with that edge.
+        matched = re.match("^(?:" + "".join(fragments) + ")$", path)
     except re.error as exc:
         raise ContractError(f"route converter expression is invalid: {exc}") from exc
     if matched is None:
@@ -12565,8 +12568,8 @@ def _validate_testclient_case(
 ) -> None:
     settings_value = case["testclient"]
     optional_settings = (
-        {"follow_redirects"}
-        if isinstance(settings_value, dict) and "follow_redirects" in settings_value
+        {key for key in ("follow_redirects", "cookies") if key in settings_value}
+        if isinstance(settings_value, dict)
         else set()
     )
     settings = _exact(
@@ -12582,6 +12585,14 @@ def _validate_testclient_case(
         raise ContractError("TestClient.raise_server_exceptions must be boolean")
     if "follow_redirects" in settings and type(settings["follow_redirects"]) is not bool:
         raise ContractError("TestClient.follow_redirects must be boolean")
+    if "cookies" in settings and (
+        not isinstance(settings["cookies"], dict)
+        or any(
+            not isinstance(name, str) or not name or not isinstance(value, str)
+            for name, value in settings["cookies"].items()
+        )
+    ):
+        raise ContractError("TestClient.cookies must be a string-to-string mapping")
     if not isinstance(settings["root_path"], str):
         raise ContractError("TestClient.root_path must be a string")
     client = settings["client"]
@@ -12676,6 +12687,7 @@ def _validate_testclient_case(
                     "timeout",
                     "client_method",
                     "params",
+                    "cookies",
                     "content_generator_chunks_base64",
                     "auth",
                     "files",
@@ -12715,6 +12727,14 @@ def _validate_testclient_case(
                 raise ContractError(f"{context}.params requires TestClient.get")
             if urlsplit(request["url"]).query:
                 raise ContractError(f"{context}.url query must be empty when params is supplied")
+        if "cookies" in request and (
+            not isinstance(request["cookies"], dict)
+            or any(
+                not isinstance(name, str) or not name or not isinstance(value, str)
+                for name, value in request["cookies"].items()
+            )
+        ):
+            raise ContractError(f"{context}.cookies must be a string-to-string mapping")
         if "auth" in request:
             auth = request["auth"]
             if (
@@ -12792,6 +12812,7 @@ def _validate_testclient_case(
             or is_starlette_route_graph
             or is_starlette_partial_route_graph
             or is_starlette_url_for_route_graph
+            or is_path_response_map
         ):
             raise ContractError(
                 "TestClient followup_requests require a supported multi-request app input"
@@ -14125,9 +14146,13 @@ def _validate_testclient_case(
             response_value = response_entry["response"]
             response_kind = response_value.get("kind") if isinstance(response_value, dict) else None
             if response_kind == "redirect":
+                response_keys = {"kind", "url"}
+                response_keys.update(
+                    key for key in ("status_code", "headers_base64_pairs") if key in response_value
+                )
                 response_value = _exact(
                     response_value,
-                    {"kind", "url"},
+                    response_keys,
                     f"{context}.response redirect",
                 )
                 redirect_url = _string(response_value["url"], f"{context}.response.url")
@@ -14143,44 +14168,68 @@ def _validate_testclient_case(
                         f"{context}.response.url must be an absolute path without query or fragment"
                     )
             elif response_kind == "response":
+                response_keys = {"kind", "content"}
+                response_keys.update(
+                    key for key in ("status_code", "headers_base64_pairs") if key in response_value
+                )
                 response_value = _exact(
                     response_value,
-                    {"kind", "content"},
+                    response_keys,
                     f"{context}.response",
                 )
                 _string(response_value["content"], f"{context}.response.content")
             else:
                 raise ContractError(f"{context}.response.kind must be redirect or response")
+            if "status_code" in response_value and (
+                type(response_value["status_code"]) is not int
+                or not 100 <= response_value["status_code"] <= 599
+            ):
+                raise ContractError(f"{context}.response.status_code must be an HTTP status")
+            if "headers_base64_pairs" in response_value:
+                validate_pairs(
+                    response_value["headers_base64_pairs"],
+                    f"{context}.response.headers_base64_pairs",
+                )
             responses_by_path[response_path] = response_value
 
         initial_path = urlsplit(request["url"]).path
         visited_paths: set[str] = set()
-        current_path = initial_path
-        redirect_count = 0
-        reaches_response = False
-        while current_path in responses_by_path and current_path not in visited_paths:
-            visited_paths.add(current_path)
-            current_response = responses_by_path[current_path]
-            if current_response["kind"] == "response":
-                reaches_response = True
-                break
-            redirect_count += 1
-            current_path = urlsplit(current_response["url"]).path
+        initial_redirect_count = 0
+        initial_reaches_response = False
+        input_paths = [
+            initial_path,
+            *(urlsplit(item["url"]).path for item in followup_requests),
+        ]
+        for request_index, input_path in enumerate(input_paths):
+            current_path = input_path
+            request_paths: set[str] = set()
+            request_redirect_count = 0
+            request_reaches_response = False
+            while current_path in responses_by_path and current_path not in request_paths:
+                request_paths.add(current_path)
+                visited_paths.add(current_path)
+                current_response = responses_by_path[current_path]
+                if current_response["kind"] == "response":
+                    request_reaches_response = True
+                    break
+                request_redirect_count += 1
+                current_path = urlsplit(current_response["url"]).path
+            if request_index == 0:
+                initial_redirect_count = request_redirect_count
+                initial_reaches_response = request_reaches_response
         if (
             settings.get("follow_redirects") is not True
             or settings["base_url"] != "http://testserver"
             or settings["raise_server_exceptions"] is not True
             or settings["root_path"] != ""
             or settings["client"] != ["testclient", 50000]
-            or settings["headers"]
             or request["method"] != "GET"
             or request.get("client_method") != "get"
             or request["headers_base64_pairs"]
             or base64.b64decode(request["body_base64"])
-            or followup_requests
             or "path" not in asgi_app["scope_fields"]
-            or redirect_count == 0
-            or not reaches_response
+            or initial_redirect_count == 0
+            or not initial_reaches_response
             or visited_paths != set(responses_by_path)
         ):
             raise ContractError(
@@ -14358,8 +14407,30 @@ def _validate_testclient_case(
     if is_path_response_map:
         expected_covers.add(TESTCLIENT_REQUIREMENTS["response"])
         expected_covers.add(TESTCLIENT_REQUIREMENTS["follow_redirects_enabled"])
-        if redirect_count > 1:
+        if initial_redirect_count > 1:
             expected_covers.add(TESTCLIENT_REQUIREMENTS["response_history"])
+        if followup_requests:
+            expected_covers.add(TESTCLIENT_REQUIREMENTS["request_sequence"])
+        if settings["headers"] or any(item["headers_base64_pairs"] for item in observed_requests):
+            if "headers" not in asgi_app["scope_fields"]:
+                raise ContractError(
+                    "TestClient request-header inputs require observable request headers"
+                )
+            expected_covers.add(TESTCLIENT_REQUEST_REQUIREMENTS["headers_mapping"])
+        cookie_headers = any(
+            base64.b64decode(name, validate=True).lower() == b"set-cookie"
+            for response_input in response_inputs
+            for name, _value in response_input["response"].get("headers_base64_pairs", [])
+        )
+        cookie_inputs = "cookies" in settings or any(
+            "cookies" in item for item in observed_requests
+        )
+        if (
+            followup_requests
+            and (cookie_headers or cookie_inputs)
+            and "headers" in asgi_app["scope_fields"]
+        ):
+            expected_covers.add(TESTCLIENT_REQUIREMENTS["cookie_round_trip"])
     if is_starlette_app_debug:
         expected_covers.add(TESTCLIENT_REQUIREMENTS["app_debug_mutation"])
         expected_covers.add(TESTCLIENT_REQUIREMENTS["app_debug_response"])
