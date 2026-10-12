@@ -1,0 +1,139 @@
+# Third-party notices
+
+## Starlette source authority
+
+The compatibility baseline is Starlette 1.6.0 at commit
+`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`, licensed under BSD-3-Clause.
+The baseline source declares copyright © 2018 Encode OSS Ltd. See
+[`LICENSE.md`](LICENSE.md) for the complete notice and conditions.
+
+The source checkout is used as a local oracle and inventory authority. No
+upstream module, test file, documentation page, or image asset has been copied
+wholesale. The built-in URL converter rules in
+[`starlette-rs-py/python/starlette/convertors.py`](starlette-rs-py/python/starlette/convertors.py)
+adapt `starlette/convertors.py` from that pinned source; they retain the
+upstream BSD-3-Clause provenance and are not a verbatim module copy. The
+route compatibility layer and application dispatch integration in
+[`starlette-rs-py/python/starlette/routing.py`](starlette-rs-py/python/starlette/routing.py)
+and [`starlette-rs-py/python/starlette/applications.py`](starlette-rs-py/python/starlette/applications.py)
+adapt public matching and dispatch behavior from `starlette/routing.py` and
+`starlette/applications.py`, with Rust-backed built-in path matching and
+Python callable boundaries; they retain the upstream BSD-3-Clause provenance
+and are not verbatim module copies. The
+redirect response wrapper in
+[`starlette-rs-py/python/starlette/responses.py`](starlette-rs-py/python/starlette/responses.py)
+adapts the `RedirectResponse` behavior in `starlette/responses.py` from the
+pinned source and retains its BSD-3-Clause provenance. The benchmark worker
+and [`starlette-rs-py/python/starlette/status.py`](starlette-rs-py/python/starlette/status.py)
+also derive their status-code names and integer values from the pinned source;
+the status module's deprecated-alias behavior is adapted from
+`starlette/status.py` and retains the same BSD-3-Clause provenance. The benchmark
+worker ([`scripts/parity/upstream_benchmark_worker.py`](scripts/parity/upstream_benchmark_worker.py))
+adapts deterministic payload-generation recipes and the fixed text paragraph
+from `benchmarks/gzip_benchmark.py` so the 68 GZip inputs reproduce the pinned
+workloads. That adapted material is Copyright © 2018 Encode OSS Ltd. and is
+licensed under BSD-3-Clause. [`LICENSE.md`](LICENSE.md) contains the complete
+copyright notice, conditions, and disclaimer. Independently authored fixtures
+and later implementation code must record their provenance and applicable
+licenses.
+
+The input definitions in
+[`templating-public.yaml`](tests/fixtures/sources/parity/templating-public.yaml)
+are independently authored from `tests/test_templates.py` and
+`docs/templates.md` at the pinned Starlette revision. Their short template
+strings reproduce the public stimuli, including the homepage URL link,
+context-processor greeting, and script-like autoescape input. That reused
+material is Copyright © 2018 Encode OSS Ltd., under BSD-3-Clause; the complete
+notice is in [`LICENSE.md`](LICENSE.md). The shared live adapter in
+[`templating.py`](scripts/parity/adapters/templating.py) executes each side's
+public API and does not contain expected outputs.
+
+The input definitions in
+[`testclient-websocket-public.yaml`](tests/fixtures/sources/parity/testclient-websocket-public.yaml)
+are independently authored from `tests/test_websockets.py` at the pinned
+revision. The greeting JSON and short denial-response body reproduce source
+stimuli, Copyright © 2018 Encode OSS Ltd., under BSD-3-Clause; the complete
+notice is in [`LICENSE.md`](LICENSE.md). The shared live adapter in
+[`testclient.py`](scripts/parity/adapters/testclient.py) invokes each side
+through public APIs and supplies no expected outputs. The concurrency input
+also supplies explicit client disconnect and close-drain actions to make
+the captured cleanup tape deterministic.
+
+The inputs in
+[`testclient-public.yaml`](tests/fixtures/sources/parity/testclient-public.yaml)
+are independently authored from `tests/test_testclient.py` at the pinned
+revision. The mock JSON, user-agent value, authentication header, and custom
+exception name reproduce source stimuli, Copyright © 2018 Encode OSS Ltd.,
+under BSD-3-Clause; the complete notice is in [`LICENSE.md`](LICENSE.md).
+[`testclient_public.py`](scripts/parity/adapters/testclient_public.py) invokes
+each implementation through public constructors and context management. It
+contains user application code and observations, with no expected outputs.
+
+The route graph and stimuli in
+[`testclient-router.yaml`](tests/fixtures/sources/parity/testclient-router.yaml)
+are independently authored from `tests/test_routing.py` at the pinned revision.
+The endpoint text, partial argument, static response body, route order, and
+warning filter reproduce source stimuli, Copyright © 2018 Encode OSS Ltd.,
+under BSD-3-Clause; the full notice is in [`LICENSE.md`](LICENSE.md). The live
+[`testclient_router.py`](scripts/parity/adapters/testclient_router.py) builder
+constructs public routes and user callbacks from input fields on both sides.
+No source assertions or expected responses are copied into input definitions.
+
+The application graph and stimuli in
+[`testclient-middleware.yaml`](tests/fixtures/sources/parity/testclient-middleware.yaml)
+are adapted from `tests/middleware/test_base.py:29-120` at the pinned revision,
+Copyright © 2018 Encode OSS Ltd., under BSD-3-Clause; the complete notice is
+in [`LICENSE.md`](LICENSE.md). The endpoint text, exception constructor inputs,
+stream chunk, response-header mutation, awaitable ASGI class shape, and ordered
+HTTP/WebSocket calls preserve the source workflow. The independent
+[`testclient_middleware.py`](scripts/parity/adapters/testclient_middleware.py)
+consumer constructs both live applications through public APIs and records
+their actual responses, exceptions, ASGI callbacks, and cleanup. No upstream
+assertions or expected outputs are included.
+
+## Dependency notices
+
+The upstream direct and transitive package metadata snapshot is maintained in
+[`docs/locked-dependencies.csv`](docs/locked-dependencies.csv), based on the
+pinned Starlette `uv.lock`. These are source-oracle dependencies and are not
+bundled into Starlette-RS artifacts. Rust workspace dependencies linked into
+the Python extension are recorded with their selected full license texts in
+[`THIRD_PARTY_RUST_LICENSES.md`](THIRD_PARTY_RUST_LICENSES.md). That file is
+generated from the locked Cargo graph by pinned `cargo-about`; `make
+supply-chain-check` verifies generated-text drift, accepted Cargo licenses,
+dependency sources, and advisories. The Python `full` extra declares separate
+distributions that package installers resolve and install independently.
+
+The Rust compression path depends on `flate2` 1.1.10 and `libz-sys` 1.1.29,
+both declared MIT OR Apache-2.0. `otool -L` confirmed that the qualified macOS
+arm64 wheels dynamically link system `/usr/lib/libz.1.dylib` version 1.2.12;
+they do not bundle the fallback zlib source. See the versioned feature and backend notes in
+[`docs/DEPENDENCIES.md`](docs/DEPENDENCIES.md).
+
+The Rust `FileResponse` path also depends on `getrandom` 0.4.3 (MIT OR
+Apache-2.0), `httpdate` 1.0.3 (MIT OR Apache-2.0), `md-5` 0.11.0 (MIT OR
+Apache-2.0), and `mime_guess` 2.0.5 (MIT). Their locked metadata and roles are
+listed in [`docs/DEPENDENCIES.md`](docs/DEPENDENCIES.md). MD5 is used only to
+match Starlette's existing ETag format; it is not used as a security check.
+Their resolved license texts are included in the generated Rust license bundle.
+
+The multipart Request.form parser adds `multer` 3.1.0 (MIT), `encoding_rs`
+0.8.35 ((Apache-2.0 OR MIT) AND BSD-3-Clause), and `futures` 0.3.34 (MIT OR
+Apache-2.0), all from crates.io and pinned in `Cargo.lock`. The inspected
+archives include the `multer` MIT notice (Copyright © 2020 Rousan Ali), the
+`encoding_rs` Apache-2.0/MIT notices (Mozilla Foundation) and WHATWG BSD-3-Clause
+notice (WHATWG contributors), and the `futures` Apache-2.0/MIT notices (Alex
+Crichton and the Tokio authors). The resolved transitive parser crates are
+listed in [`docs/DEPENDENCIES.md`](docs/DEPENDENCIES.md). Their full license
+texts and the other resolved Rust dependency licenses are included in the
+generated Rust bundle; the repository does not copy dependency source files.
+## TestClient traceback lifetime comparisons
+
+`tests/fixtures/sources/parity/testclient-traceback-cleanup.yaml` extends the
+input-derived custom middleware application from pinned Starlette 1.6.0,
+`tests/middleware/test_base.py:29-120`, with public Python exception retention,
+garbage collection, unraisable-hook observations, and user finalizers required
+by this project's lifetime boundary. Upstream material is BSD-3-Clause,
+copyright Encode OSS Ltd. and contributors. The lifecycle stimuli and consumer
+instrumentation are authored here; no expected outputs or upstream assertions
+are copied.

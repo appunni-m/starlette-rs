@@ -1,0 +1,15 @@
+# Third-party Rust dependency licenses
+
+This file contains the license texts selected for dependencies in the locked
+Rust workspace graph. It is generated with `cargo about`; see the root
+`about.toml` for the accepted SPDX license set and selection order.
+
+{{#each licenses}}
+## {{name}} (`{{id}}`)
+
+{{#each used_by}}- `{{crate.name}} {{crate.version}}`{{#if path}} through `{{path}}`{{/if}}
+{{/each}}
+```text
+{{{text}}}
+```
+{{/each}}

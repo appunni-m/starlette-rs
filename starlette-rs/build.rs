@@ -18,29 +18,53 @@ fn emit_identity() -> Result<(), String> {
         env::var_os("CARGO_MANIFEST_DIR")
             .ok_or_else(|| String::from("Cargo did not provide CARGO_MANIFEST_DIR"))?,
     );
-    let workspace_root = crate_root
+    let parent_root = crate_root
         .parent()
         .ok_or_else(|| String::from("crate manifest has no workspace parent"))?;
-    let mut source_files = vec![
-        workspace_root.join("Cargo.toml"),
-        workspace_root.join("Cargo.lock"),
-        workspace_root.join("rust-toolchain.toml"),
-        crate_root.join("Cargo.toml"),
-        crate_root.join("build.rs"),
-    ];
+    let is_workspace_checkout =
+        parent_root.join("Cargo.toml").is_file() && parent_root.join("Cargo.lock").is_file();
+    let identity_root = if is_workspace_checkout {
+        parent_root
+    } else {
+        crate_root.as_path()
+    };
+    let lock_path = if is_workspace_checkout {
+        parent_root.join("Cargo.lock")
+    } else {
+        crate_root.join("Cargo.lock")
+    };
+    let mut source_files = if is_workspace_checkout {
+        let mut files = vec![
+            parent_root.join("Cargo.toml"),
+            lock_path.clone(),
+            crate_root.join("Cargo.toml"),
+            crate_root.join("build.rs"),
+        ];
+        let toolchain = parent_root.join("rust-toolchain.toml");
+        if toolchain.is_file() {
+            files.push(toolchain);
+        }
+        files
+    } else {
+        vec![
+            crate_root.join("Cargo.toml"),
+            lock_path.clone(),
+            crate_root.join("build.rs"),
+        ]
+    };
     collect_files(&crate_root.join("src"), &mut source_files)?;
     source_files.sort();
     source_files.dedup();
 
-    let source_fingerprint = source_fingerprint(workspace_root, &source_files)?;
+    let source_fingerprint = source_fingerprint(identity_root, &source_files)?;
     for path in &source_files {
         println!("cargo:rerun-if-changed={}", path.display());
     }
     println!("cargo:rerun-if-env-changed=RUSTC");
 
-    let head = git_output(workspace_root, &["rev-parse", "--verify", "HEAD"]);
+    let head = git_output(identity_root, &["rev-parse", "--verify", "HEAD"]);
     let status = git_output(
-        workspace_root,
+        identity_root,
         &[
             "status",
             "--porcelain",
@@ -56,7 +80,6 @@ fn emit_identity() -> Result<(), String> {
     let base_revision = head.unwrap_or_else(|| String::from("uncommitted"));
     let revision = format!("{base_revision}+source-fnv1a64-{source_fingerprint:016x}");
 
-    let lock_path = workspace_root.join("Cargo.lock");
     let lock_bytes = fs::read(&lock_path).map_err(|error| {
         format!(
             "cannot read workspace dependency lock {}: {error}",

@@ -95,16 +95,19 @@ assertions or expected outputs are included.
 
 The upstream direct and transitive package metadata snapshot is maintained in
 [`docs/locked-dependencies.csv`](docs/locked-dependencies.csv), based on the
-pinned Starlette `uv.lock`. This is not yet a complete third-party notice set.
-Before packaging, verify the license files for every shipped dependency and
-include the required notices in Rust crate, Python wheel, and sdist artifacts.
+pinned Starlette `uv.lock`. These are source-oracle dependencies and are not
+bundled into Starlette-RS artifacts. Rust workspace dependencies linked into
+the Python extension are recorded with their selected full license texts in
+[`THIRD_PARTY_RUST_LICENSES.md`](THIRD_PARTY_RUST_LICENSES.md). That file is
+generated from the locked Cargo graph by pinned `cargo-about`; `make
+supply-chain-check` verifies generated-text drift, accepted Cargo licenses,
+dependency sources, and advisories. The Python `full` extra declares separate
+distributions that package installers resolve and install independently.
 
-The current Rust compression path depends on `flate2` 1.1.10 and `libz-sys`
-1.1.29, both declared MIT OR Apache-2.0. `libz-sys` links a discovered stock
-system zlib when available and can build bundled stock zlib otherwise; the
-bundled zlib source carries its own zlib license. The exact native library
-selected for each wheel build must be identified and its notice included in
-that artifact. See the versioned feature and backend notes in
+The Rust compression path depends on `flate2` 1.1.10 and `libz-sys` 1.1.29,
+both declared MIT OR Apache-2.0. `otool -L` confirmed that the qualified macOS
+arm64 wheels dynamically link system `/usr/lib/libz.1.dylib` version 1.2.12;
+they do not bundle the fallback zlib source. See the versioned feature and backend notes in
 [`docs/DEPENDENCIES.md`](docs/DEPENDENCIES.md).
 
 The Rust `FileResponse` path also depends on `getrandom` 0.4.3 (MIT OR
@@ -112,8 +115,7 @@ Apache-2.0), `httpdate` 1.0.3 (MIT OR Apache-2.0), `md-5` 0.11.0 (MIT OR
 Apache-2.0), and `mime_guess` 2.0.5 (MIT). Their locked metadata and roles are
 listed in [`docs/DEPENDENCIES.md`](docs/DEPENDENCIES.md). MD5 is used only to
 match Starlette's existing ETag format; it is not used as a security check.
-Inspect the resolved crate license files and include the required notices in
-release artifacts.
+Their resolved license texts are included in the generated Rust license bundle.
 
 The multipart Request.form parser adds `multer` 3.1.0 (MIT), `encoding_rs`
 0.8.35 ((Apache-2.0 OR MIT) AND BSD-3-Clause), and `futures` 0.3.34 (MIT OR
@@ -122,9 +124,9 @@ archives include the `multer` MIT notice (Copyright © 2020 Rousan Ali), the
 `encoding_rs` Apache-2.0/MIT notices (Mozilla Foundation) and WHATWG BSD-3-Clause
 notice (WHATWG contributors), and the `futures` Apache-2.0/MIT notices (Alex
 Crichton and the Tokio authors). The resolved transitive parser crates are
-listed in [`docs/DEPENDENCIES.md`](docs/DEPENDENCIES.md). Preserve the complete
-notices in any distributed artifact that includes these dependencies; the
-repository does not copy their source files.
+listed in [`docs/DEPENDENCIES.md`](docs/DEPENDENCIES.md). Their full license
+texts and the other resolved Rust dependency licenses are included in the
+generated Rust bundle; the repository does not copy dependency source files.
 ## TestClient traceback lifetime comparisons
 
 `tests/fixtures/sources/parity/testclient-traceback-cleanup.yaml` extends the

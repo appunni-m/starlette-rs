@@ -1,79 +1,52 @@
 # Staged implementation plan
 
-The full Starlette replacement remains active and incomplete. The compatibility
-target is the pinned Starlette Python surface and ordinary ASGI contract; the
-pre-release `starlette-rs` API and implementation are greenfield and may be
-redesigned freely without a backward-compatibility guarantee. A stage's
-completed scope is evidence for that scope only; scaffolding or one passing
-example cannot establish drop-in compatibility.
+The objective is a full replacement for the pinned Starlette 1.6.0 Python
+surface and ordinary ASGI contract. The pre-release `starlette-rs` API is
+greenfield and carries no backward-compatibility guarantee. FastAPI and
+Pydantic are outside this project's scope.
 
-## Execution order
+## Execution order and current status
 
-The current work proceeds across the whole replacement in this order:
+The requested whole-project sequence has completed for the active @47 contract:
 
-1. Finish implementation across response construction and streaming/files,
-   request/data protocols, routing/applications/lifespan, middleware,
-   WebSockets/endpoints, optional integrations, TestClient, and Python version
-   and typing boundaries. Author input-only comparisons with each change.
-   Compile and static checks are permitted here; behavioral runs are deferred.
-2. Run the full installed-package and Rust-native parity matrix against the
-   pinned source. Collect mismatches and fix them together, preserving every
-   unsupported result and fault-contract case.
-3. Measure coverage from the full matrix and reconcile every remaining source
-   row and public behavior with comparison evidence or a source-backed reason.
-4. Run all benchmark workloads together after the parity and coverage phases.
+1. Implement across the mapped response, request, routing, application,
+   middleware, WebSocket, integration, TestClient, and typing feature families;
+   author input-only comparisons alongside implementation.
+2. Run the complete source/package and Rust-native parity matrix, then repair
+   mismatches together.
+3. Measure Rust coverage from the full matrix and reconcile the source atlas.
+4. Run all correctness-gated benchmark workloads together.
 
-These phases do not restart for each feature. Atlas backlog rows identify
-missing evidence; a row alone does not prove that its runtime is unimplemented.
-Existing successful slices remain historical evidence and do not establish
-completion of the implementation phase.
-
-The last recorded full parity run used the earlier @45 contract, not the active
-@47 contract. That historical run `161a2d1f-cacb-4668-8c2e-03cf5c214003`
-passed 1,908 installed Python-package comparisons; Rust-native passed 246/250
-with four Python-callable cases retained as `not_run`; both fault contracts
-passed, with zero mismatches or infrastructure errors. It is working-tree
-evidence for that earlier indexed input set, not full Starlette parity. The
-implementation and source-mapping phases are now complete; the active @47
-input set remains unexecuted and is ready for the full parity phase.
-
-The implementation pass to date has added file range/subclass hooks,
-supplied-cookie representation handling, multipart/session import selection,
-endpoint source-order dispatch, shared ASGI continuation ownership, optional
-dependency boundary cases, and documentation-derived routing, WebSocket, and
-TestClient inputs. The latest generated atlas has 814 source rows: 759 input
-mappings, 55 source-backed `not_applicable` rows, and zero fixture-backlog
-rows. Interpreter, optional-environment, and artifact qualification remain
-open.
+The contract declares 1,992 input cases across 140 parity inputs and two
+benchmark inputs, 133 operations, and 1,026 parity requirements. Generated
+atlas inventory has 814 source rows: 759 mapped to input comparisons and 55
+source-backed `not_applicable` rows, with zero fixture-backlog rows. These
+counts describe this pinned contract and do not establish unqualified,
+drop-in compatibility.
 
 ### Execution ledger
 
-| Phase | State | Completion evidence required |
+| Phase | State | Evidence |
 | --- | --- | --- |
-| Implementation | Complete across the mapped feature families; contract and source inventory pass with zero backlog. | None; the active @47 inputs are ready for full parity. |
-| Full parity and grouped repairs | Ready to run; active @47 contract is unexecuted. The last full @45 run is historical evidence only. | Pass the complete active source/package and Rust-native matrix without mismatches or infrastructure errors, preserving unsupported cases. |
-| Full coverage and source reconciliation | Pending full parity and coverage measurement. All atlas rows currently have input mappings or source-backed `not_applicable` reasons. | Matching full-suite source/build measurement receipts and Coverage MCP gap review. |
-| All benchmarks | Pending coverage. | All 74 correctness-gated workloads run together with fresh source/package identity. |
-| Packaging and interpreter qualification | Pending. | Clean wheel/sdist/crate contents, provenance and supported Python 3.10–3.14 consumers. No publication. |
+| Implementation | Complete across mapped feature families. | `make lint`, `make contract-check`, and `make source-inventory-check` passed; generated atlas has zero backlog. |
+| Full parity and grouped repairs | Complete for @47. | Clean-checkout preflight `038bbd97-4bcb-42ea-8424-90f541e021b6`: 2,254/2,254 comparisons passed (1,988 Python package, 266 Rust native), zero failures, infrastructure errors, or `not_run`; the full matrix also passed both fault contracts. |
+| Full coverage and source reconciliation | Measured for the full matrix. | Coverage MCP status `measured`, `source=matches_receipt`, `tests=passed`: 19,909/28,139 Rust lines (70.7%), with 8,230 uncovered lines; source atlas has zero backlog. |
+| All benchmarks | Complete. | Run `5402faf6-7b4d-47a1-8973-000624338fcf`: 74/74 source/package workloads measured, zero failed or not-run; 6 Router and 68 GZip workloads. |
+| Packaging and interpreter qualification | Complete for the local macOS arm64 build. | Built and inspected five CPython 3.10–3.14 wheels, an sdist, and the Rust crate; all contain the BSD license and generated third-party notices. Each wheel installed the `full` extra and passed public ASGI smoke plus `pip check` in an isolated environment. `cargo package` verification, Cargo license/source/advisory checks, and artifact identity checks passed. No publication. |
 
-The active @47 contract declares 1,992 input cases across 140 parity input
-files, plus two benchmark input files, with 133 operations and 1,026 parity
-requirements. The cases are authored without expected outputs. Contract
-validation reports zero parity passes for this revision; the @45 full-run
-results above are historical. The earlier run's adapter crashes were fixed by
-operation-based dispatch and shape handling; its template lookup-order mismatch
-and missing observation selectors were fixed against the pinned source. Full
-implementation and source mapping are complete. Full parity, coverage,
-benchmark, and packaging qualification remain open.
-
-Workspace builds, strict Clippy, formatting, Ruff, project policy, contract and
-inventory validation and rustdoc pass. These are static checks, not behavioral
-results. Previous parity, coverage, and benchmark records below remain
-historical evidence for their own revisions. Fixed denominators are 514 upstream
-test functions and 24 documented pages; read the changing source-mapping and
-backlog totals from the generated
+The full-suite benchmark report is in [`BENCHMARKS.md`](BENCHMARKS.md), and
+parity run history is in [`PARITY.md`](PARITY.md). Generated JSON, LCOV, and
+coverage receipts remain under ignored `build/parity/`. Fixed denominators are
+514 upstream test functions and 24 documented pages; the changing mapping and
+backlog counts come from the generated
 [`coverage matrix`](atlas/coverage-matrix.csv) and
 [`fixture backlog`](atlas/fixture-backlog.csv).
+
+The active implementation, parity, coverage, benchmark, and local packaging
+gates are complete for this contract. The broader full-replacement goal remains
+active: this contract is a declared slice on macOS arm64, and its passing result
+does not establish unqualified drop-in compatibility or other platform builds.
+Coverage at 70.7% is a measurement, not a parity score.
 
 Boundary details: [response protocols](RESPONSE_RENDER_BOUNDARY.md),
 [template callbacks](TEMPLATE_PROTOCOL_BOUNDARY.md),
@@ -98,7 +71,7 @@ cancellation context, Starlette's complete middleware catalog, WebSockets,
 lifespan, and native FastAPI composition remain open. See
 [`native-service.md`](native-service.md) for the API and boundaries.
 
-## 0. Establish the contract (current)
+## 0. Establish the contract
 
 - Pin Starlette 1.6.0 and record FastAPI 0.141.1 as a downstream reference
   identity only.
@@ -116,17 +89,16 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The active parity contract uses `parity-input@47`; it contains 1,992 input
-cases across 140 indexed parity files, with two benchmark files, 133 operations,
-and 1,026 parity requirements. The latest recorded full run used @45 and
-contained 1,912 cases across 114 indexed files (1,910 oracle cases and two
-target-only fault contracts). The new @47 inputs are unexecuted. Earlier 156
-cases cover
-cookie returned-value ownership, translation state, key hash callbacks and
-surrogate encoding. The current source-row, mapping, `not_applicable`, and backlog totals are
-generated in [`coverage-matrix.csv`](atlas/coverage-matrix.csv) and
-[`fixture-backlog.csv`](atlas/fixture-backlog.csv); regenerate those files
-after changing fixture dispositions.
+The active parity contract is `parity-input@47`: 1,992 input cases across 140
+indexed parity files, two benchmark files, 133 operations, and 1,026 parity
+requirements. Clean-checkout full parity passed 2,254/2,254 selected profile
+comparisons; both target-only fault contracts passed. Coverage MCP measured
+19,909/28,139 Rust lines from the full matrix. The generated source-row,
+mapping, `not_applicable`, and backlog totals live in
+[`coverage-matrix.csv`](atlas/coverage-matrix.csv) and
+[`fixture-backlog.csv`](atlas/fixture-backlog.csv); regenerate them after
+changing fixture dispositions. The implementation history below records how
+the input set grew; current gate states are in the execution ledger above.
 The preceding @44 working-tree matrix and instrumented coverage run passed with four
 unsupported native cases retained. Clean commit `553a06a` also passed the full
 parity gate and all 74 source/package benchmarks; native benchmark interfaces
@@ -784,9 +756,14 @@ contract only, not runtime or Rust-native parity.
 
 ## 8. Packaging and release readiness
 
-Prepare a Rust crate and Python wheel/sdist, inspect contents and notices,
-validate imports and dependency metadata in clean environments, and run package
-dry-runs. Do not publish to crates.io or PyPI without a later explicit request.
+Local artifact qualification is complete on macOS arm64: the Rust crate passed
+`cargo package` verification; the sdist and CPython 3.10–3.14 wheels built and
+passed content/license/notice checks; each wheel installed with its `full`
+extra and passed an isolated consumer smoke and `pip check`. `make
+supply-chain-check` verifies the generated Rust dependency license bundle and
+the workspace license, source, and advisory policies. This does not qualify
+other operating systems or authorize publication. Do not publish to crates.io
+or PyPI without a later explicit request.
 
 ## Python distribution and `starlette` namespace
 

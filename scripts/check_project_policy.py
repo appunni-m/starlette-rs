@@ -58,6 +58,11 @@ GENERATED_PARITY_JSON_PATHS = (
     "build/parity/upstream-benchmark-result.json",
     "build/parity/upstream-benchmark-correctness-result.json",
 )
+DISTRIBUTED_NOTICE_FILES = (
+    "LICENSE.md",
+    "THIRD_PARTY_NOTICES.md",
+    "THIRD_PARTY_RUST_LICENSES.md",
+)
 PYTHON_TEST_FRAMEWORK_IMPORT = re.compile(
     r"^\s*(?:from\s+(?:pytest|unittest)(?:\.|\s)|import\s+(?:pytest|unittest)(?:\.|\s|$))",
     re.MULTILINE,
@@ -136,6 +141,21 @@ def check_generated_parity_json(violations: list[str]) -> None:
                 f"{relative_path}: generated JSON under build/parity must not be tracked"
             )
 
+
+def check_rust_crate_notice_copies(violations: list[str]) -> None:
+    crate_root = ROOT / "starlette-rs"
+    for name in DISTRIBUTED_NOTICE_FILES:
+        canonical = ROOT / name
+        packaged = crate_root / name
+        if not canonical.is_file() or not packaged.is_file():
+            violations.append(
+                f"{packaged.relative_to(ROOT)}: required distributed notice is missing"
+            )
+        elif canonical.read_bytes() != packaged.read_bytes():
+            violations.append(
+                f"{packaged.relative_to(ROOT)}: distributed notice differs from root/{name}"
+            )
+
     for relative_path in GENERATED_PARITY_JSON_PATHS:
         try:
             ignored = subprocess.run(
@@ -161,6 +181,7 @@ def check_generated_parity_json(violations: list[str]) -> None:
 def main() -> int:
     violations: list[str] = []
     check_generated_parity_json(violations)
+    check_rust_crate_notice_copies(violations)
 
     for path in TESTS_ROOT.rglob("*"):
         if not path.is_file():
@@ -239,8 +260,9 @@ def main() -> int:
     print(
         "project policy check passed: no conventional unit-test sources or "
         "framework imports, no upstream Starlette runtime dependency, and no "
-        "control flow in Python Starlette wrappers; Rust lint exceptions are "
-        "documented, parity JSON is untracked and ignored; `make test` routes to live parity"
+        "control flow in Python Starlette wrappers; Rust lint exceptions and "
+        "crate notice copies are checked, parity JSON is ignored; `make test` "
+        "routes to live parity"
     )
     return 0
 

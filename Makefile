@@ -5,6 +5,7 @@
 CARGO ?= cargo
 CARGO_DENY_VERSION ?= 0.20.2
 CARGO_AUDIT_VERSION ?= 0.22.2
+CARGO_ABOUT_VERSION ?= 0.9.2
 PYTHON ?= python3
 PARITY_PYTHON ?= python3.12
 STARLETTE_ORACLE_ROOT ?= ../starlette
@@ -21,8 +22,9 @@ PARITY_RUN_OUTPUT ?= $(if $(strip $(PARITY_CASE_IDS)),build/parity/parity-select
 PYTHON_SOURCES ?= scripts starlette-rs-py/python/starlette starlette-rs-py/python/starlette_rs_py
 CARGO_DENY ?= cargo deny
 CARGO_AUDIT ?= cargo audit
+CARGO_ABOUT ?= cargo about
 
-.PHONY: help style-setup typecheck-setup fmt fmt-fix python-format python-format-fix clippy rust-api-boundary-check python-lint project-policy-check workflows-check lint check build test parity-inputs migrate-parity-inputs-v17-v18 migrate-parity-inputs-v18-v19 migrate-parity-inputs-v19-v20 migrate-parity-inputs-v20-v21 migrate-parity-inputs-v21-v22 migrate-parity-inputs-v22-v23 migrate-parity-inputs-v23-v24 migrate-parity-inputs-v24-v25 migrate-parity-inputs-v25-v26 migrate-parity-inputs-v26-v27 migrate-parity-inputs-v27-v28 migrate-parity-inputs-v28-v29 migrate-parity-inputs-v29-v30 migrate-parity-inputs-v30-v31 migrate-parity-inputs-v31-v32 migrate-parity-inputs-v32-v33 migrate-parity-inputs-v33-v34 migrate-parity-inputs-v34-v35 migrate-parity-inputs-v35-v36 migrate-parity-inputs-v36-v37 migrate-parity-inputs-v37-v38 migrate-parity-inputs-v38-v39 migrate-parity-inputs-v39-v40 migrate-parity-inputs-v40-v41 migrate-parity-inputs-v41-v42 migrate-parity-inputs-v42-v43 migrate-parity-inputs-v43-v44 migrate-parity-inputs-v44-v45 migrate-parity-inputs-v45-v46 migrate-parity-inputs-v46-v47 parity-env parity-adapter parity-run contract-check source-inventory source-inventory-check benchmark-upstream rustdoc-check docs-check supply-chain-tools supply-chain-check ci
+.PHONY: help style-setup typecheck-setup fmt fmt-fix python-format python-format-fix clippy rust-api-boundary-check python-lint project-policy-check workflows-check lint check build test parity-inputs migrate-parity-inputs-v17-v18 migrate-parity-inputs-v18-v19 migrate-parity-inputs-v19-v20 migrate-parity-inputs-v20-v21 migrate-parity-inputs-v21-v22 migrate-parity-inputs-v22-v23 migrate-parity-inputs-v23-v24 migrate-parity-inputs-v24-v25 migrate-parity-inputs-v25-v26 migrate-parity-inputs-v26-v27 migrate-parity-inputs-v27-v28 migrate-parity-inputs-v28-v29 migrate-parity-inputs-v29-v30 migrate-parity-inputs-v30-v31 migrate-parity-inputs-v31-v32 migrate-parity-inputs-v32-v33 migrate-parity-inputs-v33-v34 migrate-parity-inputs-v34-v35 migrate-parity-inputs-v35-v36 migrate-parity-inputs-v36-v37 migrate-parity-inputs-v37-v38 migrate-parity-inputs-v38-v39 migrate-parity-inputs-v39-v40 migrate-parity-inputs-v40-v41 migrate-parity-inputs-v41-v42 migrate-parity-inputs-v42-v43 migrate-parity-inputs-v43-v44 migrate-parity-inputs-v44-v45 migrate-parity-inputs-v45-v46 migrate-parity-inputs-v46-v47 parity-env parity-adapter parity-run contract-check source-inventory source-inventory-check benchmark-upstream rustdoc-check docs-check supply-chain-tools supply-chain-check third-party-notices third-party-notices-check ci
 
 help: ## Show common Rust workspace commands
 	@printf '%s\n' \
@@ -126,11 +128,28 @@ workflows-check: ## Validate GitHub Actions workflows with checksum-pinned actio
 
 lint: fmt python-format clippy rust-api-boundary-check python-lint project-policy-check workflows-check ## Check Rust/Python formatting, API boundaries, lints, workflow syntax, and project policy
 
-supply-chain-tools: ## Install the pinned cargo-deny and cargo-audit tools
+supply-chain-tools: ## Install pinned Rust audit and license tools
 	$(CARGO) install cargo-deny --version "$(CARGO_DENY_VERSION)" --locked
 	$(CARGO) install cargo-audit --version "$(CARGO_AUDIT_VERSION)" --locked
+	$(CARGO) install cargo-about --version "$(CARGO_ABOUT_VERSION)" --locked --features cli
 
-supply-chain-check: ## Audit Rust advisories, licenses, duplicate versions, wildcard versions, and sources
+third-party-notices: ## Generate complete Rust dependency license texts and sync crate notices
+	mkdir -p build/supply-chain
+	$(CARGO_ABOUT) generate scripts/third_party_licenses.hbs --config about.toml --workspace --all-features --locked --output-file build/supply-chain/THIRD_PARTY_RUST_LICENSES.md
+	$(PYTHON) scripts/normalize_line_endings.py build/supply-chain/THIRD_PARTY_RUST_LICENSES.md
+	cp build/supply-chain/THIRD_PARTY_RUST_LICENSES.md THIRD_PARTY_RUST_LICENSES.md
+	cp LICENSE.md starlette-rs/LICENSE.md
+	cp THIRD_PARTY_NOTICES.md starlette-rs/THIRD_PARTY_NOTICES.md
+	cp THIRD_PARTY_RUST_LICENSES.md starlette-rs/THIRD_PARTY_RUST_LICENSES.md
+
+third-party-notices-check: ## Verify generated Rust license texts and packaged notice copies
+	mkdir -p build/supply-chain
+	$(CARGO_ABOUT) generate scripts/third_party_licenses.hbs --config about.toml --workspace --all-features --locked --output-file build/supply-chain/THIRD_PARTY_RUST_LICENSES.md
+	$(PYTHON) scripts/normalize_line_endings.py build/supply-chain/THIRD_PARTY_RUST_LICENSES.md
+	cmp THIRD_PARTY_RUST_LICENSES.md build/supply-chain/THIRD_PARTY_RUST_LICENSES.md
+	$(PYTHON) scripts/check_project_policy.py
+
+supply-chain-check: third-party-notices-check ## Audit Rust advisories, licenses, duplicate versions, wildcard versions, sources, and bundled notices
 	$(CARGO_DENY) check advisories bans licenses sources
 	$(CARGO_AUDIT) --deny warnings
 

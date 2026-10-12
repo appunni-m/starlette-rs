@@ -9,7 +9,7 @@ description = "Starlette-compatible Python package backed by Rust"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "BSD-3-Clause"
-license-files = ["LICENSE.md", "THIRD_PARTY_NOTICES.md"]
+license-files = ["LICENSE.md", "THIRD_PARTY_NOTICES.md", "THIRD_PARTY_RUST_LICENSES.md"]
 dependencies = ["anyio>=3.6.2,<5", "typing-extensions>=4.12.0"]
 
 classifiers = [

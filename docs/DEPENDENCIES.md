@@ -1,6 +1,6 @@
 # Dependency inventory
 
-**State: in progress.** This inventory is based on Starlette 1.6.0's
+**State: source-oracle inventory.** This inventory is based on Starlette 1.6.0's
 `pyproject.toml` and `uv.lock` at
 `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. It contains 86 package records:
 the editable Starlette project plus 85 third-party packages across runtime,
@@ -12,9 +12,10 @@ transitive-only. The source build backend is
 The direct packages below include the locked version and PyPI release metadata
 license observed for that version. Legacy PyPI `License` text is kept as
 reported; it is not treated as a substitute for reviewing the package's
-included license files. A full license-file, implementation-language, native
-component audit remains open for selected transitive packages and for release
-artifacts.
+included license files. This inventory describes the oracle environment.
+These packages are installed in a separate source environment and are not
+bundled into Starlette-RS artifacts; target artifacts use the independently
+locked Rust graph and runtime metadata from `pyproject.toml`.
 
 The CSV snapshot records all 85 external lock entries, exact locked child edges,
 parent chains, dependency groups, PyPI language classifiers, available wheel
@@ -62,12 +63,10 @@ loaded at runtime.
 | Docs | mkdocstrings-python | `2.0.5` | Python mkdocstrings handler | ISC; Python |
 | Docs | zensical | `0.0.51` | Build upstream documentation site | MIT; Python application; lock includes MkDocs-related dependencies |
 
-The direct-package licenses and implementation notes above are an initial
-inventory, not release clearance. Before packaging, audit all license files and
-native build/runtime requirements in the resolved target lock, then include
-third-party notices for shipped material. Do not copy the upstream lockfile as
-the Starlette-RS lock: the Rust core, Python bridge, and build backend will
-have a different dependency graph. [`locked-dependencies.csv`](locked-dependencies.csv)
+The direct-package licenses and implementation notes above describe the
+upstream oracle, not the target's release license set. Do not copy the upstream
+lockfile as the Starlette-RS lock: the Rust core, Python bridge, and build
+backend have a different dependency graph. [`locked-dependencies.csv`](locked-dependencies.csv)
 contains a versioned metadata snapshot for every third-party lock entry, its
 locked child edges and direct parent chain, PyPI license/classifier fields, and
 wheel/native review status. The metadata snapshot is not a license-file audit.
@@ -102,18 +101,15 @@ FastAPI-RS has not yet adopted the service dependency set.
 | `flate2` | `1.1.10` | `default-features = false`, `zlib`; streaming gzip framing and DEFLATE API used by `GzipCompressor` | MIT OR Apache-2.0 |
 | `libz-sys` | `1.1.29` | Selected by `flate2/zlib`; uses stock zlib and links a system zlib when discovered, with a bundled-source fallback | MIT OR Apache-2.0 for the Rust crate; bundled zlib source carries its upstream zlib license |
 
-The parity environment used CPython 3.12.13 on macOS arm64. Python's runtime
-zlib and the zlib backend linked by `libz-sys` both reported version 1.2.12
-during the streaming investigation. Exact GZip bytes depend on the source and
-target compression implementations matching; the active byte-for-byte parity
-cases verify this specific environment, not every platform or zlib release.
-Record the actual linked compression backend and version for each future
-wheel/platform build before claiming equivalent bytes there.
+Package qualification built CPython 3.10–3.14 wheels on macOS arm64. `otool -L`
+confirmed the extension links `/usr/lib/libz.1.dylib` (system zlib 1.2.12),
+not the `libz-sys` bundled fallback. Exact GZip bytes are parity-verified for
+this host; future platform builds need their own linked-backend inspection.
 
-The resolved Rust graph is locked in `Cargo.lock`. Before packaging, include
-the selected `flate2`, `libz-sys`, and zlib notices in the wheel/crate notice
-set and inspect the final linked native component. This inventory is not a
-release clearance.
+The resolved Rust graph is locked in `Cargo.lock`. `THIRD_PARTY_RUST_LICENSES.md`
+contains generated full license texts for the selected workspace dependency
+graph. `make supply-chain-check` checks the generated file against `cargo-about`
+and checks accepted licenses, sources, advisories, and duplicate versions.
 
 - [`flate2` 1.1.10 manifest and feature definitions](https://docs.rs/crate/flate2/1.1.10)
 - [`libz-sys` 1.1.29 backend and licensing notes](https://docs.rs/crate/libz-sys/1.1.29)
@@ -133,13 +129,11 @@ release clearance.
 | `cmov` | `0.5.4` (transitive) | Conditional-move primitive used by `ctutils` | MIT OR Apache-2.0 |
 | `cpufeatures` | `0.3.1` (transitive) | CPU feature detection for RustCrypto hash implementations | MIT OR Apache-2.0 |
 
-The versions come from the workspace `Cargo.lock`; license expressions come
-from the corresponding locked crate `Cargo.toml` files in the local Cargo
-registry. These are metadata facts, not a review of each crate archive's
-included license files. `deny.toml` requires one shared `digest` version,
-rejects unreviewed licenses and dependency sources, and records the RustSec
-advisory policy. The listed direct and transitive crates must be included in
-the eventual Rust distribution notice audit.
+The versions come from the workspace `Cargo.lock`. `cargo-about` reads the
+locked crate archives and generates the selected license texts in
+`THIRD_PARTY_RUST_LICENSES.md`; `make supply-chain-check` verifies this output.
+`deny.toml` requires one shared `digest` version, rejects unreviewed licenses
+and dependency sources, and records the RustSec advisory policy.
 
 - [`base64` 0.22.1 manifest](https://docs.rs/crate/base64/0.22.1)
 - [`hmac` 0.13.0 manifest](https://docs.rs/crate/hmac/0.13.0)
@@ -226,9 +220,10 @@ manifest and Unicode table version](https://docs.rs/crate/unicode-general-catego
   optional Jinja2 dependency, while the core runtime remains Jinja-free.
 - Do not require optional templates, multipart, YAML, or client packages for a
   minimal ASGI application.
-- Generate a new locked graph per supported Python/platform build, record the
-  complete transitive package list and licenses, and inspect crate/wheel/sdist
-  contents before any release.
+- Keep the target's Python runtime graph separate from the source oracle graph.
+  The CPython 3.10–3.14 macOS arm64 wheels, sdist, and crate are locally
+  qualified; other platform artifacts need their own build and native-link
+  review.
 
 ## Implementation phase: package full extra
 
@@ -236,9 +231,10 @@ The target now declares a `full` extra with the pinned source's direct optional
 requirements: itsdangerous, Jinja2, python-multipart>=0.0.18, PyYAML, the deprecated
 HTTPX range, and HTTPX2>=2.0.0. This is package metadata; it does not introduce an
 upstream Starlette runtime dependency or move session/form algorithms out of Rust.
-Installed-package checks in present/absent dependency environments remain pending
-for the full parity phase. Source license records above still apply; packaged
-artifact license/provenance checks remain release work.
+The @47 full parity matrix passed with the full extra installed; local wheel
+consumers for CPython 3.10–3.14 passed a public ASGI smoke and `pip check` in
+isolated environments. This does not qualify other operating systems or
+platform tags.
 
 ### Full-feature parity environments
 
