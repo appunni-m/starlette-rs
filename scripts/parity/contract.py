@@ -3227,9 +3227,18 @@ def _validate_websocket_scope(scope: Any) -> None:
                 raise ContractError("WebSocket scope extension configurations must be objects")
 
 
-def _validate_websocket_message(message: Any, context: str, *, incoming: bool) -> str:
+def _validate_websocket_message(
+    message: Any,
+    context: str,
+    *,
+    incoming: bool,
+    allow_unhashable_type: bool = False,
+) -> Any:
     if not isinstance(message, dict):
         raise ContractError(f"{context} must be an ASGI message object")
+    if incoming and allow_unhashable_type and isinstance(message.get("type"), (list, dict)):
+        _exact(message, {"type"}, context)
+        return message["type"]
     message_type = _string(message.get("type"), f"{context}.type")
     if incoming:
         if message_type == "websocket.connect":
@@ -3947,7 +3956,12 @@ def _validate_websocket_convenience_case_stimulus(case: dict[str, Any]) -> None:
             "WebSocket incoming and actions must be arrays, with at least one action"
         )
     incoming_types = [
-        _validate_websocket_message(message, f"WebSocket incoming[{index}]", incoming=True)
+        _validate_websocket_message(
+            message,
+            f"WebSocket incoming[{index}]",
+            incoming=True,
+            allow_unhashable_type=True,
+        )
         for index, message in enumerate(incoming)
     ]
     callback_actions: dict[int, str] = {}
@@ -4026,6 +4040,10 @@ def _validate_websocket_convenience_case_stimulus(case: dict[str, Any]) -> None:
             client_state = "CONNECTED"
             if callback_state_assignment is not None and callback_state_assignment != client_state:
                 exercised.add("starlette.websocket.state.receive-callback-state-overwrite")
+            return message_type
+        if isinstance(message_type, (list, dict)):
+            if callback_state_assignment is not None:
+                client_state = callback_state_assignment
             return message_type
         if message_type == "websocket.disconnect":
             client_state = "DISCONNECTED"
@@ -12379,7 +12397,6 @@ def _validate_testclient_case(
         or len(client) != 2
         or not isinstance(client[0], str)
         or type(client[1]) is not int
-        or not 0 <= client[1] <= 65535
     ):
         raise ContractError("TestClient.client must be [host, port]")
     headers = settings["headers"]
@@ -12732,7 +12749,6 @@ def _validate_testclient_case(
             or len(inner_client_address) != 2
             or not isinstance(inner_client_address[0], str)
             or type(inner_client_address[1]) is not int
-            or not 0 <= inner_client_address[1] <= 65535
         ):
             raise ContractError("TestClient inner TestClient.client must be [host, port]")
         inner_headers = inner_settings["headers"]
@@ -14802,7 +14818,6 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
         or len(client) != 2
         or not isinstance(client[0], str)
         or type(client[1]) is not int
-        or not 0 <= client[1] <= 65535
     ):
         raise ContractError("TestClient.client must be [host, port]")
 
@@ -16252,7 +16267,6 @@ def _validate_testclient_lifespan_case(case: dict[str, Any]) -> None:
         or len(client) != 2
         or not isinstance(client[0], str)
         or type(client[1]) is not int
-        or not 0 <= client[1] <= 65535
     ):
         raise ContractError("TestClient.client must be [host, port]")
     for key in ("backend",):

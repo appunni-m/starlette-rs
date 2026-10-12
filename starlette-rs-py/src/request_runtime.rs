@@ -73,6 +73,7 @@ struct StreamProtocol {
     running: bool,
     closed: bool,
     yielded_chunk: bool,
+    terminal_yielded: bool,
 }
 
 // Starlette may execute synchronous endpoints on AnyIO worker threads. The
@@ -1222,12 +1223,19 @@ impl StreamMachine {
             )));
         }
         let yielded_chunk = protocol.yielded_chunk;
+        let terminal_yielded = protocol.terminal_yielded;
         match &self.command {
             StreamCommand::Close if protocol.closed || !protocol.started => {
                 protocol.closed = true;
                 drop(protocol);
                 self.close_stream();
                 return Ok(MachineAction::Complete(py.None()));
+            }
+            StreamCommand::Advance(_) if terminal_yielded => {
+                protocol.closed = true;
+                drop(protocol);
+                self.close_stream();
+                return Err(PyStopAsyncIteration::new_err(()));
             }
             StreamCommand::Advance(_) if protocol.closed => {
                 return Err(PyStopAsyncIteration::new_err(()));
@@ -1266,7 +1274,7 @@ impl StreamMachine {
         // upstream generator shares `_stream_consumed`, so it yields its final
         // empty chunk instead of issuing one more receive call.
         if yielded_chunk && borrow_runtime(py, &self.shared)?.accumulator.is_consumed() {
-            self.finish(false);
+            self.yield_terminal();
             return Ok(MachineAction::Complete(
                 PyBytes::new(py, b"").unbind().into_any(),
             ));
@@ -1302,7 +1310,11 @@ impl StreamMachine {
                 let is_terminal_chunk =
                     body.is_empty() && borrow_runtime(py, &self.shared)?.accumulator.is_consumed();
                 let body = PyBytes::new(py, &body).unbind().into_any();
-                self.finish(!is_terminal_chunk);
+                if is_terminal_chunk {
+                    self.yield_terminal();
+                } else {
+                    self.finish(true);
+                }
                 Ok(MachineAction::Complete(body))
             }
             RequestStreamProgress::CachedBody(body) => {
@@ -1361,6 +1373,15 @@ impl StreamMachine {
             if !yielded {
                 protocol.closed = true;
             }
+        }
+    }
+
+    fn yield_terminal(&self) {
+        if let Ok(mut protocol) = self.protocol.try_lock() {
+            // An async generator remains suspended at its final yield until
+            // the consumer advances, throws into, or closes it.
+            protocol.running = false;
+            protocol.terminal_yielded = true;
         }
     }
 }

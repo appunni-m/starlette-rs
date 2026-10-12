@@ -370,25 +370,48 @@ impl WebSocketReceiveMachine {
             .ok_or_else(|| PyRuntimeError::new_err("no WebSocket receive is pending"))?;
         let client_state_at_start = state_at_start.client_state();
 
-        // Starlette compares the supplied ASGI value with string literals and
-        // reports an unexpected type in a RuntimeError. Extracting a Rust
-        // String first would instead leak PyO3's TypeError for values such as
-        // None, changing the public protocol error and endpoint finalization.
+        // Preserve Starlette's state-specific Python operation on arbitrary
+        // ASGI type values: direct equality while connecting, set membership
+        // while connected. Extracting a Rust String first would change both
+        // their errors and the public protocol state transition.
         if !message_type.is_instance_of::<PyString>() {
-            let received = message_type.repr()?.extract::<String>()?;
-            let error = match client_state_at_start {
+            match client_state_at_start {
                 WebSocketState::Connecting => {
-                    format!("Expected ASGI message \"websocket.connect\", but got {received}")
+                    // Starlette compares directly with the connect event here;
+                    // unlike the connected branch below, it does not hash an
+                    // arbitrary incoming type before producing its RuntimeError.
+                    if message_type.eq("websocket.connect")? {
+                        protocol_state(&self.state)?.set_client_state(WebSocketState::Connected);
+                        return Ok(());
+                    }
+                    let received = message_type.repr()?.extract::<String>()?;
+                    return Err(PyRuntimeError::new_err(format!(
+                        "Expected ASGI message \"websocket.connect\", but got {received}"
+                    )));
                 }
-                WebSocketState::Connected => format!(
-                    "Expected ASGI message \"websocket.receive\" or \"websocket.disconnect\", but got {received}"
-                ),
+                WebSocketState::Connected => {
+                    // Starlette validates connected receive types with set
+                    // membership. Preserve Python's TypeError for unhashable
+                    // values, while hashable invalid values get the protocol
+                    // RuntimeError below.
+                    let expected = PySet::new(py, ["websocket.receive", "websocket.disconnect"])?;
+                    if !expected.contains(&message_type)? {
+                        let received = message_type.repr()?.extract::<String>()?;
+                        return Err(PyRuntimeError::new_err(format!(
+                            "Expected ASGI message \"websocket.receive\" or \"websocket.disconnect\", but got {received}"
+                        )));
+                    }
+                    if message_type.eq("websocket.disconnect")? {
+                        protocol_state(&self.state)?.set_client_state(WebSocketState::Disconnected);
+                    }
+                    return Ok(());
+                }
                 WebSocketState::Disconnected | WebSocketState::Response => {
-                    "Cannot call \"receive\" once a disconnect message has been received."
-                        .to_owned()
+                    return Err(PyRuntimeError::new_err(
+                        "Cannot call \"receive\" once a disconnect message has been received.",
+                    ));
                 }
-            };
-            return Err(PyRuntimeError::new_err(error));
+            }
         }
         let message_type = message_type.extract::<String>()?;
 

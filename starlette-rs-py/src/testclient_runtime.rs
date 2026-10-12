@@ -175,8 +175,7 @@ pub(crate) struct PyTestClientTransport {
     backend_options: Py<PyDict>,
     raise_server_exceptions: bool,
     root_path: String,
-    client_host: String,
-    client_port: u16,
+    client: Py<PyAny>,
     app_state: Py<PyDict>,
     lifespan: Option<TestClientLifespan>,
 }
@@ -1275,6 +1274,7 @@ impl PyTestClientTransport {
         visit.call(&self.asgi3_runner)?;
         visit.call(&self.asgi2_runner)?;
         visit.call(&self.backend_options)?;
+        visit.call(&self.client)?;
         visit.call(&self.app_state)?;
         Ok(())
     }
@@ -1284,6 +1284,7 @@ impl PyTestClientTransport {
         self.httpx = py.None();
         self.asgi3_runner = py.None();
         self.asgi2_runner = py.None();
+        self.client = py.None();
     }
 
     #[new]
@@ -1319,7 +1320,7 @@ impl PyTestClientTransport {
         let client = settings
             .get_item("client")?
             .ok_or_else(|| PyKeyError::new_err("client"))?
-            .extract::<(String, u16)>()?;
+            .unbind();
         Ok(Self {
             app,
             httpx,
@@ -1329,8 +1330,7 @@ impl PyTestClientTransport {
             backend_options,
             raise_server_exceptions,
             root_path,
-            client_host: client.0,
-            client_port: client.1,
+            client,
             app_state: PyDict::new(py).unbind(),
             lifespan: None,
         })
@@ -1387,7 +1387,7 @@ impl PyTestClientTransport {
                 py,
                 request,
                 &self.root_path,
-                (&self.client_host, self.client_port),
+                self.client.bind(py),
                 self.app_state.bind(py),
             )?;
             let runner = if is_asgi3(py, self.app.bind(py))? {
@@ -1418,7 +1418,7 @@ impl PyTestClientTransport {
             py,
             request,
             self.root_path.as_str(),
-            (self.client_host.as_str(), self.client_port),
+            self.client.bind(py),
             self.app_state.bind(py),
         )?;
         let state = Arc::new(Mutex::new(TestClientResponseState {
@@ -1843,7 +1843,7 @@ fn build_websocket_scope(
     py: Python<'_>,
     request: &Bound<'_, PyAny>,
     root_path: &str,
-    client: (&str, u16),
+    client: &Bound<'_, PyAny>,
     app_state: &Bound<'_, PyDict>,
 ) -> PyResult<Py<PyDict>> {
     let url = request.getattr("url")?;
@@ -1929,7 +1929,7 @@ fn build_websocket_scope(
     scope.set_item("scheme", scheme)?;
     scope.set_item("query_string", query_string)?;
     scope.set_item("headers", headers)?;
-    scope.set_item("client", (client.0, client.1))?;
+    scope.set_item("client", client)?;
     let server = PyList::empty(py);
     server.append(host)?;
     server.append(port)?;
@@ -1990,7 +1990,7 @@ fn build_http_scope(
     py: Python<'_>,
     request: &Bound<'_, PyAny>,
     root_path: &str,
-    client: (&str, u16),
+    client: &Bound<'_, PyAny>,
     app_state: &Bound<'_, PyDict>,
 ) -> PyResult<(Py<PyDict>, String)> {
     let url = request.getattr("url")?;
@@ -2072,7 +2072,7 @@ fn build_http_scope(
     scope.set_item("scheme", &scheme)?;
     scope.set_item("query_string", query_string)?;
     scope.set_item("headers", headers)?;
-    scope.set_item("client", (client.0, client.1))?;
+    scope.set_item("client", client)?;
     let server = PyList::empty(py);
     server.append(&host)?;
     server.append(port)?;
