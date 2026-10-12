@@ -136,6 +136,30 @@ def _run_response_consumer_case(case: dict[str, Any], resources: ExitStack) -> d
         from scripts.parity.adapters.response_protocols import configure_response_protocols
 
         configure_response_protocols(case["protocols"], attributes, base, trace, callback_errors)
+    call_override = case.get("call_override")
+    if call_override is not None:
+
+        def subclass_init(self: Any, *args: Any, **kwargs: Any) -> None:
+            setattr(self, call_override["info_attribute"], call_override["info_value"])
+            base.__init__(self, *args, **kwargs)
+
+        async def subclass_call(self: Any, scope: dict[str, Any], receive: Any, send: Any) -> None:
+            extension = call_override["extension"]
+            if extension in scope.get("extensions", {}):
+                await send(
+                    {
+                        "type": extension,
+                        "info": {
+                            call_override["info_attribute"]: getattr(
+                                self, call_override["info_attribute"]
+                            )
+                        },
+                    }
+                )
+            await base.__call__(self, scope, receive, send)
+
+        attributes["__init__"] = subclass_init
+        attributes["__call__"] = subclass_call
     constructor = type("ConsumerResponse", (base,), attributes)
     if boundary is not None and boundary.spec["weakref_direct"]:
         constructor = base

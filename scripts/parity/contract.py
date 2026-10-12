@@ -676,6 +676,7 @@ TEMPLATING_PUBLIC_REQUIREMENTS = {
         "context-processors",
         "base-http-middleware",
         "url-for",
+        "url-for-function-name",
         "directory-sequence",
         "client-debug-metadata",
     )
@@ -19024,6 +19025,7 @@ def _validate_case_payload(
                 "background_kind",
                 "background_task",
                 "protocols",
+                "call_override",
             }
             & case.keys()
         )
@@ -19852,6 +19854,16 @@ def _validate_case_payload(
                     and isinstance(decoded, dict)
                     and decoded.get("kind") == "input-defined-middleware"
                 )
+                # A Sequence of middleware values is materialized by the
+                # Python adapters so its iterator callback remains live while
+                # Starlette copies the constructor input.
+                and not (
+                    step["surface"] == "starlette.applications.Starlette"
+                    and step["operation"] == "__init__"
+                    and name == "middleware"
+                    and isinstance(decoded, dict)
+                    and decoded.get("kind") == "observable-sequence"
+                )
                 and not (
                     step["surface"] == "starlette.applications.Starlette"
                     and step["operation"] == "add_exception_handler"
@@ -19922,6 +19934,10 @@ def _validate_case_payload(
             app_args,
             case["operation"] == "request-dispatch",
             allow_lifespan_variants=lifespan_only,
+            allow_observable_constructor_inputs=(
+                case["surface"] == "starlette.applications.Starlette"
+                and case["operation"] == "__call__"
+            ),
         )
     server_error_case = not is_protocol_middleware and _is_server_error_stimulus(app_args)
     body_reuse = False
@@ -20020,6 +20036,12 @@ def _validate_case_payload(
         _validate_route_body_limit_workflow(case)
     if is_route_middleware_workflow:
         _validate_route_middleware_workflow(case)
+    exception_handler_inputs = app_args.get("exception_handlers")
+    if (
+        isinstance(exception_handler_inputs, dict)
+        and exception_handler_inputs.get("kind") == "observable-mapping"
+    ):
+        exception_handler_inputs = exception_handler_inputs["entries"]
     if (
         not is_protocol_middleware
         and app_args["routes"][0]["kind"] == "websocket-route"
@@ -20029,7 +20051,7 @@ def _validate_case_payload(
     elif (
         not is_starlette_add_exception_handler_workflow
         and not is_protocol_middleware
-        and (body_reuse or app_args["exception_handlers"] or server_error_case)
+        and (body_reuse or exception_handler_inputs or server_error_case)
     ):
         _validate_exception_handler_dispatch(app_args, dispatch_args)
     schedule = case["execution_schedule"]
@@ -22342,7 +22364,10 @@ def _validate_live_status_handler_registration_application(
 
 
 def _validate_application_stimulus(
-    args: dict[str, Any], request_dispatch: bool, allow_lifespan_variants: bool = False
+    args: dict[str, Any],
+    request_dispatch: bool,
+    allow_lifespan_variants: bool = False,
+    allow_observable_constructor_inputs: bool = False,
 ) -> None:
     if set(args) != {
         "debug",
@@ -22355,6 +22380,56 @@ def _validate_application_stimulus(
         raise ContractError(
             "application inputs must explicitly encode each Starlette constructor input"
         )
+    observable_mapping = (
+        isinstance(args["exception_handlers"], dict)
+        and args["exception_handlers"].get("kind") == "observable-mapping"
+    )
+    observable_sequence = (
+        isinstance(args["middleware"], dict)
+        and args["middleware"].get("kind") == "observable-sequence"
+    )
+    if observable_mapping or observable_sequence:
+        if not allow_observable_constructor_inputs or request_dispatch:
+            raise ContractError(
+                "observable constructor inputs require a public Starlette.__call__ workflow"
+            )
+        if not (observable_mapping and observable_sequence):
+            raise ContractError(
+                "observable constructor inputs must pair the Mapping and Sequence probes"
+            )
+        handlers = _exact(
+            args["exception_handlers"],
+            {"kind", "event", "entries"},
+            "observable exception-handler Mapping input",
+        )
+        middleware = _exact(
+            args["middleware"],
+            {"kind", "event", "items"},
+            "observable middleware Sequence input",
+        )
+        if (
+            handlers["kind"] != "observable-mapping"
+            or middleware["kind"] != "observable-sequence"
+            or not isinstance(handlers["event"], str)
+            or not handlers["event"]
+            or not isinstance(middleware["event"], str)
+            or not middleware["event"]
+            or handlers["event"] == middleware["event"]
+            or handlers["entries"] != []
+            or middleware["items"] != []
+        ):
+            raise ContractError(
+                "observable constructor inputs require distinct event labels and empty containers"
+            )
+        normalized_args = dict(args)
+        normalized_args["exception_handlers"] = []
+        normalized_args["middleware"] = []
+        _validate_application_stimulus(
+            normalized_args,
+            request_dispatch,
+            allow_lifespan_variants=allow_lifespan_variants,
+        )
+        return
     if _routes_have_local_middleware(args["routes"]) or (
         _route_middleware_topology(args["routes"]) == "mounted_app_exception_propagation"
     ):
@@ -27084,6 +27159,8 @@ def _validate_templating_public_case(case: dict[str, Any]) -> None:
             )
         ):
             coverage.add(TEMPLATING_PUBLIC_REQUIREMENTS["default-autoescape"])
+        if "url_for.__name__" in text:
+            coverage.add(TEMPLATING_PUBLIC_REQUIREMENTS["url-for-function-name"])
         return text
 
     if consumer["kind"] == "construction":
@@ -31922,6 +31999,8 @@ def _semantic_coverage(case: dict[str, Any]) -> set[str]:
         action = endpoint["actions"][-1]
         if action["action"] == "raise-websocket-exception":
             handlers = app_arguments["exception_handlers"]
+            if isinstance(handlers, dict) and handlers.get("kind") == "observable-mapping":
+                handlers = handlers["entries"]
             if any(
                 entry["key"] == {"kind": "exception-class", "name": "WebSocketException"}
                 and entry["handler"]["kind"] == "websocket-exception-close-handler"
@@ -31937,6 +32016,15 @@ def _semantic_coverage(case: dict[str, Any]) -> set[str]:
         methods.add("HEAD")
     method_matches = method in methods
     coverage: set[str] = set()
+    exception_handlers = app_arguments["exception_handlers"]
+    middleware_input = app_arguments["middleware"]
+    if (
+        isinstance(exception_handlers, dict)
+        and exception_handlers.get("kind") == "observable-mapping"
+        and isinstance(middleware_input, dict)
+        and middleware_input.get("kind") == "observable-sequence"
+    ):
+        coverage.add("starlette.applications.Starlette.__init__.constructor-input-copy-order")
     if (
         "application_subclass" in case
         and case["operation"] == "__call__"
@@ -32036,6 +32124,8 @@ def _semantic_coverage(case: dict[str, Any]) -> set[str]:
 
     if case["operation"] == "__call__":
         handlers = app_arguments["exception_handlers"]
+        if isinstance(handlers, dict) and handlers.get("kind") == "observable-mapping":
+            handlers = handlers["entries"]
         if _is_server_error_stimulus(app_arguments):
             key_specs = [entry["key"] for entry in handlers]
             has_status_500 = {"kind": "status-code", "status_code": 500} in key_specs
@@ -36429,6 +36519,25 @@ def _validate_response_consumer_case(case: dict[str, Any]) -> None:
             "Response consumers require the installed Python package without assets"
         )
     expected_requirements = [case["surface"] + ".consumer-construction.public-render-and-asgi"]
+    call_override = case.get("call_override")
+    if call_override is not None:
+        call_override = _exact(
+            call_override,
+            {"extension", "info_attribute", "info_value"},
+            "Response call override",
+        )
+        if case["surface"] != "starlette.responses.Response":
+            raise ContractError("The documented call override is a Response subclass")
+        extension = _string(call_override["extension"], "Response call override extension")
+        info_attribute = _string(
+            call_override["info_attribute"], "Response call override info attribute"
+        )
+        if not extension or not info_attribute.isidentifier():
+            raise ContractError("Response call override requires an extension and Python attribute")
+        _validate_threadpool_json(call_override["info_value"], "Response call override info value")
+        expected_requirements.append(
+            "starlette.responses.Response.consumer-construction.documented-subclass-call-override"
+        )
     content_kind = case["construction"]["content"].get("kind")
     if "protocols" in case or content_kind in {
         "async-iterator",
@@ -36623,7 +36732,7 @@ def _validate_response_consumer_case(case: dict[str, Any]) -> None:
         "starlette.responses.FileResponse",
     }
     fields = {"type", "path", "method", "headers", "asgi"} if variant else {"type", "path"}
-    if file_response and "extensions" in case["scope"]:
+    if (file_response or call_override is not None) and "extensions" in case["scope"]:
         fields |= {"extensions"}
     scope = _exact(case["scope"], fields, "Response consumer ASGI scope")
     if scope["type"] not in {"http", "websocket"} or not isinstance(scope["path"], str):
@@ -36636,8 +36745,21 @@ def _validate_response_consumer_case(case: dict[str, Any]) -> None:
             raise ContractError(
                 "Response variant consumers use ASGI 2.4; legacy cancellation has its own workflow"
             )
-    if "extensions" in scope and scope["extensions"] != {"http.response.pathsend": {}}:
-        raise ContractError("FileResponse consumer extensions select the public pathsend boundary")
+    if "extensions" in scope:
+        if file_response:
+            if scope["extensions"] != {"http.response.pathsend": {}}:
+                raise ContractError(
+                    "FileResponse consumer extensions select the public pathsend boundary"
+                )
+        elif call_override is not None:
+            extensions = scope["extensions"]
+            if not isinstance(extensions, dict) or any(
+                not isinstance(name, str) or not isinstance(value, dict)
+                for name, value in extensions.items()
+            ):
+                raise ContractError("Response subclass extensions must map names to objects")
+        else:
+            raise ContractError("Response consumer extensions require an input-defined subclass")
     failure = case["send_failure"]
     if failure is not None:
         _exact(

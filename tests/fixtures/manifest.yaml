@@ -344,6 +344,7 @@
     "parity": [
       "build/parity/inputs/parity/asgi-http-get-text.json",
       "build/parity/inputs/parity/application-middleware.json",
+      "build/parity/inputs/parity/application-constructor-input-order.json",
       "build/parity/inputs/parity/docs-core-examples.json",
       "build/parity/inputs/parity/gzip-docs-thresholds.json",
       "build/parity/inputs/parity/gzip-docs-stateless-request-state.json",
@@ -496,6 +497,7 @@
       "build/parity/inputs/parity/exception-middleware-typing.json",
       "build/parity/inputs/parity/testclient-redirect-policy.json",
       "build/parity/inputs/parity/templating-public.json",
+      "build/parity/inputs/parity/templating-url-for-function-name.json",
       "build/parity/inputs/parity/testclient-public.json",
       "build/parity/inputs/parity/testclient-router.json",
       "build/parity/inputs/parity/testclient-middleware.json",
@@ -504,6 +506,7 @@
       "build/parity/inputs/parity/request-property-worker-lifetime.json",
       "build/parity/inputs/parity/public-value-lifetime.json",
       "build/parity/inputs/parity/response-consumers.json",
+      "build/parity/inputs/parity/response-call-override.json",
       "build/parity/inputs/parity/response-subclasses.json",
       "build/parity/inputs/parity/response-asgi-callbacks.json",
       "build/parity/inputs/parity/response-construction-protocols.json",
@@ -828,6 +831,17 @@
               ],
               "target_profiles": [
                 "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.applications.Starlette.__init__.constructor-input-copy-order",
+              "dimension": "boundary",
+              "description": "Compare the observable order in which Starlette copies an input-defined exception-handler Mapping and consumes an input-defined middleware Sequence. Pinned source: starlette/applications.py:59-60. Both callback traces derive from input containers.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
                 "python-package-cpython312"
               ]
             }
@@ -19371,6 +19385,18 @@
                   "kind": "literal",
                   "value": null
                 }
+              },
+              {
+                "id": "call_override",
+                "style": "option",
+                "value_types": [
+                  "record",
+                  "null"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": null
+                }
               }
             ],
             "result": {
@@ -19409,7 +19435,7 @@
             },
             {
               "target_id": "python-package",
-              "path": "starlette.responses.Response.__init__, Response.render, JSONResponse.render, Response.__call__; public raw_headers, body, background and returned coroutine lifetime; constructor body length and header mapping/encoding protocols; Python attribute interception and public header-view access",
+              "path": "starlette.responses.Response.__init__, Response.render, JSONResponse.render, Response.__call__; public raw_headers, body, background and returned coroutine lifetime; constructor body length and header mapping/encoding protocols; Python attribute interception and public header-view access; documented CSVResponse subclass call override",
               "signature": "Construct a documented response or input-defined render subclass; observe constructor attributes, rendering errors, and public ASGI events after caller attribute changes.",
               "support": {
                 "status": "supported"
@@ -19421,6 +19447,17 @@
               "id": "starlette.responses.Response.consumer-construction.public-render-and-asgi",
               "dimension": "boundary",
               "description": "Compare documented Response constructor and render consumers with the live pin: text, bytes, nested JSON, class defaults, input-defined subclass render hooks, charset, status and body mutations, exact errors, background ordering, and HTTP/WebSocket ASGI messages. Pinned source: starlette/responses.py:29-200; docs/responses.md:10-118. User code and every callback stimulus are input-derived.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.Response.consumer-construction.documented-subclass-call-override",
+              "dimension": "boundary",
+              "description": "Compare the documented CSVResponse subclass that emits http.response.debug with its input-defined row data before invoking Response.__call__, when the scope extension is present or absent. Pinned source: docs/testclient.md:104-116; starlette/responses.py:163-179. The subclass, values, extension support, and response call are input-derived.",
               "lanes": [
                 "parity"
               ],
@@ -30819,6 +30856,17 @@
               "id": "starlette.templating.Jinja2Templates.template-public-workflow.url-for",
               "dimension": "success_path",
               "description": "Reverse an input-defined route through the default url_for template global on a live Starlette app and TestClient. Pinned source: tests/test_templates.py:19-35,158-181; starlette/templating.py:101-110.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.templating.Jinja2Templates.template-public-workflow.url-for-function-name",
+              "dimension": "boundary",
+              "description": "Preserve the observable function name of the default url_for Jinja global when a public template inspects it. Pinned source: starlette/templating.py:101-115. The template expression is input-defined and rendered through Jinja2Templates.",
               "lanes": [
                 "parity"
               ],

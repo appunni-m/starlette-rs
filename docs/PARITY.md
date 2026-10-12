@@ -1,6 +1,6 @@
 # Migration parity contract and evidence
 
-The working-tree input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@6`, `scope.mode: slice`, and `parity-input@48`. It currently contains 2,127 cases across 190 parity inputs and two benchmark inputs. The compatibility registry has 134 Starlette operations; the separate native registry has 7 Rust-native operations. Together they declare 1,124 parity requirements: 1,097 compatibility requirements and 27 native requirements. The source inventory has 839 rows: 784 input mappings, 55 source-backed `not_applicable` rows, and zero fixture-backlog rows.
+The working-tree input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@6`, `scope.mode: slice`, and `parity-input@48`. It currently contains 2,131 cases across 193 parity inputs and two benchmark inputs. The compatibility registry has 134 Starlette operations; the separate native registry has 7 Rust-native operations. Together they declare 1,127 parity requirements: 1,100 compatibility requirements and 27 native requirements. The source inventory has 842 rows: 787 input mappings, 55 source-backed `not_applicable` rows, and zero fixture-backlog rows.
 
 The latest clean full parity preflight, `dc8c8ca6-f2b7-449b-9f53-45860e3cad4c`, passed 2,254/2,254 comparisons for the preceding 1,992-case contract: 1,988 Python-package and 266 Rust-native comparisons, with zero failures, infrastructure errors, or `not_run` rows. Both target-only fault contracts passed on clean revision `57aab659fb09cd252df110cc9daef7eeaec1ea1a`. Later @48 additions cover optional-backend behavior, WebSocket authorization, Router truthiness, BaseHTTPMiddleware iterator cancellation, response subclasses, Python-version applicability, StaticFiles OS-specific paths and NUL handling, StreamingResponse OSError mapping and await-factory exhaustion, TestClient callback decoding, BaseException and close-code behavior, WebSocket close-code forwarding, CPython custom-regex syntax, AuthenticationMiddleware iterable backend results, nested Host/Mount reverse lookup, Request body retry and interleaved iterator consumption after `http.disconnect`, cached Request.is_disconnected() state after body/stream disconnect observations, and async background-list failure ordering. The additional BackgroundTasks live-list mutation, async-list cancellation, and sync cancellation-then-worker-error inputs, plus StreamingResponse caller-cancellation inputs also remain unexecuted; full parity remains deferred until implementation closes.
 
@@ -9,7 +9,7 @@ WebSocket, Tower middleware, and lifespan APIs, including partial
 response-body pulls, paired pre-commit request-body and post-start response-body
 errors, a BaseHTTPMiddleware call-next response whose body iterator is closed
 before return, and three target-only lifespan fault contracts. Contract
-validation passes for all 2,127 cases; these cases and faults remain unexecuted
+validation passes for all 2,131 cases; these cases and faults remain unexecuted
 until the grouped parity phase.
 
 Ten latest compatibility inputs remain unexecuted: closing a partially

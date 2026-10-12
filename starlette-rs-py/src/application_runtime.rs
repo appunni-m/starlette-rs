@@ -49,14 +49,9 @@ impl PyStarletteRuntime {
         server_error_middleware_type: Py<PyAny>,
         exception_middleware_type: Py<PyAny>,
     ) -> PyResult<Self> {
-        let middleware = match middleware {
-            Some(middleware) => py
-                .import("builtins")?
-                .getattr("list")?
-                .call1((middleware,))?
-                .unbind(),
-            None => PyList::empty(py).into_any().unbind(),
-        };
+        // Match Starlette's constructor evaluation order: converting a user
+        // Mapping or Sequence can run Python code and observe which conversion
+        // happens first.
         let exception_handlers = match exception_handlers {
             Some(handlers) => py
                 .import("builtins")?
@@ -65,10 +60,18 @@ impl PyStarletteRuntime {
                 .unbind(),
             None => PyDict::new(py).into_any().unbind(),
         };
+        let middleware = match middleware {
+            Some(middleware) => py
+                .import("builtins")?
+                .getattr("list")?
+                .call1((middleware,))?
+                .unbind(),
+            None => PyList::empty(py).into_any().unbind(),
+        };
 
-        app.bind(py).setattr("user_middleware", middleware)?;
         app.bind(py)
             .setattr("exception_handlers", exception_handlers)?;
+        app.bind(py).setattr("user_middleware", middleware)?;
         app.bind(py).setattr("middleware_stack", py.None())?;
 
         Ok(Self {

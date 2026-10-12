@@ -132,7 +132,7 @@ impl PyJinja2Templates {
         env: &Bound<'_, PyAny>,
         decorator: &Bound<'_, PyAny>,
     ) -> PyResult<()> {
-        let url_for = decorator.call1((Py::new(py, PyTemplateUrlFor)?,))?;
+        let url_for = decorator.call1((new_template_url_for(py)?,))?;
         env.getattr("globals")?
             .call_method1("setdefault", ("url_for", url_for))?;
         Ok(())
@@ -313,12 +313,20 @@ impl PyJinja2Templates {
             }
             Err(error) => return Err(error),
         };
-        let url_for = Py::new(py, PyTemplateUrlFor)?.into_bound(py);
+        let url_for = new_template_url_for(py)?;
         let url_for = decorator.call1((url_for,))?;
         let globals = env.getattr("globals")?;
         globals.call_method1("setdefault", ("url_for", url_for))?;
         Ok(())
     }
+}
+
+fn new_template_url_for<'py>(py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+    let url_for = Py::new(py, PyTemplateUrlFor)?.into_bound(py).into_any();
+    // Starlette installs a nested Python function; preserve its observable
+    // function name for templates that inspect the documented global.
+    url_for.setattr("__name__", "url_for")?;
+    Ok(url_for)
 }
 
 // The stateless global travels with its environment to the ASGI portal thread.

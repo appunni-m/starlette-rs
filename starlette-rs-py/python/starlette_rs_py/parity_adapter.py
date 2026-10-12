@@ -36,6 +36,7 @@ from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any
 
+from scripts.parity.adapters.application_inputs import ObservableMapping, ObservableSequence
 from scripts.parity.adapters.input_pathlike import InputSequencePathLike
 from scripts.parity.adapters.staticfiles_config import (
     STATIC_FILES_CONFIGURATION_OPERATION,
@@ -1678,14 +1679,63 @@ def _materialize_application(
     sync_endpoint_states: list[dict[str, Any]] = []
     handler_calls: list[str] = []
     route_endpoint: Any = None
-    exception_handlers, exception_types = _materialize_exception_handlers(
-        app_spec["exception_handlers"],
-        JSONResponse,
-        PlainTextResponse,
-        HTTPException,
-        WebSocketException,
-        handler_calls,
-    )
+    exception_handler_spec = app_spec["exception_handlers"]
+    if (
+        isinstance(exception_handler_spec, dict)
+        and exception_handler_spec.get("kind") == "observable-mapping"
+    ):
+        _exact_object(
+            exception_handler_spec,
+            {"kind", "event", "entries"},
+            "observable application exception-handler Mapping",
+        )
+        if (
+            not isinstance(exception_handler_spec["event"], str)
+            or not exception_handler_spec["event"]
+            or not isinstance(exception_handler_spec["entries"], list)
+        ):
+            raise ValueError("observable exception-handler Mapping input is malformed")
+        exception_handler_values, exception_types = _materialize_exception_handlers(
+            exception_handler_spec["entries"],
+            JSONResponse,
+            PlainTextResponse,
+            HTTPException,
+            WebSocketException,
+            handler_calls,
+        )
+        exception_handlers = ObservableMapping(
+            exception_handler_values, lifecycle_trace, exception_handler_spec["event"]
+        )
+    else:
+        exception_handlers, exception_types = _materialize_exception_handlers(
+            exception_handler_spec,
+            JSONResponse,
+            PlainTextResponse,
+            HTTPException,
+            WebSocketException,
+            handler_calls,
+        )
+
+    middleware_spec = app_spec["middleware"]
+    if isinstance(middleware_spec, dict) and middleware_spec.get("kind") == "observable-sequence":
+        _exact_object(
+            middleware_spec,
+            {"kind", "event", "items"},
+            "observable application middleware Sequence",
+        )
+        if (
+            not isinstance(middleware_spec["event"], str)
+            or not middleware_spec["event"]
+            or not isinstance(middleware_spec["items"], list)
+        ):
+            raise ValueError("observable application middleware Sequence input is malformed")
+        middleware_input = ObservableSequence(
+            _materialize_application_middleware(middleware_spec["items"]),
+            lifecycle_trace,
+            middleware_spec["event"],
+        )
+    else:
+        middleware_input = _materialize_application_middleware(middleware_spec)
 
     if any(
         isinstance(route, dict) and route.get("kind") == "mount" for route in app_spec["routes"]
@@ -1767,7 +1817,7 @@ def _materialize_application(
         app = application_type(
             debug=app_spec["debug"],
             routes=route_objects,
-            middleware=_materialize_application_middleware(app_spec["middleware"]),
+            middleware=middleware_input,
             exception_handlers=exception_handlers,
             lifespan=lifespan,
             max_body_size=app_spec["max_body_size"],
@@ -2701,7 +2751,7 @@ def _materialize_application(
         app = application_type(
             debug=app_spec["debug"],
             routes=routes,
-            middleware=_materialize_application_middleware(app_spec["middleware"]),
+            middleware=middleware_input,
             exception_handlers=exception_handlers,
             lifespan=lifespan,
             max_body_size=app_spec["max_body_size"],

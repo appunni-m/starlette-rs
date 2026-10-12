@@ -1,0 +1,99 @@
+{
+  "schema": "migration-parity/parity-input@48",
+  "cases": [
+    {
+      "case_id": "starlette.responses.Response.consumer-construction.documented-call-override-debug-event",
+      "surface": "starlette.responses.Response",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.Response.consumer-construction.public-render-and-asgi",
+        "starlette.responses.Response.consumer-construction.documented-subclass-call-override"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "id,username,joined\n42,ada,2026-10-13\n"
+        },
+        "omit_content": false,
+        "kwargs": {},
+        "class_attributes": {
+          "media_type": "text/csv"
+        },
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/export",
+        "extensions": {
+          "http.response.debug": {}
+        }
+      },
+      "send_failure": null,
+      "background_label": null,
+      "call_override": {
+        "extension": "http.response.debug",
+        "info_attribute": "rows",
+        "info_value": [
+          ["id", "username", "joined"],
+          ["42", "ada", "2026-10-13"]
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.responses.Response.consumer-construction.documented-call-override-no-debug-extension",
+      "surface": "starlette.responses.Response",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.Response.consumer-construction.public-render-and-asgi",
+        "starlette.responses.Response.consumer-construction.documented-subclass-call-override"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "id,username,joined\n42,ada,2026-10-13\n"
+        },
+        "omit_content": false,
+        "kwargs": {},
+        "class_attributes": {
+          "media_type": "text/csv"
+        },
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/export",
+        "extensions": {}
+      },
+      "send_failure": null,
+      "background_label": null,
+      "call_override": {
+        "extension": "http.response.debug",
+        "info_attribute": "rows",
+        "info_value": [
+          ["id", "username", "joined"],
+          ["42", "ada", "2026-10-13"]
+        ]
+      }
+    }
+  ]
+}
