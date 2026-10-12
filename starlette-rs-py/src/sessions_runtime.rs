@@ -409,6 +409,16 @@ impl SessionMiddlewareCall {
                         .call1((encoded_json,))?;
                     (decoded.unbind(), false)
                 }
+                Err(SessionSignatureError::FutureTimestamp { timestamp, .. }) => {
+                    // itsdangerous 2.2.0's TimestampSigner converts a future
+                    // timestamp to datetime before raising SignatureExpired
+                    // (timed.py:106-111). That conversion can itself fail for
+                    // out-of-range values, escaping Starlette's BadSignature
+                    // handler. Keep this Python call at the boundary so the
+                    // interpreter/platform supplies the exact exception.
+                    timestamp_to_datetime(py, timestamp)?;
+                    (py.None(), true)
+                }
                 Err(_) => (py.None(), true),
             }
         };
@@ -439,6 +449,16 @@ impl SessionMiddlewareCall {
         self.pending = true;
         Ok(MachineAction::Await(awaitable.unbind()))
     }
+}
+
+fn timestamp_to_datetime(py: Python<'_>, timestamp: u64) -> PyResult<()> {
+    let datetime = py.import("datetime")?;
+    let kwargs = PyDict::new(py);
+    kwargs.set_item("tz", datetime.getattr("timezone")?.getattr("utc")?)?;
+    datetime
+        .getattr("datetime")?
+        .call_method("fromtimestamp", (timestamp,), Some(&kwargs))?;
+    Ok(())
 }
 
 /// Callable ASGI send wrapper whose response-header decisions stay in Rust.

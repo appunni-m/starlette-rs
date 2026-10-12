@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import binascii
 import builtins
 import hashlib
 import json
@@ -402,6 +403,7 @@ SESSION_REQUIREMENTS = {
     "construct": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.construct",
     "signed_cookie_round_trip": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.signed-cookie-round-trip",
     "invalid_signature_fallback": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.invalid-signature-fallback",
+    "future_timestamp_out_of_range_error": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.future-timestamp-out-of-range-error",
     "max_age_expiry": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.max-age-expiry",
     "max_age_default": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.max-age-default",
     "max_age_none": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.max-age-none",
@@ -422,6 +424,25 @@ SESSION_REQUIREMENTS = {
     "non_http_pass_through": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.non-http-pass-through",
     "secret_key_wrapper": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.secret-key-wrapper",
 }
+
+
+def _itsdangerous_cookie_timestamp(cookie: str) -> int | None:
+    """Read a TimestampSigner epoch from the supplied signed-cookie shape."""
+    _, separator, token = cookie.partition("=")
+    if not separator:
+        return None
+    parts = token.split(".")
+    if len(parts) != 3:
+        return None
+    timestamp = parts[1]
+    padded = timestamp + "=" * (-len(timestamp) % 4)
+    try:
+        decoded = base64.b64decode(padded, altchars=b"-_", validate=True)
+    except (binascii.Error, ValueError):
+        return None
+    return int.from_bytes(decoded, "big") if decoded else None
+
+
 WEBSOCKET_CLOSE_SURFACE = "starlette.websockets.WebSocketClose"
 WEBSOCKET_CLOSE_OPERATION = "call-sequence"
 EXCEPTION_VALUES_SURFACE = "starlette.exceptions"
@@ -8668,14 +8689,17 @@ def _validate_router_sequence_case_stimulus(case: dict[str, Any]) -> None:
                     or route_index >= len(routes)
                     or routes[route_index]["kind"] != "http-route"
                     or methods[route_index] is None
-                    or method != method.upper()
                     or method in methods[route_index]
                 ):
                     raise ContractError(
-                        f"{mutation_context} must add a new uppercase method to an existing route"
+                        f"{mutation_context} must add a new method string to an existing route"
                     )
                 methods[route_index].add(method)
                 derived.add(ROUTER_SEQUENCE_REQUIREMENTS["mutate_methods"])
+                if method != method.upper():
+                    derived.add(
+                        "starlette.routing.Router.route-dispatch.live-route-method-mutation-case-sensitive"
+                    )
             elif operation == "route-list-append":
                 mutation = _exact(raw_mutation, {"operation", "route"}, mutation_context)
                 route = _validate_http_route_input(
@@ -9810,6 +9834,8 @@ def _validate_session_workflow_case(case: dict[str, Any]) -> None:
     previous_cookie_refs: list[tuple[dict[str, Any], dict[str, Any]]] = []
     actions: list[dict[str, Any]] = []
     has_invalid_signature_input = False
+    has_future_timestamp_out_of_range_input = False
+    out_of_range_timestamp_requests: set[str] = set()
     for index, raw_request in enumerate(requests):
         context = f"SessionMiddleware request[{index}]"
         request = _exact(
@@ -9883,7 +9909,15 @@ def _validate_session_workflow_case(case: dict[str, Any]) -> None:
                     and request["action"].get("kind") == "view"
                     and value.startswith(f"{constructor['session_cookie']}=")
                 ):
-                    has_invalid_signature_input = True
+                    timestamp = _itsdangerous_cookie_timestamp(value)
+                    if timestamp is None:
+                        has_invalid_signature_input = True
+                    elif timestamp > constructor["clock_epoch"]:
+                        try:
+                            datetime.fromtimestamp(timestamp, tz=timezone.utc)
+                        except (OverflowError, OSError, ValueError):
+                            has_future_timestamp_out_of_range_input = True
+                            out_of_range_timestamp_requests.add(request_id)
             else:
                 cookie_source = _exact(
                     cookie_source,
@@ -10078,7 +10112,11 @@ def _validate_session_workflow_case(case: dict[str, Any]) -> None:
     ]
     if "no-access" in action_kinds:
         requirements.add(SESSION_REQUIREMENTS["no_access"])
-    if action_kinds & {"view", "update", "clear"}:
+    if any(
+        request["action"]["kind"] in {"view", "update", "clear"}
+        and request["request_id"] not in out_of_range_timestamp_requests
+        for request in requests
+    ):
         requirements.add(SESSION_REQUIREMENTS["vary_on_access"])
     if update_requests:
         requirements.add(SESSION_REQUIREMENTS["set_cookie_modification"])
@@ -10122,6 +10160,8 @@ def _validate_session_workflow_case(case: dict[str, Any]) -> None:
         requirements.add(SESSION_REQUIREMENTS["signed_cookie_round_trip"])
     if has_invalid_signature_input:
         requirements.add(SESSION_REQUIREMENTS["invalid_signature_fallback"])
+    if has_future_timestamp_out_of_range_input:
+        requirements.add(SESSION_REQUIREMENTS["future_timestamp_out_of_range_error"])
     if (
         type(constructor["max_age"]) is int
         and constructor["max_age"] < 0

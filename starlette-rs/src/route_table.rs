@@ -303,12 +303,54 @@ impl RouteTable {
             normalized_methods.push(String::from("HEAD"));
         }
 
+        self.add_route_with_exact_methods(path, normalized_methods)
+    }
+
+    /// Adds a route with its method values already finalized by the caller.
+    ///
+    /// Method strings are retained exactly, and `GET` does not imply `HEAD`.
+    /// This is intended for adapters that import an existing Starlette
+    /// `Route.methods` collection, whose constructor normalization and later
+    /// direct mutations have already taken place.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RouteError::PathMustStartWithSlash`] when `path` does not
+    /// start with `/`, [`RouteError::UnknownPathConverter`] for an unknown
+    /// converter, or [`RouteError::DuplicatePathParameter`] when a parameter
+    /// name occurs more than once.
+    pub fn add_route_with_exact_methods<P, M, S>(
+        &mut self,
+        path: P,
+        methods: M,
+    ) -> Result<usize, RouteError>
+    where
+        P: Into<String>,
+        M: IntoIterator<Item = S>,
+        S: AsRef<str>,
+    {
+        let path = path.into();
+        if !path.starts_with('/') {
+            return Err(RouteError::PathMustStartWithSlash);
+        }
+
+        let mut exact_methods = Vec::new();
+        for method in methods {
+            let method = method.as_ref();
+            if !exact_methods
+                .iter()
+                .any(|existing: &String| existing == method)
+            {
+                exact_methods.push(String::from(method));
+            }
+        }
+
         let route_index = self.routes.len();
         let path_segments = parse_path(&path)?;
         self.routes.push(Route {
             path_segments,
             path,
-            methods: normalized_methods,
+            methods: exact_methods,
         });
         Ok(route_index)
     }

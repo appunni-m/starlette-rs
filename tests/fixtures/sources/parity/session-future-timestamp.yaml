@@ -1,0 +1,73 @@
+{
+  "schema": "migration-parity/parity-input@48",
+  "cases": [
+    {
+      "case_id": "starlette.middleware.sessions.SessionMiddleware.session-workflow.future-timestamp-out-of-range-error",
+      "surface": "starlette.middleware.sessions.SessionMiddleware",
+      "operation": "session-workflow",
+      "covers": [
+        "starlette.middleware.sessions.SessionMiddleware.session-workflow.construct",
+        "starlette.middleware.sessions.SessionMiddleware.session-workflow.future-timestamp-out-of-range-error"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "constructor": {
+        "secret_key": "session-parity-secret",
+        "session_cookie": "session",
+        "max_age": 1209600,
+        "path": "/",
+        "same_site": "lax",
+        "https_only": false,
+        "domain": null,
+        "clock_epoch": 1700000000
+      },
+      "requests": [
+        {
+          "request_id": "future-timestamp-out-of-range",
+          "scope": {
+            "type": "http",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.4"
+            },
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "http",
+            "path": "/session",
+            "raw_path_base64": "L3Nlc3Npb24=",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ]
+          },
+          "receive": [
+            {
+              "type": "http.request",
+              "body_base64": "",
+              "more_body": false
+            }
+          ],
+          "cookie_source": {
+            "kind": "raw-cookie",
+            "value": "session=e30=.Ov_0QYA.SKd7I-l8nub92m5nl7dW_F7mSnQ"
+          },
+          "action": {
+            "kind": "view"
+          }
+        }
+      ],
+      "observations": [
+        "session-workflow"
+      ]
+    }
+  ]
+}

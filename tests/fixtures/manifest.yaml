@@ -349,6 +349,7 @@
       "build/parity/inputs/parity/router-cache-invalidation.json",
       "build/parity/inputs/parity/router-mounted-child-live-add.json",
       "build/parity/inputs/parity/router-method-mutation-head.json",
+      "build/parity/inputs/parity/router-method-mutation-lowercase.json",
       "build/parity/inputs/parity/router-class-based-endpoints.json",
       "build/parity/inputs/parity/route-middleware-dispatch.json",
       "build/parity/inputs/parity/route-local-middleware-semantics.json",
@@ -409,6 +410,7 @@
       "build/parity/inputs/parity/wsgi-middleware.json",
       "build/parity/inputs/parity/wsgi-boundary.json",
       "build/parity/inputs/parity/session-middleware.json",
+      "build/parity/inputs/parity/session-future-timestamp.json",
       "build/parity/inputs/parity/base-http-middleware.json",
       "build/parity/inputs/parity/base-http-lifecycle-short-circuit.json",
       "build/parity/inputs/parity/base-http-duplicate-response-headers.json",
@@ -13592,6 +13594,17 @@
               ]
             },
             {
+              "id": "starlette.middleware.sessions.SessionMiddleware.session-workflow.future-timestamp-out-of-range-error",
+              "dimension": "error_path",
+              "description": "A cryptographically valid signed cookie with a timestamp outside Python datetime's representable range raises the conversion error from itsdangerous instead of falling back to an empty session; Starlette catches BadSignature only. Upstream: starlette/middleware/sessions.py:47-54; itsdangerous 2.2.0 timed.py:106-111.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.middleware.sessions.SessionMiddleware.session-workflow.max-age-expiry",
               "dimension": "boundary",
               "description": "Reject an expired signed cookie using the source test max_age boundary and controlled signer timestamp. Upstream: tests/middleware/test_session.py:65-86.",
@@ -22266,6 +22279,18 @@
               "id": "starlette.routing.Router.route-dispatch.live-route-method-mutation",
               "dimension": "boundary",
               "description": "After a prior dispatch, adding a method to an existing Route.methods set makes the route accept that method. Upstream: starlette/routing.py::Route.matches and Route.handle.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Router.route-dispatch.live-route-method-mutation-case-sensitive",
+              "dimension": "boundary",
+              "description": "After mutating Route.methods with a non-uppercase method value, exact method membership leaves uppercase GET unmatched by that route and allows a later full route to win; the matching lowercase request reaches the mutated route. Upstream: starlette/routing.py:254-257,682-694.",
               "lanes": [
                 "parity"
               ],

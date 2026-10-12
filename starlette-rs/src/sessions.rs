@@ -42,6 +42,8 @@ pub enum SessionSignatureError {
     FutureTimestamp {
         /// Whole seconds between the signed time and the supplied current time.
         seconds_ahead: u64,
+        /// Absolute timestamp, retained for Python's datetime conversion boundary.
+        timestamp: u64,
     },
     /// HMAC rejected the supplied key length. HMAC-SHA1 accepts all key sizes,
     /// so this is reserved for a backend construction failure.
@@ -61,7 +63,7 @@ impl Display for SessionSignatureError {
                 formatter,
                 "signature age {age_seconds} > {max_age_seconds} seconds"
             ),
-            Self::FutureTimestamp { seconds_ahead } => {
+            Self::FutureTimestamp { seconds_ahead, .. } => {
                 write!(
                     formatter,
                     "signature timestamp is {seconds_ahead} seconds in the future"
@@ -152,6 +154,7 @@ pub fn timestamp_unsign(
         if timestamp > now {
             return Err(SessionSignatureError::FutureTimestamp {
                 seconds_ahead: timestamp - now,
+                timestamp,
             });
         }
 

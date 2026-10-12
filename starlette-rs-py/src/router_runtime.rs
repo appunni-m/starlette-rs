@@ -345,16 +345,9 @@ impl RouteTypes {
             "path"
         };
         let path_value = route.getattr(path_attribute)?;
-        let mut custom = route
+        let custom = route
             .getattr("_uses_custom_convertors")?
             .extract::<bool>()?;
-        if matches!(kind, RouteKind::Http) && !custom {
-            let methods = route.getattr("methods")?;
-            if !methods.is_none() && methods.contains("GET")? && !methods.contains("HEAD")? {
-                // Route.__init__ infers HEAD from GET once; later method mutations are exact.
-                custom = true;
-            }
-        }
         let identity = route.as_ptr() as usize;
         let cached =
             cached.filter(|signature| signature.identity == identity && signature.kind == kind);
@@ -453,7 +446,7 @@ impl RouteTypes {
             RouteKind::Http => {
                 state
                     .http_table
-                    .add_route(signature.path.clone(), signature.methods.iter())
+                    .add_route_with_exact_methods(signature.path.clone(), signature.methods.iter())
                     .map_err(|error| PyValueError::new_err(error.to_string()))?;
                 state.http_indexes.push(route_index);
             }
