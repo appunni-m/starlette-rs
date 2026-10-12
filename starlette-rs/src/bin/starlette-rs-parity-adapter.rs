@@ -5226,60 +5226,71 @@ fn run_websocket_state_case(case: &Value) -> Result<Value, String> {
                 let message = action_object
                     .get("message")
                     .ok_or_else(|| format!("{context} misses message"))?;
-                validate_websocket_message(message, &format!("{context}.message"), false)?;
-                let message_type = string_field(
-                    message
-                        .as_object()
-                        .ok_or_else(|| format!("{context}.message must be an object"))?,
-                    "type",
-                    &format!("{context}.message"),
-                )?;
-                let more_body = message
-                    .get("more_body")
-                    .and_then(Value::as_bool)
-                    .unwrap_or(false);
-                let send_error = action_object
-                    .get("send_error")
-                    .map(|raw_error| {
-                        let error = exact_object(
-                            raw_error,
-                            &["kind", "message"],
-                            &format!("{context}.send_error"),
-                        )?;
-                        if string_field(error, "kind", &format!("{context}.send_error"))?
-                            != "os-error"
-                        {
-                            return Err(format!("{context}.send_error.kind must be os-error"));
-                        }
-                        string_field(error, "message", &format!("{context}.send_error"))
-                    })
-                    .transpose()?;
-                match machine.begin_send(message_type, more_body) {
-                    Err(error) => json!({
+                let message_object = message
+                    .as_object()
+                    .ok_or_else(|| format!("{context}.message must be an object"))?;
+                if message_object.len() == 1
+                    && matches!(message_object.get("type"), Some(Value::Null))
+                {
+                    exact_keys(message_object, &["type"], &format!("{context}.message"))?;
+                    let error = machine.invalid_send_type_error("None");
+                    json!({
                         "action_id": action_id,
                         "outcome": "error",
                         "error_class": WEBSOCKET_STATE_ERROR_COMPATIBILITY_CLASS,
                         "error_message": error.message(),
-                    }),
-                    Ok(catches_os_error) => match send_error {
-                        Some(_) if catches_os_error => {
-                            machine.send_failed();
-                            json!({
-                                "action_id": action_id,
-                                "outcome": "send-error-handled",
-                            })
-                        }
-                        Some(error_message) => json!({
+                    })
+                } else {
+                    validate_websocket_message(message, &format!("{context}.message"), false)?;
+                    let message_type =
+                        string_field(message_object, "type", &format!("{context}.message"))?;
+                    let more_body = message
+                        .get("more_body")
+                        .and_then(Value::as_bool)
+                        .unwrap_or(false);
+                    let send_error = action_object
+                        .get("send_error")
+                        .map(|raw_error| {
+                            let error = exact_object(
+                                raw_error,
+                                &["kind", "message"],
+                                &format!("{context}.send_error"),
+                            )?;
+                            if string_field(error, "kind", &format!("{context}.send_error"))?
+                                != "os-error"
+                            {
+                                return Err(format!("{context}.send_error.kind must be os-error"));
+                            }
+                            string_field(error, "message", &format!("{context}.send_error"))
+                        })
+                        .transpose()?;
+                    match machine.begin_send(message_type, more_body) {
+                        Err(error) => json!({
                             "action_id": action_id,
                             "outcome": "error",
-                            "error_class": WEBSOCKET_CALLBACK_OSERROR_CLASS,
-                            "error_message": error_message,
+                            "error_class": WEBSOCKET_STATE_ERROR_COMPATIBILITY_CLASS,
+                            "error_message": error.message(),
                         }),
-                        None => json!({
-                            "action_id": action_id,
-                            "outcome": "ok",
-                        }),
-                    },
+                        Ok(catches_os_error) => match send_error {
+                            Some(_) if catches_os_error => {
+                                machine.send_failed();
+                                json!({
+                                    "action_id": action_id,
+                                    "outcome": "send-error-handled",
+                                })
+                            }
+                            Some(error_message) => json!({
+                                "action_id": action_id,
+                                "outcome": "error",
+                                "error_class": WEBSOCKET_CALLBACK_OSERROR_CLASS,
+                                "error_message": error_message,
+                            }),
+                            None => json!({
+                                "action_id": action_id,
+                                "outcome": "ok",
+                            }),
+                        },
+                    }
                 }
             }
             "set-client-state" => {

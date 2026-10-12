@@ -461,7 +461,14 @@ impl WebSocketSendMachine {
         }
 
         let message = self.message.bind(py);
-        let message_type = message.get_item("type")?.extract::<String>()?;
+        let message_type = message.get_item("type")?;
+        let message_type = if message_type.is_instance_of::<PyString>() {
+            message_type.extract::<String>()?
+        } else {
+            let received_repr = message_type.repr()?.extract::<String>()?;
+            let error = protocol_state(&self.state)?.invalid_send_type_error(&received_repr);
+            return Err(PyRuntimeError::new_err(error.to_string()));
+        };
         let more_body = if application_state == WebSocketState::Response {
             let value = message.getattr("get")?.call1(("more_body", false))?;
             value.is_truthy()?

@@ -342,6 +342,7 @@
       "build/parity/inputs/parity/route-representations.json",
       "build/parity/inputs/parity/route-constructor-errors.json",
       "build/parity/inputs/parity/websocket-state-sequence.json",
+      "build/parity/inputs/parity/websocket-send-non-string-type.json",
       "build/parity/inputs/parity/websocket-accept-invalid-connect-event.json",
       "build/parity/inputs/parity/router-converter-dispatch.json",
       "build/parity/inputs/parity/router-slash-redirect.json",
@@ -359,6 +360,7 @@
       "build/parity/inputs/parity/redirect-response.json",
       "build/parity/inputs/parity/responses-basic.json",
       "build/parity/inputs/parity/background-tasks.json",
+      "build/parity/inputs/parity/background-task-sync-kwargs-mapping.json",
       "build/parity/inputs/parity/streaming-response.json",
       "build/parity/inputs/parity/streaming-response-lazy-iterator-start-send-failure.json",
       "build/parity/inputs/parity/streaming-response-final-send-disconnect.json",
@@ -421,6 +423,7 @@
       "build/parity/inputs/parity/upload-file.json",
       "build/parity/inputs/parity/upload-file-rolled-write-error.json",
       "build/parity/inputs/parity/websocket-endpoint-dispatch.json",
+      "build/parity/inputs/parity/websocket-endpoint-sync-disconnect-hook-error.json",
       "build/parity/inputs/parity/websocket-endpoint-docs-inputs.json",
       "build/parity/inputs/parity/http-endpoint-dispatch.json",
       "build/parity/inputs/parity/testclient-asgi-callable-protocol.json",
@@ -8855,6 +8858,17 @@
               "id": "starlette.endpoints.WebSocketEndpoint.dispatch.on-disconnect-error-context",
               "dimension": "error_path",
               "description": "Propagate an exception raised by on_disconnect; when it replaces an on_receive exception, preserve the original exception as Python exception context. Pinned source: starlette/endpoints.py:75-89.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.endpoints.WebSocketEndpoint.dispatch.on-disconnect-synchronous-error-once",
+              "dimension": "error_path",
+              "description": "When the normal-disconnect on_disconnect hook raises synchronously before returning an awaitable, propagate that error and invoke the hook exactly once. Pinned source: starlette/endpoints.py:71-89.",
               "lanes": [
                 "parity"
               ],
@@ -18766,6 +18780,17 @@
               ]
             },
             {
+              "id": "starlette.responses.Response.asgi-call.background-kwargs-mapping-expansion",
+              "dimension": "boundary",
+              "description": "Replace the mutable kwargs attribute of a synchronous BackgroundTask with an input-defined UserDict and compare callback invocation with Python's **mapping expansion. Upstream: starlette/background.py:12-23; starlette/concurrency.py:32-34.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.responses.Response.asgi-call.background-task-order",
               "dimension": "success_path",
               "description": "Attach three input-defined sync tasks through BackgroundTasks and compare callback arguments and exact sequential start/completion order after the response is sent. Upstream: tests/test_background.py::test_multiple_tasks; starlette/background.py:26-36.",
@@ -26131,6 +26156,18 @@
               "id": "starlette.websocket.state.connected-receive-invalid-type",
               "dimension": "error_path",
               "description": "Receive websocket.connect, send websocket.accept, then receive websocket.connect while CONNECTED and compare the fully qualified RuntimeError class, exact invalid-message wording, and unchanged state enums. Upstream: tests/test_websockets.py::test_receive_wrong_message_type and starlette/websockets.py::WebSocket.receive at the pinned Starlette commit.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.websocket.state.send-non-string-event-type",
+              "dimension": "error_path",
+              "description": "Pass a JSON null message type to WebSocket.send while application_state is CONNECTING and compare the state-specific RuntimeError representation and unchanged state enums. The Python facade supplies Python's repr for the invalid value while Rust selects the protocol-state error. Upstream: starlette/websockets.py:63-68 at the pinned Starlette commit.",
               "lanes": [
                 "parity"
               ],

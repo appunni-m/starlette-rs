@@ -401,6 +401,10 @@ impl WebSocketEndpointCall {
     }
 
     fn begin_disconnect(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
+        // An error while evaluating the finalizer is the final error. It must
+        // not be reinterpreted as a receive/decode failure and trigger another
+        // call to on_disconnect.
+        self.pending = Some(WebSocketEndpointPending::Disconnect);
         let websocket = self.websocket(py)?;
         let close_code = self
             .close_code
@@ -411,7 +415,6 @@ impl WebSocketEndpointCall {
             .bind(py)
             .getattr("on_disconnect")?
             .call1((websocket, close_code.bind(py)))?;
-        self.pending = Some(WebSocketEndpointPending::Disconnect);
         Ok(MachineAction::Await(awaitable.unbind()))
     }
 
@@ -422,6 +425,9 @@ impl WebSocketEndpointCall {
     ) -> PyResult<MachineAction> {
         match result {
             Ok(action) => Ok(action),
+            Err(error) if matches!(self.pending, Some(WebSocketEndpointPending::Disconnect)) => {
+                Err(self.disconnect_error(py, error))
+            }
             Err(error) => self.protocol_error(py, error),
         }
     }

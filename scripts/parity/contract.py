@@ -195,6 +195,7 @@ WEBSOCKET_ENDPOINT_REQUIREMENTS = {
     "json_malformed": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.decode-json-malformed",
     "disconnect": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.on-disconnect-close-code",
     "disconnect_error": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.on-disconnect-error-context",
+    "disconnect_sync_error": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.on-disconnect-synchronous-error-once",
     "default_text": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.decode-default-text",
     "default_empty_text_failure": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.decode-default-empty-text-failure",
     "default_bytes": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.decode-default-bytes",
@@ -1127,6 +1128,7 @@ RESPONSE_PARTITIONED_COOKIE_REQUIREMENT = (
 RESPONSE_BACKGROUND_REQUIREMENTS = {
     "async_task": "starlette.responses.Response.asgi-call.background-async-task",
     "sync_task": "starlette.responses.Response.asgi-call.background-sync-task",
+    "kwargs_mapping": "starlette.responses.Response.asgi-call.background-kwargs-mapping-expansion",
     "task_add": "starlette.responses.Response.asgi-call.background-task-add",
     "task_order": "starlette.responses.Response.asgi-call.background-task-order",
     "task_failure": "starlette.responses.Response.asgi-call.background-task-failure-stops",
@@ -3347,7 +3349,10 @@ def _validate_websocket_endpoint_case_stimulus(case: dict[str, Any]) -> None:
         _exact(on_disconnect, {"kind"}, "WebSocketEndpoint.on_disconnect")
     elif on_disconnect.get("kind") == "record-and-close":
         _exact(on_disconnect, {"kind"}, "WebSocketEndpoint.on_disconnect")
-    elif on_disconnect.get("kind") == "raise-runtime-error":
+    elif on_disconnect.get("kind") in {
+        "raise-runtime-error",
+        "raise-runtime-error-synchronously",
+    }:
         on_disconnect = _exact(
             on_disconnect,
             {"kind", "message"},
@@ -3357,7 +3362,7 @@ def _validate_websocket_endpoint_case_stimulus(case: dict[str, Any]) -> None:
     else:
         raise ContractError(
             "WebSocketEndpoint.on_disconnect.kind must be default, record-and-close, "
-            "or raise-runtime-error"
+            "raise-runtime-error, or raise-runtime-error-synchronously"
         )
 
     sessions = case["sessions"]
@@ -3467,6 +3472,12 @@ def _validate_websocket_endpoint_case_stimulus(case: dict[str, Any]) -> None:
                         f"{context} on_disconnect failure requires a normal disconnect"
                     )
                 exercised_requirements.add(WEBSOCKET_ENDPOINT_REQUIREMENTS["disconnect_error"])
+            elif on_disconnect["kind"] == "raise-runtime-error-synchronously":
+                if message_types != ["websocket.connect", "websocket.disconnect"]:
+                    raise ContractError(
+                        f"{context} synchronous on_disconnect failure requires a normal disconnect"
+                    )
+                exercised_requirements.add(WEBSOCKET_ENDPOINT_REQUIREMENTS["disconnect_sync_error"])
             continue
         message = incoming[1]
         message_encoding = "text" if "text" in message else "bytes"
@@ -3573,6 +3584,7 @@ def _validate_websocket_case_stimulus(case: dict[str, Any]) -> None:
     application_state = "CONNECTING"
     terminal_receive_count = 0
     send_oserror_action_valid = False
+    send_non_string_type_action_valid = False
     denial_response_started = False
     denial_response_body_continued = False
     denial_response_body_finished = False
@@ -3634,9 +3646,20 @@ def _validate_websocket_case_stimulus(case: dict[str, Any]) -> None:
             if "send_error" in action:
                 expected.add("send_error")
             _exact(action, expected, context)
-            message_type = _validate_websocket_message(
-                action["message"], f"{context}.message", incoming=False
-            )
+            message = action["message"]
+            if (
+                operation == WEBSOCKET_STATE_OPERATION
+                and "send_error" not in action
+                and isinstance(message, dict)
+                and set(message) == {"type"}
+                and message["type"] is None
+            ):
+                message_type = None
+                send_non_string_type_action_valid = True
+            else:
+                message_type = _validate_websocket_message(
+                    message, f"{context}.message", incoming=False
+                )
             if "send_error" in action:
                 send_error = _exact(
                     action["send_error"], {"kind", "message"}, f"{context}.send_error"
@@ -3755,6 +3778,8 @@ def _validate_websocket_case_stimulus(case: dict[str, Any]) -> None:
         coverage.add(f"{requirement_prefix}.binary-exchange")
     if send_oserror_action_valid and incoming_types[:1] == ["websocket.connect"]:
         coverage.add(f"{requirement_prefix}.send-oserror-disconnect")
+    if send_non_string_type_action_valid:
+        coverage.add("starlette.websocket.state.send-non-string-event-type")
     if (
         operation == WEBSOCKET_STATE_OPERATION
         and incoming_types[:2] == ["websocket.connect", "websocket.disconnect"]
@@ -5491,6 +5516,8 @@ def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
                 task_fields = {"mode", "args", "kwargs", "failure"}
                 if isinstance(raw_task, dict) and "callable" in raw_task:
                     task_fields.add("callable")
+                if isinstance(raw_task, dict) and "kwargs_mapping" in raw_task:
+                    task_fields.add("kwargs_mapping")
                 task = _exact(raw_task, task_fields, context)
                 if task["mode"] not in {"sync", "async"}:
                     raise ContractError(f"{context}.mode must be sync or async")
@@ -5503,6 +5530,31 @@ def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
                     for key, value in task["kwargs"].items()
                 ):
                     raise ContractError(f"{context}.kwargs must map strings to strings or integers")
+                if "kwargs_mapping" in task:
+                    if kind != "single-task":
+                        raise ContractError(
+                            f"{context}.kwargs_mapping requires a single-task background input"
+                        )
+                    mapping = _exact(
+                        task["kwargs_mapping"],
+                        {"kind", "items"},
+                        f"{context}.kwargs_mapping",
+                    )
+                    if mapping["kind"] != "user-dict":
+                        raise ContractError(f"{context}.kwargs_mapping.kind must be user-dict")
+                    items = mapping["items"]
+                    if not isinstance(items, list):
+                        raise ContractError(f"{context}.kwargs_mapping.items must be an array")
+                    for item_index, item in enumerate(items):
+                        if (
+                            not isinstance(item, list)
+                            or len(item) != 2
+                            or not isinstance(item[0], str)
+                            or type(item[1]) not in {str, int}
+                        ):
+                            raise ContractError(
+                                f"{context}.kwargs_mapping.items[{item_index}] must be a string and string or integer pair"
+                            )
                 failure = task["failure"]
                 if failure is not None:
                     failure = _exact(failure, {"kind", "message"}, f"{context}.failure")
@@ -5586,6 +5638,8 @@ def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
                         "async_task" if tasks[0]["mode"] == "async" else "sync_task"
                     ]
                 ]
+                if "kwargs_mapping" in tasks[0]:
+                    derived.append(RESPONSE_BACKGROUND_REQUIREMENTS["kwargs_mapping"])
             elif failures:
                 if len(failures) != 1 or failures[0] >= len(tasks) - 1:
                     raise ContractError(

@@ -416,6 +416,8 @@ def _input_background_tasks(
         task_fields = {"mode", "args", "kwargs", "failure"}
         if isinstance(task_spec, dict) and "callable" in task_spec:
             task_fields.add("callable")
+        if isinstance(task_spec, dict) and "kwargs_mapping" in task_spec:
+            task_fields.add("kwargs_mapping")
         task_spec = _strict_object(
             task_spec,
             task_fields,
@@ -434,7 +436,19 @@ def _input_background_tasks(
                 raise ValueError("Response background task failure input is unsupported")
         callback = make_callback(task_index, task_spec)
         if background_tasks is None:
-            tasks.append(BackgroundTask(callback, *task_spec["args"], **task_spec["kwargs"]))
+            task = BackgroundTask(callback, *task_spec["args"], **task_spec["kwargs"])
+            if "kwargs_mapping" in task_spec:
+                from collections import UserDict
+
+                mapping_spec = _strict_object(
+                    task_spec["kwargs_mapping"],
+                    {"kind", "items"},
+                    f"Response background task[{task_index}].kwargs_mapping",
+                )
+                if mapping_spec["kind"] != "user-dict":
+                    raise ValueError("Response background kwargs mapping kind is unsupported")
+                task.kwargs = UserDict(dict(mapping_spec["items"]))
+            tasks.append(task)
         else:
             background_tasks.add_task(callback, *task_spec["args"], **task_spec["kwargs"])
     if spec["kind"] == "single-task":
@@ -6851,6 +6865,14 @@ def _websocket_endpoint_receive_hook(spec: dict[str, Any], calls: list[dict[str,
 
 
 def _websocket_endpoint_disconnect_hook(spec: dict[str, Any], calls: list[dict[str, Any]]) -> Any:
+    if spec["kind"] == "raise-runtime-error-synchronously":
+
+        def on_disconnect(_endpoint: Any, _websocket: Any, close_code: int) -> None:
+            calls.append({"hook": "on_disconnect", "close_code": close_code})
+            raise RuntimeError(spec["message"])
+
+        return on_disconnect
+
     async def on_disconnect(_endpoint: Any, websocket: Any, close_code: int) -> None:
         calls.append({"hook": "on_disconnect", "close_code": close_code})
         if spec["kind"] == "raise-runtime-error":
@@ -6952,6 +6974,7 @@ def _run_websocket_endpoint_case(case: dict[str, Any]) -> dict[str, Any]:
         if endpoint_spec["on_disconnect"]["kind"] in {
             "record-and-close",
             "raise-runtime-error",
+            "raise-runtime-error-synchronously",
         }:
             methods["on_disconnect"] = _websocket_endpoint_disconnect_hook(
                 endpoint_spec["on_disconnect"], hook_calls

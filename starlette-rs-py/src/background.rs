@@ -7,7 +7,8 @@
 
 use pyo3::class::gc::{PyTraverseError, PyVisit};
 use pyo3::exceptions::{
-    PyRuntimeError, PyStopAsyncIteration, PyStopIteration, PyTypeError, PyValueError,
+    PyAttributeError, PyRuntimeError, PyStopAsyncIteration, PyStopIteration, PyTypeError,
+    PyValueError,
 };
 use pyo3::prelude::*;
 use pyo3::types::{PyBool, PyDict, PyList, PyMapping, PyModule, PyTuple};
@@ -1063,13 +1064,13 @@ fn threadpool_awaitable(
     args: &Py<PyAny>,
     kwargs: &Py<PyAny>,
 ) -> PyResult<Py<PyAny>> {
-    let kwargs = kwargs.bind(py).cast::<PyDict>()?;
+    let kwargs = keyword_mapping_to_dict(py, kwargs.bind(py))?;
     let call = if kwargs.is_empty() {
         func.clone_ref(py)
     } else {
         py.import("functools")?
             .getattr("partial")?
-            .call((func.bind(py),), Some(kwargs))?
+            .call((func.bind(py),), Some(&kwargs))?
             .unbind()
     };
 
@@ -1091,12 +1092,38 @@ fn call_with_args_and_kwargs(
         .getattr("tuple")?
         .call1((args.bind(py),))?;
     let args = args.cast_into::<PyTuple>()?;
-    let kwargs = py
-        .import("builtins")?
-        .getattr("dict")?
-        .call1((kwargs.bind(py),))?
-        .cast_into::<PyDict>()?;
+    let kwargs = keyword_mapping_to_dict(py, kwargs.bind(py))?;
     func.bind(py).call(&args, Some(&kwargs)).map(Bound::unbind)
+}
+
+/// Materialize the mapping used by Python's `func(*args, **kwargs)` call.
+///
+/// BackgroundTask exposes `kwargs` as a mutable attribute, so callers may
+/// replace the constructor-created dictionary with another mapping. Requiring
+/// an exact dict here would reject valid inputs accepted by Python's `**`
+/// expansion. Requiring `keys()` also avoids accepting sequence-of-pairs
+/// inputs that `dict(...)` would accept but `**` would not.
+fn keyword_mapping_to_dict<'py>(
+    py: Python<'py>,
+    mapping: &Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyDict>> {
+    let keys = match mapping.getattr("keys") {
+        Ok(keys) => keys.call0()?,
+        Err(error) if error.is_instance_of::<PyAttributeError>(py) => {
+            let type_name = mapping.get_type().name()?.to_string();
+            return Err(PyTypeError::new_err(format!(
+                "argument after ** must be a mapping, not {type_name}"
+            )));
+        }
+        Err(error) => return Err(error),
+    };
+    let result = PyDict::new(py);
+    for key in keys.try_iter()? {
+        let key = key?;
+        let value = mapping.get_item(&key)?;
+        result.set_item(key, value)?;
+    }
+    Ok(result)
 }
 
 fn positional_args<'py>(

@@ -233,6 +233,31 @@ impl WebSocketStateMachine {
         }
     }
 
+    /// Returns the state-specific error for an ASGI send message whose
+    /// `type` value is not a string.
+    ///
+    /// Python's set-membership validation reports the representation of an
+    /// arbitrary invalid value. The Python binding supplies that representation
+    /// while Rust selects the message allowed by the current protocol state.
+    #[must_use]
+    pub fn invalid_send_type_error(&self, received_repr: &str) -> WebSocketStateError {
+        let message = match self.application_state {
+            WebSocketState::Connecting => format!(
+                "Expected ASGI message \"websocket.accept\", \"websocket.close\" or \"websocket.http.response.start\", but got {received_repr}"
+            ),
+            WebSocketState::Connected => format!(
+                "Expected ASGI message \"websocket.send\" or \"websocket.close\", but got {received_repr}"
+            ),
+            WebSocketState::Response => format!(
+                "Expected ASGI message \"websocket.http.response.body\", but got {received_repr}"
+            ),
+            WebSocketState::Disconnected => {
+                "Cannot call \"send\" once a close message has been sent.".to_owned()
+            }
+        };
+        WebSocketStateError::new(message)
+    }
+
     /// Records the connected-branch `OSError` handling performed by Starlette.
     ///
     /// Call this after [`begin_send`](Self::begin_send) returned `true` and
