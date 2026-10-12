@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any, Literal
 
 from starlette_rs_py import _core
+from typing_extensions import Self
 
 from starlette.websockets import WebSocketDisconnect
 
@@ -51,11 +52,11 @@ class WebSocketTestSession:
     def extra_headers(self) -> Any:
         return self._runtime.extra_headers
 
-    def __enter__(self) -> WebSocketTestSession:
+    def __enter__(self) -> Self:
         self._runtime.__enter__()
         return self
 
-    def __exit__(self, *args: Any) -> bool:
+    def __exit__(self, *args: Any) -> bool | None:
         return self._runtime.__exit__(*args)
 
     def send_text(self, data: str) -> None:
@@ -123,7 +124,7 @@ class TestClient(_httpx.Client):
             cookies=cookies,
         )
 
-    def __enter__(self) -> TestClient:
+    def __enter__(self) -> Self:
         return self._testclient_runtime.__enter__(self)
 
     def __exit__(self, *args: Any) -> None:

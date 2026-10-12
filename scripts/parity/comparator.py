@@ -9,7 +9,6 @@ from html.parser import HTMLParser
 from typing import Any
 
 from .contract import (
-    BASE_HTTP_REQUIREMENTS,
     BASE_HTTP_SURFACE,
     BASE_HTTP_WORKFLOW_OPERATION,
     TESTCLIENT_OPERATION,
@@ -645,7 +644,13 @@ def _normalize_multipart_body(body: bytes, boundary: bytes) -> bytes:
             return body
         part_body_start = headers_end + 4
         part_body_end = part_body_start + end - start + 1
-        if part_body_end + 2 > len(body) or body[part_body_end : part_body_end + 2] != b"\r\n":
+        if part_body_end + 2 > len(body):
+            # A Python consumer can abort after Starlette sends the multipart
+            # part headers but before it sends the range bytes. The boundary
+            # is still protocol syntax in that observable prefix.
+            normalized.extend(body[offset:])
+            return bytes(normalized)
+        if body[part_body_end : part_body_end + 2] != b"\r\n":
             return body
         normalized.extend(body[offset : part_body_end + 2])
         offset = part_body_end + 2
@@ -756,50 +761,111 @@ def _has_file_response_pathsend(value: Any, *, observation_path: str) -> bool:
     return False
 
 
+def _input_pathsend_file_response(case: dict[str, Any]) -> dict[str, Any] | None:
+    """Return the file input when the supplied BaseHTTP workflow enables pathsend."""
+    application = case.get("application")
+    routes = application.get("routes") if isinstance(application, dict) else None
+    if not isinstance(routes, list) or len(routes) != 1 or not isinstance(routes[0], dict):
+        return None
+    endpoint = routes[0].get("endpoint")
+    if not isinstance(endpoint, dict) or endpoint.get("kind") != "file-response":
+        return None
+
+    request = case.get("request")
+    scope = request.get("scope") if isinstance(request, dict) else None
+    extensions = scope.get("extensions", {}) if isinstance(scope, dict) else None
+    if not isinstance(extensions, dict) or "http.response.pathsend" not in extensions:
+        return None
+
+    file_input = endpoint.get("file")
+    return file_input if isinstance(file_input, dict) else None
+
+
 def _normalize_response_consumer_multipart(value: Any) -> Any:
+    """Normalize only the random FileResponse MIME boundary across message chunks."""
+    if not isinstance(value, dict):
+        return value
     events = value.get("asgi_events", [])
     boundary = None
     for event in events:
+        if not isinstance(event, dict):
+            continue
         headers = event.get("headers", [])
-        pairs = [[part.get("base64", "") for part in pair] for pair in headers]
+        pairs = [
+            [part.get("base64", "") for part in pair]
+            for pair in headers
+            if isinstance(pair, list) and all(isinstance(part, dict) for part in pair)
+        ]
         boundary = _multipart_boundary_from_headers(pairs)
         if boundary is not None:
             break
     if boundary is None:
         return value
+
     result = dict(value)
     for field in ("asgi_events", "retained_messages"):
-        if field not in result:
+        messages = result.get(field)
+        if not isinstance(messages, list):
             continue
-        normalized = []
-        for event in result[field]:
-            event = dict(event)
-            if "headers" in event:
-                pairs = [[part.get("base64", "") for part in pair] for pair in event["headers"]]
-                pairs = _normalize_multipart_boundary_headers(pairs, boundary)
-                event["headers"] = [
-                    [
-                        {**original, "base64": text}
-                        for original, text in zip(pair, replaced, strict=True)
-                    ]
-                    for pair, replaced in zip(event["headers"], pairs, strict=True)
+        normalized = [
+            dict(message) if isinstance(message, dict) else message for message in messages
+        ]
+        body_slots: list[tuple[int, int]] = []
+        body_parts: list[bytes] = []
+        for index, message in enumerate(normalized):
+            if not isinstance(message, dict):
+                continue
+            headers = message.get("headers")
+            if message.get("type") == "http.response.start" and isinstance(headers, list):
+                pairs = [
+                    [part.get("base64", "") for part in pair]
+                    for pair in headers
+                    if isinstance(pair, list) and all(isinstance(part, dict) for part in pair)
                 ]
-            body = event.get("body")
-            if isinstance(body, dict) and body.get("type") == "bytes" and "base64" in body:
+                replaced = _normalize_multipart_boundary_headers(pairs, boundary)
+                if len(replaced) == len(headers):
+                    message["headers"] = [
+                        [
+                            {**original, "base64": encoded}
+                            for original, encoded in zip(pair, replacement, strict=True)
+                        ]
+                        if isinstance(pair, list)
+                        and len(pair) == len(replacement)
+                        and all(isinstance(part, dict) for part in pair)
+                        else pair
+                        for pair, replacement in zip(headers, replaced, strict=True)
+                    ]
+            if message.get("type") != "http.response.body":
+                continue
+            body = message.get("body")
+            if not isinstance(body, dict) or body.get("type") != "bytes":
+                continue
+            try:
                 data = base64.b64decode(body["base64"], validate=True)
-                event["body"] = {
-                    **body,
-                    "base64": base64.b64encode(_normalize_multipart_body(data, boundary)).decode(
-                        "ascii"
-                    ),
-                }
-            normalized.append(event)
+            except (KeyError, ValueError, TypeError):
+                continue
+            body_slots.append((index, len(data)))
+            body_parts.append(data)
+        if body_parts:
+            combined = b"".join(body_parts)
+            normalized_combined = _normalize_multipart_body(combined, boundary)
+            if len(normalized_combined) == len(combined) and normalized_combined != combined:
+                offset = 0
+                for index, length in body_slots:
+                    message = dict(normalized[index])
+                    body = dict(message["body"])
+                    body["base64"] = base64.b64encode(
+                        normalized_combined[offset : offset + length]
+                    ).decode("ascii")
+                    message["body"] = body
+                    normalized[index] = message
+                    offset += length
         result[field] = normalized
     return result
 
 
-def _normalize_response_consumer_file_root(value: Any, *, file_name: str, side: str) -> Any:
-    """Replace only a validated adapter-generated root, retaining path suffixes."""
+def _normalize_response_consumer_file_artifacts(value: Any, *, file_name: str, side: str) -> Any:
+    """Replace adapter temp roots and random multipart tokens, keeping the response exact."""
     if not isinstance(value, dict):
         return value
     root = value.get("temporary_root")
@@ -812,18 +878,20 @@ def _normalize_response_consumer_file_root(value: Any, *, file_name: str, side: 
         or not file_name
         or os.path.basename(file_name) != file_name
     ):
-        return {**value, "temporary_root": f"<invalid-consumer-file-root:{side}>"}
+        normalized = {**value, "temporary_root": f"<invalid-consumer-file-root:{side}>"}
+    else:
 
-    def replace(item: Any) -> Any:
-        if isinstance(item, str):
-            return item.replace(root, "<consumer-file-root>")
-        if isinstance(item, list):
-            return [replace(child) for child in item]
-        if isinstance(item, dict):
-            return {key: replace(child) for key, child in item.items()}
-        return item
+        def replace(item: Any) -> Any:
+            if isinstance(item, str):
+                return item.replace(root, "<consumer-file-root>")
+            if isinstance(item, list):
+                return [replace(child) for child in item]
+            if isinstance(item, dict):
+                return {key: replace(child) for key, child in item.items()}
+            return item
 
-    return _normalize_response_consumer_multipart(replace(value))
+        normalized = replace(value)
+    return _normalize_response_consumer_multipart(normalized)
 
 
 def _normalize_file_response_temp_path(
@@ -884,57 +952,56 @@ def _normalize_file_response_temp_path(
     )
 
 
-_ROUTER_LIFESPAN_FRAME = re.compile(
-    r"""^\s*File ["'][^"']*(?:/|\\)starlette(?:/|\\)routing\.py["'], line \d+, in lifespan\s*$"""
-)
+_PYTHON_TRACEBACK_FRAME = re.compile(r"""^  File ".+", line [0-9]+, in .+\r?\n$""")
+_PYTHON_TRACEBACK_CARET = re.compile(r"^[ \t]*[~^]+[ \t]*\r?\n$")
+_PYTHON_EXCEPTION_SUMMARY = re.compile(r"^[A-Za-z_][A-Za-z_0-9.]*(?::.*)?(?:\r?\n)?$")
 
 
-def _normalize_starlette_lifespan_router_frame(value: Any) -> Any:
-    """Remove Starlette's source-only Router.lifespan frame from failure events."""
+def _normalize_lifespan_failure_traceback(message: Any) -> Any:
+    """Drop only canonical Python traceback frame blocks from a failure message."""
+    if not isinstance(message, str) or not message.startswith("Traceback (most recent call last)"):
+        return message
+
+    lines = message.splitlines(keepends=True)
+    if not lines or lines[0] != "Traceback (most recent call last):\n":
+        raise ContractError("lifespan failure event must contain a canonical traceback header")
+
+    body = lines[1:]
+    index = 0
+    while index < len(body) and _PYTHON_TRACEBACK_FRAME.fullmatch(body[index]):
+        index += 1
+        if index < len(body) and body[index].startswith("    "):
+            index += 1
+            if index < len(body) and _PYTHON_TRACEBACK_CARET.fullmatch(body[index]):
+                index += 1
+        elif index < len(body) and _PYTHON_TRACEBACK_CARET.fullmatch(body[index]):
+            index += 1
+
+    summary = body[index:]
+    if not summary or not _PYTHON_EXCEPTION_SUMMARY.fullmatch(summary[0]):
+        raise ContractError(
+            "lifespan failure event contains malformed or unsupported traceback text"
+        )
+
+    return lines[0] + "".join(summary)
+
+
+def _normalize_lifespan_failure_events(value: Any) -> list[Any]:
+    """Normalize traceback frames in ASGI lifespan failure events only."""
     if not isinstance(value, list):
-        return value
+        raise ContractError("lifespan failure event observation must be a sequence")
 
     normalized_events: list[Any] = []
     for event in value:
-        if (
-            not isinstance(event, dict)
-            or event.get("type") not in {"lifespan.startup.failed", "lifespan.shutdown.failed"}
-            or not isinstance(event.get("message"), str)
-        ):
+        if not isinstance(event, dict):
+            raise ContractError("ASGI event observation must contain event records")
+        if event.get("type") not in {"lifespan.startup.failed", "lifespan.shutdown.failed"}:
             normalized_events.append(event)
             continue
 
-        lines = event["message"].splitlines(keepends=True)
-        normalized_lines: list[str] = []
-        skip_source_line = False
-        skip_caret_line = False
-        for line in lines:
-            if _ROUTER_LIFESPAN_FRAME.match(line.rstrip("\r\n")):
-                skip_source_line = True
-                continue
-            if skip_source_line:
-                skip_source_line = False
-                if line.startswith("    ") and not line.lstrip().startswith("File "):
-                    skip_caret_line = True
-                    continue
-            if skip_caret_line:
-                skip_caret_line = False
-                if re.fullmatch(r"[ \t]*\^+[ \t]*(?:\r?\n)?", line):
-                    continue
-            normalized_lines.append(line)
-
-        normalized_message = "".join(normalized_lines)
-        traceback_header = "Traceback (most recent call last):\n"
-        if normalized_message.startswith(traceback_header) and not any(
-            line.lstrip().startswith("File ") for line in normalized_lines
-        ):
-            normalized_message = normalized_message[len(traceback_header) :]
-        if normalized_message == event["message"]:
-            normalized_events.append(event)
-        else:
-            normalized_event = dict(event)
-            normalized_event["message"] = normalized_message
-            normalized_events.append(normalized_event)
+        normalized_event = dict(event)
+        normalized_event["message"] = _normalize_lifespan_failure_traceback(event.get("message"))
+        normalized_events.append(normalized_event)
     return normalized_events
 
 
@@ -1112,22 +1179,22 @@ def compare_workflows(
                         right_field = _normalize_multipart_range_boundary(
                             path, right_field, observation=right_value
                         )
-                    elif kind == "response-consumer-file-environment":
+                    elif kind == "file-response-consumer-runtime-artifacts":
                         if (case.get("surface"), case.get("operation"), path) != (
                             "starlette.responses.FileResponse",
                             "consumer-construction",
                             "response-consumer",
                         ):
                             raise ContractError(
-                                "Response file-root normalization requires a FileResponse consumer record"
+                                "FileResponse runtime-artifact normalization requires a consumer record"
                             )
                         content = case["construction"]["content"]
                         if content["kind"] == "file":
                             file_name = content["value"]["name"]
-                            left_field = _normalize_response_consumer_file_root(
+                            left_field = _normalize_response_consumer_file_artifacts(
                                 left_field, file_name=file_name, side="oracle"
                             )
-                            right_field = _normalize_response_consumer_file_root(
+                            right_field = _normalize_response_consumer_file_artifacts(
                                 right_field, file_name=file_name, side="target"
                             )
                     elif kind == "file-response-temp-path":
@@ -1152,30 +1219,17 @@ def compare_workflows(
                                 raise ContractError(
                                     "BaseHTTPMiddleware path normalization requires base-http-workflow"
                                 )
-                            has_pathsend_coverage = BASE_HTTP_REQUIREMENTS[
-                                "pathsend_forwarding"
-                            ] in case.get("covers", [])
+                            file_input = _input_pathsend_file_response(case)
                             observed_pathsend = any(
                                 _has_file_response_pathsend(field, observation_path=path)
                                 for field in (left_field, right_field)
                             )
-                            if not has_pathsend_coverage:
+                            if file_input is None:
                                 if observed_pathsend:
                                     raise ContractError(
-                                        "BaseHTTPMiddleware emitted pathsend without declared input coverage"
+                                        "BaseHTTPMiddleware emitted pathsend without input-declared file response support"
                                     )
                                 continue
-                            routes = case.get("application", {}).get("routes", [])
-                            endpoint = (
-                                routes[0].get("endpoint", {})
-                                if isinstance(routes, list)
-                                and routes
-                                and isinstance(routes[0], dict)
-                                else {}
-                            )
-                            file_input = (
-                                endpoint.get("file") if isinstance(endpoint, dict) else None
-                            )
                         else:
                             file_input = case.get("file")
                         if (
@@ -1237,17 +1291,22 @@ def compare_workflows(
                             )
                         left_field = _normalize_anyio_memory_stream_eof_context(left_field)
                         right_field = _normalize_anyio_memory_stream_eof_context(right_field)
-                    elif kind == "starlette-lifespan-router-frame":
-                        if (
-                            case.get("surface") != "starlette.testclient.TestClient"
-                            or case.get("operation") != "lifespan-context"
-                            or path != "lifespan_send_messages"
-                        ):
+                    elif kind == "starlette-lifespan-failure-frames":
+                        allowed_observation = (
+                            case.get("surface") == "starlette.applications.Starlette"
+                            and case.get("operation") == "__call__"
+                            and path == "asgi_events"
+                        ) or (
+                            case.get("surface") == "starlette.testclient.TestClient"
+                            and case.get("operation") == "lifespan-context"
+                            and path == "lifespan_send_messages"
+                        )
+                        if not allowed_observation:
                             raise ContractError(
-                                "Starlette lifespan traceback normalization is only allowed for TestClient lifespan send messages"
+                                "Starlette lifespan failure-frame normalization is only allowed for declared lifespan ASGI event observations"
                             )
-                        left_field = _normalize_starlette_lifespan_router_frame(left_field)
-                        right_field = _normalize_starlette_lifespan_router_frame(right_field)
+                        left_field = _normalize_lifespan_failure_events(left_field)
+                        right_field = _normalize_lifespan_failure_events(right_field)
                     elif kind == "python-object-address":
                         if case.get("surface") not in {
                             "starlette.routing.Mount",

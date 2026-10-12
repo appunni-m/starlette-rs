@@ -1,0 +1,905 @@
+{
+  "schema": "migration-parity/parity-input@47",
+  "cases": [
+    {
+      "case_id": "starlette.middleware.gzip.GZipMiddleware.__call__.minimum-size-default-minus-one",
+      "surface": "starlette.middleware.gzip.GZipMiddleware",
+      "operation": "__call__",
+      "covers": [
+        "starlette.middleware.gzip.GZipMiddleware.construct",
+        "starlette.middleware.gzip.GZipMiddleware.small-body-bypass"
+      ],
+      "execution_schedule": [
+        "dispatch"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "steps": [
+        {
+          "step_id": "middleware",
+          "surface": "starlette.middleware.gzip.GZipMiddleware",
+          "operation": "__init__",
+          "receiver": null,
+          "arguments": {
+            "app": {
+              "kind": "literal",
+              "value": {
+                "kind": "asgi-response-sequence",
+                "messages": [
+                  {
+                    "type": "http.response.start",
+                    "status": 200,
+                    "headers_base64_pairs": [
+                      [
+                        "Y29udGVudC1sZW5ndGg=",
+                        "NDk5"
+                      ],
+                      [
+                        "Y29udGVudC10eXBl",
+                        "dGV4dC9wbGFpbjsgY2hhcnNldD11dGYtOA=="
+                      ]
+                    ]
+                  },
+                  {
+                    "type": "http.response.body",
+                    "body_base64": "eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eA==",
+                    "more_body": false
+                  }
+                ]
+              }
+            },
+            "minimum_size": {
+              "kind": "literal",
+              "value": 500
+            },
+            "compresslevel": {
+              "kind": "literal",
+              "value": 6
+            },
+            "thread_minimum_size": {
+              "kind": "literal",
+              "value": 131072
+            }
+          }
+        },
+        {
+          "step_id": "dispatch",
+          "surface": "starlette.middleware.gzip.GZipMiddleware",
+          "operation": "__call__",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "middleware"
+          },
+          "arguments": {
+            "scope": {
+              "kind": "literal",
+              "value": {
+                "type": "http",
+                "asgi": {
+                  "version": "3.0",
+                  "spec_version": "2.4"
+                },
+                "http_version": "1.1",
+                "method": "GET",
+                "scheme": "http",
+                "path": "/gzip/docs/minimum-size-default-minus-one",
+                "raw_path_base64": "L2d6aXAvZG9jcy9taW5pbXVtLXNpemUtZGVmYXVsdC1taW51cy1vbmU=",
+                "query_string_base64": "",
+                "root_path": "",
+                "headers_base64_pairs": [
+                  [
+                    "YWNjZXB0LWVuY29kaW5n",
+                    "Z3ppcA=="
+                  ]
+                ],
+                "client": [
+                  "127.0.0.1",
+                  12345
+                ],
+                "server": [
+                  "testserver",
+                  80
+                ]
+              }
+            },
+            "receive": {
+              "kind": "literal",
+              "value": [
+                {
+                  "type": "http.request",
+                  "body_base64": "",
+                  "more_body": false
+                }
+              ]
+            },
+            "send": {
+              "kind": "literal",
+              "value": {
+                "kind": "capture-asgi-send"
+              }
+            }
+          }
+        }
+      ],
+      "observations": [
+        "dispatch"
+      ]
+    },
+    {
+      "case_id": "starlette.middleware.gzip.GZipMiddleware.__call__.minimum-size-default-exact",
+      "surface": "starlette.middleware.gzip.GZipMiddleware",
+      "operation": "__call__",
+      "covers": [
+        "starlette.middleware.gzip.GZipMiddleware.construct",
+        "starlette.middleware.gzip.GZipMiddleware.gzip-final-response"
+      ],
+      "execution_schedule": [
+        "dispatch"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "steps": [
+        {
+          "step_id": "middleware",
+          "surface": "starlette.middleware.gzip.GZipMiddleware",
+          "operation": "__init__",
+          "receiver": null,
+          "arguments": {
+            "app": {
+              "kind": "literal",
+              "value": {
+                "kind": "asgi-response-sequence",
+                "messages": [
+                  {
+                    "type": "http.response.start",
+                    "status": 200,
+                    "headers_base64_pairs": [
+                      [
+                        "Y29udGVudC1sZW5ndGg=",
+                        "NTAw"
+                      ],
+                      [
+                        "Y29udGVudC10eXBl",
+                        "dGV4dC9wbGFpbjsgY2hhcnNldD11dGYtOA=="
+                      ]
+                    ]
+                  },
+                  {
+                    "type": "http.response.body",
+                    "body_base64": "eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHg=",
+                    "more_body": false
+                  }
+                ]
+              }
+            },
+            "minimum_size": {
+              "kind": "literal",
+              "value": 500
+            },
+            "compresslevel": {
+              "kind": "literal",
+              "value": 6
+            },
+            "thread_minimum_size": {
+              "kind": "literal",
+              "value": 131072
+            }
+          }
+        },
+        {
+          "step_id": "dispatch",
+          "surface": "starlette.middleware.gzip.GZipMiddleware",
+          "operation": "__call__",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "middleware"
+          },
+          "arguments": {
+            "scope": {
+              "kind": "literal",
+              "value": {
+                "type": "http",
+                "asgi": {
+                  "version": "3.0",
+                  "spec_version": "2.4"
+                },
+                "http_version": "1.1",
+                "method": "GET",
+                "scheme": "http",
+                "path": "/gzip/docs/minimum-size-default-exact",
+                "raw_path_base64": "L2d6aXAvZG9jcy9taW5pbXVtLXNpemUtZGVmYXVsdC1leGFjdA==",
+                "query_string_base64": "",
+                "root_path": "",
+                "headers_base64_pairs": [
+                  [
+                    "YWNjZXB0LWVuY29kaW5n",
+                    "Z3ppcA=="
+                  ]
+                ],
+                "client": [
+                  "127.0.0.1",
+                  12345
+                ],
+                "server": [
+                  "testserver",
+                  80
+                ]
+              }
+            },
+            "receive": {
+              "kind": "literal",
+              "value": [
+                {
+                  "type": "http.request",
+                  "body_base64": "",
+                  "more_body": false
+                }
+              ]
+            },
+            "send": {
+              "kind": "literal",
+              "value": {
+                "kind": "capture-asgi-send"
+              }
+            }
+          }
+        }
+      ],
+      "observations": [
+        "dispatch"
+      ]
+    },
+    {
+      "case_id": "starlette.middleware.gzip.GZipMiddleware.__call__.thread-threshold-final-below",
+      "surface": "starlette.middleware.gzip.GZipMiddleware",
+      "operation": "__call__",
+      "covers": [
+        "starlette.middleware.gzip.GZipMiddleware.construct",
+        "starlette.middleware.gzip.GZipMiddleware.gzip-final-response"
+      ],
+      "execution_schedule": [
+        "dispatch"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "steps": [
+        {
+          "step_id": "middleware",
+          "surface": "starlette.middleware.gzip.GZipMiddleware",
+          "operation": "__init__",
+          "receiver": null,
+          "arguments": {
+            "app": {
+              "kind": "literal",
+              "value": {
+                "kind": "asgi-response-sequence",
+                "messages": [
+                  {
+                    "type": "http.response.start",
+                    "status": 200,
+                    "headers_base64_pairs": [
+                      [
+                        "Y29udGVudC1sZW5ndGg=",
+                        "NTEx"
+                      ],
+                      [
+                        "Y29udGVudC10eXBl",
+                        "dGV4dC9wbGFpbjsgY2hhcnNldD11dGYtOA=="
+                      ]
+                    ]
+                  },
+                  {
+                    "type": "http.response.body",
+                    "body_base64": "eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eA==",
+                    "more_body": false
+                  }
+                ]
+              }
+            },
+            "thread_minimum_size": {
+              "kind": "literal",
+              "value": 512
+            },
+            "minimum_size": {
+              "kind": "literal",
+              "value": 1
+            },
+            "compresslevel": {
+              "kind": "literal",
+              "value": 6
+            }
+          }
+        },
+        {
+          "step_id": "dispatch",
+          "surface": "starlette.middleware.gzip.GZipMiddleware",
+          "operation": "__call__",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "middleware"
+          },
+          "arguments": {
+            "scope": {
+              "kind": "literal",
+              "value": {
+                "type": "http",
+                "asgi": {
+                  "version": "3.0",
+                  "spec_version": "2.4"
+                },
+                "http_version": "1.1",
+                "method": "GET",
+                "scheme": "http",
+                "path": "/gzip/docs/thread-threshold-final-below",
+                "raw_path_base64": "L2d6aXAvZG9jcy90aHJlYWQtdGhyZXNob2xkLWZpbmFsLWJlbG93",
+                "query_string_base64": "",
+                "root_path": "",
+                "headers_base64_pairs": [
+                  [
+                    "YWNjZXB0LWVuY29kaW5n",
+                    "Z3ppcA=="
+                  ]
+                ],
+                "client": [
+                  "127.0.0.1",
+                  12345
+                ],
+                "server": [
+                  "testserver",
+                  80
+                ]
+              }
+            },
+            "receive": {
+              "kind": "literal",
+              "value": [
+                {
+                  "type": "http.request",
+                  "body_base64": "",
+                  "more_body": false
+                }
+              ]
+            },
+            "send": {
+              "kind": "literal",
+              "value": {
+                "kind": "capture-asgi-send"
+              }
+            }
+          }
+        }
+      ],
+      "observations": [
+        "dispatch"
+      ]
+    },
+    {
+      "case_id": "starlette.middleware.gzip.GZipMiddleware.__call__.thread-threshold-final-above",
+      "surface": "starlette.middleware.gzip.GZipMiddleware",
+      "operation": "__call__",
+      "covers": [
+        "starlette.middleware.gzip.GZipMiddleware.construct",
+        "starlette.middleware.gzip.GZipMiddleware.gzip-final-response"
+      ],
+      "execution_schedule": [
+        "dispatch"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "steps": [
+        {
+          "step_id": "middleware",
+          "surface": "starlette.middleware.gzip.GZipMiddleware",
+          "operation": "__init__",
+          "receiver": null,
+          "arguments": {
+            "app": {
+              "kind": "literal",
+              "value": {
+                "kind": "asgi-response-sequence",
+                "messages": [
+                  {
+                    "type": "http.response.start",
+                    "status": 200,
+                    "headers_base64_pairs": [
+                      [
+                        "Y29udGVudC1sZW5ndGg=",
+                        "NTEz"
+                      ],
+                      [
+                        "Y29udGVudC10eXBl",
+                        "dGV4dC9wbGFpbjsgY2hhcnNldD11dGYtOA=="
+                      ]
+                    ]
+                  },
+                  {
+                    "type": "http.response.body",
+                    "body_base64": "eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4",
+                    "more_body": false
+                  }
+                ]
+              }
+            },
+            "thread_minimum_size": {
+              "kind": "literal",
+              "value": 512
+            },
+            "minimum_size": {
+              "kind": "literal",
+              "value": 1
+            },
+            "compresslevel": {
+              "kind": "literal",
+              "value": 6
+            }
+          }
+        },
+        {
+          "step_id": "dispatch",
+          "surface": "starlette.middleware.gzip.GZipMiddleware",
+          "operation": "__call__",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "middleware"
+          },
+          "arguments": {
+            "scope": {
+              "kind": "literal",
+              "value": {
+                "type": "http",
+                "asgi": {
+                  "version": "3.0",
+                  "spec_version": "2.4"
+                },
+                "http_version": "1.1",
+                "method": "GET",
+                "scheme": "http",
+                "path": "/gzip/docs/thread-threshold-final-above",
+                "raw_path_base64": "L2d6aXAvZG9jcy90aHJlYWQtdGhyZXNob2xkLWZpbmFsLWFib3Zl",
+                "query_string_base64": "",
+                "root_path": "",
+                "headers_base64_pairs": [
+                  [
+                    "YWNjZXB0LWVuY29kaW5n",
+                    "Z3ppcA=="
+                  ]
+                ],
+                "client": [
+                  "127.0.0.1",
+                  12345
+                ],
+                "server": [
+                  "testserver",
+                  80
+                ]
+              }
+            },
+            "receive": {
+              "kind": "literal",
+              "value": [
+                {
+                  "type": "http.request",
+                  "body_base64": "",
+                  "more_body": false
+                }
+              ]
+            },
+            "send": {
+              "kind": "literal",
+              "value": {
+                "kind": "capture-asgi-send"
+              }
+            }
+          }
+        }
+      ],
+      "observations": [
+        "dispatch"
+      ]
+    },
+    {
+      "case_id": "starlette.middleware.gzip.GZipMiddleware.__call__.compression-level-one",
+      "surface": "starlette.middleware.gzip.GZipMiddleware",
+      "operation": "__call__",
+      "covers": [
+        "starlette.middleware.gzip.GZipMiddleware.construct",
+        "starlette.middleware.gzip.GZipMiddleware.gzip-final-response"
+      ],
+      "execution_schedule": [
+        "dispatch"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "steps": [
+        {
+          "step_id": "middleware",
+          "surface": "starlette.middleware.gzip.GZipMiddleware",
+          "operation": "__init__",
+          "receiver": null,
+          "arguments": {
+            "app": {
+              "kind": "literal",
+              "value": {
+                "kind": "asgi-response-sequence",
+                "messages": [
+                  {
+                    "type": "http.response.start",
+                    "status": 200,
+                    "headers_base64_pairs": [
+                      [
+                        "Y29udGVudC1sZW5ndGg=",
+                        "NTEyMA=="
+                      ],
+                      [
+                        "Y29udGVudC10eXBl",
+                        "dGV4dC9wbGFpbjsgY2hhcnNldD11dGYtOA=="
+                      ]
+                    ]
+                  },
+                  {
+                    "type": "http.response.body",
+                    "body_base64": "U3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0Lgo=",
+                    "more_body": false
+                  }
+                ]
+              }
+            },
+            "minimum_size": {
+              "kind": "literal",
+              "value": 1
+            },
+            "compresslevel": {
+              "kind": "literal",
+              "value": 1
+            },
+            "thread_minimum_size": {
+              "kind": "literal",
+              "value": 131072
+            }
+          }
+        },
+        {
+          "step_id": "dispatch",
+          "surface": "starlette.middleware.gzip.GZipMiddleware",
+          "operation": "__call__",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "middleware"
+          },
+          "arguments": {
+            "scope": {
+              "kind": "literal",
+              "value": {
+                "type": "http",
+                "asgi": {
+                  "version": "3.0",
+                  "spec_version": "2.4"
+                },
+                "http_version": "1.1",
+                "method": "GET",
+                "scheme": "http",
+                "path": "/gzip/docs/compression-level-one",
+                "raw_path_base64": "L2d6aXAvZG9jcy9jb21wcmVzc2lvbi1sZXZlbC1vbmU=",
+                "query_string_base64": "",
+                "root_path": "",
+                "headers_base64_pairs": [
+                  [
+                    "YWNjZXB0LWVuY29kaW5n",
+                    "Z3ppcA=="
+                  ]
+                ],
+                "client": [
+                  "127.0.0.1",
+                  12345
+                ],
+                "server": [
+                  "testserver",
+                  80
+                ]
+              }
+            },
+            "receive": {
+              "kind": "literal",
+              "value": [
+                {
+                  "type": "http.request",
+                  "body_base64": "",
+                  "more_body": false
+                }
+              ]
+            },
+            "send": {
+              "kind": "literal",
+              "value": {
+                "kind": "capture-asgi-send"
+              }
+            }
+          }
+        }
+      ],
+      "observations": [
+        "dispatch"
+      ]
+    },
+    {
+      "case_id": "starlette.middleware.gzip.GZipMiddleware.__call__.compression-level-nine",
+      "surface": "starlette.middleware.gzip.GZipMiddleware",
+      "operation": "__call__",
+      "covers": [
+        "starlette.middleware.gzip.GZipMiddleware.construct",
+        "starlette.middleware.gzip.GZipMiddleware.gzip-final-response"
+      ],
+      "execution_schedule": [
+        "dispatch"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "steps": [
+        {
+          "step_id": "middleware",
+          "surface": "starlette.middleware.gzip.GZipMiddleware",
+          "operation": "__init__",
+          "receiver": null,
+          "arguments": {
+            "app": {
+              "kind": "literal",
+              "value": {
+                "kind": "asgi-response-sequence",
+                "messages": [
+                  {
+                    "type": "http.response.start",
+                    "status": 200,
+                    "headers_base64_pairs": [
+                      [
+                        "Y29udGVudC1sZW5ndGg=",
+                        "NTEyMA=="
+                      ],
+                      [
+                        "Y29udGVudC10eXBl",
+                        "dGV4dC9wbGFpbjsgY2hhcnNldD11dGYtOA=="
+                      ]
+                    ]
+                  },
+                  {
+                    "type": "http.response.body",
+                    "body_base64": "U3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0LgpTdGFybGV0dGUgR1ppcCBjb21wcmVzc2lvbiBsZXZlbCBpbnB1dC4KU3RhcmxldHRlIEdaaXAgY29tcHJlc3Npb24gbGV2ZWwgaW5wdXQuClN0YXJsZXR0ZSBHWmlwIGNvbXByZXNzaW9uIGxldmVsIGlucHV0Lgo=",
+                    "more_body": false
+                  }
+                ]
+              }
+            },
+            "minimum_size": {
+              "kind": "literal",
+              "value": 1
+            },
+            "compresslevel": {
+              "kind": "literal",
+              "value": 9
+            },
+            "thread_minimum_size": {
+              "kind": "literal",
+              "value": 131072
+            }
+          }
+        },
+        {
+          "step_id": "dispatch",
+          "surface": "starlette.middleware.gzip.GZipMiddleware",
+          "operation": "__call__",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "middleware"
+          },
+          "arguments": {
+            "scope": {
+              "kind": "literal",
+              "value": {
+                "type": "http",
+                "asgi": {
+                  "version": "3.0",
+                  "spec_version": "2.4"
+                },
+                "http_version": "1.1",
+                "method": "GET",
+                "scheme": "http",
+                "path": "/gzip/docs/compression-level-nine",
+                "raw_path_base64": "L2d6aXAvZG9jcy9jb21wcmVzc2lvbi1sZXZlbC1uaW5l",
+                "query_string_base64": "",
+                "root_path": "",
+                "headers_base64_pairs": [
+                  [
+                    "YWNjZXB0LWVuY29kaW5n",
+                    "Z3ppcA=="
+                  ]
+                ],
+                "client": [
+                  "127.0.0.1",
+                  12345
+                ],
+                "server": [
+                  "testserver",
+                  80
+                ]
+              }
+            },
+            "receive": {
+              "kind": "literal",
+              "value": [
+                {
+                  "type": "http.request",
+                  "body_base64": "",
+                  "more_body": false
+                }
+              ]
+            },
+            "send": {
+              "kind": "literal",
+              "value": {
+                "kind": "capture-asgi-send"
+              }
+            }
+          }
+        }
+      ],
+      "observations": [
+        "dispatch"
+      ]
+    },
+    {
+      "case_id": "starlette.middleware.gzip.GZipMiddleware.__call__.streaming-thread-threshold-below-at-above",
+      "surface": "starlette.middleware.gzip.GZipMiddleware",
+      "operation": "__call__",
+      "covers": [
+        "starlette.middleware.gzip.GZipMiddleware.construct",
+        "starlette.middleware.gzip.GZipMiddleware.streaming-chunks"
+      ],
+      "execution_schedule": [
+        "dispatch"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "steps": [
+        {
+          "step_id": "middleware",
+          "surface": "starlette.middleware.gzip.GZipMiddleware",
+          "operation": "__init__",
+          "receiver": null,
+          "arguments": {
+            "app": {
+              "kind": "literal",
+              "value": {
+                "kind": "asgi-response-sequence",
+                "messages": [
+                  {
+                    "type": "http.response.start",
+                    "status": 200,
+                    "headers_base64_pairs": [
+                      [
+                        "Y29udGVudC10eXBl",
+                        "dGV4dC9wbGFpbjsgY2hhcnNldD11dGYtOA=="
+                      ]
+                    ]
+                  },
+                  {
+                    "type": "http.response.body",
+                    "body_base64": "YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYQ==",
+                    "more_body": true
+                  },
+                  {
+                    "type": "http.response.body",
+                    "body_base64": "YmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmI=",
+                    "more_body": true
+                  },
+                  {
+                    "type": "http.response.body",
+                    "body_base64": "Y2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2Nj",
+                    "more_body": true
+                  },
+                  {
+                    "type": "http.response.body",
+                    "body_base64": "dGFpbA==",
+                    "more_body": false
+                  }
+                ]
+              }
+            },
+            "thread_minimum_size": {
+              "kind": "literal",
+              "value": 512
+            },
+            "minimum_size": {
+              "kind": "literal",
+              "value": 1
+            },
+            "compresslevel": {
+              "kind": "literal",
+              "value": 6
+            }
+          }
+        },
+        {
+          "step_id": "dispatch",
+          "surface": "starlette.middleware.gzip.GZipMiddleware",
+          "operation": "__call__",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "middleware"
+          },
+          "arguments": {
+            "scope": {
+              "kind": "literal",
+              "value": {
+                "type": "http",
+                "asgi": {
+                  "version": "3.0",
+                  "spec_version": "2.4"
+                },
+                "http_version": "1.1",
+                "method": "GET",
+                "scheme": "http",
+                "path": "/gzip/docs/streaming-thread-threshold-below-at-above",
+                "raw_path_base64": "L2d6aXAvZG9jcy9zdHJlYW1pbmctdGhyZWFkLXRocmVzaG9sZC1iZWxvdy1hdC1hYm92ZQ==",
+                "query_string_base64": "",
+                "root_path": "",
+                "headers_base64_pairs": [
+                  [
+                    "YWNjZXB0LWVuY29kaW5n",
+                    "Z3ppcA=="
+                  ]
+                ],
+                "client": [
+                  "127.0.0.1",
+                  12345
+                ],
+                "server": [
+                  "testserver",
+                  80
+                ]
+              }
+            },
+            "receive": {
+              "kind": "literal",
+              "value": [
+                {
+                  "type": "http.request",
+                  "body_base64": "",
+                  "more_body": false
+                }
+              ]
+            },
+            "send": {
+              "kind": "literal",
+              "value": {
+                "kind": "capture-asgi-send"
+              }
+            }
+          }
+        }
+      ],
+      "observations": [
+        "dispatch"
+      ]
+    }
+  ]
+}

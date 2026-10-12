@@ -12,7 +12,12 @@ import json
 from pathlib import Path
 from typing import Any
 
-from .api_sources import apply_api_sources, load_api_metadata, validate_api_sources
+from .api_sources import (
+    apply_api_sources,
+    load_api_metadata,
+    public_module_names,
+    validate_api_sources,
+)
 from .contract import (
     BENCHMARK_INPUT_SCHEMA,
     ContractError,
@@ -98,7 +103,7 @@ def _json_bytes(document: Any) -> bytes:
 
 
 def _validate_sources(
-    root: Path, manifest: dict[str, Any]
+    root: Path, manifest: dict[str, Any], public_modules: frozenset[str]
 ) -> list[tuple[Path, bytes, dict[str, Any]]]:
     generated: list[tuple[Path, bytes, dict[str, Any]]] = []
     parity_cases: list[dict[str, Any]] = []
@@ -116,7 +121,9 @@ def _validate_sources(
             if not isinstance(document, dict):
                 raise ContractError(f"YAML input source must be an object: {source_path}")
             if lane == "parity":
-                parity_cases.extend(validate_input_document(document, manifest))
+                parity_cases.extend(
+                    validate_input_document(document, manifest, public_modules=public_modules)
+                )
             generated.append((relative, _json_bytes(document), document))
 
     case_ids = [case["case_id"] for case in parity_cases]
@@ -278,7 +285,7 @@ def generate_inputs(root: Path, *, check: bool = False) -> dict[str, int]:
         if changed:
             manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     validate_manifest(manifest)
-    generated = _validate_sources(root, manifest)
+    generated = _validate_sources(root, manifest, public_module_names(metadata))
     if check:
         _check_generated(root, generated)
     else:

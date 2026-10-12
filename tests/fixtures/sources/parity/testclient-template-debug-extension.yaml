@@ -1,0 +1,59 @@
+{
+  "schema": "migration-parity/parity-input@47",
+  "cases": [
+    {
+      "case_id": "starlette.testclient.TestClient.request-response.template-response-debug-extension",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "request-response",
+      "covers": [
+        "starlette.testclient.TestClient.request-response.scope-projection",
+        "starlette.testclient.TestClient.request-response.response-and-debug",
+        "starlette.testclient.TestClient.request-response.template-response-debug-extension",
+        "starlette.testclient.TestClient.request-response.routed-sync-endpoint-get",
+        "starlette.testclient.TestClient.request-response.routed-sync-endpoint-worker-thread"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "request-response"
+      ],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": [
+          "testclient",
+          50000
+        ],
+        "headers": []
+      },
+      "request": {
+        "method": "GET",
+        "client_method": "get",
+        "url": "/template",
+        "headers_base64_pairs": [],
+        "body_base64": ""
+      },
+      "asgi_app": {
+        "kind": "starlette-route",
+        "path": "/template",
+        "methods": null,
+        "scope_fields": [
+          "type",
+          "path",
+          "extensions"
+        ],
+        "endpoint": {
+          "kind": "sync-template-response",
+          "template_name": "debug.html",
+          "template_source": "Hello {{ name }}",
+          "context": {
+            "name": "Ada"
+          }
+        }
+      }
+    }
+  ]
+}

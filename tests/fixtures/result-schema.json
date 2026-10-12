@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://starlette-rs.dev/schemas/migration-parity-result-v6.json",
+  "$id": "https://starlette-rs.dev/schemas/migration-parity-result-v7.json",
   "title": "Starlette selected parity and fault-contract result with execution provenance",
   "type": "object",
   "additionalProperties": false,
@@ -15,7 +15,7 @@
   ],
   "properties": {
     "schema": {
-      "const": "migration-parity/parity-result@6"
+      "const": "migration-parity/parity-result@7"
     },
     "identity": {
       "$ref": "#/$defs/identity"
@@ -97,7 +97,7 @@
               "const": "tests/fixtures/manifest.yaml"
             },
             "schema": {
-              "const": "migration-parity/manifest@4"
+              "const": "migration-parity/manifest@5"
             },
             "sha256": {
               "$ref": "#/$defs/sha256"
@@ -120,7 +120,7 @@
                 "minLength": 1
               },
               "schema": {
-                "const": "migration-parity/parity-input@45"
+                "const": "migration-parity/parity-input@47"
               },
               "sha256": {
                 "$ref": "#/$defs/sha256"
@@ -216,7 +216,11 @@
               "target_profile": {
                 "enum": [
                   "rust-native-local",
-                  "python-package-cpython312"
+                  "python-package-cpython310",
+                  "python-package-cpython311",
+                  "python-package-cpython312",
+                  "python-package-cpython313",
+                  "python-package-cpython314"
                 ]
               },
               "target_id": {
@@ -341,7 +345,8 @@
       "additionalProperties": false,
       "required": [
         "kind",
-        "case_ids"
+        "case_ids",
+        "target_profiles"
       ],
       "properties": {
         "kind": {
@@ -356,6 +361,21 @@
           "items": {
             "type": "string",
             "minLength": 1
+          }
+        },
+        "target_profiles": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "rust-native-local",
+              "python-package-cpython310",
+              "python-package-cpython311",
+              "python-package-cpython312",
+              "python-package-cpython313",
+              "python-package-cpython314"
+            ]
           }
         }
       },
@@ -426,11 +446,26 @@
             "not_run"
           ],
           "properties": {
-            "selected": {"type": "integer", "minimum": 0},
-            "executed": {"type": "integer", "minimum": 0},
-            "passed": {"type": "integer", "minimum": 0},
-            "failed": {"type": "integer", "minimum": 0},
-            "not_run": {"type": "integer", "minimum": 0}
+            "selected": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "executed": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "passed": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "failed": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "not_run": {
+              "type": "integer",
+              "minimum": 0
+            }
           }
         },
         "infrastructure_errors": {
@@ -689,7 +724,11 @@
         "target_profile": {
           "enum": [
             "rust-native-local",
-            "python-package-cpython312"
+            "python-package-cpython310",
+            "python-package-cpython311",
+            "python-package-cpython312",
+            "python-package-cpython313",
+            "python-package-cpython314"
           ]
         },
         "requirements": {
@@ -735,13 +774,23 @@
         "outcome"
       ],
       "properties": {
-        "case_id": {"type": "string", "minLength": 1},
-        "target_profile": {"const": "python-package-cpython312"},
+        "case_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "target_profile": {
+          "const": "python-package-cpython312"
+        },
         "requirements": {
           "type": "array",
-          "items": {"type": "string", "minLength": 1}
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
         },
-        "fault_point": {"const": "starlette-rs.router.route-cache-lock.poison"},
+        "fault_point": {
+          "const": "starlette-rs.router.route-cache-lock.poison"
+        },
         "contract_id": {
           "enum": [
             "starlette.server-error.route-cache-lock-poison",
@@ -751,19 +800,32 @@
         "oracle": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["status", "reason"],
+          "required": [
+            "status",
+            "reason"
+          ],
           "properties": {
-            "status": {"const": "not_applicable"},
-            "reason": {"type": "string", "minLength": 1}
+            "status": {
+              "const": "not_applicable"
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1
+            }
           }
         },
-        "target": {"$ref": "#/$defs/workflow"},
+        "target": {
+          "$ref": "#/$defs/workflow"
+        },
         "assertions": {
           "type": "array",
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["id", "status"],
+            "required": [
+              "id",
+              "status"
+            ],
             "properties": {
               "id": {
                 "enum": [
@@ -772,11 +834,23 @@
                   "public-testclient-exception-propagated"
                 ]
               },
-              "status": {"enum": ["pass", "fail", "not_run"]}
+              "status": {
+                "enum": [
+                  "pass",
+                  "fail",
+                  "not_run"
+                ]
+              }
             }
           }
         },
-        "outcome": {"enum": ["pass", "fail", "not_run"]}
+        "outcome": {
+          "enum": [
+            "pass",
+            "fail",
+            "not_run"
+          ]
+        }
       }
     },
     "diff": {
@@ -884,7 +958,7 @@
           ],
           "properties": {
             "id": {
-              "const": "starlette-oracle-cpython312"
+              "pattern": "^starlette-oracle-cpython(310|311|312|313|314)$"
             },
             "python": {
               "type": "string",
@@ -892,7 +966,7 @@
             },
             "runtime": {
               "type": "string",
-              "pattern": "^CPython 3\\.12\\."
+              "pattern": "^CPython 3\\.(10|11|12|13|14)\\."
             },
             "os": {
               "type": "string",
@@ -903,7 +977,7 @@
               "minLength": 1
             },
             "dependency_lock_path": {
-              "const": "scripts/parity/locks/starlette-oracle-cpython312.txt"
+              "const": "scripts/parity/locks/starlette-oracle-python.txt"
             },
             "dependency_lock_sha256": {
               "$ref": "#/$defs/sha256"
@@ -943,7 +1017,7 @@
           ],
           "properties": {
             "id": {
-              "const": "starlette-rs-py-cpython312"
+              "pattern": "^starlette-rs-py-cpython(310|311|312|313|314)$"
             },
             "python": {
               "type": "string",
@@ -951,7 +1025,7 @@
             },
             "runtime": {
               "type": "string",
-              "pattern": "^CPython 3\\.12\\."
+              "pattern": "^CPython 3\\.(10|11|12|13|14)\\."
             },
             "os": {
               "type": "string",
@@ -962,7 +1036,7 @@
               "minLength": 1
             },
             "dependency_lock_path": {
-              "const": "scripts/parity/locks/asgi-runtime-cpython312.txt"
+              "const": "scripts/parity/locks/asgi-runtime-python.txt"
             },
             "dependency_lock_sha256": {
               "$ref": "#/$defs/sha256"

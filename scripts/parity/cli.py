@@ -62,7 +62,7 @@ def _parser() -> argparse.ArgumentParser:
 
     prepare = subparsers.add_parser(
         "prepare-env",
-        help="build the local wheel and prepare isolated, locked CPython 3.12 environments",
+        help="build the local wheel and prepare isolated, locked CPython 3.10 through 3.14 environments",
     )
     prepare.add_argument("--root", type=Path, default=ROOT)
     prepare.add_argument("--upstream", type=Path, default=None)

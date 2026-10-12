@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import tempfile
+import warnings
 from pathlib import Path
 from typing import Any
 
@@ -56,6 +57,7 @@ def run_template_public_case(case: dict[str, Any]) -> dict[str, Any]:
         "rendered_templates": [],
         "responses": [],
         "processor_trace": [],
+        "processor_await_trace": [],
         "middleware_trace": [],
         "asgi_events": [],
     }
@@ -96,16 +98,32 @@ def run_template_public_case(case: dict[str, Any]) -> dict[str, Any]:
                 return super().get_template(name)
 
         constructor_type = ConsumerTemplates
-    processors = []
-    for additions in case["processor_additions"]:
 
-        def processor(request: Any, values: dict[str, Any] = additions) -> dict[str, Any]:
+    def sync_processor(additions: dict[str, Any]) -> Any:
+        def processor(request: Any) -> dict[str, Any]:
             observed["processor_trace"].append(
-                {"request_path": request.url.path, "additions": dict(values)}
+                {"request_path": request.url.path, "additions": dict(additions)}
             )
-            return dict(values)
+            return dict(additions)
 
-        processors.append(processor)
+        return processor
+
+    def async_processor(additions: dict[str, Any]) -> Any:
+        async def processor(request: Any) -> dict[str, Any]:
+            observed["processor_await_trace"].append(
+                {"request_path": request.url.path, "additions": dict(additions)}
+            )
+            return dict(additions)
+
+        return processor
+
+    processor_factories = {"async": async_processor, "sync": sync_processor}
+    processor_specs = case.get("processor_specs")
+    if processor_specs is None:
+        processor_specs = [
+            {"kind": "sync", "additions": additions} for additions in case["processor_additions"]
+        ]
+    processors = [processor_factories[spec["kind"]](spec["additions"]) for spec in processor_specs]
 
     with tempfile.TemporaryDirectory(prefix="starlette-template-public-parity-") as temporary:
         roots = {
@@ -132,11 +150,20 @@ def run_template_public_case(case: dict[str, Any]) -> dict[str, Any]:
         environment = constructor["environment"]
         supplied_environment = None
         if environment is not None:
+            custom_filters: dict[str, Any] = {}
+            for filter_spec in environment.get("filters", []):
+                prefix = filter_spec["prefix"]
+
+                def prefix_filter(value: Any, filter_prefix: str = prefix) -> str:
+                    return f"{filter_prefix}{value}"
+
+                custom_filters[filter_spec["name"]] = prefix_filter
             supplied_environment = jinja2.Environment(
                 loader=jinja2.FileSystemLoader(
                     [roots[item] for item in environment["directory_ids"]]
                 ),
                 autoescape=environment["autoescape"],
+                filters=custom_filters,
             )
             arguments["env"] = supplied_environment
 
@@ -164,6 +191,9 @@ def run_template_public_case(case: dict[str, Any]) -> dict[str, Any]:
                     )
                     for item in case["template_files"]
                 },
+                "custom_filter_names": sorted(
+                    filter_spec["name"] for filter_spec in (environment or {}).get("filters", [])
+                ),
             }
             consumer = case["consumer"]
             if consumer["kind"] == "template-render":
@@ -245,13 +275,61 @@ def _run_template_client(
     client = TestClient(app)
     try:
         for item in consumer["requests"]:
-            response = client.request(item["method"], item["url"])
+            event_offset = len(observed["asgi_events"])
+            with warnings.catch_warnings(record=True) as request_warnings:
+                warnings.simplefilter("always")
+                try:
+                    response = client.request(item["method"], item["url"])
+                except Exception as error:
+                    response_events = observed["asgi_events"][event_offset:]
+                    response_start = next(
+                        (
+                            event
+                            for event in response_events
+                            if event["type"] == "http.response.start"
+                        ),
+                        None,
+                    )
+                    response_body = b"".join(
+                        base64.b64decode(event["body"]["data"])
+                        for event in response_events
+                        if event["type"] == "http.response.body"
+                    )
+                    observed["responses"].append(
+                        {
+                            "url": item["url"],
+                            "error": {
+                                "class": f"{type(error).__module__}.{type(error).__qualname__}",
+                                "message": str(error),
+                            },
+                            "warnings": [
+                                {
+                                    "category": warning.category.__name__,
+                                    "message": str(warning.message),
+                                }
+                                for warning in request_warnings
+                            ],
+                            "response_status": (
+                                None if response_start is None else response_start["status"]
+                            ),
+                            "response_bytes": base64.b64encode(response_body).decode("ascii"),
+                            "asgi_event_order": [event["type"] for event in response_events],
+                        }
+                    )
+                    continue
             response_context = response.context
             observed["responses"].append(
                 {
                     "status_code": response.status_code,
                     "url": str(response.url),
                     "response_bytes": base64.b64encode(response.content).decode("ascii"),
+                    "warnings": [
+                        {
+                            "category": warning.category.__name__,
+                            "message": str(warning.message),
+                        }
+                        for warning in request_warnings
+                    ],
                     "template_name": response.template.name,
                     "context_keys": sorted(response_context),
                     "request_path": response_context["request"].url.path,
@@ -262,6 +340,8 @@ def _run_template_client(
             )
     finally:
         client.close()
+
+    observed["processor_await_count"] = len(observed["processor_await_trace"])
 
 
 def _make_scope(spec: dict[str, Any]) -> dict[str, Any]:

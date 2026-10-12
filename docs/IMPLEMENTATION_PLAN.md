@@ -1,9 +1,11 @@
 # Staged implementation plan
 
-The full Starlette replacement remains active and incomplete; full
-compatibility remains the target at every stage. A stage's completed scope is
-evidence for that scope only; scaffolding or one passing example cannot
-establish drop-in compatibility.
+The full Starlette replacement remains active and incomplete. The compatibility
+target is the pinned Starlette Python surface and ordinary ASGI contract; the
+pre-release `starlette-rs` API and implementation are greenfield and may be
+redesigned freely without a backward-compatibility guarantee. A stage's
+completed scope is evidence for that scope only; scaffolding or one passing
+example cannot establish drop-in compatibility.
 
 ## Execution order
 
@@ -26,35 +28,52 @@ missing evidence; a row alone does not prove that its runtime is unimplemented.
 Existing successful slices remain historical evidence and do not establish
 completion of the implementation phase.
 
-The implementation pass has added the known file range/subclass hooks,
+The last recorded full parity run used the earlier @45 contract, not the active
+@47 contract. That historical run `161a2d1f-cacb-4668-8c2e-03cf5c214003`
+passed 1,908 installed Python-package comparisons; Rust-native passed 246/250
+with four Python-callable cases retained as `not_run`; both fault contracts
+passed, with zero mismatches or infrastructure errors. It is working-tree
+evidence for that earlier indexed input set, not full Starlette parity. The
+implementation and source-mapping phases are now complete; the active @47
+input set remains unexecuted and is ready for the full parity phase.
+
+The implementation pass to date has added file range/subclass hooks,
 supplied-cookie representation handling, multipart/session import selection,
-endpoint source-order dispatch and shared ASGI continuation ownership. Existing
-implementations cover the other feature families. The active phase is now the
-full parity run and grouped repairs. Missing source mappings and interpreter,
-optional-environment and artifact qualification remain completion requirements;
-this transition does not establish full replacement parity.
+endpoint source-order dispatch, shared ASGI continuation ownership, optional
+dependency boundary cases, and documentation-derived routing, WebSocket, and
+TestClient inputs. The latest generated atlas has 814 source rows: 759 input
+mappings, 55 source-backed `not_applicable` rows, and zero fixture-backlog
+rows. Interpreter, optional-environment, and artifact qualification remain
+open.
 
 ### Execution ledger
 
 | Phase | State | Completion evidence required |
 | --- | --- | --- |
-| Implementation | Known runtime gaps implemented; strict static checks pass. | Rust owns semantic control flow; forwarding policy and compiler checks pass. |
-| Full parity and grouped repairs | Running. | Every active input runs against the pinned source and installed target; fault contracts and unsupported native results remain visible. |
-| Full coverage and source reconciliation | Pending parity. | Matching source/build measurement receipts, Coverage MCP gap review, and source-backed disposition of all atlas rows. |
+| Implementation | Complete across the mapped feature families; contract and source inventory pass with zero backlog. | None; the active @47 inputs are ready for full parity. |
+| Full parity and grouped repairs | Ready to run; active @47 contract is unexecuted. The last full @45 run is historical evidence only. | Pass the complete active source/package and Rust-native matrix without mismatches or infrastructure errors, preserving unsupported cases. |
+| Full coverage and source reconciliation | Pending full parity and coverage measurement. All atlas rows currently have input mappings or source-backed `not_applicable` reasons. | Matching full-suite source/build measurement receipts and Coverage MCP gap review. |
 | All benchmarks | Pending coverage. | All 74 correctness-gated workloads run together with fresh source/package identity. |
 | Packaging and interpreter qualification | Pending. | Clean wheel/sdist/crate contents, provenance and supported Python 3.10–3.14 consumers. No publication. |
 
-The active contract contains 1,912 inputs in 114 indexed files: 1,910 ordinary
-oracle cases and two target-only fault contracts. Its 168 new inputs include
-response variants, template callbacks, file hooks, Morsel values, optional
-imports, WebSocket ownership and HTTP method-read protocols. They are authored
-without expected outputs and await the integrated run.
+The active @47 contract declares 1,992 input cases across 140 parity input
+files, plus two benchmark input files, with 133 operations and 1,026 parity
+requirements. The cases are authored without expected outputs. Contract
+validation reports zero parity passes for this revision; the @45 full-run
+results above are historical. The earlier run's adapter crashes were fixed by
+operation-based dispatch and shape handling; its template lookup-order mismatch
+and missing observation selectors were fixed against the pinned source. Full
+implementation and source mapping are complete. Full parity, coverage,
+benchmark, and packaging qualification remain open.
 
 Workspace builds, strict Clippy, formatting, Ruff, project policy, contract and
-inventory validation and rustdoc pass. These are static checks. Previous parity,
-coverage and benchmark records below remain historical evidence for their own
-revisions. Fixed denominators are 514 upstream test functions and 24 documented
-pages; the generated atlas currently retains 63 backlog rows.
+inventory validation and rustdoc pass. These are static checks, not behavioral
+results. Previous parity, coverage, and benchmark records below remain
+historical evidence for their own revisions. Fixed denominators are 514 upstream
+test functions and 24 documented pages; read the changing source-mapping and
+backlog totals from the generated
+[`coverage matrix`](atlas/coverage-matrix.csv) and
+[`fixture backlog`](atlas/fixture-backlog.csv).
 
 Boundary details: [response protocols](RESPONSE_RENDER_BOUNDARY.md),
 [template callbacks](TEMPLATE_PROTOCOL_BOUNDARY.md),
@@ -69,6 +88,15 @@ state, and error policy. Python `starlette.*` modules forward inputs and
 callbacks, convert values at the PyO3 boundary, and await Python callables on
 their owning event loop. The runtime-wrapper policy check rejects Python
 control flow in these facades.
+
+An additive native HTTP service exposes Rust `http::Request`/`Response`,
+streaming `http_body::Body`, and Tower `Service`/`Layer` contracts without
+invoking Python. Its executable example demonstrates body-aware route dispatch,
+Tower middleware composition, and streamed request and response bodies. This
+is an initial server-neutral service surface; transport backpressure, explicit
+cancellation context, Starlette's complete middleware catalog, WebSockets,
+lifespan, and native FastAPI composition remain open. See
+[`native-service.md`](native-service.md) for the API and boundaries.
 
 ## 0. Establish the contract (current)
 
@@ -88,14 +116,17 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The active parity contract uses `parity-input@45` and contains 1912 input-only
-cases in 114 indexed files (1910 oracle parity cases and two target-only fault
-contracts), covering 130 operations and 1000 parity requirements. The newest
-168 cases are authored response, template, dependency and WebSocket consumers; their
-execution is deferred until the full parity phase. Earlier 156 cases cover
+The active parity contract uses `parity-input@47`; it contains 1,992 input
+cases across 140 indexed parity files, with two benchmark files, 133 operations,
+and 1,026 parity requirements. The latest recorded full run used @45 and
+contained 1,912 cases across 114 indexed files (1,910 oracle cases and two
+target-only fault contracts). The new @47 inputs are unexecuted. Earlier 156
+cases cover
 cookie returned-value ownership, translation state, key hash callbacks and
-surrogate encoding. The current generated atlas has 809 source
-rows: 694 input mappings, 52 reasoned not_applicable rows and 63 backlog rows.
+surrogate encoding. The current source-row, mapping, `not_applicable`, and backlog totals are
+generated in [`coverage-matrix.csv`](atlas/coverage-matrix.csv) and
+[`fixture-backlog.csv`](atlas/fixture-backlog.csv); regenerate those files
+after changing fixture dispositions.
 The preceding @44 working-tree matrix and instrumented coverage run passed with four
 unsupported native cases retained. Clean commit `553a06a` also passed the full
 parity gate and all 74 source/package benchmarks; native benchmark interfaces
@@ -172,11 +203,12 @@ That integrated run includes the focused `parity-input@23` through `@27` additio
 The two BaseHTTPMiddleware ContextVar observer comparisons pass exactly against
 the pinned source and installed package in the integrated run.
 
-The generated coverage matrix contains 806 source rows: 667 input mappings,
-52 source-backed `not_applicable` rows, and 87 fixture-backlog rows. These
-changing counts come from the generated atlas CSV files. The denominator
-remains 514 upstream test functions and 24 documentation pages; the full
-replacement objective is active and incomplete.
+The latest generated coverage matrix contains 814 source rows: 759 input
+mappings, 55 source-backed `not_applicable` rows, and zero fixture-backlog rows.
+Refresh these counts from the generated atlas CSV files after changing fixture
+dispositions.
+The fixed denominators remain 514 upstream test functions and 24 documentation
+pages; the full replacement objective is active and incomplete.
 
 Additional bounded comparisons include six WSGIMiddleware cases, two direct
 `build_environ` cases, and the module-import deprecation warning case. The

@@ -1,0 +1,27 @@
+{
+  "schema": "migration-parity/parity-input@47",
+  "cases": [
+    {
+      "case_id": "starlette.applications.Starlette.typing-consumer.public-facade-aliases",
+      "surface": "starlette.applications.Starlette",
+      "operation": "typing-consumer",
+      "covers": [
+        "starlette.applications.Starlette.python-typing-contract"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "typing_consumer": {
+        "source": "from collections.abc import AsyncIterator, Mapping\nfrom contextlib import asynccontextmanager\nfrom typing import TypedDict\n\nfrom starlette.applications import Starlette\nfrom starlette.requests import Request\nfrom starlette.responses import Response\nfrom starlette.testclient import TestClient, WebSocketTestSession\nfrom starlette.types import ASGIApp, Receive, Scope, Send\nfrom starlette.websockets import WebSocket\n\n\nclass State(TypedDict):\n    user_id: int\n\n\nclass TypedApp(Starlette):\n    pass\n\n\nclass TypedTestClient(TestClient):\n    pass\n\n\nclass TypedWebSocketTestSession(WebSocketTestSession):\n    pass\n\n\nasync def child(scope: Scope, receive: Receive, send: Send) -> None:\n    await send({\"type\": \"http.response.start\", \"status\": 204, \"headers\": []})\n    await send({\"type\": \"http.response.body\", \"body\": b\"\"})\n\n\ndef http_handler(request: Request, exc: Exception) -> Response:\n    return Response(str(request.state[\"user_id\"]))\n\n\ndef testclient_context(client: TypedTestClient) -> TypedTestClient:\n    with client as entered:\n        reveal_type(entered)\n        return entered\n\n\ndef websocket_session_context(session: TypedWebSocketTestSession) -> TypedWebSocketTestSession:\n    with session as entered:\n        reveal_type(entered)\n        return entered\n\n\ndef request_state(request: Request[State]) -> int:\n    return request.state[\"user_id\"]\n\n\ndef websocket_state(websocket: WebSocket[State]) -> int:\n    return websocket.state[\"user_id\"]\n\n\n@asynccontextmanager\nasync def typed_lifespan(app: TypedApp) -> AsyncIterator[Mapping[str, object]]:\n    yield {\"user_id\": 1}\n\n\ndef mutate_scope(scope: Scope, app: ASGIApp) -> None:\n    scope[\"app\"] = app\n    scope[\"state\"] = {\"user_id\": 1}\n\n\napp = TypedApp(\n    exception_handlers={Exception: http_handler},\n    lifespan=typed_lifespan,\n)\napp.mount(\"/child\", child)\napp.add_exception_handler(Exception, http_handler)\n\nscope: Scope = {}\nmutate_scope(scope, app)\nreveal_type(Scope)\nreveal_type(app.build_middleware_stack())\nreveal_type(request_state)\nreveal_type(websocket_state)\nreveal_type(typed_lifespan)\n"
+      },
+      "observations": [
+        "typing_consumer"
+      ]
+    }
+  ]
+}

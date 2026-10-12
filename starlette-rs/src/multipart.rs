@@ -380,15 +380,15 @@ impl MultipartFormParser {
             data: Vec::new(),
             size: 0,
         });
-        if let Some(part) = self.active_part.as_ref()
-            && let Some(filename) = part.filename.as_ref()
-        {
-            self.events.push_back(MultipartFormEvent::FileStarted {
-                part_index,
-                name: part.name.clone(),
-                filename: filename.clone(),
-                headers: part.headers.clone(),
-            });
+        if let Some(part) = self.active_part.as_ref() {
+            if let Some(filename) = part.filename.as_ref() {
+                self.events.push_back(MultipartFormEvent::FileStarted {
+                    part_index,
+                    name: part.name.clone(),
+                    filename: filename.clone(),
+                    headers: part.headers.clone(),
+                });
+            }
         }
         self.active_field = Some(field);
         Ok(())

@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@45",
+  "schema": "migration-parity/parity-input@47",
   "cases": [
     {
       "case_id": "starlette.datastructures.UploadFile.file-operations.spooled-file-rollover",
@@ -11,7 +11,11 @@
         "starlette.datastructures.UploadFile.constructor-and-representation"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "observations": [

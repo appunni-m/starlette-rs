@@ -592,8 +592,12 @@ def _strict_json(raw: bytes) -> Any:
 
 
 def _load_installed_package() -> tuple[Any, Any, importlib.metadata.Distribution]:
-    if sys.implementation.name != "cpython" or sys.version_info[:2] != (3, 12):
-        raise RuntimeError("the Python-package target must run in CPython 3.12")
+    if (
+        sys.implementation.name != "cpython"
+        or sys.version_info.major != 3
+        or sys.version_info.minor not in {10, 11, 12, 13, 14}
+    ):
+        raise RuntimeError("the Python-package target must run in CPython 3.10 through 3.14")
     distribution = importlib.metadata.distribution(PACKAGE_NAME)
     version = distribution.version
     if not version:
@@ -678,7 +682,7 @@ def _identity(distribution: importlib.metadata.Distribution) -> dict[str, Any]:
         "runtime": f"{platform.python_implementation()} {platform.python_version()}",
         "os": platform.platform(),
         "architecture": platform.machine(),
-        "backend": "CPython 3.12",
+        "backend": f"CPython {sys.version_info.major}.{sys.version_info.minor}",
         "features": (
             ["fault-contract"]
             if hasattr(_core.RouterRuntime, "_fault_contract_poison_route_cache")
@@ -1118,8 +1122,8 @@ def _materialize_exception_handlers(
         if key_spec["kind"] == "status-code":
             _exact_object(key_spec, {"kind", "status_code"}, f"{context}.key")
             key = key_spec["status_code"]
-            if type(key) is not int:
-                raise ValueError(f"{context}.key.status_code must be an integer")
+            if type(key) is not int and type(key) is not bool:
+                raise ValueError(f"{context}.key.status_code must be an integer or boolean key")
         elif key_spec["kind"] == "exception-class":
             if key_spec.get("name") == "HTTPException":
                 _exact_object(key_spec, {"kind", "name"}, f"{context}.key")
@@ -1396,12 +1400,19 @@ def _has_mounted_app_exception_route(routes: Any) -> bool:
 
 def _materialize_application(
     app_spec: dict[str, Any],
+    application_subclass: dict[str, Any] | None = None,
 ) -> tuple[Any, list[str], list[dict[str, Any]], Any, list[dict[str, Any]]]:
     from starlette.applications import Starlette
     from starlette.background import BackgroundTask
     from starlette.exceptions import HTTPException, WebSocketException
     from starlette.responses import JSONResponse, PlainTextResponse, RedirectResponse, Response
-    from starlette.routing import Mount, Route, WebSocketRoute
+    from starlette.routing import Mount, Route, Router, WebSocketRoute
+
+    application_type = Starlette
+    if application_subclass is not None:
+        from scripts.parity.adapters.application_subclass import materialize_starlette_subclass
+
+        application_type = materialize_starlette_subclass(Starlette, application_subclass)
 
     required_arguments = {
         "debug",
@@ -1557,6 +1568,11 @@ def _materialize_application(
                 return Starlette(
                     routes=[make_middleware_route(child) for child in route_spec["routes"]]
                 )
+            if kind == "router":
+                return Router(
+                    routes=[make_middleware_route(child) for child in route_spec["routes"]],
+                    middleware=_build_reverse_route_middleware(route_spec.get("middleware", [])),
+                )
             if kind == "http-route":
                 endpoint_spec = route_spec["endpoint"]
                 if endpoint_spec["kind"] == "plain-response":
@@ -1600,7 +1616,7 @@ def _materialize_application(
                     middleware=middleware,
                 )
             if kind != "mount":
-                raise ValueError("route-middleware node must be an HTTP route or Mount")
+                raise ValueError("route-middleware node must be an HTTP route, Router, or Mount")
             middleware = _build_reverse_route_middleware(route_spec.get("middleware", []))
             if "app" in route_spec:
                 return Mount(
@@ -1615,7 +1631,7 @@ def _materialize_application(
             )
 
         route_objects = [make_middleware_route(route) for route in app_spec["routes"]]
-        app = Starlette(
+        app = application_type(
             debug=app_spec["debug"],
             routes=route_objects,
             middleware=_materialize_application_middleware(app_spec["middleware"]),
@@ -1768,6 +1784,20 @@ def _materialize_application(
                 return endpoint
 
             route_endpoint = make_endpoint(response_spec)
+        elif response_spec["kind"] == "json-response":
+            _exact_object(
+                response_spec,
+                {"kind", "content", "status_code"},
+                "JSONResponse endpoint",
+            )
+
+            def make_json_endpoint(spec: dict[str, Any]) -> Any:
+                async def endpoint(_request: Any) -> Any:
+                    return JSONResponse(spec["content"], status_code=spec["status_code"])
+
+                return endpoint
+
+            route_endpoint = make_json_endpoint(response_spec)
         elif response_spec["kind"] == "response-background-task-error":
             _exact_object(
                 response_spec,
@@ -2512,7 +2542,7 @@ def _materialize_application(
 
     with warnings.catch_warnings(record=True) as recorded_warnings:
         warnings.simplefilter("always")
-        app = Starlette(
+        app = application_type(
             debug=app_spec["debug"],
             routes=routes,
             middleware=_materialize_application_middleware(app_spec["middleware"]),
@@ -3187,17 +3217,24 @@ def _run_gzip_case(case: dict[str, Any]) -> dict[str, Any]:
     steps = case["steps"]
     responder = case["surface"] == "starlette.middleware.gzip.GZipResponder"
     instance_step = "responder" if responder else "middleware"
+    dispatch_steps = steps[1:]
+    dispatch_step_ids = [step.get("step_id") for step in dispatch_steps]
     if (
-        len(steps) != 2
-        or [step.get("step_id") for step in steps] != [instance_step, "dispatch"]
-        or [step.get("operation") for step in steps] != ["__init__", "__call__"]
+        len(steps) < 2
+        or steps[0].get("step_id") != instance_step
+        or steps[0].get("operation") != "__init__"
+        or any(step.get("operation") != "__call__" for step in dispatch_steps)
         or any(step.get("surface") != case["surface"] for step in steps)
         or steps[0].get("receiver") is not None
-        or steps[1].get("receiver") != {"kind": "binding", "step_id": instance_step}
+        or any(
+            step.get("receiver") != {"kind": "binding", "step_id": instance_step}
+            for step in dispatch_steps
+        )
+        or (responder and dispatch_step_ids != ["dispatch"])
     ):
         raise ValueError("GZip cases must construct then dispatch the declared ASGI callable")
-    if case["execution_schedule"] != ["dispatch"] or case["observations"] != ["dispatch"]:
-        raise ValueError("GZipMiddleware cases must observe one dispatch step")
+    if case["execution_schedule"] != dispatch_step_ids or case["observations"] != dispatch_step_ids:
+        raise ValueError("GZip cases must observe each dispatch step in schedule order")
 
     constructor_arguments = _literal_arguments(
         steps[0],
@@ -3207,14 +3244,27 @@ def _run_gzip_case(case: dict[str, Any]) -> dict[str, Any]:
     )
     if responder and "minimum_size" not in constructor_arguments:
         raise ValueError("GZipResponder constructor requires minimum_size")
-    dispatch_arguments = _literal_arguments(steps[1], {"scope", "receive", "send"}, "GZip dispatch")
     middleware = _materialize_gzip_middleware(constructor_arguments, responder=responder)
-    value = asyncio.run(_invoke(middleware, dispatch_arguments, [], [], None, False))
-    selected = {key: value[key] for key in ("asgi_events", "response_bytes")}
+
+    async def invoke_dispatches() -> list[dict[str, Any]]:
+        observations = []
+        for dispatch_step in dispatch_steps:
+            dispatch_arguments = _literal_arguments(
+                dispatch_step,
+                {"scope", "receive", "send"},
+                "GZip dispatch",
+            )
+            value = await _invoke(middleware, dispatch_arguments, [], [], None, False)
+            selected = {key: value[key] for key in ("asgi_events", "response_bytes")}
+            observations.append(
+                {"step_id": dispatch_step["step_id"], "status": "ok", "value": selected}
+            )
+        return observations
+
     return {
         "case_id": case["case_id"],
         "status": "completed",
-        "observations": [{"step_id": "dispatch", "status": "ok", "value": selected}],
+        "observations": asyncio.run(invoke_dispatches()),
     }
 
 
@@ -3984,7 +4034,10 @@ def _run_http_endpoint_case(case: dict[str, Any]) -> dict[str, Any]:
     from starlette.responses import PlainTextResponse
 
     endpoint_spec = case["endpoint"]
-    _exact_object(endpoint_spec, {"kind", "handlers"}, "HTTP class endpoint input")
+    endpoint_keys = {"kind", "handlers"}
+    if "method_reads" in endpoint_spec:
+        endpoint_keys.add("method_reads")
+    _exact_object(endpoint_spec, endpoint_keys, "HTTP class endpoint input")
     if endpoint_spec["kind"] != "http-class-based-endpoint" or len(endpoint_spec["handlers"]) != 1:
         raise ValueError("HTTPEndpoint input must define one HTTP class handler")
     handler_spec = endpoint_spec["handlers"][0]
@@ -4007,6 +4060,19 @@ def _run_http_endpoint_case(case: dict[str, Any]) -> dict[str, Any]:
 
     endpoint_type = type("InputHTTPEndpoint", (HTTPEndpoint,), {"get": get})
     scope = _make_scope(case["scope"])
+    method_trace: list[str] = []
+    if "method_reads" in endpoint_spec:
+        method_values = endpoint_spec["method_reads"]
+
+        class InputScope(dict):
+            def __getitem__(self, key: Any) -> Any:
+                if key == "method":
+                    value = method_values[min(len(method_trace), len(method_values) - 1)]
+                    method_trace.append(value)
+                    return value
+                return super().__getitem__(key)
+
+        scope = InputScope(scope)
     incoming = [_make_message(item) for item in case["incoming"]]
     incoming_index = 0
     sent: list[dict[str, Any]] = []
@@ -4048,6 +4114,8 @@ def _run_http_endpoint_case(case: dict[str, Any]) -> dict[str, Any]:
         "asgi_event_order": [event["type"] for event in events],
         "asgi_events": events,
     }
+    if "method_reads" in endpoint_spec:
+        observation["method_reads"] = method_trace
     return {
         "case_id": case["case_id"],
         "status": "completed",
@@ -4071,7 +4139,8 @@ def _run_websocket_convenience_case(case: dict[str, Any]) -> dict[str, Any]:
             "incoming",
             "actions",
             "observations",
-        },
+        }
+        | ({"constructor_thread", "iterator_thread"} & case.keys()),
         "WebSocket convenience-sequence case",
     )
     if case["surface"] != WEBSOCKET_SURFACE or case["operation"] != WEBSOCKET_CONVENIENCE_OPERATION:
@@ -4081,13 +4150,14 @@ def _run_websocket_convenience_case(case: dict[str, Any]) -> dict[str, Any]:
     import builtins
 
     from starlette.responses import FileResponse, Response, StreamingResponse
-    from starlette.websockets import WebSocket
+    from starlette.websockets import WebSocket, WebSocketDisconnect
 
     incoming = [_materialize_websocket_message(message) for message in case["incoming"]]
     incoming_index = 0
     callback_tape: list[dict[str, Any]] = []
     pending_send_error: dict[str, Any] | None = None
     file_response_directory: tempfile.TemporaryDirectory[str] | None = None
+    iterator_control_cache: dict[str, Any] = {}
 
     async def receive() -> dict[str, Any]:
         nonlocal incoming_index
@@ -4107,7 +4177,24 @@ def _run_websocket_convenience_case(case: dict[str, Any]) -> dict[str, Any]:
         if pending_send_error is not None:
             raise OSError(pending_send_error["message"])
 
-    websocket = WebSocket(_make_websocket_scope(case["scope"]), receive, send)
+    def construct() -> Any:
+        return WebSocket(_make_websocket_scope(case["scope"]), receive, send)
+
+    if case.get("constructor_thread", "caller") == "worker":
+        from concurrent.futures import ThreadPoolExecutor
+
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            websocket = executor.submit(construct).result()
+    else:
+        websocket = construct()
+
+    def create_iterator(method: str) -> Any:
+        if case.get("iterator_thread", "caller") == "worker":
+            from concurrent.futures import ThreadPoolExecutor
+
+            with ThreadPoolExecutor(max_workers=1) as executor:
+                return executor.submit(getattr(websocket, method)).result()
+        return getattr(websocket, method)()
 
     async def run_actions() -> list[dict[str, Any]]:
         nonlocal file_response_directory, pending_send_error
@@ -4151,25 +4238,39 @@ def _run_websocket_convenience_case(case: dict[str, Any]) -> dict[str, Any]:
                         _decode_base64(arguments["data_base64"], "WebSocket send_bytes.data")
                     )
                 elif method == "iter_text" or method == "iter_bytes" or method == "iter_json":
-                    iterator = getattr(websocket, method)()
+                    iterator = create_iterator(method)
                     values = []
                     async for item in iterator:
                         values.append(item)
                     value = values
                 elif method == "iterator-probe":
-                    iterator = getattr(websocket, arguments["iterator"])()
+                    iterator = create_iterator(arguments["iterator"])
                     value = {
                         attribute: hasattr(iterator, attribute)
                         for attribute in arguments["attributes"]
                     }
                 elif method == "iterator-control":
-                    iterator = getattr(websocket, arguments["iterator"])()
+                    iterator_method = arguments["iterator"]
+                    iterator = iterator_control_cache.get(iterator_method)
+                    if iterator is None:
+                        iterator = create_iterator(iterator_method)
+                        iterator_control_cache[iterator_method] = iterator
                     control = arguments["control"]
                     if control == "asend":
                         value = await iterator.asend(arguments["value"])
                     elif control == "athrow":
-                        exception_class = getattr(builtins, arguments["exception"]["class"])
-                        exception = exception_class(arguments["exception"]["message"])
+                        exception_class_name = arguments["exception"]["class"]
+                        exception_class = (
+                            WebSocketDisconnect
+                            if exception_class_name == "WebSocketDisconnect"
+                            else getattr(builtins, exception_class_name)
+                        )
+                        exception_message = arguments["exception"]["message"]
+                        exception = (
+                            WebSocketDisconnect(reason=exception_message)
+                            if exception_class_name == "WebSocketDisconnect"
+                            else exception_class(exception_message)
+                        )
                         value = await iterator.athrow(exception)
                     else:
                         value = await iterator.aclose()
@@ -8519,24 +8620,40 @@ def _run_value_formatting_case(case: dict[str, Any]) -> dict[str, Any]:
             ],
         }
 
-    _exact_object(
-        case,
-        {
-            "case_id",
-            "surface",
-            "operation",
-            "covers",
-            "target_profiles",
-            "assets",
-            "middleware",
-            "observations",
-        },
-        "Middleware value-formatting case",
-    )
+    middleware_case_keys = {
+        "case_id",
+        "surface",
+        "operation",
+        "covers",
+        "target_profiles",
+        "assets",
+        "middleware",
+        "observations",
+    }
+    if "asgi_workflow" in case:
+        middleware_case_keys.add("asgi_workflow")
+    _exact_object(case, middleware_case_keys, "Middleware value-formatting case")
     from starlette.middleware import Middleware
 
     spec = _exact_object(case["middleware"], {"class_name", "args", "kwargs"}, "Middleware input")
-    middleware_class = type(spec["class_name"], (), {"__module__": "starlette.middleware"})
+    if "asgi_workflow" in case:
+        from starlette.datastructures import URL
+        from starlette.responses import RedirectResponse
+
+        from scripts.parity.adapters.middleware_docs import (
+            make_input_pure_asgi_middleware,
+            make_redirects_middleware,
+        )
+
+        middleware_traces: list[dict[str, Any]] = []
+        if case["asgi_workflow"]["kind"] == "pure-asgi":
+            middleware_class = make_input_pure_asgi_middleware(
+                spec["class_name"], middleware_traces, _canonical_message
+            )
+        else:
+            middleware_class = make_redirects_middleware(URL, RedirectResponse, spec["class_name"])
+    else:
+        middleware_class = type(spec["class_name"], (), {"__module__": "starlette.middleware"})
     middleware = Middleware(middleware_class, *spec["args"], **spec["kwargs"])
     iter_values = list(middleware)
     iter_observation = [
@@ -8545,6 +8662,30 @@ def _run_value_formatting_case(case: dict[str, Any]) -> dict[str, Any]:
         _json_safe(iter_values[2]),
     ]
     values = {"repr": repr(middleware), "__iter__": iter_observation}
+    if "asgi_workflow" in case:
+        from scripts.parity.adapters.middleware_docs import (
+            run_eager_response_workflow,
+            run_pure_asgi_workflow,
+        )
+
+        if case["asgi_workflow"]["kind"] == "pure-asgi":
+            values["asgi_workflow"] = run_pure_asgi_workflow(
+                case["asgi_workflow"],
+                middleware,
+                iter_values,
+                middleware_traces,
+                _make_scope,
+                _make_message,
+                _canonical_message,
+            )
+        else:
+            values["asgi_workflow"] = run_eager_response_workflow(
+                case["asgi_workflow"],
+                iter_values,
+                _make_scope,
+                _make_message,
+                _canonical_message,
+            )
     return {
         "case_id": case["case_id"],
         "status": "completed",
@@ -10021,6 +10162,7 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
     saw_header_mutation = False
     saw_disconnect_check = False
     saw_response_body_read = False
+    saw_response_header_observation = False
     for index, raw_action in enumerate(dispatch_actions):
         context = f"BaseHTTPMiddleware dispatch_actions[{index}]"
         if not isinstance(raw_action, dict) or not isinstance(raw_action.get("kind"), str):
@@ -10028,6 +10170,10 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
         kind = raw_action["kind"]
         if kind == "read-request-body":
             _exact_object(raw_action, {"kind"}, context)
+        elif kind == "observe-request-helpers":
+            _exact_object(raw_action, {"kind"}, context)
+            if returned is not None:
+                raise ValueError("request helper observations must precede the dispatch return")
         elif kind == "set-request-state":
             action = _exact_object(raw_action, {"kind", "name", "value"}, context)
             if awaited or returned is not None:
@@ -10087,6 +10233,17 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
             awaited = True
             await_index = index
             await_action_kind = kind
+        elif kind == "observe-call-next-response-headers":
+            action = _exact_object(raw_action, {"kind", "name"}, context)
+            if not awaited or returned is not None or saw_response_header_observation:
+                raise ValueError("call_next response headers may be observed once after call_next")
+            if (
+                not isinstance(action["name"], str)
+                or not action["name"]
+                or any(char in action["name"] for char in "\r\n:")
+            ):
+                raise ValueError("call_next response header lookup name is invalid")
+            saw_response_header_observation = True
         elif kind == "set-call-next-response-header":
             action = _exact_object(raw_action, {"kind", "name", "value"}, context)
             if not awaited or returned is not None or saw_header_mutation:
@@ -10236,18 +10393,35 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                         {"type", "body_base64", "more_body"},
                         "downstream ASGI response.body input",
                     )
-                    if not response_started or message["more_body"] is not True:
+                    terminal_body_allowed = (
+                        saw_response_header_observation and returned == "call-next"
+                    )
+                    if (
+                        not response_started
+                        or type(message["more_body"]) is not bool
+                        or (
+                            message["more_body"] is not True
+                            and not (terminal_body_allowed and step_index == len(steps) - 2)
+                        )
+                    ):
                         raise ValueError(
-                            "downstream ASGI response.body must follow response.start and remain non-terminal"
+                            "downstream ASGI response.body must follow response.start and remain non-terminal except for a completed call_next header observation"
                         )
                     if not _decode_base64(message["body_base64"], "downstream ASGI response body"):
                         raise ValueError("downstream ASGI response body must be non-empty")
                     body_send_count += 1
                 else:
                     raise ValueError("downstream ASGI send message type is unsupported")
-            if not response_started or body_send_count < 2:
+            terminal_body_case = (
+                saw_response_header_observation
+                and returned == "call-next"
+                and body_send_count == 1
+                and steps[-2]["message"].get("type") == "http.response.body"
+                and steps[-2]["message"].get("more_body") is False
+            )
+            if not response_started or (body_send_count < 2 and not terminal_body_case):
                 raise ValueError(
-                    "downstream ASGI receive race requires response.start and at least two body sends"
+                    "downstream ASGI receive input requires response.start and at least two body sends, except for a completed call_next header observation"
                 )
         elif raw_downstream["kind"] == "stream-until-disconnect-app":
             downstream_spec = _exact_object(
@@ -10928,17 +11102,23 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                 f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.dispatch-stream-read-after-downstream-stream-consumption"
             )
     if downstream_spec is not None and downstream_spec["kind"] == "asgi-sequence":
-        if (
-            request["receive_after_events"] != "block"
-            or returned != "replacement"
-            or send_checkpoints != [0, 1]
+        if returned == "replacement":
+            if request["receive_after_events"] != "block" or send_checkpoints != [0, 1]:
+                raise ValueError(
+                    "downstream receive race requires a blocking receive, replacement response, and checkpoints after both outer sends"
+                )
+            required_covers.add(
+                f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.response-completion-unblocks-downstream-receive"
+            )
+        elif not (
+            returned == "call-next"
+            and saw_response_header_observation
+            and request["receive_after_events"] == "block"
+            and not send_checkpoints
         ):
             raise ValueError(
-                "downstream receive race requires a blocking receive, replacement response, and checkpoints after both outer sends"
+                "downstream ASGI pass-through requires a completed call_next header observation and blocking receive"
             )
-        required_covers.add(
-            f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.response-completion-unblocks-downstream-receive"
-        )
     elif downstream_spec is not None and downstream_spec["kind"] == "stream-until-disconnect-app":
         request_body_events = [
             event for event in request_event_specs if event["type"] == "http.request"
@@ -11140,7 +11320,10 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
             f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.{background_requirement}"
         )
     if context_manager_cleanup_spec is not None:
-        if background_task_spec is None or background_task_spec["kind"] != "async-delay":
+        if background_task_spec is None or background_task_spec["kind"] not in {
+            "async-delay",
+            "async-delay-and-raise",
+        }:
             raise ValueError(
                 "context-manager cleanup input requires the pinned delayed async background task"
             )
@@ -11153,6 +11336,7 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
     import anyio
     from starlette.applications import Starlette
     from starlette.background import BackgroundTask
+    from starlette.datastructures import URL, Headers, QueryParams
     from starlette.middleware import Middleware
     from starlette.middleware.base import BaseHTTPMiddleware
     from starlette.requests import Request
@@ -11161,8 +11345,10 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
 
     execution_trace: list[dict[str, Any]] = []
     dispatch_body_reads: list[dict[str, Any]] = []
+    dispatch_request_helper_observations: list[dict[str, Any]] = []
     dispatch_stream_reads: list[dict[str, Any]] = []
     dispatch_response_stream_reads: list[dict[str, Any]] = []
+    dispatch_response_header_observations: list[dict[str, Any]] = []
     downstream_stream_reads: list[dict[str, Any]] = []
     downstream_body_reads: list[dict[str, Any]] = []
     downstream_receive_transformations: list[dict[str, Any]] = []
@@ -11201,6 +11387,26 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                         {
                             "action_index": action_index,
                             "body_base64": base64.b64encode(body).decode("ascii"),
+                        }
+                    )
+                elif kind == "observe-request-helpers":
+                    headers = Headers(scope=request.scope)
+                    query_params = QueryParams(request.scope["query_string"])
+                    url = URL(scope=request.scope)
+                    dispatch_request_helper_observations.append(
+                        {
+                            "action_index": action_index,
+                            "request": {
+                                "method": request.method,
+                                "url": str(request.url),
+                                "headers": request.headers.items(),
+                                "query_params": request.query_params.multi_items(),
+                            },
+                            "helpers": {
+                                "headers": headers.items(),
+                                "query_params": query_params.multi_items(),
+                                "url": str(url),
+                            },
                         }
                     )
                 elif kind == "set-request-state":
@@ -11271,6 +11477,18 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                     )
                 elif kind == "await-call-next":
                     response = await call_next(request)
+                elif kind == "observe-call-next-response-headers":
+                    name = action["name"]
+                    dispatch_response_header_observations.append(
+                        {
+                            "action_index": action_index,
+                            "lookup_name": name,
+                            "lookup_value": response.headers[name],
+                            "iterated_names": list(response.headers),
+                            "length": len(response.headers),
+                            "items": response.headers.items(),
+                        }
+                    )
                 elif kind == "await-call-next-catching-exception":
                     action = input_actions[action_index]
                     exception_type = getattr(builtins, action["exception_class"])
@@ -11324,6 +11542,8 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
             self.exit_delay_seconds = exit_delay_seconds
 
         async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
+            execution_trace.append({"event": "context-manager-enter"})
+
             async def cleanup() -> None:
                 execution_trace.append({"event": "context-manager-cleanup-start"})
                 await anyio.sleep(self.exit_delay_seconds)
@@ -11864,8 +12084,10 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
         "asgi_event_order": [event["type"] for event in events],
         "asgi_events": events,
         "dispatch_body_reads": dispatch_body_reads,
+        "dispatch_request_helper_observations": dispatch_request_helper_observations,
         "dispatch_stream_reads": dispatch_stream_reads,
         "dispatch_response_stream_reads": dispatch_response_stream_reads,
+        "dispatch_response_header_observations": dispatch_response_header_observations,
         "downstream_stream_reads": downstream_stream_reads,
         "downstream_body_reads": downstream_body_reads,
         "downstream_receive_transformations": downstream_receive_transformations,
@@ -12852,6 +13074,28 @@ def _run_starlette_add_route_case(case: dict[str, Any]) -> dict[str, Any]:
 
 
 def _run_case(case: dict[str, Any]) -> dict[str, Any]:
+    if (case.get("surface"), case.get("operation")) == ("starlette", "public-api-inspection"):
+        from scripts.parity.adapters.public_api_inspection import run_public_api_inspection_case
+
+        return run_public_api_inspection_case(case)
+    if (case.get("surface"), case.get("operation")) == (
+        "starlette.applications.Starlette",
+        "typing-consumer",
+    ):
+        from scripts.parity.adapters.application_typing import run_application_typing_case
+
+        return run_application_typing_case(case)
+    if (case.get("surface"), case.get("operation")) in {
+        ("starlette.testclient.TestClient", "module-import-policy"),
+        ("starlette.templating.Jinja2Templates", "module-import-policy"),
+        ("starlette.middleware.sessions.SessionMiddleware", "module-import-policy"),
+        ("starlette.requests.Request", "module-import-policy"),
+        ("starlette.schemas.OpenAPIResponse", "module-import-policy"),
+        ("starlette.schemas.BaseSchemaGenerator", "module-import-policy"),
+    }:
+        from scripts.parity.adapters.optional_imports import run_optional_import_case
+
+        return run_optional_import_case(case)
     if (case.get("surface"), case.get("operation")) == (
         "starlette.middleware.exceptions.ExceptionMiddleware",
         "__init__",
@@ -13084,7 +13328,15 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         return run_upload_file_case(case, UploadFile)
     if isinstance(case, dict) and (case.get("surface"), case.get("operation")) in {
         (f"starlette.responses.{name}", "consumer-construction")
-        for name in ("Response", "HTMLResponse", "PlainTextResponse", "JSONResponse")
+        for name in (
+            "Response",
+            "HTMLResponse",
+            "PlainTextResponse",
+            "JSONResponse",
+            "RedirectResponse",
+            "StreamingResponse",
+            "FileResponse",
+        )
     }:
         from scripts.parity.adapters.response_consumer import run_response_consumer_case
 
@@ -13371,6 +13623,14 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("target adapter requires the application-construction step first")
     step_ids = [step["step_id"] for step in steps]
     is_request_dispatch = case["operation"] == "request-dispatch"
+    if "application_subclass" in case and (
+        case["surface"] != "starlette.applications.Starlette"
+        or case["operation"] != "__call__"
+        or step_ids != ["application", "dispatch"]
+        or schedule != ["dispatch"]
+        or case["observations"] != ["dispatch"]
+    ):
+        raise ValueError("application_subclass is supported for one Starlette dispatch")
     route_specs = steps[0]["arguments"]["routes"]["value"]
     route_middleware_workflow = _routes_have_local_middleware(route_specs) or (
         _has_mounted_app_exception_route(route_specs)
@@ -13448,7 +13708,10 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         request_observations,
         route_endpoint,
         sync_endpoint_states,
-    ) = _materialize_application(app_arguments)
+    ) = _materialize_application(
+        app_arguments,
+        application_subclass=case.get("application_subclass"),
+    )
 
     async def run_steps() -> list[dict[str, Any]]:
         if schedule == ["lifespan.startup", "lifespan.shutdown"]:

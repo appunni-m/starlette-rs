@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@45",
+  "schema": "migration-parity/parity-input@47",
   "cases": [
     {
       "case_id": "starlette.concurrency.run_in_threadpool.arguments-result-worker-progress",
@@ -10,7 +10,13 @@
         "starlette.concurrency.run_in_threadpool.worker-thread",
         "starlette.concurrency.run_in_threadpool.event-loop-progress"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
       "assets": [],
       "observations": ["run_in_threadpool"],
       "call": {
@@ -41,7 +47,13 @@
         "starlette.concurrency.run_in_threadpool.worker-thread",
         "starlette.concurrency.run_in_threadpool.event-loop-progress"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
       "assets": [],
       "observations": ["run_in_threadpool"],
       "call": {
@@ -69,7 +81,13 @@
         "starlette.concurrency.run_in_threadpool.limiter-adjustment",
         "starlette.concurrency.run_in_threadpool.shared-anyio-capacity"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
       "assets": [],
       "observations": ["run_in_threadpool"],
       "call": {

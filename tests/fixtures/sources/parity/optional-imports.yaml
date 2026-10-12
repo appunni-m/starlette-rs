@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@45",
+  "schema": "migration-parity/parity-input@47",
   "cases": [
     {
       "case_id": "starlette.testclient.TestClient.module-import-policy.installed",
@@ -19,7 +19,24 @@
         "module": "starlette.testclient",
         "consumer_attribute": "TestClient",
         "failures": [],
-        "warning_filter": "always"
+        "warning_filter": "always",
+        "distributions": [
+          "httpx2",
+          "httpx"
+        ],
+        "actions": [
+          {
+            "action": "client-backend"
+          },
+          {
+            "action": "package-extra",
+            "extra": "full",
+            "distribution_candidates": [
+              "starlette",
+              "starlette-rs-py"
+            ]
+          }
+        ]
       }
     },
     {
@@ -46,7 +63,11 @@
             "message": "input loader error: httpx2"
           }
         ],
-        "warning_filter": "always"
+        "warning_filter": "always",
+        "distributions": [
+          "httpx2",
+          "httpx"
+        ]
       }
     },
     {
@@ -73,7 +94,11 @@
             "message": "input loader error: httpx2"
           }
         ],
-        "warning_filter": "always"
+        "warning_filter": "always",
+        "distributions": [
+          "httpx2",
+          "httpx"
+        ]
       }
     },
     {
@@ -100,7 +125,11 @@
             "message": "input loader error: httpx2"
           }
         ],
-        "warning_filter": "always"
+        "warning_filter": "always",
+        "distributions": [
+          "httpx2",
+          "httpx"
+        ]
       }
     },
     {
@@ -132,7 +161,11 @@
             "message": "input fallback error"
           }
         ],
-        "warning_filter": "always"
+        "warning_filter": "always",
+        "distributions": [
+          "httpx2",
+          "httpx"
+        ]
       }
     },
     {
@@ -164,7 +197,11 @@
             "message": "input fallback error"
           }
         ],
-        "warning_filter": "always"
+        "warning_filter": "always",
+        "distributions": [
+          "httpx2",
+          "httpx"
+        ]
       }
     },
     {
@@ -196,7 +233,11 @@
             "message": "input fallback error"
           }
         ],
-        "warning_filter": "always"
+        "warning_filter": "always",
+        "distributions": [
+          "httpx2",
+          "httpx"
+        ]
       }
     },
     {
@@ -223,7 +264,11 @@
             "message": "input primary missing"
           }
         ],
-        "warning_filter": "error"
+        "warning_filter": "error",
+        "distributions": [
+          "httpx2",
+          "httpx"
+        ]
       }
     },
     {
@@ -250,7 +295,11 @@
             "message": "input primary missing"
           }
         ],
-        "warning_filter": "ignore"
+        "warning_filter": "ignore",
+        "distributions": [
+          "httpx2",
+          "httpx"
+        ]
       }
     },
     {
@@ -271,7 +320,19 @@
         "module": "starlette.templating",
         "consumer_attribute": "Jinja2Templates",
         "failures": [],
-        "warning_filter": "always"
+        "warning_filter": "always",
+        "distributions": [
+          "Jinja2"
+        ],
+        "actions": [
+          {
+            "action": "decorator-selection",
+            "attributes": [
+              "pass_context",
+              "contextfunction"
+            ]
+          }
+        ]
       }
     },
     {
@@ -298,7 +359,10 @@
             "message": "input loader error: jinja2"
           }
         ],
-        "warning_filter": "always"
+        "warning_filter": "always",
+        "distributions": [
+          "Jinja2"
+        ]
       }
     },
     {
@@ -325,7 +389,10 @@
             "message": "input loader error: jinja2"
           }
         ],
-        "warning_filter": "always"
+        "warning_filter": "always",
+        "distributions": [
+          "Jinja2"
+        ]
       }
     },
     {
@@ -352,7 +419,10 @@
             "message": "input loader error: jinja2"
           }
         ],
-        "warning_filter": "always"
+        "warning_filter": "always",
+        "distributions": [
+          "Jinja2"
+        ]
       }
     },
     {
@@ -374,7 +444,10 @@
         "consumer_attribute": "SessionMiddleware",
         "failures": [],
         "warning_filter": "always",
-        "actions": []
+        "actions": [],
+        "distributions": [
+          "itsdangerous"
+        ]
       }
     },
     {
@@ -402,7 +475,10 @@
           }
         ],
         "warning_filter": "always",
-        "actions": []
+        "actions": [],
+        "distributions": [
+          "itsdangerous"
+        ]
       }
     },
     {
@@ -430,7 +506,41 @@
           }
         ],
         "warning_filter": "always",
-        "actions": []
+        "actions": [],
+        "distributions": [
+          "itsdangerous"
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.middleware.sessions.SessionMiddleware.module-import-policy.submodule-modulenotfounderror",
+      "surface": "starlette.middleware.sessions.SessionMiddleware",
+      "operation": "module-import-policy",
+      "covers": [
+        "starlette.middleware.sessions.SessionMiddleware.module-import-policy.dependency-errors-and-selection"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "import-policy"
+      ],
+      "imports": {
+        "module": "starlette.middleware.sessions",
+        "consumer_attribute": "SessionMiddleware",
+        "failures": [
+          {
+            "module": "itsdangerous.exc",
+            "exception": "ModuleNotFoundError",
+            "message": "input loader error: itsdangerous.exc"
+          }
+        ],
+        "warning_filter": "always",
+        "actions": [],
+        "distributions": [
+          "itsdangerous"
+        ]
       }
     },
     {
@@ -458,7 +568,10 @@
           }
         ],
         "warning_filter": "always",
-        "actions": []
+        "actions": [],
+        "distributions": [
+          "itsdangerous"
+        ]
       }
     },
     {
@@ -488,6 +601,9 @@
               "paths": {}
             }
           }
+        ],
+        "distributions": [
+          "PyYAML"
         ]
       }
     },
@@ -524,6 +640,9 @@
               "paths": {}
             }
           }
+        ],
+        "distributions": [
+          "PyYAML"
         ]
       }
     },
@@ -560,6 +679,9 @@
               "paths": {}
             }
           }
+        ],
+        "distributions": [
+          "PyYAML"
         ]
       }
     },
@@ -596,6 +718,9 @@
               "paths": {}
             }
           }
+        ],
+        "distributions": [
+          "PyYAML"
         ]
       }
     },
@@ -627,6 +752,9 @@
             "action": "parse-docstring",
             "docstring": "Summary\n---\nresponses:\n  200:\n    description: input response"
           }
+        ],
+        "distributions": [
+          "PyYAML"
         ]
       }
     },
@@ -664,6 +792,9 @@
             "action": "parse-docstring",
             "docstring": "Summary\n---\nresponses:\n  200:\n    description: input response"
           }
+        ],
+        "distributions": [
+          "PyYAML"
         ]
       }
     },
@@ -701,6 +832,9 @@
             "action": "parse-docstring",
             "docstring": "Summary\n---\nresponses:\n  200:\n    description: input response"
           }
+        ],
+        "distributions": [
+          "PyYAML"
         ]
       }
     },
@@ -738,6 +872,9 @@
             "action": "parse-docstring",
             "docstring": "Summary\n---\nresponses:\n  200:\n    description: input response"
           }
+        ],
+        "distributions": [
+          "PyYAML"
         ]
       }
     },
@@ -762,10 +899,22 @@
         "warning_filter": "always",
         "actions": [
           {
+            "action": "dependency-selection",
+            "attribute": "parse_options_header",
+            "candidate_modules": [
+              "python_multipart.multipart",
+              "multipart.multipart"
+            ]
+          },
+          {
             "action": "form",
             "content_type": "application/x-www-form-urlencoded",
             "body_base64": "YT1vbmUmYT10d28="
           }
+        ],
+        "distributions": [
+          "python-multipart",
+          "multipart"
         ]
       }
     },
@@ -796,10 +945,27 @@
         "warning_filter": "always",
         "actions": [
           {
+            "action": "dependency-selection",
+            "attribute": "parse_options_header",
+            "candidate_modules": [
+              "python_multipart.multipart",
+              "multipart.multipart"
+            ]
+          },
+          {
             "action": "form",
             "content_type": "application/x-www-form-urlencoded",
             "body_base64": "YT1vbmUmYT10d28="
+          },
+          {
+            "action": "form",
+            "content_type": "multipart/form-data; boundary=optionalBoundary",
+            "body_base64": "LS1vcHRpb25hbEJvdW5kYXJ5DQpDb250ZW50LURpc3Bvc2l0aW9uOiBmb3JtLWRhdGE7IG5hbWU9ImZpZWxkIg0KDQpsZWdhY3kgZmFsbGJhY2sNCi0tb3B0aW9uYWxCb3VuZGFyeS0tDQo="
           }
+        ],
+        "distributions": [
+          "python-multipart",
+          "multipart"
         ]
       }
     },
@@ -834,6 +1000,10 @@
             "content_type": "application/x-www-form-urlencoded",
             "body_base64": "YT1vbmUmYT10d28="
           }
+        ],
+        "distributions": [
+          "python-multipart",
+          "multipart"
         ]
       }
     },
@@ -868,6 +1038,10 @@
             "content_type": "application/x-www-form-urlencoded",
             "body_base64": "YT1vbmUmYT10d28="
           }
+        ],
+        "distributions": [
+          "python-multipart",
+          "multipart"
         ]
       }
     },
@@ -907,6 +1081,10 @@
             "content_type": "application/x-www-form-urlencoded",
             "body_base64": "YT1vbmUmYT10d28="
           }
+        ],
+        "distributions": [
+          "python-multipart",
+          "multipart"
         ]
       }
     },
@@ -946,6 +1124,345 @@
             "content_type": "application/x-www-form-urlencoded",
             "body_base64": "YT1vbmUmYT10d28="
           }
+        ],
+        "distributions": [
+          "python-multipart",
+          "multipart"
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.templating.Jinja2Templates.module-import-policy.legacy-contextfunction",
+      "surface": "starlette.templating.Jinja2Templates",
+      "operation": "module-import-policy",
+      "covers": [
+        "starlette.templating.Jinja2Templates.module-import-policy.dependency-errors-and-selection"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "import-policy"
+      ],
+      "imports": {
+        "module": "starlette.templating",
+        "consumer_attribute": "Jinja2Templates",
+        "failures": [],
+        "warning_filter": "always",
+        "distributions": [
+          "Jinja2"
+        ],
+        "actions": [
+          {
+            "action": "decorator-selection",
+            "attributes": [
+              "pass_context",
+              "contextfunction"
+            ]
+          }
+        ],
+        "module_overrides": [
+          {
+            "module": "jinja2",
+            "aliases": [
+              {
+                "source_attribute": "pass_context",
+                "target_attribute": "contextfunction"
+              }
+            ],
+            "missing_attributes": [
+              "pass_context"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.testclient.TestClient.module-import-policy.fallback-client-backend",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "module-import-policy",
+      "covers": [
+        "starlette.testclient.TestClient.module-import-policy.dependency-errors-and-selection"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "import-policy"
+      ],
+      "imports": {
+        "module": "starlette.testclient",
+        "consumer_attribute": "TestClient",
+        "failures": [
+          {
+            "module": "httpx2",
+            "exception": "ModuleNotFoundError",
+            "message": "input primary missing"
+          }
+        ],
+        "warning_filter": "always",
+        "distributions": [
+          "httpx2",
+          "httpx"
+        ],
+        "actions": [
+          {
+            "action": "client-backend"
+          },
+          {
+            "action": "client-request",
+            "method": "GET",
+            "path": "/dependency-fallback",
+            "status_code": 207,
+            "content_type": "text/plain; charset=utf-8",
+            "body_base64": "aHR0cHggZmFsbGJhY2s="
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.requests.Request.module-import-policy.fallback-legacy-module",
+      "surface": "starlette.requests.Request",
+      "operation": "module-import-policy",
+      "covers": [
+        "starlette.requests.Request.module-import-policy.dependency-errors-and-selection"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "import-policy"
+      ],
+      "imports": {
+        "module": "starlette.requests",
+        "consumer_attribute": "Request",
+        "failures": [
+          {
+            "module": "python_multipart",
+            "exception": "ModuleNotFoundError",
+            "message": "input primary missing"
+          }
+        ],
+        "warning_filter": "always",
+        "distributions": [
+          "python-multipart",
+          "multipart"
+        ],
+        "actions": [
+          {
+            "action": "dependency-selection",
+            "attribute": "parse_options_header",
+            "candidate_modules": [
+              "python_multipart.multipart",
+              "multipart.multipart"
+            ]
+          },
+          {
+            "action": "form",
+            "content_type": "multipart/form-data; boundary=optionalBoundary",
+            "body_base64": "LS1vcHRpb25hbEJvdW5kYXJ5DQpDb250ZW50LURpc3Bvc2l0aW9uOiBmb3JtLWRhdGE7IG5hbWU9ImZpZWxkIg0KDQpsZWdhY3kgZmFsbGJhY2sNCi0tb3B0aW9uYWxCb3VuZGFyeS0tDQo="
+          }
+        ],
+        "module_aliases": [
+          {
+            "module": "multipart",
+            "source": "python_multipart"
+          },
+          {
+            "module": "multipart.multipart",
+            "source": "python_multipart.multipart"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.schemas.SchemaGenerator.module-import-policy.installed-no-endpoint-yaml",
+      "surface": "starlette.schemas.SchemaGenerator",
+      "operation": "module-import-policy",
+      "covers": [
+        "starlette.schemas.SchemaGenerator.module-import-policy.dependency-errors-and-selection"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "import-policy"
+      ],
+      "imports": {
+        "module": "starlette.schemas",
+        "consumer_attribute": "SchemaGenerator",
+        "failures": [],
+        "warning_filter": "always",
+        "actions": [
+          {
+            "action": "generate-schema",
+            "base_schema": {
+              "openapi": "3.0.0",
+              "paths": {
+                "/base": {
+                  "get": {
+                    "summary": "input base operation"
+                  }
+                }
+              }
+            },
+            "path": "/from-input",
+            "methods": [
+              "GET"
+            ],
+            "endpoint_docstring": null
+          }
+        ],
+        "distributions": [
+          "PyYAML"
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.schemas.SchemaGenerator.module-import-policy.installed-endpoint-yaml",
+      "surface": "starlette.schemas.SchemaGenerator",
+      "operation": "module-import-policy",
+      "covers": [
+        "starlette.schemas.SchemaGenerator.module-import-policy.dependency-errors-and-selection"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "import-policy"
+      ],
+      "imports": {
+        "module": "starlette.schemas",
+        "consumer_attribute": "SchemaGenerator",
+        "failures": [],
+        "warning_filter": "always",
+        "actions": [
+          {
+            "action": "generate-schema",
+            "base_schema": {
+              "openapi": "3.0.0",
+              "paths": {
+                "/base": {
+                  "get": {
+                    "summary": "input base operation"
+                  }
+                }
+              }
+            },
+            "path": "/from-input",
+            "methods": [
+              "GET"
+            ],
+            "endpoint_docstring": "Endpoint summary.\n---\nresponses:\n  200:\n    description: input YAML response\n"
+          }
+        ],
+        "distributions": [
+          "PyYAML"
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.schemas.SchemaGenerator.module-import-policy.missing-no-endpoint-yaml",
+      "surface": "starlette.schemas.SchemaGenerator",
+      "operation": "module-import-policy",
+      "covers": [
+        "starlette.schemas.SchemaGenerator.module-import-policy.dependency-errors-and-selection"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "import-policy"
+      ],
+      "imports": {
+        "module": "starlette.schemas",
+        "consumer_attribute": "SchemaGenerator",
+        "failures": [
+          {
+            "module": "yaml",
+            "exception": "ModuleNotFoundError",
+            "message": "input loader error: yaml"
+          }
+        ],
+        "warning_filter": "always",
+        "actions": [
+          {
+            "action": "generate-schema",
+            "base_schema": {
+              "openapi": "3.0.0",
+              "paths": {
+                "/base": {
+                  "get": {
+                    "summary": "input base operation"
+                  }
+                }
+              }
+            },
+            "path": "/from-input",
+            "methods": [
+              "GET"
+            ],
+            "endpoint_docstring": null
+          }
+        ],
+        "distributions": [
+          "PyYAML"
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.schemas.SchemaGenerator.module-import-policy.missing-endpoint-yaml",
+      "surface": "starlette.schemas.SchemaGenerator",
+      "operation": "module-import-policy",
+      "covers": [
+        "starlette.schemas.SchemaGenerator.module-import-policy.dependency-errors-and-selection"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "import-policy"
+      ],
+      "imports": {
+        "module": "starlette.schemas",
+        "consumer_attribute": "SchemaGenerator",
+        "failures": [
+          {
+            "module": "yaml",
+            "exception": "ModuleNotFoundError",
+            "message": "input loader error: yaml"
+          }
+        ],
+        "warning_filter": "always",
+        "actions": [
+          {
+            "action": "generate-schema",
+            "base_schema": {
+              "openapi": "3.0.0",
+              "paths": {
+                "/base": {
+                  "get": {
+                    "summary": "input base operation"
+                  }
+                }
+              }
+            },
+            "path": "/from-input",
+            "methods": [
+              "GET"
+            ],
+            "endpoint_docstring": "Endpoint summary.\n---\nresponses:\n  200:\n    description: input YAML response\n"
+          }
+        ],
+        "distributions": [
+          "PyYAML"
         ]
       }
     }

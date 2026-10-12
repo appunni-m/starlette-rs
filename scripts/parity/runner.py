@@ -26,9 +26,10 @@ from .contract import (
     validate_workflow_result,
 )
 from .envs import (
-    ENVIRONMENT_IDS,
     base_environment,
+    environment_ids,
     load_prepared_environments,
+    python_version_from_runtime,
 )
 from .fault_contracts import FAULT_CONTRACT_ASSERTIONS, evaluate_fault_contract
 
@@ -68,10 +69,12 @@ def _target_binding(operation: dict[str, Any], target_id: str) -> dict[str, Any]
 
 
 def _select_cases(
-    cases: list[dict[str, Any]], case_ids: list[str] | None
+    cases: list[dict[str, Any]],
+    case_ids: list[str] | None,
+    target_profiles: list[str],
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     if case_ids is None:
-        return cases, {"kind": "all", "case_ids": []}
+        return cases, {"kind": "all", "case_ids": [], "target_profiles": target_profiles}
     if not case_ids:
         raise ContractError("an explicit parity case selection must contain at least one case ID")
     if any(not isinstance(case_id, str) or not case_id for case_id in case_ids):
@@ -87,20 +90,59 @@ def _select_cases(
     return selected, {
         "kind": "case_ids",
         "case_ids": [case["case_id"] for case in selected],
+        "target_profiles": target_profiles,
     }
 
 
-def _declared_unsupported_reason(
+def _request_dispatch_endpoint_kinds(case: dict[str, Any]) -> list[str]:
+    """Read endpoint kinds from the application-construction input, not case metadata."""
+    endpoint_kinds: list[str] = []
+    for step in case.get("steps", []):
+        if (
+            not isinstance(step, dict)
+            or step.get("surface") != "starlette.applications.Starlette"
+            or step.get("operation") != "__init__"
+        ):
+            continue
+        arguments = step.get("arguments")
+        if not isinstance(arguments, dict):
+            continue
+        route_argument = arguments.get("routes")
+        if not isinstance(route_argument, dict) or route_argument.get("kind") != "literal":
+            continue
+        routes = route_argument.get("value")
+        if not isinstance(routes, list):
+            continue
+        for route in routes:
+            if not isinstance(route, dict):
+                continue
+            endpoint = route.get("endpoint")
+            if isinstance(endpoint, dict) and isinstance(endpoint.get("kind"), str):
+                endpoint_kinds.append(endpoint["kind"])
+    return endpoint_kinds
+
+
+def _unsupported_target_input_reason(
     operation: dict[str, Any], target_id: str, case: dict[str, Any]
 ) -> str | None:
-    """Return the declared reason when this case exercises a partial target boundary."""
+    """Return a target boundary reason only when the supplied input uses it."""
+    if target_id != "rust-native":
+        return None
     support = _target_binding(operation, target_id)["support"]
     if support["status"] != "partial":
         return None
-    missing_requirements = set(support["missing_requirements"])
-    if not missing_requirements.intersection(case["covers"]):
+    if (case.get("surface"), case.get("operation")) != (
+        "starlette.applications.Starlette",
+        "request-dispatch",
+    ):
         return None
-    return support["reason"]
+
+    # The Rust request-dispatch adapter handles these input-defined endpoint forms. Other
+    # endpoint forms require invoking Python callables, which the native target cannot do.
+    rust_endpoint_kinds = {"request-observer", "request-cookies-observer", "http-exception"}
+    if any(kind not in rust_endpoint_kinds for kind in _request_dispatch_endpoint_kinds(case)):
+        return support["reason"]
+    return None
 
 
 def _target_bindings(manifest: dict[str, Any]) -> dict[str, dict[str, Any]]:
@@ -109,6 +151,17 @@ def _target_bindings(manifest: dict[str, Any]) -> dict[str, dict[str, Any]]:
 
 def _profiles(manifest: dict[str, Any]) -> dict[str, dict[str, Any]]:
     return {profile["id"]: profile for profile in manifest["target_profiles"]}
+
+
+def _active_profiles(
+    profiles: dict[str, dict[str, Any]], python_version: str
+) -> list[dict[str, Any]]:
+    """Select Python-independent profiles and the package profile for this interpreter."""
+    return [
+        profile
+        for profile in profiles.values()
+        if profile["python_version"] is None or profile["python_version"] == python_version
+    ]
 
 
 def _load_contract(
@@ -230,12 +283,17 @@ def _validate_adapter_response(value: Any, mode: str, subject_id: str) -> dict[s
 
 
 def _resolve_command(
-    command: dict[str, Any], prepared: dict[str, dict[str, Any]], root: Path
+    command: dict[str, Any],
+    prepared: dict[str, dict[str, Any]],
+    root: Path,
+    environment_id_override: str | None = None,
 ) -> dict[str, Any]:
     argv = list(command["argv"])
     executable = argv[0]
     if executable.startswith(ENVIRONMENT_PLACEHOLDER_PREFIX) and executable.endswith("}"):
-        environment_id = executable[len(ENVIRONMENT_PLACEHOLDER_PREFIX) : -1]
+        environment_id = (
+            environment_id_override or executable[len(ENVIRONMENT_PLACEHOLDER_PREFIX) : -1]
+        )
         record = prepared.get(environment_id)
         if record is None:
             raise ContractError(f"adapter environment is not prepared: {environment_id}")
@@ -257,9 +315,10 @@ def _oracle_identity(
     env: dict[str, str],
     prepared: dict[str, dict[str, Any]],
     root: Path,
+    environment_id: str,
 ) -> tuple[dict[str, Any] | None, dict[str, Any] | None, dict[str, Any] | None]:
     oracle = manifest["oracles"][0]
-    environment = prepared.get(ENVIRONMENT_IDS[0])
+    environment = prepared.get(environment_id)
     if environment is None:
         return (
             None,
@@ -268,11 +327,13 @@ def _oracle_identity(
                 "scope": "oracle",
                 "id": oracle["id"],
                 "kind": "environment_not_prepared",
-                "message": "the isolated source-oracle CPython 3.12 environment is missing",
+                "message": f"the isolated source-oracle environment is missing: {environment_id}",
             },
         )
     try:
-        cmd = _resolve_command(commands[oracle["identity_command_id"]], prepared, root)
+        cmd = _resolve_command(
+            commands[oracle["identity_command_id"]], prepared, root, environment_id
+        )
     except ContractError as exc:
         return (
             None,
@@ -316,8 +377,8 @@ def _oracle_identity(
         for field in ("runtime", "os", "architecture", "module_path", "dependency_lock_sha256"):
             if not isinstance(identity[field], str) or not identity[field]:
                 raise ContractError(f"oracle identity {field} must be a non-empty string")
-        if not identity["runtime"].startswith("CPython 3.12."):
-            raise ContractError("source oracle must run on CPython 3.12")
+        if identity["runtime"] != environment["runtime"]:
+            raise ContractError("source oracle runtime differs from its prepared environment")
         if len(identity["dependency_lock_sha256"]) != 64 or any(
             ch not in "0123456789abcdef" for ch in identity["dependency_lock_sha256"]
         ):
@@ -382,7 +443,11 @@ def _target_identity(
     prepared: dict[str, dict[str, Any]],
     root: Path,
 ) -> tuple[list[dict[str, Any]], dict[str, dict[str, Any]], list[dict[str, Any]]]:
-    environment_id = ENVIRONMENT_IDS[1] if target["id"] == "python-package" else None
+    environment_id = (
+        environment_ids(profiles[0]["python_version"])[1]
+        if target["id"] == "python-package" and profiles
+        else None
+    )
     target_environment = prepared.get(environment_id) if environment_id else None
     dependency_lock = (
         target_environment["dependency_lock_sha256"]
@@ -418,7 +483,9 @@ def _target_identity(
             "1" if prepared_target_identity["dirty"] else "0"
         )
     try:
-        cmd = _resolve_command(commands[target["identity_command_id"]], prepared, root)
+        cmd = _resolve_command(
+            commands[target["identity_command_id"]], prepared, root, environment_id
+        )
     except ContractError as exc:
         return (
             [],
@@ -598,6 +665,25 @@ def _run_case(
                 raise ContractError(
                     "terminal adapter workflow observation step IDs do not exactly match the input selectors"
                 )
+            if result["status"] == "failed":
+                errors = [
+                    {"step_id": item["step_id"], "error": item["error"]}
+                    for item in result["observations"]
+                    if item["status"] == "error"
+                ]
+                detail = (
+                    json.dumps(errors, ensure_ascii=False, separators=(",", ":"))
+                    if errors
+                    else "failed result contained no error observations"
+                )
+                return result, {
+                    "scope": scope,
+                    "id": f"{subject_id}:{case['case_id']}",
+                    "kind": "workflow_failed",
+                    "message": f"adapter returned a failed workflow; error observations={detail}"[
+                        :MAX_DIAGNOSTIC
+                    ],
+                }
             return result, None
         expected_observations = case["observations"]
         actual_observations = [item["step_id"] for item in result["observations"]]
@@ -720,9 +806,6 @@ def run_parity(
     except ValueError as exc:
         raise ContractError("active parity manifest must be inside the repository root") from exc
     manifest, indexed_inputs, all_cases = _load_contract(root, manifest_file)
-    cases, selection = _select_cases(all_cases, case_ids)
-    parity_cases = [case for case in cases if "fault_contract" not in case]
-    fault_cases = [case for case in cases if "fault_contract" in case]
     commands = _command_map(manifest)
     env = _base_environment()
     environment_errors: list[dict[str, Any]] = []
@@ -738,24 +821,50 @@ def run_parity(
                 "message": str(exc)[:MAX_DIAGNOSTIC],
             }
         )
-    if mode == "parity" and len(prepared) != len(ENVIRONMENT_IDS):
+    if mode == "parity" and len(prepared) != 2:
         environment_errors.append(
             {
                 "scope": "runner",
                 "id": "python-environments",
                 "kind": "environment_incomplete",
-                "message": "parity requires both prepared CPython 3.12 environments",
+                "message": "parity requires one prepared oracle/package interpreter pair",
             }
         )
+    prepared_python_version: str | None = None
+    if prepared:
+        runtimes = {record["runtime"] for record in prepared.values()}
+        if len(runtimes) == 1:
+            prepared_python_version = python_version_from_runtime(next(iter(runtimes)))
+    profiles = _profiles(manifest)
+    active_profiles = (
+        _active_profiles(profiles, prepared_python_version)
+        if prepared_python_version
+        else list(profiles.values())
+    )
+    active_profile_ids = [profile["id"] for profile in active_profiles]
+    cases, selection = _select_cases(all_cases, case_ids, active_profile_ids)
+    parity_cases = [
+        case
+        for case in cases
+        if "fault_contract" not in case and set(case["target_profiles"]) & set(active_profile_ids)
+    ]
+    fault_cases = [
+        case
+        for case in cases
+        if "fault_contract" in case
+        and case["fault_contract"]["target_profile"] in active_profile_ids
+    ]
     started = _now()
     infra: list[dict[str, Any]] = list(environment_errors)
+    oracle_environment_id = (
+        environment_ids(prepared_python_version)[0] if prepared_python_version else ""
+    )
     _oracle_identity_raw, oracle_identity, oracle_error = _oracle_identity(
-        manifest, commands, env, prepared, root
+        manifest, commands, env, prepared, root, oracle_environment_id
     )
     if oracle_error:
         infra.append(oracle_error)
 
-    profiles = _profiles(manifest)
     targets = _target_bindings(manifest)
     target_records: list[dict[str, Any]] = []
     target_identity_by_profile: dict[str, dict[str, Any]] = {}
@@ -763,8 +872,10 @@ def run_parity(
     if mode == "parity":
         for target_id, target in targets.items():
             target_profiles = [
-                profile for profile in profiles.values() if profile["target_id"] == target_id
+                profile for profile in active_profiles if profile["target_id"] == target_id
             ]
+            if not target_profiles:
+                continue
             records, identities, errors = _target_identity(
                 target, target_profiles, commands, env, prepared, root
             )
@@ -778,7 +889,9 @@ def run_parity(
     command = commands[mode]
     python_environments = [
         {key: value for key, value in prepared[environment_id].items() if key != "target_identity"}
-        for environment_id in ENVIRONMENT_IDS
+        for environment_id in (
+            environment_ids(prepared_python_version) if prepared_python_version else ()
+        )
         if environment_id in prepared
     ]
     environment_records = list(python_environments)
@@ -828,9 +941,12 @@ def run_parity(
     source_results: dict[str, dict[str, Any]] = {}
     if oracle_identity is not None:
         oracle_command = _resolve_command(
-            commands[manifest["oracles"][0]["identity_command_id"]], prepared, root
+            commands[manifest["oracles"][0]["identity_command_id"]],
+            prepared,
+            root,
+            oracle_environment_id,
         )
-        oracle_environment = prepared[ENVIRONMENT_IDS[0]]
+        oracle_environment = prepared[oracle_environment_id]
         oracle_env = _adapter_environment(env, oracle_environment["dependency_lock_sha256"])
         for case in parity_cases:
             result, error = _run_case(
@@ -847,6 +963,8 @@ def run_parity(
         operation = operation_map[(case["surface"], case["operation"])]
         source_result = source_results.get(case["case_id"])
         for profile_id in case["target_profiles"]:
+            if profile_id not in active_profile_ids:
+                continue
             profile = profiles[profile_id]
             target = targets[profile["target_id"]]
             if source_result is None:
@@ -879,16 +997,23 @@ def run_parity(
                 outcome, diffs = "not_run", []
             else:
                 source_for_result = source_result
-                unsupported_reason = _declared_unsupported_reason(operation, target["id"], case)
+                unsupported_reason = _unsupported_target_input_reason(operation, target["id"], case)
                 if unsupported_reason is not None:
                     target_result = _unsupported_result(case, unsupported_reason)
                     outcome, diffs = "not_run", []
                 else:
                     target_command = _resolve_command(
-                        commands[target["identity_command_id"]], prepared, root
+                        commands[target["identity_command_id"]],
+                        prepared,
+                        root,
+                        environment_ids(profile["python_version"])[1]
+                        if target["id"] == "python-package"
+                        else None,
                     )
                     target_environment = (
-                        prepared[ENVIRONMENT_IDS[1]] if target["id"] == "python-package" else None
+                        prepared[environment_ids(profile["python_version"])[1]]
+                        if target["id"] == "python-package"
+                        else None
                     )
                     target_lock = (
                         target_environment["dependency_lock_sha256"]
@@ -901,7 +1026,9 @@ def run_parity(
                     )
                     if error:
                         infra.append(error)
-                        target_errors[profile_id] = error
+                        # Each workflow starts an isolated process. A case failure
+                        # must remain visible without suppressing later evidence;
+                        # only an identity-handshake failure disables the profile.
                     if target_result is None:
                         target_result = _skipped_result(
                             case,
@@ -950,7 +1077,11 @@ def run_parity(
             target_command = _resolve_command(
                 commands[target["identity_command_id"]], prepared, root
             )
-            target_environment = prepared.get(ENVIRONMENT_IDS[1])
+            target_environment = prepared.get(
+                environment_ids(profile["python_version"])[1]
+                if profile["python_version"] is not None
+                else ""
+            )
             if target_environment is None:
                 target_result = _skipped_result(case, "not run: target environment is not prepared")
             else:
@@ -962,7 +1093,6 @@ def run_parity(
                 )
                 if error:
                     infra.append(error)
-                    target_errors[profile_id] = error
                 target_result = target_result_raw or _skipped_result(
                     case, "not run: target adapter did not produce a valid workflow result"
                 )

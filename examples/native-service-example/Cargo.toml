@@ -1,0 +1,21 @@
+[package]
+name = "starlette-rs-native-service-example"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+bytes.workspace = true
+futures.workspace = true
+http.workspace = true
+http-body.workspace = true
+http-body-util.workspace = true
+starlette-rs = { path = "../../starlette-rs" }
+tower-layer.workspace = true
+tower-service.workspace = true
+
+[lints]
+workspace = true

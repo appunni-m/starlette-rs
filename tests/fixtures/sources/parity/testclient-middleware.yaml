@@ -1,15 +1,22 @@
 {
-  "schema": "migration-parity/parity-input@45",
+  "schema": "migration-parity/parity-input@47",
   "cases": [
     {
       "case_id": "starlette.testclient.TestClient.public-client-workflow.custom-middleware.asyncio",
       "surface": "starlette.testclient.TestClient",
       "operation": "public-client-workflow",
       "covers": [
-        "starlette.testclient.TestClient.public-client-workflow.custom-middleware-http-websocket-sequence"
+        "starlette.testclient.TestClient.public-client-workflow.custom-middleware-http-websocket-sequence",
+        "starlette.testclient.TestClient.public-client-workflow.managed-lifespan-cycle",
+        "starlette.testclient.TestClient.public-client-workflow.sync-worker-thread-context-propagation",
+        "starlette.testclient.TestClient.public-client-workflow.request-url-header-body-observation"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "observations": [
@@ -94,6 +101,23 @@
               "kind": "websocket-text",
               "text": "Hello, world!"
             }
+          },
+          {
+            "kind": "route",
+            "path": "/worker",
+            "name": "worker",
+            "endpoint": {
+              "kind": "sync-observation",
+              "text": "worker-result"
+            }
+          },
+          {
+            "kind": "route",
+            "path": "/request-observation",
+            "name": "request-observation",
+            "endpoint": {
+              "kind": "request-observation"
+            }
           }
         ],
         "middleware": {
@@ -109,7 +133,15 @@
           "raw_path",
           "query_string",
           "scheme"
-        ]
+        ],
+        "lifespan": {
+          "startup_marker": "input-startup",
+          "shutdown_marker": "input-shutdown"
+        },
+        "worker_probe": {
+          "path": "/worker",
+          "context_value": "middleware-context"
+        }
       },
       "consumer": {
         "kind": "client-http-websocket-sequence",
@@ -144,6 +176,20 @@
             "url": "/no-response"
           },
           {
+            "kind": "http-request",
+            "method": "GET",
+            "url": "/request-observation?source=consumer",
+            "headers": {
+              "X-Request-Probe": "header-input"
+            },
+            "content_base64": "cGF5bG9hZA=="
+          },
+          {
+            "kind": "http-request",
+            "method": "GET",
+            "url": "/worker"
+          },
+          {
             "kind": "websocket-connect",
             "url": "/ws",
             "actions": [
@@ -161,10 +207,17 @@
       "surface": "starlette.testclient.TestClient",
       "operation": "public-client-workflow",
       "covers": [
-        "starlette.testclient.TestClient.public-client-workflow.custom-middleware-http-websocket-sequence"
+        "starlette.testclient.TestClient.public-client-workflow.custom-middleware-http-websocket-sequence",
+        "starlette.testclient.TestClient.public-client-workflow.managed-lifespan-cycle",
+        "starlette.testclient.TestClient.public-client-workflow.sync-worker-thread-context-propagation",
+        "starlette.testclient.TestClient.public-client-workflow.request-url-header-body-observation"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "observations": [
@@ -249,6 +302,23 @@
               "kind": "websocket-text",
               "text": "Hello, world!"
             }
+          },
+          {
+            "kind": "route",
+            "path": "/worker",
+            "name": "worker",
+            "endpoint": {
+              "kind": "sync-observation",
+              "text": "worker-result"
+            }
+          },
+          {
+            "kind": "route",
+            "path": "/request-observation",
+            "name": "request-observation",
+            "endpoint": {
+              "kind": "request-observation"
+            }
           }
         ],
         "middleware": {
@@ -264,7 +334,15 @@
           "raw_path",
           "query_string",
           "scheme"
-        ]
+        ],
+        "lifespan": {
+          "startup_marker": "input-startup",
+          "shutdown_marker": "input-shutdown"
+        },
+        "worker_probe": {
+          "path": "/worker",
+          "context_value": "middleware-context"
+        }
       },
       "consumer": {
         "kind": "client-http-websocket-sequence",
@@ -297,6 +375,20 @@
             "kind": "http-request",
             "method": "GET",
             "url": "/no-response"
+          },
+          {
+            "kind": "http-request",
+            "method": "GET",
+            "url": "/request-observation?source=consumer",
+            "headers": {
+              "X-Request-Probe": "header-input"
+            },
+            "content_base64": "cGF5bG9hZA=="
+          },
+          {
+            "kind": "http-request",
+            "method": "GET",
+            "url": "/worker"
           },
           {
             "kind": "websocket-connect",

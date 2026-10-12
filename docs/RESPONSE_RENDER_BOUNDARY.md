@@ -347,7 +347,7 @@ attribute ordering, cached-header replacement, mutable values, background
 selection, fixed-input file bytes/stat data, and stream construction on a worker.
 They use public constructors and ASGI calls on both implementations and contain
 no expected output. They are authored under `response-variants.yaml` at
-`parity-input@45`, statically validated, and unexecuted.
+`parity-input@47`, statically validated, and unexecuted.
 
 Another 43 `response-call-protocols.yaml` inputs supply public stat and denial
 hooks, synchronous/awaited async-iterator completion, user callback errors,

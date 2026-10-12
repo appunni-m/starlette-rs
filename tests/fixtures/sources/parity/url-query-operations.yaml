@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@45",
+  "schema": "migration-parity/parity-input@47",
   "cases": [
     {
       "case_id": "starlette.datastructures.URL.query-parameter-operations.order-and-escaping",
@@ -10,7 +10,13 @@
         "starlette.datastructures.URL.replace_query_params",
         "starlette.datastructures.URL.remove_query_params"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
       "assets": [],
       "url": "https://example.test/search?keep=first&tag=old+one&empty=&tag=old%2Ftwo&space=a+b&broken=%ZZ#section",
       "actions": [
@@ -36,7 +42,13 @@
         "starlette.datastructures.URL.replace_query_params",
         "starlette.datastructures.URL.remove_query_params"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
       "assets": [],
       "url": "https://example.org/path/?page=3",
       "actions": [

@@ -1,0 +1,385 @@
+{
+  "schema": "migration-parity/parity-input@47",
+  "cases": [
+    {
+      "case_id": "starlette.public-api-inspection.removed-api-surface",
+      "surface": "starlette",
+      "operation": "public-api-inspection",
+      "covers": [
+        "starlette.public-api-inspection.removed-api-surface"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "public-api-inspection"
+      ],
+      "inspection": {
+        "modules": [
+          {
+            "name": "starlette",
+            "symbols": [
+              {
+                "name": "graphql.GraphQLApp",
+                "observe": [
+                  "presence"
+                ],
+                "resolve_submodules": true
+              }
+            ]
+          },
+          {
+            "name": "starlette.applications",
+            "symbols": [
+              {
+                "name": "Starlette",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "Starlette.on_startup",
+                "observe": [
+                  "presence"
+                ]
+              },
+              {
+                "name": "Starlette.on_shutdown",
+                "observe": [
+                  "presence"
+                ]
+              },
+              {
+                "name": "Starlette.on_event",
+                "observe": [
+                  "presence"
+                ]
+              },
+              {
+                "name": "Starlette.add_event_handler",
+                "observe": [
+                  "presence"
+                ]
+              },
+              {
+                "name": "Starlette.route",
+                "observe": [
+                  "presence"
+                ]
+              },
+              {
+                "name": "Starlette.websocket_route",
+                "observe": [
+                  "presence"
+                ]
+              },
+              {
+                "name": "Starlette.exception_handler",
+                "observe": [
+                  "presence"
+                ]
+              },
+              {
+                "name": "Starlette.middleware",
+                "observe": [
+                  "presence"
+                ]
+              }
+            ]
+          },
+          {
+            "name": "starlette.routing",
+            "symbols": [
+              {
+                "name": "Router",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "Router.on_startup",
+                "observe": [
+                  "presence"
+                ]
+              },
+              {
+                "name": "Router.on_shutdown",
+                "observe": [
+                  "presence"
+                ]
+              },
+              {
+                "name": "Router.on_event",
+                "observe": [
+                  "presence"
+                ]
+              },
+              {
+                "name": "Router.add_event_handler",
+                "observe": [
+                  "presence"
+                ]
+              },
+              {
+                "name": "Router.startup",
+                "observe": [
+                  "presence"
+                ]
+              },
+              {
+                "name": "Router.shutdown",
+                "observe": [
+                  "presence"
+                ]
+              },
+              {
+                "name": "Router.route",
+                "observe": [
+                  "presence"
+                ]
+              },
+              {
+                "name": "Router.websocket_route",
+                "observe": [
+                  "presence"
+                ]
+              },
+              {
+                "name": "iscoroutinefunction_or_partial",
+                "observe": [
+                  "presence"
+                ]
+              },
+              {
+                "name": "Route",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "WebSocketRoute",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              }
+            ]
+          },
+          {
+            "name": "starlette.templating",
+            "symbols": [
+              {
+                "name": "Jinja2Templates",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "Jinja2Templates.get_env",
+                "observe": [
+                  "presence"
+                ]
+              },
+              {
+                "name": "Jinja2Templates.TemplateResponse",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              }
+            ]
+          },
+          {
+            "name": "starlette.responses",
+            "symbols": [
+              {
+                "name": "FileResponse",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "UJSONResponse",
+                "observe": [
+                  "presence"
+                ]
+              },
+              {
+                "name": "JSONResponse",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              }
+            ]
+          },
+          {
+            "name": "starlette.testclient",
+            "symbols": [
+              {
+                "name": "TestClient",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "TestClient.async_backend",
+                "observe": [
+                  "presence"
+                ]
+              }
+            ]
+          },
+          {
+            "name": "starlette.exceptions",
+            "symbols": [
+              {
+                "name": "ExceptionMiddleware",
+                "observe": [
+                  "presence"
+                ]
+              }
+            ]
+          },
+          {
+            "name": "starlette.middleware.exceptions",
+            "symbols": [
+              {
+                "name": "ExceptionMiddleware",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              }
+            ]
+          },
+          {
+            "name": "starlette.middleware.wsgi",
+            "symbols": [
+              {
+                "name": "WSGIMiddleware",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              }
+            ]
+          },
+          {
+            "name": "starlette.status",
+            "symbols": [
+              {
+                "name": "WS_1004_NO_STATUS_RCVD",
+                "observe": [
+                  "presence"
+                ]
+              },
+              {
+                "name": "WS_1005_ABNORMAL_CLOSURE",
+                "observe": [
+                  "presence"
+                ]
+              },
+              {
+                "name": "WS_1005_NO_STATUS_RCVD",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              },
+              {
+                "name": "WS_1006_ABNORMAL_CLOSURE",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              }
+            ]
+          },
+          {
+            "name": "starlette.websockets",
+            "symbols": [
+              {
+                "name": "WS_1004_NO_STATUS_RCVD",
+                "observe": [
+                  "presence"
+                ]
+              },
+              {
+                "name": "WS_1005_ABNORMAL_CLOSURE",
+                "observe": [
+                  "presence"
+                ]
+              }
+            ]
+          }
+        ],
+        "identity_checks": []
+      }
+    },
+    {
+      "case_id": "starlette.public-api-inspection.gzip-exclusion-constant",
+      "surface": "starlette",
+      "operation": "public-api-inspection",
+      "covers": [
+        "starlette.public-api-inspection.gzip-exclusion-constant"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "public-api-inspection"
+      ],
+      "inspection": {
+        "modules": [
+          {
+            "name": "starlette.middleware.gzip",
+            "symbols": [
+              {
+                "name": "DEFAULT_EXCLUDED_CONTENT_TYPES",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              },
+              {
+                "name": "DEFAULT_EXCLUDE_CONTENT_TYPES",
+                "observe": [
+                  "presence"
+                ]
+              },
+              {
+                "name": "GZipMiddleware",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              }
+            ]
+          }
+        ],
+        "identity_checks": [
+          {
+            "left": {
+              "module": "starlette.middleware.gzip",
+              "symbol": "GZipMiddleware",
+              "parameter": "exclude_content_types"
+            },
+            "right": {
+              "module": "starlette.middleware.gzip",
+              "symbol": "DEFAULT_EXCLUDED_CONTENT_TYPES"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

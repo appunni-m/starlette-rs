@@ -187,6 +187,24 @@ def _run_call(
     canonical_message: Callable[[dict[str, Any]], dict[str, Any]],
     check_config_count: list[int],
 ) -> dict[str, Any]:
+    if call == {"kind": "direct-check-config"}:
+        checked_before = bool(application.config_checked)
+        calls_before = check_config_count[0]
+        error = None
+        try:
+            asyncio.run(application.check_config())
+        except Exception as exc:
+            error = _error_observation(exc, "check-config")
+        return {
+            "action": "direct-check-config",
+            "config_checked_before": checked_before,
+            "config_checked_after": bool(application.config_checked),
+            "check_config_calls_before": calls_before,
+            "check_config_calls_after": check_config_count[0],
+            "asgi_events": [],
+            "error": error,
+        }
+
     call = _exact_object(call, {"scope", "incoming", "send"}, f"StaticFiles calls[{call_index}]")
     if not isinstance(call["incoming"], list):
         raise ValueError(f"StaticFiles calls[{call_index}].incoming must be an array")

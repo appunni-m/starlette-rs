@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@45",
+  "schema": "migration-parity/parity-input@47",
   "cases": [
     {
       "case_id": "starlette.testclient.TestClient.request-response.asgi3-default-client",
@@ -1797,7 +1797,11 @@
         "starlette.testclient.TestClient.request-response.cookie-domain-matching"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "observations": [
@@ -1856,7 +1860,11 @@
         "starlette.testclient.TestClient.request-response.cookie-domain-matching"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "observations": [
@@ -1915,7 +1923,11 @@
         "starlette.testclient.TestClient.request-response.cookie-domain-matching"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "observations": [
@@ -1974,7 +1986,11 @@
         "starlette.testclient.TestClient.request-response.cookie-domain-matching"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "observations": [
@@ -2462,8 +2478,14 @@
         "client_method": "get",
         "url": "/",
         "headers_base64_pairs": [
-          ["WC1NaXhlRA==", "Zmlyc3Q="],
-          ["eC1taXhlZA==", "c2Vjb25k"]
+          [
+            "WC1NaXhlRA==",
+            "Zmlyc3Q="
+          ],
+          [
+            "eC1taXhlZA==",
+            "c2Vjb25k"
+          ]
         ],
         "body_base64": ""
       },
@@ -3663,6 +3685,83 @@
           "path",
           "raw_path",
           "query_string"
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.testclient.TestClient.request-response.response-history",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "request-response",
+      "covers": [
+        "starlette.testclient.TestClient.request-response.follow-redirects-enabled",
+        "starlette.testclient.TestClient.request-response.response-and-debug",
+        "starlette.testclient.TestClient.request-response.response-history",
+        "starlette.testclient.TestClient.request-response.scope-projection"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "request-response"
+      ],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": [
+          "testclient",
+          50000
+        ],
+        "headers": [],
+        "follow_redirects": true
+      },
+      "request": {
+        "method": "GET",
+        "client_method": "get",
+        "url": "/start",
+        "headers_base64_pairs": [],
+        "body_base64": ""
+      },
+      "asgi_app": {
+        "kind": "path-response-map",
+        "responses": [
+          {
+            "path": "/start",
+            "response": {
+              "kind": "redirect",
+              "url": "/middle"
+            }
+          },
+          {
+            "path": "/middle",
+            "response": {
+              "kind": "redirect",
+              "url": "/done"
+            }
+          },
+          {
+            "path": "/done",
+            "response": {
+              "kind": "response",
+              "content": "complete"
+            }
+          }
+        ],
+        "scope_fields": [
+          "type",
+          "http_version",
+          "method",
+          "scheme",
+          "path",
+          "raw_path",
+          "query_string",
+          "root_path",
+          "headers",
+          "client",
+          "server",
+          "state",
+          "extensions"
         ]
       }
     }

@@ -1,0 +1,41 @@
+{
+  "schema": "migration-parity/parity-input@47",
+  "cases": [
+    {
+      "case_id": "starlette.schemas.OpenAPIResponse.module-import-policy.missing-before-content-validation",
+      "surface": "starlette.schemas.OpenAPIResponse",
+      "operation": "module-import-policy",
+      "covers": [
+        "starlette.schemas.OpenAPIResponse.module-import-policy.dependency-errors-and-selection"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "import-policy"
+      ],
+      "imports": {
+        "module": "starlette.schemas",
+        "consumer_attribute": "OpenAPIResponse",
+        "failures": [
+          {
+            "module": "yaml",
+            "exception": "ModuleNotFoundError",
+            "message": "input loader error: yaml"
+          }
+        ],
+        "warning_filter": "always",
+        "actions": [
+          {
+            "action": "render",
+            "content": []
+          }
+        ],
+        "distributions": [
+          "PyYAML"
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,44 @@
+{
+  "schema": "migration-parity/parity-input@47",
+  "cases": [
+    {
+      "case_id": "starlette.public-api-inspection.exceptions-signatures",
+      "surface": "starlette",
+      "operation": "public-api-inspection",
+      "covers": [
+        "starlette.public-api-inspection.exceptions-signatures"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "public-api-inspection"
+      ],
+      "inspection": {
+        "modules": [
+          {
+            "name": "starlette.exceptions",
+            "symbols": [
+              {
+                "name": "HTTPException",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "WebSocketException",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              }
+            ]
+          }
+        ],
+        "identity_checks": []
+      }
+    }
+  ]
+}

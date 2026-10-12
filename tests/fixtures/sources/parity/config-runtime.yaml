@@ -1,5 +1,5 @@
-    {
-  "schema": "migration-parity/parity-input@45",
+{
+  "schema": "migration-parity/parity-input@47",
   "cases": [
     {
       "case_id": "starlette.config.Config.value-resolution.public-url-and-secret-casts",
@@ -14,7 +14,13 @@
         "starlette.config.Config.cast-skips-null-default",
         "starlette.config.Config.custom-cast-callback-boundary"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
       "assets": [],
       "config": {
         "env_prefix": "",
@@ -32,25 +38,44 @@
         ]
       },
       "lookups": [
-        {"key": "DEBUG", "cast": "bool"},
+        {
+          "key": "DEBUG",
+          "cast": "bool"
+        },
         {
           "key": "DATABASE_URL",
           "cast": {
             "kind": "starlette-public-class",
             "symbol": "starlette.datastructures.URL"
           },
-          "inspect": ["path", "password", "username"]
+          "inspect": [
+            "path",
+            "password",
+            "username"
+          ]
         },
-        {"key": "REQUEST_TIMEOUT", "cast": "int", "default": 10},
-        {"key": "REQUEST_HOSTNAME"},
-        {"key": "MAIL_HOSTNAME", "default": null},
+        {
+          "key": "REQUEST_TIMEOUT",
+          "cast": "int",
+          "default": 10
+        },
+        {
+          "key": "REQUEST_HOSTNAME"
+        },
+        {
+          "key": "MAIL_HOSTNAME",
+          "default": null
+        },
         {
           "key": "SECRET_KEY",
           "cast": {
             "kind": "starlette-public-class",
             "symbol": "starlette.datastructures.Secret"
           },
-          "inspect": ["repr", "truthiness"]
+          "inspect": [
+            "repr",
+            "truthiness"
+          ]
         },
         {
           "key": "UNSET_SECRET",
@@ -59,7 +84,9 @@
             "symbol": "starlette.datastructures.Secret"
           },
           "default": null,
-          "inspect": ["truthiness"]
+          "inspect": [
+            "truthiness"
+          ]
         },
         {
           "key": "EMPTY_SECRET",
@@ -68,9 +95,15 @@
             "symbol": "starlette.datastructures.Secret"
           },
           "default": "",
-          "inspect": ["repr", "truthiness"]
+          "inspect": [
+            "repr",
+            "truthiness"
+          ]
         },
-        {"key": "BOOL_AS_INT", "cast": "bool"},
+        {
+          "key": "BOOL_AS_INT",
+          "cast": "bool"
+        },
         {
           "key": "BOOL_AS_INT",
           "cast": {
@@ -89,7 +122,9 @@
           "default": true
         }
       ],
-      "observations": ["lookup-results"]
+      "observations": [
+        "lookup-results"
+      ]
     },
     {
       "case_id": "starlette.config.Config.value-resolution.environment-file-default-and-casts",
@@ -107,7 +142,13 @@
         "starlette.config.Config.invalid-bool-error",
         "starlette.config.Config.cast-error"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
       "assets": [],
       "config": {
         "env_prefix": "APP_",
@@ -135,24 +176,73 @@
         ]
       },
       "lookups": [
-        {"key": "DEBUG", "cast": "str"},
-        {"key": "FROM_ENV", "cast": "str"},
-        {"key": "FROM_FILE", "cast": "str"},
-        {"key": "PRECEDENCE", "cast": "str"},
-        {"key": "EQUALS", "cast": "str"},
-        {"key": "FILE_BOOL", "cast": "bool"},
-        {"key": "BOOL_TRUE", "cast": "bool"},
-        {"key": "BOOL_ONE", "cast": "bool"},
-        {"key": "BOOL_FALSE", "cast": "bool"},
-        {"key": "DUPLICATE", "cast": "str"},
-        {"key": "DEFAULTED", "cast": "int", "default": "23"},
-        {"key": "NULL_DEFAULT", "default": null},
-        {"key": "MISSING"},
-        {"key": "ENVIRONMENT"},
-        {"key": "BOOL_INVALID", "cast": "bool"},
-        {"key": "INT_INVALID", "cast": "int"}
+        {
+          "key": "DEBUG",
+          "cast": "str"
+        },
+        {
+          "key": "FROM_ENV",
+          "cast": "str"
+        },
+        {
+          "key": "FROM_FILE",
+          "cast": "str"
+        },
+        {
+          "key": "PRECEDENCE",
+          "cast": "str"
+        },
+        {
+          "key": "EQUALS",
+          "cast": "str"
+        },
+        {
+          "key": "FILE_BOOL",
+          "cast": "bool"
+        },
+        {
+          "key": "BOOL_TRUE",
+          "cast": "bool"
+        },
+        {
+          "key": "BOOL_ONE",
+          "cast": "bool"
+        },
+        {
+          "key": "BOOL_FALSE",
+          "cast": "bool"
+        },
+        {
+          "key": "DUPLICATE",
+          "cast": "str"
+        },
+        {
+          "key": "DEFAULTED",
+          "cast": "int",
+          "default": "23"
+        },
+        {
+          "key": "NULL_DEFAULT",
+          "default": null
+        },
+        {
+          "key": "MISSING"
+        },
+        {
+          "key": "ENVIRONMENT"
+        },
+        {
+          "key": "BOOL_INVALID",
+          "cast": "bool"
+        },
+        {
+          "key": "INT_INVALID",
+          "cast": "int"
+        }
       ],
-      "observations": ["lookup-results"]
+      "observations": [
+        "lookup-results"
+      ]
     },
     {
       "case_id": "starlette.config.Config.value-resolution.boolean-and-integer-casts",
@@ -164,7 +254,13 @@
         "starlette.config.Config.bool-cast",
         "starlette.config.Config.invalid-bool-error"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
       "assets": [],
       "config": {
         "env_prefix": "",
@@ -174,18 +270,44 @@
           "BOOL_ONE": "1",
           "BOOL_INVALID": "2"
         },
-        "env_file_lines": ["BOOL_AS_INT=0"]
+        "env_file_lines": [
+          "BOOL_AS_INT=0"
+        ]
       },
       "lookups": [
-        {"key": "BOOL_TRUE", "cast": "bool"},
-        {"key": "BOOL_FALSE", "cast": "bool"},
-        {"key": "BOOL_ONE", "cast": "bool"},
-        {"key": "BOOL_AS_INT", "cast": "bool"},
-        {"key": "BOOL_AS_INT", "cast": "int"},
-        {"key": "BOOL_INVALID", "cast": "bool"},
-        {"key": "DEFAULTED_BOOL_AS_INTEGER", "cast": "int", "default": true}
+        {
+          "key": "BOOL_TRUE",
+          "cast": "bool"
+        },
+        {
+          "key": "BOOL_FALSE",
+          "cast": "bool"
+        },
+        {
+          "key": "BOOL_ONE",
+          "cast": "bool"
+        },
+        {
+          "key": "BOOL_AS_INT",
+          "cast": "bool"
+        },
+        {
+          "key": "BOOL_AS_INT",
+          "cast": "int"
+        },
+        {
+          "key": "BOOL_INVALID",
+          "cast": "bool"
+        },
+        {
+          "key": "DEFAULTED_BOOL_AS_INTEGER",
+          "cast": "int",
+          "default": true
+        }
       ],
-      "observations": ["lookup-results"]
+      "observations": [
+        "lookup-results"
+      ]
     },
     {
       "case_id": "starlette.config.Config.value-resolution.explicit-latin1-encoding",
@@ -195,16 +317,30 @@
         "starlette.config.Config.file-precedence",
         "starlette.config.Config.explicit-encoding"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
       "assets": [],
       "config": {
         "env_prefix": "",
         "environ": {},
-        "env_file_lines": ["MESSAGE=Hello café"]
+        "env_file_lines": [
+          "MESSAGE=Hello caf\u00e9"
+        ]
       },
       "encoding": "latin-1",
-      "lookups": [{"key": "MESSAGE"}],
-      "observations": ["lookup-results"]
+      "lookups": [
+        {
+          "key": "MESSAGE"
+        }
+      ],
+      "observations": [
+        "lookup-results"
+      ]
     },
     {
       "case_id": "starlette.config.Config.value-resolution.python-callable-cast-errors",
@@ -215,7 +351,13 @@
         "starlette.config.Config.cast-error",
         "starlette.config.Config.custom-cast-callback-boundary"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
       "assets": [],
       "config": {
         "env_prefix": "",
@@ -225,12 +367,22 @@
       "lookups": [
         {
           "key": "INT_CAST_DEFAULT_STR",
-          "cast": {"kind": "python-callable", "name": "cast_to_int", "converter": "int"},
+          "cast": {
+            "kind": "python-callable",
+            "name": "cast_to_int",
+            "converter": "int"
+          },
           "default": "true"
         },
-        {"key": "INT_DEFAULT_STR", "cast": "int", "default": "true"}
+        {
+          "key": "INT_DEFAULT_STR",
+          "cast": "int",
+          "default": "true"
+        }
       ],
-      "observations": ["lookup-results"]
+      "observations": [
+        "lookup-results"
+      ]
     },
     {
       "case_id": "starlette.config.Environ.mapping-sequence.default-process-environment-and-read-freezes",
@@ -247,7 +399,13 @@
         "starlette.config.Environ.default-os-environ-mapping",
         "starlette.config.Environ.missing-key-membership-freezes-key"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
       "assets": [],
       "initial_environ": {
         "STARLETTE_RS_CONFIG_PARITY_READ_ONLY_AFTER": "initial",
@@ -260,36 +418,69 @@
           "key": "STARLETTE_RS_CONFIG_PARITY_SET_BEFORE_READ",
           "value": "written"
         },
-        {"action": "delete", "key": "STARLETTE_RS_CONFIG_PARITY_REMOVE_BEFORE_READ"},
-        {"action": "get", "key": "STARLETTE_RS_CONFIG_PARITY_READ_ONLY_AFTER"},
+        {
+          "action": "delete",
+          "key": "STARLETTE_RS_CONFIG_PARITY_REMOVE_BEFORE_READ"
+        },
+        {
+          "action": "get",
+          "key": "STARLETTE_RS_CONFIG_PARITY_READ_ONLY_AFTER"
+        },
         {
           "action": "set",
           "key": "STARLETTE_RS_CONFIG_PARITY_READ_ONLY_AFTER",
           "value": "changed"
         },
-        {"action": "delete", "key": "STARLETTE_RS_CONFIG_PARITY_READ_ONLY_AFTER"},
-        {"action": "contains", "key": "STARLETTE_RS_CONFIG_PARITY_MISSING_KEY"},
+        {
+          "action": "delete",
+          "key": "STARLETTE_RS_CONFIG_PARITY_READ_ONLY_AFTER"
+        },
+        {
+          "action": "contains",
+          "key": "STARLETTE_RS_CONFIG_PARITY_MISSING_KEY"
+        },
         {
           "action": "set",
           "key": "STARLETTE_RS_CONFIG_PARITY_MISSING_KEY",
           "value": "later"
         },
-        {"action": "iterate", "compare_to": "underlying-os-environ"},
-        {"action": "length", "compare_to": "underlying-os-environ"}
+        {
+          "action": "iterate",
+          "compare_to": "underlying-os-environ"
+        },
+        {
+          "action": "length",
+          "compare_to": "underlying-os-environ"
+        }
       ],
-      "observations": ["action-results"]
+      "observations": [
+        "action-results"
+      ]
     },
     {
       "case_id": "starlette.config.Config.constructor-warning.missing-file",
       "surface": "starlette.config.Config",
       "operation": "constructor-warning",
-      "covers": ["starlette.config.Config.missing-file-warning"],
-      "target_profiles": ["python-package-cpython312"],
+      "covers": [
+        "starlette.config.Config.missing-file-warning"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
       "assets": [],
-      "env_file": {"kind": "missing-temporary-file", "file_name": "absent.env"},
-      "observations": ["warning-results"]
+      "env_file": {
+        "kind": "missing-temporary-file",
+        "file_name": "absent.env"
+      },
+      "observations": [
+        "warning-results"
+      ]
     },
-{
+    {
       "case_id": "starlette.config.environ.module-global-config-read-freezes-mutations",
       "surface": "starlette.config",
       "operation": "environ",
@@ -301,22 +492,41 @@
         "starlette.config.Environ.iteration",
         "starlette.config.Environ.length"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
       "assets": [],
       "initial_environ": {
         "STARLETTE_RS_CONFIG_DOC_READ_THROUGH_CONFIG": "input-value",
         "STARLETTE_RS_CONFIG_DOC_DELETE_BEFORE_READ": "remove-me"
       },
       "actions": [
-        {"action": "set", "key": "STARLETTE_RS_CONFIG_DOC_SET_BEFORE_READ", "value": "input-set"},
-        {"action": "delete", "key": "STARLETTE_RS_CONFIG_DOC_DELETE_BEFORE_READ"},
-        {"action": "config-get", "key": "STARLETTE_RS_CONFIG_DOC_READ_THROUGH_CONFIG"},
+        {
+          "action": "set",
+          "key": "STARLETTE_RS_CONFIG_DOC_SET_BEFORE_READ",
+          "value": "input-set"
+        },
+        {
+          "action": "delete",
+          "key": "STARLETTE_RS_CONFIG_DOC_DELETE_BEFORE_READ"
+        },
+        {
+          "action": "config-get",
+          "key": "STARLETTE_RS_CONFIG_DOC_READ_THROUGH_CONFIG"
+        },
         {
           "action": "set",
           "key": "STARLETTE_RS_CONFIG_DOC_READ_THROUGH_CONFIG",
           "value": "too-late"
         },
-        {"action": "delete", "key": "STARLETTE_RS_CONFIG_DOC_READ_THROUGH_CONFIG"},
+        {
+          "action": "delete",
+          "key": "STARLETTE_RS_CONFIG_DOC_READ_THROUGH_CONFIG"
+        },
         {
           "action": "config-get",
           "key": "STARLETTE_RS_CONFIG_DOC_MISSING_WITH_DEFAULT",
@@ -327,11 +537,22 @@
           "key": "STARLETTE_RS_CONFIG_DOC_MISSING_WITH_DEFAULT",
           "value": "too-late"
         },
-        {"action": "delete", "key": "STARLETTE_RS_CONFIG_DOC_MISSING_WITH_DEFAULT"},
-        {"action": "iterate", "compare_to": "underlying-os-environ"},
-        {"action": "length", "compare_to": "underlying-os-environ"}
+        {
+          "action": "delete",
+          "key": "STARLETTE_RS_CONFIG_DOC_MISSING_WITH_DEFAULT"
+        },
+        {
+          "action": "iterate",
+          "compare_to": "underlying-os-environ"
+        },
+        {
+          "action": "length",
+          "compare_to": "underlying-os-environ"
+        }
       ],
-      "observations": ["action-results"]
+      "observations": [
+        "action-results"
+      ]
     }
   ]
 }

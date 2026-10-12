@@ -1,11 +1,12 @@
 //! Process-isolated native adapter for the first Starlette migration-parity slice.
 
+use std::collections::HashSet;
 use std::env;
 use std::fs;
 use std::future::{Future, ready};
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
-use std::process::{Command, ExitCode};
+use std::process::ExitCode;
 use std::str::FromStr;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::task::{Context, Poll, Waker};
@@ -20,29 +21,36 @@ use std::os::unix::fs::PermissionsExt;
 
 // The workspace's flate2 dependency is used by the companion library target.
 use base64 as _;
+use bytes as _;
 use encoding_rs as _;
 use flate2 as _;
 use futures as _;
 use getrandom as _;
 use hmac as _;
+use http as _;
+use http_body as _;
+use http_body_util as _;
 use md5 as _;
 use mime_guess as _;
 use multer as _;
 use serde_json::{Map, Number, Value, json};
 use sha1 as _;
-use sha2::{Digest, Sha256};
+use sha2 as _;
 use starlette_rs::{
     ApplicationRoute, AsgiScopeKind, CommaSeparatedStrings, CookieOptions, Cookies,
     DEFAULT_EXCLUDED_CONTENT_TYPES, DetailedRouteMatch, FileMetadata,
     FileResponse as NativeFileResponse, FileResponseCallInput, FileResponseCallStep,
     FileResponseError, FileResponseEvent, FileResponseOptions, GzipConfig, GzipHeader,
     GzipResponseStart, HostPattern, HttpScope, LifespanAction, LifespanState, Mount as NativeMount,
-    MountChild, MountScope, MultiDict as NativeMultiDict, NamedRouteError, NamedRouteTable,
-    PathConverter, PathParameterCapture, QueryParams, RequestBodyAccumulator, RequestHeaders,
-    Response, ResponseEvent, RouteTable, Starlette as NativeApplication,
-    StaticFiles as NativeStaticFiles, StaticFilesError, StaticFilesResponse, StreamingResponse,
-    StreamingResponseEvent, WebSocketState, WebSocketStateMachine, classify_scope, connection_url,
+    MountChild, MountScope, MultiDict as NativeMultiDict, NamedRoute as NativeNamedRoute,
+    NamedRouteError, NamedRouteTable, PathConverter, PathParameterCapture, QueryParams,
+    RequestBodyAccumulator, RequestHeaders, Response, ResponseEvent, RouteTable,
+    Starlette as NativeApplication, StaticFiles as NativeStaticFiles, StaticFilesError,
+    StaticFilesResponse, StreamingResponse, StreamingResponseEvent, WebSocketState,
+    WebSocketStateMachine, classify_scope, connection_url,
 };
+use tower_layer as _;
+use tower_service as _;
 use unicode_general_category as _;
 
 const REQUEST_SCHEMA: &str = "migration-parity/adapter-request@1";
@@ -65,6 +73,7 @@ const COMMA_SEPARATED_STRINGS_SURFACE: &str = "starlette.datastructures.CommaSep
 const COMMA_SEPARATED_STRINGS_OPERATION: &str = "consumer-sequence";
 const HOST_SURFACE: &str = "starlette.routing.Host";
 const HOST_URL_PATH_OPERATION: &str = "url_path_for";
+const ROUTE_URL_PATH_OPERATION: &str = "url_path_for";
 const ROUTER_URL_PATH_OPERATION: &str = "url_path_for";
 const WEBSOCKET_SURFACE: &str = "starlette.websockets.WebSocket";
 const WEBSOCKET_OPERATION: &str = "protocol-sequence";
@@ -194,7 +203,146 @@ fn read_request() -> Result<Value, String> {
             "adapter request must contain exactly one JSON line",
         ));
     }
+    // serde_json::Value replaces duplicate map entries, so inspect every object
+    // first while leaving full JSON grammar and value decoding to serde_json.
+    reject_duplicate_json_object_keys(line)?;
     serde_json::from_str(line).map_err(|error| format!("invalid adapter request JSON: {error}"))
+}
+
+fn reject_duplicate_json_object_keys(input: &str) -> Result<(), String> {
+    JsonObjectKeyScanner {
+        input: input.as_bytes(),
+        position: 0,
+    }
+    .scan_value(0)
+}
+
+const MAX_JSON_NESTING: usize = 128;
+
+struct JsonObjectKeyScanner<'a> {
+    input: &'a [u8],
+    position: usize,
+}
+
+impl JsonObjectKeyScanner<'_> {
+    fn scan_value(&mut self, nesting: usize) -> Result<(), String> {
+        if nesting > MAX_JSON_NESTING {
+            return Err(String::from(
+                "invalid adapter request JSON: nesting exceeds the JSON parser limit",
+            ));
+        }
+        self.skip_whitespace();
+        match self.input.get(self.position) {
+            Some(b'{') => self.scan_object(nesting),
+            Some(b'[') => self.scan_array(nesting),
+            Some(b'"') => self.scan_string().map(|_| ()),
+            Some(_) => self.scan_primitive(),
+            None => Ok(()),
+        }
+    }
+
+    fn scan_object(&mut self, nesting: usize) -> Result<(), String> {
+        self.position += 1;
+        self.skip_whitespace();
+        if self.input.get(self.position) == Some(&b'}') {
+            self.position += 1;
+            return Ok(());
+        }
+
+        let mut keys = HashSet::new();
+        loop {
+            self.skip_whitespace();
+            if self.input.get(self.position) != Some(&b'"') {
+                return Ok(());
+            }
+            let key = self.scan_string()?;
+            if !keys.insert(key.clone()) {
+                return Err(format!("duplicate JSON object key {key:?}"));
+            }
+            self.skip_whitespace();
+            if self.input.get(self.position) != Some(&b':') {
+                return Ok(());
+            }
+            self.position += 1;
+            self.scan_value(nesting + 1)?;
+            self.skip_whitespace();
+            match self.input.get(self.position) {
+                Some(b',') => self.position += 1,
+                Some(b'}') => {
+                    self.position += 1;
+                    return Ok(());
+                }
+                _ => return Ok(()),
+            }
+        }
+    }
+
+    fn scan_array(&mut self, nesting: usize) -> Result<(), String> {
+        self.position += 1;
+        self.skip_whitespace();
+        if self.input.get(self.position) == Some(&b']') {
+            self.position += 1;
+            return Ok(());
+        }
+
+        loop {
+            self.scan_value(nesting + 1)?;
+            self.skip_whitespace();
+            match self.input.get(self.position) {
+                Some(b',') => self.position += 1,
+                Some(b']') => {
+                    self.position += 1;
+                    return Ok(());
+                }
+                _ => return Ok(()),
+            }
+        }
+    }
+
+    fn scan_primitive(&mut self) -> Result<(), String> {
+        while let Some(byte) = self.input.get(self.position) {
+            if byte.is_ascii_whitespace() || matches!(byte, b',' | b']' | b'}') {
+                return Ok(());
+            }
+            self.position += 1;
+        }
+        Ok(())
+    }
+
+    fn scan_string(&mut self) -> Result<String, String> {
+        let start = self.position;
+        self.position += 1;
+        while let Some(byte) = self.input.get(self.position) {
+            match byte {
+                b'"' => {
+                    self.position += 1;
+                    return serde_json::from_slice(&self.input[start..self.position])
+                        .map_err(|error| format!("invalid adapter request JSON: {error}"));
+                }
+                b'\\' => {
+                    self.position += 1;
+                    if self.position >= self.input.len() {
+                        break;
+                    }
+                    self.position += 1;
+                }
+                _ => self.position += 1,
+            }
+        }
+        Err(String::from(
+            "invalid adapter request JSON: unterminated JSON string",
+        ))
+    }
+
+    fn skip_whitespace(&mut self) {
+        while self
+            .input
+            .get(self.position)
+            .is_some_and(u8::is_ascii_whitespace)
+        {
+            self.position += 1;
+        }
+    }
 }
 
 fn exact_object<'a>(
@@ -247,47 +395,8 @@ fn bool_field(object: &Map<String, Value>, field: &str, context: &str) -> Result
         .ok_or_else(|| format!("{context}.{field} must be a boolean"))
 }
 
-fn lower_hex(bytes: &[u8]) -> String {
-    const HEX: &[u8; 16] = b"0123456789abcdef";
-    let mut output = String::with_capacity(bytes.len() * 2);
-    for &byte in bytes {
-        output.push(char::from(HEX[(byte >> 4) as usize]));
-        output.push(char::from(HEX[(byte & 0x0f) as usize]));
-    }
-    output
-}
-
 fn identity() -> Result<Value, String> {
-    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let workspace_root = manifest_dir
-        .parent()
-        .ok_or_else(|| String::from("crate manifest has no workspace parent"))?;
-    let source_fingerprint = source_fingerprint(workspace_root, &manifest_dir)?;
-    let head = git_output(workspace_root, &["rev-parse", "--verify", "HEAD"]);
-    let status = git_output(
-        workspace_root,
-        &[
-            "status",
-            "--porcelain",
-            "--untracked-files=all",
-            "--",
-            "starlette-rs",
-            "Cargo.toml",
-            "Cargo.lock",
-        ],
-    );
-    let dirty = head.is_none() || status.as_deref().is_none_or(|value| !value.is_empty());
-    let base_revision = head.unwrap_or_else(|| String::from("uncommitted"));
-    let revision = format!("{base_revision}+source-fnv1a64-{source_fingerprint:016x}");
-    let runtime = rust_runtime();
-    let lock_path = workspace_root.join("Cargo.lock");
-    let lock_bytes = fs::read(&lock_path).map_err(|error| {
-        format!(
-            "cannot read workspace dependency lock {}: {error}",
-            lock_path.display()
-        )
-    })?;
-    let dependency_lock_sha256 = lower_hex(&Sha256::digest(&lock_bytes));
+    let dependency_lock_sha256 = env!("STARLETTE_PARITY_BUILD_DEPENDENCY_LOCK_SHA256");
     if let Ok(expected) = env::var("STARLETTE_PARITY_DEPENDENCY_LOCK_SHA256") {
         if expected != dependency_lock_sha256 {
             return Err(String::from(
@@ -298,95 +407,16 @@ fn identity() -> Result<Value, String> {
 
     Ok(json!({
         "subject_id": SUBJECT_ID,
-        "revision": revision,
-        "dirty": dirty,
-        "runtime": runtime,
-        "os": env::consts::OS,
-        "architecture": env::consts::ARCH,
+        "revision": env!("STARLETTE_PARITY_BUILD_REVISION"),
+        "dirty": env!("STARLETTE_PARITY_BUILD_DIRTY") == "true",
+        "runtime": env!("STARLETTE_PARITY_BUILD_RUNTIME"),
+        "os": env!("STARLETTE_PARITY_BUILD_OS"),
+        "architecture": env!("STARLETTE_PARITY_BUILD_ARCHITECTURE"),
         "backend": "native",
         "features": [],
         "package_version": env!("CARGO_PKG_VERSION"),
         "dependency_lock_sha256": dependency_lock_sha256,
     }))
-}
-
-fn rust_runtime() -> String {
-    let rustc = Command::new("rustc").arg("--version").output();
-    let version = match rustc {
-        Ok(output) if output.status.success() => {
-            String::from_utf8_lossy(&output.stdout).trim().to_owned()
-        }
-        _ => String::from("rustc version unavailable"),
-    };
-    format!("{version} ({} {})", env::consts::OS, env::consts::ARCH)
-}
-
-fn git_output(root: &Path, arguments: &[&str]) -> Option<String> {
-    let output = Command::new("git")
-        .arg("-C")
-        .arg(root)
-        .args(arguments)
-        .output()
-        .ok()?;
-    if !output.status.success() {
-        return None;
-    }
-    Some(String::from_utf8_lossy(&output.stdout).trim().to_owned())
-}
-
-fn source_fingerprint(workspace_root: &Path, crate_root: &Path) -> Result<u64, String> {
-    let mut files = vec![
-        workspace_root.join("Cargo.toml"),
-        workspace_root.join("Cargo.lock"),
-        crate_root.join("Cargo.toml"),
-    ];
-    collect_files(&crate_root.join("src"), &mut files)?;
-    files.sort();
-
-    let mut hash = 0xcbf2_9ce4_8422_2325_u64;
-    for path in files {
-        let relative = path
-            .strip_prefix(workspace_root)
-            .map_err(|error| error.to_string())?;
-        hash_bytes(&mut hash, relative.to_string_lossy().as_bytes());
-        hash_byte(&mut hash, 0);
-        let contents = fs::read(&path)
-            .map_err(|error| format!("cannot read identity source {}: {error}", path.display()))?;
-        hash_bytes(&mut hash, &contents);
-        hash_byte(&mut hash, 0xff);
-    }
-    Ok(hash)
-}
-
-fn collect_files(directory: &Path, files: &mut Vec<PathBuf>) -> Result<(), String> {
-    let entries = fs::read_dir(directory).map_err(|error| {
-        format!(
-            "cannot list identity source {}: {error}",
-            directory.display()
-        )
-    })?;
-    for entry in entries {
-        let entry = entry.map_err(|error| error.to_string())?;
-        let path = entry.path();
-        let file_type = entry.file_type().map_err(|error| error.to_string())?;
-        if file_type.is_dir() {
-            collect_files(&path, files)?;
-        } else if file_type.is_file() {
-            files.push(path);
-        }
-    }
-    Ok(())
-}
-
-fn hash_bytes(hash: &mut u64, bytes: &[u8]) {
-    for byte in bytes {
-        hash_byte(hash, *byte);
-    }
-}
-
-fn hash_byte(hash: &mut u64, byte: u8) {
-    *hash ^= u64::from(byte);
-    *hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
 }
 
 fn run_case(case: &Value) -> Result<Value, String> {
@@ -409,6 +439,9 @@ fn run_case(case: &Value) -> Result<Value, String> {
         }
         (Some("starlette.routing.Router"), Some("route-dispatch")) => {
             return run_router_case(case);
+        }
+        (Some("starlette.routing.Route"), Some(ROUTE_URL_PATH_OPERATION)) => {
+            return run_route_reverse_url_case(case);
         }
         (Some("starlette.routing.Router"), Some(ROUTER_URL_PATH_OPERATION)) => {
             return run_router_reverse_url_case(case);
@@ -1716,6 +1749,111 @@ fn run_host_reverse_url_case(case: &Value) -> Result<Value, String> {
                     "host": url_path.host,
                 },
             },
+        }],
+    }))
+}
+
+fn run_route_reverse_url_case(case: &Value) -> Result<Value, String> {
+    let case = exact_object(
+        case,
+        &[
+            "case_id",
+            "surface",
+            "operation",
+            "covers",
+            "target_profiles",
+            "assets",
+            "observations",
+            "route_graph",
+            "lookup",
+            "request_scope",
+            "custom_convertors",
+        ],
+        "Route URLPath case",
+    )?;
+    let case_id = string_field(case, "case_id", "Route URLPath case")?;
+    if string_field(case, "surface", "Route URLPath case")? != "starlette.routing.Route"
+        || string_field(case, "operation", "Route URLPath case")? != ROUTER_URL_PATH_OPERATION
+        || case.get("observations") != Some(&json!(["reverse-url"]))
+        || case.get("assets") != Some(&json!([]))
+        || case.get("request_scope") != Some(&Value::Null)
+        || case.get("custom_convertors") != Some(&json!([]))
+    {
+        return Err(String::from(
+            "Rust-native Route URLPath requires the declared one-route reverse-lookup input",
+        ));
+    }
+
+    let route_spec = exact_object(
+        case.get("route_graph")
+            .ok_or_else(|| String::from("Route URLPath route is missing"))?,
+        &["kind", "path", "name", "methods", "observer"],
+        "Route URLPath input",
+    )?;
+    if string_field(route_spec, "kind", "Route URLPath input")? != "http-route"
+        || route_spec.get("observer") != Some(&Value::Null)
+    {
+        return Err(String::from(
+            "Rust-native Route URLPath supports an HTTP path pattern without an endpoint observer",
+        ));
+    }
+    let path = string_field(route_spec, "path", "Route URLPath input")?;
+    let route_name = string_field(route_spec, "name", "Route URLPath input")?;
+    let route = NativeNamedRoute::new(path, route_name).map_err(|error| error.to_string())?;
+
+    let lookup = exact_object(
+        case.get("lookup")
+            .ok_or_else(|| String::from("Route URLPath lookup is missing"))?,
+        &["name", "path_params"],
+        "Route URLPath lookup",
+    )?;
+    let name = string_field(lookup, "name", "Route URLPath lookup")?;
+    let path_params = lookup
+        .get("path_params")
+        .and_then(Value::as_object)
+        .ok_or_else(|| String::from("Route URLPath lookup.path_params must be an object"))?
+        .iter()
+        .map(|(key, value)| {
+            let value = match value {
+                Value::String(value) => value.clone(),
+                Value::Number(value) => value.to_string(),
+                _ => {
+                    return Err(format!(
+                        "Rust-native Route URLPath requires scalar text or numeric parameter {key:?}"
+                    ));
+                }
+            };
+            Ok((key.clone(), value))
+        })
+        .collect::<Result<Vec<_>, String>>()?;
+
+    let observed = match route.url_path_for(name, &path_params) {
+        Ok(url_path) => json!({
+            "path": url_path.path,
+            "protocol": url_path.protocol,
+            "host": url_path.host,
+        }),
+        Err(error @ NamedRouteError::NoMatchFound { .. }) => json!({
+            "error": {
+                "class": "NoMatchFound",
+                "message": error.to_string(),
+            },
+        }),
+        Err(NamedRouteError::RouteFormatting(error)) => json!({
+            "error": {
+                "class": "RouteFormattingError",
+                "message": error.to_string(),
+            },
+        }),
+    };
+
+    Ok(json!({
+        "case_id": case_id,
+        "status": "completed",
+        "observations": [{
+            "step_id": "reverse-url",
+            "status": "ok",
+            "value": {"reverse-url": observed},
         }],
     }))
 }
@@ -5798,6 +5936,11 @@ fn run_application_case(case: &Value) -> Result<Value, String> {
             "status": "ok",
             "value": dispatch,
         }));
+    } else if observations.len() == 1
+        && observations.first().and_then(Value::as_str) == Some("lifecycle")
+        && schedule.as_slice() == ["lifespan.startup", "lifespan.shutdown"]
+    {
+        result_observations.push(run_lifespan_only(&steps[1], &lifespan_spec, &schedule)?);
     } else {
         if observations.len() != 1
             || observations.first().and_then(Value::as_str) != Some("dispatch")
@@ -7285,14 +7428,23 @@ fn build_application(step: &Value) -> Result<(NativeApplication, Value, RouteTab
         }
     };
     let lifespan_spec = argument_value(arguments, "lifespan", "application arguments")?;
-    let lifespan_spec = exact_object(
-        lifespan_spec,
-        &["kind", "record_entry", "record_exit"],
-        "lifespan input",
-    )?;
-    if string_field(lifespan_spec, "kind", "lifespan input")? != "async-context-manager" {
-        return Err(String::from("lifespan kind must be async-context-manager"));
-    }
+    let lifespan_object = lifespan_spec
+        .as_object()
+        .ok_or_else(|| String::from("lifespan input must be a JSON object"))?;
+    let lifespan_kind = string_field(lifespan_object, "kind", "lifespan input")?;
+    let lifespan_spec = match lifespan_kind {
+        "async-context-manager" => exact_object(
+            lifespan_spec,
+            &["kind", "record_entry", "record_exit"],
+            "lifespan input",
+        )?,
+        "async-generator" => validate_async_generator_lifespan(lifespan_spec)?,
+        _ => {
+            return Err(String::from(
+                "native lifespan kind must be async-context-manager or async-generator",
+            ));
+        }
+    };
     let mut route_table = RouteTable::new();
     route_table
         .add_route(path, methods.clone())
@@ -7316,6 +7468,457 @@ struct LifecycleSession {
     events: Vec<Value>,
     shutdown_message: String,
     record_exit: bool,
+}
+
+fn validate_async_generator_lifespan(lifespan_spec: &Value) -> Result<&Map<String, Value>, String> {
+    const REQUIRED_FIELDS: [&str; 7] = [
+        "kind",
+        "record_entry",
+        "record_exit",
+        "failure_stage",
+        "failure_message",
+        "yield_behavior",
+        "shutdown_exception_behavior",
+    ];
+    const OPTIONAL_FIELDS: [&str; 2] = ["failure_exception_type", "yield_state"];
+    let object = lifespan_spec
+        .as_object()
+        .ok_or_else(|| String::from("lifespan input must be a JSON object"))?;
+    if REQUIRED_FIELDS
+        .iter()
+        .any(|field| !object.contains_key(*field))
+        || object.keys().any(|field| {
+            !REQUIRED_FIELDS.contains(&field.as_str()) && !OPTIONAL_FIELDS.contains(&field.as_str())
+        })
+    {
+        return Err(String::from(
+            "async-generator lifespan input has invalid fields",
+        ));
+    }
+    if !bool_field(object, "record_entry", "lifespan input")?
+        || !bool_field(object, "record_exit", "lifespan input")?
+    {
+        return Err(String::from(
+            "async-generator lifespan input must record entry and exit effects",
+        ));
+    }
+    let failure_stage = string_field(object, "failure_stage", "lifespan input")?;
+    if !["none", "startup", "shutdown"].contains(&failure_stage) {
+        return Err(String::from(
+            "async-generator lifespan failure_stage is unsupported",
+        ));
+    }
+    string_field(object, "failure_message", "lifespan input")?;
+    let yield_behavior = string_field(object, "yield_behavior", "lifespan input")?;
+    if !["none", "single", "extra"].contains(&yield_behavior) {
+        return Err(String::from(
+            "async-generator lifespan yield_behavior is unsupported",
+        ));
+    }
+    let shutdown_behavior = string_field(object, "shutdown_exception_behavior", "lifespan input")?;
+    if !["propagate", "suppress"].contains(&shutdown_behavior) {
+        return Err(String::from(
+            "async-generator shutdown exception behavior is unsupported",
+        ));
+    }
+    let exception_type = object
+        .get("failure_exception_type")
+        .and_then(Value::as_str)
+        .unwrap_or("RuntimeError");
+    if !["RuntimeError", "CancelledError"].contains(&exception_type) {
+        return Err(String::from(
+            "async-generator failure exception type is unsupported",
+        ));
+    }
+    if exception_type == "CancelledError" && failure_stage == "none" {
+        return Err(String::from(
+            "async-generator cancellation requires a failure stage",
+        ));
+    }
+    if let Some(yield_state) = object.get("yield_state") {
+        if !yield_state.is_null() && !yield_state.is_object() {
+            return Err(String::from(
+                "async-generator yield_state must be an object or null",
+            ));
+        }
+        if !yield_state.is_null() && yield_behavior == "none" {
+            return Err(String::from(
+                "async-generator without a yield cannot supply lifespan state",
+            ));
+        }
+    }
+    Ok(object)
+}
+
+fn run_lifespan_only(
+    step: &Value,
+    lifespan_spec: &Value,
+    schedule: &[&str],
+) -> Result<Value, String> {
+    let arguments = step_arguments(step, "lifecycle", "__call__", Some("application"))?;
+    exact_keys(
+        arguments,
+        &["scope", "receive", "send"],
+        "lifespan arguments",
+    )?;
+    let scope = argument_value(arguments, "scope", "lifespan arguments")?;
+    let scope_object = exact_object(scope, &["type", "asgi"], "lifespan scope")?;
+    let scope_type = string_field(scope_object, "type", "lifespan scope")?;
+    if classify_scope(scope_type) != AsgiScopeKind::Lifespan {
+        return Err(String::from("lifecycle scope must classify as lifespan"));
+    }
+    validate_capture_send(argument_value(arguments, "send", "lifespan arguments")?)?;
+    if schedule != ["lifespan.startup", "lifespan.shutdown"] {
+        return Err(String::from(
+            "lifecycle-only workflow must schedule startup and shutdown",
+        ));
+    }
+
+    let receive = argument_value(arguments, "receive", "lifespan arguments")?
+        .as_array()
+        .filter(|actions| actions.len() == schedule.len())
+        .ok_or_else(|| {
+            String::from("lifecycle-only workflow must supply each scheduled receive outcome")
+        })?;
+    let startup_action = receive
+        .first()
+        .ok_or_else(|| String::from("lifespan startup receive action is missing"))?;
+    let startup_action = exact_object(
+        startup_action,
+        &["kind", "message"],
+        "lifespan startup receive action",
+    )?;
+    if string_field(startup_action, "kind", "lifespan startup receive action")? != "message" {
+        return Err(String::from(
+            "lifecycle-only workflow startup receive must supply a message",
+        ));
+    }
+    let startup_message = exact_object(
+        startup_action
+            .get("message")
+            .ok_or_else(|| String::from("lifespan startup action omitted its message"))?,
+        &["type"],
+        "lifespan startup message",
+    )?;
+    let startup_type = string_field(startup_message, "type", "lifespan startup message")?;
+    let shutdown_action_value = receive
+        .get(1)
+        .ok_or_else(|| String::from("lifespan shutdown receive action is missing"))?;
+    let shutdown_action = shutdown_action_value
+        .as_object()
+        .ok_or_else(|| String::from("lifespan shutdown receive action must be an object"))?;
+    let shutdown_receive_failure =
+        match string_field(shutdown_action, "kind", "lifespan shutdown receive action")? {
+            "message" => {
+                let shutdown_action = exact_object(
+                    shutdown_action_value,
+                    &["kind", "message"],
+                    "lifespan shutdown receive action",
+                )?;
+                let shutdown_message = exact_object(
+                    shutdown_action.get("message").ok_or_else(|| {
+                        String::from("lifespan shutdown action omitted its message")
+                    })?,
+                    &["type"],
+                    "lifespan shutdown message",
+                )?;
+                if string_field(shutdown_message, "type", "lifespan shutdown message")?
+                    != schedule[1]
+                {
+                    return Err(String::from(
+                        "lifecycle-only workflow shutdown message must match its schedule",
+                    ));
+                }
+                None
+            }
+            "raise" => {
+                let shutdown_action = exact_object(
+                    shutdown_action_value,
+                    &["kind", "exception_type", "message"],
+                    "lifespan shutdown receive action",
+                )?;
+                if string_field(
+                    shutdown_action,
+                    "exception_type",
+                    "lifespan shutdown receive action",
+                )? != "RuntimeError"
+                {
+                    return Err(String::from(
+                        "lifecycle-only shutdown receive failure must be RuntimeError",
+                    ));
+                }
+                Some(string_field(
+                    shutdown_action,
+                    "message",
+                    "lifespan shutdown receive action",
+                )?)
+            }
+            _ => {
+                return Err(String::from(
+                    "lifecycle-only shutdown receive must supply shutdown or raise",
+                ));
+            }
+        };
+    if startup_type != schedule[0] || schedule != ["lifespan.startup", "lifespan.shutdown"] {
+        return Err(String::from(
+            "lifecycle-only workflow receive actions must match the execution schedule",
+        ));
+    }
+
+    let lifespan_spec = lifespan_spec
+        .as_object()
+        .ok_or_else(|| String::from("lifespan input must be a JSON object"))?;
+    let lifespan_kind = string_field(lifespan_spec, "kind", "lifespan input")?;
+    let record_entry = bool_field(lifespan_spec, "record_entry", "lifespan input")?;
+    let record_exit = bool_field(lifespan_spec, "record_exit", "lifespan input")?;
+    let failure_stage = if lifespan_kind == "async-generator" {
+        string_field(lifespan_spec, "failure_stage", "lifespan input")?
+    } else if lifespan_kind == "async-context-manager" {
+        "none"
+    } else {
+        return Err(String::from("unsupported lifecycle-only lifespan input"));
+    };
+    let mut events = Vec::new();
+    let mut trace = Vec::new();
+    let mut state = LifespanState::new();
+    let startup_action = state
+        .startup_received(startup_type)
+        .map_err(|error| error.to_string())?;
+    if startup_action != LifespanAction::EnterContext {
+        return Err(String::from(
+            "lifespan startup did not request context entry",
+        ));
+    }
+    if record_entry {
+        trace.push(String::from("entry"));
+    }
+
+    let warnings = if lifespan_kind == "async-generator" {
+        vec![json!({
+            "category": "starlette.exceptions.StarletteDeprecationWarning",
+            "message": "async generator function lifespans are deprecated, use an @contextlib.asynccontextmanager function instead",
+        })]
+    } else {
+        Vec::new()
+    };
+    let failure = if failure_stage == "none" {
+        None
+    } else {
+        Some(lifespan_failure_error(lifespan_spec)?)
+    };
+
+    if failure_stage == "startup" {
+        let message_type = state.startup_failed().map_err(|error| error.to_string())?;
+        events.push(lifespan_failure_event(message_type, failure.as_ref())?);
+        let value = lifecycle_observation_value(events, trace, warnings);
+        return Ok(json!({
+            "step_id": "lifecycle",
+            "status": "error",
+            "error": failure.ok_or_else(|| String::from("startup failure input omitted its error"))?,
+            "partial_value": value,
+        }));
+    }
+
+    let startup_completion = state.context_entered().map_err(|error| error.to_string())?;
+    if startup_completion != LifespanAction::SendStartupComplete {
+        return Err(String::from(
+            "lifespan startup completion action is invalid",
+        ));
+    }
+    events.push(lifespan_event(startup_completion)?);
+    let shutdown_action = state
+        .shutdown_received("lifespan.shutdown")
+        .map_err(|error| error.to_string())?;
+    if shutdown_action != LifespanAction::ExitContext {
+        return Err(String::from(
+            "lifespan shutdown did not request context exit",
+        ));
+    }
+    if let Some(message) = shutdown_receive_failure {
+        if failure_stage != "none" {
+            return Err(String::from(
+                "lifecycle-only shutdown receive failure cannot combine with a generator failure",
+            ));
+        }
+        let shutdown_behavior = string_field(
+            lifespan_spec,
+            "shutdown_exception_behavior",
+            "lifespan input",
+        )?;
+        if shutdown_behavior == "suppress" {
+            trace.push(String::from("suppressed-shutdown-error"));
+            if record_exit {
+                trace.push(String::from("exit"));
+            }
+            let shutdown_completion = state
+                .context_exit_suppressed()
+                .map_err(|error| error.to_string())?;
+            if shutdown_completion != LifespanAction::SendShutdownComplete {
+                return Err(String::from(
+                    "suppressed lifespan shutdown did not select shutdown completion",
+                ));
+            }
+            events.push(lifespan_event(shutdown_completion)?);
+            if state.phase() != starlette_rs::LifespanPhase::Complete {
+                return Err(String::from(
+                    "suppressed lifespan shutdown did not complete the lifecycle",
+                ));
+            }
+            return Ok(json!({
+                "step_id": "lifecycle",
+                "status": "ok",
+                "value": lifecycle_observation_value(events, trace, warnings),
+            }));
+        }
+
+        if record_exit {
+            trace.push(String::from("exit"));
+        }
+        let error = json!({
+            "class": "builtins.RuntimeError",
+            "kind": "exception",
+            "message": message,
+            "stage": "lifespan",
+            "code": null,
+            "cause": null,
+            "suppress_context": false,
+        });
+        let message_type = state
+            .shutdown_failed()
+            .map_err(|transition_error| transition_error.to_string())?;
+        events.push(lifespan_failure_event(message_type, Some(&error))?);
+        return Ok(json!({
+            "step_id": "lifecycle",
+            "status": "error",
+            "error": error,
+            "partial_value": lifecycle_observation_value(events, trace, warnings),
+        }));
+    }
+
+    if record_exit {
+        trace.push(String::from("exit"));
+    }
+    if failure_stage == "shutdown" {
+        let message_type = state.shutdown_failed().map_err(|error| error.to_string())?;
+        events.push(lifespan_failure_event(message_type, failure.as_ref())?);
+        let value = lifecycle_observation_value(events, trace, warnings);
+        return Ok(json!({
+            "step_id": "lifecycle",
+            "status": "error",
+            "error": failure.ok_or_else(|| String::from("shutdown failure input omitted its error"))?,
+            "partial_value": value,
+        }));
+    }
+
+    let shutdown_completion = state.context_exited().map_err(|error| error.to_string())?;
+    if shutdown_completion != LifespanAction::SendShutdownComplete {
+        return Err(String::from(
+            "lifespan shutdown completion action is invalid",
+        ));
+    }
+    events.push(lifespan_event(shutdown_completion)?);
+    if state.phase() != starlette_rs::LifespanPhase::Complete {
+        return Err(String::from(
+            "lifecycle-only input did not complete startup and shutdown",
+        ));
+    }
+    Ok(json!({
+        "step_id": "lifecycle",
+        "status": "ok",
+        "value": lifecycle_observation_value(events, trace, warnings),
+    }))
+}
+
+fn lifespan_failure_error(lifespan_spec: &Map<String, Value>) -> Result<Value, String> {
+    let exception_type = lifespan_spec
+        .get("failure_exception_type")
+        .and_then(Value::as_str)
+        .unwrap_or("RuntimeError");
+    let class = match exception_type {
+        "RuntimeError" => "builtins.RuntimeError",
+        "CancelledError" => "asyncio.exceptions.CancelledError",
+        _ => return Err(String::from("unsupported lifespan failure exception type")),
+    };
+    Ok(json!({
+        "class": class,
+        "kind": "exception",
+        "message": string_field(lifespan_spec, "failure_message", "lifespan input")?,
+        "stage": "lifespan",
+        "code": null,
+        "cause": null,
+        "suppress_context": false,
+    }))
+}
+
+fn lifespan_failure_event(message_type: &str, error: Option<&Value>) -> Result<Value, String> {
+    if !["lifespan.startup.failed", "lifespan.shutdown.failed"].contains(&message_type) {
+        return Err(String::from(
+            "lifespan failure transition returned an invalid event",
+        ));
+    }
+    let error = error.ok_or_else(|| String::from("lifespan failure event omitted its error"))?;
+    let message = string_field(
+        exact_object(
+            error,
+            &[
+                "class",
+                "kind",
+                "message",
+                "stage",
+                "code",
+                "cause",
+                "suppress_context",
+            ],
+            "lifespan failure error",
+        )?,
+        "message",
+        "lifespan failure error",
+    )?;
+    let class = string_field(
+        error
+            .as_object()
+            .ok_or_else(|| String::from("lifespan failure error must be an object"))?,
+        "class",
+        "lifespan failure error",
+    )?;
+    let short_class = class
+        .rsplit('.')
+        .next()
+        .filter(|name| !name.is_empty())
+        .ok_or_else(|| String::from("lifespan failure exception class is empty"))?;
+    let exception_summary = if message.is_empty() {
+        short_class.to_owned()
+    } else {
+        format!("{short_class}: {message}")
+    };
+    Ok(json!({
+        "type": message_type,
+        "message": format!("Traceback (most recent call last):\n{exception_summary}\n"),
+    }))
+}
+
+fn lifecycle_observation_value(
+    events: Vec<Value>,
+    trace: Vec<String>,
+    warnings: Vec<Value>,
+) -> Value {
+    let event_order = events
+        .iter()
+        .filter_map(|event| event.get("type").and_then(Value::as_str))
+        .map(str::to_owned)
+        .collect::<Vec<_>>();
+    json!({
+        "response_status": null,
+        "ordered_repeated_headers": [],
+        "response_bytes": {"encoding": "base64", "data": ""},
+        "asgi_event_order": event_order,
+        "asgi_events": events,
+        "lifespan_scope_state": {"present": false, "value": null},
+        "lifecycle_and_cleanup_effects": trace,
+        "server_error_observation": {"handler_calls": [], "debug_traceback": null},
+        "deprecation_warnings": warnings,
+        "sync_endpoint_observations": null,
+    })
 }
 
 fn begin_lifespan(step: &Value, lifespan_spec: &Value) -> Result<LifecycleSession, String> {

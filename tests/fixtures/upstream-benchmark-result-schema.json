@@ -107,7 +107,7 @@
           "const": "tests/fixtures/manifest.yaml"
         },
         "schema": {
-          "const": "migration-parity/manifest@4"
+          "const": "migration-parity/manifest@5"
         },
         "sha256": {
           "$ref": "#/$defs/sha256"
@@ -208,7 +208,7 @@
               "$ref": "#/$defs/nonEmptyString"
             },
             "dependency_lock_path": {
-              "const": "scripts/parity/locks/starlette-oracle-cpython312.txt"
+              "const": "scripts/parity/locks/starlette-oracle-python.txt"
             },
             "dependency_lock_sha256": {
               "$ref": "#/$defs/sha256"
@@ -263,7 +263,7 @@
               "$ref": "#/$defs/nonEmptyString"
             },
             "dependency_lock_path": {
-              "const": "scripts/parity/locks/asgi-runtime-cpython312.txt"
+              "const": "scripts/parity/locks/asgi-runtime-python.txt"
             },
             "dependency_lock_sha256": {
               "$ref": "#/$defs/sha256"

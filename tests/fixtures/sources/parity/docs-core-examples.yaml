@@ -1,0 +1,236 @@
+{
+  "schema": "migration-parity/parity-input@47",
+  "cases": [
+    {
+      "case_id": "starlette.applications.Starlette.__call__.docs-routed-json-response",
+      "surface": "starlette.applications.Starlette",
+      "operation": "__call__",
+      "covers": [
+        "starlette.applications.Starlette.__call__.async-route-return-response"
+      ],
+      "execution_schedule": [
+        "dispatch"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "steps": [
+        {
+          "step_id": "application",
+          "surface": "starlette.applications.Starlette",
+          "operation": "__init__",
+          "receiver": null,
+          "arguments": {
+            "debug": {
+              "kind": "literal",
+              "value": true
+            },
+            "routes": {
+              "kind": "literal",
+              "value": [
+                {
+                  "kind": "http-route",
+                  "path": "/",
+                  "methods": [
+                    "GET"
+                  ],
+                  "endpoint": {
+                    "kind": "json-response",
+                    "content": {
+                      "hello": "world"
+                    },
+                    "status_code": 200
+                  }
+                }
+              ]
+            },
+            "middleware": {
+              "kind": "literal",
+              "value": []
+            },
+            "exception_handlers": {
+              "kind": "literal",
+              "value": []
+            },
+            "lifespan": {
+              "kind": "literal",
+              "value": null
+            },
+            "max_body_size": {
+              "kind": "literal",
+              "value": null
+            }
+          }
+        },
+        {
+          "step_id": "dispatch",
+          "surface": "starlette.applications.Starlette",
+          "operation": "__call__",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "application"
+          },
+          "arguments": {
+            "scope": {
+              "kind": "literal",
+              "value": {
+                "type": "http",
+                "asgi": {
+                  "version": "3.0",
+                  "spec_version": "2.4"
+                },
+                "http_version": "1.1",
+                "method": "GET",
+                "scheme": "http",
+                "path": "/",
+                "raw_path_base64": "Lw==",
+                "query_string_base64": "",
+                "root_path": "",
+                "headers_base64_pairs": [],
+                "client": [
+                  "127.0.0.1",
+                  12345
+                ],
+                "server": [
+                  "testserver",
+                  80
+                ]
+              }
+            },
+            "receive": {
+              "kind": "literal",
+              "value": [
+                {
+                  "type": "http.request",
+                  "body_base64": "",
+                  "more_body": false
+                }
+              ]
+            },
+            "send": {
+              "kind": "literal",
+              "value": {
+                "kind": "capture-asgi-send"
+              }
+            }
+          }
+        }
+      ],
+      "observations": [
+        "dispatch"
+      ]
+    },
+    {
+      "case_id": "starlette.endpoints.WebSocketEndpoint.dispatch.docs-bytes-lifecycle-hooks",
+      "surface": "starlette.endpoints.WebSocketEndpoint",
+      "operation": "dispatch",
+      "covers": [
+        "starlette.endpoints.WebSocketEndpoint.dispatch.lifecycle",
+        "starlette.endpoints.WebSocketEndpoint.dispatch.decode-bytes"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "endpoint": {
+        "encoding": "bytes",
+        "on_connect": {
+          "kind": "accept",
+          "subprotocol": null,
+          "observe_scope_subprotocols": false
+        },
+        "on_receive": {
+          "kind": "send-bytes-prefix",
+          "prefix_base64": "TWVzc2FnZTog"
+        },
+        "on_disconnect": {
+          "kind": "default"
+        }
+      },
+      "sessions": [
+        {
+          "scope": {
+            "type": "websocket",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.5"
+            },
+            "http_version": "1.1",
+            "scheme": "ws",
+            "path": "/ws",
+            "raw_path_base64": "L3dz",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [
+              [
+                "aG9zdA==",
+                "ZXhhbXBsZS50ZXN0"
+              ]
+            ],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ],
+            "subprotocols": []
+          },
+          "incoming": [
+            {
+              "type": "websocket.connect",
+              "subprotocols": []
+            },
+            {
+              "type": "websocket.receive",
+              "bytes_base64": "SGVsbG8sIHdvcmxkIQ=="
+            },
+            {
+              "type": "websocket.disconnect",
+              "code": 1000
+            }
+          ]
+        }
+      ],
+      "observations": [
+        "dispatch"
+      ]
+    },
+    {
+      "case_id": "starlette.responses.PlainTextResponse.consumer-construction.docs-index-bare-asgi-response",
+      "surface": "starlette.responses.PlainTextResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.PlainTextResponse.consumer-construction.public-render-and-asgi"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "Hello, world!"
+        },
+        "omit_content": false,
+        "kwargs": {},
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/"
+      },
+      "send_failure": null,
+      "background_label": null
+    }
+  ]
+}

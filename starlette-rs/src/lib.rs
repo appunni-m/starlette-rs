@@ -28,7 +28,9 @@ mod lifespan;
 mod mount;
 mod multi_dict;
 mod multipart;
+mod named_route;
 mod named_route_table;
+mod native_service;
 mod request;
 mod response;
 mod route_table;
@@ -71,7 +73,13 @@ pub use multipart::{
     MultipartFormEvent, MultipartFormParseError, MultipartFormParser, MultipartPart,
     multipart_boundary, parse_multipart_form,
 };
+pub use named_route::NamedRoute;
 pub use named_route_table::{NamedRouteError, NamedRouteTable, RouteUrlPath};
+pub use native_service::{
+    NativeApplication, NativeApplicationError, NativeBodyError, NativeHttpResponse, NativeRequest,
+    NativeRequestBody, NativeResponseBody, NativeResponseConversionError, NativeRoute,
+    box_native_body, native_body,
+};
 pub use request::{
     BodyProgress, Cookies, QueryParams, RequestBodyAccumulator, RequestBodyError, RequestHeaders,
     RequestStreamProgress, RequestStreamState, parse_cookie_header,

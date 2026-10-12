@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/manifest@4",
+  "schema": "migration-parity/manifest@5",
   "scope": {
     "id": "starlette-1.6.0-asgi-http-config-session-slice",
     "mode": "slice",
@@ -14,7 +14,7 @@
       "id": "starlette-python",
       "name": "Starlette",
       "version": "1.6.0",
-      "runtime": "CPython 3.12 in an isolated source-oracle environment",
+      "runtime": "CPython 3.10 through 3.14 in an isolated source-oracle environment",
       "identity_command_id": "oracle-starlette-python",
       "contract": "Pinned Starlette 1.6.0 public Python ASGI application behavior at the exact source commit in scope.inventory.revision",
       "components": [
@@ -47,7 +47,7 @@
     {
       "id": "python-package",
       "name": "starlette-rs-py",
-      "runtime": "CPython 3.12",
+      "runtime": "CPython 3.10 through 3.14",
       "identity_command_id": "target-python-package",
       "contract": "The installed starlette-rs-py wheel public starlette.* imports and ASGI consumer interface for the declared slice."
     }
@@ -57,7 +57,26 @@
       "id": "rust-native-local",
       "target_id": "rust-native",
       "backend": "native",
-      "features": []
+      "features": [],
+      "python_version": null
+    },
+    {
+      "id": "python-package-cpython310",
+      "target_id": "python-package",
+      "backend": "CPython 3.10",
+      "features": [
+        "fault-contract"
+      ],
+      "python_version": "3.10"
+    },
+    {
+      "id": "python-package-cpython311",
+      "target_id": "python-package",
+      "backend": "CPython 3.11",
+      "features": [
+        "fault-contract"
+      ],
+      "python_version": "3.11"
     },
     {
       "id": "python-package-cpython312",
@@ -65,7 +84,26 @@
       "backend": "CPython 3.12",
       "features": [
         "fault-contract"
-      ]
+      ],
+      "python_version": "3.12"
+    },
+    {
+      "id": "python-package-cpython313",
+      "target_id": "python-package",
+      "backend": "CPython 3.13",
+      "features": [
+        "fault-contract"
+      ],
+      "python_version": "3.13"
+    },
+    {
+      "id": "python-package-cpython314",
+      "target_id": "python-package",
+      "backend": "CPython 3.14",
+      "features": [
+        "fault-contract"
+      ],
+      "python_version": "3.14"
     }
   ],
   "commands": [
@@ -210,8 +248,8 @@
   ],
   "interfaces": {
     "parity": {
-      "input_schema": "migration-parity/parity-input@45",
-      "result_schema": "migration-parity/parity-result@6",
+      "input_schema": "migration-parity/parity-input@47",
+      "result_schema": "migration-parity/parity-result@7",
       "command_id": "parity"
     },
     "coverage": {
@@ -231,7 +269,7 @@
     },
     "aggregation": {
       "input_schemas": [
-        "migration-parity/parity-result@6",
+        "migration-parity/parity-result@7",
         "migration-parity/coverage-result@1",
         "migration-parity/benchmark-result@1",
         "migration-parity/upstream-benchmark-result@1"
@@ -270,6 +308,9 @@
     "parity": [
       "build/parity/inputs/parity/asgi-http-get-text.json",
       "build/parity/inputs/parity/application-middleware.json",
+      "build/parity/inputs/parity/docs-core-examples.json",
+      "build/parity/inputs/parity/gzip-docs-thresholds.json",
+      "build/parity/inputs/parity/gzip-docs-stateless-request-state.json",
       "build/parity/inputs/parity/application-exception-handlers-method.json",
       "build/parity/inputs/parity/asgi-request-items.json",
       "build/parity/inputs/parity/asgi-request-callable-shapes.json",
@@ -283,6 +324,8 @@
       "build/parity/inputs/parity/gzip-responder.json",
       "build/parity/inputs/parity/body-limit-middleware.json",
       "build/parity/inputs/parity/route-body-limits.json",
+      "build/parity/inputs/parity/routing-docs-inputs.json",
+      "build/parity/inputs/parity/routing-docs-body-boundary.json",
       "build/parity/inputs/parity/asgi-http-exceptions.json",
       "build/parity/inputs/parity/asgi-callable-http-exceptions.json",
       "build/parity/inputs/parity/asgi-exception-handlers.json",
@@ -290,6 +333,7 @@
       "build/parity/inputs/parity/server-error-middleware.json",
       "build/parity/inputs/parity/websocket-protocol.json",
       "build/parity/inputs/parity/websocket-route-dispatch.json",
+      "build/parity/inputs/parity/websocket-docs-inputs.json",
       "build/parity/inputs/parity/http-route-call.json",
       "build/parity/inputs/parity/route-representations.json",
       "build/parity/inputs/parity/route-constructor-errors.json",
@@ -304,19 +348,23 @@
       "build/parity/inputs/parity/request-cookies.json",
       "build/parity/inputs/parity/mount-route-dispatch.json",
       "build/parity/inputs/parity/reverse-url-routing.json",
+      "build/parity/inputs/parity/route-url-path-native.json",
       "build/parity/inputs/parity/redirect-response.json",
       "build/parity/inputs/parity/responses-basic.json",
       "build/parity/inputs/parity/background-tasks.json",
       "build/parity/inputs/parity/streaming-response.json",
       "build/parity/inputs/parity/websocket-convenience.json",
+      "build/parity/inputs/parity/websocket-iterator-disconnect-athrow.json",
       "build/parity/inputs/parity/exception-values.json",
       "build/parity/inputs/parity/host-routing.json",
       "build/parity/inputs/parity/host-routing-native-port.json",
       "build/parity/inputs/parity/status-constants.json",
       "build/parity/inputs/parity/cors-middleware.json",
+      "build/parity/inputs/parity/middleware-docs-inputs.json",
       "build/parity/inputs/parity/host-middleware.json",
       "build/parity/inputs/parity/config-runtime.json",
       "build/parity/inputs/parity/schemas-runtime.json",
+      "build/parity/inputs/parity/schemas-optional-pyyaml-boundary.json",
       "build/parity/inputs/parity/url-query-operations.json",
       "build/parity/inputs/parity/url-scope.json",
       "build/parity/inputs/parity/url-components.json",
@@ -327,7 +375,9 @@
       "build/parity/inputs/parity/query-params.json",
       "build/parity/inputs/parity/comma-separated-strings.json",
       "build/parity/inputs/parity/file-response.json",
+      "build/parity/inputs/parity/file-response-range-decimal-inputs.json",
       "build/parity/inputs/parity/lifespan-generators.json",
+      "build/parity/inputs/parity/lifespan-native-failure-transitions.json",
       "build/parity/inputs/parity/authentication-runtime.json",
       "build/parity/inputs/parity/authentication-user-interface.json",
       "build/parity/inputs/parity/authentication-required-routes.json",
@@ -337,19 +387,26 @@
       "build/parity/inputs/parity/static-files-lookup.json",
       "build/parity/inputs/parity/static-files-async-boundary.json",
       "build/parity/inputs/parity/static-files-config.json",
+      "build/parity/inputs/parity/static-files-config-direct-check.json",
+      "build/parity/inputs/parity/static-files-docs-inputs.json",
       "build/parity/inputs/parity/wsgi-middleware.json",
       "build/parity/inputs/parity/wsgi-boundary.json",
       "build/parity/inputs/parity/session-middleware.json",
       "build/parity/inputs/parity/base-http-middleware.json",
+      "build/parity/inputs/parity/base-http-duplicate-response-headers.json",
+      "build/parity/inputs/parity/middleware-docs-base-http.json",
       "build/parity/inputs/parity/base-http-contextvars.json",
       "build/parity/inputs/parity/templating-runtime.json",
+      "build/parity/inputs/parity/templating-docs-inputs.json",
       "build/parity/inputs/parity/request-form-urlencoded.json",
       "build/parity/inputs/parity/request-form-multipart.json",
       "build/parity/inputs/parity/formdata-constructor.json",
       "build/parity/inputs/parity/upload-file.json",
       "build/parity/inputs/parity/websocket-endpoint-dispatch.json",
+      "build/parity/inputs/parity/websocket-endpoint-docs-inputs.json",
       "build/parity/inputs/parity/http-endpoint-dispatch.json",
       "build/parity/inputs/parity/testclient-http.json",
+      "build/parity/inputs/parity/testclient-template-debug-extension.json",
       "build/parity/inputs/parity/testclient-partial-endpoints.json",
       "build/parity/inputs/parity/testclient-partial-websocket-endpoints.json",
       "build/parity/inputs/parity/fault-contracts.json",
@@ -357,8 +414,11 @@
       "build/parity/inputs/parity/testclient-websocket-routing.json",
       "build/parity/inputs/parity/testclient-websocket-bytes.json",
       "build/parity/inputs/parity/testclient-websocket-public.json",
+      "build/parity/inputs/parity/testclient-websocket-endpoint-path-params.json",
+      "build/parity/inputs/parity/testclient-docs-inputs.json",
       "build/parity/inputs/parity/testclient-lifespan-context.json",
       "build/parity/inputs/parity/application-routes.json",
+      "build/parity/inputs/parity/application-subclass-builder.json",
       "build/parity/inputs/parity/concurrency.json",
       "build/parity/inputs/parity/websocket-scope-interface.json",
       "build/parity/inputs/parity/exception-middleware-typing.json",
@@ -381,7 +441,11 @@
       "build/parity/inputs/parity/templating-protocols.json",
       "build/parity/inputs/parity/optional-imports.json",
       "build/parity/inputs/parity/response-call-protocols.json",
-      "build/parity/inputs/parity/websocket-thread-ownership.json"
+      "build/parity/inputs/parity/websocket-thread-ownership.json",
+      "build/parity/inputs/parity/public-api-inspection.json",
+      "build/parity/inputs/parity/public-exceptions-api.json",
+      "build/parity/inputs/parity/application-typing-consumer.json",
+      "build/parity/inputs/parity/application-exception-bool-int-key.json"
     ],
     "coverage": [],
     "benchmark": [
@@ -391,6 +455,130 @@
   },
   "coverage_components": [],
   "surfaces": [
+    {
+      "id": "starlette",
+      "kind": "module",
+      "source_path": "starlette/__init__.py:1",
+      "storage_slug": "starlette-package-root",
+      "operations": [
+        {
+          "id": "public-api-inspection",
+          "kind": "value_operation",
+          "classification": "non_endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.public-api-inspection root import boundary and input-selected public modules",
+            "signature": "Inspect caller-selected symbols on metadata-listed public Python modules",
+            "parameters": [
+              {
+                "id": "inspection",
+                "style": "option",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "inspection",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "out_of_scope",
+                "reason": "This harness-only operation imports Python modules and inspects Python attributes; it does not add a Rust runtime export.",
+                "authority": "The input selects only the Python-package target profile."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette",
+              "signature": "Python import, attribute, signature, value, and identity inspection selected by parity input",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.public-api-inspection.removed-api-surface",
+              "dimension": "historical_divergence",
+              "description": "Inspect source-derived removed names, signature changes, replacement APIs, and former import paths selected from the pinned public module catalog. Upstream: docs/release-notes.md.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.public-api-inspection.gzip-exclusion-constant",
+              "dimension": "parameter",
+              "description": "Inspect the documented plural GZip exclusion constant, its value, the singular TODO spelling, and identity with the middleware constructor default. Upstream: starlette/middleware/gzip.py and docs/middleware.md.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.public-api-inspection.exceptions-signatures",
+              "dimension": "parameter",
+              "description": "Inspect the documented HTTPException and WebSocketException constructor signatures through their starlette.exceptions import path. Upstream: starlette/exceptions.py and docs/exceptions.md.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "Harness-only API observations do not instrument runtime code coverage."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "Python import and attribute inspection are outside runtime benchmark workloads."
+          }
+        }
+      ]
+    },
     {
       "id": "starlette.applications.Starlette",
       "kind": "type",
@@ -699,6 +887,9 @@
                       },
                       {
                         "kind": "starlette-debug-traceback"
+                      },
+                      {
+                        "kind": "starlette-lifespan-failure-frames"
                       }
                     ]
                   }
@@ -837,9 +1028,20 @@
               ]
             },
             {
+              "id": "starlette.applications.Starlette.__call__.middleware-stack-subclass-override",
+              "dimension": "boundary",
+              "description": "Subclass Starlette and override build_middleware_stack while delegating to the base method; the first ASGI dispatch must dynamically invoke that override and expose its response header. Pinned source: starlette/applications.py::Starlette.__call__.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.applications.Starlette.__call__.async-route-return-response",
               "dimension": "boundary",
-              "description": "Construct a Starlette app with an async HTTP endpoint that returns PlainTextResponse, then dispatch GET / through the public ASGI callable. Compare status, headers, bytes, and complete events. Upstream: tests/test_applications.py::test_app_add_route.",
+              "description": "Construct a Starlette app with an async HTTP endpoint that returns JSONResponse, then dispatch GET / through the public ASGI callable. Compare status, headers, bytes, and complete events. Upstream: tests/test_applications.py::test_app_add_route.",
               "lanes": [
                 "parity"
               ],
@@ -1186,6 +1388,7 @@
                 "parity"
               ],
               "target_profiles": [
+                "rust-native-local",
                 "python-package-cpython312"
               ]
             },
@@ -1197,6 +1400,7 @@
                 "parity"
               ],
               "target_profiles": [
+                "rust-native-local",
                 "python-package-cpython312"
               ]
             },
@@ -1318,6 +1522,17 @@
               "id": "starlette.asgi.exception-handler.status-code",
               "dimension": "error_path",
               "description": "An HTTPException status-code handler is selected before a registered exception-class handler when both match, including for router-generated 405 errors.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.asgi.exception-handler.status-code.bool-int-key-equivalence",
+              "dimension": "boundary",
+              "description": "A Python boolean status-code registry key is retained as a bool and compares equal to its integer HTTPException status, selecting the registered input-defined handler. Upstream: starlette/applications.py:75-76,109-114; starlette/middleware/exceptions.py:43-46; Python bool/int dictionary-key equality.",
               "lanes": [
                 "parity"
               ],
@@ -1565,6 +1780,7 @@
                 "parity"
               ],
               "target_profiles": [
+                "rust-native-local",
                 "python-package-cpython312"
               ]
             },
@@ -1598,7 +1814,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -1609,7 +1829,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -1705,7 +1929,11 @@
             "applicability": "required",
             "target_profiles": [
               "rust-native-local",
-              "python-package-cpython312"
+              "python-package-cpython310",
+              "python-package-cpython311",
+              "python-package-cpython312",
+              "python-package-cpython313",
+              "python-package-cpython314"
             ]
           },
           "coverage": {
@@ -3106,6 +3334,108 @@
             "applicability": "not_applicable",
             "reason": "Application route-object inspection is outside the declared benchmark workloads."
           }
+        },
+        {
+          "id": "typing-consumer",
+          "kind": "value_operation",
+          "classification": "non_endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.applications.Starlette and public application typing aliases",
+            "signature": "Mypy consumer(source: str) -> normalized diagnostics",
+            "parameters": [
+              {
+                "id": "source",
+                "style": "option",
+                "value_types": [
+                  "string"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "typing_consumer",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "out_of_scope",
+                "reason": "Python static typing metadata is part of the starlette.* facade contract; the Rust-native API has independent Rust signatures.",
+                "authority": "AGENTS.md Python typing and Rust-native API rules"
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.applications.Starlette and public typing aliases",
+              "signature": "Pinned Mypy consumer against the installed Python package",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.applications.Starlette.python-typing-contract",
+              "dimension": "type_contract",
+              "description": "Type-check the same consumer against pinned Starlette source and the installed package, including Request[State], WebSocket[State], Starlette lifecycle, ASGIApp, ExceptionHandler, and Scope aliases, plus subclass-preserving with statements that reveal TestClient and WebSocketTestSession subclass types from their Self-typed __enter__ methods. Pinned source: starlette/applications.py:24-34,45-61,65-88; starlette/types.py:11-26; starlette/requests.py:77,80,214; starlette/websockets.py:26; starlette/testclient.py:115,679.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython310",
+              "python-package-cpython311",
+              "python-package-cpython312",
+              "python-package-cpython313",
+              "python-package-cpython314"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "Static consumer type checking makes no runtime code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "Static consumer type checking has no runtime benchmark boundary."
+          }
         }
       ]
     },
@@ -3545,6 +3875,17 @@
               "target_profiles": [
                 "python-package-cpython312"
               ]
+            },
+            {
+              "id": "starlette.authentication.requires.connection-type-validation",
+              "dimension": "error_path",
+              "description": "A requires wrapper raises AssertionError when its named request or websocket argument is not the corresponding Request or WebSocket instance, before scope checks or endpoint invocation. Upstream: starlette/authentication.py:43-51, 60-67, 79-86; docs/release-notes.md:75-80.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
             }
           ],
           "parity": {
@@ -3863,7 +4204,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -3874,7 +4219,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -3885,7 +4234,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -3896,7 +4249,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -3907,7 +4264,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -3918,7 +4279,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -3929,14 +4294,22 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             }
           ],
           "parity": {
             "applicability": "required",
             "target_profiles": [
-              "python-package-cpython312"
+              "python-package-cpython310",
+              "python-package-cpython311",
+              "python-package-cpython312",
+              "python-package-cpython313",
+              "python-package-cpython314"
             ]
           },
           "coverage": {
@@ -4236,7 +4609,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -4247,7 +4624,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -4258,7 +4639,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -4269,14 +4654,22 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             }
           ],
           "parity": {
             "applicability": "required",
             "target_profiles": [
-              "python-package-cpython312"
+              "python-package-cpython310",
+              "python-package-cpython311",
+              "python-package-cpython312",
+              "python-package-cpython313",
+              "python-package-cpython314"
             ]
           },
           "coverage": {
@@ -4392,7 +4785,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -4403,7 +4800,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -4414,7 +4815,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -4425,7 +4830,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -4436,7 +4845,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -4447,7 +4860,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -4458,7 +4875,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -4469,7 +4890,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -4480,7 +4905,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -4491,7 +4920,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -4502,7 +4935,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -4513,7 +4950,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -4524,7 +4965,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -4535,7 +4980,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -4546,14 +4995,22 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             }
           ],
           "parity": {
             "applicability": "required",
             "target_profiles": [
-              "python-package-cpython312"
+              "python-package-cpython310",
+              "python-package-cpython311",
+              "python-package-cpython312",
+              "python-package-cpython313",
+              "python-package-cpython314"
             ]
           },
           "coverage": {
@@ -4640,14 +5097,22 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             }
           ],
           "parity": {
             "applicability": "required",
             "target_profiles": [
-              "python-package-cpython312"
+              "python-package-cpython310",
+              "python-package-cpython311",
+              "python-package-cpython312",
+              "python-package-cpython313",
+              "python-package-cpython314"
             ]
           },
           "coverage": {
@@ -4763,7 +5228,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -4774,7 +5243,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -4785,7 +5258,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -4796,7 +5273,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -4807,7 +5288,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -4818,7 +5303,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -4829,7 +5318,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -4840,7 +5333,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -4851,14 +5348,22 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             }
           ],
           "parity": {
             "applicability": "required",
             "target_profiles": [
-              "python-package-cpython312"
+              "python-package-cpython310",
+              "python-package-cpython311",
+              "python-package-cpython312",
+              "python-package-cpython313",
+              "python-package-cpython314"
             ]
           },
           "coverage": {
@@ -4984,7 +5489,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -4995,7 +5504,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -5006,7 +5519,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -5017,14 +5534,22 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             }
           ],
           "parity": {
             "applicability": "required",
             "target_profiles": [
-              "python-package-cpython312"
+              "python-package-cpython310",
+              "python-package-cpython311",
+              "python-package-cpython312",
+              "python-package-cpython313",
+              "python-package-cpython314"
             ]
           },
           "coverage": {
@@ -5242,7 +5767,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -5253,7 +5782,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -5264,7 +5797,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -5275,14 +5812,22 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             }
           ],
           "parity": {
             "applicability": "required",
             "target_profiles": [
-              "python-package-cpython312"
+              "python-package-cpython310",
+              "python-package-cpython311",
+              "python-package-cpython312",
+              "python-package-cpython313",
+              "python-package-cpython314"
             ]
           },
           "coverage": {
@@ -7548,7 +8093,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -7559,7 +8108,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -7570,14 +8123,22 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             }
           ],
           "parity": {
             "applicability": "required",
             "target_profiles": [
-              "python-package-cpython312"
+              "python-package-cpython310",
+              "python-package-cpython311",
+              "python-package-cpython312",
+              "python-package-cpython313",
+              "python-package-cpython314"
             ]
           },
           "coverage": {
@@ -7674,7 +8235,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -7685,7 +8250,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -7696,14 +8265,22 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             }
           ],
           "parity": {
             "applicability": "required",
             "target_profiles": [
-              "python-package-cpython312"
+              "python-package-cpython310",
+              "python-package-cpython311",
+              "python-package-cpython312",
+              "python-package-cpython313",
+              "python-package-cpython314"
             ]
           },
           "coverage": {
@@ -7809,7 +8386,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -7820,7 +8401,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -7831,7 +8416,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -7842,14 +8431,22 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             }
           ],
           "parity": {
             "applicability": "required",
             "target_profiles": [
-              "python-package-cpython312"
+              "python-package-cpython310",
+              "python-package-cpython311",
+              "python-package-cpython312",
+              "python-package-cpython313",
+              "python-package-cpython314"
             ]
           },
           "coverage": {
@@ -8325,7 +8922,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -8336,7 +8937,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -8347,7 +8952,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -8358,7 +8967,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -8369,7 +8982,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -8380,7 +8997,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -8391,7 +9012,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -8402,7 +9027,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -8413,14 +9042,22 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             }
           ],
           "parity": {
             "applicability": "required",
             "target_profiles": [
-              "python-package-cpython312"
+              "python-package-cpython310",
+              "python-package-cpython311",
+              "python-package-cpython312",
+              "python-package-cpython313",
+              "python-package-cpython314"
             ]
           },
           "coverage": {
@@ -8450,7 +9087,7 @@
           "source": {
             "oracle_id": "starlette-python",
             "path": "starlette.middleware.Middleware.__repr__ and Middleware.__iter__",
-            "signature": "Middleware(cls, *args, **kwargs); observe repr and the iterator values",
+            "signature": "Middleware(cls, *args, **kwargs); observe repr and iterator values; optionally construct and invoke the input-defined middleware around an ASGI app",
             "parameters": [
               {
                 "id": "middleware",
@@ -8460,6 +9097,17 @@
                 ],
                 "omission": {
                   "kind": "required"
+                }
+              },
+              {
+                "id": "asgi_workflow",
+                "style": "option",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": null
                 }
               }
             ],
@@ -8482,6 +9130,15 @@
                   ],
                   "comparison": {
                     "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "asgi_workflow",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
                   }
                 }
               ],
@@ -8524,7 +9181,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -8535,14 +9196,119 @@
                 "parity"
               ],
               "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
+              "id": "starlette.middleware.Middleware.asgi-wrapper-eager-response",
+              "dimension": "boundary",
+              "description": "Consume an input-defined Middleware descriptor to wrap an arbitrary ASGI app with path-mapped eager RedirectResponse behavior; observe downstream invocation, HTTP fall-through, non-HTTP pass-through, response details, and ordered ASGI events. Pinned source: docs/middleware.md:514-562,773-787; starlette/middleware/__init__.py:22-37.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
                 "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.Middleware.asgi-wrapper.concurrent-request-state-isolation",
+              "dimension": "boundary",
+              "description": "Consume an input-defined Middleware descriptor around a user ASGI callable with two overlapping HTTP requests through one instance. Observe the response headers, bodies, and send-event interleaving when each request carries different mock-response state. Pinned source: docs/middleware.md:689-762; starlette/middleware/__init__.py:22-37.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.Middleware.asgi-wrapper.pure-callable-shapes",
+              "dimension": "boundary",
+              "description": "Invoke documented pure-ASGI middleware in its class/callable and decorator/factory forms with the ASGI scope, receive, and send channels; preserve live call and scope-filtering behavior across HTTP, WebSocket, and lifespan scopes.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
+              "id": "starlette.middleware.Middleware.asgi-wrapper.receive-events",
+              "dimension": "boundary",
+              "description": "Wrap and consume input-defined HTTP and WebSocket receive events, including fragmented HTTP request bodies, and compare the live downstream receive observations and scope-based pass-through.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
+              "id": "starlette.middleware.Middleware.asgi-wrapper.send-events",
+              "dimension": "boundary",
+              "description": "Wrap and observe input-defined HTTP response and WebSocket send events, including response-header mutation and body-length updates derived from the live body bytes.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
+              "id": "starlette.middleware.Middleware.asgi-wrapper.arbitrary-apps",
+              "dimension": "boundary",
+              "description": "Place pure-ASGI middleware around input-defined non-Starlette and Starlette ASGI applications and compare live HTTP, WebSocket, and lifespan invocation and event ordering.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
+              "id": "starlette.middleware.Middleware.asgi-wrapper.exception-cancellation-cleanup",
+              "dimension": "boundary",
+              "description": "Raise an input-selected downstream exception after supplied ASGI output events or cancel an app while it awaits a blocked receive; compare exception or cancellation propagation, middleware observation, emitted events, and cleanup.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             }
           ],
           "parity": {
             "applicability": "required",
             "target_profiles": [
-              "python-package-cpython312"
+              "python-package-cpython310",
+              "python-package-cpython311",
+              "python-package-cpython312",
+              "python-package-cpython313",
+              "python-package-cpython314"
             ]
           },
           "coverage": {
@@ -9083,7 +9849,7 @@
             {
               "id": "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.await-call-next-header-mutation",
               "dimension": "success_path",
-              "description": "Await call_next(request), mutate the returned response headers in dispatch, and return that response. Upstream: docs/middleware.md:282-302; tests/middleware/test_base.py:179-187.",
+              "description": "Await call_next(request), observe duplicate response headers through the first-match lookup and raw ordered view, mutate a returned response header in dispatch, and return that response. Upstream: starlette/datastructures.py:528-562; docs/middleware.md:282-302; tests/middleware/test_base.py:179-187; tests/test_datastructures.py:226-243.",
               "lanes": [
                 "parity"
               ],
@@ -14084,7 +14850,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -14095,7 +14865,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -14106,14 +14880,22 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             }
           ],
           "parity": {
             "applicability": "required",
             "target_profiles": [
-              "python-package-cpython312"
+              "python-package-cpython310",
+              "python-package-cpython311",
+              "python-package-cpython312",
+              "python-package-cpython313",
+              "python-package-cpython314"
             ]
           },
           "coverage": {
@@ -14243,7 +15025,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -14254,7 +15040,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -14265,7 +15055,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -14276,7 +15070,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -14287,7 +15085,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -14298,7 +15100,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -14309,7 +15115,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -14320,7 +15130,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -14331,7 +15145,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -14342,7 +15160,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -14353,7 +15175,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -14364,7 +15190,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -14375,14 +15205,22 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             }
           ],
           "parity": {
             "applicability": "required",
             "target_profiles": [
-              "python-package-cpython312"
+              "python-package-cpython310",
+              "python-package-cpython311",
+              "python-package-cpython312",
+              "python-package-cpython313",
+              "python-package-cpython314"
             ]
           },
           "coverage": {
@@ -14490,7 +15328,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -14501,7 +15343,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -14512,7 +15358,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -14523,7 +15373,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -14534,7 +15388,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -14545,7 +15403,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -14556,7 +15418,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -14567,7 +15433,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -14578,7 +15448,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -14589,7 +15463,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -14600,7 +15478,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -14611,14 +15493,22 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             }
           ],
           "parity": {
             "applicability": "required",
             "target_profiles": [
-              "python-package-cpython312"
+              "python-package-cpython310",
+              "python-package-cpython311",
+              "python-package-cpython312",
+              "python-package-cpython313",
+              "python-package-cpython314"
             ]
           },
           "coverage": {
@@ -14705,14 +15595,22 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             }
           ],
           "parity": {
             "applicability": "required",
             "target_profiles": [
-              "python-package-cpython312"
+              "python-package-cpython310",
+              "python-package-cpython311",
+              "python-package-cpython312",
+              "python-package-cpython313",
+              "python-package-cpython314"
             ]
           },
           "coverage": {
@@ -14799,14 +15697,22 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             }
           ],
           "parity": {
             "applicability": "required",
             "target_profiles": [
-              "python-package-cpython312"
+              "python-package-cpython310",
+              "python-package-cpython311",
+              "python-package-cpython312",
+              "python-package-cpython313",
+              "python-package-cpython314"
             ]
           },
           "coverage": {
@@ -16138,7 +17044,7 @@
                     "kind": "exact"
                   },
                   "normalization": {
-                    "kind": "response-consumer-file-environment"
+                    "kind": "file-response-consumer-runtime-artifacts"
                   }
                 }
               ],
@@ -17533,12 +18439,16 @@
             {
               "id": "starlette.responses.Response.asgi-call.partitioned-cookie-version-error",
               "dimension": "error_path",
-              "description": "Attempt Response.set_cookie(partitioned=True) on CPython 3.12 and observe the version-gated error before ASGI dispatch. Upstream: starlette/responses.py::Response.set_cookie; tests/test_responses.py::test_set_cookie_raises_for_invalid_python_version.",
+              "description": "Attempt Response.set_cookie(partitioned=True) under each supported CPython minor from 3.10 through 3.14 and observe the live source outcome before ASGI dispatch: it raises before 3.14 and emits the partitioned attribute on 3.14. Upstream: starlette/responses.py::Response.set_cookie; tests/test_responses.py::test_set_cookie_raises_for_invalid_python_version.",
               "lanes": [
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -17668,7 +18578,11 @@
             "applicability": "required",
             "target_profiles": [
               "rust-native-local",
-              "python-package-cpython312"
+              "python-package-cpython310",
+              "python-package-cpython311",
+              "python-package-cpython312",
+              "python-package-cpython313",
+              "python-package-cpython314"
             ]
           },
           "coverage": {
@@ -19768,6 +20682,17 @@
               ]
             },
             {
+              "id": "starlette.routing.Route.max_body_size.application-limit-before-route-override",
+              "dimension": "boundary",
+              "description": "When input-defined application middleware reads a fragmented request body before routing, the application max_body_size rejects an 8-byte body at limit 5 before a route limit of 10 can apply; observe response_status, ordered_repeated_headers, response_bytes, asgi_event_order, and asgi_events. Pinned source: docs/routing.md:316-321; starlette/applications.py::Starlette.build_middleware_stack; starlette/middleware/body_limit.py::RequestBodyLimitResponder.receive_with_limit; tests/middleware/test_body_limit.py::test_starlette_limit_applies_before_user_middleware.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.routing.Route.max_body_size.raise-application-limit-through-scope-copy",
               "dimension": "boundary",
               "description": "A route-level max_body_size that exceeds the application limit remains effective after input-defined ASGI middleware forwards a shallow copy of the scope. Upstream: starlette/routing.py:197-208; starlette/middleware/body_limit.py:71-80; tests/middleware/test_body_limit.py:321-338.",
@@ -20137,12 +21062,16 @@
           "targets": [
             {
               "target_id": "rust-native",
-              "path": null,
-              "signature": null,
+              "path": "starlette_rs::NamedRoute::url_path_for",
+              "signature": "url_path_for(&self, name: &str, path_params: &[(String, String)]) -> Result<RouteUrlPath, NamedRouteError>",
               "support": {
-                "status": "unimplemented",
-                "reason": "The Rust-native public API does not declare the Python named URL lookup interface.",
-                "blocker": "No Rust-native named Route/Router/Mount reverse lookup API is exposed for this compatibility operation."
+                "status": "partial",
+                "reason": "The Rust-native NamedRoute supports static paths, built-in converter paths, and exact parameter-name mismatch. Python custom converters, datetime values, and Python AssertionError mapping for converter failures remain unsupported.",
+                "missing_requirements": [
+                  "starlette.routing.Route.url_path_for.converter-error",
+                  "starlette.routing.Route.url_path_for.custom-converter-override",
+                  "starlette.routing.Route.url_path_for.datetime-converter"
+                ]
               }
             },
             {
@@ -20163,6 +21092,7 @@
                 "parity"
               ],
               "target_profiles": [
+                "rust-native-local",
                 "python-package-cpython312"
               ]
             },
@@ -20174,6 +21104,7 @@
                 "parity"
               ],
               "target_profiles": [
+                "rust-native-local",
                 "python-package-cpython312"
               ]
             },
@@ -20185,6 +21116,7 @@
                 "parity"
               ],
               "target_profiles": [
+                "rust-native-local",
                 "python-package-cpython312"
               ]
             },
@@ -20196,6 +21128,7 @@
                 "parity"
               ],
               "target_profiles": [
+                "rust-native-local",
                 "python-package-cpython312"
               ]
             },
@@ -20207,6 +21140,7 @@
                 "parity"
               ],
               "target_profiles": [
+                "rust-native-local",
                 "python-package-cpython312"
               ]
             },
@@ -20218,6 +21152,7 @@
                 "parity"
               ],
               "target_profiles": [
+                "rust-native-local",
                 "python-package-cpython312"
               ]
             },
@@ -20229,6 +21164,7 @@
                 "parity"
               ],
               "target_profiles": [
+                "rust-native-local",
                 "python-package-cpython312"
               ]
             },
@@ -20269,6 +21205,7 @@
           "parity": {
             "applicability": "required",
             "target_profiles": [
+              "rust-native-local",
               "python-package-cpython312"
             ]
           },
@@ -20597,7 +21534,8 @@
                   "starlette.routing.Router.route-dispatch.http-endpoint-sync-handler",
                   "starlette.routing.Router.route-dispatch.http-endpoint-method-handler",
                   "starlette.routing.Router.route-dispatch.http-endpoint-head-get-fallback",
-                  "starlette.routing.Router.route-dispatch.max-body-size"
+                  "starlette.routing.Router.route-dispatch.max-body-size",
+                  "starlette.routing.Router.route-dispatch.default-method-not-allowed"
                 ]
               }
             },
@@ -20716,6 +21654,28 @@
               ],
               "target_profiles": [
                 "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Router.route-dispatch.explicit-method-not-allowed",
+              "dimension": "error_path",
+              "description": "A request whose path matches an HTTP Route but whose method is absent from its explicit methods collection receives the live 405 response and Allow header. Pinned source: docs/routing.md:94-103; starlette/routing.py::Route.matches and Route.handle.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Router.route-dispatch.default-method-not-allowed",
+              "dimension": "error_path",
+              "description": "A function endpoint Route with omitted methods defaults to GET and implicit HEAD; a matching POST receives the live 405 response and Allow header. Pinned source: docs/routing.md:94-103; starlette/routing.py:215-273.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
                 "python-package-cpython312"
               ]
             },
@@ -22472,6 +23432,100 @@
           "benchmark": {
             "applicability": "not_applicable",
             "reason": "This behavior is outside the declared benchmark workloads."
+          }
+        },
+        {
+          "id": "module-import-policy",
+          "kind": "value_operation",
+          "classification": "non_endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.schemas module import and SchemaGenerator consumer",
+            "signature": "Import SchemaGenerator under input-selected dependency loader failures and call get_schema(routes)",
+            "parameters": [
+              {
+                "id": "imports",
+                "style": "option",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "import-policy",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "Python optional-module import behavior belongs to the package consumer interface.",
+                "blocker": "The Rust-native API has no Python module loader interface."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.schemas.SchemaGenerator",
+              "signature": "Import SchemaGenerator under input-selected dependency loader failures and call get_schema(routes)",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.schemas.SchemaGenerator.module-import-policy.dependency-errors-and-selection",
+              "dimension": "error_path",
+              "description": "With PyYAML absent, a schema route with no endpoint docstring returns the base schema while a truthy docstring preserves Starlette\u2019s assertion. Pinned source: starlette/schemas.py:11-17, 96-120, 128-148.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This input-only dependency-selection comparison makes no standalone code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "Optional import failure behavior is outside the declared benchmark workloads."
           }
         }
       ]
@@ -25044,7 +26098,7 @@
             {
               "id": "starlette.websocket.api.iterator.athrow",
               "dimension": "boundary",
-              "description": "Call athrow with an input-supplied built-in exception on the public WebSocket text iterator and observe its result or error.",
+              "description": "Call athrow with input-supplied exception types on the public WebSocket text iterator, including a built-in exception before the first yield and WebSocketDisconnect after the first yield, and observe its result or error.",
               "lanes": [
                 "parity"
               ],
@@ -25929,9 +26983,42 @@
               ]
             },
             {
+              "id": "starlette.testclient.TestClient.request-response.authentication-option",
+              "dimension": "feature",
+              "description": "Pass an input HTTPX Basic-auth credential pair through TestClient.request(auth=...) and observe the resulting Authorization header in the live ASGI scope. Pinned source: docs/testclient.md:36-63; starlette/testclient.py:430-463.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.request-response.multipart-file-upload",
+              "dimension": "feature",
+              "description": "Pass input-defined multipart file parts through TestClient.request(files=...) and observe the parsed fields, filenames, media types, and content through Request.form(). Pinned source: docs/testclient.md:36-63; starlette/testclient.py:430-463; starlette/requests.py:252-296.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.testclient.TestClient.request-response.response-and-debug",
               "dimension": "success_path",
               "description": "Translate input ASGI response-start, debug, and body messages into the public HTTPX response URL, status, reason phrase, ordered headers, body, and response extensions, including standard and unknown numeric status phrases and suppression of an ASGI response body on a HEAD request. Pinned source: starlette/testclient.py:327-367; tests/test_testclient.py::test_debug_info_in_response_extensions; tests/test_responses.py::test_response_phrase; tests/test_responses.py::test_head_method.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.request-response.template-response-debug-extension",
+              "dimension": "feature",
+              "description": "Return the public Jinja2 TemplateResponse from a routed endpoint through TestClient and preserve its http.response.debug extension, template object, and context on the HTTPX response. Pinned source: starlette/testclient.py:327-367; starlette/templating.py:61-120; tests/test_testclient.py::test_debug_info_in_response_extensions_with_template.",
               "lanes": [
                 "parity"
               ],
@@ -25954,6 +27041,17 @@
               "id": "starlette.testclient.TestClient.request-response.follow-redirects-enabled",
               "dimension": "protocol_variant",
               "description": "Honor the input follow_redirects=true setting for a raw ASGI app that maps the initial path to RedirectResponse and its redirect target to Response. Compare both observed request paths and ASGI response events with the final HTTPX response status, URL, and body. Pinned source: tests/test_testclient.py:400-410; starlette/testclient.py:382-420.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.request-response.response-history",
+              "dimension": "protocol_variant",
+              "description": "Follow an input-defined multi-hop raw ASGI redirect chain and expose the ordered public httpx2 response.history sequence, including status, reason phrase, URL, headers, and body for each prior response. Pinned source: docs/testclient.md:36-41; starlette/testclient.py:377-420.",
               "lanes": [
                 "parity"
               ],
@@ -26145,7 +27243,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -26449,7 +27551,11 @@
           "parity": {
             "applicability": "required",
             "target_profiles": [
-              "python-package-cpython312"
+              "python-package-cpython310",
+              "python-package-cpython311",
+              "python-package-cpython312",
+              "python-package-cpython313",
+              "python-package-cpython314"
             ]
           },
           "coverage": {
@@ -27139,7 +28245,7 @@
                     "kind": "ordered"
                   },
                   "normalization": {
-                    "kind": "starlette-lifespan-router-frame"
+                    "kind": "starlette-lifespan-failure-frames"
                   }
                 },
                 {
@@ -27325,7 +28431,7 @@
             {
               "target_id": "python-package",
               "path": "starlette.testclient.TestClient.__enter__",
-              "signature": "__enter__() -> TestClient; __exit__(*args) -> None",
+              "signature": "__enter__() -> Self; __exit__(*args) -> None",
               "support": {
                 "status": "supported"
               }
@@ -27340,7 +28446,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -27351,7 +28461,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -27362,7 +28476,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -27373,7 +28491,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -27384,7 +28506,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -27395,7 +28521,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -27406,7 +28536,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -27417,7 +28551,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -27428,7 +28566,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -27439,7 +28581,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -27450,7 +28596,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -27461,7 +28611,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -27472,7 +28626,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -27483,7 +28641,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -27494,7 +28656,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -27505,7 +28671,26 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.lifespan-context.backend-loop-selection",
+              "dimension": "protocol_variant",
+              "description": "Select asyncio or Trio for a managed TestClient lifespan, including asyncio debug configuration, and observe the active backend and loop/task identity from the live app. Pinned source: docs/testclient.md:142-163; starlette/testclient.py:112-130,679-749.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -27516,14 +28701,22 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             }
           ],
           "parity": {
             "applicability": "required",
             "target_profiles": [
-              "python-package-cpython312"
+              "python-package-cpython310",
+              "python-package-cpython311",
+              "python-package-cpython312",
+              "python-package-cpython313",
+              "python-package-cpython314"
             ]
           },
           "coverage": {
@@ -27743,7 +28936,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -27756,12 +28953,61 @@
               "target_profiles": [
                 "python-package-cpython312"
               ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.public-client-workflow.managed-lifespan-cycle",
+              "dimension": "protocol_variant",
+              "description": "Enter TestClient as a context manager and observe input-defined Starlette lifespan startup and shutdown around routed requests. Pinned source: docs/testclient.md:81-84; docs/lifespan.md:27-30; starlette/routing.py:639-665; tests/test_testclient.py:110-138.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.public-client-workflow.sync-worker-thread-context-propagation",
+              "dimension": "boundary",
+              "description": "A synchronous Starlette route runs in an AnyIO worker thread and observes the input-defined ContextVar value set by async middleware. Pinned source: starlette/routing.py:47-63; starlette/concurrency.py:32-34; tests/test_requests.py:82-105.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.public-client-workflow.request-url-header-body-observation",
+              "dimension": "boundary",
+              "description": "A routed Request exposes the input URL and query, client-supplied headers, and body bytes through its public properties and body() method. Pinned source: starlette/requests.py:110-143,254-260; tests/test_requests.py:17-105.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
             }
           ],
           "parity": {
             "applicability": "required",
             "target_profiles": [
-              "python-package-cpython312"
+              "python-package-cpython310",
+              "python-package-cpython311",
+              "python-package-cpython312",
+              "python-package-cpython313",
+              "python-package-cpython314"
             ]
           },
           "coverage": {
@@ -28220,6 +29466,18 @@
                   "comparison": {
                     "kind": "ordered"
                   }
+                },
+                {
+                  "path": "hook_trace",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  },
+                  "condition": {
+                    "input_key": "hooks"
+                  }
                 }
               ],
               "error": {
@@ -28602,6 +29860,18 @@
                   ],
                   "comparison": {
                     "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "method_reads",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  },
+                  "condition": {
+                    "input_key": "endpoint.method_reads"
                   }
                 }
               ],

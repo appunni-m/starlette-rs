@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@45",
+  "schema": "migration-parity/parity-input@47",
   "cases": [
     {
       "case_id": "starlette.applications.Starlette.__call__.lifespan-sync-generator-success",
@@ -1941,9 +1941,7 @@
       "covers": [
         "starlette.asgi.lifespan.scope-state-merge"
       ],
-      "target_profiles": [
-        "python-package-cpython312"
-      ],
+      "target_profiles": ["python-package-cpython312"],
       "assets": [],
       "execution_schedule": [
         "lifespan.startup",
@@ -2078,9 +2076,7 @@
       "covers": [
         "starlette.asgi.lifespan.scope-state-required"
       ],
-      "target_profiles": [
-        "python-package-cpython312"
-      ],
+      "target_profiles": ["python-package-cpython312"],
       "assets": [],
       "execution_schedule": [
         "lifespan.startup",

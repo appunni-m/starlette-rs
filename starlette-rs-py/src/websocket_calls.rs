@@ -937,15 +937,19 @@ impl PyWebSocketIterator {
 
     fn athrow(slf: Py<Self>, py: Python<'_>, exception: Py<PyAny>) -> PyResult<Py<PyAny>> {
         let borrowed = slf.borrow(py);
+        let disconnect_error = borrowed.disconnect_error.clone_ref(py);
         let finished = borrowed.finished.clone();
         let running = borrowed.running.clone();
+        let started = borrowed.started.clone();
         drop(borrowed);
         into_sendable_python_awaitable(
             py,
             WebSocketIteratorThrow {
                 exception,
+                disconnect_error,
                 finished,
                 running,
+                started,
             },
         )
     }
@@ -981,13 +985,16 @@ impl PyWebSocketIterator {
 
 struct WebSocketIteratorThrow {
     exception: Py<PyAny>,
+    disconnect_error: Py<PyAny>,
     finished: SharedFlag,
     running: SharedFlag,
+    started: SharedFlag,
 }
 
 impl AwaitableStateMachine for WebSocketIteratorThrow {
     fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
-        visit.call(&self.exception)
+        visit.call(&self.exception)?;
+        visit.call(&self.disconnect_error)
     }
     fn finalize_on_drop(&self) -> bool {
         true
@@ -1001,7 +1008,17 @@ impl AwaitableStateMachine for WebSocketIteratorThrow {
                     ));
                 }
                 self.finished.set(true);
-                Err(PyErr::from_value(self.exception.bind(py).clone()))
+                self.running.set(false);
+                if self.started.get()
+                    && self
+                        .exception
+                        .bind(py)
+                        .is_instance(self.disconnect_error.bind(py))?
+                {
+                    Err(PyStopAsyncIteration::new_err(()))
+                } else {
+                    Err(PyErr::from_value(self.exception.bind(py).clone()))
+                }
             }
             MachineResume::Value(_) => Ok(MachineAction::Complete(py.None())),
             MachineResume::Error(error) => Err(error),

@@ -40,6 +40,18 @@ def _safe(value: Any) -> Any:
         return {str(key): _safe(item) for key, item in value.items()}
     if isinstance(value, (tuple, list)):
         return [_safe(item) for item in value]
+    value_type = type(value)
+    if value_type.__module__ == "starlette.requests" and value_type.__qualname__ == "Request":
+        return {
+            "type": f"{value_type.__module__}.{value_type.__qualname__}",
+            "method": value.method,
+            "url": str(value.url),
+        }
+    if value_type.__module__.startswith("jinja2.") and value_type.__name__ == "Template":
+        return {
+            "type": f"{value_type.__module__}.{value_type.__qualname__}",
+            "name": value.name,
+        }
     return value
 
 
@@ -100,6 +112,20 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
         from starlette.responses import JSONResponse, PlainTextResponse, Response
         from starlette.routing import Route
 
+        endpoint_spec = app_input["endpoint"]
+        templates = None
+        if endpoint_spec["kind"] == "sync-template-response":
+            from starlette.templating import Jinja2Templates
+
+            temporary_filesystem = tempfile.TemporaryDirectory(
+                prefix="starlette-testclient-template-parity-"
+            )
+            template_root = Path(temporary_filesystem.name)
+            template_path = template_root.joinpath(*endpoint_spec["template_name"].split("/"))
+            template_path.parent.mkdir(parents=True, exist_ok=True)
+            template_path.write_text(endpoint_spec["template_source"], encoding="utf-8")
+            templates = Jinja2Templates(directory=str(template_root))
+
         sync_endpoint_state = {
             "caller_thread_id": None,
             "invocation_count": 0,
@@ -117,13 +143,18 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
                     "different_worker_thread": threading.get_ident() != caller_thread_id,
                     "invocation_count": sync_endpoint_state["invocation_count"],
                 }
-            endpoint_spec = app_input["endpoint"]
             if endpoint_spec["kind"] == "sync-json-response":
                 return JSONResponse(endpoint_spec["content"])
             if endpoint_spec["kind"] == "sync-query-param-text-response":
                 return Response(_request.query_params[endpoint_spec["query_parameter"]])
             if endpoint_spec["kind"] == "sync-request-url-path-response":
                 return Response(_request.url.path)
+            if endpoint_spec["kind"] == "sync-template-response":
+                return templates.TemplateResponse(
+                    _request,
+                    endpoint_spec["template_name"],
+                    endpoint_spec["context"],
+                )
             return PlainTextResponse(endpoint_spec["content"])
 
         route_app = Starlette(
@@ -873,6 +904,26 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
                 except RuntimeError as error:
                     value = str(error)
                 response = JSONResponse({"json": value})
+            elif probe == "multipart-form":
+                from starlette.datastructures import UploadFile
+
+                request = Request(scope, receive)
+                form_items: list[dict[str, Any]] = []
+                async with request.form() as form:
+                    for field, value in form.multi_items():
+                        if isinstance(value, UploadFile):
+                            content = await value.read()
+                            form_items.append(
+                                {
+                                    "field": field,
+                                    "filename": value.filename,
+                                    "content_type": value.content_type,
+                                    "content_base64": base64.b64encode(content).decode("ascii"),
+                                }
+                            )
+                        else:
+                            form_items.append({"field": field, "value": value})
+                response = JSONResponse({"form_items": form_items})
             else:
                 raise ValueError(f"unsupported Request observer probe: {probe}")
 
@@ -986,6 +1037,8 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
         headers=dict(settings["headers"]),
         follow_redirects=settings.get("follow_redirects", True),
     )
+    if "client_headers_assignment" in case:
+        client.headers = dict(case["client_headers_assignment"])
     response = None
     response_value = None
     followup_response_values: list[dict[str, Any]] = []
@@ -998,6 +1051,16 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
             "url": str(value.url),
             "headers": value.headers.multi_items(),
             "body_base64": base64.b64encode(value.content).decode("ascii"),
+            "history": [
+                {
+                    "status_code": history_response.status_code,
+                    "reason_phrase": history_response.reason_phrase,
+                    "url": str(history_response.url),
+                    "headers": history_response.headers.multi_items(),
+                    "body_base64": base64.b64encode(history_response.content).decode("ascii"),
+                }
+                for history_response in value.history
+            ],
             "extensions": _safe(value.extensions),
             "template": _safe(getattr(value, "template", None)),
             "context": _safe(getattr(value, "context", None)),
@@ -1030,16 +1093,32 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
                     request_kwargs["params"] = current_request["params"]
                 if "timeout" in current_request:
                     request_kwargs["timeout"] = current_request["timeout"]
+                if "auth" in current_request:
+                    request_kwargs["auth"] = tuple(current_request["auth"])
+                if "files" in current_request:
+                    request_kwargs["files"] = [
+                        (
+                            file_input["field"],
+                            (
+                                file_input["filename"],
+                                base64.b64decode(file_input["content_base64"]),
+                                file_input["content_type"],
+                            ),
+                        )
+                        for file_input in current_request["files"]
+                    ]
                 client_method = current_request.get("client_method")
                 if client_method == "get":
                     current_response = client.get(current_request["url"], **request_kwargs)
                 elif client_method == "head":
                     current_response = client.head(current_request["url"], **request_kwargs)
                 elif client_method == "post":
-                    request_kwargs["content"] = request_content(current_request)
+                    if "files" not in current_request:
+                        request_kwargs["content"] = request_content(current_request)
                     current_response = client.post(current_request["url"], **request_kwargs)
                 else:
-                    request_kwargs["content"] = request_content(current_request)
+                    if "files" not in current_request:
+                        request_kwargs["content"] = request_content(current_request)
                     current_response = client.request(
                         current_request["method"],
                         current_request["url"],
@@ -1489,6 +1568,42 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
             finally:
                 application_state["completed"] = True
 
+    elif app_input["kind"] == "starlette-websocket-authorization-route":
+        from starlette.applications import Starlette
+        from starlette.exceptions import HTTPException
+        from starlette.routing import WebSocketRoute
+
+        authorized_subprotocol = app_input["authorized_subprotocol"]
+
+        async def authorization_endpoint(websocket: Any) -> None:
+            if authorized_subprotocol not in websocket.scope["subprotocols"]:
+                raise HTTPException(
+                    status_code=app_input["denial_status_code"],
+                    detail=app_input["denial_detail"],
+                )
+            await websocket.accept(subprotocol=authorized_subprotocol)
+            await websocket.send_text(app_input["response_text"])
+
+        starlette_application = Starlette(
+            debug=app_input["debug"],
+            routes=[WebSocketRoute(app_input["path"], authorization_endpoint)],
+        )
+
+        async def app(scope: dict[str, Any], receive: Any, send: Any) -> None:
+            record_scope(scope)
+            application_state["thread"] = threading.current_thread()
+
+            async def traced_receive() -> dict[str, Any]:
+                return await observed_receive(receive)
+
+            async def traced_send(message: dict[str, Any]) -> None:
+                await observed_send(send, message)
+
+            try:
+                await starlette_application(scope, traced_receive, traced_send)
+            finally:
+                application_state["completed"] = True
+
     elif app_input["kind"] in {
         "starlette-routed-websocket-graph",
         "starlette-standalone-websocket-route",
@@ -1496,6 +1611,27 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
         from starlette.routing import Router, WebSocketRoute
 
         def endpoint_for(endpoint_spec: dict[str, Any]) -> Any:
+            if endpoint_spec["kind"] in {
+                "websocket-endpoint-path-param-text",
+                "websocket-endpoint-literal-text",
+            }:
+                from starlette.endpoints import WebSocketEndpoint
+
+                class InputWebSocketEndpoint(WebSocketEndpoint):
+                    async def on_connect(self, websocket: Any) -> None:
+                        if endpoint_spec["kind"] == "websocket-endpoint-literal-text":
+                            text = endpoint_spec["text"]
+                        else:
+                            text = (
+                                endpoint_spec["prefix"]
+                                + websocket.path_params[endpoint_spec["parameter"]]
+                                + endpoint_spec["suffix"]
+                            )
+                        await websocket.accept()
+                        await websocket.send_text(text)
+
+                return InputWebSocketEndpoint
+
             async def endpoint(websocket: Any) -> None:
                 await websocket.accept()
                 if endpoint_spec["kind"] == "literal-text":
@@ -2193,7 +2329,162 @@ def _run_starlette_lifespan_runvar_case(case: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _run_starlette_lifespan_backend_probe_case(case: dict[str, Any]) -> dict[str, Any]:
+    import sniffio
+    from starlette.applications import Starlette
+    from starlette.responses import PlainTextResponse
+    from starlette.routing import Route
+    from starlette.testclient import TestClient
+
+    settings = case["testclient"]
+    app_input = case["asgi_app"]
+    lifespan_scopes: list[dict[str, Any]] = []
+    http_scopes: list[dict[str, Any]] = []
+    execution_contexts: list[dict[str, Any]] = []
+    lifecycle_trace: list[str] = []
+    request_results: list[dict[str, Any]] = []
+    action_errors: list[dict[str, Any]] = []
+
+    def record_execution_context(phase: str) -> None:
+        backend = sniffio.current_async_library()
+        if backend == "asyncio":
+            loop = asyncio.get_running_loop()
+            execution_contexts.append(
+                {
+                    "phase": phase,
+                    "backend": backend,
+                    "runtime_module": type(loop).__module__,
+                    "runtime_class": type(loop).__qualname__,
+                    "debug": loop.get_debug(),
+                }
+            )
+        elif backend == "trio":
+            import trio.lowlevel
+
+            task = trio.lowlevel.current_task()
+            execution_contexts.append(
+                {
+                    "phase": phase,
+                    "backend": backend,
+                    "runtime_module": type(task).__module__,
+                    "runtime_class": type(task).__qualname__,
+                    "debug": None,
+                }
+            )
+        else:
+            raise RuntimeError(f"unsupported TestClient backend {backend!r}")
+
+    @contextlib.asynccontextmanager
+    async def lifespan(_app: Any) -> Any:
+        lifecycle_trace.append("startup")
+        record_execution_context("startup")
+        try:
+            yield
+        finally:
+            lifecycle_trace.append("shutdown")
+            record_execution_context("shutdown")
+
+    async def endpoint(_request: Any) -> PlainTextResponse:
+        lifecycle_trace.append("request")
+        record_execution_context("request")
+        return PlainTextResponse("backend-probe")
+
+    starlette_app = Starlette(
+        routes=[Route(app_input["route"]["path"], endpoint)],
+        lifespan=lifespan,
+    )
+
+    def record_scope(scope: dict[str, Any]) -> dict[str, Any]:
+        return {field: _safe(scope.get(field)) for field in app_input["scope_fields"]}
+
+    async def instrumented_app(scope: dict[str, Any], receive: Any, send: Any) -> None:
+        destination = lifespan_scopes if scope["type"] == "lifespan" else http_scopes
+        destination.append(record_scope(scope))
+        await starlette_app(scope, receive, send)
+
+    client = TestClient(
+        instrumented_app,
+        base_url=settings["base_url"],
+        raise_server_exceptions=settings["raise_server_exceptions"],
+        root_path=settings["root_path"],
+        client=tuple(settings["client"]),
+        headers=dict(settings["headers"]),
+        backend=settings["backend"],
+        backend_options=settings["backend_options"],
+    )
+    action_trace: list[dict[str, Any]] = []
+    try:
+        for action_index, action in enumerate(case["client_actions"]):
+            operation = action["operation"]
+            try:
+                if operation == "enter":
+                    client.__enter__()
+                elif operation == "exit":
+                    client.__exit__(None, None, None)
+                else:
+                    request = action["request"]
+                    response = client.request(
+                        request["method"],
+                        request["url"],
+                        headers=_decoded_pairs(request["headers_base64_pairs"]),
+                        content=base64.b64decode(request["body_base64"]),
+                    )
+                    request_results.append(
+                        {
+                            "action_index": action_index,
+                            "url": str(response.request.url),
+                            "status_code": response.status_code,
+                            "headers": response.headers.multi_items(),
+                            "body_base64": base64.b64encode(response.content).decode("ascii"),
+                        }
+                    )
+                action_trace.append(
+                    {
+                        "action_index": action_index,
+                        "operation": operation,
+                        "trace": list(lifecycle_trace),
+                    }
+                )
+            except Exception as error:
+                error_type = type(error)
+                action_errors.append(
+                    {
+                        "action_index": action_index,
+                        "operation": operation,
+                        "exception_type": f"{error_type.__module__}.{error_type.__qualname__}",
+                        "message": str(error),
+                    }
+                )
+                action_trace.append(
+                    {
+                        "action_index": action_index,
+                        "operation": operation,
+                        "trace": list(lifecycle_trace),
+                    }
+                )
+                break
+    finally:
+        client.close()
+
+    result = {
+        "lifespan_scopes": lifespan_scopes,
+        "http_scopes": http_scopes,
+        "execution_contexts": execution_contexts,
+        "lifecycle_trace": lifecycle_trace,
+        "action_trace": action_trace,
+        "action_errors": action_errors,
+        "request_results": request_results,
+    }
+    return {
+        "case_id": case["case_id"],
+        "status": "completed",
+        "observations": [{"step_id": "lifespan-context", "status": "ok", "value": result}],
+    }
+
+
 def run_testclient_lifespan_case(case: dict[str, Any]) -> dict[str, Any]:
+    if case["asgi_app"]["kind"] == "starlette-lifespan-backend-probe":
+        return _run_starlette_lifespan_backend_probe_case(case)
     if case["asgi_app"]["kind"] in {
         "starlette-lifespan",
         "starlette-router-lifespan",

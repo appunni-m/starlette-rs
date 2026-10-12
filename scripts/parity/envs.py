@@ -13,15 +13,23 @@ import zipfile
 from pathlib import Path
 from typing import Any
 
-import tomllib
+try:
+    import tomllib
+except ModuleNotFoundError:  # CPython 3.10 starts before the prepared parity lock exists.
+    try:
+        import tomli as tomllib
+    except ModuleNotFoundError:
+        # The bootstrap interpreter must parse the pinned uv.lock before the parity
+        # environment can install its own hash-pinned tomli dependency.
+        from pip._vendor import tomli as tomllib
 
 from .contract import ORACLE_COMMIT, ContractError, sha256_file
 
-ENVIRONMENTS_SCHEMA = "migration-parity/python-environments@2"
+ENVIRONMENTS_SCHEMA = "migration-parity/python-environments@3"
 ENVIRONMENTS_RELATIVE = Path("build/parity/python-environments.json")
-RUNTIME_LOCK_RELATIVE = Path("scripts/parity/locks/asgi-runtime-cpython312.txt")
-ORACLE_RUNTIME_LOCK_RELATIVE = Path("scripts/parity/locks/starlette-oracle-cpython312.txt")
-ENVIRONMENT_IDS = ("starlette-oracle-cpython312", "starlette-rs-py-cpython312")
+RUNTIME_LOCK_RELATIVE = Path("scripts/parity/locks/asgi-runtime-python.txt")
+ORACLE_RUNTIME_LOCK_RELATIVE = Path("scripts/parity/locks/starlette-oracle-python.txt")
+SUPPORTED_PYTHON_VERSIONS = ("3.10", "3.11", "3.12", "3.13", "3.14")
 _PROCESS_ENVIRONMENT_POLICY = {
     "PYTHONHASHSEED": "0",
     "PYTHONOPTIMIZE": None,
@@ -47,6 +55,30 @@ print(json.dumps({
 def _canonical_sha256(value: Any) -> str:
     raw = json.dumps(value, sort_keys=True, separators=(",", ":"), allow_nan=False).encode("utf-8")
     return hashlib.sha256(raw).hexdigest()
+
+
+def python_version_tag(version: str) -> str:
+    if version not in SUPPORTED_PYTHON_VERSIONS:
+        raise ContractError(f"unsupported parity CPython version: {version}")
+    return "cpython" + version.replace(".", "")
+
+
+def environment_ids(version: str) -> tuple[str, str]:
+    tag = python_version_tag(version)
+    return (f"starlette-oracle-{tag}", f"starlette-rs-py-{tag}")
+
+
+ENVIRONMENT_IDS = environment_ids("3.12")
+
+
+def python_version_from_runtime(runtime: str) -> str:
+    parts = runtime.split()
+    if len(parts) != 2 or parts[0] != "CPython":
+        raise ContractError(f"parity environment runtime is not CPython: {runtime!r}")
+    version = ".".join(parts[1].split(".")[:2])
+    if version not in SUPPORTED_PYTHON_VERSIONS:
+        raise ContractError(f"unsupported parity CPython runtime: {runtime!r}")
+    return version
 
 
 def _target_source_identity(root: Path) -> dict[str, Any]:
@@ -240,10 +272,13 @@ def _probe(python: Path, root: Path) -> dict[str, Any]:
         "packages",
     }:
         raise ContractError("environment interpreter identity has unknown or missing fields")
-    if value["implementation"] != "CPython" or not str(value["python"]).startswith("3.12."):
+    runtime = f"{value['implementation']} {value['python']}"
+    try:
+        python_version_from_runtime(runtime)
+    except ContractError as exc:
         raise ContractError(
-            f"parity environments require CPython 3.12, found {value['implementation']} {value['python']}"
-        )
+            f"parity environments require CPython 3.10 through 3.14, found {runtime}"
+        ) from exc
     package_rows = value["packages"]
     if not isinstance(package_rows, list) or any(
         not isinstance(item, dict) or set(item) != {"name", "version"} for item in package_rows
@@ -331,6 +366,8 @@ def validate_runtime_lock(root: Path, upstream: Path) -> str:
         "httpx",
         "httpx2",
         "idna",
+        "exceptiongroup",
+        "itsdangerous",
         "jinja2",
         "markupsafe",
         "outcome",
@@ -339,8 +376,10 @@ def validate_runtime_lock(root: Path, upstream: Path) -> str:
         "trio",
         "truststore",
         "typing-extensions",
+        "tomli",
         "pycparser",
         "pyyaml",
+        "python-multipart",
     }
     declarations: dict[str, tuple[str, set[str]]] = {}
     try:
@@ -366,7 +405,7 @@ def validate_runtime_lock(root: Path, upstream: Path) -> str:
         raise ContractError(f"cannot parse committed CPython runtime lock: {exc}") from exc
     if set(declarations) != expected_names:
         raise ContractError(
-            "runtime dependency lock must contain the ASGI closure, optional YAML/template parsers, "
+            "runtime dependency lock must contain the ASGI closure, pinned full-extra dependencies, "
             "pinned TestClient HTTP transports, and the locked AnyIO Trio parity backend dependency closure"
         )
     for name, (version, hashes) in declarations.items():
@@ -412,15 +451,14 @@ def _lock_declarations(path: Path) -> dict[str, tuple[str, set[str]]]:
 
 
 def validate_oracle_runtime_lock(root: Path, upstream: Path) -> str:
-    """Check the oracle lock adds only pinned Starlette optional dependencies."""
+    """Check both full-feature environments use the pinned optional closure."""
     base = _lock_declarations(root / RUNTIME_LOCK_RELATIVE)
     oracle_path = root / ORACLE_RUNTIME_LOCK_RELATIVE
     oracle = _lock_declarations(oracle_path)
     oracle_optional_dependencies = {"itsdangerous", "python-multipart"}
-    if set(oracle) != set(base) | oracle_optional_dependencies:
+    if set(oracle) != set(base) or not oracle_optional_dependencies <= set(base):
         raise ContractError(
-            "source-oracle lock must add only optional ItsDangerous and python-multipart "
-            "to the ASGI closure"
+            "source-oracle and package locks must contain the same pinned full-feature closure"
         )
     if any(oracle[name] != entry for name, entry in base.items()):
         raise ContractError(
@@ -446,7 +484,7 @@ def validate_oracle_runtime_lock(root: Path, upstream: Path) -> str:
     }
     if not oracle_optional_dependencies <= optional_full:
         raise ContractError(
-            "oracle-only dependencies must be declared in the pinned Starlette full extra"
+            "optional dependencies must be declared in the pinned Starlette full extra"
         )
     for name in sorted(oracle_optional_dependencies):
         package = source_packages.get(name)
@@ -495,16 +533,17 @@ def prepare_environments(
     python: Path | None = None,
     force: bool = False,
 ) -> dict[str, Any]:
-    """Build the local target wheel and prepare two independently locked venvs."""
+    """Build the target wheel and prepare isolated venvs for one CPython minor."""
     root = root.resolve()
     upstream = upstream.resolve()
     host_python = (python or Path(sys.executable)).resolve()
-    if sys.implementation.name != "cpython" or sys.version_info[:2] != (3, 12):
-        raise ContractError(
-            "prepare-env must be invoked by CPython 3.12; no global interpreter fallback is used"
-        )
     if not host_python.is_file():
         raise ContractError(f"requested Python interpreter is absent: {host_python}")
+    host_probe = _probe(host_python, root)
+    python_version = python_version_from_runtime(
+        f"{host_probe['implementation']} {host_probe['python']}"
+    )
+    environment_pair = environment_ids(python_version)
     target_source = _target_source_identity(root)
     revision, _ = _source_revision(upstream)
     lock_path = root / RUNTIME_LOCK_RELATIVE
@@ -537,11 +576,12 @@ def prepare_environments(
     env_root.mkdir(parents=True)
 
     records: list[dict[str, Any]] = []
-    source_path = _venv_python(env_root / "oracle")
-    target_path = _venv_python(env_root / "python-package")
+    version_root = env_root / python_version_tag(python_version)
+    source_path = _venv_python(version_root / "oracle")
+    target_path = _venv_python(version_root / "python-package")
     for environment, environment_lock in (
-        (env_root / "oracle", oracle_lock_path),
-        (env_root / "python-package", lock_path),
+        (version_root / "oracle", oracle_lock_path),
+        (version_root / "python-package", lock_path),
     ):
         _run([str(host_python), "-m", "venv", str(environment)], cwd=root, env=env, timeout=120)
         venv_python = _venv_python(environment)
@@ -572,8 +612,8 @@ def prepare_environments(
     )
 
     for environment_id, interpreter, artifact_digest, runtime_lock_path, runtime_lock_digest in (
-        (ENVIRONMENT_IDS[0], source_path, None, ORACLE_RUNTIME_LOCK_RELATIVE, oracle_lock_digest),
-        (ENVIRONMENT_IDS[1], target_path, wheel_digest, RUNTIME_LOCK_RELATIVE, lock_digest),
+        (environment_pair[0], source_path, None, ORACLE_RUNTIME_LOCK_RELATIVE, oracle_lock_digest),
+        (environment_pair[1], target_path, wheel_digest, RUNTIME_LOCK_RELATIVE, lock_digest),
     ):
         probe = _probe(interpreter, root)
         relative_python = interpreter.relative_to(root).as_posix()
@@ -616,7 +656,7 @@ def load_prepared_environments(
     metadata_path = root / ENVIRONMENTS_RELATIVE
     if not metadata_path.is_file():
         raise ContractError(
-            "parity environments are not prepared; run `python3.12 -m scripts.parity.cli prepare-env`"
+            "parity environments are not prepared; run `python -m scripts.parity.cli prepare-env` with CPython 3.10 through 3.14"
         )
     try:
         document = json.loads(metadata_path.read_text(encoding="utf-8"))
@@ -663,15 +703,20 @@ def load_prepared_environments(
     if _wheel_package_tree_sha256(wheel_path) != target_wheel["target_tree_sha256"]:
         raise ContractError("prepared target wheel package tree is missing or changed")
     rows = document["environments"]
-    if not isinstance(rows, list) or {
-        row.get("id") for row in rows if isinstance(row, dict)
-    } != set(ENVIRONMENT_IDS):
+    if not isinstance(rows, list) or len(rows) != 2:
+        raise ContractError("prepared environment lock must describe one oracle/package pair")
+    runtimes = {row.get("runtime") for row in rows if isinstance(row, dict) and "runtime" in row}
+    if len(runtimes) != 1:
+        raise ContractError("prepared oracle and package environments must use one CPython minor")
+    python_version = python_version_from_runtime(next(iter(runtimes)))
+    environment_pair = environment_ids(python_version)
+    if {row.get("id") for row in rows if isinstance(row, dict)} != set(environment_pair):
         raise ContractError(
-            "prepared environment lock must describe the oracle and installed-wheel environments"
+            "prepared environment lock must describe the matching oracle and installed-wheel profile"
         )
     expected_locks = {
-        ENVIRONMENT_IDS[0]: ORACLE_RUNTIME_LOCK_RELATIVE,
-        ENVIRONMENT_IDS[1]: RUNTIME_LOCK_RELATIVE,
+        environment_pair[0]: ORACLE_RUNTIME_LOCK_RELATIVE,
+        environment_pair[1]: RUNTIME_LOCK_RELATIVE,
     }
     output: dict[str, dict[str, Any]] = {}
     expected_keys = {
@@ -700,7 +745,7 @@ def load_prepared_environments(
         ):
             raise ContractError(f"{row['id']} dependency lock differs from the committed lock")
         if row["artifact_sha256"] != (
-            target_wheel["sha256"] if row["id"] == ENVIRONMENT_IDS[1] else None
+            target_wheel["sha256"] if row["id"] == environment_pair[1] else None
         ):
             raise ContractError(f"{row['id']} target artifact identity mismatch")
         python_relative = Path(row["python"])
@@ -723,7 +768,7 @@ def load_prepared_environments(
         if actual != row:
             raise ContractError(f"{row['id']} environment changed after preparation")
         output[row["id"]] = row
-    target = output[ENVIRONMENT_IDS[1]]
+    target = output[environment_pair[1]]
     target_tree_sha256 = target_wheel["target_tree_sha256"]
     target["target_identity"] = {
         "target_tree_sha256": target_tree_sha256,
@@ -731,5 +776,5 @@ def load_prepared_environments(
         "source_revision": target_source["revision"],
     }
     if not require_target:
-        output.pop(ENVIRONMENT_IDS[1], None)
+        output.pop(environment_pair[1], None)
     return output

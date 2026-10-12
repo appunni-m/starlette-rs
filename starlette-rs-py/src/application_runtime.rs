@@ -322,7 +322,9 @@ impl StarletteCall {
         scope.set_item("app", app)?;
         let mut stack = app.getattr("middleware_stack")?;
         if stack.is_none() {
-            stack = runtime.build_stack(py)?.into_bound(py);
+            // Subclasses may override this Python construction hook; Rust owns
+            // the lazy selection and cache while preserving that callback.
+            stack = app.call_method0("build_middleware_stack")?;
             app.setattr("middleware_stack", &stack)?;
         }
         let call = stack.call1((scope, self.receive.bind(py), self.send.bind(py)))?;
@@ -553,11 +555,7 @@ impl PyExceptionMiddlewareRuntime {
         let key = key.bind(py);
         let handler_index = self.handlers.len();
         if key.is_instance(&py.get_type::<PyInt>())? {
-            let key_string = py
-                .import("builtins")?
-                .getattr("str")?
-                .call1((key,))?
-                .extract::<String>()?;
+            let key_string = integer_key_string(py, key)?;
             self.status_handlers
                 .bind(py)
                 .set_item(key, handler.bind(py))?;
@@ -582,6 +580,16 @@ impl PyExceptionMiddlewareRuntime {
         self.table.insert_class(class_id, handler_index);
         Ok(())
     }
+}
+
+// Normalize Python integer keys before stringifying: `True` and `1` are the
+// same dictionary key in Starlette, even though `str(True)` is "True".
+fn integer_key_string(py: Python<'_>, value: &Bound<'_, PyAny>) -> PyResult<String> {
+    let integer = py.get_type::<PyInt>().call_method1("__int__", (value,))?;
+    py.import("builtins")?
+        .getattr("str")?
+        .call1((integer,))?
+        .extract::<String>()
 }
 
 #[pyclass(name = "_ExceptionSendProxy")]
@@ -792,12 +800,12 @@ impl ExceptionMiddlewareCall {
         }
         let error_value = error.value(py);
         let status_key = if error_value.is_instance(self.http_exception_type.bind(py))? {
-            Some(
-                py.import("builtins")?
-                    .getattr("str")?
-                    .call1((error_value.getattr("status_code")?,))?
-                    .extract::<String>()?,
-            )
+            let status_code = error_value.getattr("status_code")?;
+            if status_code.is_instance(&py.get_type::<PyInt>())? {
+                Some(integer_key_string(py, &status_code)?)
+            } else {
+                None
+            }
         } else {
             None
         };

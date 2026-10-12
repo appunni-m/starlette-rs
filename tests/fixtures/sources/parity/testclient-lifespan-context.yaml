@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@45",
+  "schema": "migration-parity/parity-input@47",
   "cases": [
     {
       "case_id": "starlette.testclient.TestClient.lifespan-context.normal-managed-cycle",
@@ -12,7 +12,11 @@
         "starlette.testclient.TestClient.lifespan-context.transient-outside-context-requests"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "observations": [
@@ -133,7 +137,11 @@
         "starlette.testclient.TestClient.lifespan-context.startup-error-propagation"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "observations": [
@@ -205,7 +213,11 @@
         "starlette.testclient.TestClient.lifespan-context.startup-error-propagation"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "observations": [
@@ -250,7 +262,11 @@
         "starlette.testclient.TestClient.lifespan-context.shutdown-error-propagation"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "observations": [
@@ -343,7 +359,11 @@
         "starlette.testclient.TestClient.lifespan-context.websocket-state-generic-typing"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "observations": [
@@ -777,7 +797,11 @@
         "starlette.testclient.TestClient.lifespan-context.application-callback-entry-exit"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "observations": [
@@ -826,7 +850,11 @@
         "starlette.testclient.TestClient.lifespan-context.task-group-child-lifecycle"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "observations": [
@@ -879,7 +907,11 @@
         "starlette.testclient.TestClient.lifespan-context.task-group-child-lifecycle"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "observations": [
@@ -933,7 +965,11 @@
         "starlette.testclient.TestClient.lifespan-context.same-task-and-runvar-context-continuity"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "observations": [
@@ -1054,7 +1090,11 @@
         "starlette.testclient.TestClient.lifespan-context.same-task-and-runvar-context-continuity"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "observations": [
@@ -1172,7 +1212,11 @@
         "starlette.testclient.TestClient.lifespan-context.startup-error-propagation"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "observations": [
@@ -1225,7 +1269,13 @@
         "starlette.testclient.TestClient.lifespan-context.startup-handshake",
         "starlette.testclient.TestClient.lifespan-context.shutdown-error-propagation"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
       "assets": [],
       "observations": ["lifespan-context"],
       "testclient": {
@@ -1261,7 +1311,13 @@
       "covers": [
         "starlette.testclient.TestClient.lifespan-context.startup-error-propagation"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
       "assets": [],
       "observations": ["lifespan-context"],
       "testclient": {
@@ -1299,7 +1355,13 @@
         "starlette.testclient.TestClient.lifespan-context.router-lifespan-state",
         "starlette.asgi.lifespan.scope-state-merge"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
       "assets": [],
       "observations": ["lifespan-context"],
       "testclient": {

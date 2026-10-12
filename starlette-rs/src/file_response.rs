@@ -1190,14 +1190,32 @@ fn parse_range_header(
 
 fn parse_decimal(value: &str) -> Option<u64> {
     let digits = value.strip_prefix('+').unwrap_or(value);
-    if digits.is_empty() || !digits.bytes().all(|byte| byte.is_ascii_digit()) {
+    let bytes = digits.as_bytes();
+    if bytes.is_empty()
+        || bytes.iter().enumerate().any(|(index, byte)| {
+            if byte.is_ascii_digit() {
+                return false;
+            }
+            *byte != b'_'
+                || index == 0
+                || index + 1 == bytes.len()
+                || !bytes[index - 1].is_ascii_digit()
+                || !bytes[index + 1].is_ascii_digit()
+        })
+    {
         return None;
     }
-    Some(digits.bytes().fold(0_u64, |number, byte| {
-        number
-            .saturating_mul(10)
-            .saturating_add(u64::from(byte - b'0'))
-    }))
+    Some(
+        bytes
+            .iter()
+            .copied()
+            .filter(|byte| *byte != b'_')
+            .fold(0_u64, |number, byte| {
+                number
+                    .saturating_mul(10)
+                    .saturating_add(u64::from(byte - b'0'))
+            }),
+    )
 }
 
 fn normalize_headers(headers: &[(String, String)]) -> Result<RawHeaders, FileResponseError> {

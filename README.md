@@ -42,6 +42,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
+## Rust-native HTTP service
+
+The additive [`NativeApplication`](docs/native-service.md) implements Tower
+`Service` over `http::Request` and streaming `http_body::Body` values. Rust
+endpoints can read route parameters, URI/query, headers, extensions, and request
+body frames, then return a streamed response. The API does not invoke Python.
+Its current middleware, cancellation, protocol, and lifecycle limits are
+documented in the service contract.
+
+Run the in-process body and response-streaming example with:
+
+```sh
+cargo run -p starlette-rs-native-service-example --locked
+```
+
 See:
 
 - [Pinned sources and discrepancies](docs/UPSTREAM.md)
@@ -50,4 +65,5 @@ See:
 - [Parity contract](docs/PARITY.md)
 - [Benchmark mapping](docs/BENCHMARKS.md)
 - [Implementation plan](docs/IMPLEMENTATION_PLAN.md)
+- [Rust-native service contract](docs/native-service.md)
 - [Contributing and quality gates](CONTRIBUTING.md)

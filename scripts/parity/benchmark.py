@@ -541,6 +541,8 @@ def run_benchmark(root: Path, manifest_path: Path) -> dict[str, Any]:
     }
 
     prepared = load_prepared_environments(root, require_target=True)
+    if not set(ENVIRONMENT_IDS) <= set(prepared):
+        raise ContractError("the declared benchmark workload requires a prepared CPython 3.12 pair")
     started_at = _timestamp()
     native_adapter = _build_native_parity_adapter(root, prepared)
     gate = _parity_gate(root, manifest_path, workload)

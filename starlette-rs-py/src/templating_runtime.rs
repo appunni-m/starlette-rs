@@ -117,7 +117,12 @@ impl PyJinja2Templates {
             env
         };
         templates.setattr("env", env)?;
-        templates.call_method1("_setup_env_defaults", (templates.getattr("env")?,))?;
+        // Python evaluates `self._setup_env_defaults` before `self.env` in
+        // `self._setup_env_defaults(self.env)`. Keep that order observable to
+        // subclasses that override `__getattribute__`.
+        let setup_env_defaults = templates.getattr("_setup_env_defaults")?;
+        let env = templates.getattr("env")?;
+        setup_env_defaults.call1((env,))?;
         Ok(())
     }
 

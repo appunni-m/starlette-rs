@@ -86,7 +86,9 @@ def load_api_metadata(root: Path, path: Path | None = None) -> dict[str, Any]:
             raise ContractError(f"{context} has an invalid shape")
         surface_id = source["surface_id"]
         source_path = source["source_path"]
-        if not isinstance(surface_id, str) or not surface_id.startswith("starlette."):
+        if not isinstance(surface_id, str) or not (
+            surface_id == "starlette" or surface_id.startswith("starlette.")
+        ):
             raise ContractError(f"{context}.surface_id must be a qualified Starlette name")
         if not isinstance(source_path, str) or not source_path.startswith("starlette/"):
             raise ContractError(f"{context}.source_path must be repository-relative")
@@ -116,6 +118,21 @@ def load_api_metadata(root: Path, path: Path | None = None) -> dict[str, Any]:
                 raise ContractError(f"duplicate API source operation {surface_id}.{operation_id}")
             seen_operations.add(operation_id)
     return metadata
+
+
+def public_module_names(metadata: dict[str, Any]) -> frozenset[str]:
+    """Return import names for the pinned public source modules in metadata."""
+    inventory = metadata["api_inventory"]
+    package_path = inventory["package_path"]
+    modules = set()
+    for source_path in inventory["public_source_files"]:
+        module = source_path.removesuffix(".py").replace("/", ".")
+        if module.endswith(".__init__"):
+            module = module[: -len(".__init__")]
+        if not module:
+            module = package_path
+        modules.add(module)
+    return frozenset(modules)
 
 
 def _source_maps(metadata: dict[str, Any]) -> dict[str, dict[str, Any]]:

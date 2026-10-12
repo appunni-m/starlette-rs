@@ -1,0 +1,1863 @@
+{
+  "schema": "migration-parity/parity-input@47",
+  "cases": [
+    {
+      "case_id": "starlette.middleware.cors.CORSMiddleware.__call__.documented-default-denied-simple",
+      "surface": "starlette.middleware.cors.CORSMiddleware",
+      "operation": "__call__",
+      "covers": [
+        "starlette.middleware.cors.CORSMiddleware.construct",
+        "starlette.middleware.cors.CORSMiddleware.simple-denied-origin-preserves-app-response"
+      ],
+      "execution_schedule": [
+        "dispatch"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "steps": [
+        {
+          "step_id": "middleware",
+          "surface": "starlette.middleware.cors.CORSMiddleware",
+          "operation": "__init__",
+          "receiver": null,
+          "arguments": {
+            "app": {
+              "kind": "literal",
+              "value": {
+                "kind": "asgi-response-sequence",
+                "messages": [
+                  {
+                    "type": "http.response.start",
+                    "status": 201,
+                    "headers_base64_pairs": [
+                      [
+                        "Y29udGVudC1sZW5ndGg=",
+                        "Nw=="
+                      ],
+                      [
+                        "Y29udGVudC10eXBl",
+                        "dGV4dC9wbGFpbjsgY2hhcnNldD11dGYtOA=="
+                      ],
+                      [
+                        "dmFyeQ==",
+                        "QWNjZXB0LUVuY29kaW5n"
+                      ],
+                      [
+                        "dmFyeQ==",
+                        "QWNjZXB0LUxhbmd1YWdl"
+                      ],
+                      [
+                        "YWNjZXNzLWNvbnRyb2wtZXhwb3NlLWhlYWRlcnM=",
+                        "WC1BcHAtT25l"
+                      ],
+                      [
+                        "YWNjZXNzLWNvbnRyb2wtZXhwb3NlLWhlYWRlcnM=",
+                        "WC1BcHAtVHdv"
+                      ],
+                      [
+                        "YWNjZXNzLWNvbnRyb2wtYWxsb3ctb3JpZ2lu",
+                        "aHR0cHM6Ly9hcHAtcHJvdmlkZWQuZXhhbXBsZQ=="
+                      ]
+                    ]
+                  },
+                  {
+                    "type": "http.response.body",
+                    "body_base64": "UG9saWN5IQ==",
+                    "more_body": false
+                  }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "step_id": "dispatch",
+          "surface": "starlette.middleware.cors.CORSMiddleware",
+          "operation": "__call__",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "middleware"
+          },
+          "arguments": {
+            "scope": {
+              "kind": "literal",
+              "value": {
+                "type": "http",
+                "asgi": {
+                  "version": "3.0",
+                  "spec_version": "2.4"
+                },
+                "http_version": "1.1",
+                "method": "GET",
+                "scheme": "http",
+                "path": "/policy",
+                "raw_path_base64": "L3BvbGljeQ==",
+                "query_string_base64": "",
+                "root_path": "",
+                "headers_base64_pairs": [
+                  [
+                    "b3JpZ2lu",
+                    "aHR0cHM6Ly9ub3QtYWxsb3dlZC5leGFtcGxl"
+                  ]
+                ],
+                "client": [
+                  "127.0.0.1",
+                  12345
+                ],
+                "server": [
+                  "testserver",
+                  80
+                ]
+              }
+            },
+            "receive": {
+              "kind": "literal",
+              "value": [
+                {
+                  "type": "http.request",
+                  "body_base64": "",
+                  "more_body": false
+                }
+              ]
+            },
+            "send": {
+              "kind": "literal",
+              "value": {
+                "kind": "capture-asgi-send"
+              }
+            }
+          }
+        }
+      ],
+      "observations": [
+        "dispatch"
+      ]
+    },
+    {
+      "case_id": "starlette.middleware.cors.CORSMiddleware.__call__.documented-default-denied-preflight",
+      "surface": "starlette.middleware.cors.CORSMiddleware",
+      "operation": "__call__",
+      "covers": [
+        "starlette.middleware.cors.CORSMiddleware.construct",
+        "starlette.middleware.cors.CORSMiddleware.preflight-denial-failure-order"
+      ],
+      "execution_schedule": [
+        "dispatch"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "steps": [
+        {
+          "step_id": "middleware",
+          "surface": "starlette.middleware.cors.CORSMiddleware",
+          "operation": "__init__",
+          "receiver": null,
+          "arguments": {
+            "app": {
+              "kind": "literal",
+              "value": {
+                "kind": "asgi-response-sequence",
+                "messages": [
+                  {
+                    "type": "http.response.start",
+                    "status": 201,
+                    "headers_base64_pairs": [
+                      [
+                        "Y29udGVudC1sZW5ndGg=",
+                        "Nw=="
+                      ],
+                      [
+                        "Y29udGVudC10eXBl",
+                        "dGV4dC9wbGFpbjsgY2hhcnNldD11dGYtOA=="
+                      ],
+                      [
+                        "dmFyeQ==",
+                        "QWNjZXB0LUVuY29kaW5n"
+                      ],
+                      [
+                        "dmFyeQ==",
+                        "QWNjZXB0LUxhbmd1YWdl"
+                      ],
+                      [
+                        "YWNjZXNzLWNvbnRyb2wtZXhwb3NlLWhlYWRlcnM=",
+                        "WC1BcHAtT25l"
+                      ],
+                      [
+                        "YWNjZXNzLWNvbnRyb2wtZXhwb3NlLWhlYWRlcnM=",
+                        "WC1BcHAtVHdv"
+                      ],
+                      [
+                        "YWNjZXNzLWNvbnRyb2wtYWxsb3ctb3JpZ2lu",
+                        "aHR0cHM6Ly9hcHAtcHJvdmlkZWQuZXhhbXBsZQ=="
+                      ]
+                    ]
+                  },
+                  {
+                    "type": "http.response.body",
+                    "body_base64": "UG9saWN5IQ==",
+                    "more_body": false
+                  }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "step_id": "dispatch",
+          "surface": "starlette.middleware.cors.CORSMiddleware",
+          "operation": "__call__",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "middleware"
+          },
+          "arguments": {
+            "scope": {
+              "kind": "literal",
+              "value": {
+                "type": "http",
+                "asgi": {
+                  "version": "3.0",
+                  "spec_version": "2.4"
+                },
+                "http_version": "1.1",
+                "method": "OPTIONS",
+                "scheme": "http",
+                "path": "/policy",
+                "raw_path_base64": "L3BvbGljeQ==",
+                "query_string_base64": "",
+                "root_path": "",
+                "headers_base64_pairs": [
+                  [
+                    "b3JpZ2lu",
+                    "aHR0cHM6Ly9ub3QtYWxsb3dlZC5leGFtcGxl"
+                  ],
+                  [
+                    "YWNjZXNzLWNvbnRyb2wtcmVxdWVzdC1tZXRob2Q=",
+                    "UE9TVA=="
+                  ],
+                  [
+                    "YWNjZXNzLWNvbnRyb2wtcmVxdWVzdC1oZWFkZXJz",
+                    "WC1Gb3JiaWRkZW4="
+                  ]
+                ],
+                "client": [
+                  "127.0.0.1",
+                  12345
+                ],
+                "server": [
+                  "testserver",
+                  80
+                ]
+              }
+            },
+            "receive": {
+              "kind": "literal",
+              "value": [
+                {
+                  "type": "http.request",
+                  "body_base64": "",
+                  "more_body": false
+                }
+              ]
+            },
+            "send": {
+              "kind": "literal",
+              "value": {
+                "kind": "capture-asgi-send"
+              }
+            }
+          }
+        }
+      ],
+      "observations": [
+        "dispatch"
+      ]
+    },
+    {
+      "case_id": "starlette.middleware.Middleware.value-formatting.eager-redirect-and-arbitrary-asgi-wrap",
+      "surface": "starlette.middleware.Middleware",
+      "operation": "value-formatting",
+      "covers": [
+        "starlette.middleware.Middleware.repr",
+        "starlette.middleware.Middleware.iteration",
+        "starlette.middleware.Middleware.asgi-wrapper-eager-response"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "middleware": {
+        "class_name": "RedirectsMiddleware",
+        "args": [],
+        "kwargs": {
+          "path_mapping": {
+            "/legacy/resource/": "/v2/resource/"
+          }
+        }
+      },
+      "asgi_workflow": {
+        "asgi_app": {
+          "kind": "asgi-responses-by-scope",
+          "responses_by_scope": [
+            {
+              "scope_type": "http",
+              "response": {
+                "kind": "asgi-response-sequence",
+                "messages": [
+                  {
+                    "type": "http.response.start",
+                    "status": 202,
+                    "headers_base64_pairs": [
+                      [
+                        "eC1kb3duc3RyZWFt",
+                        "Y2FsbGVk"
+                      ]
+                    ]
+                  },
+                  {
+                    "type": "http.response.body",
+                    "body_base64": "ZmFsbGJhY2s=",
+                    "more_body": false
+                  }
+                ]
+              }
+            },
+            {
+              "scope_type": "websocket",
+              "response": {
+                "kind": "asgi-response-sequence",
+                "messages": [
+                  {
+                    "type": "websocket.close",
+                    "code": 1000
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "calls": [
+          {
+            "call_id": "mapped-http",
+            "scope": {
+              "type": "http",
+              "asgi": {
+                "version": "3.0",
+                "spec_version": "2.4"
+              },
+              "http_version": "1.1",
+              "method": "GET",
+              "scheme": "http",
+              "path": "/legacy/resource/",
+              "raw_path_base64": "L2xlZ2FjeS9yZXNvdXJjZS8=",
+              "query_string_base64": "b3JpZ2luPWxlZ2FjeQ==",
+              "root_path": "",
+              "headers_base64_pairs": [
+                [
+                  "aG9zdA==",
+                  "Zml4dHVyZS5leGFtcGxl"
+                ]
+              ],
+              "client": [
+                "127.0.0.1",
+                12345
+              ],
+              "server": [
+                "testserver",
+                80
+              ]
+            },
+            "receive": [
+              {
+                "type": "http.request",
+                "body_base64": "",
+                "more_body": false
+              }
+            ],
+            "send": {
+              "kind": "capture-asgi-send"
+            }
+          },
+          {
+            "call_id": "unmapped-http",
+            "scope": {
+              "type": "http",
+              "asgi": {
+                "version": "3.0",
+                "spec_version": "2.4"
+              },
+              "http_version": "1.1",
+              "method": "GET",
+              "scheme": "http",
+              "path": "/unmapped/resource/",
+              "raw_path_base64": "L3VubWFwcGVkL3Jlc291cmNlLw==",
+              "query_string_base64": "b3JpZ2luPWZhbGx0aHJvdWdo",
+              "root_path": "",
+              "headers_base64_pairs": [
+                [
+                  "aG9zdA==",
+                  "Zml4dHVyZS5leGFtcGxl"
+                ]
+              ],
+              "client": [
+                "127.0.0.1",
+                12345
+              ],
+              "server": [
+                "testserver",
+                80
+              ]
+            },
+            "receive": [
+              {
+                "type": "http.request",
+                "body_base64": "",
+                "more_body": false
+              }
+            ],
+            "send": {
+              "kind": "capture-asgi-send"
+            }
+          },
+          {
+            "call_id": "websocket-pass-through",
+            "scope": {
+              "type": "websocket",
+              "asgi": {
+                "version": "3.0",
+                "spec_version": "2.5"
+              },
+              "http_version": "1.1",
+              "scheme": "ws",
+              "path": "/legacy/resource/",
+              "raw_path_base64": "L2xlZ2FjeS9yZXNvdXJjZS8=",
+              "query_string_base64": "",
+              "root_path": "",
+              "headers_base64_pairs": [
+                [
+                  "aG9zdA==",
+                  "Zml4dHVyZS5leGFtcGxl"
+                ]
+              ],
+              "client": [
+                "127.0.0.1",
+                12345
+              ],
+              "server": [
+                "testserver",
+                80
+              ],
+              "subprotocols": []
+            },
+            "receive": [
+              {
+                "type": "websocket.connect",
+                "subprotocols": []
+              }
+            ],
+            "send": {
+              "kind": "capture-asgi-send"
+            }
+          }
+        ]
+      },
+      "observations": [
+        "repr",
+        "__iter__",
+        "asgi_workflow"
+      ]
+    },
+    {
+      "case_id": "starlette.applications.Starlette.__call__.middleware-docs.route-mount-router-placement-stack",
+      "surface": "starlette.applications.Starlette",
+      "operation": "__call__",
+      "covers": [
+        "starlette.applications.Starlette.__call__.route-middleware-response-header"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "steps": [
+        {
+          "step_id": "application",
+          "surface": "starlette.applications.Starlette",
+          "operation": "__init__",
+          "receiver": null,
+          "arguments": {
+            "debug": {
+              "kind": "literal",
+              "value": false
+            },
+            "routes": {
+              "kind": "literal",
+              "value": [
+                {
+                  "kind": "mount",
+                  "path": "/group",
+                  "app": {
+                    "kind": "router",
+                    "routes": [
+                      {
+                        "kind": "http-route",
+                        "path": "/home",
+                        "methods": [
+                          "GET"
+                        ],
+                        "endpoint": {
+                          "kind": "scope-assert-empty-response",
+                          "scope_key": "route_middleware_placement",
+                          "scope_value": true
+                        },
+                        "middleware": [
+                          {
+                            "kind": "scope-and-response-header",
+                            "scope_key": "route_middleware_placement",
+                            "scope_value": true,
+                            "response_header": [
+                              "X-Route",
+                              "true"
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "kind": "http-route",
+                        "path": "/error",
+                        "methods": [
+                          "GET"
+                        ],
+                        "endpoint": {
+                          "kind": "sync-http-exception",
+                          "status_code": 403,
+                          "detail": "auth"
+                        },
+                        "middleware": [
+                          {
+                            "kind": "scope-and-response-header",
+                            "scope_key": "route_middleware_placement",
+                            "scope_value": true,
+                            "response_header": [
+                              "X-Route",
+                              "true"
+                            ]
+                          }
+                        ]
+                      }
+                    ],
+                    "middleware": [
+                      {
+                        "kind": "scope-and-response-header",
+                        "scope_key": "router_middleware_placement",
+                        "scope_value": true,
+                        "response_header": [
+                          "X-Router",
+                          "true"
+                        ]
+                      }
+                    ]
+                  },
+                  "middleware": [
+                    {
+                      "kind": "scope-and-response-header",
+                      "scope_key": "mount_middleware_placement",
+                      "scope_value": true,
+                      "response_header": [
+                        "X-Mount",
+                        "true"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "http-route",
+                  "path": "/outside",
+                  "methods": [
+                    "GET"
+                  ],
+                  "endpoint": {
+                    "kind": "plain-response",
+                    "content": "outside",
+                    "media_type": "text/plain"
+                  }
+                }
+              ]
+            },
+            "middleware": {
+              "kind": "literal",
+              "value": [
+                {
+                  "kind": "append-response-header",
+                  "name": "Outer"
+                }
+              ]
+            },
+            "exception_handlers": {
+              "kind": "literal",
+              "value": []
+            },
+            "lifespan": {
+              "kind": "literal",
+              "value": null
+            },
+            "max_body_size": {
+              "kind": "literal",
+              "value": null
+            }
+          }
+        },
+        {
+          "step_id": "dispatch-mounted-home",
+          "surface": "starlette.applications.Starlette",
+          "operation": "__call__",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "application"
+          },
+          "arguments": {
+            "scope": {
+              "kind": "literal",
+              "value": {
+                "type": "http",
+                "asgi": {
+                  "version": "3.0",
+                  "spec_version": "2.4"
+                },
+                "http_version": "1.1",
+                "method": "GET",
+                "scheme": "http",
+                "path": "/group/home",
+                "raw_path_base64": "L2dyb3VwL2hvbWU=",
+                "query_string_base64": "",
+                "root_path": "",
+                "headers_base64_pairs": [],
+                "client": [
+                  "127.0.0.1",
+                  12345
+                ],
+                "server": [
+                  "testserver",
+                  80
+                ]
+              }
+            },
+            "receive": {
+              "kind": "literal",
+              "value": [
+                {
+                  "type": "http.request",
+                  "body_base64": "",
+                  "more_body": false
+                }
+              ]
+            },
+            "send": {
+              "kind": "literal",
+              "value": {
+                "kind": "capture-asgi-send"
+              }
+            }
+          }
+        },
+        {
+          "step_id": "dispatch-mounted-error",
+          "surface": "starlette.applications.Starlette",
+          "operation": "__call__",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "application"
+          },
+          "arguments": {
+            "scope": {
+              "kind": "literal",
+              "value": {
+                "type": "http",
+                "asgi": {
+                  "version": "3.0",
+                  "spec_version": "2.4"
+                },
+                "http_version": "1.1",
+                "method": "GET",
+                "scheme": "http",
+                "path": "/group/error",
+                "raw_path_base64": "L2dyb3VwL2Vycm9y",
+                "query_string_base64": "",
+                "root_path": "",
+                "headers_base64_pairs": [],
+                "client": [
+                  "127.0.0.1",
+                  12345
+                ],
+                "server": [
+                  "testserver",
+                  80
+                ]
+              }
+            },
+            "receive": {
+              "kind": "literal",
+              "value": [
+                {
+                  "type": "http.request",
+                  "body_base64": "",
+                  "more_body": false
+                }
+              ]
+            },
+            "send": {
+              "kind": "literal",
+              "value": {
+                "kind": "capture-asgi-send"
+              }
+            }
+          }
+        },
+        {
+          "step_id": "dispatch-mounted-miss",
+          "surface": "starlette.applications.Starlette",
+          "operation": "__call__",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "application"
+          },
+          "arguments": {
+            "scope": {
+              "kind": "literal",
+              "value": {
+                "type": "http",
+                "asgi": {
+                  "version": "3.0",
+                  "spec_version": "2.4"
+                },
+                "http_version": "1.1",
+                "method": "GET",
+                "scheme": "http",
+                "path": "/group/missing",
+                "raw_path_base64": "L2dyb3VwL21pc3Npbmc=",
+                "query_string_base64": "",
+                "root_path": "",
+                "headers_base64_pairs": [],
+                "client": [
+                  "127.0.0.1",
+                  12345
+                ],
+                "server": [
+                  "testserver",
+                  80
+                ]
+              }
+            },
+            "receive": {
+              "kind": "literal",
+              "value": [
+                {
+                  "type": "http.request",
+                  "body_base64": "",
+                  "more_body": false
+                }
+              ]
+            },
+            "send": {
+              "kind": "literal",
+              "value": {
+                "kind": "capture-asgi-send"
+              }
+            }
+          }
+        },
+        {
+          "step_id": "dispatch-outside",
+          "surface": "starlette.applications.Starlette",
+          "operation": "__call__",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "application"
+          },
+          "arguments": {
+            "scope": {
+              "kind": "literal",
+              "value": {
+                "type": "http",
+                "asgi": {
+                  "version": "3.0",
+                  "spec_version": "2.4"
+                },
+                "http_version": "1.1",
+                "method": "GET",
+                "scheme": "http",
+                "path": "/outside",
+                "raw_path_base64": "L291dHNpZGU=",
+                "query_string_base64": "",
+                "root_path": "",
+                "headers_base64_pairs": [],
+                "client": [
+                  "127.0.0.1",
+                  12345
+                ],
+                "server": [
+                  "testserver",
+                  80
+                ]
+              }
+            },
+            "receive": {
+              "kind": "literal",
+              "value": [
+                {
+                  "type": "http.request",
+                  "body_base64": "",
+                  "more_body": false
+                }
+              ]
+            },
+            "send": {
+              "kind": "literal",
+              "value": {
+                "kind": "capture-asgi-send"
+              }
+            }
+          }
+        }
+      ],
+      "observations": [
+        "dispatch-mounted-home",
+        "dispatch-mounted-error",
+        "dispatch-mounted-miss",
+        "dispatch-outside"
+      ],
+      "execution_schedule": [
+        "dispatch-mounted-home",
+        "dispatch-mounted-error",
+        "dispatch-mounted-miss",
+        "dispatch-outside"
+      ]
+    },
+    {
+      "case_id": "starlette.middleware.Middleware.value-formatting.pure-asgi-class-scope-filter",
+      "surface": "starlette.middleware.Middleware",
+      "operation": "value-formatting",
+      "covers": [
+        "starlette.middleware.Middleware.repr",
+        "starlette.middleware.Middleware.iteration",
+        "starlette.middleware.Middleware.asgi-wrapper.pure-callable-shapes",
+        "starlette.middleware.Middleware.asgi-wrapper.arbitrary-apps"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "middleware": {
+        "class_name": "ASGIMiddleware",
+        "args": [],
+        "kwargs": {
+          "scope_types": [
+            "http"
+          ],
+          "observe_receive": false,
+          "append_headers": [],
+          "body_suffix_base64": "",
+          "websocket_text_suffix": "",
+          "observe_errors": false,
+          "observe_cleanup": false
+        }
+      },
+      "asgi_workflow": {
+        "kind": "pure-asgi",
+        "asgi_app": {
+          "kind": "asgi-events-by-scope",
+          "events_by_scope": [
+            {
+              "scope_type": "http",
+              "events": [
+                {
+                  "type": "http.response.start",
+                  "status": 200,
+                  "headers_base64_pairs": [
+                    [
+                      "Y29udGVudC1sZW5ndGg=",
+                      "Mw=="
+                    ],
+                    [
+                      "eC1kb2Nz",
+                      "c291cmNl"
+                    ]
+                  ]
+                },
+                {
+                  "type": "http.response.body",
+                  "body_base64": "YWJj",
+                  "more_body": false
+                }
+              ]
+            },
+            {
+              "scope_type": "websocket",
+              "events": [
+                {
+                  "type": "websocket.accept"
+                },
+                {
+                  "type": "websocket.send",
+                  "text": "ack"
+                },
+                {
+                  "type": "websocket.send",
+                  "bytes_base64": "AP8="
+                },
+                {
+                  "type": "websocket.close",
+                  "code": 1000
+                }
+              ]
+            },
+            {
+              "scope_type": "lifespan",
+              "events": [
+                {
+                  "type": "lifespan.startup.complete"
+                },
+                {
+                  "type": "lifespan.shutdown.complete"
+                }
+              ]
+            }
+          ]
+        },
+        "calls": [
+          {
+            "call_id": "http-only-filter-hit",
+            "scope": {
+              "type": "http",
+              "asgi": {
+                "version": "3.0",
+                "spec_version": "2.4"
+              },
+              "http_version": "1.1",
+              "method": "GET",
+              "scheme": "http",
+              "path": "/pure",
+              "raw_path_base64": "L3B1cmU=",
+              "query_string_base64": "",
+              "root_path": "",
+              "headers_base64_pairs": [],
+              "client": [
+                "127.0.0.1",
+                12345
+              ],
+              "server": [
+                "testserver",
+                80
+              ]
+            },
+            "receive": [
+              {
+                "type": "http.request",
+                "body_base64": "",
+                "more_body": false
+              }
+            ],
+            "send": {
+              "kind": "capture-asgi-send"
+            }
+          },
+          {
+            "call_id": "http-only-filter-websocket-bypass",
+            "scope": {
+              "type": "websocket",
+              "asgi": {
+                "version": "3.0",
+                "spec_version": "2.5"
+              },
+              "http_version": "1.1",
+              "scheme": "ws",
+              "path": "/pure-ws",
+              "raw_path_base64": "L3B1cmUtd3M=",
+              "query_string_base64": "",
+              "root_path": "",
+              "headers_base64_pairs": [],
+              "client": [
+                "127.0.0.1",
+                12345
+              ],
+              "server": [
+                "testserver",
+                80
+              ],
+              "subprotocols": []
+            },
+            "receive": [
+              {
+                "type": "websocket.connect",
+                "subprotocols": []
+              },
+              {
+                "type": "websocket.receive",
+                "text": "ignored"
+              },
+              {
+                "type": "websocket.receive",
+                "bytes_base64": "AP8="
+              },
+              {
+                "type": "websocket.disconnect",
+                "code": 1000
+              }
+            ],
+            "send": {
+              "kind": "capture-asgi-send"
+            }
+          },
+          {
+            "call_id": "http-only-filter-lifespan-bypass",
+            "scope": {
+              "type": "lifespan",
+              "asgi": {
+                "version": "3.0",
+                "spec_version": "2.4"
+              }
+            },
+            "receive": [
+              {
+                "type": "lifespan.startup"
+              },
+              {
+                "type": "lifespan.shutdown"
+              }
+            ],
+            "send": {
+              "kind": "capture-asgi-send"
+            }
+          }
+        ]
+      },
+      "observations": [
+        "repr",
+        "__iter__",
+        "asgi_workflow"
+      ]
+    },
+    {
+      "case_id": "starlette.middleware.Middleware.value-formatting.pure-asgi-function-receive-send-wrappers",
+      "surface": "starlette.middleware.Middleware",
+      "operation": "value-formatting",
+      "covers": [
+        "starlette.middleware.Middleware.repr",
+        "starlette.middleware.Middleware.iteration",
+        "starlette.middleware.Middleware.asgi-wrapper.pure-callable-shapes",
+        "starlette.middleware.Middleware.asgi-wrapper.receive-events",
+        "starlette.middleware.Middleware.asgi-wrapper.send-events",
+        "starlette.middleware.Middleware.asgi-wrapper.arbitrary-apps"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "middleware": {
+        "class_name": "asgi_decorator",
+        "args": [],
+        "kwargs": {
+          "scope_types": [
+            "http",
+            "websocket",
+            "lifespan"
+          ],
+          "observe_receive": true,
+          "append_headers": [
+            [
+              "x-docs",
+              "middleware"
+            ]
+          ],
+          "body_suffix_base64": "IQ==",
+          "websocket_text_suffix": "!",
+          "observe_errors": false,
+          "observe_cleanup": false
+        }
+      },
+      "asgi_workflow": {
+        "kind": "pure-asgi",
+        "asgi_app": {
+          "kind": "asgi-events-by-scope",
+          "events_by_scope": [
+            {
+              "scope_type": "http",
+              "events": [
+                {
+                  "type": "http.response.start",
+                  "status": 200,
+                  "headers_base64_pairs": [
+                    [
+                      "Y29udGVudC1sZW5ndGg=",
+                      "Mw=="
+                    ],
+                    [
+                      "eC1kb2Nz",
+                      "c291cmNl"
+                    ]
+                  ]
+                },
+                {
+                  "type": "http.response.body",
+                  "body_base64": "YWJj",
+                  "more_body": false
+                }
+              ]
+            },
+            {
+              "scope_type": "websocket",
+              "events": [
+                {
+                  "type": "websocket.accept"
+                },
+                {
+                  "type": "websocket.send",
+                  "text": "ack"
+                },
+                {
+                  "type": "websocket.send",
+                  "bytes_base64": "AP8="
+                },
+                {
+                  "type": "websocket.close",
+                  "code": 1000
+                }
+              ]
+            },
+            {
+              "scope_type": "lifespan",
+              "events": [
+                {
+                  "type": "lifespan.startup.complete"
+                },
+                {
+                  "type": "lifespan.shutdown.complete"
+                }
+              ]
+            }
+          ]
+        },
+        "calls": [
+          {
+            "call_id": "http-request",
+            "scope": {
+              "type": "http",
+              "asgi": {
+                "version": "3.0",
+                "spec_version": "2.4"
+              },
+              "http_version": "1.1",
+              "method": "GET",
+              "scheme": "http",
+              "path": "/pure",
+              "raw_path_base64": "L3B1cmU=",
+              "query_string_base64": "",
+              "root_path": "",
+              "headers_base64_pairs": [],
+              "client": [
+                "127.0.0.1",
+                12345
+              ],
+              "server": [
+                "testserver",
+                80
+              ]
+            },
+            "receive": [
+              {
+                "type": "http.request",
+                "body_base64": "YWI=",
+                "more_body": true
+              },
+              {
+                "type": "http.request",
+                "body_base64": "Yw==",
+                "more_body": false
+              }
+            ],
+            "send": {
+              "kind": "capture-asgi-send"
+            }
+          },
+          {
+            "call_id": "websocket-request",
+            "scope": {
+              "type": "websocket",
+              "asgi": {
+                "version": "3.0",
+                "spec_version": "2.5"
+              },
+              "http_version": "1.1",
+              "scheme": "ws",
+              "path": "/pure-ws",
+              "raw_path_base64": "L3B1cmUtd3M=",
+              "query_string_base64": "",
+              "root_path": "",
+              "headers_base64_pairs": [],
+              "client": [
+                "127.0.0.1",
+                12345
+              ],
+              "server": [
+                "testserver",
+                80
+              ],
+              "subprotocols": []
+            },
+            "receive": [
+              {
+                "type": "websocket.connect",
+                "subprotocols": []
+              },
+              {
+                "type": "websocket.receive",
+                "text": "request-frame"
+              },
+              {
+                "type": "websocket.receive",
+                "bytes_base64": "AP8="
+              },
+              {
+                "type": "websocket.disconnect",
+                "code": 1000
+              }
+            ],
+            "send": {
+              "kind": "capture-asgi-send"
+            }
+          },
+          {
+            "call_id": "lifespan-cycle",
+            "scope": {
+              "type": "lifespan",
+              "asgi": {
+                "version": "3.0",
+                "spec_version": "2.4"
+              }
+            },
+            "receive": [
+              {
+                "type": "lifespan.startup"
+              },
+              {
+                "type": "lifespan.shutdown"
+              }
+            ],
+            "send": {
+              "kind": "capture-asgi-send"
+            }
+          }
+        ]
+      },
+      "observations": [
+        "repr",
+        "__iter__",
+        "asgi_workflow"
+      ]
+    },
+    {
+      "case_id": "starlette.middleware.Middleware.value-formatting.pure-asgi-starlette-app-interoperability",
+      "surface": "starlette.middleware.Middleware",
+      "operation": "value-formatting",
+      "covers": [
+        "starlette.middleware.Middleware.repr",
+        "starlette.middleware.Middleware.iteration",
+        "starlette.middleware.Middleware.asgi-wrapper.pure-callable-shapes",
+        "starlette.middleware.Middleware.asgi-wrapper.send-events",
+        "starlette.middleware.Middleware.asgi-wrapper.arbitrary-apps"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "middleware": {
+        "class_name": "ASGIMiddleware",
+        "args": [],
+        "kwargs": {
+          "scope_types": [
+            "http",
+            "websocket",
+            "lifespan"
+          ],
+          "observe_receive": true,
+          "append_headers": [
+            [
+              "x-docs-middleware",
+              "starlette-stack"
+            ]
+          ],
+          "body_suffix_base64": "IQ==",
+          "websocket_text_suffix": "!",
+          "observe_errors": false,
+          "observe_cleanup": false
+        }
+      },
+      "asgi_workflow": {
+        "kind": "pure-asgi",
+        "asgi_app": {
+          "kind": "starlette-app",
+          "routes": [
+            {
+              "kind": "http-route",
+              "path": "/starlette",
+              "status": 201,
+              "body_base64": "cm91dGUtYm9keQ==",
+              "headers": [
+                [
+                  "x-docs",
+                  "starlette-route"
+                ]
+              ]
+            },
+            {
+              "kind": "websocket-route",
+              "path": "/socket",
+              "response_prefix": "echo:",
+              "close_code": 1000
+            }
+          ]
+        },
+        "calls": [
+          {
+            "call_id": "starlette-http-route",
+            "scope": {
+              "type": "http",
+              "asgi": {
+                "version": "3.0",
+                "spec_version": "2.4"
+              },
+              "http_version": "1.1",
+              "method": "GET",
+              "scheme": "http",
+              "path": "/starlette",
+              "raw_path_base64": "L3N0YXJsZXR0ZQ==",
+              "query_string_base64": "",
+              "root_path": "",
+              "headers_base64_pairs": [],
+              "client": [
+                "127.0.0.1",
+                12345
+              ],
+              "server": [
+                "testserver",
+                80
+              ]
+            },
+            "receive": [
+              {
+                "type": "http.request",
+                "body_base64": "",
+                "more_body": false
+              }
+            ],
+            "send": {
+              "kind": "capture-asgi-send"
+            }
+          },
+          {
+            "call_id": "starlette-websocket-route",
+            "scope": {
+              "type": "websocket",
+              "asgi": {
+                "version": "3.0",
+                "spec_version": "2.5"
+              },
+              "http_version": "1.1",
+              "scheme": "ws",
+              "path": "/socket",
+              "raw_path_base64": "L3NvY2tldA==",
+              "query_string_base64": "",
+              "root_path": "",
+              "headers_base64_pairs": [],
+              "client": [
+                "127.0.0.1",
+                12345
+              ],
+              "server": [
+                "testserver",
+                80
+              ],
+              "subprotocols": []
+            },
+            "receive": [
+              {
+                "type": "websocket.connect",
+                "subprotocols": []
+              },
+              {
+                "type": "websocket.receive",
+                "text": "frame"
+              }
+            ],
+            "send": {
+              "kind": "capture-asgi-send"
+            }
+          },
+          {
+            "call_id": "starlette-lifespan",
+            "scope": {
+              "type": "lifespan",
+              "asgi": {
+                "version": "3.0",
+                "spec_version": "2.4"
+              }
+            },
+            "receive": [
+              {
+                "type": "lifespan.startup"
+              },
+              {
+                "type": "lifespan.shutdown"
+              }
+            ],
+            "send": {
+              "kind": "capture-asgi-send"
+            }
+          }
+        ]
+      },
+      "observations": [
+        "repr",
+        "__iter__",
+        "asgi_workflow"
+      ]
+    },
+    {
+      "case_id": "starlette.middleware.Middleware.value-formatting.pure-asgi-exception-propagation-and-cleanup",
+      "surface": "starlette.middleware.Middleware",
+      "operation": "value-formatting",
+      "covers": [
+        "starlette.middleware.Middleware.repr",
+        "starlette.middleware.Middleware.iteration",
+        "starlette.middleware.Middleware.asgi-wrapper.pure-callable-shapes",
+        "starlette.middleware.Middleware.asgi-wrapper.arbitrary-apps",
+        "starlette.middleware.Middleware.asgi-wrapper.exception-cancellation-cleanup"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "middleware": {
+        "class_name": "ASGIMiddleware",
+        "args": [],
+        "kwargs": {
+          "scope_types": [
+            "http"
+          ],
+          "observe_receive": false,
+          "append_headers": [],
+          "body_suffix_base64": "",
+          "websocket_text_suffix": "",
+          "observe_errors": true,
+          "observe_cleanup": true
+        }
+      },
+      "asgi_workflow": {
+        "kind": "pure-asgi",
+        "asgi_app": {
+          "kind": "asgi-events-by-scope",
+          "events_by_scope": [
+            {
+              "scope_type": "http",
+              "events": [
+                {
+                  "type": "http.response.start",
+                  "status": 207,
+                  "headers_base64_pairs": [
+                    [
+                      "Y29udGVudC1sZW5ndGg=",
+                      "MA=="
+                    ]
+                  ]
+                },
+                {
+                  "type": "http.response.body",
+                  "body_base64": "",
+                  "more_body": false
+                }
+              ],
+              "receive_count": 1,
+              "failure": {
+                "kind": "raise",
+                "exception_type": "RuntimeError",
+                "message": "downstream failure after response start"
+              }
+            },
+            {
+              "scope_type": "websocket",
+              "events": [
+                {
+                  "type": "websocket.accept"
+                },
+                {
+                  "type": "websocket.send",
+                  "text": "ack"
+                },
+                {
+                  "type": "websocket.send",
+                  "bytes_base64": "AP8="
+                },
+                {
+                  "type": "websocket.close",
+                  "code": 1000
+                }
+              ]
+            },
+            {
+              "scope_type": "lifespan",
+              "events": [
+                {
+                  "type": "lifespan.startup.complete"
+                },
+                {
+                  "type": "lifespan.shutdown.complete"
+                }
+              ]
+            }
+          ]
+        },
+        "calls": [
+          {
+            "call_id": "http-only-filter-hit",
+            "scope": {
+              "type": "http",
+              "asgi": {
+                "version": "3.0",
+                "spec_version": "2.4"
+              },
+              "http_version": "1.1",
+              "method": "GET",
+              "scheme": "http",
+              "path": "/pure",
+              "raw_path_base64": "L3B1cmU=",
+              "query_string_base64": "",
+              "root_path": "",
+              "headers_base64_pairs": [],
+              "client": [
+                "127.0.0.1",
+                12345
+              ],
+              "server": [
+                "testserver",
+                80
+              ]
+            },
+            "receive": [
+              {
+                "type": "http.request",
+                "body_base64": "",
+                "more_body": false
+              }
+            ],
+            "send": {
+              "kind": "capture-asgi-send"
+            }
+          },
+          {
+            "call_id": "http-only-filter-websocket-bypass",
+            "scope": {
+              "type": "websocket",
+              "asgi": {
+                "version": "3.0",
+                "spec_version": "2.5"
+              },
+              "http_version": "1.1",
+              "scheme": "ws",
+              "path": "/pure-ws",
+              "raw_path_base64": "L3B1cmUtd3M=",
+              "query_string_base64": "",
+              "root_path": "",
+              "headers_base64_pairs": [],
+              "client": [
+                "127.0.0.1",
+                12345
+              ],
+              "server": [
+                "testserver",
+                80
+              ],
+              "subprotocols": []
+            },
+            "receive": [
+              {
+                "type": "websocket.connect",
+                "subprotocols": []
+              },
+              {
+                "type": "websocket.receive",
+                "text": "ignored"
+              },
+              {
+                "type": "websocket.receive",
+                "bytes_base64": "AP8="
+              },
+              {
+                "type": "websocket.disconnect",
+                "code": 1000
+              }
+            ],
+            "send": {
+              "kind": "capture-asgi-send"
+            }
+          },
+          {
+            "call_id": "http-only-filter-lifespan-bypass",
+            "scope": {
+              "type": "lifespan",
+              "asgi": {
+                "version": "3.0",
+                "spec_version": "2.4"
+              }
+            },
+            "receive": [
+              {
+                "type": "lifespan.startup"
+              },
+              {
+                "type": "lifespan.shutdown"
+              }
+            ],
+            "send": {
+              "kind": "capture-asgi-send"
+            }
+          }
+        ]
+      },
+      "observations": [
+        "repr",
+        "__iter__",
+        "asgi_workflow"
+      ]
+    },
+    {
+      "case_id": "starlette.middleware.Middleware.value-formatting.pure-asgi-cancellation-cleanup",
+      "surface": "starlette.middleware.Middleware",
+      "operation": "value-formatting",
+      "covers": [
+        "starlette.middleware.Middleware.repr",
+        "starlette.middleware.Middleware.iteration",
+        "starlette.middleware.Middleware.asgi-wrapper.pure-callable-shapes",
+        "starlette.middleware.Middleware.asgi-wrapper.arbitrary-apps",
+        "starlette.middleware.Middleware.asgi-wrapper.exception-cancellation-cleanup"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "middleware": {
+        "class_name": "ASGIMiddleware",
+        "args": [],
+        "kwargs": {
+          "scope_types": [
+            "http"
+          ],
+          "observe_receive": true,
+          "append_headers": [],
+          "body_suffix_base64": "",
+          "websocket_text_suffix": "",
+          "observe_errors": true,
+          "observe_cleanup": true
+        }
+      },
+      "asgi_workflow": {
+        "kind": "pure-asgi",
+        "asgi_app": {
+          "kind": "asgi-events-by-scope",
+          "events_by_scope": [
+            {
+              "scope_type": "http",
+              "events": [
+                {
+                  "type": "http.response.start",
+                  "status": 207,
+                  "headers_base64_pairs": [
+                    [
+                      "Y29udGVudC1sZW5ndGg=",
+                      "MA=="
+                    ]
+                  ]
+                },
+                {
+                  "type": "http.response.body",
+                  "body_base64": "",
+                  "more_body": false
+                }
+              ],
+              "receive_count": 2,
+              "failure": null
+            },
+            {
+              "scope_type": "websocket",
+              "events": [
+                {
+                  "type": "websocket.accept"
+                },
+                {
+                  "type": "websocket.send",
+                  "text": "ack"
+                },
+                {
+                  "type": "websocket.send",
+                  "bytes_base64": "AP8="
+                },
+                {
+                  "type": "websocket.close",
+                  "code": 1000
+                }
+              ]
+            },
+            {
+              "scope_type": "lifespan",
+              "events": [
+                {
+                  "type": "lifespan.startup.complete"
+                },
+                {
+                  "type": "lifespan.shutdown.complete"
+                }
+              ]
+            }
+          ]
+        },
+        "calls": [
+          {
+            "call_id": "http-cancel-blocked-receive",
+            "scope": {
+              "type": "http",
+              "asgi": {
+                "version": "3.0",
+                "spec_version": "2.4"
+              },
+              "http_version": "1.1",
+              "method": "GET",
+              "scheme": "http",
+              "path": "/pure",
+              "raw_path_base64": "L3B1cmU=",
+              "query_string_base64": "",
+              "root_path": "",
+              "headers_base64_pairs": [],
+              "client": [
+                "127.0.0.1",
+                12345
+              ],
+              "server": [
+                "testserver",
+                80
+              ]
+            },
+            "receive": [
+              {
+                "type": "http.request",
+                "body_base64": "",
+                "more_body": false
+              }
+            ],
+            "send": {
+              "kind": "capture-asgi-send"
+            }
+          },
+          {
+            "call_id": "http-only-filter-websocket-bypass",
+            "scope": {
+              "type": "websocket",
+              "asgi": {
+                "version": "3.0",
+                "spec_version": "2.5"
+              },
+              "http_version": "1.1",
+              "scheme": "ws",
+              "path": "/pure-ws",
+              "raw_path_base64": "L3B1cmUtd3M=",
+              "query_string_base64": "",
+              "root_path": "",
+              "headers_base64_pairs": [],
+              "client": [
+                "127.0.0.1",
+                12345
+              ],
+              "server": [
+                "testserver",
+                80
+              ],
+              "subprotocols": []
+            },
+            "receive": [
+              {
+                "type": "websocket.connect",
+                "subprotocols": []
+              },
+              {
+                "type": "websocket.receive",
+                "text": "ignored"
+              },
+              {
+                "type": "websocket.receive",
+                "bytes_base64": "AP8="
+              },
+              {
+                "type": "websocket.disconnect",
+                "code": 1000
+              }
+            ],
+            "send": {
+              "kind": "capture-asgi-send"
+            }
+          },
+          {
+            "call_id": "http-only-filter-lifespan-bypass",
+            "scope": {
+              "type": "lifespan",
+              "asgi": {
+                "version": "3.0",
+                "spec_version": "2.4"
+              }
+            },
+            "receive": [
+              {
+                "type": "lifespan.startup"
+              },
+              {
+                "type": "lifespan.shutdown"
+              }
+            ],
+            "send": {
+              "kind": "capture-asgi-send"
+            }
+          }
+        ],
+        "termination": {
+          "kind": "cancel-when-receive-blocked",
+          "call_id": "http-cancel-blocked-receive"
+        }
+      },
+      "observations": [
+        "repr",
+        "__iter__",
+        "asgi_workflow"
+      ]
+    }
+  ]
+}

@@ -8,6 +8,16 @@
   },
   "api_sources": [
     {
+      "surface_id": "starlette",
+      "source_path": "starlette/__init__.py:1",
+      "operations": [
+        {
+          "operation_id": "public-api-inspection",
+          "source_path": "starlette.public-api-inspection root import boundary and input-selected public modules"
+        }
+      ]
+    },
+    {
       "surface_id": "starlette.applications.Starlette",
       "source_path": "starlette/applications.py:20",
       "operations": [
@@ -42,6 +52,10 @@
         {
           "operation_id": "routes",
           "source_path": "starlette.applications.Starlette.routes"
+        },
+        {
+          "operation_id": "typing-consumer",
+          "source_path": "starlette.applications.Starlette and public application typing aliases"
         }
       ]
     },
@@ -718,6 +732,10 @@
         {
           "operation_id": "schema-generation",
           "source_path": "starlette.schemas.SchemaGenerator.__init__, SchemaGenerator.get_schema, BaseSchemaGenerator.get_endpoints, _remove_converter, and parse_docstring"
+        },
+        {
+          "operation_id": "module-import-policy",
+          "source_path": "starlette.schemas module import and SchemaGenerator consumer"
         }
       ]
     },

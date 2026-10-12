@@ -679,6 +679,8 @@ def run_upstream_benchmark(
     source_file_digests = _benchmark_source_digests(upstream)
 
     prepared = load_prepared_environments(root, require_target=True)
+    if not set(ENVIRONMENT_IDS) <= set(prepared):
+        raise ContractError("the pinned upstream benchmark workload requires CPython 3.12")
     started_at = _timestamp()
     gate_path = root / GATE_RESULT_RELATIVE
     gate = run_parity(root, "parity", gate_path, manifest_path)

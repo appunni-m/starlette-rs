@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@45",
+  "schema": "migration-parity/parity-input@47",
   "cases": [
     {
       "case_id": "starlette.authentication.value-operations.credentials-and-user-values",
@@ -129,7 +129,8 @@
         "starlette.authentication.requires.invalid-decorator-usage",
         "starlette.authentication.requires.websocket-denied-close",
         "starlette.authentication.requires.multiple-required-scopes",
-        "starlette.authentication.requires.websocket-custom-status-ignored"
+        "starlette.authentication.requires.websocket-custom-status-ignored",
+        "starlette.authentication.requires.connection-type-validation"
       ],
       "target_profiles": [
         "python-package-cpython312"
@@ -406,6 +407,36 @@
             ]
           },
           "status_code": 404
+        },
+        {
+          "callable": {
+            "kind": "endpoint",
+            "mode": "async",
+            "parameter": "request",
+            "result": "must-not-run"
+          },
+          "required_scopes": [
+            "authenticated"
+          ],
+          "connection": {
+            "kind": "websocket",
+            "auth_scopes": []
+          }
+        },
+        {
+          "callable": {
+            "kind": "endpoint",
+            "mode": "async",
+            "parameter": "websocket",
+            "result": "must-not-run"
+          },
+          "required_scopes": [
+            "authenticated"
+          ],
+          "connection": {
+            "kind": "request",
+            "auth_scopes": []
+          }
         }
       ],
       "observations": [

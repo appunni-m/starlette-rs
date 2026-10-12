@@ -1,0 +1,168 @@
+{
+  "schema": "migration-parity/parity-input@47",
+  "cases": [
+    {
+      "case_id": "starlette.testclient.TestClient.websocket-session.docs-close-before-accept-default",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "websocket-session",
+      "covers": [
+        "starlette.testclient.TestClient.websocket-session.scope-projection",
+        "starlette.testclient.TestClient.websocket-session.rejected-connection-disconnect",
+        "starlette.testclient.TestClient.websocket-session.portal-cleanup"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "observations": ["websocket-session"],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": ["testclient", 50000],
+        "headers": [],
+        "backend": "asyncio",
+        "backend_options": {}
+      },
+      "websocket": {
+        "url": "/ws",
+        "subprotocols": [],
+        "headers": [],
+        "actions": []
+      },
+      "asgi_app": {
+        "kind": "asgi3",
+        "scope_fields": ["type", "path"],
+        "actions": [
+          {
+            "operation": "websocket_flow",
+            "actions": [
+              {"operation": "receive"},
+              {"operation": "close"}
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.testclient.TestClient.websocket-session.docs-denial-response-extension",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "websocket-session",
+      "covers": [
+        "starlette.testclient.TestClient.websocket-session.scope-projection",
+        "starlette.testclient.TestClient.websocket-session.denial-response-exception",
+        "starlette.testclient.TestClient.websocket-session.portal-cleanup"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "observations": ["websocket-session"],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": ["testclient", 50000],
+        "headers": [],
+        "backend": "asyncio",
+        "backend_options": {}
+      },
+      "websocket": {
+        "url": "/ws",
+        "subprotocols": [],
+        "headers": [],
+        "actions": []
+      },
+      "asgi_app": {
+        "kind": "asgi3",
+        "scope_fields": ["type", "path", "extensions"],
+        "actions": [
+          {
+            "operation": "websocket_flow",
+            "actions": [
+              {"operation": "receive"},
+              {
+                "operation": "make_response",
+                "response": {"status_code": 401, "content": "Unauthorized"}
+              },
+              {"operation": "send_denial_response", "capture_error": false}
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.testclient.TestClient.websocket-session.docs-http-exception-authorization-denied",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "websocket-session",
+      "covers": [
+        "starlette.testclient.TestClient.websocket-session.scope-projection",
+        "starlette.testclient.TestClient.websocket-session.denial-response-exception",
+        "starlette.testclient.TestClient.websocket-session.portal-cleanup"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "observations": ["websocket-session"],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": ["testclient", 50000],
+        "headers": [],
+        "backend": "asyncio",
+        "backend_options": {}
+      },
+      "websocket": {
+        "url": "/ws",
+        "subprotocols": ["Bearer", "token"],
+        "headers": [],
+        "actions": []
+      },
+      "asgi_app": {
+        "kind": "starlette-websocket-authorization-route",
+        "path": "/ws",
+        "authorized_subprotocol": "Authorization",
+        "denial_status_code": 401,
+        "denial_detail": "Unauthorized",
+        "response_text": "Hello, world!",
+        "debug": false,
+        "scope_fields": ["type", "path", "subprotocols", "extensions"]
+      }
+    },
+    {
+      "case_id": "starlette.testclient.TestClient.websocket-session.docs-http-exception-authorization-accepted",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "websocket-session",
+      "covers": [
+        "starlette.testclient.TestClient.websocket-session.scope-projection",
+        "starlette.testclient.TestClient.websocket-session.accept-handshake",
+        "starlette.testclient.TestClient.websocket-session.text-message-exchange",
+        "starlette.testclient.TestClient.websocket-session.portal-cleanup"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "observations": ["websocket-session"],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": ["testclient", 50000],
+        "headers": [],
+        "backend": "asyncio",
+        "backend_options": {}
+      },
+      "websocket": {
+        "url": "/ws",
+        "subprotocols": ["Authorization", "token"],
+        "headers": [],
+        "actions": [{"operation": "receive_text"}]
+      },
+      "asgi_app": {
+        "kind": "starlette-websocket-authorization-route",
+        "path": "/ws",
+        "authorized_subprotocol": "Authorization",
+        "denial_status_code": 401,
+        "denial_detail": "Unauthorized",
+        "response_text": "Hello, world!",
+        "debug": false,
+        "scope_fields": ["type", "path", "subprotocols", "extensions"]
+      }
+    }
+  ]
+}

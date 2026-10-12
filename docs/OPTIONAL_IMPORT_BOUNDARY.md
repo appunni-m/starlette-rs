@@ -22,20 +22,33 @@ callbacks. Replacing them with a Rust package lookup would change custom
 import loaders, installed environments, warning filters and exception objects.
 Rust owns dependency choice, fallback policy, error construction and forwarding.
 
-Thirty-one `optional-imports.yaml` consumers import the public modules with an
+Thirty-eight `optional-imports.yaml` consumers import the public modules with an
 input-selected loader that raises original dependency errors, plus installed
-dependency controls and warning filters. Both source and target independently
-execute the same consumer. It records dependency attempts, warning category and
-message, public consumer availability, and error identity/cause/context graphs.
-There are no recorded expected outputs. These are normal oracle parity cases,
-because the source can reach every supplied import failure.
+dependency controls and warning filters. The observations include resolved
+optional distribution versions, TestClient's selected backend and a request
+through the legacy HTTPX fallback, the selected multipart parser import path,
+the Jinja2 context decorator alias, and the `full` extra's declared optional
+requirements from installed distribution metadata. Both source and target
+independently execute the same consumer. The inputs contain no expected
+outputs; they are normal oracle parity cases because the source can reach every
+supplied import failure and compatibility profile.
+
+The legacy multipart profile aliases the locked `python-multipart` parser
+objects at the old `multipart` import paths while the source package is forced
+to report `python_multipart` as missing. This reaches Starlette's documented
+fallback import and form parser using the same parser implementation. It does
+not qualify behavior specific to an independently installed legacy `multipart`
+distribution; that remains an environment-version boundary.
 
 Rust also selects the multipart primary and legacy imports, checks the optional
 header-parser boundary before Request.form, and preserves the session signer
 import contract. Sessions still execute signing and verification in Rust.
 OpenAPI rendering and docstring parsing retain their Python YAML representation
 callbacks. Request.form, schema rendering and schema docstring actions are
-input-defined public consumers after the real module import.
+input-defined public consumers after the real module import. The four schema
+docstring cases exercise `SchemaGenerator.get_schema` with an empty or truthy
+docstring while PyYAML is present or selected as missing; the former returns
+the base schema without parsing, while the latter reaches the pinned assertion.
 
 The input definitions are unexecuted until the integrated parity phase. Loader
 failures are ordinary oracle comparisons; real dependency absence and supported

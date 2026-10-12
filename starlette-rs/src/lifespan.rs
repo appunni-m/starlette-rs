@@ -1,7 +1,7 @@
 use std::error::Error;
 use std::fmt::{self, Display, Formatter};
 
-/// The current state of the successful ASGI lifespan flow.
+/// The current state of the ASGI lifespan flow, including failure outcomes.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum LifespanPhase {
     /// Waiting for `lifespan.startup`.
@@ -14,6 +14,8 @@ pub enum LifespanPhase {
     ExitingContext,
     /// Shutdown completed.
     Complete,
+    /// Startup or shutdown failed and the ASGI failure event was selected.
+    Failed,
 }
 
 /// A host action emitted by a successful lifespan transition.
@@ -40,6 +42,12 @@ pub enum LifespanOperation {
     ShutdownReceived,
     /// Reporting successful completion of the context manager's exit call.
     ContextExited,
+    /// Reporting that the context manager suppressed an error during shutdown.
+    ContextExitSuppressed,
+    /// Reporting a failure before startup completed.
+    StartupFailed,
+    /// Reporting a failure while shutting down.
+    ShutdownFailed,
 }
 
 /// A lifespan protocol or transition error.
@@ -79,12 +87,13 @@ impl Display for LifespanError {
 
 impl Error for LifespanError {}
 
-/// Tracks successful ASGI startup and shutdown transitions.
+/// Tracks ASGI startup and shutdown transitions, including callback failures.
 ///
 /// The state machine owns the order of protocol decisions, while the host
-/// performs user Python async context-manager calls between actions. This
-/// first slice models successful lifecycle callbacks; the host propagates
-/// callback exceptions through its native Python exception boundary.
+/// performs user Python async context-manager calls between actions. When a
+/// callback fails, the host records the corresponding failure transition,
+/// sends its ASGI failure event, and propagates the original exception through
+/// the native Python exception boundary.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct LifespanState {
     phase: LifespanPhase,
@@ -155,6 +164,24 @@ impl LifespanState {
         )
     }
 
+    /// Records a failure before startup completed.
+    ///
+    /// On success, returns the ASGI message type `lifespan.startup.failed`.
+    /// The host supplies the original exception traceback as the message and
+    /// propagates that same exception after sending the event.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`LifespanError::InvalidTransition`] unless startup requested
+    /// context entry and has not completed successfully.
+    pub fn startup_failed(&mut self) -> Result<&'static str, LifespanError> {
+        self.fail_transition(
+            LifespanPhase::EnteringContext,
+            LifespanOperation::StartupFailed,
+            "lifespan.startup.failed",
+        )
+    }
+
     /// Validates and accepts the `lifespan.shutdown` message.
     ///
     /// On success, returns [`LifespanAction::ExitContext`] for the host to
@@ -199,6 +226,45 @@ impl LifespanState {
         )
     }
 
+    /// Records that the host's context manager suppressed an error during exit.
+    ///
+    /// Starlette sends `lifespan.shutdown.complete` when the lifespan context
+    /// manager suppresses an exception from its body, because the `async with`
+    /// statement then exits normally.
+    ///
+    /// On success, returns [`LifespanAction::SendShutdownComplete`].
+    ///
+    /// # Errors
+    ///
+    /// Returns [`LifespanError::InvalidTransition`] unless a shutdown message
+    /// previously requested context exit.
+    pub fn context_exit_suppressed(&mut self) -> Result<LifespanAction, LifespanError> {
+        self.transition(
+            LifespanPhase::ExitingContext,
+            LifespanOperation::ContextExitSuppressed,
+            LifespanPhase::Complete,
+            LifespanAction::SendShutdownComplete,
+        )
+    }
+
+    /// Records a failure while exiting the lifespan context manager.
+    ///
+    /// On success, returns the ASGI message type `lifespan.shutdown.failed`.
+    /// The host supplies the original exception traceback as the message and
+    /// propagates that same exception after sending the event.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`LifespanError::InvalidTransition`] unless shutdown requested
+    /// context exit.
+    pub fn shutdown_failed(&mut self) -> Result<&'static str, LifespanError> {
+        self.fail_transition(
+            LifespanPhase::ExitingContext,
+            LifespanOperation::ShutdownFailed,
+            "lifespan.shutdown.failed",
+        )
+    }
+
     fn transition(
         &mut self,
         expected_phase: LifespanPhase,
@@ -214,5 +280,21 @@ impl LifespanState {
         }
         self.phase = next_phase;
         Ok(action)
+    }
+
+    fn fail_transition(
+        &mut self,
+        expected_phase: LifespanPhase,
+        operation: LifespanOperation,
+        message_type: &'static str,
+    ) -> Result<&'static str, LifespanError> {
+        if self.phase != expected_phase {
+            return Err(LifespanError::InvalidTransition {
+                phase: self.phase,
+                operation,
+            });
+        }
+        self.phase = LifespanPhase::Failed;
+        Ok(message_type)
     }
 }

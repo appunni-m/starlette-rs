@@ -16,7 +16,10 @@ REPOSITORY_ROOT = pathlib.Path(__file__).resolve().parents[1]
 if str(REPOSITORY_ROOT) not in sys.path:
     sys.path.insert(0, str(REPOSITORY_ROOT))
 
-from scripts.parity.api_sources import load_api_metadata  # noqa: E402
+from scripts.parity.api_sources import (  # noqa: E402
+    load_api_metadata,
+    public_module_names,
+)
 from scripts.parity.contract import (  # noqa: E402
     ContractError,
     load_json,
@@ -141,10 +144,14 @@ def canonical_test_item(source_item: str) -> str:
     return source_item.split("[", 1)[0]
 
 
-def check_input_fixture(path: pathlib.Path, manifest: dict[str, object]) -> None:
+def check_input_fixture(
+    path: pathlib.Path,
+    manifest: dict[str, object],
+    public_modules: frozenset[str],
+) -> None:
     """Validate a committed YAML-compatible input source and reject output fields."""
     try:
-        validate_input_document(load_json(path), manifest)
+        validate_input_document(load_json(path), manifest, public_modules=public_modules)
     except ContractError as error:
         raise AtlasError(f"{path}: invalid input-only parity definition: {error}") from error
 
@@ -227,6 +234,7 @@ def check_fixture_backlog(
     test_source_root: str,
     documentation_root: str,
     manifest: dict[str, object],
+    public_modules: frozenset[str],
 ) -> list[dict[str, str]]:
     expected_tests = test_functions(upstream, test_source_root)
     expected_support_modules = test_support_modules(upstream, test_source_root)
@@ -286,7 +294,7 @@ def check_fixture_backlog(
                     if resolved.suffix != ".yaml":
                         raise AtlasError(f"{path}: committed parity sources must use .yaml files")
                     if resolved not in validated_fixtures:
-                        check_input_fixture(resolved, manifest)
+                        check_input_fixture(resolved, manifest, public_modules)
                         validated_fixtures.add(resolved)
             elif fixture_entries != [""]:
                 raise AtlasError(f"{path}: fixture_path is only valid for existing inputs")
@@ -387,6 +395,7 @@ def main() -> int:
         inventory["test_source_root"],
         inventory["documentation_root"],
         manifest,
+        public_module_names(metadata),
     )
     backlog_rows = [row for row in fixture_rows if row["fixture_status"] == "backlog"]
     fixture_mapping_count = sum(row["fixture_status"] == "existing" for row in fixture_rows)

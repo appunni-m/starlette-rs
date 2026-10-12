@@ -134,7 +134,7 @@
                   "const": "tests/fixtures/manifest.yaml"
                 },
                 "schema": {
-                  "const": "migration-parity/manifest@4"
+                  "const": "migration-parity/manifest@5"
                 }
               }
             }
@@ -181,7 +181,7 @@
           ],
           "properties": {
             "schema": {
-              "const": "migration-parity/manifest@4"
+              "const": "migration-parity/manifest@5"
             },
             "scope_mode": {
               "type": "string"

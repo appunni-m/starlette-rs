@@ -12,6 +12,7 @@ from starlette.middleware.exceptions import ExceptionMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
 from starlette.routing import BaseRoute, Router
+from starlette.types import ASGIApp, ExceptionHandler, Lifespan, Receive, Scope, Send
 from starlette_rs_py import _core
 
 AppType = TypeVar("AppType", bound="Starlette")
@@ -26,8 +27,8 @@ class Starlette:
         debug: bool = False,
         routes: Sequence[BaseRoute] | None = None,
         middleware: Sequence[Middleware] | None = None,
-        exception_handlers: Mapping[Any, Callable[..., Any]] | None = None,
-        lifespan: Callable[[AppType], Any] | None = None,
+        exception_handlers: Mapping[Any, ExceptionHandler] | None = None,
+        lifespan: Lifespan[AppType] | None = None,
         *,
         max_body_size: int | None = None,
     ) -> None:
@@ -44,7 +45,7 @@ class Starlette:
             ExceptionMiddleware,
         )
 
-    def build_middleware_stack(self) -> Any:
+    def build_middleware_stack(self) -> ASGIApp:
         return self._runtime.build_middleware_stack()
 
     @property
@@ -56,16 +57,16 @@ class Starlette:
 
     async def __call__(
         self,
-        scope: dict[str, Any],
-        receive: Callable[..., Any],
-        send: Callable[..., Any],
+        scope: Scope,
+        receive: Receive,
+        send: Send,
     ) -> None:
         await self._runtime(scope, receive, send)
 
-    def mount(self, path: str, app: Callable[..., Any], name: str | None = None) -> None:
+    def mount(self, path: str, app: ASGIApp, name: str | None = None) -> None:
         self.router.mount(path, app=app, name=name)
 
-    def host(self, host: str, app: Callable[..., Any], name: str | None = None) -> None:
+    def host(self, host: str, app: ASGIApp, name: str | None = None) -> None:
         self.router.host(host, app=app, name=name)
 
     def add_middleware(
@@ -79,7 +80,7 @@ class Starlette:
     def add_exception_handler(
         self,
         exc_class_or_status_code: int | type[Exception],
-        handler: Callable[..., Any],
+        handler: ExceptionHandler,
     ) -> None:
         self._runtime.add_exception_handler(exc_class_or_status_code, handler)
 

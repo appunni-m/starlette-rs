@@ -4,8 +4,17 @@ from __future__ import annotations
 
 import base64
 import builtins
+import contextvars
 import threading
+from contextlib import asynccontextmanager, nullcontext
 from typing import Any
+
+try:
+    _BASE_EXCEPTION_GROUP = builtins.BaseExceptionGroup
+    _EXCEPTION_GROUP = builtins.ExceptionGroup
+except AttributeError:
+    from exceptiongroup import BaseExceptionGroup as _BASE_EXCEPTION_GROUP
+    from exceptiongroup import ExceptionGroup as _EXCEPTION_GROUP
 
 
 def _exception_snapshot(error: BaseException, seen: tuple[BaseException, ...] = ()) -> Any:
@@ -34,7 +43,7 @@ def _exception_snapshot(error: BaseException, seen: tuple[BaseException, ...] = 
         "suppress_context": error.__suppress_context__,
         "exceptions": (
             [_exception_snapshot(child, visited) for child in error.exceptions]
-            if isinstance(error, builtins.BaseExceptionGroup)
+            if isinstance(error, _BASE_EXCEPTION_GROUP)
             else None
         ),
     }
@@ -76,10 +85,16 @@ def _run_middleware_client_case(case: dict[str, Any], lifetime: Any) -> dict[str
     responses: list[dict[str, Any]] = []
     portal_threads: set[threading.Thread] = set()
     injected_error: BaseException | None = None
+    worker_probe = application.get("worker_probe")
+    worker_context = (
+        contextvars.ContextVar("starlette-rs-parity-worker-context", default=None)
+        if worker_probe is not None
+        else None
+    )
 
     def exception(specification: dict[str, Any]) -> BaseException:
         if specification["class"] == "ExceptionGroup":
-            return getattr(builtins, specification["class"])(
+            return _EXCEPTION_GROUP(
                 specification["message"],
                 [exception(child) for child in specification["exceptions"]],
             )
@@ -98,6 +113,40 @@ def _run_middleware_client_case(case: dict[str, Any], lifetime: Any) -> dict[str
                 return PlainTextResponse(specification["text"])
 
             return text_response
+        if kind == "sync-observation":
+
+            def sync_observation(request: Any) -> Any:
+                observed_context = None if worker_context is None else worker_context.get()
+                trace.append(
+                    {
+                        "operation": "sync-worker-observation",
+                        "path": request.url.path,
+                        "thread": (
+                            "portal" if threading.current_thread() in portal_threads else "worker"
+                        ),
+                        "context_value": observed_context,
+                    }
+                )
+                return PlainTextResponse(specification["text"])
+
+            return sync_observation
+        if kind == "request-observation":
+
+            async def request_observation(request: Any) -> Any:
+                body = await request.body()
+                trace.append(
+                    {
+                        "operation": "request-observation",
+                        "url": str(request.url),
+                        "path": request.url.path,
+                        "query_items": request.query_params.multi_items(),
+                        "header_items": request.headers.multi_items(),
+                        "body_base64": base64.b64encode(body).decode("ascii"),
+                    }
+                )
+                return PlainTextResponse("request-observed")
+
+            return request_observation
         if kind == "exception":
 
             def raising_endpoint(request: Any) -> None:
@@ -149,7 +198,15 @@ def _run_middleware_client_case(case: dict[str, Any], lifetime: Any) -> dict[str
     class HeaderMiddleware(BaseHTTPMiddleware):
         async def dispatch(self, request: Any, call_next: Any) -> Any:
             trace.append({"operation": "dispatch", "path": request.url.path})
-            response = await call_next(request)
+            token = None
+            if worker_probe is not None and request.url.path == worker_probe["path"]:
+                if worker_context is not None:
+                    token = worker_context.set(worker_probe["context_value"])
+            try:
+                response = await call_next(request)
+            finally:
+                if token is not None:
+                    worker_context.reset(token)
             for name, value in application["middleware"]["response_headers"].items():
                 response.headers[name] = value
             trace.append({"operation": "response-headers", "path": request.url.path})
@@ -165,7 +222,33 @@ def _run_middleware_client_case(case: dict[str, Any], lifetime: Any) -> dict[str
                 name=specification["name"],
             )
         )
-    starlette = Starlette(routes=routes, middleware=[Middleware(HeaderMiddleware)])
+    lifespan_specification = application.get("lifespan")
+    if lifespan_specification is None:
+        starlette = Starlette(routes=routes, middleware=[Middleware(HeaderMiddleware)])
+    else:
+
+        @asynccontextmanager
+        async def lifespan_context(app: Any) -> Any:
+            del app
+            trace.append(
+                {
+                    "operation": "lifespan-startup",
+                    "marker": lifespan_specification["startup_marker"],
+                }
+            )
+            yield
+            trace.append(
+                {
+                    "operation": "lifespan-shutdown",
+                    "marker": lifespan_specification["shutdown_marker"],
+                }
+            )
+
+        starlette = Starlette(
+            routes=routes,
+            middleware=[Middleware(HeaderMiddleware)],
+            lifespan=lifespan_context,
+        )
 
     async def app(scope: Any, receive: Any, send: Any) -> None:
         portal_threads.add(threading.current_thread())
@@ -188,37 +271,46 @@ def _run_middleware_client_case(case: dict[str, Any], lifetime: Any) -> dict[str
         try:
             await starlette(scope, observed_receive, observed_send)
         finally:
-            trace.append({"operation": "application-exit", "path": scope["path"]})
+            trace.append({"operation": "application-exit", "path": scope.get("path")})
 
     client = TestClient(app, **consumer["kwargs"])
     try:
-        for step in consumer["steps"]:
-            injected_error = None
-            value: dict[str, Any] = {"kind": step["kind"], "response": None, "error": None}
-            try:
-                if step["kind"] == "http-request":
-                    response = client.request(step["method"], step["url"])
-                    value["response"] = {
-                        "status_code": response.status_code,
-                        "headers": response.headers.multi_items(),
-                        "content_base64": base64.b64encode(response.content).decode("ascii"),
-                        "text": response.text,
-                        "url": str(response.url),
-                    }
-                else:
-                    frames = []
-                    with client.websocket_connect(step["url"]) as session:
-                        for action in step["actions"]:
-                            frames.append(getattr(session, action["method"])(*action["args"]))
-                    value["response"] = {"frames": _safe(frames)}
-            except Exception as error:
-                if lifetime is not None:
-                    lifetime.capture(error)
-                value["error"] = _exception_snapshot(error)
-                value["is_injected_exception"] = (
-                    None if injected_error is None else error is injected_error
-                )
-            responses.append(value)
+        client_lifetime = client if lifespan_specification is not None else nullcontext(client)
+        with client_lifetime:
+            for step in consumer["steps"]:
+                injected_error = None
+                value: dict[str, Any] = {"kind": step["kind"], "response": None, "error": None}
+                try:
+                    if step["kind"] == "http-request":
+                        request_kwargs = {}
+                        if "headers" in step:
+                            request_kwargs["headers"] = step["headers"]
+                        if "content_base64" in step:
+                            request_kwargs["content"] = base64.b64decode(
+                                step["content_base64"], validate=True
+                            )
+                        response = client.request(step["method"], step["url"], **request_kwargs)
+                        value["response"] = {
+                            "status_code": response.status_code,
+                            "headers": response.headers.multi_items(),
+                            "content_base64": base64.b64encode(response.content).decode("ascii"),
+                            "text": response.text,
+                            "url": str(response.url),
+                        }
+                    else:
+                        frames = []
+                        with client.websocket_connect(step["url"]) as session:
+                            for action in step["actions"]:
+                                frames.append(getattr(session, action["method"])(*action["args"]))
+                        value["response"] = {"frames": _safe(frames)}
+                except Exception as error:
+                    if lifetime is not None:
+                        lifetime.capture(error)
+                    value["error"] = _exception_snapshot(error)
+                    value["is_injected_exception"] = (
+                        None if injected_error is None else error is injected_error
+                    )
+                responses.append(value)
     finally:
         client.close()
     context = {

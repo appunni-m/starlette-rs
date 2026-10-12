@@ -84,6 +84,17 @@ python3 scripts/inventory_upstream_dependencies.py \
 
 ## Starlette-RS dependency policy
 
+The additive Rust-native HTTP service uses `http` 1.5.0, `bytes` 1.12.1,
+`http-body` 1.1.0, `http-body-util` 0.1.5, `tower-service` 0.3.3, and
+`tower-layer` 0.3.3, all resolved in the workspace `Cargo.lock`. They are
+Python-free runtime dependencies of the `starlette-rs` core. `http-body-util`
+is used to erase heterogeneous endpoint response bodies while preserving
+streamed frames; this makes its `UnsyncBoxBody` type visible through the
+current public body aliases. The exact API and copy boundaries are documented
+in [the native HTTP service contract](native-service.md). The locked HTTP,
+body, and Tower versions are independently resolved in this workspace.
+FastAPI-RS has not yet adopted the service dependency set.
+
 ## Rust compression backend
 
 | Crate | Locked version | Feature / role | Native component and license |
@@ -137,12 +148,14 @@ the eventual Rust distribution notice audit.
 - [`digest` 0.11.3 manifest](https://docs.rs/crate/digest/0.11.3)
 
 The parity environments keep the upstream oracle separate from the installed
-Starlette-RS package. `scripts/parity/locks/starlette-oracle-cpython312.txt`
-pins `itsdangerous==2.2.0` for the source oracle, whose `SessionMiddleware`
-uses ItsDangerous. The installed Python-package environment is defined by
-`scripts/parity/locks/asgi-runtime-cpython312.txt`; it does not install
-ItsDangerous because the replacement's session signing runs in Rust. This
-separation keeps the source oracle dependency out of the target runtime.
+Starlette-RS package across CPython 3.10 through 3.14.
+`scripts/parity/locks/starlette-oracle-python.txt` pins the source's optional
+dependencies, including `itsdangerous==2.2.0`. The installed Python-package
+environment is defined by `scripts/parity/locks/asgi-runtime-python.txt` and
+installs the same optional closure for full-feature comparisons. It also locks
+the `exceptiongroup` backport used by the parity adapter on CPython 3.10.
+Session signing and form parsing still run in Rust; Python import callbacks
+preserve the public availability contract.
 
 ## Rust file-response helpers
 
@@ -226,3 +239,13 @@ upstream Starlette runtime dependency or move session/form algorithms out of Rus
 Installed-package checks in present/absent dependency environments remain pending
 for the full parity phase. Source license records above still apply; packaged
 artifact license/provenance checks remain release work.
+
+### Full-feature parity environments
+
+Both isolated parity environments now install the same hash-locked optional
+closure, including ItsDangerous 2.2.0 and python-multipart 0.0.32 from the pinned
+source lock. The target preserves optional module-import behavior while session
+signing and form algorithms remain Rust-owned. These development comparison
+environments do not change base runtime distribution dependencies. Public
+optional features are declared in the package's `full` extra. Missing-dependency
+consumers remain separate inputs and are not hidden by this installed control.

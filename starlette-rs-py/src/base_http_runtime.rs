@@ -1345,7 +1345,6 @@ impl PyBaseHTTPHeaders {
         let values = self.values.borrow(py);
         let value = values
             .iter()
-            .rev()
             .find(|(name, _)| name.eq_ignore_ascii_case(&key))
             .map(|(_, value)| value)
             .ok_or_else(|| pyo3::exceptions::PyKeyError::new_err(key_to_string(&key)))?;
@@ -1401,44 +1400,23 @@ impl PyBaseHTTPHeaders {
 
     fn __iter__(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let values = self.values.borrow(py);
-        let mut keys = Vec::<String>::new();
-        for (name, _) in values.iter() {
-            let key = String::from_utf8_lossy(name).to_ascii_lowercase();
-            if !keys.iter().any(|candidate| candidate == &key) {
-                keys.push(key);
-            }
-        }
+        let keys = values
+            .iter()
+            .map(|(name, _)| PyBytes::new(py, name).call_method1("decode", ("latin-1",)))
+            .collect::<PyResult<Vec<_>>>()?;
         PyList::new(py, keys)?
             .call_method0("__iter__")
             .map(Bound::unbind)
     }
 
     fn __len__(&self, py: Python<'_>) -> usize {
-        let values = self.values.borrow(py);
-        let mut keys = Vec::<Vec<u8>>::new();
-        for (name, _) in values.iter() {
-            if !keys
-                .iter()
-                .any(|candidate| candidate.eq_ignore_ascii_case(name))
-            {
-                keys.push(name.clone());
-            }
-        }
-        keys.len()
+        self.values.borrow(py).len()
     }
 
     fn items(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let values = self.values.borrow(py);
         let result = PyList::empty(py);
-        let mut keys = Vec::<Vec<u8>>::new();
         for (name, value) in values.iter() {
-            if keys
-                .iter()
-                .any(|candidate| candidate.eq_ignore_ascii_case(name))
-            {
-                continue;
-            }
-            keys.push(name.clone());
             let pair = PyTuple::new(
                 py,
                 [

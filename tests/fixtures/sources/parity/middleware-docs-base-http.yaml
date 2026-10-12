@@ -1,0 +1,207 @@
+{
+  "schema": "migration-parity/parity-input@47",
+  "cases": [
+    {
+      "case_id": "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.documented-request-data-helpers",
+      "surface": "starlette.middleware.base.BaseHTTPMiddleware",
+      "operation": "base-http-workflow",
+      "covers": [
+        "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.construct-configured-middleware",
+        "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.return-replacement-response"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "application": {
+        "debug": false,
+        "routes": [],
+        "middleware": [
+          {
+            "kind": "base-http-middleware",
+            "dispatch_actions": [
+              {
+                "kind": "append-middleware-event",
+                "phase": "started",
+                "value": "dispatch-start"
+              },
+              {
+                "kind": "observe-request-helpers"
+              },
+              {
+                "kind": "await-call-next"
+              },
+              {
+                "kind": "append-middleware-event",
+                "phase": "completed",
+                "value": "dispatch-complete"
+              },
+              {
+                "kind": "return-plain-text-response",
+                "content": "middleware-response",
+                "status_code": 202
+              }
+            ]
+          }
+        ]
+      },
+      "request": {
+        "scope": {
+          "type": "http",
+          "asgi": {
+            "version": "3.0",
+            "spec_version": "2.4"
+          },
+          "http_version": "1.1",
+          "method": "GET",
+          "scheme": "https",
+          "path": "/inspect",
+          "raw_path_base64": "L2luc3BlY3Q=",
+          "query_string_base64": "eD1vbmUmeD10d28=",
+          "root_path": "",
+          "headers_base64_pairs": [
+            [
+              "aG9zdA==",
+              "ZWRnZS5leGFtcGxl"
+            ],
+            [
+              "eC10YWc=",
+              "Zmlyc3Q="
+            ],
+            [
+              "eC10YWc=",
+              "c2Vjb25k"
+            ]
+          ],
+          "client": [
+            "127.0.0.1",
+            12345
+          ],
+          "server": [
+            "edge.example",
+            443
+          ]
+        },
+        "receive": [
+          {
+            "type": "http.request",
+            "body_base64": "",
+            "more_body": false
+          }
+        ],
+        "receive_after_events": "disconnect",
+        "send_checkpoints": []
+      },
+      "observations": [
+        "base-http-workflow"
+      ]
+    },
+    {
+      "case_id": "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.cleanup-completes-after-background-failure",
+      "surface": "starlette.middleware.base.BaseHTTPMiddleware",
+      "operation": "base-http-workflow",
+      "covers": [
+        "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.construct-configured-middleware",
+        "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.background-task-failure-propagates-after-response-send",
+        "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.async-context-manager-cleanup-completes"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "application": {
+        "debug": false,
+        "routes": [
+          {
+            "kind": "http-route",
+            "path": "/",
+            "methods": [
+              "GET"
+            ],
+            "endpoint": {
+              "kind": "plain-text-response-with-async-background-task",
+              "content": "",
+              "status_code": 200,
+              "background_task": {
+                "kind": "async-delay-and-raise",
+                "delay_seconds": 0.1,
+                "exception": {
+                  "class": "ValueError",
+                  "message": "TEST"
+                }
+              }
+            }
+          }
+        ],
+        "middleware": [
+          {
+            "kind": "base-http-middleware",
+            "constructor_dispatch": "call-next"
+          },
+          {
+            "kind": "async-context-manager-cleanup",
+            "exit_delay_seconds": 0.01
+          }
+        ]
+      },
+      "request": {
+        "scope": {
+          "type": "http",
+          "asgi": {
+            "version": "3.0",
+            "spec_version": "2.4"
+          },
+          "http_version": "1.1",
+          "method": "GET",
+          "scheme": "http",
+          "path": "/",
+          "raw_path_base64": "Lw==",
+          "query_string_base64": "",
+          "root_path": "",
+          "headers_base64_pairs": [
+            [
+              "aG9zdA==",
+              "dGVzdHNlcnZlcg=="
+            ],
+            [
+              "YWNjZXB0",
+              "Ki8q"
+            ],
+            [
+              "YWNjZXB0LWVuY29kaW5n",
+              "Z3ppcCwgZGVmbGF0ZQ=="
+            ],
+            [
+              "Y29ubmVjdGlvbg==",
+              "a2VlcC1hbGl2ZQ=="
+            ],
+            [
+              "dXNlci1hZ2VudA==",
+              "dGVzdGNsaWVudA=="
+            ]
+          ],
+          "client": [
+            "testclient",
+            50000
+          ],
+          "server": [
+            "testserver",
+            80
+          ]
+        },
+        "receive": [
+          {
+            "type": "http.request",
+            "body_base64": "",
+            "more_body": false
+          }
+        ],
+        "receive_after_events": "disconnect",
+        "send_checkpoints": []
+      },
+      "observations": [
+        "base-http-workflow"
+      ]
+    }
+  ]
+}

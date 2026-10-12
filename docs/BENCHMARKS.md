@@ -1,7 +1,7 @@
 # Benchmark mapping
 
 The recorded runs below are historical evidence for their recorded revisions.
-The active `parity-input@45` implementation checkpoint has not been benchmarked.
+The active `parity-input@47` implementation checkpoint has not been benchmarked.
 Freshness validation currently rejects the previous result artifact because its
 manifest digest differs from the active manifest. New timing is deferred until
 implementation, full parity, and coverage are complete.
