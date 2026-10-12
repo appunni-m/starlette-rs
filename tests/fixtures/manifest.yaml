@@ -15761,6 +15761,21 @@
               ]
             },
             {
+              "id": "starlette.request.body.retry-after-cancellation",
+              "dimension": "error_path",
+              "description": "Propagate CancelledError from the ASGI receive callback during Request.body() after a partial chunk, discard the incomplete local collection, and let a later body() call collect and cache only the remaining messages. Pinned source: starlette/requests.py:234-260; Request.stream does not set _stream_consumed until a final http.request message.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
               "id": "starlette.request.stream-disconnect-retry",
               "dimension": "error_path",
               "description": "Let Request.stream() receive http.disconnect and raise ClientDisconnect, then create a fresh stream iterator and consume a later http.request body to completion. The comparison observes the live exception, yielded chunks, and receive ordering. Pinned source: starlette/requests.py:234-252.",
@@ -20258,6 +20273,17 @@
               "target_profiles": [
                 "python-package-cpython312"
               ]
+            },
+            {
+              "id": "starlette.responses.StreamingResponse.consumer-construction.asynciterable-classification",
+              "dimension": "protocol_variant",
+              "description": "Classify content with collections.abc.AsyncIterable without evaluating an instance __aiter__ descriptor during construction; if that descriptor fails, preserve the response-start send before propagating the iteration error. Pinned source: starlette/responses.py:232-255.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
             }
           ],
           "parity": {
@@ -20685,6 +20711,18 @@
               "id": "starlette.routing.Mount.route-dispatch.scope-extension",
               "dimension": "boundary",
               "description": "A matching Mount extends root_path, retains app_root_path, and merges inherited, mount, and any child-route path_params into the live scope.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Mount.route-dispatch.empty-path-root-mount",
+              "dimension": "boundary",
+              "description": "An empty Mount path is accepted as a root mount and dispatches its child route after applying the incoming root_path.",
               "lanes": [
                 "parity"
               ],

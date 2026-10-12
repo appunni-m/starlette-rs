@@ -2472,6 +2472,49 @@
         "inspect_aliases": true,
         "background_definitions": []
       }
+    },
+    {
+      "case_id": "starlette.responses.StreamingResponse.consumer-construction.aiter-descriptor-failure-after-start",
+      "surface": "starlette.responses.StreamingResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.StreamingResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.StreamingResponse.consumer-construction.user-call-protocols",
+        "starlette.responses.StreamingResponse.consumer-construction.asynciterable-classification"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "async-iterator-aiter-property-error",
+          "value": {
+            "message": "input __aiter__ descriptor failure"
+          }
+        },
+        "omit_content": false,
+        "kwargs": {},
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/variants",
+        "method": "GET",
+        "headers": [],
+        "asgi": {
+          "spec_version": "2.4"
+        }
+      },
+      "send_failure": null,
+      "background_label": null
     }
   ]
 }

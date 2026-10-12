@@ -312,11 +312,8 @@ impl PyStreamingResponse {
         media_type: Option<String>,
         charset: &str,
     ) -> PyResult<Self> {
-        let async_iterable = match content.bind(py).getattr("__aiter__") {
-            Ok(_) => true,
-            Err(error) if error.is_instance_of::<PyAttributeError>(py) => false,
-            Err(error) => return Err(error),
-        };
+        let async_iterable_type = py.import("collections.abc")?.getattr("AsyncIterable")?;
+        let async_iterable = content.bind(py).is_instance(&async_iterable_type)?;
         let inner = NativeStreamingResponse::from_chunks(
             status_code,
             Vec::<Vec<u8>>::new(),

@@ -140,8 +140,9 @@ impl Mount {
     /// Builds a Mount from a path and ordered child routes.
     ///
     /// As in Starlette, trailing slashes are removed from the Mount prefix
-    /// before its catch-all child path is added. The child routes use the same
-    /// built-in converters as [`RouteTable`].
+    /// before its catch-all child path is added. An empty or slash-only path
+    /// mounts at the root. The child routes use the same built-in converters
+    /// as [`RouteTable`].
     ///
     /// # Errors
     ///

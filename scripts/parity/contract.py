@@ -1051,6 +1051,7 @@ ROUTER_MOUNT_REQUIREMENTS = {
     "prefix_miss": "starlette.routing.Router.route-dispatch.mount-prefix-boundary-miss",
 }
 MOUNT_SURFACE = "starlette.routing.Mount"
+MOUNT_EMPTY_ROOT_PATH_REQUIREMENT = "starlette.routing.Mount.route-dispatch.empty-path-root-mount"
 VALUE_FORMATTING_OPERATIONS.update(
     {
         (HTTP_ROUTE_SURFACE, VALUE_FORMATTING_OPERATION),
@@ -1446,6 +1447,7 @@ REQUEST_CONSUMPTION_REQUIREMENTS = {
     "body_disconnect_retry": "starlette.request.body-disconnect-retry",
     "body_receive_error": "starlette.request.body.receive-error-propagation",
     "body_receive_error_retry": "starlette.request.body.retry-after-receive-error",
+    "body_cancellation_retry": "starlette.request.body.retry-after-cancellation",
     "stream_disconnect_retry": "starlette.request.stream-disconnect-retry",
 }
 SYNC_REQUEST_RUNTIME_REQUIREMENTS = {
@@ -8863,8 +8865,8 @@ def _validate_mount_case_stimulus(case: dict[str, Any]) -> None:
     if case["observations"] != [MOUNT_OPERATION]:
         raise ContractError("Mount observations must select route-dispatch")
     mount = _exact(case["mount"], {"path", "routes"}, "Mount input")
-    if not isinstance(mount["path"], str) or not mount["path"].startswith("/"):
-        raise ContractError("Mount.path must be an absolute route path")
+    if not isinstance(mount["path"], str) or (mount["path"] and not mount["path"].startswith("/")):
+        raise ContractError("Mount.path must be empty or an absolute route path")
     if not isinstance(mount["routes"], list) or not mount["routes"]:
         raise ContractError("Mount.routes must contain at least one child route")
     mount = {
@@ -8908,6 +8910,8 @@ def _validate_mount_case_stimulus(case: dict[str, Any]) -> None:
     derived = set()
     if mount_matches:
         derived.add("starlette.routing.Mount.route-dispatch.scope-extension")
+        if mount["path"] == "":
+            derived.add(MOUNT_EMPTY_ROOT_PATH_REQUIREMENT)
     if not mount_matches:
         derived.add("starlette.routing.Mount.route-dispatch.miss")
     if mount_matches and not matching_child_routes:
@@ -8939,8 +8943,8 @@ def _validate_mount_route_input(route: Any, context: str) -> dict[str, Any]:
     if route["kind"] != "mount":
         raise ContractError(f"{context}.kind must be http-route or mount")
     route = _exact(route, {"kind", "path", "routes"}, context)
-    if not isinstance(route["path"], str) or not route["path"].startswith("/"):
-        raise ContractError(f"{context}.path must be an absolute Mount route path")
+    if not isinstance(route["path"], str) or (route["path"] and not route["path"].startswith("/")):
+        raise ContractError(f"{context}.path must be empty or an absolute Mount route path")
     if not isinstance(route["routes"], list):
         raise ContractError(f"{context}.routes must be an array")
     return {
@@ -23584,15 +23588,21 @@ def _validate_request_body_stream_json_case(case: dict[str, Any]) -> None:
         raise ContractError("Request body/stream/json receive tape must be non-empty")
     optional_receive_fields = False
     receive_error_indices: list[int] = []
+    receive_cancellation_indices: list[int] = []
     for index, raw_message in enumerate(receive):
         context = f"Request body/stream/json receive[{index}]"
         if isinstance(raw_message, dict) and raw_message.get("kind") == "raise":
             _exact(raw_message, {"kind", "exception_type", "message"}, context)
-            if raw_message["exception_type"] != "ValueError" or not isinstance(
-                raw_message["message"], str
-            ):
-                raise ContractError(f"{context} must raise an input-defined ValueError")
-            receive_error_indices.append(index)
+            if not isinstance(raw_message["message"], str):
+                raise ContractError(f"{context}.message must be a string")
+            if raw_message["exception_type"] == "ValueError":
+                receive_error_indices.append(index)
+            elif raw_message["exception_type"] == "CancelledError":
+                receive_cancellation_indices.append(index)
+            else:
+                raise ContractError(
+                    f"{context}.exception_type must be ValueError or CancelledError"
+                )
             continue
         if not isinstance(raw_message, dict) or raw_message.get("type") not in {
             "http.request",
@@ -23688,7 +23698,46 @@ def _validate_request_body_stream_json_case(case: dict[str, Any]) -> None:
             "receive-error retry requires one initial ValueError, one final request, and two body calls"
         )
 
+    receive_cancellation_probe = bool(receive_cancellation_indices)
+    if receive_cancellation_probe:
+        first_chunk = (
+            base64.b64decode(receive[0].get("body_base64", ""), validate=True)
+            if len(receive) > 0 and receive[0].get("type") == "http.request"
+            else b""
+        )
+        remaining_chunk = (
+            base64.b64decode(receive[2].get("body_base64", ""), validate=True)
+            if len(receive) > 2 and receive[2].get("type") == "http.request"
+            else b""
+        )
+        cancellation_actions = (
+            len(actions) == 3
+            and actions[0].get("operation") == "start-body"
+            and actions[1].get("operation") == "await-body"
+            and actions[0].get("task_id") == actions[1].get("task_id")
+            and actions[2] == {"operation": "body"}
+        )
+        if (
+            receive_cancellation_indices != [1]
+            or len(receive) != 3
+            or receive[0].get("type") != "http.request"
+            or receive[0].get("more_body") is not True
+            or receive[1].get("exception_type") != "CancelledError"
+            or receive[2].get("more_body") is not False
+            or not first_chunk
+            or not remaining_chunk
+            or not cancellation_actions
+            or blocked_receive_calls
+            or scope_headers
+        ):
+            raise ContractError(
+                "Request.body cancellation retry requires a partial request, a receive cancellation, "
+                "then a final request and a new body() call"
+            )
+
     expected_covers: set[str] = set()
+    if receive_cancellation_probe:
+        expected_covers.add(REQUEST_CONSUMPTION_REQUIREMENTS["body_cancellation_retry"])
     if receive_error_probe:
         expected_covers.update(
             {
@@ -35210,6 +35259,10 @@ def _validate_response_consumer_content(value: Any) -> None:
                 "StopAsyncIteration",
             } or not isinstance(failure["message"], str):
                 raise ContractError("Response iterator failure requires a supported class and text")
+    elif kind == "async-iterator-aiter-property-error":
+        definition = _exact(content, {"message"}, "Response async-iterator descriptor failure")
+        if not isinstance(definition["message"], str):
+            raise ContractError("Response async-iterator descriptor failure requires text")
     elif kind == "file":
         definition = _exact(
             content,
@@ -35286,10 +35339,22 @@ def _validate_response_consumer_case(case: dict[str, Any]) -> None:
             "Response consumers require the installed Python package without assets"
         )
     expected_requirements = [case["surface"] + ".consumer-construction.public-render-and-asgi"]
-    if "protocols" in case or case["construction"]["content"].get("kind") == "async-iterator":
+    content_kind = case["construction"]["content"].get("kind")
+    if "protocols" in case or content_kind in {
+        "async-iterator",
+        "async-iterator-aiter-property-error",
+    }:
         expected_requirements.append(case["surface"] + ".consumer-construction.user-call-protocols")
         if "protocols" in case:
             _validate_response_user_protocols(case)
+    if content_kind == "async-iterator-aiter-property-error":
+        if case["surface"] != "starlette.responses.StreamingResponse":
+            raise ContractError(
+                "Async-iterator descriptor classification belongs to StreamingResponse"
+            )
+        expected_requirements.append(
+            "starlette.responses.StreamingResponse.consumer-construction.asynciterable-classification"
+        )
     if "callbacks" in case or "ownership" in case:
         expected_requirements.append(
             case["surface"] + ".consumer-construction.live-asgi-state-and-lifetime"

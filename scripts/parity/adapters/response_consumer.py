@@ -181,6 +181,10 @@ def _run_response_consumer_case(case: dict[str, Any], resources: ExitStack) -> d
             from scripts.parity.adapters.response_protocols import stream_content
 
             content = stream_content(content_spec["value"], trace, callback_errors)
+        elif content_spec["kind"] == "async-iterator-aiter-property-error":
+            from scripts.parity.adapters.response_protocols import stream_aiter_property_error
+
+            content = stream_aiter_property_error(content_spec["value"], trace, callback_errors)
         elif content_spec["kind"] == "file":
             definition = content_spec["value"]
             directory = resources.enter_context(

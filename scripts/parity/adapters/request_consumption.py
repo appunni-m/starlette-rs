@@ -29,7 +29,7 @@ def _decode_message(spec: dict[str, Any]) -> dict[str, Any]:
     return message
 
 
-def _error(operation: str, exc: Exception) -> dict[str, Any]:
+def _error(operation: str, exc: BaseException) -> dict[str, Any]:
     return {
         "operation": operation,
         "status": "error",
@@ -56,8 +56,12 @@ def _value(
 
 async def _observe(case: dict[str, Any], request_type: Callable[..., Any]) -> dict[str, Any]:
     incoming = [
-        ValueError(event["message"])
-        if event.get("kind") == "raise" and event.get("exception_type") == "ValueError"
+        (
+            ValueError(event["message"])
+            if event["exception_type"] == "ValueError"
+            else asyncio.CancelledError(event["message"])
+        )
+        if event.get("kind") == "raise"
         else _decode_message(event)
         for event in case["receive"]
     ]
@@ -74,7 +78,7 @@ async def _observe(case: dict[str, Any], request_type: Callable[..., Any]) -> di
         if gate is not None:
             await gate.wait()
         message = incoming[call_index]
-        if isinstance(message, Exception):
+        if isinstance(message, BaseException):
             receive_trace.append(
                 {
                     "event": "error",
@@ -106,14 +110,14 @@ async def _observe(case: dict[str, Any], request_type: Callable[..., Any]) -> di
         if operation in {"body", "json"}:
             try:
                 value = await getattr(request, operation)()
-            except Exception as exc:
+            except BaseException as exc:
                 observations.append(_error(operation, exc))
             else:
                 observations.append(_value(operation, value, previous_values))
         elif operation == "form":
             try:
                 value = await request.form()
-            except Exception as exc:
+            except BaseException as exc:
                 observations.append(_error(operation, exc))
             else:
                 observations.append(_value(operation, list(value.multi_items()), previous_values))
@@ -124,7 +128,7 @@ async def _observe(case: dict[str, Any], request_type: Callable[..., Any]) -> di
                 streams[stream_id] = request.stream()
             try:
                 value = await streams[stream_id].__anext__()
-            except Exception as exc:
+            except BaseException as exc:
                 observations.append(_error(operation, exc) | {"stream_id": stream_id})
             else:
                 observations.append(
@@ -143,7 +147,7 @@ async def _observe(case: dict[str, Any], request_type: Callable[..., Any]) -> di
             task_id = action["task_id"]
             try:
                 value = await tasks[task_id]
-            except Exception as exc:
+            except BaseException as exc:
                 observations.append(_error(operation, exc) | {"task_id": task_id})
             else:
                 observations.append(

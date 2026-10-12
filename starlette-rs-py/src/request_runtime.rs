@@ -1042,6 +1042,10 @@ impl AwaitableStateMachine for BodyMachine {
                 ))
             }
             MachineResume::Error(error) => {
+                // This includes asyncio.CancelledError from an in-flight receive.
+                // Match Request.body()'s local chunk list: discard its incomplete
+                // bytes and leave stream completion at the last received message
+                // so a later body() call can continue if no final event arrived.
                 self.abort_collection(py);
                 self.stream.fail();
                 Err(error)

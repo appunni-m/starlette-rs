@@ -634,8 +634,11 @@ impl RequestBodyAccumulator {
     /// Discards bytes from an interrupted `body()` collection.
     ///
     /// Starlette accumulates `body()` chunks in a local list and installs the
-    /// cache only after the stream finishes. If receive fails, those partial
-    /// bytes are not retained for a later call.
+    /// cache only after the stream finishes. If receive fails or is cancelled,
+    /// those partial bytes are not retained for a later call. The completion
+    /// flag is left unchanged, so a later call can continue from the next
+    /// receive message when the interrupted collection had not reached the
+    /// final `http.request` event.
     pub fn abort_body_collection(&mut self) {
         if self.cached_body.is_none() {
             self.received.clear();

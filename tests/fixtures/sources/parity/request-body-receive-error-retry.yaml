@@ -42,6 +42,57 @@
         }
       ],
       "observations": ["request-consumption"]
+    },
+    {
+      "case_id": "starlette.requests.Request.body-stream-json.retry-after-partial-receive-cancellation",
+      "surface": "starlette.requests.Request",
+      "operation": "body-stream-json",
+      "covers": [
+        "starlette.request.body.retry-after-cancellation"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "http"
+      },
+      "receive": [
+        {
+          "type": "http.request",
+          "body_base64": "cHJlZml4",
+          "more_body": true
+        },
+        {
+          "kind": "raise",
+          "exception_type": "CancelledError",
+          "message": "body receive cancelled"
+        },
+        {
+          "type": "http.request",
+          "body_base64": "c3VmZml4",
+          "more_body": false
+        }
+      ],
+      "blocked_receive_calls": [],
+      "actions": [
+        {
+          "operation": "start-body",
+          "task_id": "partial-collection"
+        },
+        {
+          "operation": "await-body",
+          "task_id": "partial-collection"
+        },
+        {
+          "operation": "body"
+        }
+      ],
+      "observations": ["request-consumption"]
     }
   ]
 }

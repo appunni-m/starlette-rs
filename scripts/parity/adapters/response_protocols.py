@@ -144,3 +144,18 @@ def stream_content(spec: dict[str, Any], trace: list[Any], errors: list[BaseExce
             return chunk()
 
     return Iterator()
+
+
+def stream_aiter_property_error(
+    spec: dict[str, Any], trace: list[Any], errors: list[BaseException]
+) -> Any:
+    error = RuntimeError(spec["message"])
+    errors.append(error)
+
+    class AiterPropertyError:
+        @property
+        def __aiter__(self) -> Any:
+            trace.append({"event": "aiter-property", "message": spec["message"]})
+            raise error
+
+    return AiterPropertyError()
