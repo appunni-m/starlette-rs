@@ -25,8 +25,8 @@ with no conventional Python or Rust unit-test suite.
 ## Current implementation status
 
 Implementation remains active for the full Starlette 1.6.0 replacement. The
-working-tree `parity-input@48` contract indexes 2,022 cases across 145 parity
-files, two benchmark files, 133 operations, and 1,042 requirements. The latest
+working-tree `parity-input@48` contract indexes 2,026 cases across 145 parity
+files, two benchmark files, 133 operations, and 1,046 requirements. The latest
 static source-inventory check passed: all 999 API candidates are dispositioned,
 and the generated atlas has 817 source rows with 762 input mappings, 55
 source-backed `not_applicable` rows, and zero backlog items.

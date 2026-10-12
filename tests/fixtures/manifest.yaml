@@ -18631,6 +18631,17 @@
               ]
             },
             {
+              "id": "starlette.responses.Response.asgi-call.background-task-late-failure-stops",
+              "dimension": "error_path",
+              "description": "Let an input-defined earlier BackgroundTasks callback complete, make a later callback raise Exception, and observe that response events already completed and subsequent callbacks are not invoked. Source: starlette/background.py:34-36.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.responses.Response.asgi-call.background-task-add",
               "dimension": "parameter_combination",
               "description": "Construct BackgroundTasks with its default empty task list, call add_task with input-defined sync callbacks and captured arguments, attach it to Response, and observe callback execution. Upstream: starlette/background.py:26-33; tests/test_background.py::test_multiple_tasks.",
@@ -19270,6 +19281,17 @@
               "id": "starlette.responses.StreamingResponse.asgi-call.client-disconnect-oserror",
               "dimension": "protocol_variant",
               "description": "Under ASGI spec 2.4, run an input-defined repeating async generator that yields after an event-loop checkpoint, record the first body event, and raise an input-defined OSError on the next send. The receive callback raises NotImplementedError if called, matching the source fixture. Compare ClientDisconnect, partial ASGI events, and generator execution trace. Upstream: starlette/responses.py::StreamingResponse.__call__; test: tests/test_responses.py::test_streaming_response_on_client_disconnects.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.StreamingResponse.asgi-call.client-disconnect-start-send-oserror",
+              "dimension": "error_path",
+              "description": "Under ASGI spec 2.4, raise OSError on the first response.send call and compare ClientDisconnect plus the empty stream execution trace, proving the generator is not pulled before response.start succeeds. Upstream: starlette/responses.py::StreamingResponse.__call__ and stream_response.",
               "lanes": [
                 "parity"
               ],
@@ -24233,6 +24255,18 @@
               ]
             },
             {
+              "id": "starlette.staticfiles.StaticFiles.asgi-call.if-modified-since-numeric-timezone",
+              "dimension": "parameter_combination",
+              "description": "Compare StaticFiles conditional response handling when If-Modified-Since uses a numeric timezone suffix; the pinned implementation delegates to email.utils.parsedate and compares the parsed date fields.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.staticfiles.StaticFiles.asgi-call.rust-explicit-package-roots",
               "dimension": "input_family",
               "description": "Supply package asset roots explicitly through the native Rust constructor and compare asset serving, without claiming Python import discovery on the Rust-native target. Upstream package behavior: tests/test_staticfiles.py::test_staticfiles_with_package.",
@@ -27278,6 +27312,17 @@
               "id": "starlette.testclient.TestClient.request-response.exception-policy",
               "dimension": "error_path",
               "description": "Propagate application exceptions by default, return a 500 response when raise_server_exceptions is false before response start, and return an already completed response when the app raises afterward. Pinned source: starlette/testclient.py:348-367; docs/testclient.md:74-77; tests/middleware/test_errors.py:25-48.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.request-response.exception-after-incomplete-response",
+              "dimension": "error_path",
+              "description": "With raise_server_exceptions=False, send response.start and an input-defined nonterminal response body, then raise the app exception. Compare the empty response body produced because TestClient only rewinds its stream after a terminal body message. Pinned source: starlette/testclient.py::TestClient._portal_factory and _TestClientTransport.handle_request.",
               "lanes": [
                 "parity"
               ],

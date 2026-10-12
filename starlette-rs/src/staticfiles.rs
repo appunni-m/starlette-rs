@@ -559,6 +559,8 @@ fn parse_http_date_ignoring_weekday(value: &str) -> Option<SystemTime> {
     ];
 
     let value = value.trim();
+    let normalized_timezone = normalize_email_numeric_timezone(value);
+    let value = normalized_timezone.as_deref().unwrap_or(value);
     if let Ok(timestamp) = httpdate::parse_http_date(value) {
         return Some(timestamp);
     }
@@ -591,6 +593,22 @@ fn parse_http_date_ignoring_weekday(value: &str) -> Option<SystemTime> {
         };
         httpdate::parse_http_date(&normalized).ok()
     })
+}
+
+fn normalize_email_numeric_timezone(value: &str) -> Option<String> {
+    let (date, timezone) = value.rsplit_once(' ')?;
+    let timezone = timezone.as_bytes();
+    if timezone.len() != 5
+        || !matches!(timezone[0], b'+' | b'-')
+        || !timezone[1..].iter().all(u8::is_ascii_digit)
+    {
+        return None;
+    }
+
+    // Starlette's email.utils.parsedate discards the parsed timezone from its
+    // returned tuple, so the compatibility comparison uses the date fields as
+    // written rather than converting the timestamp to UTC.
+    Some(format!("{date} GMT"))
 }
 
 fn header(headers: &[(Vec<u8>, Vec<u8>)], name: &[u8]) -> Option<String> {

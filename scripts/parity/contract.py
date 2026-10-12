@@ -15,10 +15,10 @@ import statistics
 import subprocess
 import sys
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from email import policy as email_policy
 from email.parser import BytesParser
-from email.utils import parsedate_to_datetime
+from email.utils import parsedate, parsedate_to_datetime
 from http import HTTPStatus
 from pathlib import Path
 from typing import Any
@@ -234,6 +234,7 @@ TESTCLIENT_REQUIREMENTS = {
     "asgi2": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.asgi2-callable",
     "timeout_warning": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.timeout-deprecation-warning",
     "exception_policy": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.exception-policy",
+    "incomplete_response_exception": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.exception-after-incomplete-response",
     "exception_identity_chain": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.exception-identity-and-chaining",
     "authentication_option": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.authentication-option",
     "multipart_file_upload": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.multipart-file-upload",
@@ -1098,6 +1099,7 @@ STREAMING_RESPONSE_MUTABLE_STATUS_REQUIREMENT = (
 STREAMING_RESPONSE_AWAIT_FACTORY_STOP_REQUIREMENT = (
     f"{STREAMING_RESPONSE_SURFACE}.{STREAMING_RESPONSE_OPERATION}.async-iterator-await-factory-stop"
 )
+STREAMING_RESPONSE_START_SEND_DISCONNECT_REQUIREMENT = f"{STREAMING_RESPONSE_SURFACE}.{STREAMING_RESPONSE_OPERATION}.client-disconnect-start-send-oserror"
 STREAMING_RESPONSE_AWAIT_FACTORY_STOP_MODE = "async-iterator-await-factory-stop"
 RESPONSE_OPERATION = "asgi-call"
 RESPONSE_PARTITIONED_COOKIE_REQUIREMENT = (
@@ -1109,6 +1111,7 @@ RESPONSE_BACKGROUND_REQUIREMENTS = {
     "task_add": "starlette.responses.Response.asgi-call.background-task-add",
     "task_order": "starlette.responses.Response.asgi-call.background-task-order",
     "task_failure": "starlette.responses.Response.asgi-call.background-task-failure-stops",
+    "task_late_failure": "starlette.responses.Response.asgi-call.background-task-late-failure-stops",
     "task_sequence_constructor": "starlette.responses.Response.asgi-call.background-task-sequence-constructor",
     "callable_shapes": "starlette.responses.Response.asgi-call.background-callable-shapes",
     "task_cancellation": "starlette.responses.Response.asgi-call.background-task-cancellation",
@@ -5498,11 +5501,12 @@ def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
                     ]
                 ]
             elif failures:
-                if len(failures) != 1 or failures[0] != 0 or len(tasks) < 2:
+                if len(failures) != 1 or failures[0] >= len(tasks) - 1:
                     raise ContractError(
-                        "task-list failure input must fail the first task before a later task"
+                        "task-list failure input must have one failing task with a following callback"
                     )
-                derived = [RESPONSE_BACKGROUND_REQUIREMENTS["task_failure"]]
+                failure_requirement = "task_failure" if failures[0] == 0 else "task_late_failure"
+                derived = [RESPONSE_BACKGROUND_REQUIREMENTS[failure_requirement]]
                 if kind == "task-list":
                     derived.insert(0, RESPONSE_BACKGROUND_REQUIREMENTS["task_add"])
                 else:
@@ -6605,6 +6609,7 @@ def _validate_static_files_case_stimulus(
     ):
         derived.add("html-only-files-no-index-or-404")
     conditional_match = False
+    conditional_numeric_timezone = False
     request_headers: dict[str, str] = {}
     if method == "GET" and normalized_path in selected_files and not os_specific_path_normalization:
         if permission_denial_stress is not None:
@@ -6621,11 +6626,15 @@ def _validate_static_files_case_stimulus(
                 ) from exc
             request_headers[name] = value
             if name == "if-modified-since":
+                conditional_numeric_timezone = bool(re.search(r"[+-][0-9]{4}$", value.strip()))
                 try:
-                    request_date = parsedate_to_datetime(value)
-                except (TypeError, ValueError, OverflowError):
+                    request_date = parsedate(value)
+                    last_modified = datetime.fromtimestamp(
+                        selected_files[normalized_path][0], timezone.utc
+                    ).timetuple()
+                except (OSError, TypeError, ValueError, OverflowError):
                     continue
-                if request_date.timestamp() >= selected_files[normalized_path][0]:
+                if request_date is not None and request_date[:6] >= last_modified[:6]:
                     conditional_match = True
         if path_limit_stress is None and permission_denial_stress is None:
             if request_headers.get("if-none-match") and request_headers.get("if-modified-since"):
@@ -6666,7 +6675,11 @@ def _validate_static_files_case_stimulus(
                         else "conditional-etag-mismatch"
                     )
             elif conditional_match:
-                derived.add("conditional-date-match")
+                derived.add(
+                    "if-modified-since-numeric-timezone"
+                    if conditional_numeric_timezone
+                    else "conditional-date-match"
+                )
             elif selected_files[normalized_path][1]:
                 if "python-package-cpython312" in case["target_profiles"]:
                     derived.add("package-static-assets")
@@ -7787,6 +7800,16 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
             raise ContractError(
                 "StreamingResponse OSError mapping is limited to the Python package profile"
             )
+        if repeating_chunks:
+            disconnect_requirement = (
+                STREAMING_RESPONSE_START_SEND_DISCONNECT_REQUIREMENT
+                if send["event_index"] == 0
+                else f"{STREAMING_RESPONSE_SURFACE}.{STREAMING_RESPONSE_OPERATION}.client-disconnect-oserror"
+            )
+            if case["covers"] != [disconnect_requirement]:
+                raise ContractError(
+                    "repeating StreamingResponse OSError coverage must match the failing send position"
+                )
     _validate_dispatch_stimulus(
         {
             "scope": case["scope"],
@@ -13532,6 +13555,15 @@ def _validate_testclient_case(
                 )
             _string(chain["message"], "TestClient exception chain message")
             expected_covers.add(TESTCLIENT_REQUIREMENTS["exception_identity_chain"])
+        incomplete_response = (
+            settings["raise_server_exceptions"] is False
+            and bool(messages)
+            and isinstance(messages[-1], dict)
+            and messages[-1].get("type") == "http.response.body"
+            and messages[-1].get("more_body") is True
+        )
+        if incomplete_response:
+            expected_covers.add(TESTCLIENT_REQUIREMENTS["incomplete_response_exception"])
     if messages or not settings["raise_server_exceptions"]:
         expected_covers.add(TESTCLIENT_REQUIREMENTS["response"])
     if asgi_app["kind"] == "asgi2":
@@ -13571,7 +13603,13 @@ def _validate_testclient_case(
                 f"TestClient response message[{index}]",
             )
             validate_base64(message["body_base64"], f"response message[{index}].body")
-            if type(message["more_body"]) is not bool or message["more_body"]:
+            if type(message["more_body"]) is not bool:
+                raise ContractError("TestClient response body message more_body must be boolean")
+            if message["more_body"] and not (
+                exception_spec is not None
+                and settings["raise_server_exceptions"] is False
+                and index == len(messages) - 1
+            ):
                 raise ContractError("TestClient response body message must be terminal")
         else:
             raise ContractError(f"TestClient response message[{index}] has an unsupported type")
