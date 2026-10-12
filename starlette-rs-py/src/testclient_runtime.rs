@@ -2008,20 +2008,6 @@ fn build_http_scope(
         .getattr("netloc")?
         .call_method1("decode", ("ascii",))?
         .extract::<String>()?;
-    let (host, port) = if let Some((host, port)) = netloc.split_once(':') {
-        (
-            host.to_owned(),
-            port.parse::<u16>()
-                .map_err(|_| PyRuntimeError::new_err("invalid TestClient URL port"))?,
-        )
-    } else {
-        let default_port = match scheme.as_str() {
-            "http" | "ws" => 80,
-            "https" | "wss" => 443,
-            _ => return Err(PyKeyError::new_err(scheme)),
-        };
-        (netloc, default_port)
-    };
     let path = url.getattr("path")?.extract::<String>()?;
     let raw_path = url
         .getattr("raw_path")?
@@ -2030,6 +2016,18 @@ fn build_http_scope(
         .to_vec();
     let query = url.getattr("query")?.call_method1("decode", ("ascii",))?;
     let query_string = query.call_method0("encode")?.cast_into::<PyBytes>()?;
+    let default_port = match scheme.as_str() {
+        "http" | "ws" => 80,
+        "https" | "wss" => 443,
+        _ => return Err(PyKeyError::new_err(scheme)),
+    };
+    let (host, port): (String, Bound<'_, PyAny>) =
+        if let Some((host, port)) = netloc.split_once(':') {
+            let port = py.import("builtins")?.getattr("int")?.call1((port,))?;
+            (host.to_owned(), port)
+        } else {
+            (netloc, PyInt::new(py, default_port).into_any())
+        };
     let unquoted_path = py
         .import("urllib.parse")?
         .getattr("unquote")?
@@ -2038,15 +2036,14 @@ fn build_http_scope(
     let has_host = request_headers
         .call_method1("__contains__", ("host",))?
         .extract::<bool>()?;
-    let default_port = match scheme.as_str() {
-        "http" | "ws" => 80,
-        "https" | "wss" => 443,
-        _ => return Err(PyKeyError::new_err(scheme)),
-    };
     let headers = PyList::empty(py);
     if !has_host {
-        let host_with_port = format!("{host}:{port}");
-        let host_value = if port == default_port {
+        let port_text = port.str()?.to_string_lossy().into_owned();
+        let host_with_port = format!("{host}:{port_text}");
+        let is_default_port = port
+            .call_method1("__eq__", (default_port,))?
+            .extract::<bool>()?;
+        let host_value = if is_default_port {
             host.as_str()
         } else {
             host_with_port.as_str()

@@ -624,7 +624,15 @@ fn parse_http_date_ignoring_weekday(value: &str) -> Option<SystemTime> {
     {
         &FULL_WEEKDAYS[..]
     } else {
-        return None;
+        // `email.utils.parsedate` also accepts RFC-2822-style dates without a
+        // weekday. Try each weekday so `httpdate` can validate the remaining
+        // date fields while retaining Starlette's weekday-agnostic comparison.
+        return ABBREVIATED_WEEKDAYS.iter().find_map(|replacement| {
+            let normalized = format!("{replacement}, {value}");
+            httpdate::parse_http_date(&normalized)
+                .ok()
+                .or_else(|| httpdate::parse_http_date(&format!("{normalized} GMT")).ok())
+        });
     };
 
     replacements.iter().find_map(|replacement| {

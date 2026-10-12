@@ -3238,22 +3238,29 @@ def _validate_websocket_message(
     *,
     incoming: bool,
     allow_unhashable_type: bool = False,
+    allow_string_subclass_hash_error: bool = False,
 ) -> Any:
     if not isinstance(message, dict):
         raise ContractError(f"{context} must be an ASGI message object")
     raw_type = message.get("type")
     message_type_value = raw_type
     if (
-        incoming
-        and allow_unhashable_type
-        and isinstance(raw_type, dict)
+        isinstance(raw_type, dict)
         and "str_subclass" in raw_type
+        and (
+            (incoming and allow_unhashable_type)
+            or (not incoming and allow_string_subclass_hash_error)
+        )
     ):
         subclass = raw_type["str_subclass"]
         if not isinstance(subclass, dict):
             raise ContractError(f"{context}.type.str_subclass must be an object")
         behavior_fields = set(subclass) - {"value"}
         if behavior_fields == {"not_equal_result"}:
+            if not incoming:
+                raise ContractError(
+                    f"{context}.type.str_subclass.not_equal_result is only supported on receive"
+                )
             subclass = _exact(
                 subclass,
                 {"value", "not_equal_result"},
@@ -3709,8 +3716,29 @@ def _validate_websocket_case_stimulus(case: dict[str, Any]) -> None:
     operation = case["operation"]
     if operation not in {WEBSOCKET_OPERATION, WEBSOCKET_STATE_OPERATION}:
         raise ContractError("WebSocket cases must use a declared sequence operation")
-    if case["target_profiles"] != ["rust-native-local", "python-package-cpython312"]:
-        raise ContractError("WebSocket protocol and state cases must select both target profiles")
+    actions = case["actions"]
+    has_python_string_subclass_send = (
+        operation == WEBSOCKET_OPERATION
+        and isinstance(actions, list)
+        and any(
+            isinstance(action, dict)
+            and action.get("action") == "send"
+            and isinstance(action.get("message"), dict)
+            and isinstance(action["message"].get("type"), dict)
+            and set(action["message"]["type"]) == {"str_subclass"}
+            for action in actions
+        )
+    )
+    expected_profiles = (
+        ["python-package-cpython312"]
+        if has_python_string_subclass_send
+        else ["rust-native-local", "python-package-cpython312"]
+    )
+    if case["target_profiles"] != expected_profiles:
+        raise ContractError(
+            "WebSocket cases must select both target profiles unless an outgoing Python "
+            "string-subclass input requires the Python-package profile"
+        )
     _validate_websocket_scope(case["scope"])
     incoming = case["incoming"]
     actions = case["actions"]
@@ -3729,6 +3757,7 @@ def _validate_websocket_case_stimulus(case: dict[str, Any]) -> None:
     terminal_receive_count = 0
     send_oserror_action_valid = False
     send_non_string_type_action_valid = False
+    send_string_subclass_hash_error_observed = False
     denial_response_started = False
     denial_response_body_continued = False
     denial_response_body_finished = False
@@ -3803,8 +3832,20 @@ def _validate_websocket_case_stimulus(case: dict[str, Any]) -> None:
                 send_non_string_type_action_valid = True
             else:
                 message_type = _validate_websocket_message(
-                    message, f"{context}.message", incoming=False
+                    message,
+                    f"{context}.message",
+                    incoming=False,
+                    allow_string_subclass_hash_error=operation == WEBSOCKET_OPERATION,
                 )
+                raw_message_type = message.get("type")
+                if (
+                    application_state == "CONNECTED"
+                    and message_type == "websocket.send"
+                    and isinstance(raw_message_type, dict)
+                    and isinstance(raw_message_type.get("str_subclass"), dict)
+                    and "hash_error" in raw_message_type["str_subclass"]
+                ):
+                    send_string_subclass_hash_error_observed = True
             if "send_error" in action:
                 send_error = _exact(
                     action["send_error"], {"kind", "message"}, f"{context}.send_error"
@@ -3934,6 +3975,8 @@ def _validate_websocket_case_stimulus(case: dict[str, Any]) -> None:
         coverage.add(f"{requirement_prefix}.binary-exchange")
     if send_oserror_action_valid and incoming_types[:1] == ["websocket.connect"]:
         coverage.add(f"{requirement_prefix}.send-oserror-disconnect")
+    if send_string_subclass_hash_error_observed:
+        coverage.add(f"{requirement_prefix}.send-string-subclass-hash-error")
     if send_non_string_type_action_valid:
         coverage.add("starlette.websocket.state.send-non-string-event-type")
     if (

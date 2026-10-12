@@ -450,6 +450,34 @@ impl WebSocketSendMachine {
 
         let message = self.message.bind(py);
         let message_type = message.get_item("type")?;
+        // Starlette validates the allowed event types with set membership in
+        // the CONNECTING and CONNECTED branches. A `str` subclass can
+        // override `__hash__`, so preserve that Python operation before
+        // extracting the value into Rust. The RESPONSE branch uses direct
+        // rich comparison instead and must not hash the value.
+        if message_type.is_instance_of::<PyString>()
+            && !message_type.is_exact_instance_of::<PyString>()
+        {
+            let accepted = match application_state {
+                WebSocketState::Connecting => PySet::new(
+                    py,
+                    [
+                        "websocket.accept",
+                        "websocket.close",
+                        "websocket.http.response.start",
+                    ],
+                )?
+                .contains(&message_type)?,
+                WebSocketState::Connected => PySet::new(py, ["websocket.send", "websocket.close"])?
+                    .contains(&message_type)?,
+                WebSocketState::Disconnected | WebSocketState::Response => true,
+            };
+            if !accepted {
+                let received_repr = message_type.repr()?.extract::<String>()?;
+                let error = protocol_state(&self.state)?.invalid_send_type_error(&received_repr);
+                return Err(PyRuntimeError::new_err(error.to_string()));
+            }
+        }
         let message_type = if message_type.is_instance_of::<PyString>() {
             message_type.extract::<String>()?
         } else {
