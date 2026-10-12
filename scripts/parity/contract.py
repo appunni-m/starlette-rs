@@ -169,6 +169,7 @@ WEBSOCKET_STATE_OPERATION = "state-sequence"
 WEBSOCKET_CONVENIENCE_OPERATION = "convenience-sequence"
 NATIVE_SERVICE_SURFACE = "starlette-rs.NativeApplication"
 NATIVE_SERVICE_OPERATION = "service-body-streaming"
+NATIVE_SERVICE_MIDDLEWARE_OPERATION = "service-tower-middleware"
 NATIVE_WEBSOCKET_SURFACE = "starlette-rs.NativeWebSocket"
 NATIVE_WEBSOCKET_OPERATION = "native-session-sequence"
 NATIVE_LIFESPAN_OPERATION = "native-lifespan"
@@ -5193,7 +5194,48 @@ def _validate_router_route_input(
     custom_convertors: dict[str, dict[str, Any]],
     *,
     allow_default_methods: bool = False,
+    allow_base_route_subclass: bool = False,
 ) -> dict[str, Any]:
+    if (
+        allow_base_route_subclass
+        and isinstance(route, dict)
+        and route.get("kind") == "base-route-subclass"
+    ):
+        route = _exact(
+            route,
+            {"kind", "path", "match_scope_path", "path_params", "endpoint"},
+            context,
+        )
+        if route["kind"] != "base-route-subclass":
+            raise ContractError(f"{context}.kind must be base-route-subclass")
+        for field in ("path", "match_scope_path"):
+            value = _string(route[field], f"{context}.{field}")
+            if not value.startswith("/"):
+                raise ContractError(f"{context}.{field} must be an absolute path")
+        path_params = route["path_params"]
+        if not isinstance(path_params, dict) or any(
+            not isinstance(name, str) or re.fullmatch(r"[a-zA-Z_][a-zA-Z0-9_]*", name) is None
+            for name in path_params
+        ):
+            raise ContractError(f"{context}.path_params must map parameter names to JSON values")
+        try:
+            json.dumps(path_params, allow_nan=False)
+        except (TypeError, ValueError) as exc:
+            raise ContractError(
+                f"{context}.path_params must contain JSON-compatible values"
+            ) from exc
+        _validate_http_route_input(
+            {
+                "kind": "http-route",
+                "path": route["path"],
+                "methods": ["GET"],
+                "endpoint": route["endpoint"],
+            },
+            f"{context}.endpoint-route",
+            custom_convertors,
+            allow_http_endpoint=True,
+        )
+        return route
     if isinstance(route, dict) and route.get("kind") == "host-route":
         return _validate_host_route_input(route, context)
     if isinstance(route, dict) and route.get("kind") == "mount":
@@ -5250,6 +5292,10 @@ def _router_dispatch_route_selection(
     mount_was_attempted = False
     for index, route in enumerate(routes):
         kind = route["kind"]
+        if kind == "base-route-subclass":
+            if route["match_scope_path"] == path:
+                return index, None, mount_was_attempted
+            continue
         if kind == "http-route":
             methods = (
                 route_methods[index]
@@ -8656,6 +8702,7 @@ def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
             f"Router routes[{index}]",
             custom_convertors,
             allow_default_methods=True,
+            allow_base_route_subclass=True,
         )
         for index, route in enumerate(case["routes"])
     ]
@@ -8681,6 +8728,10 @@ def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
         if _route_method_matches(route, method)
         if _route_template_matches(route["path"], route_path, custom_convertors)
     ]
+    base_route_match = any(
+        route["kind"] == "base-route-subclass" and route["match_scope_path"] == path
+        for route in routes
+    )
     raw_request_host = next(
         (
             base64.b64decode(pair[1], validate=True).decode("latin-1")
@@ -8762,7 +8813,7 @@ def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
                 for route in path_matches
             ):
                 derived.add(ROUTER_DEFAULT_METHOD_MISMATCH_REQUIREMENT)
-        else:
+        elif not base_route_match:
             derived.add("starlette.routing.Router.route-dispatch.converter-miss")
     first_full_route_index, _selected_mount, _mount_was_attempted = (
         _router_dispatch_route_selection(
@@ -8775,6 +8826,8 @@ def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
         )
     )
     if first_full_route_index is not None:
+        if routes[first_full_route_index]["kind"] == "base-route-subclass":
+            derived.add("starlette.routing.Router.route-dispatch.base-route-subclass-matches")
         derived.update(
             _router_http_endpoint_requirements(
                 routes[first_full_route_index].get("endpoint"), method
@@ -8823,7 +8876,7 @@ def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
         root_path
         and path.startswith(root_path)
         and (path == root_path or path[len(root_path)] == "/")
-        and (matched or selected_route)
+        and (matched or selected_route or first_full_route_index is not None)
     ):
         derived.add("starlette.routing.Router.route-dispatch.root-path-match")
     if (
@@ -14418,8 +14471,8 @@ def _validate_testclient_case(
                 {"type", "status", "headers_base64_pairs"},
                 f"TestClient response message[{index}]",
             )
-            if type(message["status"]) is not int or not 100 <= message["status"] <= 599:
-                raise ContractError("TestClient response status must be an HTTP status code")
+            if type(message["status"]) is not int:
+                raise ContractError("TestClient response status must be an integer")
             validate_pairs(message["headers_base64_pairs"], f"response message[{index}].headers")
         elif message_type == "http.response.debug":
             message = _exact(
@@ -17710,6 +17763,7 @@ def _validate_native_api_case(
     operation_key = (case.get("surface"), case.get("operation"))
     input_fields = {
         (NATIVE_SERVICE_SURFACE, NATIVE_SERVICE_OPERATION): {"application", "request", "drive"},
+        (NATIVE_SERVICE_SURFACE, NATIVE_SERVICE_MIDDLEWARE_OPERATION): {"inputs"},
         (NATIVE_WEBSOCKET_SURFACE, NATIVE_WEBSOCKET_OPERATION): {"input"},
         (NATIVE_LIFESPAN_SURFACE, NATIVE_LIFESPAN_OPERATION): {"inputs"},
         (NATIVE_LIFESPAN_SURFACE, "start"): {"inputs"},
@@ -17790,6 +17844,8 @@ def _validate_native_api_case(
 
     if operation_key == (NATIVE_SERVICE_SURFACE, NATIVE_SERVICE_OPERATION):
         _validate_native_service_input(case)
+    elif operation_key == (NATIVE_SERVICE_SURFACE, NATIVE_SERVICE_MIDDLEWARE_OPERATION):
+        _validate_native_service_middleware_input(case["inputs"])
     elif operation_key == (NATIVE_WEBSOCKET_SURFACE, NATIVE_WEBSOCKET_OPERATION):
         _validate_native_websocket_input(case["input"])
     else:
@@ -17829,6 +17885,154 @@ def _validate_native_service_input(case: dict[str, Any]) -> None:
         if "service_future" not in drive or set(drive) - {"service_future", "response_body"}:
             raise ContractError("native service drive has unsupported fields")
         _string(drive["service_future"], "native service drive.service_future")
+
+
+def _validate_native_service_middleware_input(value: Any) -> None:
+    inputs = _exact(
+        value,
+        {"application", "layers_outer_to_inner", "calls", "drive"},
+        "native service middleware inputs",
+    )
+    application = _exact(inputs["application"], {"routes"}, "native service middleware application")
+    routes = application["routes"]
+    if not isinstance(routes, list) or not routes:
+        raise ContractError("native service middleware routes must be a non-empty array")
+    for index, route_value in enumerate(routes):
+        context = f"native service middleware routes[{index}]"
+        route = _exact(route_value, {"path", "methods", "endpoint"}, context)
+        _string(route["path"], f"{context}.path")
+        methods = route["methods"]
+        if (
+            not isinstance(methods, list)
+            or not methods
+            or any(not isinstance(method, str) or not method for method in methods)
+        ):
+            raise ContractError(f"{context}.methods must be a non-empty string array")
+        endpoint = _exact(
+            route["endpoint"], {"request_body_action", "outcome"}, f"{context}.endpoint"
+        )
+        if endpoint["request_body_action"] != "leave-unread":
+            raise ContractError(f"{context}.endpoint.request_body_action must be leave-unread")
+        _validate_native_service_middleware_outcome(
+            endpoint["outcome"], f"{context}.endpoint.outcome"
+        )
+
+    layers = inputs["layers_outer_to_inner"]
+    if not isinstance(layers, list) or not layers:
+        raise ContractError("native service middleware layers_outer_to_inner must be non-empty")
+    layer_names: set[str] = set()
+    for index, layer_value in enumerate(layers):
+        context = f"native service middleware layers_outer_to_inner[{index}]"
+        if not isinstance(layer_value, dict) or set(layer_value) not in (
+            {"name", "record"},
+            {"name", "record", "short_circuit"},
+        ):
+            raise ContractError(f"{context} has unsupported fields")
+        layer = layer_value
+        name = _string(layer["name"], f"{context}.name")
+        if name in layer_names:
+            raise ContractError("native service middleware layer names must be unique")
+        layer_names.add(name)
+        record = layer["record"]
+        if (
+            not isinstance(record, list)
+            or not record
+            or any(item not in {"request", "response", "error"} for item in record)
+            or len(record) != len(set(record))
+        ):
+            raise ContractError(
+                f"{context}.record must select unique request/response/error events"
+            )
+        if "short_circuit" in layer:
+            short_circuit = _exact(
+                layer["short_circuit"],
+                {"request_uri", "response"},
+                f"{context}.short_circuit",
+            )
+            _string(short_circuit["request_uri"], f"{context}.short_circuit.request_uri")
+            _validate_native_service_middleware_outcome(
+                {"kind": "response", "response": short_circuit["response"]},
+                f"{context}.short_circuit.response",
+            )
+
+    calls = inputs["calls"]
+    if not isinstance(calls, list) or not calls:
+        raise ContractError("native service middleware calls must be a non-empty array")
+    call_ids: set[str] = set()
+    for index, call_value in enumerate(calls):
+        context = f"native service middleware calls[{index}]"
+        call = _exact(call_value, {"call_id", "request"}, context)
+        call_id = _string(call["call_id"], f"{context}.call_id")
+        if call_id in call_ids:
+            raise ContractError("native service middleware call IDs must be unique")
+        call_ids.add(call_id)
+        request = _exact(call["request"], {"method", "uri", "body"}, f"{context}.request")
+        _string(request["method"], f"{context}.request.method")
+        _string(request["uri"], f"{context}.request.uri")
+        _validate_native_body_source(request["body"], f"{context}.request.body")
+
+    drive = _exact(
+        inputs["drive"],
+        {"poll_ready_before_each_call", "service_future", "response_body"},
+        "native service middleware drive",
+    )
+    if drive["poll_ready_before_each_call"] is not True:
+        raise ContractError("native service middleware must poll readiness before each call")
+    if drive["service_future"] != "resolve":
+        raise ContractError("native service middleware service_future must be resolve")
+    if drive["response_body"] != "read-to-end":
+        raise ContractError("native service middleware response_body must be read-to-end")
+
+
+def _validate_native_service_middleware_outcome(value: Any, context: str) -> None:
+    if not isinstance(value, dict):
+        raise ContractError(f"{context} must be an outcome object")
+    kind = value.get("kind")
+    if kind == "response":
+        if set(value) == {"kind", "response"}:
+            response_value = value["response"]
+            response_context = f"{context}.response"
+        elif set(value) == {"kind", "status", "headers", "body"}:
+            response_value = {key: value[key] for key in ("status", "headers", "body")}
+            response_context = context
+        else:
+            raise ContractError(f"{context} response outcome has unsupported fields")
+        response = _exact(response_value, {"status", "headers", "body"}, response_context)
+        status_code = response["status"]
+        if (
+            not isinstance(status_code, int)
+            or isinstance(status_code, bool)
+            or not 100 <= status_code <= 599
+        ):
+            raise ContractError(f"{response_context}.status must be an HTTP status code")
+        headers = response["headers"]
+        if not isinstance(headers, list):
+            raise ContractError(f"{response_context}.headers must be an array")
+        for index, header_value in enumerate(headers):
+            if not isinstance(header_value, list) or len(header_value) != 2:
+                raise ContractError(
+                    f"{response_context}.headers[{index}] must be a name/value pair"
+                )
+            _string(header_value[0], f"{response_context}.headers[{index}][0]")
+            _string(header_value[1], f"{response_context}.headers[{index}][1]")
+        _validate_native_body_source(response["body"], f"{response_context}.body")
+        frames = response["body"]["frames"]
+        if any(set(frame) not in ({"data_base64"}, {"end"}) for frame in frames):
+            raise ContractError(
+                f"{response_context}.body supports only data and end frames in this workflow"
+            )
+        if any(
+            set(frame) == {"end"} and index != len(frames) - 1 for index, frame in enumerate(frames)
+        ):
+            raise ContractError(f"{response_context}.body end frame must be last")
+    elif kind == "error":
+        error_outcome = _exact(value, {"kind", "error"}, context)
+        error = _exact(error_outcome["error"], {"kind", "message"}, f"{context}.error")
+        if error["kind"] != "std::io::Error":
+            raise ContractError(f"{context}.error.kind must be std::io::Error")
+        _string(error["message"], f"{context}.error.message")
+    else:
+        raise ContractError(f"{context}.kind must be response or error")
 
 
 def _validate_native_body_source(value: Any, context: str) -> None:

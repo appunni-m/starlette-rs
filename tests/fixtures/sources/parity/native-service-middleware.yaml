@@ -1,0 +1,128 @@
+{
+  "schema": "migration-parity/parity-input@48",
+  "cases": [
+    {
+      "case_id": "starlette-rs.NativeApplication.service-tower-middleware.order-short-circuit-error-unread-body",
+      "surface": "starlette-rs.NativeApplication",
+      "operation": "service-tower-middleware",
+      "covers": [
+        "starlette-rs.NativeApplication.service-tower-middleware.layer-order",
+        "starlette-rs.NativeApplication.service-tower-middleware.short-circuit-response",
+        "starlette-rs.NativeApplication.service-tower-middleware.error-propagation",
+        "starlette-rs.NativeApplication.service-tower-middleware.unread-request-body"
+      ],
+      "target_profiles": ["rust-native-local"],
+      "assets": [],
+      "inputs": {
+        "application": {
+          "routes": [
+            {
+              "path": "/pass",
+              "methods": ["POST"],
+              "endpoint": {
+                "request_body_action": "leave-unread",
+                "outcome": {
+                  "kind": "response",
+                  "status": 201,
+                  "headers": [["x-native-endpoint", "pass"]],
+                  "body": {
+                    "frames": [
+                      {"data_base64": "cGFzcw=="},
+                      {"end": true}
+                    ]
+                  }
+                }
+              }
+            },
+            {
+              "path": "/fail",
+              "methods": ["POST"],
+              "endpoint": {
+                "request_body_action": "leave-unread",
+                "outcome": {
+                  "kind": "error",
+                  "error": {
+                    "kind": "std::io::Error",
+                    "message": "endpoint-failed"
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "layers_outer_to_inner": [
+          {
+            "name": "outer",
+            "record": ["request", "response", "error"],
+            "short_circuit": {
+              "request_uri": "/short",
+              "response": {
+                "status": 202,
+                "headers": [["x-native-layer", "outer-short-circuit"]],
+                "body": {
+                  "frames": [
+                    {"data_base64": "c2hvcnQ="},
+                    {"end": true}
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "name": "inner",
+            "record": ["request", "response", "error"]
+          }
+        ],
+        "calls": [
+          {
+            "call_id": "endpoint-response",
+            "request": {
+              "method": "POST",
+              "uri": "/pass",
+              "body": {
+                "frames": [
+                  {"data_base64": "dW5yZWFkLXJlcXVlc3QtYm9keQ=="},
+                  {"end": true}
+                ]
+              }
+            }
+          },
+          {
+            "call_id": "outer-short-circuit",
+            "request": {
+              "method": "POST",
+              "uri": "/short",
+              "body": {
+                "frames": [
+                  {"data_base64": "dW5yZWFkLXJlcXVlc3QtYm9keQ=="},
+                  {"end": true}
+                ]
+              }
+            }
+          },
+          {
+            "call_id": "endpoint-error",
+            "request": {
+              "method": "POST",
+              "uri": "/fail",
+              "body": {
+                "frames": [
+                  {"data_base64": "dW5yZWFkLXJlcXVlc3QtYm9keQ=="},
+                  {"end": true}
+                ]
+              }
+            }
+          }
+        ],
+        "drive": {
+          "poll_ready_before_each_call": true,
+          "service_future": "resolve",
+          "response_body": "read-to-end"
+        }
+      },
+      "observations": [
+        "workflow"
+      ]
+    }
+  ]
+}

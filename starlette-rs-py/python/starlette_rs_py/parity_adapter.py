@@ -5767,7 +5767,7 @@ def _run_route_dispatch_case_impl(case: dict[str, Any]) -> dict[str, Any]:
     from starlette.convertors import Convertor, register_url_convertor
     from starlette.endpoints import HTTPEndpoint
     from starlette.responses import JSONResponse, PlainTextResponse, Response
-    from starlette.routing import Host, Mount, Route, Router
+    from starlette.routing import BaseRoute, Host, Match, Mount, Route, Router
 
     for spec in case.get("custom_convertors", []):
 
@@ -5793,6 +5793,30 @@ def _run_route_dispatch_case_impl(case: dict[str, Any]) -> dict[str, Any]:
     router_sequence = case.get("surface") == "starlette.routing.Router" and "steps" in case
 
     def make_route(route_spec: dict[str, Any], route_index: int) -> Any:
+        if route_spec.get("kind") == "base-route-subclass":
+            response_spec = route_spec["endpoint"]
+
+            class InputBaseRoute(BaseRoute):
+                def __init__(self) -> None:
+                    self.path = route_spec["path"]
+
+                def matches(self, scope: Any) -> tuple[Match, dict[str, Any]]:
+                    if scope["path"] != route_spec["match_scope_path"]:
+                        return Match.NONE, {}
+                    path_params = dict(scope.get("path_params", {}))
+                    path_params.update(route_spec["path_params"])
+                    return Match.FULL, {"path_params": path_params}
+
+                async def handle(self, scope: Any, receive: Any, send: Any) -> None:
+                    route_index_observations.append(route_index)
+                    await PlainTextResponse(
+                        content=response_spec["content"],
+                        status_code=response_spec["status_code"],
+                        media_type=response_spec["media_type"],
+                    )(scope, receive, send)
+
+            return InputBaseRoute()
+
         response_spec = route_spec["endpoint"]
         if response_spec.get("kind") in {"starlette-response", "json-response"}:
 

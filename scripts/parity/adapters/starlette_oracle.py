@@ -58,6 +58,7 @@ WEBSOCKET_ROUTE_SURFACE = "starlette.routing.WebSocketRoute"
 WEBSOCKET_ROUTE_OPERATION = "route-dispatch"
 NATIVE_SERVICE_SURFACE = "starlette-rs.NativeApplication"
 NATIVE_SERVICE_OPERATION = "service-body-streaming"
+NATIVE_SERVICE_MIDDLEWARE_OPERATION = "service-tower-middleware"
 NATIVE_WEBSOCKET_SURFACE = "starlette-rs.NativeWebSocket"
 NATIVE_WEBSOCKET_OPERATION = "native-session-sequence"
 NATIVE_LIFESPAN_SURFACE = "starlette-rs.NativeLifespan"
@@ -7902,8 +7903,9 @@ def _run_route_dispatch_case(case: dict[str, Any]) -> dict[str, Any]:
 
     from starlette.convertors import CONVERTOR_TYPES, Convertor, register_url_convertor
     from starlette.endpoints import HTTPEndpoint
+    from starlette.requests import Request
     from starlette.responses import JSONResponse, PlainTextResponse, Response
-    from starlette.routing import Host, Mount, Route, Router
+    from starlette.routing import BaseRoute, Host, Match, Mount, Route, Router
 
     previous_convertors = {
         spec["name"]: CONVERTOR_TYPES.get(spec["name"], _MISSING) for spec in custom_convertors
@@ -8201,6 +8203,23 @@ def _run_route_dispatch_case(case: dict[str, Any]) -> dict[str, Any]:
             max_body_size=route_spec.get("max_body_size"),
         )
 
+    def make_base_route_subclass(route_spec: dict[str, Any], route_index: int) -> Any:
+        endpoint = make_endpoint(route_spec["endpoint"], route_index)
+
+        class InputBaseRoute(BaseRoute):
+            def matches(self, scope: dict[str, Any]) -> tuple[Any, dict[str, Any]]:
+                if scope["path"] != route_spec["match_scope_path"]:
+                    return Match.NONE, {}
+                return Match.FULL, {"path_params": route_spec["path_params"]}
+
+            async def handle(self, scope: Any, receive: Any, send: Any) -> None:
+                response = await endpoint(Request(scope, receive))
+                await response(scope, receive, send)
+
+        route = InputBaseRoute()
+        route.path = route_spec["path"]
+        return route
+
     async def run() -> tuple[Any, dict[str, Any] | None]:
         if is_mount:
             route_objects = [make_mount_child(route) for route in routes_spec]
@@ -8243,6 +8262,9 @@ def _run_route_dispatch_case(case: dict[str, Any]) -> dict[str, Any]:
                     continue
                 if isinstance(route_spec, dict) and route_spec.get("kind") == "mount":
                     route_objects.append(make_mount_child(route_spec, route_index))
+                    continue
+                if isinstance(route_spec, dict) and route_spec.get("kind") == "base-route-subclass":
+                    route_objects.append(make_base_route_subclass(route_spec, route_index))
                     continue
                 if (
                     not isinstance(route_spec, dict)
@@ -13960,6 +13982,11 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
     ):
         return _run_native_service_asgi_case(case)
     if (case.get("surface"), case.get("operation")) == (
+        NATIVE_SERVICE_SURFACE,
+        NATIVE_SERVICE_MIDDLEWARE_OPERATION,
+    ):
+        return _run_native_service_middleware_asgi_case(case)
+    if (case.get("surface"), case.get("operation")) == (
         NATIVE_WEBSOCKET_SURFACE,
         NATIVE_WEBSOCKET_OPERATION,
     ):
@@ -14995,6 +15022,237 @@ def _run_native_service_asgi_case(case: dict[str, Any]) -> dict[str, Any]:
         "request-body-error-propagation": request_error,
         "response-body-error-propagation": response_error,
         "service-error": service_error,
+    }
+    return _native_workflow_result(case, record)
+
+
+def _run_native_service_middleware_asgi_case(case: dict[str, Any]) -> dict[str, Any]:
+    _validate_native_workflow_case(
+        case,
+        surface=NATIVE_SERVICE_SURFACE,
+        operation=NATIVE_SERVICE_MIDDLEWARE_OPERATION,
+        fields={"inputs", "observations"},
+        context="NativeApplication Tower middleware ASGI analogue",
+    )
+    inputs = _strict_object(
+        case["inputs"],
+        {"application", "layers_outer_to_inner", "calls", "drive"},
+        "NativeApplication Tower middleware inputs",
+    )
+    if inputs["drive"] != {
+        "poll_ready_before_each_call": True,
+        "service_future": "resolve",
+        "response_body": "read-to-end",
+    }:
+        raise ValueError("NativeApplication Tower middleware drive is unsupported")
+
+    from starlette.applications import Starlette
+    from starlette.responses import StreamingResponse
+    from starlette.routing import Route
+
+    def response_spec_chunks(spec: dict[str, Any]) -> list[bytes]:
+        frame_spec = _strict_object(spec["body"], {"frames"}, "native middleware response body")
+        frames = _native_probe_frames(frame_spec["frames"], "native middleware response frames")
+        return [frame["data"] for frame in frames if frame["kind"] == "data"]
+
+    def make_response(spec: dict[str, Any]) -> Any:
+        async def response_chunks() -> Any:
+            for chunk in response_spec_chunks(spec):
+                yield chunk
+
+        return StreamingResponse(
+            response_chunks(),
+            status_code=spec["status"],
+            headers={name: value for name, value in spec["headers"]},
+        )
+
+    declared_header_names: set[bytes] = set()
+    for route_spec in inputs["application"]["routes"]:
+        outcome = route_spec["endpoint"]["outcome"]
+        if outcome["kind"] == "response":
+            declared_header_names.update(
+                name.lower().encode("latin-1") for name, _value in outcome["headers"]
+            )
+    for layer_spec in inputs["layers_outer_to_inner"]:
+        if "short_circuit" in layer_spec:
+            declared_header_names.update(
+                name.lower().encode("latin-1")
+                for name, _value in layer_spec["short_circuit"]["response"]["headers"]
+            )
+
+    def make_endpoint(route_spec: dict[str, Any]) -> Any:
+        async def endpoint(_request: Any) -> Any:
+            outcome = route_spec["endpoint"]["outcome"]
+            if outcome["kind"] == "error":
+                raise RuntimeError(outcome["error"]["message"])
+            return make_response(outcome)
+
+        return endpoint
+
+    routes = [
+        Route(
+            route_spec["path"],
+            make_endpoint(route_spec),
+            methods=route_spec["methods"],
+        )
+        for route_spec in inputs["application"]["routes"]
+    ]
+
+    def record_event(
+        trace: list[dict[str, Any]],
+        layer: dict[str, Any],
+        call_id: str,
+        event: str,
+        *,
+        status: int | None = None,
+        message: str | None = None,
+    ) -> None:
+        if event not in layer["record"]:
+            return
+        value: dict[str, Any] = {"call_id": call_id, "layer": layer["name"], "event": event}
+        if status is not None:
+            value["status"] = status
+        if message is not None:
+            value["message"] = message
+        trace.append(value)
+
+    def build_stack(
+        inner: Any,
+        layers: list[dict[str, Any]],
+        trace: list[dict[str, Any]],
+        sent: list[dict[str, Any]],
+    ) -> Any:
+        for layer in reversed(layers):
+            downstream = inner
+
+            async def middleware(
+                scope: dict[str, Any],
+                receive: Any,
+                send: Any,
+                *,
+                layer: dict[str, Any] = layer,
+                downstream: Any = downstream,
+            ) -> None:
+                call_id = scope["native_call_id"]
+                record_event(trace, layer, call_id, "request")
+                short_circuit = layer.get("short_circuit")
+                if short_circuit is not None and scope["path"] == short_circuit["request_uri"]:
+                    response_spec = short_circuit["response"]
+                    await make_response(response_spec)(scope, receive, send)
+                    start = next(
+                        (message for message in sent if message["type"] == "http.response.start"),
+                        None,
+                    )
+                    record_event(
+                        trace,
+                        layer,
+                        call_id,
+                        "response",
+                        status=start["status"] if start is not None else None,
+                    )
+                    return
+                try:
+                    await downstream(scope, receive, send)
+                except BaseException as exc:
+                    record_event(trace, layer, call_id, "error", message=str(exc))
+                    raise
+                start = next(
+                    (message for message in sent if message["type"] == "http.response.start"),
+                    None,
+                )
+                record_event(
+                    trace,
+                    layer,
+                    call_id,
+                    "response",
+                    status=start["status"] if start is not None else None,
+                )
+
+            inner = middleware
+        return inner
+
+    middleware_events: list[dict[str, Any]] = []
+    service_results: list[dict[str, Any]] = []
+    request_body_poll_counts: list[dict[str, Any]] = []
+    route_app = Starlette(routes=routes)
+
+    async def run() -> None:
+        for call in inputs["calls"]:
+            call_id = call["call_id"]
+            request = call["request"]
+            body_frames = _native_probe_frames(
+                request["body"]["frames"], f"native middleware request body {call_id}"
+            )
+            receive_index = 0
+            receive_count = 0
+            sent: list[dict[str, Any]] = []
+
+            async def receive(
+                *, _body_frames: list[dict[str, Any]] = body_frames
+            ) -> dict[str, Any]:
+                nonlocal receive_index, receive_count
+                receive_count += 1
+                if receive_index >= len(_body_frames):
+                    return {"type": "http.disconnect"}
+                frame = _body_frames[receive_index]
+                receive_index += 1
+                if frame["kind"] == "data":
+                    return {
+                        "type": "http.request",
+                        "body": frame["data"],
+                        "more_body": any(
+                            item["kind"] == "data" for item in _body_frames[receive_index:]
+                        ),
+                    }
+                if frame["kind"] == "end":
+                    return {"type": "http.request", "body": b"", "more_body": False}
+                if frame["kind"] == "error":
+                    raise RuntimeError(frame["message"])
+                await asyncio.Future()
+
+            async def send(message: dict[str, Any], *, _sent: list[dict[str, Any]] = sent) -> None:
+                _sent.append(message)
+
+            scope = _native_http_scope(request["method"], request["uri"])
+            scope["native_call_id"] = call_id
+            app = build_stack(route_app, inputs["layers_outer_to_inner"], middleware_events, sent)
+            try:
+                await app(scope, receive, send)
+            except BaseException as exc:
+                service_results.append({"call_id": call_id, "kind": "error", "message": str(exc)})
+            else:
+                start = next(
+                    (message for message in sent if message["type"] == "http.response.start"),
+                    None,
+                )
+                header_pairs = []
+                if start is not None:
+                    header_pairs = [
+                        [name.decode("latin-1"), value.decode("latin-1")]
+                        for name, value in start["headers"]
+                        if name.lower() in declared_header_names
+                    ]
+                body_chunks = [
+                    base64.b64encode(message["body"]).decode("ascii")
+                    for message in sent
+                    if message["type"] == "http.response.body" and message.get("body")
+                ]
+                service_results.append(
+                    {
+                        "call_id": call_id,
+                        "kind": "response",
+                        "status": start["status"] if start is not None else None,
+                        "headers": header_pairs,
+                        "body_chunks_base64": body_chunks,
+                    }
+                )
+            request_body_poll_counts.append({"call_id": call_id, "count": receive_count})
+
+    asyncio.run(run())
+    record = {
+        "middleware_events": middleware_events,
+        "service_results": service_results,
+        "request_body_poll_counts": request_body_poll_counts,
     }
     return _native_workflow_result(case, record)
 

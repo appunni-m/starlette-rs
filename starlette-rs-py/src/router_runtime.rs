@@ -28,9 +28,11 @@ enum RouteKind {
     WebSocket,
     Mount,
     Host,
+    Custom,
 }
 
 struct RouteTypes {
+    base_route: Py<PyAny>,
     http: Py<PyAny>,
     websocket: Py<PyAny>,
     mount: Py<PyAny>,
@@ -121,6 +123,7 @@ pub(crate) struct PyRouterRuntime {
 impl PyRouterRuntime {
     #[new]
     fn new(
+        base_route_type: Py<PyAny>,
         http_route_type: Py<PyAny>,
         websocket_route_type: Py<PyAny>,
         mount_type: Py<PyAny>,
@@ -128,6 +131,7 @@ impl PyRouterRuntime {
     ) -> Self {
         Self {
             route_types: RouteTypes {
+                base_route: base_route_type,
                 http: http_route_type,
                 websocket: websocket_route_type,
                 mount: mount_type,
@@ -157,6 +161,7 @@ impl PyRouterRuntime {
             py,
             RouterDispatchMachine {
                 route_types: RouteTypes {
+                    base_route: self.route_types.base_route.clone_ref(py),
                     http: self.route_types.http.clone_ref(py),
                     websocket: self.route_types.websocket.clone_ref(py),
                     mount: self.route_types.mount.clone_ref(py),
@@ -333,21 +338,29 @@ impl RouteTypes {
             RouteKind::WebSocket
         } else if route.is_instance(self.http.bind(py))? {
             RouteKind::Http
+        } else if route.is_instance(self.base_route.bind(py))? {
+            RouteKind::Custom
         } else {
             return Err(PyTypeError::new_err(
-                "routes must contain Route, WebSocketRoute, Mount, or Host instances",
+                "routes must contain BaseRoute instances",
             ));
         };
 
-        let path_attribute = if matches!(kind, RouteKind::Host) {
-            "host"
-        } else {
-            "path"
+        let path_value = match kind {
+            RouteKind::Custom => route.clone(),
+            RouteKind::Host => route.getattr("host")?,
+            RouteKind::Http | RouteKind::WebSocket | RouteKind::Mount => route.getattr("path")?,
         };
-        let path_value = route.getattr(path_attribute)?;
-        let custom = route
-            .getattr("_uses_custom_convertors")?
-            .extract::<bool>()?;
+        let uses_custom_convertors = if matches!(kind, RouteKind::Custom) {
+            false
+        } else {
+            route
+                .getattr("_uses_custom_convertors")?
+                .extract::<bool>()?
+        };
+        let custom = matches!(kind, RouteKind::Custom)
+            || uses_custom_convertors
+            || self.uses_custom_matcher(py, &route, kind)?;
         let identity = route.as_ptr() as usize;
         let cached =
             cached.filter(|signature| signature.identity == identity && signature.kind == kind);
@@ -356,7 +369,7 @@ impl RouteTypes {
         let mut changed = cached.is_none()
             || !path_matches
             || cached.is_some_and(|signature| signature.custom != custom);
-        let path = if path_matches {
+        let path = if path_matches || matches!(kind, RouteKind::Custom) {
             None
         } else {
             Some(path_value.extract::<String>()?)
@@ -413,9 +426,10 @@ impl RouteTypes {
             return Ok((None, route.unbind()));
         }
 
-        let path = match path {
-            Some(path) => path,
-            None => cached
+        let path = match (kind, path) {
+            (RouteKind::Custom, _) => String::new(),
+            (_, Some(path)) => path,
+            (_, None) => cached
                 .ok_or_else(|| PyRuntimeError::new_err("changed route is missing its cached path"))?
                 .path
                 .clone(),
@@ -430,6 +444,27 @@ impl RouteTypes {
             method_values,
         };
         Ok((Some(signature), route.unbind()))
+    }
+
+    fn uses_custom_matcher(
+        &self,
+        py: Python<'_>,
+        route: &Bound<'_, PyAny>,
+        kind: RouteKind,
+    ) -> PyResult<bool> {
+        let base_route_type = match kind {
+            RouteKind::Http => Some(&self.http),
+            RouteKind::WebSocket => Some(&self.websocket),
+            RouteKind::Mount => Some(&self.mount),
+            RouteKind::Host | RouteKind::Custom => None,
+        };
+        let Some(base_route_type) = base_route_type else {
+            return Ok(false);
+        };
+
+        let declared_matcher = route.get_type().getattr("matches")?;
+        let built_in_matcher = base_route_type.bind(py).getattr("matches")?;
+        Ok(!declared_matcher.is(&built_in_matcher))
     }
 
     fn register_route(
@@ -465,6 +500,10 @@ impl RouteTypes {
                 state.custom_websocket_indexes.push(route_index);
             }
             RouteKind::Host => {
+                state.custom_http_indexes.push(route_index);
+                state.custom_websocket_indexes.push(route_index);
+            }
+            RouteKind::Custom => {
                 state.custom_http_indexes.push(route_index);
                 state.custom_websocket_indexes.push(route_index);
             }
@@ -574,6 +613,7 @@ impl AwaitableStateMachine for RouterDispatchMachine {
         visit.call(&self.plain_text_response_type)?;
         visit.call(&self.websocket_close_type)?;
         visit.call(&self.exception_handler)?;
+        visit.call(&self.route_types.base_route)?;
         visit.call(&self.route_types.http)?;
         visit.call(&self.route_types.websocket)?;
         visit.call(&self.route_types.mount)?;
@@ -802,7 +842,6 @@ impl RouterDispatchMachine {
                         route_indexes: &routes.custom_http_indexes,
                         native_full_index,
                         child_scopes: &mut child_scopes,
-                        websocket: false,
                     },
                 ) {
                     Ok(matches) => matches,
@@ -849,7 +888,6 @@ impl RouterDispatchMachine {
                         route_indexes: &routes.custom_websocket_indexes,
                         native_full_index,
                         child_scopes: &mut child_scopes,
-                        websocket: true,
                     },
                 ) {
                     Ok(matches) => matches,
@@ -980,17 +1018,6 @@ impl PyResponseStartTracker {
     }
 }
 
-fn route_methods(route: &Bound<'_, PyAny>) -> PyResult<Vec<String>> {
-    let methods = route.getattr("methods")?;
-    if methods.is_none() {
-        return Ok(Vec::new());
-    }
-    methods
-        .try_iter()?
-        .map(|method| method?.extract::<String>())
-        .collect()
-}
-
 struct SupplementalMatchArgs<'a, 'py> {
     py: Python<'py>,
     scope: &'a Bound<'py, PyDict>,
@@ -1000,7 +1027,6 @@ struct SupplementalMatchArgs<'a, 'py> {
     route_indexes: &'a [usize],
     native_full_index: Option<usize>,
     child_scopes: &'a mut HashMap<usize, Py<PyAny>>,
-    websocket: bool,
 }
 
 fn supplemental_matches(
@@ -1015,7 +1041,6 @@ fn supplemental_matches(
         route_indexes,
         native_full_index,
         child_scopes,
-        websocket,
     } = args;
     let candidate_scope = if candidate_path == current_path {
         scope.clone().into_any()
@@ -1047,11 +1072,11 @@ fn supplemental_matches(
                 matches.push(SupplementalRouteMatch::Matched { route_index });
                 break;
             }
-            1 if !websocket => {
+            1 => {
                 child_scopes.insert(route_index, child_scope.unbind());
                 matches.push(SupplementalRouteMatch::MethodNotAllowed {
                     route_index,
-                    allowed_methods: route_methods(route.bind(py))?,
+                    allowed_methods: Vec::new(),
                 });
             }
             _ => {}
@@ -1118,6 +1143,11 @@ fn native_child_scope(
             child_scope.set_item("path_params", path_params.bind(py))?;
         }
         RouteKind::Host => return route_types_runtime::host_child_scope(py, route, scope),
+        RouteKind::Custom => {
+            return Err(PyRuntimeError::new_err(
+                "custom route selected without its Python match scope",
+            ));
+        }
     }
 
     Ok(child_scope.into_any().unbind())

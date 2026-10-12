@@ -1074,7 +1074,9 @@ struct TestClientResponseState {
     request_complete: bool,
     response_started: bool,
     response_complete: bool,
-    status_code: Option<u16>,
+    // Starlette forwards this ASGI value directly to HTTPX. Keep the Python
+    // object intact instead of narrowing valid arbitrary-size Python integers.
+    status_code: Option<Py<PyAny>>,
     headers: Vec<(String, String)>,
     body: Vec<u8>,
     debug_info: Option<Py<PyAny>>,
@@ -1492,7 +1494,10 @@ impl PyTestClientTransport {
         let (status_code, headers, body, debug_info, response_started) = {
             let state = lock_state(&state)?;
             (
-                state.status_code,
+                state
+                    .status_code
+                    .as_ref()
+                    .map(|status_code| status_code.clone_ref(py)),
                 state.headers.clone(),
                 if state.response_complete {
                     state.body.clone()
@@ -1514,7 +1519,11 @@ impl PyTestClientTransport {
             response_headers.append((name, value))?;
         }
         let response_kwargs = PyDict::new(py);
-        response_kwargs.set_item("status_code", status_code.unwrap_or(500))?;
+        if let Some(status_code) = status_code {
+            response_kwargs.set_item("status_code", status_code.bind(py))?;
+        } else {
+            response_kwargs.set_item("status_code", 500)?;
+        }
         response_kwargs.set_item("headers", response_headers)?;
         let response_stream = self
             .httpx
@@ -1764,7 +1773,7 @@ fn apply_send_message(
                     message
                         .get_item("status")?
                         .ok_or_else(|| PyKeyError::new_err("status"))?
-                        .extract::<u16>()?,
+                        .unbind(),
                 );
                 state.headers = decode_response_headers(py, message)?;
                 state.response_started = true;

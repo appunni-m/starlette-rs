@@ -510,6 +510,7 @@ class Router:
             middleware,
             max_body_size,
             _core.RouterRuntime,
+            BaseRoute,
             Route,
             WebSocketRoute,
             Mount,

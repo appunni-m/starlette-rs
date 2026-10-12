@@ -93,6 +93,7 @@ const WEBSOCKET_OPERATION: &str = "protocol-sequence";
 const WEBSOCKET_STATE_OPERATION: &str = "state-sequence";
 const NATIVE_WEBSOCKET_SURFACE: &str = "starlette-rs.NativeWebSocket";
 const NATIVE_WEBSOCKET_OPERATION: &str = "native-session-sequence";
+const NATIVE_SERVICE_MIDDLEWARE_OPERATION: &str = "service-tower-middleware";
 // The Python facade maps Rust state-transition errors through PyRuntimeError.
 const WEBSOCKET_STATE_ERROR_COMPATIBILITY_CLASS: &str = "builtins.RuntimeError";
 const WEBSOCKET_CALLBACK_OSERROR_CLASS: &str = "builtins.OSError";
@@ -475,6 +476,9 @@ fn run_case(case: &Value) -> Result<Value, String> {
     ) {
         (Some("starlette-rs.NativeApplication"), Some("service-body-streaming")) => {
             return run_native_service_case(case);
+        }
+        (Some("starlette-rs.NativeApplication"), Some(NATIVE_SERVICE_MIDDLEWARE_OPERATION)) => {
+            return run_native_service_middleware_case(case);
         }
         (
             Some("starlette-rs.NativeLifespan"),
@@ -1035,6 +1039,626 @@ fn run_native_service_case(case: &Value) -> Result<Value, String> {
         );
     }
     native_observation_result(case_id, case, values, "native service")
+}
+
+type NativeTowerFuture = Pin<
+    Box<
+        dyn Future<Output = Result<starlette_rs::NativeHttpResponse, NativeApplicationError>>
+            + Send
+            + 'static,
+    >,
+>;
+
+trait NativeTowerService:
+    tower_service::Service<
+        Request<NativeProbeBody>,
+        Response = starlette_rs::NativeHttpResponse,
+        Error = NativeApplicationError,
+        Future = NativeTowerFuture,
+    > + Send
+{
+}
+
+impl<S> NativeTowerService for S where
+    S: tower_service::Service<
+            Request<NativeProbeBody>,
+            Response = starlette_rs::NativeHttpResponse,
+            Error = NativeApplicationError,
+            Future = NativeTowerFuture,
+        > + Send
+{
+}
+
+struct ErasedNativeTowerService(Box<dyn NativeTowerService>);
+
+impl tower_service::Service<Request<NativeProbeBody>> for ErasedNativeTowerService {
+    type Response = starlette_rs::NativeHttpResponse;
+    type Error = NativeApplicationError;
+    type Future = NativeTowerFuture;
+
+    fn poll_ready(&mut self, context: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        self.0.poll_ready(context)
+    }
+
+    fn call(&mut self, request: Request<NativeProbeBody>) -> Self::Future {
+        self.0.call(request)
+    }
+}
+
+#[derive(Clone)]
+struct NativeTowerCallId(String);
+
+#[derive(Clone)]
+struct NativeTowerResponseSpec {
+    status: http::StatusCode,
+    headers: Vec<(HeaderName, HeaderValue)>,
+    body: Vec<NativeProbeFrame>,
+}
+
+impl NativeTowerResponseSpec {
+    fn into_response(self) -> starlette_rs::NativeHttpResponse {
+        let body = NativeProbeBody::new(
+            self.body,
+            Arc::new(Mutex::new(Vec::new())),
+            Arc::new(AtomicBool::new(false)),
+        );
+        let mut response = HttpResponse::new(starlette_rs::box_native_body(body));
+        *response.status_mut() = self.status;
+        for (name, value) in self.headers {
+            response.headers_mut().append(name, value);
+        }
+        response
+    }
+}
+
+#[derive(Clone)]
+enum NativeTowerOutcome {
+    Response(NativeTowerResponseSpec),
+    Error { message: String },
+}
+
+impl NativeTowerOutcome {
+    fn into_result(self) -> Result<starlette_rs::NativeHttpResponse, NativeApplicationError> {
+        match self {
+            Self::Response(response) => Ok(response.into_response()),
+            Self::Error { message } => Err(NativeApplicationError::Endpoint(Box::new(
+                io::Error::other(message),
+            ))),
+        }
+    }
+}
+
+#[derive(Clone)]
+struct NativeTowerLayerSpec {
+    name: String,
+    record: Vec<String>,
+    short_circuit: Option<(String, NativeTowerResponseSpec)>,
+    events: Arc<Mutex<Vec<Value>>>,
+}
+
+impl NativeTowerLayerSpec {
+    fn record_event(
+        &self,
+        call_id: Option<&str>,
+        event_name: &str,
+        status: Option<u16>,
+        message: Option<&str>,
+    ) {
+        if !self.record.iter().any(|event| event == event_name) {
+            return;
+        }
+        let Some(call_id) = call_id else {
+            return;
+        };
+        let mut event = Map::new();
+        event.insert(String::from("call_id"), json!(call_id));
+        event.insert(String::from("layer"), json!(self.name));
+        event.insert(String::from("event"), json!(event_name));
+        if let Some(status) = status {
+            event.insert(String::from("status"), json!(status));
+        }
+        if let Some(message) = message {
+            event.insert(String::from("message"), json!(message));
+        }
+        if let Ok(mut events) = self.events.lock() {
+            events.push(Value::Object(event));
+        }
+    }
+}
+
+impl<S> tower_layer::Layer<S> for NativeTowerLayerSpec {
+    type Service = NativeTowerRecordedService<S>;
+
+    fn layer(&self, inner: S) -> Self::Service {
+        NativeTowerRecordedService {
+            inner,
+            layer: self.clone(),
+        }
+    }
+}
+
+struct NativeTowerRecordedService<S> {
+    inner: S,
+    layer: NativeTowerLayerSpec,
+}
+
+impl<S> tower_service::Service<Request<NativeProbeBody>> for NativeTowerRecordedService<S>
+where
+    S: tower_service::Service<
+            Request<NativeProbeBody>,
+            Response = starlette_rs::NativeHttpResponse,
+            Error = NativeApplicationError,
+            Future = NativeTowerFuture,
+        > + Send
+        + 'static,
+{
+    type Response = starlette_rs::NativeHttpResponse;
+    type Error = NativeApplicationError;
+    type Future = NativeTowerFuture;
+
+    fn poll_ready(&mut self, context: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        self.inner.poll_ready(context)
+    }
+
+    fn call(&mut self, request: Request<NativeProbeBody>) -> Self::Future {
+        let call_id = request
+            .extensions()
+            .get::<NativeTowerCallId>()
+            .map(|call_id| call_id.0.clone());
+        let request_uri = request.uri().path().to_owned();
+        self.layer
+            .record_event(call_id.as_deref(), "request", None, None);
+
+        if let Some((short_circuit_uri, response)) = &self.layer.short_circuit
+            && *short_circuit_uri == request_uri
+        {
+            let layer = self.layer.clone();
+            let response = response.clone();
+            return Box::pin(async move {
+                let response = response.into_response();
+                layer.record_event(
+                    call_id.as_deref(),
+                    "response",
+                    Some(response.status().as_u16()),
+                    None,
+                );
+                Ok(response)
+            });
+        }
+
+        let future = self.inner.call(request);
+        let layer = self.layer.clone();
+        Box::pin(async move {
+            match future.await {
+                Ok(response) => {
+                    layer.record_event(
+                        call_id.as_deref(),
+                        "response",
+                        Some(response.status().as_u16()),
+                        None,
+                    );
+                    Ok(response)
+                }
+                Err(error) => {
+                    let message = native_tower_error_message(&error);
+                    layer.record_event(call_id.as_deref(), "error", None, Some(&message));
+                    Err(error)
+                }
+            }
+        })
+    }
+}
+
+fn native_tower_error_message(error: &NativeApplicationError) -> String {
+    error
+        .source()
+        .map_or_else(|| error.to_string(), std::string::ToString::to_string)
+}
+
+fn parse_native_tower_response(
+    value: &Value,
+    context: &str,
+) -> Result<NativeTowerResponseSpec, String> {
+    let response = exact_object(value, &["status", "headers", "body"], context)?;
+    let status = response
+        .get("status")
+        .and_then(Value::as_u64)
+        .and_then(|status| u16::try_from(status).ok())
+        .ok_or_else(|| format!("{context}.status must be an HTTP status code"))?;
+    let status = http::StatusCode::from_u16(status)
+        .map_err(|error| format!("{context}.status is invalid: {error}"))?;
+    let raw_headers = response
+        .get("headers")
+        .and_then(Value::as_array)
+        .ok_or_else(|| format!("{context}.headers must be an array"))?;
+    let mut headers = Vec::with_capacity(raw_headers.len());
+    for (index, pair) in raw_headers.iter().enumerate() {
+        let pair = pair
+            .as_array()
+            .filter(|pair| pair.len() == 2)
+            .ok_or_else(|| format!("{context}.headers[{index}] must be a name/value pair"))?;
+        let name = pair[0]
+            .as_str()
+            .ok_or_else(|| format!("{context}.headers[{index}][0] must be a string"))?;
+        let value = pair[1]
+            .as_str()
+            .ok_or_else(|| format!("{context}.headers[{index}][1] must be a string"))?;
+        let name = HeaderName::from_bytes(name.as_bytes())
+            .map_err(|error| format!("{context}.headers[{index}] has an invalid name: {error}"))?;
+        let value = HeaderValue::from_str(value)
+            .map_err(|error| format!("{context}.headers[{index}] has an invalid value: {error}"))?;
+        headers.push((name, value));
+    }
+    let body = exact_object(
+        response
+            .get("body")
+            .ok_or_else(|| format!("{context}.body is required"))?,
+        &["frames"],
+        &format!("{context}.body"),
+    )?;
+    let body = parse_native_probe_frames(
+        body.get("frames")
+            .ok_or_else(|| format!("{context}.body.frames is required"))?,
+        &format!("{context}.body.frames"),
+    )?;
+    Ok(NativeTowerResponseSpec {
+        status,
+        headers,
+        body,
+    })
+}
+
+fn parse_native_tower_outcome(value: &Value, context: &str) -> Result<NativeTowerOutcome, String> {
+    let outcome = value
+        .as_object()
+        .ok_or_else(|| format!("{context} must be an outcome object"))?;
+    match outcome.get("kind").and_then(Value::as_str) {
+        Some("response") if outcome.contains_key("response") => {
+            let outcome = exact_object(value, &["kind", "response"], context)?;
+            let response = parse_native_tower_response(
+                outcome
+                    .get("response")
+                    .ok_or_else(|| format!("{context}.response is required"))?,
+                &format!("{context}.response"),
+            )?;
+            Ok(NativeTowerOutcome::Response(response))
+        }
+        Some("response") => {
+            let mut response_value = value.clone();
+            let response_fields = response_value
+                .as_object_mut()
+                .ok_or_else(|| format!("{context} must be an outcome object"))?;
+            response_fields.remove("kind");
+            let response = parse_native_tower_response(&response_value, context)?;
+            Ok(NativeTowerOutcome::Response(response))
+        }
+        Some("error") => {
+            let outcome = exact_object(value, &["kind", "error"], context)?;
+            let error = exact_object(
+                outcome
+                    .get("error")
+                    .ok_or_else(|| format!("{context}.error is required"))?,
+                &["kind", "message"],
+                &format!("{context}.error"),
+            )?;
+            if string_field(error, "kind", context)? != "std::io::Error" {
+                return Err(format!("{context}.error.kind must be std::io::Error"));
+            }
+            Ok(NativeTowerOutcome::Error {
+                message: string_field(error, "message", context)?.to_owned(),
+            })
+        }
+        _ => Err(format!("{context}.kind must be response or error")),
+    }
+}
+
+fn parse_native_tower_layer(
+    value: &Value,
+    events: Arc<Mutex<Vec<Value>>>,
+    context: &str,
+) -> Result<NativeTowerLayerSpec, String> {
+    let layer = object_with_optional_keys(value, &["name", "record"], &["short_circuit"], context)?;
+    let name = string_field(layer, "name", context)?.to_owned();
+    let record = string_array_field(layer, "record", context)?;
+    if record.is_empty()
+        || record
+            .iter()
+            .any(|event| !matches!(event.as_str(), "request" | "response" | "error"))
+    {
+        return Err(format!("{context}.record contains an unsupported event"));
+    }
+    let short_circuit = match layer.get("short_circuit") {
+        Some(value) => {
+            let short_circuit = exact_object(value, &["request_uri", "response"], context)?;
+            let request_uri = string_field(short_circuit, "request_uri", context)?.to_owned();
+            let response = parse_native_tower_response(
+                short_circuit
+                    .get("response")
+                    .ok_or_else(|| format!("{context}.short_circuit.response is required"))?,
+                &format!("{context}.short_circuit.response"),
+            )?;
+            Some((request_uri, response))
+        }
+        None => None,
+    };
+    Ok(NativeTowerLayerSpec {
+        name,
+        record,
+        short_circuit,
+        events,
+    })
+}
+
+fn run_native_service_middleware_case(case: &Value) -> Result<Value, String> {
+    let case = exact_object(
+        case,
+        &[
+            "case_id",
+            "surface",
+            "operation",
+            "covers",
+            "target_profiles",
+            "assets",
+            "inputs",
+            "observations",
+        ],
+        "native service middleware case",
+    )?;
+    let case_id = string_field(case, "case_id", "native service middleware case")?;
+    if string_field(case, "surface", "native service middleware case")?
+        != "starlette-rs.NativeApplication"
+        || string_field(case, "operation", "native service middleware case")?
+            != NATIVE_SERVICE_MIDDLEWARE_OPERATION
+    {
+        return Err(String::from(
+            "case is outside the native service middleware operation",
+        ));
+    }
+    let inputs = exact_object(
+        case.get("inputs")
+            .ok_or_else(|| String::from("native service middleware case misses inputs"))?,
+        &["application", "layers_outer_to_inner", "calls", "drive"],
+        "native service middleware inputs",
+    )?;
+    let application_input = exact_object(
+        inputs
+            .get("application")
+            .ok_or_else(|| String::from("native service middleware inputs miss application"))?,
+        &["routes"],
+        "native service middleware application",
+    )?;
+    let route_values = application_input
+        .get("routes")
+        .and_then(Value::as_array)
+        .filter(|routes| !routes.is_empty())
+        .ok_or_else(|| String::from("native service middleware routes must be non-empty"))?;
+    let mut routes = Vec::with_capacity(route_values.len());
+    let mut declared_header_names = HashSet::new();
+    for (index, route_value) in route_values.iter().enumerate() {
+        let context = format!("native service middleware route[{index}]");
+        let route = exact_object(route_value, &["path", "methods", "endpoint"], &context)?;
+        let path = string_field(route, "path", &context)?.to_owned();
+        let methods = string_array_field(route, "methods", &context)?;
+        let endpoint = exact_object(
+            route
+                .get("endpoint")
+                .ok_or_else(|| format!("{context}.endpoint is required"))?,
+            &["request_body_action", "outcome"],
+            &format!("{context}.endpoint"),
+        )?;
+        if string_field(endpoint, "request_body_action", &context)? != "leave-unread" {
+            return Err(format!(
+                "{context}.endpoint.request_body_action must be leave-unread"
+            ));
+        }
+        let outcome = parse_native_tower_outcome(
+            endpoint
+                .get("outcome")
+                .ok_or_else(|| format!("{context}.endpoint.outcome is required"))?,
+            &format!("{context}.endpoint.outcome"),
+        )?;
+        if let NativeTowerOutcome::Response(response) = &outcome {
+            declared_header_names.extend(response.headers.iter().map(|(name, _)| name.clone()));
+        }
+        let endpoint = move |_request: starlette_rs::NativeRequest| {
+            let outcome = outcome.clone();
+            async move { outcome.into_result() }
+        };
+        routes.push(NativeRoute::new(path, methods, endpoint));
+    }
+    let application = starlette_rs::NativeApplication::new(routes)
+        .map_err(|error| format!("cannot create native application: {error}"))?;
+
+    let events = Arc::new(Mutex::new(Vec::new()));
+    let layer_values = inputs
+        .get("layers_outer_to_inner")
+        .and_then(Value::as_array)
+        .filter(|layers| !layers.is_empty())
+        .ok_or_else(|| String::from("native service middleware layers must be non-empty"))?;
+    let parsed_layers = layer_values
+        .iter()
+        .enumerate()
+        .map(|(index, layer)| {
+            parse_native_tower_layer(
+                layer,
+                Arc::clone(&events),
+                &format!("native service middleware layer[{index}]"),
+            )
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    for layer in &parsed_layers {
+        if let Some((_, response)) = &layer.short_circuit {
+            declared_header_names.extend(response.headers.iter().map(|(name, _)| name.clone()));
+        }
+    }
+    let mut layers = parsed_layers.into_iter().rev();
+    let inner_layer = layers
+        .next()
+        .ok_or_else(|| String::from("native service middleware has no layers"))?;
+    let mut service: Box<dyn NativeTowerService> = Box::new(application.layer(inner_layer));
+    for layer in layers {
+        service = Box::new(tower_layer::Layer::layer(
+            &layer,
+            ErasedNativeTowerService(service),
+        ));
+    }
+    let mut service = ErasedNativeTowerService(service);
+
+    let drive = exact_object(
+        inputs
+            .get("drive")
+            .ok_or_else(|| String::from("native service middleware inputs miss drive"))?,
+        &[
+            "poll_ready_before_each_call",
+            "service_future",
+            "response_body",
+        ],
+        "native service middleware drive",
+    )?;
+    let poll_ready = bool_field(
+        drive,
+        "poll_ready_before_each_call",
+        "native service middleware drive",
+    )?;
+    if string_field(drive, "service_future", "native service middleware drive")? != "resolve" {
+        return Err(String::from(
+            "native service middleware drive.service_future must be resolve",
+        ));
+    }
+    if string_field(drive, "response_body", "native service middleware drive")? != "read-to-end" {
+        return Err(String::from(
+            "native service middleware drive.response_body must be read-to-end",
+        ));
+    }
+
+    let calls = inputs
+        .get("calls")
+        .and_then(Value::as_array)
+        .filter(|calls| !calls.is_empty())
+        .ok_or_else(|| String::from("native service middleware calls must be non-empty"))?;
+    let mut service_results = Vec::with_capacity(calls.len());
+    let mut request_body_poll_counts = Vec::with_capacity(calls.len());
+    for (index, call_value) in calls.iter().enumerate() {
+        let context = format!("native service middleware call[{index}]");
+        let call = exact_object(call_value, &["call_id", "request"], &context)?;
+        let call_id = string_field(call, "call_id", &context)?.to_owned();
+        let request = exact_object(
+            call.get("request")
+                .ok_or_else(|| format!("{context}.request is required"))?,
+            &["method", "uri", "body"],
+            &format!("{context}.request"),
+        )?;
+        let method = Method::from_bytes(string_field(request, "method", &context)?.as_bytes())
+            .map_err(|error| format!("{context}.request.method is invalid: {error}"))?;
+        let uri = Uri::from_str(string_field(request, "uri", &context)?)
+            .map_err(|error| format!("{context}.request.uri is invalid: {error}"))?;
+        let body = exact_object(
+            request
+                .get("body")
+                .ok_or_else(|| format!("{context}.request.body is required"))?,
+            &["frames"],
+            &format!("{context}.request.body"),
+        )?;
+        let request_poll_trace = Arc::new(Mutex::new(Vec::new()));
+        let request_body = NativeProbeBody::new(
+            parse_native_probe_frames(
+                body.get("frames")
+                    .ok_or_else(|| format!("{context}.request.body.frames is required"))?,
+                &format!("{context}.request.body.frames"),
+            )?,
+            Arc::clone(&request_poll_trace),
+            Arc::new(AtomicBool::new(false)),
+        );
+        let mut request = Request::builder()
+            .method(method)
+            .uri(uri)
+            .body(request_body)
+            .map_err(|error| format!("{context}: cannot construct request: {error}"))?;
+        request
+            .extensions_mut()
+            .insert(NativeTowerCallId(call_id.clone()));
+
+        let service_result = if poll_ready {
+            let readiness = block_on(futures::future::poll_fn(|task_context| {
+                tower_service::Service::poll_ready(&mut service, task_context)
+            }));
+            match readiness {
+                Ok(()) => block_on(tower_service::Service::call(&mut service, request)),
+                Err(error) => Err(error),
+            }
+        } else {
+            block_on(tower_service::Service::call(&mut service, request))
+        };
+
+        match service_result {
+            Ok(mut response) => {
+                let status = response.status().as_u16();
+                let headers = response
+                    .headers()
+                    .iter()
+                    .filter(|(name, _)| declared_header_names.contains(*name))
+                    .map(|(name, value)| {
+                        value
+                            .to_str()
+                            .map(|value| json!([name.as_str(), value]))
+                            .map_err(|error| {
+                                format!("{context}.response has a non-text header value: {error}")
+                            })
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                let body_chunks_base64 = block_on(async {
+                    let mut chunks = Vec::new();
+                    while let Some(frame) = response.body_mut().frame().await {
+                        match frame {
+                            Ok(frame) => {
+                                if let Ok(data) = frame.into_data()
+                                    && !data.is_empty()
+                                {
+                                    chunks.push(encode_base64(&data));
+                                }
+                            }
+                            Err(error) => {
+                                return Err(format!(
+                                    "{context}.response body polling failed: {error}"
+                                ));
+                            }
+                        }
+                    }
+                    Ok(chunks)
+                })?;
+                service_results.push(json!({
+                    "call_id": call_id.clone(),
+                    "kind": "response",
+                    "status": status,
+                    "headers": headers,
+                    "body_chunks_base64": body_chunks_base64,
+                }));
+            }
+            Err(error) => service_results.push(json!({
+                "call_id": call_id.clone(),
+                "kind": "error",
+                "message": native_tower_error_message(&error),
+            })),
+        }
+        let count = request_poll_trace
+            .lock()
+            .map_err(|_| format!("{context}.request body poll trace lock is poisoned"))?
+            .len();
+        request_body_poll_counts.push(json!({"call_id": call_id, "count": count}));
+    }
+
+    let middleware_events = events
+        .lock()
+        .map_err(|_| String::from("native middleware event trace lock is poisoned"))?
+        .clone();
+    let mut values = Map::new();
+    values.insert(String::from("middleware_events"), json!(middleware_events));
+    values.insert(String::from("service_results"), json!(service_results));
+    values.insert(
+        String::from("request_body_poll_counts"),
+        json!(request_body_poll_counts),
+    );
+    native_observation_result(case_id, case, values, "native service middleware")
 }
 
 fn parse_native_probe_frames(

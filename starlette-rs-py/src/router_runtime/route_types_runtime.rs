@@ -1076,7 +1076,7 @@ fn initialize_route(
 }
 
 #[pyfunction]
-#[pyo3(signature = (router, routes, default, lifespan, middleware, max_body_size, runtime_type, http_route_type, websocket_route_type, mount_type, host_route_type, default_lifespan_factory, deprecation_warning_type))]
+#[pyo3(signature = (router, routes, default, lifespan, middleware, max_body_size, runtime_type, base_route_type, http_route_type, websocket_route_type, mount_type, host_route_type, default_lifespan_factory, deprecation_warning_type))]
 // LINT EXCEPTION: Router state and its concrete factories must cross PyO3 as distinct Python references.
 #[allow(clippy::too_many_arguments)]
 fn initialize_router_state(
@@ -1088,6 +1088,7 @@ fn initialize_router_state(
     middleware: Option<Py<PyAny>>,
     max_body_size: Option<Py<PyAny>>,
     runtime_type: Py<PyAny>,
+    base_route_type: Py<PyAny>,
     http_route_type: Py<PyAny>,
     websocket_route_type: Py<PyAny>,
     mount_type: Py<PyAny>,
@@ -1114,6 +1115,7 @@ fn initialize_router_state(
         deprecation_warning_type.bind(py),
     )?;
     let runtime = runtime_type.bind(py).call1((
+        base_route_type,
         http_route_type,
         websocket_route_type,
         mount_type,

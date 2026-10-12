@@ -521,8 +521,11 @@
       "build/parity/inputs/parity/static-files-omitted-timezone.json",
       "build/parity/inputs/parity/testclient-reentrant-lifespan-entry.json",
       "build/parity/inputs/parity/native-service-streaming.json",
+      "build/parity/inputs/parity/native-service-middleware.json",
       "build/parity/inputs/parity/native-websocket.json",
-      "build/parity/inputs/parity/native-lifespan.json"
+      "build/parity/inputs/parity/native-lifespan.json",
+      "build/parity/inputs/parity/routing-base-route-subclass-matches.json",
+      "build/parity/inputs/parity/testclient-status-exceeds-u16.json"
     ],
     "coverage": [],
     "benchmark": [
@@ -22057,7 +22060,7 @@
           "source": {
             "oracle_id": "starlette-python",
             "path": "starlette.routing.Router.app",
-            "signature": "async __call__(scope, receive, send) -> None; dispatches through the ordered route list",
+            "signature": "async __call__(scope, receive, send) -> None; dispatches routes in declaration order through each BaseRoute.matches(scope) implementation and calls the selected route handle",
             "parameters": [
               {
                 "id": "self",
@@ -22251,14 +22254,15 @@
                   "starlette.routing.Router.route-dispatch.http-endpoint-method-handler",
                   "starlette.routing.Router.route-dispatch.http-endpoint-head-get-fallback",
                   "starlette.routing.Router.route-dispatch.max-body-size",
-                  "starlette.routing.Router.route-dispatch.default-method-not-allowed"
+                  "starlette.routing.Router.route-dispatch.default-method-not-allowed",
+                  "starlette.routing.Router.route-dispatch.base-route-subclass-matches"
                 ]
               }
             },
             {
               "target_id": "python-package",
               "path": "starlette.routing.Router via installed starlette-rs-py",
-              "signature": "Construct public Route objects from the input and call Router as an ASGI application.",
+              "signature": "Construct public Route, Mount, Host, and input-defined BaseRoute subclass objects, then call Router as an ASGI application.",
               "support": {
                 "status": "supported"
               }
@@ -22775,6 +22779,17 @@
               "id": "starlette.routing.Router.route-dispatch.middleware-truthiness",
               "dimension": "boundary",
               "description": "Router constructs its configured middleware stack only when the supplied middleware sequence is truthy; a nonempty falsey sequence therefore leaves its middleware unapplied. Pinned source: starlette/routing.py:609-614.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Router.route-dispatch.base-route-subclass-matches",
+              "dimension": "boundary",
+              "description": "Router calls an overridden BaseRoute.matches(scope) in route order, selects its FULL match ahead of later built-in matches, and merges the returned child scope before calling handle. Pinned source: starlette/routing.py::BaseRoute.matches and Router.app.",
               "lanes": [
                 "parity"
               ],
@@ -31921,6 +31936,133 @@
           "coverage": {
             "applicability": "not_applicable",
             "reason": "This API-contract slice makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "This API-contract slice does not declare a benchmark workload."
+          }
+        },
+        {
+          "id": "service-tower-middleware",
+          "kind": "protocol_operation",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.applications.Starlette.__call__",
+            "signature": "Construct the pinned Starlette ASGI application and input-defined middleware analogue, then drive ordered requests and observe response, error, and body-poll effects.",
+            "parameters": [
+              {
+                "id": "input_case",
+                "style": "keyword",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "workflow",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": "starlette_rs::NativeApplication::layer",
+              "signature": "Wrap NativeApplication with input-defined tower_layer::Layer implementations and drive each request through tower_service::Service",
+              "support": {
+                "status": "supported"
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "out_of_scope",
+                "reason": "Tower Layer and Service are Rust-native extension contracts, not part of the documented starlette.* compatibility surface.",
+                "authority": "AGENTS.md project binding rules: keep Rust-native APIs distinct from the compatibility surface."
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette-rs.NativeApplication.service-tower-middleware.layer-order",
+              "dimension": "protocol_variant",
+              "description": "Apply multiple Tower layers in outer-to-inner request order and inner-to-outer response order.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local"
+              ]
+            },
+            {
+              "id": "starlette-rs.NativeApplication.service-tower-middleware.short-circuit-response",
+              "dimension": "protocol_variant",
+              "description": "Allow an outer Tower layer to return a response without invoking its inner service.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local"
+              ]
+            },
+            {
+              "id": "starlette-rs.NativeApplication.service-tower-middleware.error-propagation",
+              "dimension": "error_path",
+              "description": "Propagate an endpoint error through every configured layer that records errors.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local"
+              ]
+            },
+            {
+              "id": "starlette-rs.NativeApplication.service-tower-middleware.unread-request-body",
+              "dimension": "boundary",
+              "description": "Do not poll an unread request body while applying layers or dispatching the request.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "rust-native-local"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This input-only API-contract slice makes no code-coverage claim."
           },
           "benchmark": {
             "applicability": "not_applicable",
