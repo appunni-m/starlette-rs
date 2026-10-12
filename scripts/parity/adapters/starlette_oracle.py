@@ -187,12 +187,18 @@ def _input_sync_iterator(values: list[Any], execution_trace: list[dict[str, Any]
 
 
 async def _input_async_generator(
-    values: list[Any], execution_trace: list[dict[str, Any]] | None
+    values: list[Any],
+    execution_trace: list[dict[str, Any]] | None,
+    finally_marker: str | None = None,
 ) -> AsyncIterator[Any]:
-    for value in values:
-        if execution_trace is not None:
-            execution_trace.append({"event": "iterator-yield", "value": _json_safe(value)})
-        yield value
+    try:
+        for value in values:
+            if execution_trace is not None:
+                execution_trace.append({"event": "iterator-yield", "value": _json_safe(value)})
+            yield value
+    finally:
+        if execution_trace is not None and finally_marker is not None:
+            execution_trace.append({"event": "iterator-finally", "marker": finally_marker})
 
 
 async def _input_repeating_async_generator(
@@ -9272,9 +9278,12 @@ def _run_static_files_case(case: dict[str, Any]) -> dict[str, Any]:
             for key in ("path_limit_stress", "permission_denial_stress", "filesystem")
         ):
             raise ValueError("StaticFiles subclass hooks require a single plain ASGI call")
+        if not isinstance(subclass_hooks, dict) or len(subclass_hooks) != 1:
+            raise ValueError("StaticFiles subclass hooks must select exactly one hook")
+        selected_hook = next(iter(subclass_hooks))
         _strict_object(
             subclass_hooks,
-            {"file_response"} if "file_response" in subclass_hooks else {"is_not_modified"},
+            {selected_hook},
             "StaticFiles subclass hooks",
         )
         if "file_response" in subclass_hooks:
@@ -9283,11 +9292,17 @@ def _run_static_files_case(case: dict[str, Any]) -> dict[str, Any]:
                 {"response_status", "response_body_base64"},
                 "StaticFiles file_response subclass hook",
             )
-        else:
+        elif selected_hook == "is_not_modified":
             _strict_object(
                 subclass_hooks["is_not_modified"],
                 {"return_value"},
                 "StaticFiles is_not_modified subclass hook",
+            )
+        else:
+            _strict_object(
+                subclass_hooks["get_response"],
+                {"response_status", "response_body_base64"},
+                "StaticFiles get_response subclass hook",
             )
     if request_sequence:
         call_specs = case["calls"]
@@ -9363,6 +9378,26 @@ def _run_static_files_case(case: dict[str, Any]) -> dict[str, Any]:
                     }
                 )
                 return hook_spec["return_value"]
+
+            async def get_response(self, path: str, scope: dict[str, Any]) -> object:
+                hook_spec = subclass_hooks.get("get_response")
+                if hook_spec is None:
+                    return await super().get_response(path, scope)
+                subclass_hook_calls.append(
+                    {
+                        "hook": "get_response",
+                        "path": path,
+                        "scope_method": scope["method"],
+                        "scope_path": scope["path"],
+                    }
+                )
+                return Response(
+                    _decode_b64(
+                        hook_spec["response_body_base64"],
+                        "StaticFiles get_response subclass body",
+                    ),
+                    status_code=hook_spec["response_status"],
+                )
 
         static_files_type = StaticFilesSubclassHooks
 
@@ -10209,21 +10244,36 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(case["incoming"], list) or case["incoming"]:
         raise ValueError("Response ASGI-call requires an empty incoming stream")
     send_error_spec: dict[str, Any] | None = None
+    send_gate_spec: dict[str, Any] | None = None
     if case["send"] != {"kind": "capture-asgi-send"}:
         if surface != STREAMING_RESPONSE_SURFACE:
             raise ValueError("send input must select the declared ASGI message collector")
-        send_error_spec = _strict_object(
-            case["send"],
-            {"kind", "event_index", "message"},
-            "StreamingResponse failing send",
-        )
-        if (
-            send_error_spec["kind"] != "capture-asgi-send-until-oserror"
-            or type(send_error_spec["event_index"]) is not int
-            or send_error_spec["event_index"] < 0
-            or not isinstance(send_error_spec["message"], str)
-        ):
-            raise ValueError("StreamingResponse failing send input is invalid")
+        if case["send"].get("kind") == "capture-asgi-send-with-checkpoint-gate":
+            send_gate_spec = _strict_object(
+                case["send"],
+                {"kind", "event_index", "release_after_checkpoints"},
+                "StreamingResponse gated send",
+            )
+            if (
+                type(send_gate_spec["event_index"]) is not int
+                or send_gate_spec["event_index"] < 0
+                or type(send_gate_spec["release_after_checkpoints"]) is not int
+                or send_gate_spec["release_after_checkpoints"] < 1
+            ):
+                raise ValueError("StreamingResponse gated send input is invalid")
+        else:
+            send_error_spec = _strict_object(
+                case["send"],
+                {"kind", "event_index", "message"},
+                "StreamingResponse failing send",
+            )
+            if (
+                send_error_spec["kind"] != "capture-asgi-send-until-oserror"
+                or type(send_error_spec["event_index"]) is not int
+                or send_error_spec["event_index"] < 0
+                or not isinstance(send_error_spec["message"], str)
+            ):
+                raise ValueError("StreamingResponse failing send input is invalid")
 
     background_values: list[str] | None = None
     background_tasks_spec: dict[str, Any] | None = None
@@ -10260,14 +10310,29 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
 
     stream_lifecycle: dict[str, str] | None = None
     if "stream_lifecycle" in case:
-        stream_lifecycle_spec = _strict_object(
-            case["stream_lifecycle"],
-            {"kind", "cancellation_marker", "finally_marker"},
-            "Response stream lifecycle recorder",
-        )
-        if stream_lifecycle_spec["kind"] != "cancellation-and-finally-recorder":
+        if not isinstance(case["stream_lifecycle"], dict):
+            raise ValueError("Response stream lifecycle recorder must be an object")
+        stream_lifecycle_spec = case["stream_lifecycle"]
+        if stream_lifecycle_spec["kind"] == "finally-recorder":
+            stream_lifecycle_spec = _strict_object(
+                stream_lifecycle_spec,
+                {"kind", "finally_marker"},
+                "Response stream finalization recorder",
+            )
+        elif stream_lifecycle_spec["kind"] == "cancellation-and-finally-recorder":
+            stream_lifecycle_spec = _strict_object(
+                stream_lifecycle_spec,
+                {"kind", "cancellation_marker", "finally_marker"},
+                "Response stream lifecycle recorder",
+            )
+            if (
+                not isinstance(stream_lifecycle_spec["cancellation_marker"], str)
+                or not stream_lifecycle_spec["cancellation_marker"]
+            ):
+                raise ValueError("Response stream lifecycle cancellation_marker is invalid")
+        else:
             raise ValueError("Response stream lifecycle recorder kind is unsupported")
-        for key in ("cancellation_marker", "finally_marker"):
+        for key in ("finally_marker",):
             if not isinstance(stream_lifecycle_spec[key], str) or not stream_lifecycle_spec[key]:
                 raise ValueError(f"Response stream lifecycle {key} must be a non-empty string")
         stream_lifecycle = stream_lifecycle_spec
@@ -10377,7 +10442,12 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
                 content, execution_trace, stream_lifecycle, content_spec["checkpoint"]
             )
         else:
-            content = _input_async_generator(content, execution_trace)
+            finally_marker = (
+                stream_lifecycle["finally_marker"]
+                if stream_lifecycle is not None and stream_lifecycle["kind"] == "finally-recorder"
+                else None
+            )
+            content = _input_async_generator(content, execution_trace, finally_marker)
     response_arguments: dict[str, Any] = {
         "content": content,
         "status_code": case["status_code"],
@@ -10484,12 +10554,26 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
         return message
 
     send_index = 0
+    send_gate_entered = asyncio.Event() if send_gate_spec is not None else None
+    send_gate_release = asyncio.Event() if send_gate_spec is not None else None
 
     async def send(message: dict[str, Any]) -> None:
         nonlocal send_index, sent_body_bytes
         if send_error_spec is not None and send_index == send_error_spec["event_index"]:
             send_index += 1
             raise OSError(send_error_spec["message"])
+        if send_gate_spec is not None and send_index == send_gate_spec["event_index"]:
+            if execution_trace is None or send_gate_entered is None or send_gate_release is None:
+                raise RuntimeError("StreamingResponse send gate requires its execution trace")
+            execution_trace.append(
+                {
+                    "event": "asgi-send-enter",
+                    "event_index": send_index,
+                    "message": _canonical_message(message),
+                }
+            )
+            send_gate_entered.set()
+            await send_gate_release.wait()
         sent.append(message)
         if background_execution_trace is not None:
             if event_loop_thread_id[0] is None:
@@ -10499,6 +10583,8 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
             )
         if execution_trace is not None:
             execution_trace.append({"event": "asgi-send", "message": _canonical_message(message)})
+            if send_gate_spec is not None and send_index == send_gate_spec["event_index"]:
+                execution_trace.append({"event": "asgi-send-complete", "event_index": send_index})
         if (
             receive_behavior is not None
             and receive_behavior["kind"] == "disconnect-after-body-bytes"
@@ -10513,7 +10599,44 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
 
     captured_error: BaseException | None = None
     try:
-        if background_control is None:
+        if send_gate_spec is not None:
+
+            async def dispatch_with_gated_send() -> None:
+                if send_gate_entered is None or send_gate_release is None:
+                    raise RuntimeError("StreamingResponse send gate events are unavailable")
+
+                async def release_gated_send() -> None:
+                    if execution_trace is None:
+                        raise RuntimeError(
+                            "StreamingResponse send gate requires its execution trace"
+                        )
+                    await send_gate_entered.wait()
+                    for _ in range(send_gate_spec["release_after_checkpoints"]):
+                        await asyncio.sleep(0)
+                    execution_trace.append(
+                        {
+                            "event": "asgi-send-gate-release",
+                            "event_index": send_gate_spec["event_index"],
+                        }
+                    )
+                    send_gate_release.set()
+
+                response_task = asyncio.create_task(response(scope, receive, send))
+                release_task = asyncio.create_task(release_gated_send())
+                try:
+                    await response_task
+                finally:
+                    if not send_gate_entered.is_set():
+                        release_task.cancel()
+                    if not send_gate_release.is_set():
+                        send_gate_release.set()
+                    try:
+                        await release_task
+                    except asyncio.CancelledError:
+                        pass
+
+            asyncio.run(dispatch_with_gated_send())
+        elif background_control is None:
             asyncio.run(response(scope, receive, send))
         else:
 

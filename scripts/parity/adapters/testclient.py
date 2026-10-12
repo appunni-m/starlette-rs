@@ -1813,6 +1813,17 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
                             f"unsupported TestClient WebSocket action: {action['operation']!r}"
                         )
                 except WebSocketDisconnect as error:
+                    if action.get("capture_exception", False):
+                        action_results.append(
+                            {
+                                "operation": action["operation"],
+                                "exception": {
+                                    "class": f"{type(error).__module__}.{type(error).__qualname__}",
+                                    "message": str(error),
+                                },
+                            }
+                        )
+                        continue
                     if not action.get("capture_disconnect", False):
                         raise
                     action_results.append(
@@ -1822,6 +1833,18 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
                                 "class": f"{type(error).__module__}.{type(error).__qualname__}",
                                 "code": error.code,
                                 "reason": error.reason,
+                            },
+                        }
+                    )
+                except Exception as error:
+                    if not action.get("capture_exception", False):
+                        raise
+                    action_results.append(
+                        {
+                            "operation": action["operation"],
+                            "exception": {
+                                "class": f"{type(error).__module__}.{type(error).__qualname__}",
+                                "message": str(error),
                             },
                         }
                     )

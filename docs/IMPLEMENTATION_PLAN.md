@@ -13,8 +13,8 @@ implementation closes, run the complete source/package and Rust-native parity
 matrix, repair mismatches across families, measure coverage from that full
 matrix, reconcile the source atlas, then run all correctness-gated benchmarks.
 
-The working-tree contract currently declares 2,045 input cases across 159
-parity inputs and two benchmark inputs, 133 operations, and 1,063 parity
+The working-tree contract currently declares 2,049 input cases across 160
+parity inputs and two benchmark inputs, 133 operations, and 1,066 parity
 requirements. The generated atlas has 817 source rows: 762 input mappings, 55
 source-backed `not_applicable` dispositions, and zero fixture-backlog rows.
 These counts describe inventory and evidence coverage; they do not establish
@@ -24,8 +24,8 @@ that every documented behavior is implemented or compatible.
 
 | Phase | State | Evidence |
 | --- | --- | --- |
-| Implementation | In progress. | Static contract validation passes for the current 2,045-case input set. The WebSocketEndpoint hook-failure/context and bracketed IPv6 Host comparisons, plus the stateful StaticFiles PathLike, UploadFile write-error, and TestClient asyncio-marked ASGI3 comparisons, are authored but unexecuted. Remaining implementation and documented boundaries still need review and integration. |
-| Full parity and grouped repairs | Deferred until implementation closes. | The latest clean run, `dc8c8ca6-f2b7-449b-9f53-45860e3cad4c`, passed 2,254/2,254 comparisons for the preceding 1,992-case, 140-parity-input contract. Later optional-backend, WebSocket authorization, Router truthiness, BaseHTTPMiddleware iterator, StaticFiles path, response-protocol, close-code, TestClient exception, custom-regex, Request stream retry, WebSocketEndpoint error-finalization, BaseHTTPMiddleware dispatch short-circuiting, StreamingResponse terminal-send failure, TestClient streamed request bodies, invalid initial WebSocket.accept events, Last-Modified If-Range matching, exception-class MRO precedence, Request receive-error retry, lazy StreamingResponse iterator start-send, normal-return incomplete TestClient response, asyncio-marked TestClient ASGI3, WebSocketEndpoint hook-failure/context, and bracketed IPv6 Host cases are not included. The newly authored stateful StaticFiles PathLike and UploadFile write-error comparisons are also outside that run. |
+| Implementation | In progress. | Static contract validation passes for the current 2,049-case input set. The StaticFiles `get_response` override, TestClient accepted-session app-error stream closure and completed-response exception propagation, and StreamingResponse gated-send backpressure comparisons, plus the WebSocketEndpoint hook-failure/context and bracketed IPv6 Host comparisons, remain unexecuted. The stateful StaticFiles PathLike, UploadFile write-error, and TestClient asyncio-marked ASGI3 comparisons are also authored but unexecuted. Remaining implementation and documented boundaries still need review. |
+| Full parity and grouped repairs | Deferred until implementation closes. | The latest clean run, `dc8c8ca6-f2b7-449b-9f53-45860e3cad4c`, passed 2,254/2,254 comparisons for the preceding 1,992-case, 140-parity-input contract. Later optional-backend, WebSocket authorization, Router truthiness, BaseHTTPMiddleware iterator, StaticFiles path, response-protocol, close-code, TestClient exception, custom-regex, Request stream retry, WebSocketEndpoint error-finalization, BaseHTTPMiddleware dispatch short-circuiting, StreamingResponse terminal-send failure, TestClient streamed request bodies, invalid initial WebSocket.accept events, Last-Modified If-Range matching, exception-class MRO precedence, Request receive-error retry, lazy StreamingResponse iterator start-send, normal-return incomplete TestClient response, asyncio-marked TestClient ASGI3, WebSocketEndpoint hook-failure/context, bracketed IPv6 Host, StaticFiles `get_response` override, TestClient accepted-session error stream closure and completed-response exception propagation, and StreamingResponse gated-send backpressure cases are not included. The stateful StaticFiles PathLike and UploadFile write-error comparisons are also outside that run. |
 | Full coverage and source reconciliation | Deferred until the full parity phase. | The latest measured run, `fd5b3b63-9ddc-44bd-bf38-35ecbc260dbe`, covered 19,909/28,139 Rust lines (70.7%) for the preceding contract. |
 | All benchmarks | Deferred until coverage. | The latest run, `13ea2d04-7f31-4c12-93cd-855df93df8b0`, measured 74/74 source/package workloads for the preceding contract: six Router and 68 GZip workloads. |
 | Packaging and interpreter qualification | Complete for the local macOS arm64 build. | Five CPython 3.10–3.14 wheels, an sdist, and the Rust crate were inspected; isolated wheel installs passed public ASGI smoke and `pip check`. Other platform builds remain unqualified. |
@@ -80,8 +80,8 @@ also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
 The active parity contract is `parity-input@48`: the working tree currently
-indexes 2,045 input cases across 159 parity files, two benchmark files, 133
-operations, and 1,063 parity requirements. The latest clean full parity,
+indexes 2,049 input cases across 160 parity files, two benchmark files, 133
+operations, and 1,066 parity requirements. The latest clean full parity,
 coverage, and benchmark receipts belong to the preceding 1,992-case, 140-file
 contract. The generated source-row,
 mapping, `not_applicable`, and backlog totals live in
@@ -206,9 +206,15 @@ both symlink settings. Permission inputs deny search access to a root containing
 an asset and match the 401 error for both symlink settings. Python package
 discovery is profile-specific; Rust-native uses explicit package roots.
 Windows path normalization is implemented and has an authored ASGI input, but
-Windows execution remains unverified. Constructor error boundaries, unresolved
-subclass-hook candidates, remaining validators, and the rest of the upstream
-StaticFiles behaviors still need review; full parity remains deferred.
+Windows execution remains unverified. The ASGI entry passes the bound
+`get_response(path, scope)` override into the Rust awaitable state machine,
+which calls and awaits that Python callback on the caller's loop; the default
+path selection and response dispatch remain Rust-owned. This callback boundary
+is required because Python subclasses can replace `get_response`. An
+input-only comparison checks the supplied callback arguments and returned
+response and remains unexecuted. Constructor error boundaries, remaining
+subclass-hook candidates, validators, and the rest of the upstream StaticFiles
+behaviors still need review; full parity remains deferred.
 
 ## 1. Completed bounded goal: lifespan state and cancellation
 

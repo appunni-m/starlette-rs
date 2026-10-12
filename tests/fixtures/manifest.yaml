@@ -361,6 +361,7 @@
       "build/parity/inputs/parity/streaming-response.json",
       "build/parity/inputs/parity/streaming-response-lazy-iterator-start-send-failure.json",
       "build/parity/inputs/parity/streaming-response-final-send-disconnect.json",
+      "build/parity/inputs/parity/streaming-response-backpressure.json",
       "build/parity/inputs/parity/websocket-convenience.json",
       "build/parity/inputs/parity/websocket-iterator-disconnect-athrow.json",
       "build/parity/inputs/parity/exception-values.json",
@@ -19688,7 +19689,8 @@
                   "starlette.responses.StreamingResponse.asgi-call.pre-asgi24-disconnect-cancellation",
                   "starlette.responses.StreamingResponse.asgi-call.pre-asgi24-stream-completes-first",
                   "starlette.responses.StreamingResponse.asgi-call.websocket-scope-background",
-                  "starlette.responses.StreamingResponse.asgi-call.client-disconnect-final-send-oserror"
+                  "starlette.responses.StreamingResponse.asgi-call.client-disconnect-final-send-oserror",
+                  "starlette.responses.StreamingResponse.asgi-call.send-backpressure"
                 ]
               }
             },
@@ -19750,6 +19752,17 @@
               "id": "starlette.responses.StreamingResponse.asgi-call.client-disconnect-final-send-oserror",
               "dimension": "error_path",
               "description": "Run a finite async generator under ASGI 2.4 and raise OSError on the terminal empty-body send after all chunks have been yielded. Compare the propagated ClientDisconnect, partial ASGI event tape, completed generator trace, and skipped background callback. Pinned source: starlette/responses.py::StreamingResponse.stream_response and __call__; starlette/background.py::BackgroundTask.__call__.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.StreamingResponse.asgi-call.send-backpressure",
+              "dimension": "protocol_variant",
+              "description": "At the public ASGI-call boundary, gate the first async-generator body send for an input-defined event-loop checkpoint, then capture iterator yields, send entry/completion, gate release, and generator finalization order. This checks that the iterator does not advance while its preceding send is still awaited. Pinned source: starlette/responses.py:248-255.",
               "lanes": [
                 "parity"
               ],
@@ -24088,6 +24101,17 @@
               "id": "starlette.staticfiles.StaticFiles.asgi-call.is-not-modified-subclass-override",
               "dimension": "feature",
               "description": "Subclass StaticFiles with an input-defined is_not_modified override and compare its 304 response plus the callback arguments derived from response and request headers. Pinned source: starlette/staticfiles.py:167-173,188-205.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.staticfiles.StaticFiles.asgi-call.get-response-subclass-override",
+              "dimension": "feature",
+              "description": "Subclass StaticFiles with an input-defined async get_response override and compare its returned response plus the path and scope passed by the ASGI entry point. Pinned source: starlette/staticfiles.py:88-100.",
               "lanes": [
                 "parity"
               ],
@@ -28551,6 +28575,17 @@
               "id": "starlette.testclient.TestClient.websocket-session.application-exception-propagation",
               "dimension": "error_path",
               "description": "When the input ASGI app raises before sending a WebSocket handshake, websocket_connect propagates the original application exception during session entry and closes the portal thread. Pinned source: tests/test_websockets.py::test_websocket_exception; starlette/testclient.py:102-125.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.websocket-session.app-error-closes-client-stream",
+              "dimension": "error_path",
+              "description": "After a WebSocket handshake, an application failure closes the app-to-client stream so an in-session receive observes anyio.EndOfStream, then context cleanup separately propagates the original app exception. Pinned source: starlette/testclient.py:115-148,184-190.",
               "lanes": [
                 "parity"
               ],

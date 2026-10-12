@@ -281,13 +281,14 @@ impl PyStaticFiles {
                 None,
                 None,
                 None,
+                None,
                 path.to_owned(),
                 StaticFilesCallPurpose::Response,
             ),
         )
     }
 
-    // LINT EXCEPTION: PyO3 passes the ASGI scope, two callbacks, and three facade methods separately.
+    // LINT EXCEPTION: PyO3 passes the ASGI scope, receive/send, and four facade callbacks separately.
     #[allow(clippy::too_many_arguments)]
     fn asgi_call(
         slf: Py<Self>,
@@ -296,6 +297,7 @@ impl PyStaticFiles {
         receive: Py<PyAny>,
         send: Py<PyAny>,
         get_path: Py<PyAny>,
+        get_response: Py<PyAny>,
         lookup_path: Py<PyAny>,
         file_response: Py<PyAny>,
         check_config: Py<PyAny>,
@@ -316,6 +318,7 @@ impl PyStaticFiles {
                 file_response,
                 Some(check_config),
                 Some(get_path),
+                Some(get_response),
                 Some((receive, send)),
                 String::new(),
                 StaticFilesCallPurpose::Asgi,
@@ -384,6 +387,7 @@ enum StaticFilesCallPurpose {
 enum StaticFilesCallState {
     Start,
     AwaitCheckConfig,
+    AwaitGetResponse,
     AwaitLookup,
     AwaitResponse,
 }
@@ -395,6 +399,7 @@ struct StaticFilesCallMachine {
     file_response: Py<PyAny>,
     check_config: Option<Py<PyAny>>,
     get_path: Option<Py<PyAny>>,
+    get_response: Option<Py<PyAny>>,
     response_callbacks: Option<(Py<PyAny>, Py<PyAny>)>,
     response_path: String,
     purpose: StaticFilesCallPurpose,
@@ -413,6 +418,7 @@ impl StaticFilesCallMachine {
         file_response: Py<PyAny>,
         check_config: Option<Py<PyAny>>,
         get_path: Option<Py<PyAny>>,
+        get_response: Option<Py<PyAny>>,
         response_callbacks: Option<(Py<PyAny>, Py<PyAny>)>,
         response_path: String,
         purpose: StaticFilesCallPurpose,
@@ -424,6 +430,7 @@ impl StaticFilesCallMachine {
             file_response,
             check_config,
             get_path,
+            get_response,
             response_callbacks,
             response_path,
             purpose,
@@ -437,13 +444,26 @@ impl StaticFilesCallMachine {
         let scope = self.scope.bind(py).cast::<PyDict>()?;
         let path = match self.purpose {
             StaticFilesCallPurpose::Response => self.response_path.clone(),
-            StaticFilesCallPurpose::Asgi => self
-                .get_path
-                .as_ref()
-                .ok_or_else(|| PyRuntimeError::new_err("StaticFiles get_path callback is missing"))?
-                .bind(py)
-                .call1((scope,))?
-                .extract::<String>()?,
+            StaticFilesCallPurpose::Asgi => {
+                let path = self
+                    .get_path
+                    .as_ref()
+                    .ok_or_else(|| {
+                        PyRuntimeError::new_err("StaticFiles get_path callback is missing")
+                    })?
+                    .bind(py)
+                    .call1((scope,))?;
+                let awaitable = self
+                    .get_response
+                    .as_ref()
+                    .ok_or_else(|| {
+                        PyRuntimeError::new_err("StaticFiles get_response callback is missing")
+                    })?
+                    .bind(py)
+                    .call1((path, scope))?;
+                self.state = StaticFilesCallState::AwaitGetResponse;
+                return Ok(MachineAction::Await(awaitable.unbind()));
+            }
         };
         let scope_path = scope
             .get_item("path")?
@@ -580,6 +600,7 @@ impl AwaitableStateMachine for StaticFilesCallMachine {
         visit.call(&self.file_response)?;
         visit.call(&self.check_config)?;
         visit.call(&self.get_path)?;
+        visit.call(&self.get_response)?;
         visit.call(&self.selected_stat_result)?;
         if let Some((receive, send)) = &self.response_callbacks {
             visit.call(receive)?;
@@ -613,6 +634,10 @@ impl AwaitableStateMachine for StaticFilesCallMachine {
                 self.begin_response_flow(py)
             }
             (StaticFilesCallState::AwaitCheckConfig, MachineResume::Error(error)) => Err(error),
+            (StaticFilesCallState::AwaitGetResponse, MachineResume::Value(response)) => {
+                self.complete_python_response(py, response)
+            }
+            (StaticFilesCallState::AwaitGetResponse, MachineResume::Error(error)) => Err(error),
             (StaticFilesCallState::AwaitLookup, MachineResume::Value(value)) => {
                 self.resume_lookup(py, value)
             }

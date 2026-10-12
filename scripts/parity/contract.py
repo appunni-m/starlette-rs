@@ -318,6 +318,7 @@ TESTCLIENT_LIFESPAN_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | 
 TESTCLIENT_WEBSOCKET_REQUIREMENTS = {
     "scope": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.scope-projection",
     "application_exception": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.application-exception-propagation",
+    "app_error_stream_closure": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.app-error-closes-client-stream",
     "duplicate_disconnect": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.duplicate-disconnect-error-propagation",
     "rejected_connection": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.rejected-connection-disconnect",
     "query_params": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.query-params-raw-path",
@@ -1115,6 +1116,9 @@ STREAMING_RESPONSE_AWAIT_FACTORY_STOP_REQUIREMENT = (
 )
 STREAMING_RESPONSE_START_SEND_DISCONNECT_REQUIREMENT = f"{STREAMING_RESPONSE_SURFACE}.{STREAMING_RESPONSE_OPERATION}.client-disconnect-start-send-oserror"
 STREAMING_RESPONSE_FINAL_SEND_DISCONNECT_REQUIREMENT = f"{STREAMING_RESPONSE_SURFACE}.{STREAMING_RESPONSE_OPERATION}.client-disconnect-final-send-oserror"
+STREAMING_RESPONSE_BACKPRESSURE_REQUIREMENT = (
+    f"{STREAMING_RESPONSE_SURFACE}.{STREAMING_RESPONSE_OPERATION}.send-backpressure"
+)
 STREAMING_RESPONSE_AWAIT_FACTORY_STOP_MODE = "async-iterator-await-factory-stop"
 RESPONSE_OPERATION = "asgi-call"
 RESPONSE_PARTITIONED_COOKIE_REQUIREMENT = (
@@ -6383,6 +6387,29 @@ def _validate_static_files_case_stimulus(
             )
             if type(hook["return_value"]) is not bool:
                 raise ContractError("StaticFiles is_not_modified return_value must be boolean")
+        elif subclass_hook_name == "get_response":
+            hook = _exact(
+                subclass_hooks[subclass_hook_name],
+                {"response_status", "response_body_base64"},
+                "StaticFiles get_response subclass hook",
+            )
+            if (
+                type(hook["response_status"]) is not int
+                or not 100 <= hook["response_status"] <= 599
+            ):
+                raise ContractError(
+                    "StaticFiles get_response response_status must be an HTTP status code"
+                )
+            encoded_body = _string(
+                hook["response_body_base64"],
+                "StaticFiles get_response response_body_base64",
+            )
+            try:
+                decoded_body = base64.b64decode(encoded_body, validate=True)
+            except (TypeError, ValueError) as exc:
+                raise ContractError("StaticFiles get_response body must be base64") from exc
+            if base64.b64encode(decoded_body).decode("ascii") != encoded_body:
+                raise ContractError("StaticFiles get_response body must use canonical base64")
         else:
             raise ContractError("StaticFiles subclass hook is unsupported")
     elif "subclass_hooks" in case:
@@ -6771,6 +6798,7 @@ def _validate_static_files_case_stimulus(
                 requirement_suffix = {
                     "file_response": "file-response-subclass-override",
                     "is_not_modified": "is-not-modified-subclass-override",
+                    "get_response": "get-response-subclass-override",
                 }[subclass_hook_name]
                 derived.add(requirement_suffix)
             else:
@@ -7666,14 +7694,30 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
 
     stream_lifecycle = case.get("stream_lifecycle")
     if stream_lifecycle is not None:
-        stream_lifecycle = _exact(
-            stream_lifecycle,
-            {"kind", "cancellation_marker", "finally_marker"},
-            "StreamingResponse stream lifecycle recorder",
-        )
-        if stream_lifecycle["kind"] != "cancellation-and-finally-recorder":
+        if not isinstance(stream_lifecycle, dict):
+            raise ContractError("StreamingResponse stream lifecycle recorder must be an object")
+        if stream_lifecycle.get("kind") == "finally-recorder":
+            stream_lifecycle = _exact(
+                stream_lifecycle,
+                {"kind", "finally_marker"},
+                "StreamingResponse stream finalization recorder",
+            )
+        elif stream_lifecycle.get("kind") == "cancellation-and-finally-recorder":
+            stream_lifecycle = _exact(
+                stream_lifecycle,
+                {"kind", "cancellation_marker", "finally_marker"},
+                "StreamingResponse stream lifecycle recorder",
+            )
+            if not _string(
+                stream_lifecycle["cancellation_marker"],
+                "StreamingResponse stream_lifecycle.cancellation_marker",
+            ):
+                raise ContractError(
+                    "StreamingResponse stream_lifecycle.cancellation_marker must not be empty"
+                )
+        else:
             raise ContractError("StreamingResponse stream lifecycle recorder kind is unsupported")
-        for key in ("cancellation_marker", "finally_marker"):
+        for key in ("finally_marker",):
             if not _string(stream_lifecycle[key], f"StreamingResponse stream_lifecycle.{key}"):
                 raise ContractError(f"StreamingResponse stream_lifecycle.{key} must not be empty")
 
@@ -7706,6 +7750,9 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
     send = case["send"]
     send_raises_oserror = isinstance(send, dict) and send.get("kind") == (
         "capture-asgi-send-until-oserror"
+    )
+    send_uses_checkpoint_gate = isinstance(send, dict) and send.get("kind") == (
+        "capture-asgi-send-with-checkpoint-gate"
     )
 
     stimulus = (tuple(chunks), tuple(tuple(pair) for pair in headers), media_type)
@@ -7858,6 +7905,49 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
             raise ContractError(
                 "StreamingResponse await-factory exhaustion input is limited to its declared Python-package case"
             )
+    elif send_uses_checkpoint_gate:
+        gated_send = _exact(
+            send,
+            {"kind", "event_index", "release_after_checkpoints"},
+            "StreamingResponse gated send",
+        )
+        if (
+            case["streaming"] != "async-generator"
+            or case["operation"] != STREAMING_RESPONSE_TRACE_OPERATION
+            or repeating_chunks
+            or file_like_content is not None
+            or len(chunks) < 2
+            or stream_lifecycle is None
+            or stream_lifecycle["kind"] != "finally-recorder"
+            or receive_behavior is not None
+            or background is not None
+            or case["target_profiles"] != ["python-package-cpython312"]
+            or type(gated_send["event_index"]) is not int
+            or gated_send["event_index"] != 1
+            or type(gated_send["release_after_checkpoints"]) is not int
+            or gated_send["release_after_checkpoints"] < 1
+            or case["covers"] != [STREAMING_RESPONSE_BACKPRESSURE_REQUIREMENT]
+        ):
+            raise ContractError(
+                "StreamingResponse backpressure input must gate the first async-generator body send and record normal finalization"
+            )
+        try:
+            asgi = case["scope"].get("asgi", {})
+            spec_version = tuple(int(part) for part in asgi.get("spec_version", "2.0").split("."))
+        except (AttributeError, KeyError, TypeError, ValueError) as exc:
+            raise ContractError("StreamingResponse ASGI spec_version must be numeric") from exc
+        if spec_version < (2, 4):
+            raise ContractError("StreamingResponse send-backpressure input requires ASGI 2.4")
+        first_chunk_kind, first_chunk_value = chunks[0]
+        first_chunk_bytes = (
+            first_chunk_value.encode("utf-8")
+            if first_chunk_kind == "text"
+            else base64.b64decode(first_chunk_value, validate=True)
+        )
+        if not first_chunk_bytes:
+            raise ContractError(
+                "StreamingResponse backpressure input requires a non-empty first chunk"
+            )
     elif repeating_chunks:
         if (
             case["operation"] != STREAMING_RESPONSE_TRACE_OPERATION
@@ -7932,7 +8022,9 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
             "StreamingResponse execution-trace operation requires an async generator"
         )
     if case["incoming"] != [] or (
-        send != {"kind": "capture-asgi-send"} and not send_raises_oserror
+        send != {"kind": "capture-asgi-send"}
+        and not send_raises_oserror
+        and not send_uses_checkpoint_gate
     ):
         raise ContractError("StreamingResponse asgi-call uses empty receive and a declared send")
     if send_raises_oserror:
@@ -7985,11 +8077,12 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
                 raise ContractError(
                     "finite StreamingResponse OSError input must fail the terminal send under ASGI 2.4 and map its input-derived requirement"
                 )
+    dispatch_send = {"kind": "capture-asgi-send"} if send_uses_checkpoint_gate else send
     _validate_dispatch_stimulus(
         {
             "scope": case["scope"],
             "receive": case["incoming"],
-            "send": case["send"],
+            "send": dispatch_send,
         },
         request_dispatch=True,
         allow_oserror_send=send_raises_oserror,
@@ -14337,6 +14430,7 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
     frame_mode: str | None = None
     client_close_workflow = False
     client_stream_echo_workflow = False
+    client_exception_capture_workflow = False
     if denial_workflow:
         pass
     elif len(session_actions) == 4 and all(isinstance(action, dict) for action in session_actions):
@@ -14470,14 +14564,26 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
         elif session_actions[0].get("operation") == "receive_text":
             receive_action = _exact(
                 session_actions[0],
-                {"operation"} | (session_actions[0].keys() & {"capture_disconnect"}),
+                {"operation"}
+                | (session_actions[0].keys() & {"capture_disconnect", "capture_exception"}),
                 "TestClient WebSocket disconnect receive action",
             )
-            if receive_action.get("capture_disconnect") is not True and not (
-                is_routed_websocket_app and "capture_disconnect" not in receive_action
+            if (
+                "capture_disconnect" in receive_action
+                and type(receive_action["capture_disconnect"]) is not bool
+            ) or (
+                "capture_exception" in receive_action
+                and type(receive_action["capture_exception"]) is not bool
+            ):
+                raise ContractError("TestClient WebSocket receive capture flags must be boolean")
+            client_exception_capture_workflow = receive_action.get("capture_exception") is True
+            if (
+                receive_action.get("capture_disconnect") is not True
+                and not client_exception_capture_workflow
+                and not (is_routed_websocket_app and "capture_disconnect" not in receive_action)
             ):
                 raise ContractError(
-                    "TestClient WebSocket receive_text must capture a disconnect or select a routed-text workflow"
+                    "TestClient WebSocket receive_text must capture a disconnect/error or select a routed-text workflow"
                 )
         else:
             receive_action = _exact(
@@ -15021,24 +15127,66 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
         and isinstance(app_actions[0], dict)
         and app_actions[0].get("operation") == "websocket_flow"
     )
-    application_exception_workflow = is_starlette_websocket_route_error or (
+    app_error_stream_closure_workflow = (
         isinstance(app_actions, list)
-        and len(app_actions) == 1
-        and isinstance(app_actions[0], dict)
-        and app_actions[0].get("operation") == "raise"
+        and len(app_actions) == 2
+        and all(isinstance(action, dict) for action in app_actions)
+        and app_actions[0].get("operation") == "send"
+        and isinstance(app_actions[0].get("message"), dict)
+        and app_actions[0]["message"].get("type") == "websocket.accept"
+        and app_actions[1].get("operation") == "raise"
+    )
+    application_exception_workflow = (
+        is_starlette_websocket_route_error
+        or (
+            isinstance(app_actions, list)
+            and len(app_actions) == 1
+            and isinstance(app_actions[0], dict)
+            and app_actions[0].get("operation") == "raise"
+        )
+        or app_error_stream_closure_workflow
     )
     if no_client_actions and (accepted_flow_workflow or application_exception_workflow):
         denial_workflow = False
     if application_exception_workflow:
-        if not no_client_actions or settings["raise_server_exceptions"] is not True:
+        if (
+            settings["raise_server_exceptions"] is not True
+            or (
+                app_error_stream_closure_workflow
+                and (len(session_actions) != 1 or not client_exception_capture_workflow)
+            )
+            or (not app_error_stream_closure_workflow and not no_client_actions)
+            or (client_exception_capture_workflow and not app_error_stream_closure_workflow)
+        ):
             raise ContractError(
-                "TestClient WebSocket app exception cases require no client actions and server exception propagation"
+                "TestClient WebSocket app exception cases require server exception propagation and only the declared stream-closure receive"
             )
         if is_starlette_websocket_route_error:
             exception_spec = asgi_app["endpoint_exception"]
         else:
+            if app_error_stream_closure_workflow:
+                accept_action = _exact(
+                    app_actions[0],
+                    {"operation", "message"},
+                    "TestClient WebSocket accepted-session app action",
+                )
+                accept_message = _exact(
+                    accept_action["message"],
+                    {"type"},
+                    "TestClient WebSocket accepted-session message",
+                )
+                if (
+                    accept_action["operation"] != "send"
+                    or accept_message["type"] != "websocket.accept"
+                ):
+                    raise ContractError(
+                        "TestClient WebSocket app must accept before its declared failure"
+                    )
+                raise_action_index = 1
+            else:
+                raise_action_index = 0
             raise_action = _exact(
-                app_actions[0],
+                app_actions[raise_action_index],
                 {"operation", "exception_class", "message"},
                 "TestClient WebSocket application exception action",
             )
@@ -15060,6 +15208,13 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
             TESTCLIENT_WEBSOCKET_REQUIREMENTS["application_exception"],
             TESTCLIENT_WEBSOCKET_REQUIREMENTS["portal_cleanup"],
         }
+        if app_error_stream_closure_workflow:
+            expected_covers.update(
+                {
+                    TESTCLIENT_WEBSOCKET_REQUIREMENTS["handshake"],
+                    TESTCLIENT_WEBSOCKET_REQUIREMENTS["app_error_stream_closure"],
+                }
+            )
         if set(case["covers"]) != expected_covers:
             raise ContractError(
                 "TestClient WebSocket covers must match the application exception workflow"

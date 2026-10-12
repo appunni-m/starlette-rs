@@ -92,6 +92,7 @@ class StaticFiles:
             receive,
             send,
             self.get_path,
+            self.get_response,
             self.lookup_path,
             self.file_response,
             self.check_config,
