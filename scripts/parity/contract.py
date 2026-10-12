@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import binascii
 import builtins
+import ctypes
 import hashlib
 import json
 import keyword
@@ -1628,6 +1629,7 @@ BODY_LIMIT_REQUIREMENTS = {
 GZIP_REQUIREMENT_CONSTRUCTION = "starlette.middleware.gzip.GZipMiddleware.construct"
 GZIP_REQUIREMENTS = {
     "gzip-final-response": "starlette.middleware.gzip.GZipMiddleware.gzip-final-response",
+    "compresslevel-c-int-overflow-deferred": "starlette.middleware.gzip.GZipMiddleware.compresslevel-c-int-overflow-deferred",
     "identity-client": "starlette.middleware.gzip.GZipMiddleware.identity-client",
     "identity-streaming-response": "starlette.middleware.gzip.GZipMiddleware.identity-streaming-response",
     "identity-excluded-content-type": "starlette.middleware.gzip.GZipMiddleware.identity-excluded-content-type",
@@ -6819,6 +6821,16 @@ def _validate_static_files_case_stimulus(
                 raise ContractError("StaticFiles get_response body must be base64") from exc
             if base64.b64encode(decoded_body).decode("ascii") != encoded_body:
                 raise ContractError("StaticFiles get_response body must use canonical base64")
+        elif subclass_hook_name == "get_directories":
+            hook = _exact(
+                subclass_hooks[subclass_hook_name],
+                {"return_configured_directory"},
+                "StaticFiles get_directories subclass hook",
+            )
+            if type(hook["return_configured_directory"]) is not bool:
+                raise ContractError(
+                    "StaticFiles get_directories return_configured_directory must be boolean"
+                )
         else:
             raise ContractError("StaticFiles subclass hook is unsupported")
     elif "subclass_hooks" in case:
@@ -6833,6 +6845,16 @@ def _validate_static_files_case_stimulus(
         raise ContractError("StaticFiles.check_dir must be boolean")
     if type(case["follow_symlink"]) is not bool:
         raise ContractError("StaticFiles.follow_symlink must be boolean")
+    if subclass_hook_name == "get_directories":
+        if (
+            case["directory"] is None
+            or not isinstance(case["directory"], str)
+            or case["packages"] != []
+            or not subclass_hooks["get_directories"]["return_configured_directory"]
+        ):
+            raise ContractError(
+                "StaticFiles get_directories override requires a configured string root and returns that root"
+            )
 
     path_limit_stress = case["path_limit_stress"]
     if path_limit_stress is not None:
@@ -7222,6 +7244,7 @@ def _validate_static_files_case_stimulus(
                     "file_response": "file-response-subclass-override",
                     "is_not_modified": "is-not-modified-subclass-override",
                     "get_response": "get-response-subclass-override",
+                    "get_directories": "get-directories-subclass-override",
                 }[subclass_hook_name]
                 derived.add(requirement_suffix)
             else:
@@ -31495,12 +31518,15 @@ def _validate_gzip_constructor_stimulus(args: dict[str, Any]) -> None:
     thread_minimum_size = args.get("thread_minimum_size", 128 * 1024)
     if not isinstance(minimum_size, int) or isinstance(minimum_size, bool) or minimum_size < 0:
         raise ContractError("GZipMiddleware minimum_size must be a non-negative integer")
-    if (
-        not isinstance(compresslevel, int)
-        or isinstance(compresslevel, bool)
-        or not -1 <= compresslevel <= 9
-    ):
-        raise ContractError("GZipMiddleware compresslevel must be an integer from -1 through 9")
+    if not isinstance(compresslevel, int) or isinstance(compresslevel, bool):
+        raise ContractError("GZipMiddleware compresslevel must be an integer")
+    c_int_bits = ctypes.sizeof(ctypes.c_int) * 8
+    c_int_min = -(1 << (c_int_bits - 1))
+    c_int_max = (1 << (c_int_bits - 1)) - 1
+    if not -1 <= compresslevel <= 9 and c_int_min <= compresslevel <= c_int_max:
+        raise ContractError(
+            "GZipMiddleware compresslevel must be zlib-valid or exceed the C int range"
+        )
     if (
         not isinstance(thread_minimum_size, int)
         or isinstance(thread_minimum_size, bool)
@@ -31595,6 +31621,12 @@ def _gzip_single_dispatch_semantic_coverage(case: dict[str, Any]) -> set[str]:
     )
     minimum_size = constructor_args.get("minimum_size", 500)
     thread_minimum_size = constructor_args.get("thread_minimum_size", 128 * 1024)
+    compresslevel = constructor_args.get("compresslevel", 9)
+    compresslevel_valid = -1 <= compresslevel <= 9
+    c_int_bits = ctypes.sizeof(ctypes.c_int) * 8
+    c_int_min = -(1 << (c_int_bits - 1))
+    c_int_max = (1 << (c_int_bits - 1)) - 1
+    compresslevel_overflows_c_int = compresslevel < c_int_min or compresslevel > c_int_max
     compressible = not content_encoded and not partial_response and not excluded
     coverage = {GZIP_REQUIREMENT_CONSTRUCTION}
     if any(name != name.lower() for name, _value in [*response_headers, *request_headers]):
@@ -31610,6 +31642,7 @@ def _gzip_single_dispatch_semantic_coverage(case: dict[str, Any]) -> set[str]:
                 zip(body_messages, body_lengths, strict=True)
             )
         )
+        and compresslevel_valid
     ):
         coverage.add(GZIP_REQUIREMENTS["thread-minimum-size"])
 
@@ -31619,8 +31652,21 @@ def _gzip_single_dispatch_semantic_coverage(case: dict[str, Any]) -> set[str]:
         and not body_messages[0]["more_body"]
         and body_lengths[0] >= minimum_size
         and compressible
+        and compresslevel_valid
     ):
         coverage.add(GZIP_REQUIREMENTS["gzip-final-response"])
+    if (
+        gzip_accepted
+        and compressible
+        and compresslevel_overflows_c_int
+        and any(
+            index > 0 or message["more_body"] or body_length >= minimum_size
+            for index, (message, body_length) in enumerate(
+                zip(body_messages, body_lengths, strict=True)
+            )
+        )
+    ):
+        coverage.add(GZIP_REQUIREMENTS["compresslevel-c-int-overflow-deferred"])
     if (
         accept_encoding.strip().lower() == b"identity"
         and len(body_messages) == 1
@@ -31648,6 +31694,7 @@ def _gzip_single_dispatch_semantic_coverage(case: dict[str, Any]) -> set[str]:
         and sum(body_lengths) >= minimum_size
         and not content_encoded
         and not partial_response
+        and compresslevel_valid
     ):
         coverage.add(GZIP_REQUIREMENTS["cleared-exclude-content-types"])
     if (
@@ -31682,9 +31729,10 @@ def _gzip_single_dispatch_semantic_coverage(case: dict[str, Any]) -> set[str]:
         and not excluded
         and not content_encoded
         and not partial_response
+        and compresslevel_valid
     ):
         coverage.add(GZIP_REQUIREMENTS["default-allowed-content-type"])
-    if gzip_accepted and complete_stream and compressible:
+    if gzip_accepted and complete_stream and compressible and compresslevel_valid:
         coverage.add(GZIP_REQUIREMENTS["streaming-chunks"])
     if (
         gzip_accepted
@@ -31698,6 +31746,7 @@ def _gzip_single_dispatch_semantic_coverage(case: dict[str, Any]) -> set[str]:
         and any(
             base64.b64decode(message["body_base64"], validate=True) for message in body_messages
         )
+        and compresslevel_valid
     ):
         coverage.add(GZIP_REQUIREMENTS["streaming-empty-chunk"])
     if (

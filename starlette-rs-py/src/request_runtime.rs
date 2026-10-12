@@ -3,6 +3,7 @@
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex, MutexGuard};
 
+use pyo3::basic::CompareOp;
 use pyo3::class::gc::{PyTraverseError, PyVisit};
 use pyo3::create_exception;
 use pyo3::exceptions::{
@@ -11,7 +12,7 @@ use pyo3::exceptions::{
 };
 use pyo3::prelude::*;
 use pyo3::types::{
-    PyBool, PyBytes, PyDict, PyList, PyModule, PyString, PyTraceback, PyTuple, PyType,
+    PyBool, PyBytes, PyDict, PyInt, PyList, PyModule, PyString, PyTraceback, PyTuple, PyType,
 };
 use starlette_rs::{
     FormData as NativeFormData, FormDataParseError, MultipartFormEvent, MultipartFormParseError,
@@ -641,7 +642,8 @@ impl PyRequestBody {
             max_files_display: max_files.str()?.extract::<String>()?,
             max_fields: max_fields.extract::<f64>()?,
             max_fields_display: max_fields.str()?.extract::<String>()?,
-            max_part_size: max_part_size.extract::<i64>()?,
+            max_part_size: extract_form_max_part_size(max_part_size)?,
+            max_part_size_value: max_part_size.clone().unbind(),
             multipart_parser: None,
             multipart_events: VecDeque::new(),
             multipart_operations: VecDeque::new(),
@@ -1396,6 +1398,7 @@ struct FormMachine {
     max_fields: f64,
     max_fields_display: String,
     max_part_size: i64,
+    max_part_size_value: Py<PyAny>,
     multipart_parser: Option<MultipartFormParser>,
     multipart_events: VecDeque<MultipartFormEvent>,
     multipart_operations: VecDeque<MultipartFileOperation>,
@@ -1408,6 +1411,30 @@ struct FormMachine {
     urlencoded_limits: UrlEncodedFormLimits,
     pending_receive: bool,
     pending_multipart_operation: bool,
+}
+
+fn extract_form_max_part_size(value: &Bound<'_, PyAny>) -> PyResult<i64> {
+    match value.extract::<i64>() {
+        Ok(limit) => Ok(limit),
+        Err(error) => {
+            if value.is_instance_of::<PyInt>() {
+                if value.rich_compare(i64::MAX, CompareOp::Gt)?.is_truthy()? {
+                    // Starlette compares this option against Python's arbitrary-precision
+                    // field-size integer. No Python request body can exceed i64::MAX on
+                    // supported Rust targets, so saturating a larger positive limit keeps
+                    // the comparison outcome while retaining the parser's bounded counter.
+                    return Ok(i64::MAX);
+                }
+                if value.rich_compare(i64::MIN, CompareOp::Lt)?.is_truthy()? {
+                    // Any nonempty field exceeds an arbitrarily small negative limit;
+                    // i64::MIN preserves that comparison and the displayed KB value for
+                    // a limit just below the representable range.
+                    return Ok(i64::MIN);
+                }
+            }
+            Err(error)
+        }
+    }
 }
 
 #[derive(Default)]
@@ -1486,6 +1513,7 @@ impl AwaitableStateMachine for FormMachine {
     fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
         visit.call(&self.shared)?;
         visit.call(&self.scope)?;
+        visit.call(&self.max_part_size_value)?;
         for (_, item) in &self.multipart_items {
             visit.call(item)?;
         }
@@ -1519,6 +1547,19 @@ impl AwaitableStateMachine for FormMachine {
 }
 
 impl FormMachine {
+    fn max_part_size_kb_display(&self, py: Python<'_>) -> PyResult<String> {
+        // Starlette builds this error field with `int(max_part_size / 1024)`,
+        // whose float conversion and arbitrary-precision result are Python-specific.
+        let quotient = py
+            .import("operator")?
+            .getattr("truediv")?
+            .call1((self.max_part_size_value.bind(py), 1024))?;
+        py.get_type::<PyInt>()
+            .call1((quotient,))?
+            .str()?
+            .extract::<String>()
+    }
+
     fn resume_inner(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
         match input {
             MachineResume::Start => self.start(py),
@@ -1698,7 +1739,11 @@ impl FormMachine {
                 "Too many fields. Maximum number of fields is {}.",
                 self.max_fields_display
             ),
-            FormDataParseError::FieldTooLarge { max_part_size_kb } => {
+            FormDataParseError::FieldTooLarge { .. } => {
+                let max_part_size_kb = match self.max_part_size_kb_display(py) {
+                    Ok(value) => value,
+                    Err(error) => return error,
+                };
                 format!("Field exceeded maximum size of {max_part_size_kb}KB.")
             }
         };
@@ -1706,7 +1751,17 @@ impl FormMachine {
     }
 
     fn multipart_parse_error(&self, py: Python<'_>, error: MultipartFormParseError) -> PyErr {
-        self.form_exception(py, &error.message())
+        let message = match error {
+            MultipartFormParseError::PartTooLarge { .. } => {
+                let max_part_size_kb = match self.max_part_size_kb_display(py) {
+                    Ok(value) => value,
+                    Err(error) => return error,
+                };
+                format!("Part exceeded maximum size of {max_part_size_kb}KB.")
+            }
+            error => error.message(),
+        };
+        self.form_exception(py, &message)
     }
 
     fn form_exception(&self, py: Python<'_>, message: &str) -> PyErr {

@@ -41,11 +41,13 @@ class GZipMiddleware:
         exclude_content_types: tuple[str, ...] = DEFAULT_EXCLUDED_CONTENT_TYPES,
     ) -> None:
         self.app = app
+        compresslevel, compresslevel_overflow = _core._gzip_i32(compresslevel)
         self.config = _core.GzipConfig(
-            minimum_size,
+            _core._gzip_i64(minimum_size),
             compresslevel,
-            thread_minimum_size,
+            _core._gzip_i64(thread_minimum_size),
             list(exclude_content_types),
+            compresslevel_overflow,
         )
         self._runtime = _core.GZipMiddlewareRuntime(self.app, self.config, _offload_gzip_body)
 
@@ -73,11 +75,13 @@ class GZipResponder:
         exclude_content_types: tuple[str, ...] = DEFAULT_EXCLUDED_CONTENT_TYPES,
     ) -> None:
         self.app = app
+        compresslevel, compresslevel_overflow = _core._gzip_i32(compresslevel)
         self.config = _core.GzipConfig(
-            minimum_size,
+            _core._gzip_i64(minimum_size),
             compresslevel,
-            thread_minimum_size,
+            _core._gzip_i64(thread_minimum_size),
             list(exclude_content_types),
+            compresslevel_overflow,
         )
         self._runtime = _core.GZipMiddlewareRuntime(self.app, self.config, _offload_gzip_body, True)
 

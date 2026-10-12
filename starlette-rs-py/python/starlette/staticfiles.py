@@ -12,7 +12,14 @@ PathLike = str | os.PathLike[str]
 class StaticFiles:
     """Serve files from configured directories through native dispatch."""
 
-    __slots__ = ("_inner",)
+    __slots__ = (
+        "_all_directories",
+        "_directory",
+        "_follow_symlink",
+        "_html",
+        "_inner",
+        "_packages",
+    )
 
     def __init__(
         self,
@@ -23,23 +30,35 @@ class StaticFiles:
         check_dir: bool = True,
         follow_symlink: bool = False,
     ) -> None:
-        self._inner = _core.StaticFiles(directory, packages, html, check_dir, follow_symlink)
+        self._directory = directory
+        self._packages = packages
+        self._all_directories = self.get_directories(directory, packages)
+        self._html = html
+        self._follow_symlink = follow_symlink
+        self._inner = _core.StaticFiles(
+            directory,
+            packages,
+            html,
+            check_dir,
+            follow_symlink,
+            self._all_directories,
+        )
 
     @property
     def directory(self) -> PathLike | None:
-        return self._inner.directory
+        return self._directory
 
     @property
     def packages(self) -> list[str | tuple[str, str]] | None:
-        return self._inner.packages
+        return self._packages
 
     @property
     def all_directories(self) -> list[PathLike]:
-        return self._inner.all_directories
+        return self._all_directories
 
     @property
     def html(self) -> bool:
-        return self._inner.html
+        return self._html
 
     @property
     def config_checked(self) -> bool:
@@ -47,14 +66,14 @@ class StaticFiles:
 
     @property
     def follow_symlink(self) -> bool:
-        return self._inner.follow_symlink
+        return self._follow_symlink
 
     def get_directories(
         self,
         directory: PathLike | None = None,
         packages: list[str | tuple[str, str]] | None = None,
     ) -> list[PathLike]:
-        return self._inner.get_directories(directory, packages)
+        return _core.static_files_get_directories(directory, packages)
 
     def get_path(self, scope: dict[str, object]) -> str:
         return self._inner.get_path(scope)

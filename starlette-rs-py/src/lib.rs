@@ -44,7 +44,7 @@ mod testclient_runtime;
 mod websocket_calls;
 mod wsgi_runtime;
 
-use pyo3::exceptions::{PyAssertionError, PyKeyError};
+use pyo3::exceptions::{PyAssertionError, PyKeyError, PyOverflowError};
 use pyo3::exceptions::{PyRuntimeError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyDict, PyList, PyModule, PyString, PyTuple};
@@ -1239,12 +1239,13 @@ impl PyLifespanState {
 #[pyclass(name = "GzipConfig")]
 struct PyGzipConfig {
     inner: NativeGzipConfig,
+    compresslevel_overflow: bool,
 }
 
 #[pymethods]
 impl PyGzipConfig {
     #[new]
-    #[pyo3(signature = (minimum_size=500, compresslevel=9, thread_minimum_size=131072, exclude_content_types=None))]
+    #[pyo3(signature = (minimum_size=500, compresslevel=9, thread_minimum_size=131072, exclude_content_types=None, compresslevel_overflow=false))]
     // LINT EXCEPTION: Keep Starlette's public `compresslevel` keyword spelling in the PyO3 constructor.
     #[allow(non_snake_case)]
     fn new(
@@ -1252,6 +1253,7 @@ impl PyGzipConfig {
         compresslevel: i32,
         thread_minimum_size: i64,
         exclude_content_types: Option<Vec<String>>,
+        compresslevel_overflow: bool,
     ) -> Self {
         let exclude_content_types = exclude_content_types.unwrap_or_else(|| {
             DEFAULT_EXCLUDED_CONTENT_TYPES
@@ -1266,18 +1268,21 @@ impl PyGzipConfig {
                 thread_minimum_size,
                 exclude_content_types,
             ),
+            compresslevel_overflow,
         }
     }
 
     fn responder(&self, request_headers: Vec<GzipHeader>) -> PyGzipResponder {
         PyGzipResponder {
             inner: self.inner.responder(&request_headers),
+            compresslevel_overflow: self.compresslevel_overflow,
         }
     }
 
     fn gzip_responder(&self) -> PyGzipResponder {
         PyGzipResponder {
             inner: self.inner.gzip_responder(),
+            compresslevel_overflow: self.compresslevel_overflow,
         }
     }
 }
@@ -1285,6 +1290,7 @@ impl PyGzipConfig {
 #[pyclass(name = "GzipResponder")]
 struct PyGzipResponder {
     inner: NativeGzipResponder,
+    compresslevel_overflow: bool,
 }
 
 #[pymethods]
@@ -1293,6 +1299,7 @@ impl PyGzipResponder {
     fn new(config: PyRef<'_, PyGzipConfig>, request_headers: Vec<GzipHeader>) -> Self {
         Self {
             inner: config.inner.responder(&request_headers),
+            compresslevel_overflow: config.compresslevel_overflow,
         }
     }
 
@@ -1310,9 +1317,17 @@ impl PyGzipResponder {
         body: &[u8],
         more_body: bool,
     ) -> PyResult<PyGzipBodyOutput> {
-        let output = py
-            .detach(|| self.inner.response_body(body, more_body))
-            .map_err(|error| gzip_compression_error(py, error))?;
+        let output = match py.detach(|| self.inner.response_body(body, more_body)) {
+            Ok(output) => output,
+            Err(GzipCompressionError::InvalidCompressionLevel(_))
+                if self.compresslevel_overflow =>
+            {
+                return Err(PyOverflowError::new_err(
+                    "Python int too large to convert to C int",
+                ));
+            }
+            Err(error) => return Err(gzip_compression_error(py, error)),
+        };
         Ok(gzip_body_output(output))
     }
 

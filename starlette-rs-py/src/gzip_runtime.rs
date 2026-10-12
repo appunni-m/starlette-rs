@@ -1,7 +1,7 @@
 //! Rust-owned ASGI message flow for GZip middleware.
 
 use pyo3::class::gc::{PyTraverseError, PyVisit};
-use pyo3::exceptions::{PyKeyError, PyLookupError, PyRuntimeError};
+use pyo3::exceptions::{PyKeyError, PyLookupError, PyOverflowError, PyRuntimeError};
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyDict, PyList, PyModule, PyTuple};
 use starlette_rs::{DEFAULT_EXCLUDED_CONTENT_TYPES, GzipHeader};
@@ -18,7 +18,37 @@ pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
         PyTuple::new(module.py(), DEFAULT_EXCLUDED_CONTENT_TYPES)?,
     )?;
     module.add_function(wrap_pyfunction!(offload_gzip_body, module)?)?;
+    module.add_function(wrap_pyfunction!(gzip_i64, module)?)?;
+    module.add_function(wrap_pyfunction!(gzip_i32, module)?)?;
     Ok(())
+}
+
+/// Convert Python's unbounded GZip integer options to their Rust storage types.
+///
+/// Thresholds saturate at the corresponding integer boundary, preserving
+/// their ordering for every response body that Python can represent. An
+/// out-of-range compression level remains invalid and is rejected only when
+/// compression is first requested, as it is by Python's zlib compressor.
+#[pyfunction(name = "_gzip_i64")]
+fn gzip_i64(value: &Bound<'_, PyAny>) -> PyResult<i64> {
+    match value.extract::<i64>() {
+        Ok(value) => Ok(value),
+        Err(error) if error.is_instance_of::<PyOverflowError>(value.py()) => {
+            Ok(if value.lt(0)? { i64::MIN } else { i64::MAX })
+        }
+        Err(error) => Err(error),
+    }
+}
+
+#[pyfunction(name = "_gzip_i32")]
+fn gzip_i32(value: &Bound<'_, PyAny>) -> PyResult<(i32, bool)> {
+    match value.extract::<i32>() {
+        Ok(value) => Ok((value, false)),
+        Err(error) if error.is_instance_of::<PyOverflowError>(value.py()) => {
+            Ok((if value.lt(0)? { i32::MIN } else { i32::MAX }, true))
+        }
+        Err(error) => Err(error),
+    }
 }
 
 #[pyfunction(name = "_offload_gzip_body")]

@@ -361,6 +361,8 @@
       "build/parity/inputs/parity/request-body-receive-error-retry.json",
       "build/parity/inputs/parity/request-stream-disconnect-retry.json",
       "build/parity/inputs/parity/gzip-middleware.json",
+      "build/parity/inputs/parity/gzip-python-bigint-threshold.json",
+      "build/parity/inputs/parity/gzip-python-bigint-compresslevel.json",
       "build/parity/inputs/parity/gzip-header-case-insensitive.json",
       "build/parity/inputs/parity/gzip-responder.json",
       "build/parity/inputs/parity/body-limit-middleware.json",
@@ -447,6 +449,7 @@
       "build/parity/inputs/parity/static-files-null-byte-lookup.json",
       "build/parity/inputs/parity/static-files-stateful-pathlike.json",
       "build/parity/inputs/parity/static-files-os-path.json",
+      "build/parity/inputs/parity/static-files-get-directories-subclass.json",
       "build/parity/inputs/parity/wsgi-middleware.json",
       "build/parity/inputs/parity/wsgi-boundary.json",
       "build/parity/inputs/parity/session-middleware.json",
@@ -460,6 +463,7 @@
       "build/parity/inputs/parity/templating-runtime.json",
       "build/parity/inputs/parity/templating-docs-inputs.json",
       "build/parity/inputs/parity/request-form-urlencoded.json",
+      "build/parity/inputs/parity/request-form-large-part-size.json",
       "build/parity/inputs/parity/request-form-multipart.json",
       "build/parity/inputs/parity/request-form-multipart-iso-8859-1.json",
       "build/parity/inputs/parity/formdata-constructor.json",
@@ -11931,6 +11935,17 @@
               ]
             },
             {
+              "id": "starlette.middleware.gzip.GZipMiddleware.compresslevel-c-int-overflow-deferred",
+              "dimension": "error_path",
+              "description": "Accept an arbitrary-precision integer compression level at construction, then preserve CPython's OverflowError when the first eligible response body reaches zlib's C-int conversion. Pinned source: starlette/middleware/gzip.py:45-57,180-202.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.middleware.gzip.GZipMiddleware.identity-client",
               "dimension": "mode",
               "description": "Pass a large response through unchanged for an identity-only client while preserving the live ASGI events.",
@@ -15335,7 +15350,7 @@
             {
               "id": "starlette.request.form.parser-limits",
               "dimension": "parameter_combination",
-              "description": "Enforce URL-encoded max_fields and max_part_size options at both defaults and supplied limits, preserve the upstream MultiPartException versus HTTPException boundary, stop before requesting a later body chunk after a limit is exceeded, and return the exact public form-parsing error when a single chunk exceeds either limit. Pinned source: starlette/requests.py:268-308; starlette/formparsers.py:57-100; tests/test_formparsers.py::test_urlencoded_too_many_fields_raise, ::test_urlencoded_field_exceeds_max_part_size_raise, ::test_urlencoded_limits_stop_parsing_within_a_single_chunk, ::test_urlencoded_max_fields_is_customizable, and ::test_urlencoded_max_part_size_is_customizable; docs/requests.md:116-126.",
+              "description": "Enforce URL-encoded max_fields and max_part_size options at both defaults and supplied limits, preserve Python's unbounded integer comparison and deferred error-message conversion for max_part_size, preserve the upstream MultiPartException versus HTTPException boundary, stop before requesting a later body chunk after a limit is exceeded, and return the exact public form-parsing error when a single chunk exceeds either limit. Pinned source: starlette/requests.py:268-308; starlette/formparsers.py:57-100; tests/test_formparsers.py::test_urlencoded_too_many_fields_raise, ::test_urlencoded_field_exceeds_max_part_size_raise, ::test_urlencoded_limits_stop_parsing_within_a_single_chunk, ::test_urlencoded_max_fields_is_customizable, and ::test_urlencoded_max_part_size_is_customizable; docs/requests.md:116-126.",
               "lanes": [
                 "parity"
               ],
@@ -24324,7 +24339,7 @@
           },
           "source": {
             "oracle_id": "starlette-python",
-            "path": "starlette.staticfiles.StaticFiles.__call__, StaticFiles.get_response, StaticFiles.file_response, and StaticFiles.is_not_modified",
+            "path": "starlette.staticfiles.StaticFiles.__init__, StaticFiles.get_directories, StaticFiles.__call__, StaticFiles.get_response, StaticFiles.file_response, and StaticFiles.is_not_modified",
             "signature": "StaticFiles(*, directory=None, packages=None, html=False, check_dir=True, follow_symlink=False); async __call__(scope, receive, send) -> None",
             "parameters": [
               {
@@ -24567,6 +24582,17 @@
               "id": "starlette.staticfiles.StaticFiles.asgi-call.get-response-subclass-override",
               "dimension": "feature",
               "description": "Subclass StaticFiles with an input-defined async get_response override and compare its returned response plus the path and scope passed by the ASGI entry point. Pinned source: starlette/staticfiles.py:88-100.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.staticfiles.StaticFiles.asgi-call.get-directories-subclass-override",
+              "dimension": "feature",
+              "description": "Subclass StaticFiles with an input-defined synchronous get_directories override, then compare the constructor arguments observed by the hook and the response served from its returned root. Pinned source: starlette/staticfiles.py:43-46,68-85.",
               "lanes": [
                 "parity"
               ],

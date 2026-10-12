@@ -19,7 +19,27 @@ use starlette_rs::{
 
 /// Registers the native static-file runtime.
 pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
-    module.add_class::<PyStaticFiles>()
+    module.add_class::<PyStaticFiles>()?;
+    module.add_function(wrap_pyfunction!(static_files_get_directories, module)?)?;
+    Ok(())
+}
+
+#[pyfunction]
+#[pyo3(signature = (directory=None, packages=None))]
+fn static_files_get_directories(
+    py: Python<'_>,
+    directory: Option<Py<PyAny>>,
+    packages: Option<Py<PyAny>>,
+) -> PyResult<Py<PyAny>> {
+    let (package_paths, _) = resolve_directories(py, None, packages.as_ref(), false)?;
+    let paths = PyList::empty(py);
+    if let Some(directory) = directory.as_ref() {
+        paths.append(directory.bind(py))?;
+    }
+    for path in package_paths {
+        paths.append(path_string(&path)?)?;
+    }
+    Ok(paths.into_any().unbind())
 }
 
 #[pyclass(name = "StaticFiles")]
@@ -28,6 +48,8 @@ struct PyStaticFiles {
     config_checked: bool,
     directory: Option<Py<PyAny>>,
     packages: Option<Py<PyAny>>,
+    all_directories: Py<PyAny>,
+    directory_is_lookup_root: bool,
 }
 
 #[pymethods]
@@ -35,16 +57,18 @@ impl PyStaticFiles {
     fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
         visit.call(&self.directory)?;
         visit.call(&self.packages)?;
+        visit.call(&self.all_directories)?;
         Ok(())
     }
 
     fn __clear__(&mut self, _py: Python<'_>) {
         self.directory = None;
         self.packages = None;
+        self.all_directories = _py.None();
     }
 
     #[new]
-    #[pyo3(signature = (directory=None, packages=None, html=false, check_dir=true, follow_symlink=false))]
+    #[pyo3(signature = (directory=None, packages=None, html=false, check_dir=true, follow_symlink=false, all_directories=None))]
     fn new(
         py: Python<'_>,
         directory: Option<Py<PyAny>>,
@@ -52,19 +76,49 @@ impl PyStaticFiles {
         html: bool,
         check_dir: bool,
         follow_symlink: bool,
+        all_directories: Option<Py<PyAny>>,
     ) -> PyResult<Self> {
         let defer_path_like_directory = directory
             .as_ref()
             .is_some_and(|value| !value.bind(py).is_instance_of::<PyString>() && !check_dir);
-        let (all_directories, native_directory) = resolve_directories(
-            py,
-            directory.as_ref(),
-            packages.as_ref(),
-            !defer_path_like_directory,
-        )?;
+        let all_directories = match all_directories {
+            Some(all_directories) => all_directories,
+            None => static_files_get_directories(
+                py,
+                directory.as_ref().map(|value| value.clone_ref(py)),
+                packages.as_ref().map(|value| value.clone_ref(py)),
+            )?,
+        };
+        let mut directories = Vec::new();
+        let mut native_directory = None;
+        let mut directory_is_lookup_root = false;
+        for value in all_directories.bind(py).try_iter()? {
+            let value = value?;
+            let is_configured_directory = directory
+                .as_ref()
+                .is_some_and(|directory| value.is(directory.bind(py)));
+            if is_configured_directory {
+                if defer_path_like_directory && !directory_is_lookup_root {
+                    directory_is_lookup_root = true;
+                    continue;
+                }
+                directory_is_lookup_root = true;
+            }
+            let path = path_from_python(py, &value)?;
+            if is_configured_directory && native_directory.is_none() {
+                native_directory = Some(path.clone());
+            }
+            directories.push(path);
+        }
+        if native_directory.is_none() && !defer_path_like_directory {
+            native_directory = directory
+                .as_ref()
+                .map(|directory| path_from_python(py, directory.bind(py)))
+                .transpose()?;
+        }
         let inner = NativeStaticFiles::new(
             native_directory,
-            all_directories,
+            directories,
             html,
             check_dir,
             follow_symlink,
@@ -75,6 +129,8 @@ impl PyStaticFiles {
             config_checked: false,
             directory,
             packages,
+            all_directories,
+            directory_is_lookup_root,
         })
     }
 
@@ -94,19 +150,7 @@ impl PyStaticFiles {
 
     #[getter]
     fn all_directories(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        let paths = PyList::empty(py);
-        if let Some(directory) = self.directory.as_ref() {
-            paths.append(directory.bind(py))?;
-        }
-        for path in self
-            .inner
-            .directories()
-            .iter()
-            .skip(usize::from(self.inner.directory().is_some()))
-        {
-            paths.append(path_string(path)?)?;
-        }
-        Ok(paths.into_any().unbind())
+        Ok(self.all_directories.clone_ref(py))
     }
 
     #[getter]
@@ -130,15 +174,7 @@ impl PyStaticFiles {
         directory: Option<Py<PyAny>>,
         packages: Option<Py<PyAny>>,
     ) -> PyResult<Py<PyAny>> {
-        let (directories, _) = resolve_directories(py, None, packages.as_ref(), false)?;
-        let paths = PyList::empty(py);
-        if let Some(directory) = directory.as_ref() {
-            paths.append(directory.bind(py))?;
-        }
-        for path in directories {
-            paths.append(path_string(&path)?)?;
-        }
-        Ok(paths.into_any().unbind())
+        static_files_get_directories(py, directory, packages)
     }
 
     fn get_path(&self, scope: &Bound<'_, PyDict>) -> PyResult<String> {
@@ -157,10 +193,9 @@ impl PyStaticFiles {
     fn lookup_path(&self, py: Python<'_>, path: &str) -> PyResult<(String, Py<PyAny>)> {
         let inner = self.inner.clone();
         let path = path.to_owned();
-        let dynamic_directory = self
-            .directory
-            .as_ref()
-            .filter(|directory| !directory.bind(py).is_instance_of::<PyString>());
+        let dynamic_directory = self.directory.as_ref().filter(|directory| {
+            self.directory_is_lookup_root && !directory.bind(py).is_instance_of::<PyString>()
+        });
         let lookup = if path.starts_with('/') || path.starts_with('\\') {
             py.detach(move || inner.lookup_path(&path))
         } else if let Some(directory) = dynamic_directory {

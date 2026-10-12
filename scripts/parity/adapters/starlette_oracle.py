@@ -9512,6 +9512,12 @@ def _run_static_files_case(case: dict[str, Any]) -> dict[str, Any]:
                 {"return_value"},
                 "StaticFiles is_not_modified subclass hook",
             )
+        elif selected_hook == "get_directories":
+            _strict_object(
+                subclass_hooks["get_directories"],
+                {"return_configured_directory"},
+                "StaticFiles get_directories subclass hook",
+            )
         else:
             _strict_object(
                 subclass_hooks["get_response"],
@@ -9551,6 +9557,27 @@ def _run_static_files_case(case: dict[str, Any]) -> dict[str, Any]:
         from starlette.responses import Response
 
         class StaticFilesSubclassHooks(StaticFiles):
+            def get_directories(
+                self,
+                directory: Any = None,
+                packages: Any = None,
+            ) -> list[Any]:
+                hook_spec = subclass_hooks.get("get_directories")
+                if hook_spec is None:
+                    return super().get_directories(directory, packages)
+                subclass_hook_calls.append(
+                    {
+                        "hook": "get_directories",
+                        "directory_basename": Path(directory).name
+                        if directory is not None
+                        else None,
+                        "packages": packages,
+                    }
+                )
+                if hook_spec["return_configured_directory"] and directory is not None:
+                    return [directory]
+                return []
+
             def file_response(
                 self,
                 full_path: str,
