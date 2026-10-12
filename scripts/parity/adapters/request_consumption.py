@@ -55,7 +55,12 @@ def _value(
 
 
 async def _observe(case: dict[str, Any], request_type: Callable[..., Any]) -> dict[str, Any]:
-    incoming = [_decode_message(message) for message in case["receive"]]
+    incoming = [
+        ValueError(event["message"])
+        if event.get("kind") == "raise" and event.get("exception_type") == "ValueError"
+        else _decode_message(event)
+        for event in case["receive"]
+    ]
     gates = {index: asyncio.Event() for index in case["blocked_receive_calls"]}
     receive_trace: list[dict[str, Any]] = []
     received = 0
@@ -69,6 +74,18 @@ async def _observe(case: dict[str, Any], request_type: Callable[..., Any]) -> di
         if gate is not None:
             await gate.wait()
         message = incoming[call_index]
+        if isinstance(message, Exception):
+            receive_trace.append(
+                {
+                    "event": "error",
+                    "call": call_index,
+                    "error": {
+                        "class": f"{type(message).__module__}.{type(message).__qualname__}",
+                        "message": str(message),
+                    },
+                }
+            )
+            raise message
         receive_trace.append({"event": "return", "call": call_index, "message": _safe(message)})
         return message
 

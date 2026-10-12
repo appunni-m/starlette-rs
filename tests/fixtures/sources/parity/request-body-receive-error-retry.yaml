@@ -1,0 +1,47 @@
+{
+  "schema": "migration-parity/parity-input@48",
+  "cases": [
+    {
+      "case_id": "starlette.requests.Request.body-stream-json.receive-error-retry",
+      "surface": "starlette.requests.Request",
+      "operation": "body-stream-json",
+      "covers": [
+        "starlette.request.body.receive-error-propagation",
+        "starlette.request.body.retry-after-receive-error"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "http"
+      },
+      "receive": [
+        {
+          "kind": "raise",
+          "exception_type": "ValueError",
+          "message": "temporary receive failure"
+        },
+        {
+          "type": "http.request",
+          "body_base64": "cmVjb3ZlcmVk",
+          "more_body": false
+        }
+      ],
+      "blocked_receive_calls": [],
+      "actions": [
+        {
+          "operation": "body"
+        },
+        {
+          "operation": "body"
+        }
+      ],
+      "observations": ["request-consumption"]
+    }
+  ]
+}

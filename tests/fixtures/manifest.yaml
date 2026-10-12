@@ -320,6 +320,7 @@
       "build/parity/inputs/parity/request-client-address.json",
       "build/parity/inputs/parity/request-scope-interface.json",
       "build/parity/inputs/parity/request-consumption.json",
+      "build/parity/inputs/parity/request-body-receive-error-retry.json",
       "build/parity/inputs/parity/request-stream-disconnect-retry.json",
       "build/parity/inputs/parity/gzip-middleware.json",
       "build/parity/inputs/parity/gzip-responder.json",
@@ -330,6 +331,7 @@
       "build/parity/inputs/parity/asgi-http-exceptions.json",
       "build/parity/inputs/parity/asgi-callable-http-exceptions.json",
       "build/parity/inputs/parity/asgi-exception-handlers.json",
+      "build/parity/inputs/parity/exception-handler-mro-order.json",
       "build/parity/inputs/parity/asgi-server-errors.json",
       "build/parity/inputs/parity/server-error-middleware.json",
       "build/parity/inputs/parity/websocket-protocol.json",
@@ -381,6 +383,7 @@
       "build/parity/inputs/parity/comma-separated-strings.json",
       "build/parity/inputs/parity/file-response.json",
       "build/parity/inputs/parity/file-response-range-decimal-inputs.json",
+      "build/parity/inputs/parity/file-response-if-range-last-modified.json",
       "build/parity/inputs/parity/lifespan-generators.json",
       "build/parity/inputs/parity/lifespan-native-failure-transitions.json",
       "build/parity/inputs/parity/authentication-runtime.json",
@@ -1555,6 +1558,17 @@
               "id": "starlette.asgi.exception-handler.exception-class",
               "dimension": "error_path",
               "description": "A registered HTTPException subclass handler is selected by exception-class MRO and receives the route request and original exception.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.asgi.exception-handler.exception-class-mro-order",
+              "dimension": "boundary",
+              "description": "Register an HTTPException base handler before a more specific BodyReuseException handler, then raise the subclass and observe that exception-class MRO selects the subclass handler despite registration order. Pinned source: starlette/_exception_handler.py:16-20.",
               "lanes": [
                 "parity"
               ],
@@ -15604,6 +15618,36 @@
               ]
             },
             {
+              "id": "starlette.request.body.receive-error-propagation",
+              "dimension": "error_path",
+              "description": "Propagate the original ValueError raised by the ASGI receive callback during Request.body() collection. Pinned source: starlette/requests.py:234-260.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
+              "id": "starlette.request.body.retry-after-receive-error",
+              "dimension": "boundary",
+              "description": "After Request.body() collection fails because receive raised, call body() again and verify that the new collection can complete and is cached. Pinned source: starlette/requests.py:234-260.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
               "id": "starlette.request.stream-disconnect-retry",
               "dimension": "error_path",
               "description": "Let Request.stream() receive http.disconnect and raise ClientDisconnect, then create a fresh stream iterator and consume a later http.request body to completion. The comparison observes the live exception, yielded chunks, and receive ordering. Pinned source: starlette/requests.py:234-252.",
@@ -16707,6 +16751,18 @@
               "id": "starlette.responses.FileResponse.asgi-call.if-range-match",
               "dimension": "parameter_combination",
               "description": "Request a byte range with an If-Range validator matching the deterministic file metadata ETag. Upstream: starlette/responses.py::FileResponse._should_use_range; tests/test_responses.py::test_file_response_with_range_header.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.FileResponse.asgi-call.if-range-last-modified-match",
+              "dimension": "parameter_combination",
+              "description": "Request a byte range with an If-Range validator matching the deterministic Last-Modified value, exercising the date validator alongside the ETag path. Pinned source: starlette/responses.py:456-457; tests/test_responses.py::test_file_response_with_range_header.",
               "lanes": [
                 "parity"
               ],

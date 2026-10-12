@@ -1296,6 +1296,7 @@ ROUTE_BODY_LIMIT_WORKFLOW_REQUIREMENTS = {
     "lower_application": "starlette.routing.Route.max_body_size.lower-application-limit",
 }
 ROUTER_MISS_EXCEPTION_HANDLER_REQUIREMENT = "starlette.asgi.exception-handler.router-miss-404"
+EXCEPTION_CLASS_MRO_ORDER_REQUIREMENT = "starlette.asgi.exception-handler.exception-class-mro-order"
 BOOLEAN_STATUS_KEY_EQUIVALENCE_REQUIREMENT = (
     "starlette.asgi.exception-handler.status-code.bool-int-key-equivalence"
 )
@@ -1389,6 +1390,8 @@ REQUEST_CONSUMPTION_REQUIREMENTS = {
     "body_stream_overlap": "starlette.request.concurrent-body-stream-consumption",
     "stream_client_disconnect": "starlette.request.stream-client-disconnect",
     "body_disconnect_retry": "starlette.request.body-disconnect-retry",
+    "body_receive_error": "starlette.request.body.receive-error-propagation",
+    "body_receive_error_retry": "starlette.request.body.retry-after-receive-error",
     "stream_disconnect_retry": "starlette.request.stream-disconnect-retry",
 }
 SYNC_REQUEST_RUNTIME_REQUIREMENTS = {
@@ -22057,13 +22060,40 @@ def _validate_body_reuse_application(route: dict[str, Any], handlers: Any) -> No
         "name": "BodyReuseException",
         "base_class": "HTTPException",
     }
+    if len(handlers) == 1:
+        if (
+            handlers[0]["key"] == expected_key
+            and handlers[0]["handler"].get("kind") == "request-body-json-response"
+            and handlers[0]["handler"].get("body_field") == "body"
+        ):
+            return
+    elif _is_exception_class_mro_order_probe(endpoint, handlers):
+        return
+    raise ContractError(
+        "body-reuse requires either the declared cached-body handler or an ordered MRO probe"
+    )
+
+
+def _is_exception_class_mro_order_probe(endpoint: dict[str, Any], handlers: Any) -> bool:
     if (
-        len(handlers) != 1
-        or handlers[0]["key"] != expected_key
-        or handlers[0]["handler"].get("kind") != "request-body-json-response"
-        or handlers[0]["handler"].get("body_field") != "body"
+        endpoint.get("kind") != "http-exception-after-body"
+        or endpoint.get("exception_class") != "BodyReuseException"
+        or not isinstance(handlers, list)
+        or len(handlers) != 2
     ):
-        raise ContractError("body-reuse requires the declared subclass handler to read cached body")
+        return False
+    base_key = {"kind": "exception-class", "name": "HTTPException"}
+    subclass_key = {
+        "kind": "exception-class",
+        "name": "BodyReuseException",
+        "base_class": "HTTPException",
+    }
+    return (
+        handlers[0]["key"] == base_key
+        and handlers[0]["handler"].get("kind") == "json-exception-detail-response"
+        and handlers[1]["key"] == subclass_key
+        and handlers[1]["handler"].get("kind") == "json-literal-response"
+    )
 
 
 def _validate_dispatch_stimulus(
@@ -22832,8 +22862,17 @@ def _validate_request_body_stream_json_case(case: dict[str, Any]) -> None:
     if not isinstance(receive, list) or not receive:
         raise ContractError("Request body/stream/json receive tape must be non-empty")
     optional_receive_fields = False
+    receive_error_indices: list[int] = []
     for index, raw_message in enumerate(receive):
         context = f"Request body/stream/json receive[{index}]"
+        if isinstance(raw_message, dict) and raw_message.get("kind") == "raise":
+            _exact(raw_message, {"kind", "exception_type", "message"}, context)
+            if raw_message["exception_type"] != "ValueError" or not isinstance(
+                raw_message["message"], str
+            ):
+                raise ContractError(f"{context} must raise an input-defined ValueError")
+            receive_error_indices.append(index)
+            continue
         if not isinstance(raw_message, dict) or raw_message.get("type") not in {
             "http.request",
             "http.disconnect",
@@ -22914,8 +22953,28 @@ def _validate_request_body_stream_json_case(case: dict[str, Any]) -> None:
         raise ContractError("every started body task must be awaited exactly once")
     if released_calls != set(blocked_receive_calls):
         raise ContractError("every blocked receive callback must be released exactly once")
+    receive_error_probe = bool(receive_error_indices)
+    if receive_error_probe and (
+        receive_error_indices != [0]
+        or len(receive) != 2
+        or receive[1].get("type") != "http.request"
+        or receive[1].get("more_body") is not False
+        or action_operations != ["body", "body"]
+        or blocked_receive_calls
+        or scope_headers
+    ):
+        raise ContractError(
+            "receive-error retry requires one initial ValueError, one final request, and two body calls"
+        )
 
     expected_covers: set[str] = set()
+    if receive_error_probe:
+        expected_covers.update(
+            {
+                REQUEST_CONSUMPTION_REQUIREMENTS["body_receive_error"],
+                REQUEST_CONSUMPTION_REQUIREMENTS["body_receive_error_retry"],
+            }
+        )
     body_positions = [
         index
         for index, operation in enumerate(action_operations)
@@ -22935,16 +22994,17 @@ def _validate_request_body_stream_json_case(case: dict[str, Any]) -> None:
     ]
     if optional_receive_fields:
         expected_covers.add(REQUEST_CONSUMPTION_REQUIREMENTS["optional_receive_fields"])
-    if len(direct_body_positions) > 1:
+    if len(direct_body_positions) > 1 and not receive_error_probe:
         expected_covers.add(REQUEST_CONSUMPTION_REQUIREMENTS["body_cache"])
-    request_messages = [message for message in receive if message["type"] == "http.request"]
+    request_messages = [message for message in receive if message.get("type") == "http.request"]
     if (
         body_positions
         and not blocked_receive_calls
+        and not receive_error_probe
         and len(request_messages) > 1
         and all(message.get("more_body", False) for message in request_messages[:-1])
         and not request_messages[-1].get("more_body", False)
-        and all(message["type"] == "http.request" for message in receive)
+        and all(message.get("type") == "http.request" for message in receive)
     ):
         expected_covers.add(REQUEST_CONSUMPTION_REQUIREMENTS["body_chunks"])
     if (
@@ -22983,17 +23043,19 @@ def _validate_request_body_stream_json_case(case: dict[str, Any]) -> None:
             expected_covers.add(REQUEST_CONSUMPTION_REQUIREMENTS["json_decode_error"])
     first_stream_ended_on_disconnect = (
         len(stream_ids) > 1
+        and not receive_error_probe
         and receive[0]["type"] == "http.disconnect"
         and stream_ids.count(stream_ids[0]) == 1
     )
     if len(set(stream_ids)) > 1 and not first_stream_ended_on_disconnect:
         expected_covers.add(REQUEST_CONSUMPTION_REQUIREMENTS["stream_interleaving"])
     if (stream_positions or direct_body_positions) and any(
-        message["type"] == "http.disconnect" for message in receive
+        message.get("type") == "http.disconnect" for message in receive
     ):
         expected_covers.add(REQUEST_CONSUMPTION_REQUIREMENTS["stream_client_disconnect"])
     if (
         len(stream_ids) >= 4
+        and not receive_error_probe
         and stream_ids[0] != stream_ids[1]
         and stream_ids.count(stream_ids[0]) == 1
         and len(set(stream_ids[1:])) == 1
@@ -23005,6 +23067,7 @@ def _validate_request_body_stream_json_case(case: dict[str, Any]) -> None:
         direct_body_positions
         and json_positions
         and direct_body_positions[0] < json_positions[0]
+        and not receive_error_probe
         and receive[0]["type"] == "http.disconnect"
         and any(message["type"] == "http.request" for message in receive[1:])
     ):
@@ -30200,6 +30263,8 @@ def _semantic_coverage(case: dict[str, Any]) -> set[str]:
                             coverage.add(
                                 "starlette.asgi.exception-handler.request-body-cache-reuse"
                             )
+                    if _is_exception_class_mro_order_probe(endpoint, handlers):
+                        coverage.add(EXCEPTION_CLASS_MRO_ORDER_REQUIREMENT)
             elif endpoint["kind"] == "http-exception":
                 handler_entry = entries_by_key.get(("exception-class", "HTTPException"))
                 if (
