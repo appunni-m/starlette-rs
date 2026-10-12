@@ -185,6 +185,7 @@ HTTP_ENDPOINT_REQUIREMENTS = {
 WEBSOCKET_ENDPOINT_REQUIREMENTS = {
     "lifecycle": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.lifecycle",
     "connect": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.on-connect-subprotocols",
+    "connect_error": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.on-connect-error-skips-disconnect",
     "text": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.decode-text",
     "text_rejects_bytes": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.decode-text-rejects-bytes",
     "bytes": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.decode-bytes",
@@ -193,6 +194,7 @@ WEBSOCKET_ENDPOINT_REQUIREMENTS = {
     "json_binary": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.decode-json-binary",
     "json_malformed": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.decode-json-malformed",
     "disconnect": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.on-disconnect-close-code",
+    "disconnect_error": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.on-disconnect-error-context",
     "default_text": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.decode-default-text",
     "default_empty_text_failure": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.decode-default-empty-text-failure",
     "default_bytes": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.decode-default-bytes",
@@ -988,6 +990,7 @@ ROUTER_DEFAULT_METHOD_MISMATCH_REQUIREMENT = (
 HOST_SURFACE = "starlette.routing.Host"
 HOST_REVERSE_OPERATION = "url_path_for"
 ROUTER_HOST_PORT_REQUIREMENT = "starlette.routing.Router.route-dispatch.host-parameter-port-ignored"
+ROUTER_HOST_IPV6_REQUIREMENT = "starlette.routing.Router.route-dispatch.host-ipv6-authority-match"
 ROUTER_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
     "custom_convertors",
     "redirect_slashes",
@@ -3275,8 +3278,17 @@ def _validate_websocket_endpoint_case_stimulus(case: dict[str, Any]) -> None:
             raise ContractError(
                 "WebSocketEndpoint.on_connect.observe_scope_subprotocols must be boolean"
             )
+    elif on_connect.get("kind") == "raise-value-error":
+        on_connect = _exact(
+            on_connect,
+            {"kind", "message"},
+            "WebSocketEndpoint.on_connect",
+        )
+        _string(on_connect["message"], "WebSocketEndpoint.on_connect.message")
     else:
-        raise ContractError("WebSocketEndpoint.on_connect.kind must be default or accept")
+        raise ContractError(
+            "WebSocketEndpoint.on_connect.kind must be default, accept, or raise-value-error"
+        )
 
     on_receive = endpoint["on_receive"]
     if not isinstance(on_receive, dict):
@@ -3331,15 +3343,23 @@ def _validate_websocket_endpoint_case_stimulus(case: dict[str, Any]) -> None:
         _exact(on_disconnect, {"kind"}, "WebSocketEndpoint.on_disconnect")
     elif on_disconnect.get("kind") == "record-and-close":
         _exact(on_disconnect, {"kind"}, "WebSocketEndpoint.on_disconnect")
+    elif on_disconnect.get("kind") == "raise-runtime-error":
+        on_disconnect = _exact(
+            on_disconnect,
+            {"kind", "message"},
+            "WebSocketEndpoint.on_disconnect",
+        )
+        _string(on_disconnect["message"], "WebSocketEndpoint.on_disconnect.message")
     else:
         raise ContractError(
-            "WebSocketEndpoint.on_disconnect.kind must be default or record-and-close"
+            "WebSocketEndpoint.on_disconnect.kind must be default, record-and-close, "
+            "or raise-runtime-error"
         )
 
     sessions = case["sessions"]
     if not isinstance(sessions, list) or not sessions:
         raise ContractError("WebSocketEndpoint.sessions must be a non-empty array")
-    exercised_requirements = {WEBSOCKET_ENDPOINT_REQUIREMENTS["lifecycle"]}
+    exercised_requirements: set[str] = set()
     for index, raw_session in enumerate(sessions):
         context = f"WebSocketEndpoint.sessions[{index}]"
         if not isinstance(raw_session, dict):
@@ -3372,6 +3392,20 @@ def _validate_websocket_endpoint_case_stimulus(case: dict[str, Any]) -> None:
             raise ContractError(
                 f"{context}.incoming connect subprotocols must match the scope offer"
             )
+        if on_connect["kind"] == "raise-value-error":
+            if (
+                cancel_at is not None
+                or message_types != ["websocket.connect"]
+                or on_receive["kind"] != "no-op"
+                or on_disconnect["kind"] != "default"
+            ):
+                raise ContractError(
+                    f"{context} on_connect failure requires only an unread connect message "
+                    "and default later hooks"
+                )
+            exercised_requirements.add(WEBSOCKET_ENDPOINT_REQUIREMENTS["connect_error"])
+            continue
+        exercised_requirements.add(WEBSOCKET_ENDPOINT_REQUIREMENTS["lifecycle"])
         if message_types == ["websocket.connect", None]:
             if (
                 cancel_at is not None
@@ -3423,6 +3457,12 @@ def _validate_websocket_endpoint_case_stimulus(case: dict[str, Any]) -> None:
             exercised_requirements.add(WEBSOCKET_ENDPOINT_REQUIREMENTS["disconnect"])
 
         if "websocket.receive" not in message_types:
+            if on_disconnect["kind"] == "raise-runtime-error":
+                if message_types[-1] != "websocket.disconnect":
+                    raise ContractError(
+                        f"{context} on_disconnect failure requires a normal disconnect"
+                    )
+                exercised_requirements.add(WEBSOCKET_ENDPOINT_REQUIREMENTS["disconnect_error"])
             continue
         message = incoming[1]
         message_encoding = "text" if "text" in message else "bytes"
@@ -3478,7 +3518,7 @@ def _validate_websocket_endpoint_case_stimulus(case: dict[str, Any]) -> None:
             if (
                 not decode_succeeds
                 or message_types != ["websocket.connect", "websocket.receive"]
-                or on_disconnect["kind"] != "record-and-close"
+                or on_disconnect["kind"] not in {"record-and-close", "raise-runtime-error"}
             ):
                 raise ContractError(
                     f"{context} callback failure requires observed on_disconnect finalization"
@@ -3490,6 +3530,13 @@ def _validate_websocket_endpoint_case_stimulus(case: dict[str, Any]) -> None:
             raise ContractError(
                 f"{context} must supply disconnect after successful handling and omit it after errors"
             )
+        if on_disconnect["kind"] == "raise-runtime-error":
+            if not decode_succeeds or not (has_disconnect or callback_raises):
+                raise ContractError(
+                    f"{context} on_disconnect failure requires a decoded normal disconnect "
+                    "or an on_receive callback failure"
+                )
+            exercised_requirements.add(WEBSOCKET_ENDPOINT_REQUIREMENTS["disconnect_error"])
         exercised_requirements.add(WEBSOCKET_ENDPOINT_REQUIREMENTS[requirement_name])
 
     if set(case["covers"]) != exercised_requirements:
@@ -8220,6 +8267,8 @@ def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
     if selected_host_route_index is not None:
         derived.add("starlette.routing.Router.route-dispatch.host-route-match")
         selected_host_route = routes[selected_host_route_index]
+        if selected_host_route["host"].startswith("[") and raw_request_host.startswith("["):
+            derived.add(ROUTER_HOST_IPV6_REQUIREMENT)
         host_app = selected_host_route["app"]
         if host_app["kind"] == "router":
             child_route_path = _route_path_after_root(path, root_path)

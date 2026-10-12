@@ -6813,6 +6813,16 @@ def _websocket_endpoint_accept_hook(spec: dict[str, Any], calls: list[dict[str, 
     return on_connect
 
 
+def _websocket_endpoint_connect_error_hook(
+    spec: dict[str, Any], calls: list[dict[str, Any]]
+) -> Any:
+    async def on_connect(_endpoint: Any, _websocket: Any) -> None:
+        calls.append({"hook": "on_connect"})
+        raise ValueError(spec["message"])
+
+    return on_connect
+
+
 def _websocket_endpoint_receive_hook(spec: dict[str, Any], calls: list[dict[str, Any]]) -> Any:
     prefix = (
         _decode_b64(spec["prefix_base64"], "WebSocketEndpoint.on_receive.prefix_base64")
@@ -6834,12 +6844,28 @@ def _websocket_endpoint_receive_hook(spec: dict[str, Any], calls: list[dict[str,
     return on_receive
 
 
-def _websocket_endpoint_disconnect_hook(calls: list[dict[str, Any]]) -> Any:
+def _websocket_endpoint_disconnect_hook(spec: dict[str, Any], calls: list[dict[str, Any]]) -> Any:
     async def on_disconnect(_endpoint: Any, websocket: Any, close_code: int) -> None:
         calls.append({"hook": "on_disconnect", "close_code": close_code})
+        if spec["kind"] == "raise-runtime-error":
+            raise RuntimeError(spec["message"])
         await websocket.close(code=close_code)
 
     return on_disconnect
+
+
+def _websocket_endpoint_error(exc: BaseException) -> dict[str, Any]:
+    result = _dispatch_error(exc)
+    context = exc.__context__
+    result["context"] = (
+        {
+            "class": f"{type(context).__module__}.{type(context).__qualname__}",
+            "message": str(context),
+        }
+        if context is not None
+        else None
+    )
+    return result
 
 
 async def _await_websocket_endpoint(
@@ -6864,7 +6890,7 @@ async def _await_cancelled_websocket_endpoint(
     try:
         await task
     except asyncio.CancelledError as exc:
-        return _dispatch_error(exc)
+        return _websocket_endpoint_error(exc)
     return None
 
 
@@ -6908,13 +6934,22 @@ def _run_websocket_endpoint_case(case: dict[str, Any]) -> dict[str, Any]:
             methods["on_connect"] = _websocket_endpoint_accept_hook(
                 endpoint_spec["on_connect"], hook_calls
             )
+        elif endpoint_spec["on_connect"]["kind"] == "raise-value-error":
+            methods["on_connect"] = _websocket_endpoint_connect_error_hook(
+                endpoint_spec["on_connect"], hook_calls
+            )
 
         on_receive_spec = endpoint_spec["on_receive"]
         if on_receive_spec["kind"] != "no-op":
             methods["on_receive"] = _websocket_endpoint_receive_hook(on_receive_spec, hook_calls)
 
-        if endpoint_spec["on_disconnect"]["kind"] == "record-and-close":
-            methods["on_disconnect"] = _websocket_endpoint_disconnect_hook(hook_calls)
+        if endpoint_spec["on_disconnect"]["kind"] in {
+            "record-and-close",
+            "raise-runtime-error",
+        }:
+            methods["on_disconnect"] = _websocket_endpoint_disconnect_hook(
+                endpoint_spec["on_disconnect"], hook_calls
+            )
 
         endpoint_type = type("InputWebSocketEndpoint", (WebSocketEndpoint,), methods)
         receive = _WebSocketEndpointInputReceive(
@@ -6931,8 +6966,11 @@ def _run_websocket_endpoint_case(case: dict[str, Any]) -> dict[str, Any]:
             try:
                 asyncio.run(_await_websocket_endpoint(endpoint_type, scope, receive, send))
             except Exception as exc:
-                error = _dispatch_error(exc)
-        if receive.index != len(incoming):
+                error = _websocket_endpoint_error(exc)
+        if (
+            receive.index != len(incoming)
+            and endpoint_spec["on_connect"]["kind"] != "raise-value-error"
+        ):
             raise ValueError("WebSocketEndpoint dispatch left supplied ASGI input unconsumed")
         connection_results.append(
             {

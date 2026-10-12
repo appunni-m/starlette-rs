@@ -8705,6 +8705,17 @@
               ]
             },
             {
+              "id": "starlette.endpoints.WebSocketEndpoint.dispatch.on-connect-error-skips-disconnect",
+              "dimension": "error_path",
+              "description": "Propagate an exception from on_connect before consuming ASGI input or entering the on_disconnect finally block. Pinned source: starlette/endpoints.py:72-89.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.endpoints.WebSocketEndpoint.dispatch.decode-text",
               "dimension": "protocol_variant",
               "description": "Decode a text WebSocket frame when the endpoint encoding is text, call on_receive, and observe the input-selected text response. Pinned source: starlette/endpoints.py:91-96; tests/test_endpoints.py::test_websocket_endpoint_on_receive_text.",
@@ -8829,6 +8840,17 @@
               "id": "starlette.endpoints.WebSocketEndpoint.dispatch.callback-error-propagation",
               "dimension": "error_path",
               "description": "When an overridden hook raises, set the internal close code to 1011, run on_disconnect in finally, and preserve the original exception. Pinned source: starlette/endpoints.py:70-89.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.endpoints.WebSocketEndpoint.dispatch.on-disconnect-error-context",
+              "dimension": "error_path",
+              "description": "Propagate an exception raised by on_disconnect; when it replaces an on_receive exception, preserve the original exception as Python exception context. Pinned source: starlette/endpoints.py:75-89.",
               "lanes": [
                 "parity"
               ],
@@ -22093,6 +22115,18 @@
                 "parity"
               ],
               "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Router.route-dispatch.host-ipv6-authority-match",
+              "dimension": "protocol_variant",
+              "description": "Match a bracketed IPv6 Host pattern when Starlette truncates both the configured authority and incoming Host header at the first colon. Pinned source: starlette/routing.py:123-164,478-512.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
                 "python-package-cpython312"
               ]
             },
