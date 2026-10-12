@@ -17,7 +17,7 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest uses `parity-input@47` and currently indexes 1,995 input-only cases across 142 parity files, two benchmark files, 133 operations, and 1,028 requirements. The latest full clean run, `dc8c8ca6-f2b7-449b-9f53-45860e3cad4c`, covered the preceding 1,992-case, 140-file contract and passed 2,254/2,254 profile comparisons with both fault contracts. The later optional TestClient missing-backend case, updated WebSocket authorization input, Router truthiness case, and BaseHTTPMiddleware iterator case have not yet run. Full parity, coverage, and benchmark reruns remain deferred until implementation closes. The current atlas has 816 source rows: 761 input mappings, 55 source-backed `not_applicable` dispositions, and zero backlog. The pinned denominators remain 514 upstream test functions and 24 documentation pages. See [`PARITY.md`](PARITY.md) for run-scoped evidence and the rest of this document for the input and implementation history. Earlier inputs compare the complete custom BaseHTTPMiddleware application through one client on asyncio and Trio: five ordered HTTP requests followed by a WebSocket session, with exception identity, arguments, group children, cause/context links, partial ASGI events, and thread cleanup. These exposed and fixed worker-to-portal StreamingResponse ownership, missing EndOfStream context, and asyncio streaming cancellation context in Rust. The declared normalization replaces only the hexadecimal cancel-scope address in typed asyncio CancelledError messages and arguments. Two new lifecycle inputs retain the four propagated exceptions and original tracebacks after portal shutdown, then release and collect them on the caller thread. They pass on asyncio and Trio with preserved traceback identity, all three user finalizers completed, and no unraisable errors after Rust ownership and GC traversal fixes. Active or unawaited continuations need separate comparisons. The declared AnyIO EOF normalization recognizes only the exact receiver-internal suppressed AttributeError/WouldBlock context shown to vary across identical live source inputs; it preserves EndOfStream and caller links. The preceding inputs compare the pinned composite Router graph and ten ordered requests through one managed TestClient on asyncio and Trio, including complete responses, redirect history, ASGI events, lifespan, and thread cleanup. The preceding inputs compare constructor headers without HTTP requests and middleware startup exceptions during TestClient context entry, including exception identity and thread cleanup. Earlier inputs map static and path-parameter WebSocketRoute dispatch through TestClient, alongside direct Request and WebSocket constructor scope checks. The pinned `test_router_add_websocket_route` uses a preconfigured module-level Router and does not invoke `Router.add_websocket_route`; the method candidate remains `uncertain` while the observed dispatch behavior is mapped. The preceding batch exercises URL-encoded `Request.form` field-count and part-size errors with each request body delivered in one ASGI chunk. The earlier batch maps `routing.test_partial_async_ws_endpoint`, comparing async function and bound class-method WebSocketRoute endpoints wrapped in `functools.partial` through a mounted Router. Recent parity inputs
+The active parity manifest uses `parity-input@48` and currently indexes 1,996 input-only cases across 143 parity files, two benchmark files, 133 operations, and 1,028 requirements. The latest full clean run, `dc8c8ca6-f2b7-449b-9f53-45860e3cad4c`, covered the preceding 1,992-case, 140-file contract and passed 2,254/2,254 profile comparisons with both fault contracts. The later optional TestClient missing-backend case, updated WebSocket authorization input, Router truthiness case, BaseHTTPMiddleware iterator case, response-subclass input, and Python-version applicability annotations have not yet run. Full parity, coverage, and benchmark reruns remain deferred until implementation closes. The current atlas has 816 source rows: 761 input mappings, 55 source-backed `not_applicable` dispositions, and zero backlog. The pinned denominators remain 514 upstream test functions and 24 documentation pages. See [`PARITY.md`](PARITY.md) for run-scoped evidence and the rest of this document for the input and implementation history. Earlier inputs compare the complete custom BaseHTTPMiddleware application through one client on asyncio and Trio: five ordered HTTP requests followed by a WebSocket session, with exception identity, arguments, group children, cause/context links, partial ASGI events, and thread cleanup. These exposed and fixed worker-to-portal StreamingResponse ownership, missing EndOfStream context, and asyncio streaming cancellation context in Rust. The declared normalization replaces only the hexadecimal cancel-scope address in typed asyncio CancelledError messages and arguments. Two new lifecycle inputs retain the four propagated exceptions and original tracebacks after portal shutdown, then release and collect them on the caller thread. They pass on asyncio and Trio with preserved traceback identity, all three user finalizers completed, and no unraisable errors after Rust ownership and GC traversal fixes. Active or unawaited continuations need separate comparisons. The declared AnyIO EOF normalization recognizes only the exact receiver-internal suppressed AttributeError/WouldBlock context shown to vary across identical live source inputs; it preserves EndOfStream and caller links. The preceding inputs compare the pinned composite Router graph and ten ordered requests through one managed TestClient on asyncio and Trio, including complete responses, redirect history, ASGI events, lifespan, and thread cleanup. The preceding inputs compare constructor headers without HTTP requests and middleware startup exceptions during TestClient context entry, including exception identity and thread cleanup. Earlier inputs map static and path-parameter WebSocketRoute dispatch through TestClient, alongside direct Request and WebSocket constructor scope checks. The pinned `test_router_add_websocket_route` uses a preconfigured module-level Router and does not invoke `Router.add_websocket_route`; the method candidate remains `uncertain` while the observed dispatch behavior is mapped. The preceding batch exercises URL-encoded `Request.form` field-count and part-size errors with each request body delivered in one ASGI chunk. The earlier batch maps `routing.test_partial_async_ws_endpoint`, comparing async function and bound class-method WebSocketRoute endpoints wrapped in `functools.partial` through a mounted Router. Recent parity inputs
 include outer BaseHTTPMiddleware request-body transformation and replay, map the pinned WebSocket scope Mapping and identity behavior, and correct the
 StaticFiles HEAD fixture to use the upstream `<file content>` asset and its
 14-byte length. The upstream one-chunk URL-encoded limit test directly inspects private `FormParser` counters/messages and a 50 MiB stress bound, so that implementation-local assertion is source-backed `not_applicable`; the public `Request.form` error behavior is covered by the two live source/package inputs. Schema inputs map the pinned route graph, including missing
@@ -329,9 +329,12 @@ construction, custom-handler and default-response calls, and call-time reads
 after `.app`, `.handler`, or `.debug` mutation. The direct custom-handler case
 maps to `tests/middleware/test_errors.py::test_handler`; the default-response
 and field-mutation probes map to their pinned source behavior without claiming
-additional upstream test rows. All six inputs pass live source/package comparison in the latest full-slice run.
-Direct debug construction, non-HTTP pass-through, errors after response start,
-other background-task workflows, and built-in/user middleware combinations remain open. The
+additional upstream test rows. All six inputs passed in the preceding full-slice
+run. The active inputs also exercise direct debug HTML, non-HTTP pass-through,
+errors after response start, background-task failures, and middleware ordering;
+their comparisons remain deferred with the full parity phase. Python traceback
+extraction and Rust-owned error policy are described in the
+[server-error boundary note](SERVER_ERROR_BOUNDARY.md). The
 active TestClient contract compares fifty-four input-driven HTTP request/response
 cases over forty-eight covered requirements, including exception identity and
 cause/context chaining, six context-managed lifespan cases over eleven
@@ -721,23 +724,22 @@ authority parsing or nested Host reverse-URL lookup.
 
 The input-only fixture in
 [`websocket-endpoint-dispatch.yaml`](../tests/fixtures/sources/parity/websocket-endpoint-dispatch.yaml)
-invokes the documented `starlette.endpoints.WebSocketEndpoint` ASGI interface.
-Eight cases compare the pinned source and installed package exactly across
+contains twelve cases for the documented
+`starlette.endpoints.WebSocketEndpoint` ASGI interface. They cover
 connect/disconnect hooks, offered subprotocols, text and bytes decoding, JSON
-text and binary decoding, malformed and mismatched frames, and the default
-encoding. Three additional cases exercise callback-error propagation, invalid
-encoding, and cancellation while waiting for the next receive. The source
-results are retained, while package-target results are recorded as unsupported
-under the operation's declared partial-support gaps; they do not establish
-package parity for those behaviors.
+text and binary decoding, malformed and mismatched frames, default encoding,
+callback-error propagation, invalid encoding, empty default-encoding text,
+and cancellation while waiting for the next receive. Every case selects the
+installed Python-package profile. The current @48 full parity run is deferred;
+the preceding @47 full-run receipt does not establish results for the current
+contract.
 
 The Python wrapper forwards dispatch and decoding to the Rust runtime. User
 hooks remain Python callables invoked and awaited on Python's event loop. The
-Rust-native target does not currently expose the Python `WebSocketEndpoint`
-class and ASGI consumer interface. Other boundary cases remain uncovered,
-including failures from `on_connect` or `on_disconnect`, missing disconnect
-codes, empty default-encoding text, malformed binary JSON, and unexpected ASGI
-message types.
+Rust-native target does not expose the Python `WebSocketEndpoint` class and
+ASGI consumer interface. Other boundary cases remain unverified, including
+failures from `on_connect` or `on_disconnect`, missing disconnect codes,
+malformed binary JSON, and unexpected ASGI message types.
 
 ## Import-path candidates
 

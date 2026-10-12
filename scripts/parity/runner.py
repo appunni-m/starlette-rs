@@ -20,6 +20,7 @@ from .contract import (
     ContractError,
     load_manifest,
     sha256_file,
+    upstream_test_applicability_for_profile,
     validate_inputs,
     validate_manifest,
     validate_result_artifact,
@@ -262,7 +263,17 @@ def _invoke_adapter(
 
 
 def _request(mode: str, subject_id: str, case: dict[str, Any] | None) -> dict[str, Any]:
-    return {"schema": PROTOCOL_REQUEST, "mode": mode, "subject_id": subject_id, "case": case}
+    case_payload = (
+        None
+        if case is None
+        else {key: value for key, value in case.items() if key != "upstream_test_applicability"}
+    )
+    return {
+        "schema": PROTOCOL_REQUEST,
+        "mode": mode,
+        "subject_id": subject_id,
+        "case": case_payload,
+    }
 
 
 def _validate_adapter_response(value: Any, mode: str, subject_id: str) -> dict[str, Any]:
@@ -1049,6 +1060,9 @@ def run_parity(
                     "case_id": case["case_id"],
                     "target_profile": profile_id,
                     "requirements": case["covers"],
+                    "upstream_test_applicability": upstream_test_applicability_for_profile(
+                        case, profile_id
+                    ),
                     "source": source_for_result,
                     "target": target_result,
                     "outcome": outcome,

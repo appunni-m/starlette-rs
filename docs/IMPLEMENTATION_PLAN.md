@@ -13,7 +13,7 @@ implementation closes, run the complete source/package and Rust-native parity
 matrix, repair mismatches across families, measure coverage from that full
 matrix, reconcile the source atlas, then run all correctness-gated benchmarks.
 
-The working-tree contract currently declares 1,995 input cases across 142
+The working-tree contract currently declares 1,996 input cases across 143
 parity inputs and two benchmark inputs, 133 operations, and 1,028 parity
 requirements. The generated atlas has 816 source rows: 761 input mappings, 55
 source-backed `not_applicable` dispositions, and zero fixture-backlog rows.
@@ -24,7 +24,7 @@ that every documented behavior is implemented or compatible.
 
 | Phase | State | Evidence |
 | --- | --- | --- |
-| Implementation | In progress. | Static contract and source-inventory checks pass for the current 1,995-case input set. Rust behavior and documented boundaries still need implementation audit and integration. |
+| Implementation | In progress. | Static contract and source-inventory checks pass for the current 1,996-case input set. Rust behavior and documented boundaries still need implementation audit and integration. |
 | Full parity and grouped repairs | Deferred until implementation closes. | The latest clean run, `dc8c8ca6-f2b7-449b-9f53-45860e3cad4c`, passed 2,254/2,254 comparisons for the preceding 1,992-case, 140-parity-input contract. The later optional-backend, WebSocket authorization, Router truthiness, and BaseHTTPMiddleware iterator inputs are not included. |
 | Full coverage and source reconciliation | Deferred until the full parity phase. | The latest measured run, `fd5b3b63-9ddc-44bd-bf38-35ecbc260dbe`, covered 19,909/28,139 Rust lines (70.7%) for the preceding contract. |
 | All benchmarks | Deferred until coverage. | The latest run, `13ea2d04-7f31-4c12-93cd-855df93df8b0`, measured 74/74 source/package workloads for the preceding contract: six Router and 68 GZip workloads. |
@@ -38,6 +38,7 @@ from the generated [`coverage matrix`](atlas/coverage-matrix.csv) and
 a parity score. The full-replacement goal remains active.
 
 Boundary details: [response protocols](RESPONSE_RENDER_BOUNDARY.md),
+[server-error traceback data](SERVER_ERROR_BOUNDARY.md),
 [template callbacks](TEMPLATE_PROTOCOL_BOUNDARY.md),
 [optional imports](OPTIONAL_IMPORT_BOUNDARY.md) and
 [ASGI ownership](WEBSOCKET_OWNERSHIP_BOUNDARY.md).
@@ -57,8 +58,8 @@ invoking Python. Its executable example demonstrates body-aware route dispatch,
 Tower middleware composition, and streamed request and response bodies. This
 is an initial server-neutral service surface; transport backpressure, explicit
 cancellation context, Starlette's complete middleware catalog, WebSockets,
-lifespan, and native FastAPI composition remain open. See
-[`native-service.md`](native-service.md) for the API and boundaries.
+and lifespan remain open. FastAPI composition is outside this project's scope.
+See [`native-service.md`](native-service.md) for the API and boundaries.
 
 ## 0. Establish the contract
 
@@ -78,8 +79,8 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The active parity contract is `parity-input@47`: the working tree currently
-indexes 1,995 input cases across 142 parity files, two benchmark files, 133
+The active parity contract is `parity-input@48`: the working tree currently
+indexes 1,996 input cases across 143 parity files, two benchmark files, 133
 operations, and 1,028 parity requirements. The latest clean full parity,
 coverage, and benchmark receipts belong to the preceding 1,992-case, 140-file
 contract. The generated source-row,
@@ -350,8 +351,11 @@ The 21-case reverse URL slice covers the named Python route surfaces and
 `Request.url_for`; a separate bounded Rust-native slice now covers two flat
 `Router.url_path_for` cases. Direct `Route.url_path_for`, nested Router route
 graphs, and Rust custom converter registration remain open. Route/router/mount-
-local middleware is present in the Python compatibility layer but is not yet
-covered by input-only parity cases.
+local middleware has selected input-only cases in
+[`route-local-middleware-semantics.yaml`](../tests/fixtures/sources/parity/route-local-middleware-semantics.yaml)
+and [`route-middleware-dispatch.yaml`](../tests/fixtures/sources/parity/route-middleware-dispatch.yaml).
+Those inputs still need the deferred full parity run; broader combinations
+remain implementation work.
 
 ### Completed bounded goal: reverse URL generation
 
@@ -405,22 +409,21 @@ The bounded sync-callable, ASGI-callable, exception-handler, server-error,
 four finite synchronous StreamingResponse cases, and the async-iterator,
 memoryview-chunk, and custom-async-iterable StreamingResponse cases in section 6
 pass source/package parity; the synchronous cases also pass against Rust-native.
-Four Rust-native observations remain explicitly `not_run`; the full Starlette
-replacement is still incomplete. Six direct `ServerErrorMiddleware` inputs are
-now authored for the Python-package profile: construction, custom-handler and
-default-response calls, and post-construction `.app`, `.handler`, and `.debug`
-mutations. All six pass live source/package comparison in run
-`30a58707-ee2a-4146-b14d-2f0b104af348`. The custom-handler input maps to the pinned
-`tests/middleware/test_errors.py::test_handler`; the other cases are additional
-source-backed behavior probes. Direct debug construction, non-HTTP
-pass-through, response-already-started failures, background-task errors, and
-other built-in/user middleware combinations remain open. Further work includes broader
-HTTP/WebSocket connection and request-body behavior, streaming backpressure
-and iterator lifecycle, route-local middleware, nested Host reverse lookup,
-broader WebSocket exception flows beyond the three declared cases, remaining
-TestClient exception-propagation modes, middleware composition,
-authentication, additional synchronous background-cancellation schedules,
-context variables, and broader background-task error interactions.
+The latest clean full run for `parity-input@47` recorded four Rust-native
+callable boundaries as `not_run`; the active @48 contract has not had its full
+matrix run. The full Starlette replacement remains incomplete. Active inputs
+cover direct `ServerErrorMiddleware` debug HTML, non-HTTP pass-through,
+response-already-started errors, application background-task errors, and
+middleware ordering in addition to construction, handler dispatch, and field
+mutation. The direct cases are source-backed probes; the custom-handler input
+also maps to the pinned `tests/middleware/test_errors.py::test_handler`.
+Their complete comparisons remain part of the deferred full parity phase.
+Further implementation work includes broader HTTP/WebSocket connection and
+request-body behavior, streaming backpressure and iterator lifecycle, nested
+Host reverse lookup, broader WebSocket exception flows, remaining TestClient
+exception-propagation modes, authentication, additional synchronous
+background-cancellation schedules, context variables, and broader
+background-task error interactions.
 
 ## 4. Optional and edge features
 
@@ -429,12 +432,13 @@ cases across seven Rust-backed public operations. FileResponse range, multipart,
 and chunk-size cases are mapped; the package keeps PyYAML optional behind its
 `schemas` extra. StaticFiles lookup/configuration, form parsing, templates,
 and TestClient HTTP, WebSocket, and lifespan slices also have bounded input
-coverage. These are not complete feature implementations: streaming request
-bodies, broader TestClient exception modes, route and middleware integration,
-and the remaining source-backed behaviors remain in the generated backlog.
-Continue from the ranked rows in
-[`docs/atlas/fixture-backlog.csv`](atlas/fixture-backlog.csv), keeping optional
-dependencies feature-gated and unsupported coverage source-backed.
+coverage. Selected implementation behaviors remain incomplete despite having
+inputs, including streaming request bodies, broader TestClient exception
+modes, and wider route/middleware combinations. The generated fixture backlog
+is currently empty; it tracks source mapping, not implementation completion.
+Choose the next behavior from the remaining source-backed gaps and supported
+public API contract, keep optional dependencies feature-gated, and preserve
+unsupported target rows in the later full parity results.
 
 ## 5. Completed bounded goal: Router/GZip benchmark parity
 
@@ -634,9 +638,10 @@ zero failed, zero infrastructure errors, and four Rust-native Python-callable
 rows were `not_run`. The package profile passed all 51 cases; Rust-native
 passed 21. Target identities were dirty local trees, so the run is not clean
 aggregate or release proof. The repository has no conventional Python or Rust
-unit-test suite; `make test` runs live source-to-target parity. The current
-full run has six unsupported rows, so the all-target gate remains incomplete.
-Full Starlette replacement remains incomplete.
+unit-test suite; `make test` runs live source-to-target parity. That historical
+checkpoint had six native callable rows marked `not_run`; the later clean @47
+run had four. The current @48 full matrix has not run. Full Starlette
+replacement remains incomplete.
 
 ### Completed bounded goal: ServerErrorMiddleware application error-path parity
 
@@ -664,15 +669,18 @@ and passes source/package comparison. The raw protocol and route-dispatch cases
 pass in their declared profiles. Full replacement parity remains open.
 
 [`server-error-middleware.yaml`](../tests/fixtures/sources/parity/server-error-middleware.yaml)
-adds six direct public-surface inputs: constructor field observation, direct
-synchronous custom-handler dispatch, direct default-response dispatch, and
-post-construction `.app`, `.handler`, and `.debug` mutation. Only the custom-
-handler input is mapped to an upstream test function,
-`tests/middleware/test_errors.py::test_handler`; the other cases are tied to
-the pinned `ServerErrorMiddleware` source contract. All six inputs pass exact
-source/package comparison in run `30a58707-ee2a-4146-b14d-2f0b104af348`. Direct debug construction,
-non-HTTP pass-through, an error after response start, background-task errors,
-and other built-in/user middleware combinations remain outside this bounded input set.
+contains direct public-surface inputs for constructor fields, synchronous
+custom-handler and default-response dispatch, post-construction `.app`,
+`.handler`, and `.debug` mutation, debug HTML, non-HTTP pass-through, and an
+error after response start. Only the custom-handler input maps to an upstream
+test function, `tests/middleware/test_errors.py::test_handler`; the other
+cases follow the pinned `ServerErrorMiddleware` source contract. The first six
+cases passed exact source/package comparison in run
+`30a58707-ee2a-4146-b14d-2f0b104af348`; the later boundary additions await the
+full @48 parity run. Application background-task errors and middleware
+ordering have separate inputs in `asgi-server-errors.yaml` and
+`application-middleware.yaml`. Broader middleware and WebSocket exception
+combinations remain unverified.
 
 The recorded evidence does not establish general exception propagation or
 identity beyond the selected chained-error, same-request body-cache, and

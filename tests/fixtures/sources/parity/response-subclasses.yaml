@@ -1,0 +1,67 @@
+{
+  "schema": "migration-parity/parity-input@48",
+  "cases": [
+    {
+      "case_id": "starlette.responses.JSONResponse.consumer-construction.documented-subclass-render",
+      "surface": "starlette.responses.JSONResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.JSONResponse.consumer-construction.public-render-and-asgi"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "json",
+          "value": {
+            "label": "café 🌍",
+            "rows": [
+              {
+                "id": 2,
+                "value": "second"
+              },
+              {
+                "id": 1,
+                "value": "first"
+              }
+            ]
+          }
+        },
+        "omit_content": false,
+        "kwargs": {
+          "status_code": 202,
+          "headers": {
+            "X-Serializer": "subclass"
+          },
+          "media_type": "application/vnd.example+json"
+        },
+        "class_attributes": {},
+        "render": {
+          "kind": "json-serializer",
+          "mutations": {},
+          "options": {
+            "ensure_ascii": false,
+            "sort_keys": false,
+            "separators": [
+              ", ",
+              ": "
+            ]
+          },
+          "encoding": "utf-8"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-subclass"
+      },
+      "send_failure": null,
+      "background_label": null
+    }
+  ]
+}

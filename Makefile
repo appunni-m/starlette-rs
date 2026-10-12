@@ -24,7 +24,7 @@ CARGO_DENY ?= cargo deny
 CARGO_AUDIT ?= cargo audit
 CARGO_ABOUT ?= cargo about
 
-.PHONY: help style-setup typecheck-setup fmt fmt-fix python-format python-format-fix clippy rust-api-boundary-check python-lint project-policy-check workflows-check lint check build test parity-inputs migrate-parity-inputs-v17-v18 migrate-parity-inputs-v18-v19 migrate-parity-inputs-v19-v20 migrate-parity-inputs-v20-v21 migrate-parity-inputs-v21-v22 migrate-parity-inputs-v22-v23 migrate-parity-inputs-v23-v24 migrate-parity-inputs-v24-v25 migrate-parity-inputs-v25-v26 migrate-parity-inputs-v26-v27 migrate-parity-inputs-v27-v28 migrate-parity-inputs-v28-v29 migrate-parity-inputs-v29-v30 migrate-parity-inputs-v30-v31 migrate-parity-inputs-v31-v32 migrate-parity-inputs-v32-v33 migrate-parity-inputs-v33-v34 migrate-parity-inputs-v34-v35 migrate-parity-inputs-v35-v36 migrate-parity-inputs-v36-v37 migrate-parity-inputs-v37-v38 migrate-parity-inputs-v38-v39 migrate-parity-inputs-v39-v40 migrate-parity-inputs-v40-v41 migrate-parity-inputs-v41-v42 migrate-parity-inputs-v42-v43 migrate-parity-inputs-v43-v44 migrate-parity-inputs-v44-v45 migrate-parity-inputs-v45-v46 migrate-parity-inputs-v46-v47 parity-env parity-adapter parity-run contract-check source-inventory source-inventory-check benchmark-upstream rustdoc-check docs-check supply-chain-tools supply-chain-check third-party-notices third-party-notices-check ci
+.PHONY: help style-setup typecheck-setup fmt fmt-fix python-format python-format-fix clippy rust-api-boundary-check python-lint project-policy-check workflows-check lint check build test parity-inputs migrate-parity-inputs-v17-v18 migrate-parity-inputs-v18-v19 migrate-parity-inputs-v19-v20 migrate-parity-inputs-v20-v21 migrate-parity-inputs-v21-v22 migrate-parity-inputs-v22-v23 migrate-parity-inputs-v23-v24 migrate-parity-inputs-v24-v25 migrate-parity-inputs-v25-v26 migrate-parity-inputs-v26-v27 migrate-parity-inputs-v27-v28 migrate-parity-inputs-v28-v29 migrate-parity-inputs-v29-v30 migrate-parity-inputs-v30-v31 migrate-parity-inputs-v31-v32 migrate-parity-inputs-v32-v33 migrate-parity-inputs-v33-v34 migrate-parity-inputs-v34-v35 migrate-parity-inputs-v35-v36 migrate-parity-inputs-v36-v37 migrate-parity-inputs-v37-v38 migrate-parity-inputs-v38-v39 migrate-parity-inputs-v39-v40 migrate-parity-inputs-v40-v41 migrate-parity-inputs-v41-v42 migrate-parity-inputs-v42-v43 migrate-parity-inputs-v43-v44 migrate-parity-inputs-v44-v45 migrate-parity-inputs-v45-v46 migrate-parity-inputs-v46-v47 migrate-parity-inputs-v47-v48 parity-env parity-adapter parity-run contract-check source-inventory source-inventory-check benchmark-upstream rustdoc-check docs-check supply-chain-tools supply-chain-check third-party-notices third-party-notices-check ci
 
 help: ## Show common Rust workspace commands
 	@printf '%s\n' \
@@ -72,7 +72,8 @@ help: ## Show common Rust workspace commands
 	  '  make migrate-parity-inputs-v43-v44  Migrate authored parity input schema headers' \
 	  '  make migrate-parity-inputs-v44-v45  Migrate authored parity input schema headers' \
 	  '  make migrate-parity-inputs-v45-v46  Migrate authored parity inputs from @45 to @46' \
-	  '  make migrate-parity-inputs-v46-v47  Migrate authored parity inputs to the current contract' \
+	  '  make migrate-parity-inputs-v46-v47  Migrate authored parity inputs from @46 to @47' \
+	  '  make migrate-parity-inputs-v47-v48  Migrate authored parity inputs to the current contract' \
 	  '  make parity-env  Build the wheel and prepare isolated source/package environments' \
 	  '  make parity-adapter  Build the current Rust-native parity adapter' \
 	  '  make source-inventory  Regenerate the metadata-derived API catalog and source atlas' \
@@ -251,6 +252,9 @@ migrate-parity-inputs-v45-v46: ## Migrate authored parity inputs from schema @45
 
 migrate-parity-inputs-v46-v47: ## Migrate authored parity inputs from schema @46 to @47
 	$(PARITY_PYTHON) -m scripts.migrate_parity_input_v46_to_v47
+
+migrate-parity-inputs-v47-v48: ## Migrate authored parity inputs from schema @47 to @48
+	$(PARITY_PYTHON) -m scripts.migrate_parity_input_v47_to_v48
 
 parity-env: parity-inputs ## Build the package wheel and prepare isolated parity environments
 	$(PARITY_PYTHON) -m scripts.parity.cli prepare-env --force --upstream "$(STARLETTE_ORACLE_ROOT)"

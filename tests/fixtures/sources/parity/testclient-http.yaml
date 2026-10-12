@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@47",
+  "schema": "migration-parity/parity-input@48",
   "cases": [
     {
       "case_id": "starlette.testclient.TestClient.request-response.asgi3-default-client",
@@ -1803,6 +1803,15 @@
         "python-package-cpython313",
         "python-package-cpython314"
       ],
+      "upstream_test_applicability": {
+        "test": "tests/test_testclient.py::test_domain_restricted_cookies",
+        "profiles": {
+          "python-package-cpython310": {
+            "status": "xfail",
+            "reason": "The pinned test marks the testserver domain parameter xfail below Python 3.11 because CPython http.cookiejar domain handling differs (#2152)."
+          }
+        }
+      },
       "assets": [],
       "observations": [
         "request-response"

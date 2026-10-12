@@ -9,7 +9,7 @@ incomplete.
 ## Current parity snapshot
 
 Implementation remains the active phase for the full Starlette replacement.
-The working-tree `parity-input@47` contract indexes 1,995 cases across 142
+The working-tree `parity-input@48` contract indexes 1,996 cases across 143
 parity inputs, two benchmark inputs, 133 operations, and 1,028 requirements.
 The latest static inventory reports 999/999 API candidates dispositioned and
 816 source rows: 761 input mappings, 55 source-backed `not_applicable` rows,
@@ -18,12 +18,13 @@ functions and 24 documentation pages.
 
 The latest clean full parity run, `dc8c8ca6-f2b7-449b-9f53-45860e3cad4c`,
 passed 2,254/2,254 comparisons for the preceding 1,992-case, 140-input
-contract. The subsequently added TestClient missing-backend case, updated
-WebSocket authorization input, Router truthiness case, and BaseHTTPMiddleware
-iterator case are not yet included. The matching full coverage and 74-workload benchmark receipts also
-belong to the preceding contract. Continue implementation across feature
-families, then run full parity and grouped repairs, coverage, and benchmarks in
-that order. The full-replacement objective remains active and incomplete.
+contract. It does not include the later TestClient missing-backend,
+WebSocket authorization, Router truthiness, BaseHTTPMiddleware iterator,
+response-subclass, or version-applicability updates. The matching full
+coverage and 74-workload benchmark receipts also belong to the preceding
+contract. Continue implementation across feature families, then run full
+parity and grouped repairs, coverage, and benchmarks in that order. The
+full-replacement objective remains active and incomplete.
 
 ## Historical parity, coverage, and feature notes
 
@@ -345,11 +346,14 @@ passed: six protocol-tape cases on the Python package, six state projections
 on both targets, and three route-dispatch cases on the Python package. Later
 inputs add convenience/close behavior and three app-level exception flows:
 the built-in close handler, an HTTP denial response, and a custom close handler.
-TestClient propagation and TestClient WebSocket sessions remain open. Six
-direct `ServerErrorMiddleware` inputs are now authored for construction,
-custom/default handler dispatch, and post-construction field mutation; all six
-passed source/package comparison in run `30a58707-ee2a-4146-b14d-2f0b104af348`. Arbitrary middleware
-ordering remains open.
+TestClient propagation and TestClient WebSocket sessions have bounded inputs;
+broader combinations remain implementation work. Direct `ServerErrorMiddleware`
+inputs cover construction, custom/default handler dispatch, post-construction
+field mutation, debug HTML, non-HTTP pass-through, and errors after response
+start. The first six passed source/package comparison in run
+`30a58707-ee2a-4146-b14d-2f0b104af348`; the additional cases await the full
+@48 parity run. Application background-task errors and middleware ordering
+also have active inputs; broader combinations remain unverified.
 
 ## P2 — Scoped ASGI and WebSocket workflows (bounded parity recorded)
 

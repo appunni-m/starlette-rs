@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://starlette-rs.dev/schemas/migration-parity-result-v7.json",
+  "$id": "https://starlette-rs.dev/schemas/migration-parity-result-v8.json",
   "title": "Starlette selected parity and fault-contract result with execution provenance",
   "type": "object",
   "additionalProperties": false,
@@ -15,7 +15,7 @@
   ],
   "properties": {
     "schema": {
-      "const": "migration-parity/parity-result@7"
+      "const": "migration-parity/parity-result@8"
     },
     "identity": {
       "$ref": "#/$defs/identity"
@@ -120,7 +120,7 @@
                 "minLength": 1
               },
               "schema": {
-                "const": "migration-parity/parity-input@47"
+                "const": "migration-parity/parity-input@48"
               },
               "sha256": {
                 "$ref": "#/$defs/sha256"
@@ -711,6 +711,7 @@
         "case_id",
         "target_profile",
         "requirements",
+        "upstream_test_applicability",
         "source",
         "target",
         "outcome",
@@ -736,6 +737,36 @@
           "items": {
             "type": "string",
             "minLength": 1
+          }
+        },
+        "upstream_test_applicability": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "test",
+            "status",
+            "reason"
+          ],
+          "properties": {
+            "test": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "status": {
+              "enum": [
+                "required",
+                "skip",
+                "xfail"
+              ]
+            },
+            "reason": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
           }
         },
         "source": {

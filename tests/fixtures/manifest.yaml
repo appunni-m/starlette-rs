@@ -248,8 +248,8 @@
   ],
   "interfaces": {
     "parity": {
-      "input_schema": "migration-parity/parity-input@47",
-      "result_schema": "migration-parity/parity-result@7",
+      "input_schema": "migration-parity/parity-input@48",
+      "result_schema": "migration-parity/parity-result@8",
       "command_id": "parity"
     },
     "coverage": {
@@ -269,7 +269,7 @@
     },
     "aggregation": {
       "input_schemas": [
-        "migration-parity/parity-result@7",
+        "migration-parity/parity-result@8",
         "migration-parity/coverage-result@1",
         "migration-parity/benchmark-result@1",
         "migration-parity/upstream-benchmark-result@1"
@@ -433,6 +433,7 @@
       "build/parity/inputs/parity/request-property-worker-lifetime.json",
       "build/parity/inputs/parity/public-value-lifetime.json",
       "build/parity/inputs/parity/response-consumers.json",
+      "build/parity/inputs/parity/response-subclasses.json",
       "build/parity/inputs/parity/response-asgi-callbacks.json",
       "build/parity/inputs/parity/response-construction-protocols.json",
       "build/parity/inputs/parity/response-attributes.json",

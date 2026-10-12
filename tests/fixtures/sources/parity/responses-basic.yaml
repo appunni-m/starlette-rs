@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@47",
+  "schema": "migration-parity/parity-input@48",
   "cases": [
     {
       "case_id": "starlette.responses.Response.asgi-call.text-content",
@@ -756,6 +756,15 @@
         "python-package-cpython313",
         "python-package-cpython314"
       ],
+      "upstream_test_applicability": {
+        "test": "tests/test_responses.py::test_set_cookie_raises_for_invalid_python_version",
+        "profiles": {
+          "python-package-cpython314": {
+            "status": "skip",
+            "reason": "The pinned test skips this version-error assertion on Python 3.14 and above; the same input remains live so the supported partitioned-cookie behavior is observed."
+          }
+        }
+      },
       "assets": [],
       "content": {
         "kind": "text",

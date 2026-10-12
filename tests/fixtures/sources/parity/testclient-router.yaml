@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@47",
+  "schema": "migration-parity/parity-input@48",
   "cases": [
     {
       "case_id": "starlette.testclient.TestClient.public-client-workflow.composite-router.asyncio",

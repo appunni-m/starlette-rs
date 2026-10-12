@@ -33,10 +33,11 @@ from .fault_contracts import (
 MANIFEST_SCHEMA = "migration-parity/manifest@5"
 INPUT_SCHEMA_V45 = "migration-parity/parity-input@45"
 INPUT_SCHEMA_V46 = "migration-parity/parity-input@46"
-PREVIOUS_INPUT_SCHEMA = INPUT_SCHEMA_V46
-INPUT_SCHEMA = "migration-parity/parity-input@47"
+INPUT_SCHEMA_V47 = "migration-parity/parity-input@47"
+PREVIOUS_INPUT_SCHEMA = INPUT_SCHEMA_V47
+INPUT_SCHEMA = "migration-parity/parity-input@48"
 BENCHMARK_INPUT_SCHEMA = "migration-parity/benchmark-input@1"
-RESULT_SCHEMA = "migration-parity/parity-result@7"
+RESULT_SCHEMA = "migration-parity/parity-result@8"
 BENCHMARK_RESULT_SCHEMA = "migration-parity/benchmark-result@1"
 UPSTREAM_BENCHMARK_INPUT_SCHEMA = "migration-parity/upstream-benchmark-input@1"
 UPSTREAM_BENCHMARK_RESULT_SCHEMA = "migration-parity/upstream-benchmark-result@1"
@@ -16383,6 +16384,93 @@ def validate_case(
     fault_case_spec: dict[str, Any] | None = None,
     public_modules: frozenset[str] | None = None,
 ) -> dict[str, Any]:
+    if not isinstance(case, dict) or "upstream_test_applicability" not in case:
+        return _validate_case_payload(
+            case,
+            manifest,
+            fault_case_spec=fault_case_spec,
+            public_modules=public_modules,
+        )
+
+    applicability = case["upstream_test_applicability"]
+    payload = {key: value for key, value in case.items() if key != "upstream_test_applicability"}
+    validated = _validate_case_payload(
+        payload,
+        manifest,
+        fault_case_spec=fault_case_spec,
+        public_modules=public_modules,
+    )
+    if "fault_contract" in validated:
+        raise ContractError("fault-contract inputs cannot declare upstream test applicability")
+    validated["upstream_test_applicability"] = _validate_upstream_test_applicability(
+        applicability, validated
+    )
+    return validated
+
+
+def _validate_upstream_test_applicability(value: Any, case: dict[str, Any]) -> dict[str, Any]:
+    declaration = _exact(
+        value,
+        {"test", "profiles"},
+        "upstream test applicability",
+    )
+    test = _string(declaration["test"], "upstream test applicability.test")
+    if not re.fullmatch(r"tests/[^\s]+\.py::[^\s]+", test):
+        raise ContractError("upstream test applicability.test must identify a pinned test")
+
+    profile_rows = declaration["profiles"]
+    if not isinstance(profile_rows, dict) or not profile_rows:
+        raise ContractError("upstream test applicability.profiles must be a non-empty object")
+    if not set(profile_rows) <= set(case["target_profiles"]):
+        raise ContractError("upstream test applicability may select only case target profiles")
+    if not set(profile_rows) <= set(PYTHON_PROFILE_IDS):
+        raise ContractError("upstream test applicability is defined only for CPython profiles")
+
+    validated_rows: dict[str, dict[str, Any]] = {}
+    for profile_id, profile_value in profile_rows.items():
+        context = f"upstream test applicability.profiles.{profile_id}"
+        row = _exact(profile_value, {"status", "reason"}, context)
+        if not isinstance(row["status"], str) or row["status"] not in {
+            "required",
+            "skip",
+            "xfail",
+        }:
+            raise ContractError(f"{context}.status must be required, skip, or xfail")
+        if row["status"] == "required":
+            if row["reason"] is not None:
+                raise ContractError(f"{context}.reason must be null for required tests")
+        else:
+            reason = _string(row["reason"], f"{context}.reason")
+            if not reason.strip():
+                raise ContractError(
+                    f"{context}.reason must be non-empty for skipped or xfailed tests"
+                )
+        validated_rows[profile_id] = row
+    return {"test": test, "profiles": validated_rows}
+
+
+def upstream_test_applicability_for_profile(
+    case: dict[str, Any], profile_id: str
+) -> dict[str, str | None]:
+    """Return source-test harness applicability without changing live comparison execution."""
+    declaration = case.get("upstream_test_applicability")
+    if declaration is None:
+        return {"test": None, "status": "required", "reason": None}
+    row = declaration["profiles"].get(profile_id, {"status": "required", "reason": None})
+    return {
+        "test": declaration["test"],
+        "status": row["status"],
+        "reason": row["reason"],
+    }
+
+
+def _validate_case_payload(
+    case: Any,
+    manifest: dict[str, Any],
+    *,
+    fault_case_spec: dict[str, Any] | None = None,
+    public_modules: frozenset[str] | None = None,
+) -> dict[str, Any]:
     if (
         isinstance(case, dict)
         and (case.get("surface"), case.get("operation")) == PUBLIC_API_INSPECTION_OPERATION
@@ -29913,20 +30001,42 @@ def validate_input_document_v46(
 ) -> list[dict[str, Any]]:
     """Validate an @46 document under its pre-@47 acceptance rules for migration."""
     _exact(document, {"schema", "cases"}, "parity input")
-    if document["schema"] != PREVIOUS_INPUT_SCHEMA:
-        raise ContractError(f"unsupported previous parity input schema: {document['schema']!r}")
+    if document["schema"] != INPUT_SCHEMA_V46:
+        raise ContractError(f"unsupported @46 parity input schema: {document['schema']!r}")
     if not isinstance(document["cases"], list) or not document["cases"]:
         raise ContractError("parity input must select at least one case")
     if any(_contains_testclient_v47_input(case) for case in document["cases"]):
         raise ContractError("parity-input@46 does not allow TestClient @47 inputs")
 
-    current_document = dict(document)
-    current_document["schema"] = INPUT_SCHEMA
-    return validate_input_document(
-        current_document,
+    v47_document = dict(document)
+    v47_document["schema"] = INPUT_SCHEMA_V47
+    return validate_input_document_v47(
+        v47_document,
         manifest,
         public_modules=public_modules,
     )
+
+
+def validate_input_document_v47(
+    document: Any,
+    manifest: dict[str, Any],
+    *,
+    public_modules: frozenset[str] | None = None,
+) -> list[dict[str, Any]]:
+    """Validate an @47 document before migrating its schema header to @48."""
+    _exact(document, {"schema", "cases"}, "parity input")
+    if document["schema"] != INPUT_SCHEMA_V47:
+        raise ContractError(f"unsupported @47 parity input schema: {document['schema']!r}")
+    if not isinstance(document["cases"], list) or not document["cases"]:
+        raise ContractError("parity input must select at least one case")
+    if any(
+        isinstance(case, dict) and "upstream_test_applicability" in case
+        for case in document["cases"]
+    ):
+        raise ContractError("parity-input@47 does not allow upstream test applicability metadata")
+    current_document = dict(document)
+    current_document["schema"] = INPUT_SCHEMA
+    return validate_input_document(current_document, manifest, public_modules=public_modules)
 
 
 def validate_previous_input_document(
@@ -29935,8 +30045,8 @@ def validate_previous_input_document(
     *,
     public_modules: frozenset[str] | None = None,
 ) -> list[dict[str, Any]]:
-    """Validate the previous @46 schema before migrating it to the active @47 contract."""
-    return validate_input_document_v46(document, manifest, public_modules=public_modules)
+    """Validate the previous @47 schema before migrating it to the active @48 contract."""
+    return validate_input_document_v47(document, manifest, public_modules=public_modules)
 
 
 def validate_previous_input_v45_document(
@@ -32957,6 +33067,13 @@ def _validate_parity_result_against_active_contract(
         case = case_by_id[comparison["case_id"]]
         if comparison["requirements"] != case["covers"]:
             raise ContractError(f"{context}.requirements differ from the active case")
+        expected_test_applicability = upstream_test_applicability_for_profile(
+            case, comparison["target_profile"]
+        )
+        if comparison["upstream_test_applicability"] != expected_test_applicability:
+            raise ContractError(
+                f"{context}.upstream_test_applicability differs from the active input profile"
+            )
 
         source = comparison["source"]
         target = comparison["target"]
@@ -33259,9 +33376,49 @@ def _validate_parity_result_artifact(
         context = f"result.comparisons[{index}]"
         _exact(
             comparison,
-            {"case_id", "target_profile", "requirements", "source", "target", "outcome", "diffs"},
+            {
+                "case_id",
+                "target_profile",
+                "requirements",
+                "upstream_test_applicability",
+                "source",
+                "target",
+                "outcome",
+                "diffs",
+            },
             context,
         )
+        applicability = _exact(
+            comparison["upstream_test_applicability"],
+            {"test", "status", "reason"},
+            f"{context}.upstream_test_applicability",
+        )
+        if applicability["test"] is not None:
+            _string(applicability["test"], f"{context}.upstream_test_applicability.test")
+        if not isinstance(applicability["status"], str) or applicability["status"] not in {
+            "required",
+            "skip",
+            "xfail",
+        }:
+            raise ContractError(f"{context}.upstream_test_applicability.status is invalid")
+        if applicability["status"] == "required":
+            if applicability["reason"] is not None:
+                raise ContractError(
+                    f"{context}.upstream_test_applicability.reason must be null when required"
+                )
+        else:
+            if applicability["test"] is None:
+                raise ContractError(
+                    f"{context}.upstream_test_applicability.test is required for skip/xfail"
+                )
+            reason = _string(
+                applicability["reason"],
+                f"{context}.upstream_test_applicability.reason",
+            )
+            if not reason.strip():
+                raise ContractError(
+                    f"{context}.upstream_test_applicability.reason must be non-empty"
+                )
         if comparison["outcome"] not in {"pass", "fail", "not_run"}:
             raise ContractError(f"{context}.outcome is invalid")
         validate_workflow_result(comparison["source"], comparison["case_id"], f"{context}.source")
