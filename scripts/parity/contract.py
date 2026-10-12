@@ -1095,6 +1095,10 @@ STREAMING_RESPONSE_TRACE_OPERATION = "asgi-call-with-execution-trace"
 STREAMING_RESPONSE_MUTABLE_STATUS_REQUIREMENT = (
     f"{STREAMING_RESPONSE_SURFACE}.{STREAMING_RESPONSE_OPERATION}.mutable-status-code"
 )
+STREAMING_RESPONSE_AWAIT_FACTORY_STOP_REQUIREMENT = (
+    f"{STREAMING_RESPONSE_SURFACE}.{STREAMING_RESPONSE_OPERATION}.async-iterator-await-factory-stop"
+)
+STREAMING_RESPONSE_AWAIT_FACTORY_STOP_MODE = "async-iterator-await-factory-stop"
 RESPONSE_OPERATION = "asgi-call"
 RESPONSE_PARTITIONED_COOKIE_REQUIREMENT = (
     f"{RESPONSE_SURFACE}.{RESPONSE_OPERATION}.partitioned-cookie-version-error"
@@ -3664,6 +3668,19 @@ def _validate_websocket_case_stimulus(case: dict[str, Any]) -> None:
         coverage.add(f"{requirement_prefix}.binary-exchange")
     if send_oserror_action_valid and incoming_types[:1] == ["websocket.connect"]:
         coverage.add(f"{requirement_prefix}.send-oserror-disconnect")
+    if (
+        operation == WEBSOCKET_STATE_OPERATION
+        and incoming_types[:2] == ["websocket.connect", "websocket.disconnect"]
+        and action_signature[:4]
+        == [
+            ("receive", None),
+            ("accept", None),
+            ("receive", None),
+            ("send", "websocket.send"),
+        ]
+        and actions[3].get("send_error", {}).get("kind") == "os-error"
+    ):
+        coverage.add("starlette.websocket.state.send-after-peer-disconnect")
     if not incoming_types and action_signature[:2] == [
         ("send", "websocket.accept"),
         ("send", "websocket.accept"),
@@ -7367,6 +7384,7 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
         "file-like",
         "async-iterator",
         "async-iterable",
+        STREAMING_RESPONSE_AWAIT_FACTORY_STOP_MODE,
         "async-generator",
     }:
         raise ContractError("StreamingResponse streaming must select a declared iterator mode")
@@ -7657,6 +7675,21 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
         ):
             raise ContractError(
                 "StreamingResponse async iterator/iterable input is limited to its declared Python-package case"
+            )
+    elif case["streaming"] == STREAMING_RESPONSE_AWAIT_FACTORY_STOP_MODE:
+        if (
+            repeating_chunks
+            or file_like_content is not None
+            or stimulus != ((), (), None)
+            or background is not None
+            or stream_lifecycle is not None
+            or receive_behavior is not None
+            or case["operation"] != STREAMING_RESPONSE_OPERATION
+            or case["target_profiles"] != ["python-package-cpython312"]
+            or case["covers"] != [STREAMING_RESPONSE_AWAIT_FACTORY_STOP_REQUIREMENT]
+        ):
+            raise ContractError(
+                "StreamingResponse await-factory exhaustion input is limited to its declared Python-package case"
             )
     elif repeating_chunks:
         if (

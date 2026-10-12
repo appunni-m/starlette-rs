@@ -399,6 +399,77 @@
       ]
     },
     {
+      "case_id": "starlette.requests.Request.body-stream-json.interleaved-stream-iterators-skip-empty-chunks",
+      "surface": "starlette.requests.Request",
+      "operation": "body-stream-json",
+      "covers": [
+        "starlette.request.stream-interleaved-iterators"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "http"
+      },
+      "receive": [
+        {
+          "type": "http.request",
+          "body_base64": "",
+          "more_body": true
+        },
+        {
+          "type": "http.request",
+          "body_base64": "Zmlyc3Q=",
+          "more_body": true
+        },
+        {
+          "type": "http.request",
+          "body_base64": "",
+          "more_body": true
+        },
+        {
+          "type": "http.request",
+          "body_base64": "c2Vjb25k",
+          "more_body": false
+        }
+      ],
+      "blocked_receive_calls": [],
+      "actions": [
+        {
+          "operation": "stream-next",
+          "stream_id": "first"
+        },
+        {
+          "operation": "stream-next",
+          "stream_id": "second"
+        },
+        {
+          "operation": "stream-next",
+          "stream_id": "first"
+        },
+        {
+          "operation": "stream-next",
+          "stream_id": "second"
+        },
+        {
+          "operation": "stream-next",
+          "stream_id": "first"
+        },
+        {
+          "operation": "stream-next",
+          "stream_id": "second"
+        }
+      ],
+      "observations": [
+        "request-consumption"
+      ]
+    },
+    {
       "case_id": "starlette.requests.Request.body-stream-json.json-cache-from-chunked-body",
       "surface": "starlette.requests.Request",
       "operation": "body-stream-json",

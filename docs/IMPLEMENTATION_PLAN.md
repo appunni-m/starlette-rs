@@ -13,8 +13,8 @@ implementation closes, run the complete source/package and Rust-native parity
 matrix, repair mismatches across families, measure coverage from that full
 matrix, reconcile the source atlas, then run all correctness-gated benchmarks.
 
-The working-tree contract currently declares 2,017 input cases across 145
-parity inputs and two benchmark inputs, 133 operations, and 1,040 parity
+The working-tree contract currently declares 2,022 input cases across 145
+parity inputs and two benchmark inputs, 133 operations, and 1,042 parity
 requirements. The generated atlas has 817 source rows: 762 input mappings, 55
 source-backed `not_applicable` dispositions, and zero fixture-backlog rows.
 These counts describe inventory and evidence coverage; they do not establish
@@ -24,7 +24,7 @@ that every documented behavior is implemented or compatible.
 
 | Phase | State | Evidence |
 | --- | --- | --- |
-| Implementation | In progress. | Static contract, source-inventory, policy, format, and lint checks pass for the current 2,017-case input set. Remaining implementation and documented boundaries still need review and integration. |
+| Implementation | In progress. | Static contract, source-inventory, policy, format, and lint checks pass for the current 2,022-case input set. Remaining implementation and documented boundaries still need review and integration. |
 | Full parity and grouped repairs | Deferred until implementation closes. | The latest clean run, `dc8c8ca6-f2b7-449b-9f53-45860e3cad4c`, passed 2,254/2,254 comparisons for the preceding 1,992-case, 140-parity-input contract. Later optional-backend, WebSocket authorization, Router truthiness, BaseHTTPMiddleware iterator, StaticFiles path, response-protocol, close-code, TestClient exception, and custom-regex inputs are not included. |
 | Full coverage and source reconciliation | Deferred until the full parity phase. | The latest measured run, `fd5b3b63-9ddc-44bd-bf38-35ecbc260dbe`, covered 19,909/28,139 Rust lines (70.7%) for the preceding contract. |
 | All benchmarks | Deferred until coverage. | The latest run, `13ea2d04-7f31-4c12-93cd-855df93df8b0`, measured 74/74 source/package workloads for the preceding contract: six Router and 68 GZip workloads. |
@@ -80,8 +80,8 @@ also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
 The active parity contract is `parity-input@48`: the working tree currently
-indexes 2,017 input cases across 145 parity files, two benchmark files, 133
-operations, and 1,040 parity requirements. The latest clean full parity,
+indexes 2,022 input cases across 145 parity files, two benchmark files, 133
+operations, and 1,042 parity requirements. The latest clean full parity,
 coverage, and benchmark receipts belong to the preceding 1,992-case, 140-file
 contract. The generated source-row,
 mapping, `not_applicable`, and backlog totals live in

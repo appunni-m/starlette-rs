@@ -10019,6 +10019,7 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
             "file-like",
             "async-iterator",
             "async-iterable",
+            "async-iterator-await-factory-stop",
             "async-generator",
         }:
             raise ValueError("StreamingResponse streaming must select a supported iterator")
@@ -10262,6 +10263,20 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
         content = _InputAsyncIterator(content, execution_trace)
     elif streaming == "async-iterable":
         content = _InputAsyncIterable(content, execution_trace)
+    elif streaming == "async-iterator-await-factory-stop":
+
+        class InputAwaitableStop:
+            def __await__(self) -> Iterator[Any]:
+                raise StopAsyncIteration
+
+        class InputAsyncIteratorAwaitFactoryStop:
+            def __aiter__(self) -> InputAsyncIteratorAwaitFactoryStop:
+                return self
+
+            def __anext__(self) -> InputAwaitableStop:
+                return InputAwaitableStop()
+
+        content = InputAsyncIteratorAwaitFactoryStop()
     elif streaming == "async-generator":
         if repeating_stream:
             if execution_trace is None or stream_lifecycle is None:

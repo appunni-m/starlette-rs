@@ -112,6 +112,16 @@ impl AwaitableStateMachine for Stream {
                 }
                 self.finish_stream(py)
             }
+            MachineResume::Error(error)
+                if matches!(self.pending, StreamPending::Pull)
+                    && error.is_instance_of::<PyStopAsyncIteration>(py) =>
+            {
+                // async-for treats StopAsyncIteration raised anywhere while
+                // obtaining or awaiting this next item as iterator exhaustion.
+                // The awaitable's __await__ factory can raise before delegation
+                // starts, which the driver reports through the general error path.
+                self.finish_stream(py)
+            }
             MachineResume::Error(error) => Err(error),
         }
     }
