@@ -9187,6 +9187,8 @@ def _run_static_files_case(case: dict[str, Any]) -> dict[str, Any]:
         "follow_symlink",
         "observations",
     }
+    if "subclass_hooks" in case:
+        expected_fields.add("subclass_hooks")
     if request_sequence:
         expected_fields.add("calls")
     else:
@@ -9200,6 +9202,30 @@ def _run_static_files_case(case: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("workflow is outside the declared StaticFiles asgi-call operation")
     if case["observations"] != [RESPONSE_OPERATION]:
         raise ValueError("StaticFiles observations must select asgi-call")
+    subclass_hooks = case.get("subclass_hooks")
+    if subclass_hooks is not None:
+        if request_sequence or any(
+            case[key] is not None
+            for key in ("path_limit_stress", "permission_denial_stress", "filesystem")
+        ):
+            raise ValueError("StaticFiles subclass hooks require a single plain ASGI call")
+        _strict_object(
+            subclass_hooks,
+            {"file_response"} if "file_response" in subclass_hooks else {"is_not_modified"},
+            "StaticFiles subclass hooks",
+        )
+        if "file_response" in subclass_hooks:
+            _strict_object(
+                subclass_hooks["file_response"],
+                {"response_status", "response_body_base64"},
+                "StaticFiles file_response subclass hook",
+            )
+        else:
+            _strict_object(
+                subclass_hooks["is_not_modified"],
+                {"return_value"},
+                "StaticFiles is_not_modified subclass hook",
+            )
     if request_sequence:
         call_specs = case["calls"]
         if not isinstance(call_specs, list) or len(call_specs) < 2:
@@ -9226,6 +9252,56 @@ def _run_static_files_case(case: dict[str, Any]) -> dict[str, Any]:
 
     from starlette.exceptions import HTTPException
     from starlette.staticfiles import StaticFiles
+
+    subclass_hook_calls: list[dict[str, Any]] = []
+    static_files_type = StaticFiles
+    if subclass_hooks is not None:
+        from starlette.responses import Response
+
+        class StaticFilesSubclassHooks(StaticFiles):
+            def file_response(
+                self,
+                full_path: str,
+                stat_result: os.stat_result,
+                scope: dict[str, Any],
+                status_code: int = 200,
+            ) -> object:
+                hook_spec = subclass_hooks.get("file_response")
+                if hook_spec is None:
+                    return super().file_response(full_path, stat_result, scope, status_code)
+                subclass_hook_calls.append(
+                    {
+                        "hook": "file_response",
+                        "path_basename": Path(full_path).name,
+                        "stat_size": stat_result.st_size,
+                        "scope_method": scope["method"],
+                        "scope_path": scope["path"],
+                        "status_code": status_code,
+                    }
+                )
+                return Response(
+                    _decode_b64(
+                        hook_spec["response_body_base64"],
+                        "StaticFiles file_response subclass body",
+                    ),
+                    status_code=hook_spec["response_status"],
+                )
+
+            def is_not_modified(self, response_headers: Any, request_headers: Any) -> bool:
+                hook_spec = subclass_hooks.get("is_not_modified")
+                if hook_spec is None:
+                    return super().is_not_modified(response_headers, request_headers)
+                subclass_hook_calls.append(
+                    {
+                        "hook": "is_not_modified",
+                        "response_etag": response_headers.get("etag"),
+                        "request_if_none_match": request_headers.get("if-none-match"),
+                        "return_value": hook_spec["return_value"],
+                    }
+                )
+                return hook_spec["return_value"]
+
+        static_files_type = StaticFilesSubclassHooks
 
     temporary_prefix = (
         "starlette-static-path-limit-"
@@ -9294,7 +9370,7 @@ def _run_static_files_case(case: dict[str, Any]) -> dict[str, Any]:
             )
         sys.path.insert(0, str(package_source_root))
         try:
-            application = StaticFiles(
+            application = static_files_type(
                 directory=root,
                 packages=package_arguments,
                 html=case["html"],
@@ -9427,6 +9503,8 @@ def _run_static_files_case(case: dict[str, Any]) -> dict[str, Any]:
             "asgi_event_order": [event["type"] for event in events],
             "asgi_events": events,
         }
+        if subclass_hooks is not None:
+            observation["subclass_hook_calls"] = subclass_hook_calls
     observation_item = {
         "step_id": RESPONSE_OPERATION,
         "status": "ok",

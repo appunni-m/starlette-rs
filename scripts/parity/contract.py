@@ -338,6 +338,7 @@ TESTCLIENT_WEBSOCKET_REQUIREMENTS = {
     "application_close_code": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.application-close-code",
     "application_close_reason": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.application-close-reason",
     "cancellation": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.close-triggered-cancellation",
+    "context_exit_default_close": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.context-exit-default-close-after-client-close",
     "portal_cleanup": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.portal-cleanup",
     "send_json_text": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.send-json-text-frame",
     "send_json_binary": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.send-json-binary-frame",
@@ -1108,6 +1109,7 @@ RESPONSE_BACKGROUND_REQUIREMENTS = {
     "callable_shapes": "starlette.responses.Response.asgi-call.background-callable-shapes",
     "task_cancellation": "starlette.responses.Response.asgi-call.background-task-cancellation",
     "sync_task_cancellation": "starlette.responses.Response.asgi-call.background-sync-task-cancellation",
+    "task_list_sync_cancellation": "starlette.responses.Response.asgi-call.background-task-list-sync-cancellation",
 }
 FILE_RESPONSE_PATHSEND_REQUIREMENT = f"{FILE_RESPONSE_SURFACE}.{RESPONSE_OPERATION}.pathsend"
 FILE_RESPONSE_ASYNC_FILE_OPEN_SCHEDULING_REQUIREMENT = (
@@ -5455,20 +5457,23 @@ def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
                     has_callable_shape |= callable_kind != "function"
 
             if background_control is not None:
-                if (
-                    kind != "single-task"
-                    or len(tasks) != 1
-                    or tasks[0]["mode"] not in {"async", "sync"}
-                    or failures
-                    or has_callable_shape
-                ):
+                if failures or has_callable_shape:
                     raise ContractError(
-                        "Response background cancellation requires one plain-function task"
+                        "Response background cancellation requires plain callbacks without failures"
                     )
-                cancellation_requirement = (
-                    "task_cancellation" if tasks[0]["mode"] == "async" else "sync_task_cancellation"
-                )
-                derived = [RESPONSE_BACKGROUND_REQUIREMENTS[cancellation_requirement]]
+                if kind == "single-task" and len(tasks) == 1:
+                    cancellation_requirement = (
+                        "task_cancellation"
+                        if tasks[0]["mode"] == "async"
+                        else "sync_task_cancellation"
+                    )
+                    derived = [RESPONSE_BACKGROUND_REQUIREMENTS[cancellation_requirement]]
+                elif kind == "task-list" and len(tasks) >= 2 and tasks[0]["mode"] == "sync":
+                    derived = [RESPONSE_BACKGROUND_REQUIREMENTS["task_list_sync_cancellation"]]
+                else:
+                    raise ContractError(
+                        "Response background cancellation requires one task or a list beginning with a sync callback"
+                    )
             elif kind == "single-task":
                 derived = [
                     RESPONSE_BACKGROUND_REQUIREMENTS[
@@ -6229,11 +6234,56 @@ def _validate_static_files_case_stimulus(
             )
         return derived_covers
 
-    _exact(case, STATIC_FILES_ASGI_CALL_CASE_KEYS, "StaticFiles asgi-call case")
+    case_keys = STATIC_FILES_ASGI_CALL_CASE_KEYS | (
+        {"subclass_hooks"} if "subclass_hooks" in case else set()
+    )
+    _exact(case, case_keys, "StaticFiles asgi-call case")
     if case["surface"] != STATIC_FILES_SURFACE or case["operation"] != RESPONSE_OPERATION:
         raise ContractError("case is outside the declared StaticFiles asgi-call operation")
     if case["observations"] != [RESPONSE_OPERATION]:
         raise ContractError("StaticFiles observations must select asgi-call")
+
+    subclass_hooks = case.get("subclass_hooks")
+    subclass_hook_name = None
+    if subclass_hooks is not None:
+        if not isinstance(subclass_hooks, dict) or len(subclass_hooks) != 1:
+            raise ContractError("StaticFiles subclass_hooks must select exactly one hook")
+        subclass_hook_name = next(iter(subclass_hooks))
+        if subclass_hook_name == "file_response":
+            hook = _exact(
+                subclass_hooks[subclass_hook_name],
+                {"response_status", "response_body_base64"},
+                "StaticFiles file_response subclass hook",
+            )
+            if (
+                type(hook["response_status"]) is not int
+                or not 100 <= hook["response_status"] <= 599
+            ):
+                raise ContractError(
+                    "StaticFiles file_response response_status must be an HTTP status code"
+                )
+            encoded_body = _string(
+                hook["response_body_base64"],
+                "StaticFiles file_response response_body_base64",
+            )
+            try:
+                decoded_body = base64.b64decode(encoded_body, validate=True)
+            except (TypeError, ValueError) as exc:
+                raise ContractError("StaticFiles file_response body must be base64") from exc
+            if base64.b64encode(decoded_body).decode("ascii") != encoded_body:
+                raise ContractError("StaticFiles file_response body must use canonical base64")
+        elif subclass_hook_name == "is_not_modified":
+            hook = _exact(
+                subclass_hooks[subclass_hook_name],
+                {"return_value"},
+                "StaticFiles is_not_modified subclass hook",
+            )
+            if type(hook["return_value"]) is not bool:
+                raise ContractError("StaticFiles is_not_modified return_value must be boolean")
+        else:
+            raise ContractError("StaticFiles subclass hook is unsupported")
+    elif "subclass_hooks" in case:
+        raise ContractError("StaticFiles subclass_hooks cannot be null")
 
     directory = _string(case["directory"], "StaticFiles.directory")
     if not directory or Path(directory).is_absolute() or Path(directory).name != directory:
@@ -6419,6 +6469,20 @@ def _validate_static_files_case_stimulus(
     for package in packages:
         for file_input in package["files"]:
             selected_files[file_input["path"]] = (float(file_input["mtime_seconds"]), True)
+    if subclass_hooks is not None and (
+        case["target_profiles"] != ["python-package-cpython312"]
+        or scope["method"] != "GET"
+        or case["html"]
+        or case["packages"]
+        or len(direct_paths) != 1
+        or normalized_path != direct_paths[0]
+        or scope["path"] != f"/{normalized_path}"
+        or scope["root_path"]
+        or scope["headers_base64_pairs"]
+    ):
+        raise ContractError(
+            "StaticFiles subclass hooks require one direct-file GET on the Python package profile"
+        )
     selected_directories = {
         "/".join(parts[:index])
         for file_path in selected_files
@@ -6591,6 +6655,12 @@ def _validate_static_files_case_stimulus(
                     derived.add("package-static-assets")
                 if "rust-native-local" in case["target_profiles"]:
                     derived.add("rust-explicit-package-roots")
+            elif subclass_hook_name is not None:
+                requirement_suffix = {
+                    "file_response": "file-response-subclass-override",
+                    "is_not_modified": "is-not-modified-subclass-override",
+                }[subclass_hook_name]
+                derived.add(requirement_suffix)
             else:
                 derived.add("rooted-file-get")
     if (
@@ -15073,6 +15143,71 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
             "TestClient receive_json action requires an input-defined concurrent WebSocket app flow"
         )
 
+    context_exit_close_workflow = (
+        isinstance(app_actions, list)
+        and len(app_actions) == 4
+        and all(isinstance(action, dict) for action in app_actions)
+        and [action.get("operation") for action in app_actions]
+        == ["receive", "send", "receive", "receive"]
+    )
+    if context_exit_close_workflow:
+        if not client_close_workflow or len(session_actions) != 1:
+            raise ContractError(
+                "TestClient context-exit close capture requires one explicit client close"
+            )
+        close_action = _exact(
+            session_actions[0],
+            {"operation"} | (session_actions[0].keys() & {"code", "reason"}),
+            "TestClient context-exit client close action",
+        )
+        if close_action["operation"] != "close":
+            raise ContractError("TestClient context-exit input must explicitly close the client")
+        close_code = close_action.get("code", 1000)
+        close_reason = close_action.get("reason")
+        if close_code == 1000 and not close_reason:
+            raise ContractError(
+                "TestClient context-exit input must distinguish the explicit close from its default close"
+            )
+        if settings["raise_server_exceptions"] is not True or not {"type", "path"} <= set(
+            scope_fields
+        ):
+            raise ContractError(
+                "TestClient context-exit close capture requires the public accepted-session scope"
+            )
+        connect_action = _exact(
+            app_actions[0], {"operation"}, "TestClient context-exit connect action"
+        )
+        accept_action = _exact(
+            app_actions[1], {"operation", "message"}, "TestClient context-exit accept action"
+        )
+        accept_message = _exact(
+            accept_action["message"], {"type"}, "TestClient context-exit accept message"
+        )
+        if (
+            connect_action["operation"] != "receive"
+            or accept_action["operation"] != "send"
+            or accept_message["type"] != "websocket.accept"
+        ):
+            raise ContractError("TestClient context-exit input must accept before receiving closes")
+        for index, action in enumerate(app_actions[2:], start=2):
+            receive_action = _exact(
+                action, {"operation"}, f"TestClient context-exit receive action[{index}]"
+            )
+            if receive_action["operation"] != "receive":
+                raise ContractError("TestClient context-exit input must capture both close events")
+        expected_covers = {
+            TESTCLIENT_WEBSOCKET_REQUIREMENTS["scope"],
+            TESTCLIENT_WEBSOCKET_REQUIREMENTS["handshake"],
+            TESTCLIENT_WEBSOCKET_REQUIREMENTS["client_close"],
+            TESTCLIENT_WEBSOCKET_REQUIREMENTS["context_exit_default_close"],
+            TESTCLIENT_WEBSOCKET_REQUIREMENTS["portal_cleanup"],
+        }
+        if set(case["covers"]) != expected_covers:
+            raise ContractError(
+                "TestClient context-exit close covers must match both input-defined close events"
+            )
+        return
+
     if not isinstance(app_actions, list) or len(app_actions) != 5:
         raise ContractError(
             "TestClient WebSocket app must receive connect, accept, exchange text, then receive disconnect"
@@ -16931,6 +17066,13 @@ def _validate_case_payload(
         and "constructor_probes" in case
     ):
         expected_case_keys = expected_case_keys | {"constructor_probes"}
+    if (
+        is_static_files
+        and isinstance(case, dict)
+        and case.get("operation") == RESPONSE_OPERATION
+        and "subclass_hooks" in case
+    ):
+        expected_case_keys = expected_case_keys | {"subclass_hooks"}
     if is_router and isinstance(case, dict) and "observe_router_scope" in case:
         expected_case_keys = expected_case_keys | {"observe_router_scope"}
     if is_router and isinstance(case, dict) and "max_body_size" in case:

@@ -763,7 +763,7 @@
       "operations": [
         {
           "operation_id": "asgi-call",
-          "source_path": "starlette.staticfiles.StaticFiles.__call__"
+          "source_path": "starlette.staticfiles.StaticFiles.__call__, StaticFiles.get_response, StaticFiles.file_response, and StaticFiles.is_not_modified"
         },
         {
           "operation_id": "asgi-call-async-boundary",

@@ -585,7 +585,6 @@ struct PyWebSocketTestSession {
     accepted_subprotocol: Option<String>,
     extra_headers: Option<Py<PyAny>>,
     accepted: bool,
-    client_closed: bool,
 }
 
 impl PyWebSocketTestSession {
@@ -615,7 +614,6 @@ impl PyWebSocketTestSession {
             accepted_subprotocol: None,
             extra_headers: None,
             accepted: false,
-            client_closed: false,
         }
     }
 
@@ -626,7 +624,6 @@ impl PyWebSocketTestSession {
             ));
         }
         self.accepted = false;
-        self.client_closed = false;
         self.extra_headers = None;
 
         if let Some(portal) = self.shared_portal.as_ref() {
@@ -834,14 +831,12 @@ impl PyWebSocketTestSession {
         reason: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<()> {
         let message = websocket_disconnect_message(py, code, reason)?;
-        self.send_client_message(py, message)?;
-        self.client_closed = true;
-        Ok(())
+        self.send_client_message(py, message)
     }
 
     fn teardown(&mut self, py: Python<'_>) -> PyResult<()> {
         let mut task_error = None;
-        if self.portal.is_some() && self.accepted && !self.client_closed {
+        if self.portal.is_some() && self.accepted {
             if let Err(error) = self.close_inner(py, &PyInt::new(py, 1000).into_any(), None) {
                 task_error = Some(error);
             }

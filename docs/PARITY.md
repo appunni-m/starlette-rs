@@ -1,6 +1,6 @@
 # Migration parity contract and evidence
 
-The working-tree input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@5`, `scope.mode: slice`, and `parity-input@48`. It currently contains 2,013 cases across 145 parity inputs, two benchmark inputs, 133 operations, and 1,036 parity requirements. The source inventory has 817 rows: 762 input mappings, 55 source-backed `not_applicable` rows, and zero fixture-backlog rows.
+The working-tree input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@5`, `scope.mode: slice`, and `parity-input@48`. It currently contains 2,017 cases across 145 parity inputs, two benchmark inputs, 133 operations, and 1,040 parity requirements. The source inventory has 817 rows: 762 input mappings, 55 source-backed `not_applicable` rows, and zero fixture-backlog rows.
 
 The latest clean full parity preflight, `dc8c8ca6-f2b7-449b-9f53-45860e3cad4c`, passed 2,254/2,254 comparisons for the preceding 1,992-case contract: 1,988 Python-package and 266 Rust-native comparisons, with zero failures, infrastructure errors, or `not_run` rows. Both target-only fault contracts passed on clean revision `57aab659fb09cd252df110cc9daef7eeaec1ea1a`. Later @48 additions cover optional-backend behavior, WebSocket authorization, Router truthiness, BaseHTTPMiddleware iterator cancellation, response subclasses, Python-version applicability, StaticFiles OS-specific paths and NUL handling, StreamingResponse OSError mapping, TestClient BaseException and close-code behavior, WebSocket close-code forwarding, CPython custom-regex syntax, AuthenticationMiddleware iterable backend results, nested Host/Mount reverse lookup, and Request body retry after `http.disconnect`. These inputs have not yet run; full parity remains deferred until implementation closes.
 
@@ -1370,8 +1370,9 @@ inputs match the pinned constructor-missing-directory, lazy missing-root,
 lazy file-root, and repeated-request checks at `tests/test_staticfiles.py:124-165`.
 These cases do not cover the full 36-function upstream StaticFiles suite.
 Known gaps include constructor errors beyond the missing-directory case,
-permission conditions beyond root-search denial, subclass hooks beyond `lookup_path`, a
-separate scheduling assertion for `check_config`, cross-platform
+permission conditions beyond root-search denial, remaining validator and subclass-hook behavior, including the newly authored but
+unexecuted `file_response` and `is_not_modified` override inputs, plus a separate
+scheduling assertion for `check_config`, cross-platform
 `os.stat_result` fields and Windows path normalization and semantics, and
 remaining validator branches.
 

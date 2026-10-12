@@ -18587,6 +18587,17 @@
               ]
             },
             {
+              "id": "starlette.responses.Response.asgi-call.background-task-list-sync-cancellation",
+              "dimension": "boundary",
+              "description": "Cancel a Response while the first sync callback in an input-defined BackgroundTasks list is blocked, release it, and observe that it completes without running the next callback. Pinned source: starlette/background.py:26-36; starlette/concurrency.py:32-34; starlette/responses.py:54-70.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.responses.Response.asgi-call.background-sync-task",
               "dimension": "boundary",
               "description": "Attach one sync BackgroundTask with input-defined keyword arguments to Response; compare response-send and worker-thread task start/completion events. Upstream: tests/test_background.py::test_sync_task; starlette/background.py:12-23; starlette/concurrency.py:32-34.",
@@ -23647,7 +23658,7 @@
           },
           "source": {
             "oracle_id": "starlette-python",
-            "path": "starlette.staticfiles.StaticFiles.__call__",
+            "path": "starlette.staticfiles.StaticFiles.__call__, StaticFiles.get_response, StaticFiles.file_response, and StaticFiles.is_not_modified",
             "signature": "StaticFiles(*, directory=None, packages=None, html=False, check_dir=True, follow_symlink=False); async __call__(scope, receive, send) -> None",
             "parameters": [
               {
@@ -23861,6 +23872,28 @@
               ],
               "target_profiles": [
                 "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.staticfiles.StaticFiles.asgi-call.file-response-subclass-override",
+              "dimension": "feature",
+              "description": "Subclass StaticFiles with an input-defined file_response override and compare its response plus the callback arguments derived from the selected file and ASGI scope. Pinned source: starlette/staticfiles.py:101-122,161-173.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.staticfiles.StaticFiles.asgi-call.is-not-modified-subclass-override",
+              "dimension": "feature",
+              "description": "Subclass StaticFiles with an input-defined is_not_modified override and compare its 304 response plus the callback arguments derived from response and request headers. Pinned source: starlette/staticfiles.py:167-173,188-205.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
                 "python-package-cpython312"
               ]
             },
@@ -27868,6 +27901,17 @@
               "id": "starlette.testclient.TestClient.websocket-session.scope-projection",
               "dimension": "boundary",
               "description": "Project the supplied ws URL, query parameters, root path, client, request headers, and offered subprotocols into the WebSocket ASGI scope, including raw_path and query_string. Pinned source: starlette/testclient.py:225-282; tests/test_testclient.py::test_websocket_raw_path_without_params.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.websocket-session.context-exit-default-close-after-client-close",
+              "dimension": "boundary",
+              "description": "After an accepted WebSocket, explicitly close the session with an input-defined code and reason, then exit its context and observe the registered default close sent to the raw ASGI application, app completion, and portal cleanup. Pinned source: starlette/testclient.py:115-127,181-182; docs/testclient.md:194-207,232-234.",
               "lanes": [
                 "parity"
               ],

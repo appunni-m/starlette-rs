@@ -1634,6 +1634,48 @@
       }
     },
     {
+      "case_id": "starlette.testclient.TestClient.websocket-session.context-exit-default-close-after-client-close",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "websocket-session",
+      "covers": [
+        "starlette.testclient.TestClient.websocket-session.scope-projection",
+        "starlette.testclient.TestClient.websocket-session.accept-handshake",
+        "starlette.testclient.TestClient.websocket-session.client-close-code-reason",
+        "starlette.testclient.TestClient.websocket-session.context-exit-default-close-after-client-close",
+        "starlette.testclient.TestClient.websocket-session.portal-cleanup"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "observations": ["websocket-session"],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": ["127.0.0.1", 12345],
+        "headers": [],
+        "backend": "asyncio",
+        "backend_options": {}
+      },
+      "websocket": {
+        "url": "/",
+        "subprotocols": [],
+        "headers": [],
+        "actions": [
+          {"operation": "close", "code": 1001, "reason": "client-close"}
+        ]
+      },
+      "asgi_app": {
+        "kind": "asgi3",
+        "scope_fields": ["type", "path"],
+        "actions": [
+          {"operation": "receive"},
+          {"operation": "send", "message": {"type": "websocket.accept"}},
+          {"operation": "receive"},
+          {"operation": "receive"}
+        ]
+      }
+    },
+    {
       "case_id": "starlette.testclient.TestClient.websocket-session.subprotocol-selection",
       "surface": "starlette.testclient.TestClient",
       "operation": "websocket-session",
