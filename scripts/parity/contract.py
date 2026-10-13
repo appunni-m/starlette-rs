@@ -433,6 +433,7 @@ SESSION_REQUIREMENTS = {
     "union_noniterable_error": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.in-place-union-noniterable-error",
     "union_partial_pair_error": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.in-place-union-partial-pair-error",
     "vary_on_access": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.vary-cookie-on-access",
+    "response_start_header_iterable": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.response-start-header-iterable",
     "no_access": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.no-access-no-vary",
     "set_cookie_modification": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.set-cookie-only-on-modification",
     "clear_existing": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.clear-existing-session",
@@ -10462,7 +10463,31 @@ def _validate_session_workflow_case(case: dict[str, Any]) -> None:
                 raise ContractError(
                     "session view, clear, and no-access actions require HTTP scopes"
                 )
-            action = _exact(action, {"kind"}, f"{context}.action")
+            if action_kind == "view" and "response_start" in action:
+                action = _exact(
+                    action,
+                    {"kind", "response_start"},
+                    f"{context}.action",
+                )
+                response_start = _exact(
+                    action["response_start"],
+                    {"headers_representation", "headers_base64_pairs"},
+                    f"{context}.action.response_start",
+                )
+                representation = _string(
+                    response_start["headers_representation"],
+                    f"{context}.action.response_start.headers_representation",
+                )
+                if representation not in {"list", "tuple"}:
+                    raise ContractError(
+                        "SessionMiddleware response-start headers representation must be list or tuple"
+                    )
+                _gzip_header_pairs(
+                    response_start["headers_base64_pairs"],
+                    f"{context}.action.response_start.headers_base64_pairs",
+                )
+            else:
+                action = _exact(action, {"kind"}, f"{context}.action")
         elif action_kind == "update":
             if scope_type != "http":
                 raise ContractError("session update actions require HTTP scopes")
@@ -10628,6 +10653,11 @@ def _validate_session_workflow_case(case: dict[str, Any]) -> None:
         for request in requests
     ):
         requirements.add(SESSION_REQUIREMENTS["vary_on_access"])
+    if any(
+        request["action"]["kind"] == "view" and "response_start" in request["action"]
+        for request in requests
+    ):
+        requirements.add(SESSION_REQUIREMENTS["response_start_header_iterable"])
     if update_requests:
         requirements.add(SESSION_REQUIREMENTS["set_cookie_modification"])
         if constructor["max_age"] == 14 * 24 * 60 * 60:
@@ -31387,17 +31417,15 @@ def _validate_wsgi_app(value: Any) -> None:
     if not isinstance(headers, list):
         raise ContractError("WSGIMiddleware response headers must be an array")
     for index, pair in enumerate(headers):
-        if (
-            not isinstance(pair, list)
-            or len(pair) != 2
-            or any(not isinstance(item, str) for item in pair)
-        ):
-            raise ContractError(f"WSGIMiddleware response header[{index}] must be a string pair")
-        try:
-            pair[0].encode("ascii")
-            pair[1].encode("ascii")
-        except UnicodeEncodeError as exc:
-            raise ContractError("WSGIMiddleware response headers must be ASCII encodable") from exc
+        if not isinstance(pair, list) or any(not isinstance(item, str) for item in pair):
+            raise ContractError(f"WSGIMiddleware response header[{index}] must be a string array")
+        for item in pair:
+            try:
+                item.encode("ascii")
+            except UnicodeEncodeError as exc:
+                raise ContractError(
+                    "WSGIMiddleware response headers must be ASCII encodable"
+                ) from exc
     if kind == "wsgi-response":
         chunks = value["chunks_base64"]
         if not isinstance(chunks, list):

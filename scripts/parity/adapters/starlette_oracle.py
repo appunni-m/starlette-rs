@@ -6179,7 +6179,29 @@ def _run_session_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                 "mutation_result": current["mutation_result"],
             }
         )
-        await response(scope, receive, send)
+        response_send = send
+        if "response_start" in action:
+            response_start = action["response_start"]
+            header_pairs = [
+                (
+                    _decode_b64(pair[0], "SessionMiddleware response-start header name"),
+                    _decode_b64(pair[1], "SessionMiddleware response-start header value"),
+                )
+                for pair in response_start["headers_base64_pairs"]
+            ]
+            response_headers = (
+                tuple(header_pairs)
+                if response_start["headers_representation"] == "tuple"
+                else header_pairs
+            )
+
+            async def send_response_start_headers(message: dict[str, Any]) -> None:
+                if message["type"] == "http.response.start":
+                    message["headers"] = response_headers
+                await send(message)
+
+            response_send = send_response_start_headers
+        await response(scope, receive, response_send)
 
     middleware = SessionMiddleware(
         app,
@@ -6253,7 +6275,38 @@ def _run_session_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
             if not isinstance(action, dict) or not isinstance(action.get("kind"), str):
                 raise ValueError("SessionMiddleware action must be a tagged object")
             if action["kind"] in {"view", "clear", "no-access"}:
-                _strict_object(action, {"kind"}, "SessionMiddleware action")
+                action_keys = (
+                    {"kind", "response_start"}
+                    if action["kind"] == "view" and "response_start" in action
+                    else {"kind"}
+                )
+                _strict_object(action, action_keys, "SessionMiddleware action")
+                if "response_start" in action:
+                    response_start = _strict_object(
+                        action["response_start"],
+                        {"headers_representation", "headers_base64_pairs"},
+                        "SessionMiddleware response-start headers",
+                    )
+                    if response_start["headers_representation"] not in {"list", "tuple"}:
+                        raise ValueError(
+                            "SessionMiddleware response-start headers representation must be list or tuple"
+                        )
+                    header_pairs = response_start["headers_base64_pairs"]
+                    if not isinstance(header_pairs, list):
+                        raise ValueError(
+                            "SessionMiddleware response-start headers must be an array"
+                        )
+                    for pair in header_pairs:
+                        if (
+                            not isinstance(pair, list)
+                            or len(pair) != 2
+                            or any(not isinstance(part, str) for part in pair)
+                        ):
+                            raise ValueError(
+                                "SessionMiddleware response-start headers must be base64 string pairs"
+                            )
+                        _decode_b64(pair[0], "SessionMiddleware response-start header name")
+                        _decode_b64(pair[1], "SessionMiddleware response-start header value")
             elif action["kind"] == "update":
                 _strict_object(action, {"kind", "values"}, "SessionMiddleware update action")
                 if not isinstance(action["values"], dict):

@@ -105,19 +105,9 @@ pub(crate) fn header_from_arguments<'py>(
     if !legal_token(&string_codepoints(&key)?) {
         return Err(cookie_error(py, format!("Illegal key {}", key.repr()?))?);
     }
-    for item in [&key, value.as_any(), &coded] {
-        if has_control(&python_string_to_codepoints(item.str()?.as_any())?) {
-            return Err(cookie_error(
-                py,
-                format!(
-                    "Control characters are not allowed in cookies {} {} {}",
-                    key.repr()?,
-                    value.repr()?,
-                    coded.repr()?
-                ),
-            )?);
-        }
-    }
+    // SimpleCookie quotes control characters in cookie values through
+    // `_Translator`. Keep the original value and its translated representation
+    // observable while key and attribute validation remain separate.
     storage.set_item(&key, py.None())?;
 
     let mut attributes = Vec::new();

@@ -398,7 +398,13 @@ impl PyWsgiStartResponse {
         let headers = PyList::empty(py);
         for header in response_headers.bind(py).try_iter()? {
             let pair = py.import("builtins")?.getattr("tuple")?.call1((header?,))?;
-            if pair.len()? != 2 {
+            let pair_len = pair.len()?;
+            if pair_len < 2 {
+                return Err(PyValueError::new_err(format!(
+                    "not enough values to unpack (expected 2, got {pair_len})"
+                )));
+            }
+            if pair_len > 2 {
                 return Err(PyValueError::new_err(
                     "too many values to unpack (expected 2)",
                 ));

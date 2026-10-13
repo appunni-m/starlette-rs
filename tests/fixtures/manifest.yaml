@@ -456,8 +456,10 @@
       "build/parity/inputs/parity/static-files-os-path.json",
       "build/parity/inputs/parity/static-files-get-directories-subclass.json",
       "build/parity/inputs/parity/wsgi-middleware.json",
+      "build/parity/inputs/parity/wsgi-response-header-unpack-error.json",
       "build/parity/inputs/parity/wsgi-boundary.json",
       "build/parity/inputs/parity/session-middleware.json",
+      "build/parity/inputs/parity/session-response-header-iterable.json",
       "build/parity/inputs/parity/session-future-timestamp.json",
       "build/parity/inputs/parity/base-http-middleware.json",
       "build/parity/inputs/parity/base-http-return-closed-body-iterator.json",
@@ -519,6 +521,7 @@
       "build/parity/inputs/parity/response-construction-protocols.json",
       "build/parity/inputs/parity/response-attributes.json",
       "build/parity/inputs/parity/response-cookie-protocols.json",
+      "build/parity/inputs/parity/response-cookie-control-value.json",
       "build/parity/inputs/parity/response-cookie-ownership.json",
       "build/parity/inputs/parity/response-variants.json",
       "build/parity/inputs/parity/templating-protocols.json",
@@ -13888,6 +13891,17 @@
               "id": "starlette.middleware.sessions.SessionMiddleware.session-workflow.vary-cookie-on-access",
               "dimension": "success_path",
               "description": "Add Vary: Cookie when request handling accesses the session. Upstream: tests/middleware/test_session.py:227-248.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.sessions.SessionMiddleware.session-workflow.response-start-header-iterable",
+              "dimension": "protocol_variant",
+              "description": "Normalize iterable response-start headers to a mutable list before adding Vary: Cookie, including tuple header collections. Upstream: starlette/datastructures.py:519-522; starlette/middleware/sessions.py:58-62.",
               "lanes": [
                 "parity"
               ],

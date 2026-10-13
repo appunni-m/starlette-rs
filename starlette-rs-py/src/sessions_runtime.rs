@@ -563,14 +563,14 @@ impl SessionSendCall {
         let modified = session.getattr("modified")?.is_truthy()?;
         let nonempty = session.is_truthy()?;
         let response_start = message.cast::<PyDict>()?;
-        let headers = match response_start.get_item("headers")? {
-            Some(headers) => headers.cast_into::<PyList>()?,
-            None => {
-                let headers = PyList::empty(py);
-                response_start.set_item("headers", &headers)?;
-                headers
-            }
-        };
+        let headers = response_start
+            .get_item("headers")?
+            .ok_or_else(|| pyo3::exceptions::PyKeyError::new_err("headers"))?;
+        // MutableHeaders(scope=message) normalizes the ASGI header iterable
+        // with list() and stores that list back on the response-start message.
+        let headers = py.import("builtins")?.getattr("list")?.call1((headers,))?;
+        response_start.set_item("headers", &headers)?;
+        let headers = headers.cast_into::<PyList>()?;
 
         if accessed {
             add_vary_cookie(py, &headers)?;
