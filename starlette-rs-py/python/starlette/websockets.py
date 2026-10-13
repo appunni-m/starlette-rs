@@ -10,6 +10,7 @@ from starlette_rs_py import _core
 
 from starlette.requests import HTTPConnection, StateT
 from starlette.responses import Response
+from starlette.types import Message, Receive, Scope, Send
 
 
 class WebSocketState(enum.Enum):
@@ -34,7 +35,7 @@ class WebSocket(HTTPConnection[StateT]):
 
     __slots__ = ("_protocol", "_receive", "_send")
 
-    def __init__(self, scope: dict[str, Any], receive: Any, send: Any) -> None:
+    def __init__(self, scope: Scope, receive: Receive, send: Send) -> None:
         super().__init__(scope)
         self._receive = receive
         self._send = send
@@ -56,10 +57,10 @@ class WebSocket(HTTPConnection[StateT]):
     def application_state(self, state: WebSocketState) -> None:
         self._protocol.set_application_state(state.value)
 
-    async def receive(self) -> dict[str, Any]:
+    async def receive(self) -> Message:
         return await self._protocol.receive()
 
-    async def send(self, message: dict[str, Any]) -> None:
+    async def send(self, message: Message) -> None:
         await self._protocol.send(message)
 
     async def accept(
@@ -69,7 +70,7 @@ class WebSocket(HTTPConnection[StateT]):
     ) -> None:
         await self._protocol.accept(self.receive, self.send, subprotocol, headers)
 
-    def _raise_on_disconnect(self, message: dict[str, Any]) -> None:
+    def _raise_on_disconnect(self, message: Message) -> None:
         self._protocol.raise_on_disconnect(message)
 
     async def receive_text(self) -> str:
@@ -130,5 +131,5 @@ class WebSocketClose:
     def reason(self, value: Any) -> None:
         self._inner.reason = value
 
-    async def __call__(self, scope: dict[str, Any], receive: Any, send: Any) -> None:
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         await self._inner.asgi_call(scope, receive, send)

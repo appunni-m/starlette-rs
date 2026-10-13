@@ -605,6 +605,8 @@ fn parse_http_date_ignoring_weekday(value: &str) -> Option<SystemTime> {
     ];
 
     let value = strip_trailing_email_comments(value.trim());
+    let normalized_comments = strip_email_comments_after_time(value);
+    let value = normalized_comments.as_deref().unwrap_or(value);
     let normalized_timezone = normalize_email_timezone(value);
     let value = normalized_timezone.as_deref().unwrap_or(value);
     let normalized_month = normalize_email_month(value);
@@ -651,6 +653,69 @@ fn parse_http_date_ignoring_weekday(value: &str) -> Option<SystemTime> {
             .ok()
             .or_else(|| httpdate::parse_http_date(&format!("{normalized} GMT")).ok())
     })
+}
+
+/// Removes balanced RFC comments after the time token, where `email.utils.parsedate`
+/// treats the next token as an ignored timezone field.
+fn strip_email_comments_after_time(value: &str) -> Option<String> {
+    let mut cursor = 0;
+    for field in value.split_whitespace() {
+        let start = cursor + value.get(cursor..)?.find(field)?;
+        let end = start + field.len();
+        cursor = end;
+        if !is_email_time_field(field) {
+            continue;
+        }
+
+        let suffix = &value[end..];
+        let stripped_suffix = remove_email_comments(suffix)?;
+        if stripped_suffix == suffix {
+            return None;
+        }
+        return Some(
+            format!("{}{}", &value[..end], stripped_suffix)
+                .split_whitespace()
+                .collect::<Vec<_>>()
+                .join(" "),
+        );
+    }
+    None
+}
+
+fn is_email_time_field(value: &str) -> bool {
+    let fields = value.split(':').collect::<Vec<_>>();
+    matches!(fields.len(), 2 | 3)
+        && fields
+            .iter()
+            .all(|field| !field.is_empty() && field.bytes().all(|byte| byte.is_ascii_digit()))
+}
+
+fn remove_email_comments(value: &str) -> Option<String> {
+    let mut result = String::with_capacity(value.len());
+    let mut depth = 0_usize;
+    let mut escaped = false;
+    let mut removed = false;
+
+    for character in value.chars() {
+        if depth > 0 {
+            if escaped {
+                escaped = false;
+            } else if character == '\\' {
+                escaped = true;
+            } else if character == '(' {
+                depth += 1;
+            } else if character == ')' {
+                depth -= 1;
+            }
+        } else if character == '(' {
+            depth = 1;
+            removed = true;
+        } else {
+            result.push(character);
+        }
+    }
+
+    (depth == 0 && removed).then_some(result)
 }
 
 /// Normalizes Python email-date month tokens to the abbreviated form accepted

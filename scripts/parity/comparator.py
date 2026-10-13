@@ -31,6 +31,22 @@ def _diff(
     }
 
 
+def _same_json_value(source: Any, target: Any) -> bool:
+    """Compare JSON values without Python's bool/int and int/float coercions."""
+    if type(source) is not type(target):
+        return False
+    if isinstance(source, dict):
+        return source.keys() == target.keys() and all(
+            _same_json_value(source[key], target[key]) for key in source
+        )
+    if isinstance(source, list):
+        return len(source) == len(target) and all(
+            _same_json_value(source_item, target_item)
+            for source_item, target_item in zip(source, target, strict=True)
+        )
+    return source == target
+
+
 def _compare_value(kind: str, source: Any, target: Any) -> bool:
     if kind == "bytes":
         if not isinstance(source, dict) or not isinstance(target, dict):
@@ -47,7 +63,7 @@ def _compare_value(kind: str, source: Any, target: Any) -> bool:
         return source_bytes == target_bytes
     if kind in {"exact", "ordered"}:
         # JSON object key order is not observable; array order and duplicate entries are.
-        return source == target
+        return _same_json_value(source, target)
     raise ContractError(f"unsupported comparison kind: {kind}")
 
 

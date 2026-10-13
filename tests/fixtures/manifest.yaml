@@ -442,6 +442,7 @@
       "build/parity/inputs/parity/file-response-signed-zero-range.json",
       "build/parity/inputs/parity/file-response-range-python-strip-c0-separators.json",
       "build/parity/inputs/parity/lifespan-generators.json",
+      "build/parity/inputs/parity/router-lifespan-exception-class-identity.json",
       "build/parity/inputs/parity/lifespan-native-failure-transitions.json",
       "build/parity/inputs/parity/authentication-runtime.json",
       "build/parity/inputs/parity/authentication-user-interface.json",
@@ -549,6 +550,7 @@
       "build/parity/inputs/parity/static-files-weekdayless-date.json",
       "build/parity/inputs/parity/static-files-if-modified-since-full-month.json",
       "build/parity/inputs/parity/static-files-if-modified-since-rfc-comment.json",
+      "build/parity/inputs/parity/static-files-if-modified-since-internal-comment.json",
       "build/parity/inputs/parity/testclient-reentrant-lifespan-entry.json",
       "build/parity/inputs/parity/native-service-streaming.json",
       "build/parity/inputs/parity/native-service-error-boundaries.json",
@@ -1876,6 +1878,28 @@
               "id": "starlette.asgi.lifespan.async-context-manager-special-method-lookup",
               "dimension": "boundary",
               "description": "An async context manager instance with shadowing __aenter__ and __aexit__ attributes follows Python async-with type-level special-method lookup through the lifespan protocol. Upstream: starlette/routing.py::Router.lifespan; Python data model special-method lookup.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.asgi.lifespan.exit-exception-type-is-runtime-type",
+              "dimension": "boundary",
+              "description": "Pass the actual active exception type and traceback to the lifespan async context manager when the startup-complete send callback raises an exception whose __class__ attribute reports another type. Pinned source: starlette/routing.py::Router.lifespan; Python async-with exception protocol.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.asgi.lifespan.failure-message-uses-runtime-exception-type",
+              "dimension": "error_path",
+              "description": "Format startup failure using the actual raised exception type even when the exception instance shadows __class__ with a different built-in exception type. Pinned source: starlette/routing.py::Router.lifespan; traceback.format_exc semantics.",
               "lanes": [
                 "parity"
               ],
@@ -3550,7 +3574,7 @@
             {
               "id": "starlette.applications.Starlette.python-typing-contract",
               "dimension": "type_contract",
-              "description": "Type-check the same consumer against pinned Starlette source and the installed package, including Request[State], WebSocket[State], Starlette lifecycle, ASGIApp, ExceptionHandler, and Scope aliases, plus subclass-preserving with statements that reveal TestClient and WebSocketTestSession subclass types from their Self-typed __enter__ methods. Pinned source: starlette/applications.py:24-34,45-61,65-88; starlette/types.py:11-26; starlette/requests.py:77,80,214; starlette/websockets.py:26; starlette/testclient.py:115,679.",
+              "description": "Type-check the same consumer against pinned Starlette source and the installed package, including Scope/Receive/Send constructor signatures for HTTPConnection, Request, WebSocket, and WebSocketClose; Request[State] and WebSocket[State]; Request cookies, stream, form, and receive annotations; Starlette lifecycle, ASGIApp, ExceptionHandler, and public scope aliases; plus subclass-preserving with statements that reveal TestClient and WebSocketTestSession subclass types from their Self-typed __enter__ methods. Pinned source: starlette/applications.py:24-34,45-61,65-88; starlette/types.py:11-26; starlette/requests.py:77,80,214; starlette/websockets.py:26; starlette/testclient.py:115,679.",
               "lanes": [
                 "parity"
               ],

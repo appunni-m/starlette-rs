@@ -857,8 +857,10 @@ impl RouterLifespanMachine {
             return self.send_failure(py, original, started);
         };
         let exception = original.value(py);
-        let exception_type = exception.getattr("__class__")?;
-        let traceback = exception.getattr("__traceback__")?;
+        let exception_type = original.get_type(py);
+        let traceback = original
+            .traceback(py)
+            .map_or_else(|| py.None().into_bound(py), Bound::into_any);
         let context_manager = context_manager.bind(py);
         let exit = match context_manager
             .get_type()
@@ -943,14 +945,14 @@ impl RouterLifespanMachine {
 
 fn traceback_text(py: Python<'_>, error: &PyErr) -> PyResult<String> {
     let exception = error.value(py);
+    let exception_type = error.get_type(py);
+    let traceback = error
+        .traceback(py)
+        .map_or_else(|| py.None().into_bound(py), Bound::into_any);
     let formatted = py
         .import("traceback")?
         .getattr("format_exception")?
-        .call1((
-            exception.getattr("__class__")?,
-            exception,
-            exception.getattr("__traceback__")?,
-        ))?;
+        .call1((exception_type, exception, traceback))?;
     PyString::new(py, "")
         .call_method1("join", (formatted,))?
         .extract()

@@ -21773,6 +21773,17 @@ def _validate_lifespan_marker(marker: Any) -> str:
         ):
             _string(marker[name], f"shadowed async context-manager {name}")
         return marker["kind"]
+    if kind == "async-context-manager-observe-exception-class":
+        marker = _exact(
+            marker,
+            {"kind", "record_entry", "record_exit"},
+            "exception-observing async context-manager marker",
+        )
+        if marker["record_entry"] is not True or marker["record_exit"] is not True:
+            raise ContractError(
+                "exception-observing async context manager must record entry and exit"
+            )
+        return marker["kind"]
     raise ContractError("lifespan input must be null or use a declared context-manager marker")
 
 
@@ -21814,11 +21825,13 @@ def _validate_lifespan_receive_actions(receive: Any) -> None:
 def _validate_lifespan_send_callback(send: Any) -> None:
     if send == {"kind": "capture-asgi-send"}:
         return
-    send = _exact(
-        send,
-        {"kind", "message_type", "exception_type", "message"},
-        "lifecycle send callback",
-    )
+    required = {"kind", "message_type", "exception_type", "message"}
+    if (
+        not isinstance(send, dict)
+        or not required <= send.keys()
+        or send.keys() - required - {"exception_class_override"}
+    ):
+        raise ContractError("lifecycle send callback has invalid fields")
     if (
         send["kind"] != "raise-on-call"
         or send["message_type"] != "lifespan.startup.complete"
@@ -21826,6 +21839,8 @@ def _validate_lifespan_send_callback(send: Any) -> None:
     ):
         raise ContractError("lifecycle send callback failure must target startup.complete")
     _string(send["message"], "lifecycle send callback failure message")
+    if "exception_class_override" in send and send["exception_class_override"] != "ValueError":
+        raise ContractError("lifecycle send exception class override must be ValueError")
 
 
 def _lifespan_case_requirement(marker: dict[str, Any], lifecycle_args: dict[str, Any]) -> str:
@@ -21890,6 +21905,28 @@ def _lifespan_case_requirement(marker: dict[str, Any], lifecycle_args: dict[str,
     return f"starlette.asgi.lifespan.{prefix}-generator.{suffix}"
 
 
+def _lifespan_case_requirements(
+    marker: dict[str, Any], lifecycle_args: dict[str, Any]
+) -> tuple[str, ...]:
+    kind = _validate_lifespan_marker(marker)
+    if kind != "async-context-manager-observe-exception-class":
+        if "exception_class_override" in lifecycle_args["send"]:
+            raise ContractError("exception class override requires the exception-observing context")
+        return (_lifespan_case_requirement(marker, lifecycle_args),)
+    if (
+        lifecycle_args["send"].get("kind") != "raise-on-call"
+        or lifecycle_args["send"].get("exception_class_override") != "ValueError"
+        or lifecycle_args["receive"][1].get("kind") != "message"
+    ):
+        raise ContractError(
+            "exception-observing context requires a shadowed RuntimeError from startup send"
+        )
+    return (
+        "starlette.asgi.lifespan.exit-exception-type-is-runtime-type",
+        "starlette.asgi.lifespan.failure-message-uses-runtime-exception-type",
+    )
+
+
 def _validate_lifespan_only_case(case: dict[str, Any], app_args: dict[str, Any]) -> None:
     if case["operation"] != "__call__" or case["target_profiles"] not in (
         ["python-package-cpython312"],
@@ -21908,6 +21945,7 @@ def _validate_lifespan_only_case(case: dict[str, Any], app_args: dict[str, Any])
         "sync-generator",
         "async-generator",
         "async-context-manager-shadowed-specials",
+        "async-context-manager-observe-exception-class",
     }:
         raise ContractError(
             "lifespan-only workflow requires an explicit generator or special-method marker"
@@ -21927,8 +21965,8 @@ def _validate_lifespan_only_case(case: dict[str, Any], app_args: dict[str, Any])
         raise ContractError("lifespan scope must use the declared ASGI versions")
     if "state" in scope and not isinstance(scope["state"], dict):
         raise ContractError("lifespan scope state must be an object")
-    requirement = _lifespan_case_requirement(app_args["lifespan"], lifecycle_args)
-    if case["covers"] != [requirement]:
+    requirements = _lifespan_case_requirements(app_args["lifespan"], lifecycle_args)
+    if case["covers"] != list(requirements):
         raise ContractError("lifespan-only input and requirement mapping differ")
 
 
@@ -32622,7 +32660,7 @@ def _semantic_coverage(case: dict[str, Any]) -> set[str]:
         lifecycle_args = {
             key: descriptor["value"] for key, descriptor in case["steps"][1]["arguments"].items()
         }
-        return {_lifespan_case_requirement(app_arguments["lifespan"], lifecycle_args)}
+        return set(_lifespan_case_requirements(app_arguments["lifespan"], lifecycle_args))
     route_order_coverage = _starlette_route_converter_order_semantic_coverage(case, app_arguments)
     if route_order_coverage is not None:
         return route_order_coverage

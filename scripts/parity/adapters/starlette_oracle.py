@@ -1525,7 +1525,7 @@ def _materialize_application(
     }:
         raise ValueError("Starlette.__init__ arguments do not match the declared workflow")
     lifespan_spec = app_spec["lifespan"]
-    lifecycle_trace: list[str] = []
+    lifecycle_trace: list[Any] = []
     if lifespan_spec is None:
         lifespan = None
     elif lifespan_spec == {
@@ -1603,6 +1603,38 @@ def _materialize_application(
                     _raise_lifespan_failure(lifespan_spec)
 
         lifespan = sync_lifespan if lifespan_spec["kind"] == "sync-generator" else async_lifespan
+    elif (
+        isinstance(lifespan_spec, dict)
+        and lifespan_spec.get("kind") == "async-context-manager-observe-exception-class"
+    ):
+
+        class ExceptionObservingContextManager:
+            async def __aenter__(self) -> None:
+                lifecycle_trace.append("entry")
+                return None
+
+            async def __aexit__(self, exception_type: Any, exception: Any, _traceback: Any) -> bool:
+                if exception is None:
+                    observation = {
+                        "exit_type_is_runtime_type": None,
+                        "runtime_type_name": None,
+                        "reported_class_name": None,
+                    }
+                else:
+                    observation = {
+                        "exit_type_is_runtime_type": exception_type is type(exception),
+                        "runtime_type_name": type(exception).__name__,
+                        "reported_class_name": exception.__class__.__name__,
+                    }
+                lifecycle_trace.append(observation)
+                if lifespan_spec["record_exit"]:
+                    lifecycle_trace.append("exit")
+                return False
+
+        context_manager = ExceptionObservingContextManager()
+
+        def lifespan(_app: Any) -> Any:
+            return context_manager
     elif (
         isinstance(lifespan_spec, dict)
         and lifespan_spec.get("kind") == "async-context-manager-shadowed-specials"
@@ -2733,7 +2765,7 @@ def _observed_sync_endpoint(
 async def _invoke(
     app: Any,
     step_args: dict[str, Any],
-    lifecycle_trace: list[str],
+    lifecycle_trace: list[Any],
     request_observations: list[dict[str, Any]],
     route_endpoint: Any,
     request_dispatch: bool,
@@ -11528,7 +11560,7 @@ async def _invoke_lifespan_around_dispatch(
     app: Any,
     lifecycle_args: dict[str, Any],
     dispatch_args: dict[str, Any],
-    lifecycle_trace: list[str],
+    lifecycle_trace: list[Any],
     request_observations: list[dict[str, Any]],
     route_endpoint: Any,
     sync_endpoint_states: list[dict[str, Any]],
@@ -11613,7 +11645,7 @@ async def _invoke_lifespan_around_dispatch(
 async def _invoke_lifespan_only(
     app: Any,
     lifecycle_args: dict[str, Any],
-    lifecycle_trace: list[str],
+    lifecycle_trace: list[Any],
 ) -> dict[str, Any] | _CapturedDispatchError:
     """Run a complete lifecycle input while observing callback invocation effects."""
     if lifecycle_args["scope"].get("type") != "lifespan":
@@ -11652,6 +11684,22 @@ async def _invoke_lifespan_only(
             send_spec["kind"] == "raise-on-call"
             and message.get("type") == send_spec["message_type"]
         ):
+            if "exception_class_override" in send_spec:
+                exception_type = getattr(builtins, send_spec["exception_type"])
+                reported_class = getattr(builtins, send_spec["exception_class_override"])
+
+                def class_override(_exception: BaseException) -> type[BaseException]:
+                    return reported_class
+
+                shadowed_exception_type = type(
+                    f"InputDefined{exception_type.__name__}",
+                    (exception_type,),
+                    {
+                        "__class__": property(class_override),
+                        "__module__": exception_type.__module__,
+                    },
+                )
+                raise shadowed_exception_type(send_spec["message"])
             raise RuntimeError(send_spec["message"])
         return record_send(message)
 

@@ -2,30 +2,40 @@
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator, Callable, Iterator, Mapping
-from typing import Any, Generic
+from collections.abc import AsyncGenerator, Awaitable, Iterator, Mapping
+from contextlib import AbstractAsyncContextManager
+from typing import Any, Generic, NoReturn, Protocol
 
 from starlette_rs_py import _core
 from typing_extensions import TypeVar
 
-from starlette.datastructures import URL, Address, Headers, QueryParams, State
+from starlette.datastructures import URL, Address, FormData, Headers, QueryParams, State
 from starlette.formparsers import MultiPartException as MultiPartException
+from starlette.types import Message, Receive, Scope, Send
 
 parse_options_header = _core._request_form_dependency()
 
 StateT = TypeVar("StateT", bound=Mapping[str, Any] | State, default=State)
+_AwaitableT_co = TypeVar("_AwaitableT_co", covariant=True)
+
+
+class AwaitableOrContextManager(
+    Awaitable[_AwaitableT_co],
+    AbstractAsyncContextManager[_AwaitableT_co],
+    Protocol[_AwaitableT_co],
+): ...
 
 
 class ClientDisconnect(Exception):
     """The client disconnected while the request body was being read."""
 
 
-async def empty_receive() -> Any:
+async def empty_receive() -> NoReturn:
     """Return the same missing-receive failure as the upstream callback."""
     return await _core._empty_receive()
 
 
-async def empty_send(message: Any) -> Any:
+async def empty_send(message: Message) -> NoReturn:
     """Return the same missing-send failure as the upstream callback."""
     return await _core._empty_send()
 
@@ -35,15 +45,15 @@ class HTTPConnection(Mapping[str, Any], Generic[StateT]):
 
     __slots__ = ("_inner",)
 
-    def __init__(self, scope: dict[str, Any], receive: Callable[..., Any] | None = None) -> None:
+    def __init__(self, scope: Scope, receive: Receive | None = None) -> None:
         self._inner = _core.HTTPConnection(scope)
 
     @property
-    def scope(self) -> dict[str, Any]:
+    def scope(self) -> Scope:
         return self._inner.scope
 
     @scope.setter
-    def scope(self, value: dict[str, Any]) -> None:
+    def scope(self, value: Scope) -> None:
         self._inner.scope = value
 
     def __getitem__(self, key: str) -> Any:
@@ -86,7 +96,7 @@ class HTTPConnection(Mapping[str, Any], Generic[StateT]):
         return self._inner.path_params
 
     @property
-    def cookies(self) -> Any:
+    def cookies(self) -> dict[str, str]:
         return self._inner.cookies
 
     @property
@@ -117,9 +127,9 @@ class Request(HTTPConnection[StateT]):
 
     def __init__(
         self,
-        scope: dict[str, Any],
-        receive: Callable[..., Any] = empty_receive,
-        send: Callable[..., Any] = empty_send,
+        scope: Scope,
+        receive: Receive = empty_receive,
+        send: Send = empty_send,
     ) -> None:
         self._inner = _core.HTTPConnection(scope, "http")
         self._body_state = _core.RequestBody(receive)
@@ -138,10 +148,10 @@ class Request(HTTPConnection[StateT]):
         return self._inner.router
 
     @property
-    def receive(self) -> Callable[..., Any]:
+    def receive(self) -> Receive:
         return self._body_state.receive
 
-    def stream(self) -> AsyncIterator[bytes]:
+    def stream(self) -> AsyncGenerator[bytes, None]:
         """Return the Rust-owned ASGI request stream iterator."""
         return self._body_state.stream()
 
@@ -159,7 +169,7 @@ class Request(HTTPConnection[StateT]):
         max_files: int | float = 1000,
         max_fields: int | float = 1000,
         max_part_size: int = 1024 * 1024,
-    ) -> Any:
+    ) -> AwaitableOrContextManager[FormData]:
         """Return an awaitable context manager for parsed form data."""
         return self._body_state.form(
             self.headers.get("Content-Type"),
