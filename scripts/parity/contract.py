@@ -169,6 +169,9 @@ THREADPOOL_REQUIREMENTS = {
     "exception_identity": f"{THREADPOOL_SURFACE}.{THREADPOOL_OPERATION}.exception-identity",
     "worker_thread": f"{THREADPOOL_SURFACE}.{THREADPOOL_OPERATION}.worker-thread",
     "event_loop_progress": f"{THREADPOOL_SURFACE}.{THREADPOOL_OPERATION}.event-loop-progress",
+    "contextvar_propagation": (
+        f"{THREADPOOL_SURFACE}.{THREADPOOL_OPERATION}.contextvar-propagation"
+    ),
     "default_token_limit": f"{THREADPOOL_SURFACE}.{THREADPOOL_OPERATION}.default-token-limit",
     "shared_capacity": f"{THREADPOOL_SURFACE}.{THREADPOOL_OPERATION}.shared-anyio-capacity",
     "limiter_adjustment": f"{THREADPOOL_SURFACE}.{THREADPOOL_OPERATION}.limiter-adjustment",
@@ -222,6 +225,9 @@ NATIVE_LIFESPAN_OPERATION = "native-lifespan"
 NATIVE_LIFESPAN_SURFACE = "starlette-rs.NativeLifespan"
 NATIVE_WORKFLOW_OBSERVATION = "workflow"
 WEBSOCKET_SEND_OSERROR_REQUIREMENT = "starlette.websocket.api.send.os-error.disconnect-details"
+WEBSOCKET_DESCRIPTOR_TIMING_REQUIREMENT = (
+    "starlette.websocket.api.callback-descriptor.lookup-timing"
+)
 WEBSOCKET_INVALID_JSON_MODE_REQUIREMENTS = {
     "receive": "starlette.websocket.api.receive.json.invalid-mode",
     "send": "starlette.websocket.api.send.json.invalid-mode",
@@ -4615,6 +4621,34 @@ def _validate_websocket_convenience_case_stimulus(case: dict[str, Any]) -> None:
         }:
             raise ContractError(f"{context}.assign_client_state must be a WebSocketState name")
         callback_actions[receive_index] = client_state_assignment
+    method_descriptors = case.get("method_descriptors", {})
+    if not isinstance(method_descriptors, dict) or set(method_descriptors) - {
+        "scope",
+        "receive",
+        "send",
+    }:
+        raise ContractError("WebSocket method_descriptors may select scope, receive, or send")
+    for attribute, descriptor in method_descriptors.items():
+        context = f"WebSocket method_descriptors.{attribute}"
+        if attribute in {"scope", "receive"}:
+            descriptor = _exact(descriptor, {"read_labels"}, context)
+            labels = descriptor["read_labels"]
+            if (
+                not isinstance(labels, list)
+                or not labels
+                or any(not isinstance(label, str) or not label for label in labels)
+                or len(labels) != len(set(labels))
+            ):
+                raise ContractError(f"{context}.read_labels must be unique non-empty strings")
+        else:
+            descriptor = _exact(descriptor, {"by_client_state"}, context)
+            state_labels = descriptor["by_client_state"]
+            if not isinstance(state_labels, dict) or not state_labels:
+                raise ContractError(f"{context}.by_client_state must be a non-empty object")
+            if set(state_labels) - {"CONNECTING", "CONNECTED", "DISCONNECTED", "RESPONSE"}:
+                raise ContractError(f"{context}.by_client_state has an invalid WebSocket state")
+            if any(not isinstance(label, str) or not label for label in state_labels.values()):
+                raise ContractError(f"{context}.by_client_state labels must be non-empty strings")
     action_ids: set[str] = set()
     incoming_index = 0
     consumed_callback_actions: set[int] = set()
@@ -4623,6 +4657,7 @@ def _validate_websocket_convenience_case_stimulus(case: dict[str, Any]) -> None:
     application_state = "CONNECTING"
     application_close_attempted = False
     exercised: set[str] = set()
+    method_descriptors_used = False
     if case.get("scope_container", "dict") == "user-dict":
         exercised.add("starlette.websocket.api.scope.mutable-mapping")
     for field in ("constructor_thread", "iterator_thread"):
@@ -4737,6 +4772,26 @@ def _validate_websocket_convenience_case_stimulus(case: dict[str, Any]) -> None:
                                 ) from exc
             if application_state != "CONNECTING":
                 raise ContractError(f"{context} requires the application to be connecting")
+            if method_descriptors:
+                method_descriptors_used = True
+                if set(method_descriptors) != {"send"}:
+                    raise ContractError(
+                        f"{context} descriptor coverage requires only a send descriptor"
+                    )
+                state_labels = method_descriptors["send"]["by_client_state"]
+                if client_state == "CONNECTING" and not {
+                    "CONNECTING",
+                    "CONNECTED",
+                } <= set(state_labels):
+                    raise ContractError(
+                        f"{context} send descriptor must select callbacks before and after connect"
+                    )
+                if WEBSOCKET_DESCRIPTOR_TIMING_REQUIREMENT not in case["covers"]:
+                    raise ContractError(
+                        f"{context} method descriptor must cover "
+                        f"{WEBSOCKET_DESCRIPTOR_TIMING_REQUIREMENT}"
+                    )
+                exercised.add(WEBSOCKET_DESCRIPTOR_TIMING_REQUIREMENT)
             if client_state == "CONNECTING":
                 receive_input(context)
             if client_state != "CONNECTED":
@@ -4942,6 +4997,29 @@ def _validate_websocket_convenience_case_stimulus(case: dict[str, Any]) -> None:
                     f"{context} requires the application to be connecting for denial response"
                 )
             if extension_present:
+                if method_descriptors:
+                    method_descriptors_used = True
+                    if set(method_descriptors) != {"scope", "receive", "send"}:
+                        raise ContractError(
+                            f"{context} descriptor coverage requires scope, receive, and send"
+                        )
+                    scope_labels = method_descriptors["scope"]["read_labels"]
+                    receive_labels = method_descriptors["receive"]["read_labels"]
+                    send_states = method_descriptors["send"]["by_client_state"]
+                    if (
+                        len(scope_labels) < 2
+                        or len(receive_labels) < 2
+                        or client_state not in send_states
+                    ):
+                        raise ContractError(
+                            f"{context} descriptors must select extension and response arguments"
+                        )
+                    if WEBSOCKET_DESCRIPTOR_TIMING_REQUIREMENT not in case["covers"]:
+                        raise ContractError(
+                            f"{context} method descriptor must cover "
+                            f"{WEBSOCKET_DESCRIPTOR_TIMING_REQUIREMENT}"
+                        )
+                    exercised.add(WEBSOCKET_DESCRIPTOR_TIMING_REQUIREMENT)
                 application_state = "DISCONNECTED"
                 exercised.add("starlette.websocket.api.denial-response.present")
                 if response_kind in {"streaming", "file"}:
@@ -5011,6 +5089,10 @@ def _validate_websocket_convenience_case_stimulus(case: dict[str, Any]) -> None:
     if consumed_callback_actions != set(callback_actions):
         raise ContractError(
             "WebSocket receive_callback_actions must select callbacks invoked by the action sequence"
+        )
+    if method_descriptors and not method_descriptors_used:
+        raise ContractError(
+            "WebSocket method_descriptors must select a descriptor used by an action"
         )
     if case["observations"] != [WEBSOCKET_CONVENIENCE_OPERATION]:
         raise ContractError(
@@ -21812,6 +21894,7 @@ def _validate_case_payload(
                 "iterator_thread",
                 "receive_callback_actions",
                 "scope_container",
+                "method_descriptors",
             }
             & case.keys()
         )
@@ -23530,9 +23613,30 @@ def _validate_threadpool_case(case: dict[str, Any]) -> None:
             THREADPOOL_REQUIREMENTS["worker_thread"],
             THREADPOOL_REQUIREMENTS["event_loop_progress"],
         }
+    elif behavior_kind == "contextvar":
+        contextvar_behavior = _exact(
+            callable_behavior,
+            {"kind", "name", "initial_value", "worker_value", "result_value"},
+            "run_in_threadpool ContextVar behavior",
+        )
+        for field_name in ("name",):
+            value = _string(contextvar_behavior[field_name], f"ContextVar {field_name}")
+            if not value:
+                raise ContractError(f"run_in_threadpool ContextVar {field_name} must be non-empty")
+        for field_name in ("initial_value", "worker_value", "result_value"):
+            _validate_threadpool_json(
+                contextvar_behavior[field_name],
+                f"run_in_threadpool ContextVar {field_name}",
+            )
+        expected_requirements = {
+            THREADPOOL_REQUIREMENTS["arguments_result"],
+            THREADPOOL_REQUIREMENTS["worker_thread"],
+            THREADPOOL_REQUIREMENTS["event_loop_progress"],
+            THREADPOOL_REQUIREMENTS["contextvar_propagation"],
+        }
     else:
         raise ContractError(
-            "run_in_threadpool callable behavior kind must be return, raise, or limiter-workload"
+            "run_in_threadpool callable behavior kind must be return, raise, contextvar, or limiter-workload"
         )
 
     checkpoints = call["event_loop_checkpoints"]

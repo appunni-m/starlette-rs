@@ -4745,6 +4745,21 @@
               ]
             },
             {
+              "id": "starlette.concurrency.run_in_threadpool.contextvar-propagation",
+              "dimension": "boundary",
+              "description": "Copy the caller ContextVar state into the synchronous AnyIO worker and keep worker-side ContextVar writes isolated from the caller context. Pinned source: starlette/concurrency.py:32-34; tests/test_concurrency.py:33-46; docs/threadpool.md:11-14.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
               "id": "starlette.concurrency.run_in_threadpool.default-token-limit",
               "dimension": "runtime",
               "description": "Observe the live AnyIO default thread-limiter capacity used by run_in_threadpool. Pinned source: docs/threadpool.md:16-20.",
@@ -28519,7 +28534,7 @@
           "source": {
             "oracle_id": "starlette-python",
             "path": "starlette.websockets.WebSocket",
-            "signature": "Parity workflow: call public WebSocket methods from the supplied action sequence, exercise raw and typed receive/send framing, accepted headers, iterator async-for and async-generator controls, denial-response dispatch with fixed, streaming, or file-backed response inputs, and optional input-defined client_state assignments inside awaited receive callbacks; compare returned values/errors, the ASGI callback tape, and final protocol states.",
+            "signature": "Parity workflow: call public WebSocket methods from the supplied action sequence, exercise raw and typed receive/send framing, accepted headers, iterator async-for and async-generator controls, denial-response dispatch with fixed, streaming, or file-backed response inputs, optional input-defined client_state assignments inside awaited receive callbacks, and input-defined subclass descriptors; compare returned values/errors, the ASGI callback tape, descriptor reads, and final protocol states.",
             "parameters": [
               {
                 "id": "scope",
@@ -28594,6 +28609,17 @@
                   "kind": "literal",
                   "value": "dict"
                 }
+              },
+              {
+                "id": "method_descriptors",
+                "style": "option",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": {}
+                }
               }
             ],
             "result": {
@@ -28610,6 +28636,15 @@
                 },
                 {
                   "path": "asgi_callback_tape",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "method_descriptor_reads",
                   "value_types": [
                     "sequence"
                   ],
@@ -28693,6 +28728,17 @@
               "id": "starlette.websocket.api.accept.empty-headers",
               "dimension": "boundary",
               "description": "Exercise WebSocket.accept with an omitted, null, or empty headers value and compare the emitted ASGI header collection.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.websocket.api.callback-descriptor.lookup-timing",
+              "dimension": "boundary",
+              "description": "Construct WebSocket subclasses with input-defined descriptors. The send descriptor observes CONNECTED after accept awaits receive, and denial-response descriptors observe the extension scope check before the response's scope, receive, and send arguments are resolved. Pinned source: starlette/websockets.py:100-111,183-187.",
               "lanes": [
                 "parity"
               ],

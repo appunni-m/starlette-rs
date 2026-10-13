@@ -70,7 +70,7 @@ class WebSocket(HTTPConnection[StateT]):
         subprotocol: str | None = None,
         headers: Iterable[tuple[bytes, bytes]] | None = None,
     ) -> None:
-        await self._protocol.accept(self.receive, self.send, subprotocol, headers)
+        await self._protocol.accept(self, subprotocol, headers)
 
     def _raise_on_disconnect(self, message: Message) -> None:
         self._protocol.raise_on_disconnect(message)
@@ -106,7 +106,7 @@ class WebSocket(HTTPConnection[StateT]):
         await self._protocol.close(self.send, code, reason)
 
     async def send_denial_response(self, response: Response) -> None:
-        await self._protocol.send_denial_response(self.scope, response, self.receive, self.send)
+        await self._protocol.send_denial_response(self, response)
 
 
 class WebSocketClose:

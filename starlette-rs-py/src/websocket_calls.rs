@@ -285,8 +285,7 @@ impl PyWebSocketProtocol {
     fn accept(
         &self,
         py: Python<'_>,
-        receive_callback: Py<PyAny>,
-        send_callback: Py<PyAny>,
+        websocket: Py<PyAny>,
         subprotocol: Py<PyAny>,
         headers: Py<PyAny>,
     ) -> PyResult<Py<PyAny>> {
@@ -296,8 +295,7 @@ impl PyWebSocketProtocol {
                 state: self.state.clone(),
                 state_gc: clone_state_gc(py, self.state_gc.as_ref())?,
                 state_type: self.state_type.clone_ref(py),
-                receive_callback,
-                send_callback,
+                websocket,
                 subprotocol,
                 headers,
                 pending: AcceptPending::Start,
@@ -439,18 +437,14 @@ impl PyWebSocketProtocol {
     fn send_denial_response(
         &self,
         py: Python<'_>,
-        scope: Py<PyAny>,
+        websocket: Py<PyAny>,
         response: Py<PyAny>,
-        receive_callback: Py<PyAny>,
-        send_callback: Py<PyAny>,
     ) -> PyResult<Py<PyAny>> {
         into_sendable_python_awaitable(
             py,
             DenialResponseMachine {
-                scope,
+                websocket,
                 response,
-                receive_callback,
-                send_callback,
                 pending: false,
             },
         )
@@ -888,8 +882,7 @@ struct AcceptMachine {
     state: SharedProtocolState,
     state_gc: Py<PyWebSocketProtocolState>,
     state_type: Py<PyAny>,
-    receive_callback: Py<PyAny>,
-    send_callback: Py<PyAny>,
+    websocket: Py<PyAny>,
     subprotocol: Py<PyAny>,
     headers: Py<PyAny>,
     pending: AcceptPending,
@@ -899,8 +892,7 @@ impl AwaitableStateMachine for AcceptMachine {
     fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
         visit.call(&self.state_gc)?;
         visit.call(&self.state_type)?;
-        visit.call(&self.receive_callback)?;
-        visit.call(&self.send_callback)?;
+        visit.call(&self.websocket)?;
         visit.call(&self.subprotocol)?;
         visit.call(&self.headers)
     }
@@ -939,7 +931,8 @@ impl AcceptMachine {
             RichComparison::Equal,
         )? {
             self.pending = AcceptPending::Receive;
-            let awaitable = self.receive_callback.bind(py).call0()?;
+            let receive_callback = self.websocket.bind(py).getattr("receive")?;
+            let awaitable = receive_callback.call0()?;
             return Ok(MachineAction::Await(awaitable.unbind()));
         }
         self.send_accept(py)
@@ -951,7 +944,8 @@ impl AcceptMachine {
         message.set_item("subprotocol", self.subprotocol.bind(py))?;
         message.set_item("headers", self.headers.bind(py))?;
         self.pending = AcceptPending::Send;
-        let awaitable = self.send_callback.bind(py).call1((message,))?;
+        let send_callback = self.websocket.bind(py).getattr("send")?;
+        let awaitable = send_callback.call1((message,))?;
         Ok(MachineAction::Await(awaitable.unbind()))
     }
 }
@@ -1090,19 +1084,16 @@ fn build_send_frame(py: Python<'_>, frame: WebSocketSendFrame) -> PyResult<Bound
 }
 
 struct DenialResponseMachine {
-    scope: Py<PyAny>,
+    websocket: Py<PyAny>,
     response: Py<PyAny>,
-    receive_callback: Py<PyAny>,
-    send_callback: Py<PyAny>,
     pending: bool,
 }
 
 impl AwaitableStateMachine for DenialResponseMachine {
     fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
-        visit.call(&self.scope)?;
+        visit.call(&self.websocket)?;
         visit.call(&self.response)?;
-        visit.call(&self.receive_callback)?;
-        visit.call(&self.send_callback)
+        Ok(())
     }
     fn finalize_on_drop(&self) -> bool {
         true
@@ -1128,9 +1119,8 @@ impl AwaitableStateMachine for DenialResponseMachine {
 impl DenialResponseMachine {
     fn start(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
         let empty_extensions = PyDict::new(py);
-        let extensions = self
-            .scope
-            .bind(py)
+        let scope = self.websocket.bind(py).getattr("scope")?;
+        let extensions = scope
             .getattr("get")?
             .call1(("extensions", empty_extensions))?;
         if !extensions.contains("websocket.http.response")? {
@@ -1138,11 +1128,13 @@ impl DenialResponseMachine {
                 "The server doesn't support the Websocket Denial Response extension.",
             ));
         }
-        let awaitable = self.response.bind(py).call1((
-            self.scope.bind(py),
-            self.receive_callback.bind(py),
-            self.send_callback.bind(py),
-        ))?;
+        let response_scope = self.websocket.bind(py).getattr("scope")?;
+        let receive_callback = self.websocket.bind(py).getattr("receive")?;
+        let send_callback = self.websocket.bind(py).getattr("send")?;
+        let awaitable =
+            self.response
+                .bind(py)
+                .call1((response_scope, receive_callback, send_callback))?;
         self.pending = true;
         Ok(MachineAction::Await(awaitable.unbind()))
     }

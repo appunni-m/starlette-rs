@@ -139,6 +139,49 @@
       }
     },
     {
+      "case_id": "starlette.concurrency.run_in_threadpool.contextvar-propagation-and-isolation",
+      "surface": "starlette.concurrency",
+      "operation": "run_in_threadpool",
+      "covers": [
+        "starlette.concurrency.run_in_threadpool.arguments-result",
+        "starlette.concurrency.run_in_threadpool.worker-thread",
+        "starlette.concurrency.run_in_threadpool.event-loop-progress",
+        "starlette.concurrency.run_in_threadpool.contextvar-propagation"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "observations": [
+        "run_in_threadpool"
+      ],
+      "call": {
+        "call_id": "contextvar-propagation-and-isolation",
+        "args": [
+          "input-positional"
+        ],
+        "kwargs": {
+          "label": "input-keyword"
+        },
+        "callable_behavior": {
+          "kind": "contextvar",
+          "name": "starlette-rs-parity-run-in-threadpool",
+          "initial_value": "caller-context",
+          "worker_value": "worker-context-update",
+          "result_value": "input-defined-worker-result"
+        },
+        "event_loop_checkpoints": [
+          "contextvar-worker-gate-held"
+        ],
+        "start_timeout_ms": 5000,
+        "release_timeout_ms": 5000
+      }
+    },
+    {
       "case_id": "starlette.concurrency.iterate_in_threadpool.iterable-items-worker-exhaustion",
       "surface": "starlette.concurrency",
       "operation": "iterate_in_threadpool",

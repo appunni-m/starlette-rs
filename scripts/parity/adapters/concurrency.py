@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import builtins
+import contextvars
 import threading
 import warnings
 from collections.abc import Callable
@@ -44,16 +45,29 @@ def run_threadpool_case(
         callback_exited = threading.Event()
         callable_behavior = spec["callable_behavior"]
         exception_instance: BaseException | None = None
+        contextvar_behavior = (
+            callable_behavior if callable_behavior["kind"] == "contextvar" else None
+        )
+        context_variable: contextvars.ContextVar[Any] | None = None
+        if contextvar_behavior is not None:
+            context_variable = contextvars.ContextVar(contextvar_behavior["name"])
+            context_variable.set(contextvar_behavior["initial_value"])
         if callable_behavior["kind"] == "raise":
             exception_type = getattr(builtins, callable_behavior["exception_type"])
             exception_instance = exception_type(callable_behavior["message"])
-        returned_value = callable_behavior.get("value")
+        returned_value = (
+            contextvar_behavior["result_value"]
+            if contextvar_behavior is not None
+            else callable_behavior.get("value")
+        )
         callback_state: dict[str, Any] = {
             "args": None,
             "kwargs": None,
             "invocation_count": 0,
             "worker_thread_role": None,
             "release_observed": False,
+            "contextvar_worker_initial": None,
+            "contextvar_worker_after_write": None,
         }
 
         def callback(*args: Any, **kwargs: Any) -> Any:
@@ -63,6 +77,10 @@ def run_threadpool_case(
             callback_state["worker_thread_role"] = (
                 "caller" if threading.get_ident() == caller_thread_id else "worker"
             )
+            if context_variable is not None and contextvar_behavior is not None:
+                callback_state["contextvar_worker_initial"] = _json_safe(context_variable.get())
+                context_variable.set(contextvar_behavior["worker_value"])
+                callback_state["contextvar_worker_after_write"] = _json_safe(context_variable.get())
             trace.append({"call_id": spec["call_id"], "event": "callback-start"})
             trace.append({"call_id": spec["call_id"], "event": "worker-gate-held"})
             loop.call_soon_threadsafe(callback_entered.set)
@@ -132,6 +150,15 @@ def run_threadpool_case(
                 "invocation_count": callback_state["invocation_count"],
                 "worker_thread_role": callback_state["worker_thread_role"],
                 "worker_gate_release_observed": callback_state["release_observed"],
+                "contextvar_observation": (
+                    {
+                        "worker_initial_value": callback_state["contextvar_worker_initial"],
+                        "worker_value_after_write": callback_state["contextvar_worker_after_write"],
+                        "caller_value_after_worker": _json_safe(context_variable.get()),
+                    }
+                    if context_variable is not None
+                    else None
+                ),
                 "event_loop_checkpoints": checkpoints,
                 "event_loop_progress_while_worker_held": bool(checkpoints)
                 and all(checkpoint["callback_held"] for checkpoint in checkpoints),

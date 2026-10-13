@@ -5995,7 +5995,7 @@ def _run_websocket_convenience_case(case: dict[str, Any]) -> dict[str, Any]:
             "actions",
             "observations",
         }
-        | ({"constructor_thread", "iterator_thread"} & case.keys()),
+        | ({"constructor_thread", "iterator_thread", "method_descriptors"} & case.keys()),
         "WebSocket convenience-sequence case",
     )
     if case["surface"] != WEBSOCKET_SURFACE or case["operation"] != WEBSOCKET_CONVENIENCE_OPERATION:
@@ -6017,7 +6017,30 @@ def _run_websocket_convenience_case(case: dict[str, Any]) -> dict[str, Any]:
     pending_send_error: dict[str, Any] | None = None
     file_response_directory: tempfile.TemporaryDirectory[str] | None = None
     iterator_control_cache: dict[str, Any] = {}
+    method_descriptors = case.get("method_descriptors", {})
+    method_descriptor_reads: list[dict[str, Any]] = []
+    method_descriptor_counts: dict[str, int] = {}
     websocket: Any = None
+
+    def record_descriptor_read(attribute: str, instance: Any) -> str:
+        descriptor = method_descriptors[attribute]
+        if attribute == "send":
+            state = _websocket_state_name(instance.client_state)
+            selected = descriptor["by_client_state"][state]
+            method_descriptor_reads.append(
+                {"attribute": attribute, "state": state, "selected": selected}
+            )
+            return selected
+        read_index = method_descriptor_counts.get(attribute, 0)
+        labels = descriptor["read_labels"]
+        if read_index >= len(labels):
+            raise ValueError(f"WebSocket {attribute} descriptor read exceeded its input labels")
+        method_descriptor_counts[attribute] = read_index + 1
+        selected = labels[read_index]
+        method_descriptor_reads.append(
+            {"attribute": attribute, "read_index": read_index, "selected": selected}
+        )
+        return selected
 
     async def receive() -> dict[str, Any]:
         nonlocal incoming_index
@@ -6042,7 +6065,38 @@ def _run_websocket_convenience_case(case: dict[str, Any]) -> dict[str, Any]:
             raise OSError(pending_send_error["message"])
 
     def construct() -> Any:
-        return WebSocket(_make_websocket_scope(case["scope"]), receive, send)
+        scope = _make_websocket_scope(case["scope"])
+        if not method_descriptors:
+            return WebSocket(scope, receive, send)
+        descriptor_members: dict[str, Any] = {"__module__": WebSocket.__module__}
+        if "scope" in method_descriptors:
+
+            def scope_descriptor(instance: Any) -> Any:
+                record_descriptor_read("scope", instance)
+                return WebSocket.scope.fget(instance)
+
+            descriptor_members["scope"] = property(scope_descriptor)
+        if "receive" in method_descriptors:
+
+            def receive_descriptor(instance: Any) -> Any:
+                record_descriptor_read("receive", instance)
+                return WebSocket.receive.__get__(instance, type(instance))
+
+            descriptor_members["receive"] = property(receive_descriptor)
+        if "send" in method_descriptors:
+
+            def send_descriptor(instance: Any) -> Any:
+                selected = record_descriptor_read("send", instance)
+
+                async def selected_send(message: dict[str, Any]) -> None:
+                    method_descriptor_reads.append({"attribute": "send.call", "selected": selected})
+                    await WebSocket.send(instance, message)
+
+                return selected_send
+
+            descriptor_members["send"] = property(send_descriptor)
+        input_websocket_type = type("InputDefinedWebSocket", (WebSocket,), descriptor_members)
+        return input_websocket_type(scope, receive, send)
 
     if case.get("constructor_thread", "caller") == "worker":
         from concurrent.futures import ThreadPoolExecutor
@@ -6244,6 +6298,7 @@ def _run_websocket_convenience_case(case: dict[str, Any]) -> dict[str, Any]:
     available = {
         "action_results": action_results,
         "asgi_callback_tape": callback_tape,
+        "method_descriptor_reads": method_descriptor_reads,
         "client_state": _websocket_state_name(websocket.client_state),
         "application_state": _websocket_state_name(websocket.application_state),
     }
