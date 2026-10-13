@@ -10888,7 +10888,14 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
         background_control = _strict_object(
             case["background_control"], {"kind"}, "Response background control"
         )
-        if background_control["kind"] != "cancel-after-task-start" or surface != RESPONSE_SURFACE:
+        if (
+            background_control["kind"]
+            not in {
+                "cancel-after-task-start",
+                "cancel-scope-after-task-start",
+            }
+            or surface != RESPONSE_SURFACE
+        ):
             raise ValueError("Response background control is unsupported")
     if "background" in case:
         if not isinstance(case["background"], dict):
@@ -11291,6 +11298,48 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
                 if background_started is None:
                     raise RuntimeError("background cancellation event is unavailable")
                 background_event_loop[0] = asyncio.get_running_loop()
+                if background_control["kind"] == "cancel-scope-after-task-start":
+                    import anyio
+
+                    if (
+                        background_execution_trace is None
+                        or background_release is None
+                        or background_finished is None
+                    ):
+                        raise RuntimeError(
+                            "synchronous background CancelScope state is unavailable"
+                        )
+                    cancel_scope = anyio.CancelScope()
+                    control_errors: list[BaseException] = []
+
+                    async def cancel_scope_after_task_start() -> None:
+                        try:
+                            await asyncio.wait_for(background_started.wait(), timeout=5.0)
+                        except BaseException as exc:
+                            control_errors.append(exc)
+                            cancel_scope.cancel()
+                            background_release.set()
+                            return
+                        background_execution_trace.append(
+                            {"event": "response-cancellation-requested"}
+                        )
+                        cancel_scope.cancel()
+                        background_release.set()
+
+                    control_task = asyncio.create_task(cancel_scope_after_task_start())
+                    try:
+                        with cancel_scope:
+                            await response(scope, receive, send)
+                    finally:
+                        background_release.set()
+                    if control_task.done():
+                        try:
+                            control_task.exception()
+                        except asyncio.CancelledError:
+                            pass
+                    if control_errors:
+                        raise control_errors[0]
+                    return
                 response_task = asyncio.create_task(response(scope, receive, send))
                 try:
                     await asyncio.wait_for(background_started.wait(), timeout=5.0)

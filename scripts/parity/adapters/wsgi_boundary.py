@@ -21,13 +21,30 @@ def _scope_from_input(spec: dict[str, Any]) -> dict[str, Any]:
         if key not in {"query_string_base64", "headers_base64_pairs"}
     }
     scope["query_string"] = base64.b64decode(spec["query_string_base64"], validate=True)
-    scope["headers"] = [
-        (
-            base64.b64decode(name, validate=True),
-            base64.b64decode(value, validate=True),
-        )
-        for name, value in spec.get("headers_base64_pairs", [])
-    ]
+    scope["headers"] = []
+    for pair in spec.get("headers_base64_pairs", []):
+        if isinstance(pair, dict):
+            values = [base64.b64decode(value, validate=True) for value in pair["values_base64"]]
+            failure = pair["failure"]
+            failure_type = {"RuntimeError": RuntimeError}[failure["class"]]
+
+            def iter_header_values(
+                values: list[bytes] = values,
+                failure_type: type[RuntimeError] = failure_type,
+                failure_message: str = failure["message"],
+            ) -> Any:
+                yield from values
+                raise failure_type(failure_message)
+
+            scope["headers"].append(iter_header_values())
+        else:
+            name, value = pair
+            scope["headers"].append(
+                (
+                    base64.b64decode(name, validate=True),
+                    base64.b64decode(value, validate=True),
+                )
+            )
     if "client" in scope and scope["client"] is not None:
         scope["client"] = tuple(scope["client"])
     if "server" in scope and scope["server"] is not None:
@@ -49,10 +66,30 @@ def _plain_value(value: Any) -> Any:
 
 def _run_build_environ_case(case: dict[str, Any]) -> dict[str, Any]:
     module = importlib.import_module(WSGI_MODULE)
-    environ = module.build_environ(
-        _scope_from_input(case["scope"]),
-        base64.b64decode(case["body_base64"], validate=True),
-    )
+    try:
+        environ = module.build_environ(
+            _scope_from_input(case["scope"]),
+            base64.b64decode(case["body_base64"], validate=True),
+        )
+    except Exception as error:
+        return {
+            "case_id": case["case_id"],
+            "status": "completed",
+            "observations": [
+                {
+                    "step_id": "environ-results",
+                    "status": "ok",
+                    "value": {
+                        "environ-results": {
+                            "error": {
+                                "class": f"{type(error).__module__}.{type(error).__qualname__}",
+                                "message": str(error),
+                            }
+                        }
+                    },
+                }
+            ],
+        }
     observed = []
     for probe in case["environ_probes"]:
         key = probe["key"]

@@ -1,0 +1,37 @@
+{
+  "schema": "migration-parity/parity-input@49",
+  "cases": [
+    {
+      "case_id": "starlette.middleware.wsgi.build-environ.header-pair-unpack-before-next",
+      "surface": "starlette.middleware.wsgi",
+      "operation": "build-environ",
+      "covers": [
+        "starlette.middleware.wsgi.build-environ.header-pair-unpacking"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "scope": {
+        "type": "http",
+        "http_version": "1.1",
+        "method": "GET",
+        "path": "/wsgi",
+        "query_string_base64": "",
+        "headers_base64_pairs": [
+          {
+            "kind": "iterator-raises-after-values",
+            "values_base64": ["WC1UcmFjZQ==", "dmFsdWU=", "ZXh0cmE="],
+            "failure": {
+              "class": "RuntimeError",
+              "message": "fourth header item requested"
+            }
+          }
+        ]
+      },
+      "body_base64": "",
+      "environ_probes": [
+        {"key": "REQUEST_METHOD", "kind": "value"}
+      ],
+      "observations": ["environ-results"]
+    }
+  ]
+}

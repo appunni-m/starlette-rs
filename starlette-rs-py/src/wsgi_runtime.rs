@@ -15,7 +15,7 @@ use pyo3::exceptions::{
 };
 use pyo3::prelude::*;
 use pyo3::types::{
-    PyBytes, PyDict, PyInt, PyList, PyModule, PyString, PyTraceback, PyTuple, PyType,
+    PyBytes, PyDict, PyInt, PyIterator, PyList, PyModule, PyString, PyTraceback, PyTuple, PyType,
 };
 
 use crate::awaitable::{
@@ -122,15 +122,16 @@ fn build_environ_inner<'py>(
     let empty_headers = PyList::empty(py);
     let headers = scope.call_method1("get", ("headers", &empty_headers))?;
     for header in headers.try_iter()? {
-        let pair = py.import("builtins")?.getattr("tuple")?.call1((header?,))?;
-        if pair.len()? != 2 {
-            return Err(PyValueError::new_err(format!(
-                "header pair must contain exactly 2 items (got {})",
-                pair.len()?
-            )));
+        let mut pair = header?.try_iter()?;
+        let name = next_wsgi_header_part(&mut pair, 0)?;
+        let value = next_wsgi_header_part(&mut pair, 1)?;
+        if pair.next().transpose()?.is_some() {
+            return Err(PyValueError::new_err(
+                "too many values to unpack (expected 2)",
+            ));
         }
-        let name = pair.get_item(0)?.call_method1("decode", ("latin1",))?;
-        let value = pair.get_item(1)?.call_method1("decode", ("latin1",))?;
+        let name = name.call_method1("decode", ("latin1",))?;
+        let value = value.call_method1("decode", ("latin1",))?;
         let corrected_name = if name
             .rich_compare("content-length", CompareOp::Eq)?
             .is_truthy()?
@@ -157,6 +158,17 @@ fn build_environ_inner<'py>(
     }
 
     Ok(environ)
+}
+
+fn next_wsgi_header_part<'py>(
+    pair: &mut Bound<'py, PyIterator>,
+    consumed: usize,
+) -> PyResult<Bound<'py, PyAny>> {
+    pair.next().transpose()?.ok_or_else(|| {
+        PyValueError::new_err(format!(
+            "not enough values to unpack (expected 2, got {consumed})"
+        ))
+    })
 }
 
 fn utf8_to_latin1<'py>(value: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {

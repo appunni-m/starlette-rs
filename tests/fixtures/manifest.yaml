@@ -595,6 +595,7 @@
       "build/parity/inputs/parity/testclient-websocket-raw-messages.json",
       "build/parity/inputs/parity/streaming-response-iterator-oserror-asgi24.json",
       "build/parity/inputs/parity/wsgi-build-environ-exact-root-path.json",
+      "build/parity/inputs/parity/wsgi-build-environ-header-unpack-order.json",
       "build/parity/inputs/parity/wsgi-sender-protocols.json",
       "build/parity/inputs/parity/wsgi-empty-response-iterable.json",
       "build/parity/inputs/parity/asgi-http-exception-explicit-integer-status.json",
@@ -13719,6 +13720,17 @@
               ]
             },
             {
+              "id": "starlette.middleware.wsgi.build-environ.header-pair-unpacking",
+              "dimension": "error_path",
+              "description": "When an input-defined header-pair iterator yields more than two values and raises on its next request, detect the third value first and do not request the later item. Pinned source: starlette/middleware/wsgi.py:60-73.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.middleware.wsgi.build-environ.duplicate-header-joining",
               "dimension": "parameter_combination",
               "description": "Join repeated raw headers in their supplied order using the WSGI comma form; source: tests/middleware/test_wsgi.py::test_build_environ.",
@@ -19680,6 +19692,17 @@
               "id": "starlette.responses.Response.asgi-call.background-sync-task-cancellation-worker-error",
               "dimension": "boundary",
               "description": "Cancel Response.__call__ while one sync BackgroundTask waits in an AnyIO worker, then release an input-defined ordinary callback failure; compare the response send tape, worker start/release/error/finalization trace, and propagated exception. Pinned Starlette source: starlette/background.py:19-23; starlette/concurrency.py:32-34; starlette/responses.py:163-170. uv.lock pins AnyIO 4.15.1; its asyncio backend awaits the worker future and publishes the result only when the future remains active (anyio/_backends/_asyncio.py:2650-2706, 1068-1084).",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.Response.asgi-call.background-sync-task-cancel-scope-worker-error",
+              "dimension": "boundary",
+              "description": "Block one input-defined sync BackgroundTask after it starts in the worker, cancel Response.__call__ through AnyIO CancelScope, then release the callback to raise Exception; compare the response send tape, worker start/release/error/finalization trace, and propagated exception. Pinned Starlette source: starlette/background.py:19-23; starlette/concurrency.py:32-34; starlette/responses.py:163-170. uv.lock pins AnyIO 4.15.1; anyio.to_thread.run_sync uses a shielded CancelScope by default and awaits the worker future (anyio/_backends/_asyncio.py:2603-2641), while WorkerThread publishes the callback's result or exception (anyio/_backends/_asyncio.py:1015-1041).",
               "lanes": [
                 "parity"
               ],

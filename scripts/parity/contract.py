@@ -675,6 +675,7 @@ WSGI_BOUNDARY_REQUIREMENTS = {
     "root-path-stripping": f"{WSGI_BOUNDARY_SURFACE}.build-environ.root-path-stripping",
     "header-projection": f"{WSGI_BOUNDARY_SURFACE}.build-environ.header-projection",
     "duplicate-header-joining": f"{WSGI_BOUNDARY_SURFACE}.build-environ.duplicate-header-joining",
+    "header-pair-unpacking": f"{WSGI_BOUNDARY_SURFACE}.build-environ.header-pair-unpacking",
     "input-stream": f"{WSGI_BOUNDARY_SURFACE}.build-environ.input-stream",
     "latin1-path-encoding": f"{WSGI_BOUNDARY_SURFACE}.build-environ.latin1-path-encoding",
     "server-default": f"{WSGI_BOUNDARY_SURFACE}.build-environ.server-default",
@@ -1270,6 +1271,7 @@ RESPONSE_BACKGROUND_REQUIREMENTS = {
     "task_cancelled_exception": "starlette.responses.Response.asgi-call.background-task-cancellation-exception-propagates",
     "sync_task_cancellation": "starlette.responses.Response.asgi-call.background-sync-task-cancellation",
     "sync_task_cancellation_worker_error": "starlette.responses.Response.asgi-call.background-sync-task-cancellation-worker-error",
+    "sync_task_cancel_scope_worker_error": "starlette.responses.Response.asgi-call.background-sync-task-cancel-scope-worker-error",
     "task_list_sync_cancellation": "starlette.responses.Response.asgi-call.background-task-list-sync-cancellation",
     "task_list_async_cancellation": "starlette.responses.Response.asgi-call.background-task-list-async-cancellation",
     "task_list_live_mutation": "starlette.responses.Response.asgi-call.background-task-live-list-mutation",
@@ -5851,7 +5853,10 @@ def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
             {"kind"},
             "Response background control",
         )
-        if background_control["kind"] != "cancel-after-task-start":
+        if background_control["kind"] not in {
+            "cancel-after-task-start",
+            "cancel-scope-after-task-start",
+        }:
             raise ContractError("Response background control kind is unsupported")
         if case["surface"] != RESPONSE_SURFACE or "background" not in case:
             raise ContractError(
@@ -6213,6 +6218,16 @@ def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
                     raise ContractError(
                         "Response background cancellation requires plain callbacks without live list mutation"
                     )
+                if background_control["kind"] == "cancel-scope-after-task-start" and (
+                    kind != "single-task"
+                    or len(tasks) != 1
+                    or tasks[0]["mode"] != "sync"
+                    or failures != [0]
+                    or tasks[0]["failure"]["kind"] != "Exception"
+                ):
+                    raise ContractError(
+                        "AnyIO CancelScope background control requires one synchronous callback that raises Exception"
+                    )
                 if failures:
                     if (
                         kind != "single-task"
@@ -6224,9 +6239,12 @@ def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
                         raise ContractError(
                             "Response cancellation with a worker error requires one synchronous callback that raises Exception"
                         )
-                    derived = [
-                        RESPONSE_BACKGROUND_REQUIREMENTS["sync_task_cancellation_worker_error"]
-                    ]
+                    error_requirement = (
+                        "sync_task_cancel_scope_worker_error"
+                        if background_control["kind"] == "cancel-scope-after-task-start"
+                        else "sync_task_cancellation_worker_error"
+                    )
+                    derived = [RESPONSE_BACKGROUND_REQUIREMENTS[error_requirement]]
                 elif kind == "single-task" and len(tasks) == 1:
                     cancellation_requirement = (
                         "task_cancellation"
@@ -27564,13 +27582,19 @@ def _wsgi_build_environ_semantic_coverage(case: dict[str, Any]) -> set[str]:
     }
     if core_fields <= set(probes):
         covered.add(WSGI_BOUNDARY_REQUIREMENTS["scope-projection"])
-    headers = [
-        (
-            base64.b64decode(name, validate=True).decode("latin-1").lower(),
-            base64.b64decode(value, validate=True).decode("latin-1"),
-        )
-        for name, value in scope.get("headers_base64_pairs", [])
-    ]
+    raw_headers = scope.get("headers_base64_pairs", [])
+    headers = []
+    for pair in raw_headers:
+        if isinstance(pair, list) and len(pair) == 2:
+            name, value = pair
+            headers.append(
+                (
+                    base64.b64decode(name, validate=True).decode("latin-1").lower(),
+                    base64.b64decode(value, validate=True).decode("latin-1"),
+                )
+            )
+    if any(isinstance(pair, dict) for pair in raw_headers):
+        covered.add(WSGI_BOUNDARY_REQUIREMENTS["header-pair-unpacking"])
     if headers and any(
         key.startswith("HTTP_") or key in {"CONTENT_LENGTH", "CONTENT_TYPE"} for key in probes
     ):
@@ -27638,6 +27662,46 @@ def _validate_wsgi_scope(scope_input: Any, body_base64: Any) -> dict[str, Any]:
     if not isinstance(raw_headers, list):
         raise ContractError("build_environ scope headers must be an array")
     for index, pair in enumerate(raw_headers):
+        if isinstance(pair, dict):
+            iterator = _exact(
+                pair,
+                {"kind", "values_base64", "failure"},
+                f"build_environ scope header[{index}] iterator",
+            )
+            if iterator["kind"] != "iterator-raises-after-values":
+                raise ContractError(
+                    f"build_environ scope header[{index}] iterator kind is unsupported"
+                )
+            values = iterator["values_base64"]
+            if not isinstance(values, list) or len(values) < 3:
+                raise ContractError(
+                    f"build_environ scope header[{index}] iterator needs at least three values"
+                )
+            for value_index, value in enumerate(values):
+                if not isinstance(value, str):
+                    raise ContractError(
+                        f"build_environ scope header[{index}] iterator value[{value_index}] must be base64"
+                    )
+                try:
+                    base64.b64decode(value, validate=True)
+                except (ValueError, TypeError) as exc:
+                    raise ContractError(
+                        f"build_environ scope header[{index}] iterator value[{value_index}] is invalid base64"
+                    ) from exc
+            failure = _exact(
+                iterator["failure"],
+                {"class", "message"},
+                f"build_environ scope header[{index}] iterator failure",
+            )
+            if failure["class"] != "RuntimeError":
+                raise ContractError(
+                    f"build_environ scope header[{index}] iterator failure class is unsupported"
+                )
+            _string(
+                failure["message"],
+                f"build_environ scope header[{index}] iterator failure message",
+            )
+            continue
         if (
             not isinstance(pair, list)
             or len(pair) != 2
@@ -27751,7 +27815,6 @@ def _validate_wsgi_protocol_case(case: dict[str, Any]) -> None:
             base64.b64decode(chunk, validate=True)
         except (ValueError, TypeError) as exc:
             raise ContractError(f"WSGI sender protocol chunk[{index}] must be base64") from exc
-
     context = _exact(
         case["context"],
         {"name", "caller_value", "worker_value", "send_value"},
