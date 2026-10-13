@@ -10030,14 +10030,15 @@ def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
         route["kind"] == "base-route-subclass" and route["match_scope_path"] == path
         for route in routes
     )
-    raw_request_host = next(
+    exact_request_host_value = next(
         (
             base64.b64decode(pair[1], validate=True).decode("latin-1")
             for pair in case["scope"]["headers_base64_pairs"]
-            if base64.b64decode(pair[0], validate=True).lower() == b"host"
+            if base64.b64decode(pair[0], validate=True) == b"host"
         ),
-        "",
+        None,
     )
+    raw_request_host = exact_request_host_value or ""
     raw_request_host_header_name = next(
         (
             base64.b64decode(pair[0], validate=True)
@@ -10178,8 +10179,6 @@ def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
     )
     if selected_host_route_index is not None:
         derived.add("starlette.routing.Router.route-dispatch.host-route-match")
-        if raw_request_host_header_name != b"host":
-            derived.add("starlette.routing.Host.matches.header-name-case-insensitive")
         selected_host_route = routes[selected_host_route_index]
         if selected_host_route["host"].startswith("[") and raw_request_host.startswith("["):
             derived.add(ROUTER_HOST_IPV6_REQUIREMENT)
@@ -10214,6 +10213,12 @@ def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
             derived.add("starlette.routing.Router.route-dispatch.partial-before-host-full")
     elif has_host_route and not matched:
         derived.add("starlette.routing.Router.route-dispatch.host-route-miss")
+    if (
+        has_host_route
+        and raw_request_host_header_name != b"host"
+        and exact_request_host_value is None
+    ):
+        derived.add("starlette.routing.Host.matches.raw-header-name-case-sensitive")
     if (
         root_path
         and path.startswith(root_path)

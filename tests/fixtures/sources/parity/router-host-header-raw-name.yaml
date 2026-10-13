@@ -2,11 +2,11 @@
   "schema": "migration-parity/parity-input@52",
   "cases": [
     {
-      "case_id": "starlette.routing.Router.route-dispatch.host-header-case-insensitive-name",
+      "case_id": "starlette.routing.Router.route-dispatch.uppercase-raw-host-header-key-miss",
       "surface": "starlette.routing.Router",
       "operation": "route-dispatch",
       "covers": [
-        "starlette.routing.Host.matches.header-name-case-insensitive"
+        "starlette.routing.Host.matches.raw-header-name-case-sensitive"
       ],
       "target_profiles": [
         "python-package-cpython312"

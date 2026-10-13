@@ -20,7 +20,11 @@ compatibility and 40 native). The generated atlas has 846 source rows: 791
 input mappings, 55 source-backed `not_applicable` dispositions, and zero
 fixture-backlog rows. These counts describe inventory and evidence coverage;
 they do not establish that every documented behavior is implemented or
-compatible. The newest input-only batch adds `run_in_threadpool` ContextVar
+compatible. A routing correction now uses exact raw `b"host"` header-name
+matching, as pinned `Headers.__getitem__` does; the renamed input-only
+`router-host-header-raw-name.yaml` observes that a raw `b"Host"` header does
+not select a Host route. Its comparison remains unexecuted until full parity.
+The newest input-only batch adds `run_in_threadpool` ContextVar
 propagation/isolation, WebSocket callback-descriptor lookup timing, and a
 StaticFiles root-path prefix-boundary case. All four comparisons remain
 unexecuted until full parity. The newest compatibility batch fixes tuple-backed

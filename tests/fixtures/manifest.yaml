@@ -438,7 +438,7 @@
       "build/parity/inputs/parity/exception-values.json",
       "build/parity/inputs/parity/host-routing.json",
       "build/parity/inputs/parity/host-routing-native-port.json",
-      "build/parity/inputs/parity/router-host-header-case-insensitive.json",
+      "build/parity/inputs/parity/router-host-header-raw-name.json",
       "build/parity/inputs/parity/status-constants.json",
       "build/parity/inputs/parity/cors-middleware.json",
       "build/parity/inputs/parity/cors-private-network-empty-header.json",
@@ -24123,9 +24123,9 @@
               ]
             },
             {
-              "id": "starlette.routing.Host.matches.header-name-case-insensitive",
+              "id": "starlette.routing.Host.matches.raw-header-name-case-sensitive",
               "dimension": "protocol_variant",
-              "description": "Match a Host route when the ASGI header name uses mixed casing, following Starlette Headers' case-insensitive lookup in Host.matches. Pinned source: starlette/routing.py:478-489; starlette/datastructures.py:500-503,544-549.",
+              "description": "A scope containing only raw header-name bytes b'Host' does not select the Host route: Host.matches looks up 'host' through Headers(scope=scope), which lowercases the lookup key and compares raw bytes exactly. The Router therefore follows its default not-found path. Pinned source: starlette/routing.py:478-489; starlette/datastructures.py:544-549.",
               "lanes": [
                 "parity"
               ],

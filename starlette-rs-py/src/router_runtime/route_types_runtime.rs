@@ -2168,10 +2168,11 @@ fn host_header_value(py: Python<'_>, scope: &Bound<'_, PyAny>) -> PyResult<Strin
     for entry in headers.try_iter()? {
         let entry = py.import("builtins")?.getattr("tuple")?.call1((entry?,))?;
         let (name, value): (Py<PyAny>, Py<PyAny>) = entry.extract()?;
+        // Starlette lowercases the lookup key and compares the raw ASGI bytes exactly.
         let is_host = name
             .bind(py)
             .cast::<PyBytes>()
-            .is_ok_and(|header_name| header_name.as_bytes().eq_ignore_ascii_case(b"host"));
+            .is_ok_and(|header_name| header_name.as_bytes() == b"host");
         if is_host {
             return value
                 .bind(py)

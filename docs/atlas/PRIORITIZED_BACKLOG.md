@@ -22,6 +22,11 @@ ContextVar propagation/isolation, WebSocket callback descriptor timing, and
 StaticFiles root-path prefix-boundary preservation; all remain unexecuted. Fixed source denominators are 514 upstream test
 functions and 24 documentation pages. The newest six inputs compare Request receive replacement, BackgroundTasks worker failure after cancellation, empty synchronous StreamingResponse framing, BaseHTTPMiddleware wide status pass-through, StaticFiles root_path/query redirect behavior, and WebSocket accept-send OSError propagation; all remain unexecuted.
 
+The latest routing correction matches Host header names using the same exact raw
+byte lookup as pinned Starlette. Its input supplies only `b"Host"` and observes
+the Router miss path; the comparison remains deferred until the full parity
+phase.
+
 The latest clean full parity run, `dc8c8ca6-f2b7-449b-9f53-45860e3cad4c`,
 passed 2,254/2,254 comparisons for the preceding 1,992-case, 140-input
 contract. It predates the active @50 implementation batches, including the
