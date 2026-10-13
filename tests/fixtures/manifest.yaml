@@ -459,12 +459,14 @@
       "build/parity/inputs/parity/static-files-stateful-pathlike.json",
       "build/parity/inputs/parity/static-files-os-path.json",
       "build/parity/inputs/parity/static-files-get-directories-subclass.json",
+      "build/parity/inputs/parity/static-files-secondary-lookup-error.json",
       "build/parity/inputs/parity/wsgi-middleware.json",
       "build/parity/inputs/parity/wsgi-response-header-unpack-error.json",
       "build/parity/inputs/parity/wsgi-boundary.json",
       "build/parity/inputs/parity/session-middleware.json",
       "build/parity/inputs/parity/session-response-header-iterable.json",
       "build/parity/inputs/parity/session-future-timestamp.json",
+      "build/parity/inputs/parity/session-expired-timestamp-out-of-range.json",
       "build/parity/inputs/parity/base-http-middleware.json",
       "build/parity/inputs/parity/base-http-return-closed-body-iterator.json",
       "build/parity/inputs/parity/base-http-lifecycle-short-circuit.json",
@@ -482,10 +484,12 @@
       "build/parity/inputs/parity/upload-file-rolled-write-error.json",
       "build/parity/inputs/parity/websocket-endpoint-dispatch.json",
       "build/parity/inputs/parity/websocket-endpoint-sync-disconnect-hook-error.json",
+      "build/parity/inputs/parity/websocket-endpoint-sync-stop-iteration.json",
       "build/parity/inputs/parity/websocket-endpoint-docs-inputs.json",
       "build/parity/inputs/parity/http-endpoint-dispatch.json",
       "build/parity/inputs/parity/testclient-asgi-callable-protocol.json",
       "build/parity/inputs/parity/testclient-http.json",
+      "build/parity/inputs/parity/testclient-http-response-start-decode-fallback.json",
       "build/parity/inputs/parity/testclient-client-port-preservation.json",
       "build/parity/inputs/parity/testclient-server-port-preservation.json",
       "build/parity/inputs/parity/testclient-incomplete-response-return.json",
@@ -13773,6 +13777,17 @@
               ]
             },
             {
+              "id": "starlette.middleware.sessions.SessionMiddleware.session-workflow.expired-timestamp-out-of-range-error",
+              "dimension": "error_path",
+              "description": "An authenticated expired cookie whose timestamp exceeds Python datetime's range raises the conversion error from itsdangerous while constructing SignatureExpired instead of falling back to an empty session. Upstream: starlette/middleware/sessions.py:43-50; itsdangerous 2.2.0 timed.py:125-140.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.middleware.sessions.SessionMiddleware.session-workflow.max-age-expiry",
               "dimension": "boundary",
               "description": "Reject an expired signed cookie using the source test max_age boundary and controlled signer timestamp. Upstream: tests/middleware/test_session.py:65-86.",
@@ -24911,6 +24926,17 @@
               ]
             },
             {
+              "id": "starlette.staticfiles.StaticFiles.asgi-call.secondary-lookup-error-propagation",
+              "dimension": "error_path",
+              "description": "Propagate an input-defined error from the HTML index lookup after the initial directory lookup succeeds; Starlette translates permission and invalid-path failures only around the initial lookup. Pinned source: starlette/staticfiles.py:107-140.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.staticfiles.StaticFiles.asgi-call.html-not-found-fallback",
               "dimension": "parameter_combination",
               "description": "Enable HTML mode with an input-defined 404.html asset and request a missing path to compare fallback selection. Upstream: tests/test_staticfiles.py::test_staticfiles_html_normal.",
@@ -28337,7 +28363,7 @@
             {
               "id": "starlette.testclient.TestClient.request-response.exception-policy",
               "dimension": "error_path",
-              "description": "Propagate application exceptions by default, return a 500 response when raise_server_exceptions is false before response start, and return an already completed response when the app raises afterward. Pinned source: starlette/testclient.py:348-367; docs/testclient.md:74-77; tests/middleware/test_errors.py:25-48.",
+              "description": "Propagate application exceptions by default, return a 500 response when raise_server_exceptions is false before response start or while decoding response-start headers, and return an already completed response when the app raises afterward. Pinned source: starlette/testclient.py:330-367; docs/testclient.md:74-77; tests/middleware/test_errors.py:25-48.",
               "lanes": [
                 "parity"
               ],

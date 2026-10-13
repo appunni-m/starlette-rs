@@ -37,6 +37,8 @@ pub enum SessionSignatureError {
         age_seconds: u64,
         /// The maximum accepted age, in seconds.
         max_age_seconds: i64,
+        /// Timestamp carried by the authenticated value.
+        timestamp: u64,
     },
     /// The signature timestamp is later than the supplied current time.
     FutureTimestamp {
@@ -59,6 +61,7 @@ impl Display for SessionSignatureError {
             Self::Expired {
                 age_seconds,
                 max_age_seconds,
+                ..
             } => write!(
                 formatter,
                 "signature age {age_seconds} > {max_age_seconds} seconds"
@@ -163,6 +166,7 @@ pub fn timestamp_unsign(
             return Err(SessionSignatureError::Expired {
                 age_seconds,
                 max_age_seconds,
+                timestamp,
             });
         }
     }

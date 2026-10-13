@@ -419,6 +419,11 @@ impl SessionMiddlewareCall {
                     timestamp_to_datetime(py, timestamp)?;
                     (py.None(), true)
                 }
+                Err(SessionSignatureError::Expired { timestamp, .. }) => {
+                    // TimestampSigner converts expired timestamps while building SignatureExpired.
+                    timestamp_to_datetime(py, timestamp)?;
+                    (py.None(), true)
+                }
                 Err(_) => (py.None(), true),
             }
         };

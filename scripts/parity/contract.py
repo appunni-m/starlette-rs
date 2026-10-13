@@ -422,6 +422,7 @@ SESSION_REQUIREMENTS = {
     "signed_cookie_round_trip": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.signed-cookie-round-trip",
     "invalid_signature_fallback": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.invalid-signature-fallback",
     "future_timestamp_out_of_range_error": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.future-timestamp-out-of-range-error",
+    "expired_timestamp_out_of_range_error": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.expired-timestamp-out-of-range-error",
     "max_age_expiry": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.max-age-expiry",
     "max_age_default": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.max-age-default",
     "max_age_none": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.max-age-none",
@@ -3494,7 +3495,10 @@ def _validate_websocket_endpoint_case_stimulus(case: dict[str, Any]) -> None:
         _string(on_receive["key"], "WebSocketEndpoint.on_receive.key")
         if on_receive["mode"] not in {"text", "binary"}:
             raise ContractError("WebSocketEndpoint JSON response mode must be text or binary")
-    elif receive_kind == "raise-value-error":
+    elif receive_kind in {
+        "raise-value-error",
+        "raise-stop-iteration-synchronously",
+    }:
         on_receive = _exact(
             on_receive,
             {"kind", "message"},
@@ -3696,7 +3700,10 @@ def _validate_websocket_endpoint_case_stimulus(case: dict[str, Any]) -> None:
             "json_malformed",
             "default_empty_text_failure",
         }
-        callback_raises = on_receive["kind"] == "raise-value-error"
+        callback_raises = on_receive["kind"] in {
+            "raise-value-error",
+            "raise-stop-iteration-synchronously",
+        }
         if callback_raises:
             if (
                 not decode_succeeds
@@ -6948,6 +6955,18 @@ def _validate_static_files_case_stimulus(
                 raise ContractError(
                     "StaticFiles get_directories return_configured_directory must be boolean"
                 )
+        elif subclass_hook_name == "lookup_path":
+            hook = _exact(
+                subclass_hooks[subclass_hook_name],
+                {"raise_permission_at_path", "message"},
+                "StaticFiles lookup_path subclass hook",
+            )
+            _static_files_relative_components(
+                hook["raise_permission_at_path"],
+                "StaticFiles lookup_path raise_permission_at_path",
+                allow_parent=False,
+            )
+            _string(hook["message"], "StaticFiles lookup_path message")
         else:
             raise ContractError("StaticFiles subclass hook is unsupported")
     elif "subclass_hooks" in case:
@@ -7147,20 +7166,43 @@ def _validate_static_files_case_stimulus(
     for package in packages:
         for file_input in package["files"]:
             selected_files[file_input["path"]] = (float(file_input["mtime_seconds"]), True)
-    if subclass_hooks is not None and (
-        case["target_profiles"] != ["python-package-cpython312"]
-        or scope["method"] != "GET"
-        or case["html"]
-        or case["packages"]
-        or len(direct_paths) != 1
-        or normalized_path != direct_paths[0]
-        or scope["path"] != f"/{normalized_path}"
-        or scope["root_path"]
-        or scope["headers_base64_pairs"]
-    ):
-        raise ContractError(
-            "StaticFiles subclass hooks require one direct-file GET on the Python package profile"
-        )
+    if subclass_hooks is not None:
+        if subclass_hook_name == "lookup_path":
+            hook = subclass_hooks["lookup_path"]
+            expected_index_path = (
+                "index.html" if normalized_path == "." else f"{normalized_path}/index.html"
+            )
+            if (
+                case["target_profiles"] != ["python-package-cpython312"]
+                or scope["method"] != "GET"
+                or not case["html"]
+                or case["packages"]
+                or case["path_limit_stress"] is not None
+                or case["permission_denial_stress"] is not None
+                or case["filesystem"] is not None
+                or scope["root_path"]
+                or scope["headers_base64_pairs"]
+                or not scope["path"].endswith("/")
+                or hook["raise_permission_at_path"] != expected_index_path
+                or expected_index_path not in direct_paths
+            ):
+                raise ContractError(
+                    "StaticFiles lookup_path hook requires a Python-package HTML directory index lookup"
+                )
+        elif (
+            case["target_profiles"] != ["python-package-cpython312"]
+            or scope["method"] != "GET"
+            or case["html"]
+            or case["packages"]
+            or len(direct_paths) != 1
+            or normalized_path != direct_paths[0]
+            or scope["path"] != f"/{normalized_path}"
+            or scope["root_path"]
+            or scope["headers_base64_pairs"]
+        ):
+            raise ContractError(
+                "StaticFiles subclass hooks require one direct-file GET on the Python package profile"
+            )
     selected_directories = {
         "/".join(parts[:index])
         for file_path in selected_files
@@ -7247,7 +7289,10 @@ def _validate_static_files_case_stimulus(
         derived.add("head-file")
     index_path = "index.html" if normalized_path == "." else f"{normalized_path}/index.html"
     if method == "GET" and case["html"] and index_path in selected_files:
-        derived.add("html-index-file" if path.endswith("/") else "html-index-redirect")
+        if subclass_hook_name == "lookup_path":
+            derived.add("secondary-lookup-error-propagation")
+        else:
+            derived.add("html-index-file" if path.endswith("/") else "html-index-redirect")
     if (
         method == "GET"
         and case["html"]
@@ -10416,6 +10461,7 @@ def _validate_session_workflow_case(case: dict[str, Any]) -> None:
     actions: list[dict[str, Any]] = []
     has_invalid_signature_input = False
     has_future_timestamp_out_of_range_input = False
+    has_expired_timestamp_out_of_range_input = False
     out_of_range_timestamp_requests: set[str] = set()
     for index, raw_request in enumerate(requests):
         context = f"SessionMiddleware request[{index}]"
@@ -10485,10 +10531,8 @@ def _validate_session_workflow_case(case: dict[str, Any]) -> None:
                     value.encode("latin-1")
                 except UnicodeEncodeError as exc:
                     raise ContractError("raw session cookie must be Latin-1 encodable") from exc
-                if (
-                    isinstance(request["action"], dict)
-                    and request["action"].get("kind") == "view"
-                    and value.startswith(f"{constructor['session_cookie']}=")
+                if scope_type in {"http", "websocket"} and value.startswith(
+                    f"{constructor['session_cookie']}="
                 ):
                     timestamp = _itsdangerous_cookie_timestamp(value)
                     if timestamp is None:
@@ -10499,6 +10543,14 @@ def _validate_session_workflow_case(case: dict[str, Any]) -> None:
                         except (OverflowError, OSError, ValueError):
                             has_future_timestamp_out_of_range_input = True
                             out_of_range_timestamp_requests.add(request_id)
+                    elif (
+                        constructor["max_age"] is not None
+                        and constructor["clock_epoch"] - timestamp > constructor["max_age"]
+                    ):
+                        try:
+                            datetime.fromtimestamp(timestamp, tz=timezone.utc)
+                        except (OverflowError, OSError, ValueError):
+                            has_expired_timestamp_out_of_range_input = True
             else:
                 cookie_source = _exact(
                     cookie_source,
@@ -10772,6 +10824,8 @@ def _validate_session_workflow_case(case: dict[str, Any]) -> None:
         requirements.add(SESSION_REQUIREMENTS["invalid_signature_fallback"])
     if has_future_timestamp_out_of_range_input:
         requirements.add(SESSION_REQUIREMENTS["future_timestamp_out_of_range_error"])
+    if has_expired_timestamp_out_of_range_input:
+        requirements.add(SESSION_REQUIREMENTS["expired_timestamp_out_of_range_error"])
     if (
         type(constructor["max_age"]) is int
         and constructor["max_age"] < 0
@@ -14742,6 +14796,36 @@ def _validate_testclient_case(
         expected_covers.add(TESTCLIENT_REQUIREMENTS["incomplete_response_return"])
     if messages or not settings["raise_server_exceptions"]:
         expected_covers.add(TESTCLIENT_REQUIREMENTS["response"])
+    response_start_decode_error = False
+    for message in messages:
+        if not isinstance(message, dict) or message.get("type") != "http.response.start":
+            continue
+        pairs = message.get("headers_base64_pairs")
+        if not isinstance(pairs, list):
+            continue
+        for pair in pairs:
+            if (
+                not isinstance(pair, list)
+                or len(pair) != 2
+                or not all(isinstance(value, str) for value in pair)
+            ):
+                continue
+            try:
+                header_name = base64.b64decode(pair[0], validate=True)
+                header_value = base64.b64decode(pair[1], validate=True)
+            except (TypeError, ValueError):
+                continue
+            if not header_name.isascii() or not header_value.isascii():
+                response_start_decode_error = True
+                break
+        if response_start_decode_error:
+            break
+    if (
+        response_start_decode_error
+        and exception_spec is None
+        and settings["raise_server_exceptions"] is False
+    ):
+        expected_covers.add(TESTCLIENT_REQUIREMENTS["exception_policy"])
     if asgi_app["kind"] == "asgi2":
         expected_covers.add(TESTCLIENT_REQUIREMENTS["asgi2"])
     if asgi_app["kind"] == "asgi3-asyncio-marked":

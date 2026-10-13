@@ -1,0 +1,79 @@
+{
+  "schema": "migration-parity/parity-input@48",
+  "cases": [
+    {
+      "case_id": "starlette.middleware.sessions.SessionMiddleware.session-workflow.expired-timestamp-out-of-range",
+      "surface": "starlette.middleware.sessions.SessionMiddleware",
+      "operation": "session-workflow",
+      "covers": [
+        "starlette.middleware.sessions.SessionMiddleware.session-workflow.construct",
+        "starlette.middleware.sessions.SessionMiddleware.session-workflow.expired-timestamp-out-of-range-error"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "constructor": {
+        "secret_key": "session-parity-secret",
+        "session_cookie": "session",
+        "max_age": 0,
+        "path": "/",
+        "same_site": "lax",
+        "https_only": false,
+        "domain": null,
+        "clock_epoch": 253402300801
+      },
+      "requests": [
+        {
+          "request_id": "expired-year-10000-cookie",
+          "scope": {
+            "type": "http",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.4"
+            },
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "http",
+            "path": "/session",
+            "raw_path_base64": "L3Nlc3Npb24=",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ]
+          },
+          "receive": [
+            {
+              "type": "http.request",
+              "body_base64": "",
+              "more_body": false
+            }
+          ],
+          "cookie_source": {
+            "kind": "raw-cookie",
+            "value": "session=eyJ1c2VyIjogIkFkYSJ9.Ov_0QYA.6_GvxVIjdBHoOc-fasIo-px9-q0"
+          },
+          "action": {
+            "kind": "session-mutation",
+            "initial": {},
+            "mutation": {
+              "kind": "set",
+              "key": "reached-app",
+              "value": true
+            }
+          }
+        }
+      ],
+      "observations": [
+        "session-workflow"
+      ]
+    }
+  ]
+}

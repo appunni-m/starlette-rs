@@ -1771,13 +1771,13 @@ fn apply_send_message(
                         "Received multiple \"http.response.start\" messages.",
                     ));
                 }
-                state.status_code = Some(
-                    message
-                        .get_item("status")?
-                        .ok_or_else(|| PyKeyError::new_err("status"))?
-                        .unbind(),
-                );
-                state.headers = decode_response_headers(py, message)?;
+                let status_code = message
+                    .get_item("status")?
+                    .ok_or_else(|| PyKeyError::new_err("status"))?
+                    .unbind();
+                let headers = decode_response_headers(py, message)?;
+                state.status_code = Some(status_code);
+                state.headers = headers;
                 state.response_started = true;
             }
             "http.response.body" => {

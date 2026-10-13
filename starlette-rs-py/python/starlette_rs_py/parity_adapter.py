@@ -4794,6 +4794,14 @@ def _websocket_endpoint_connect_error_hook(
 
 
 def _websocket_endpoint_receive_hook(spec: dict[str, Any], calls: list[dict[str, Any]]) -> Any:
+    if spec["kind"] == "raise-stop-iteration-synchronously":
+
+        def on_receive(_endpoint: Any, _websocket: Any, data: Any) -> None:
+            calls.append({"hook": "on_receive", "data": _json_safe(data)})
+            raise StopIteration(spec["message"])
+
+        return on_receive
+
     prefix = (
         _decode_base64(spec["prefix_base64"], "WebSocketEndpoint.on_receive.prefix_base64")
         if spec["kind"] == "send-bytes-prefix"
@@ -7297,6 +7305,12 @@ def _run_static_files_case(case: dict[str, Any]) -> dict[str, Any]:
                 {"response_status", "response_body_base64"},
                 "StaticFiles file_response subclass hook",
             )
+        elif selected_hook == "lookup_path":
+            _exact_object(
+                subclass_hooks["lookup_path"],
+                {"raise_permission_at_path", "message"},
+                "StaticFiles lookup_path subclass hook",
+            )
         elif selected_hook == "is_not_modified":
             _exact_object(
                 subclass_hooks["is_not_modified"],
@@ -7341,6 +7355,15 @@ def _run_static_files_case(case: dict[str, Any]) -> dict[str, Any]:
         from starlette.responses import Response
 
         class StaticFilesSubclassHooks(StaticFiles):
+            def lookup_path(self, path: str) -> tuple[str, os.stat_result | None]:
+                hook_spec = subclass_hooks.get("lookup_path")
+                if hook_spec is None:
+                    return super().lookup_path(path)
+                subclass_hook_calls.append({"hook": "lookup_path", "path": path})
+                if path == hook_spec["raise_permission_at_path"]:
+                    raise PermissionError(hook_spec["message"])
+                return super().lookup_path(path)
+
             def file_response(
                 self,
                 full_path: str,
@@ -7582,7 +7605,9 @@ def _run_static_files_case(case: dict[str, Any]) -> dict[str, Any]:
             try:
                 asyncio.run(application(scope, receive, send))
             except Exception as exc:
-                if not isinstance(exc, HTTPException):
+                if not isinstance(exc, HTTPException) and "lookup_path" not in (
+                    subclass_hooks or {}
+                ):
                     raise
                 captured_error = exc
             finally:
@@ -7621,7 +7646,7 @@ def _run_static_files_case(case: dict[str, Any]) -> dict[str, Any]:
     }
     if captured_error is not None:
         error = _dispatch_error(captured_error)
-        error["code"] = captured_error.status_code
+        error["code"] = getattr(captured_error, "status_code", None)
         observation_item = {
             "step_id": RESPONSE_OPERATION,
             "status": "error",

@@ -452,6 +452,7 @@ struct StaticFilesCallMachine {
     response_path: String,
     purpose: StaticFilesCallPurpose,
     state: StaticFilesCallState,
+    initial_lookup_pending: bool,
     flow: Option<StaticFilesResponseFlow>,
     selected_stat_result: Option<Py<PyAny>>,
 }
@@ -483,6 +484,7 @@ impl StaticFilesCallMachine {
             response_path,
             purpose,
             state: StaticFilesCallState::Start,
+            initial_lookup_pending: true,
             flow: None,
             selected_stat_result: None,
         }
@@ -621,10 +623,14 @@ impl StaticFilesCallMachine {
         let step = flow
             .resume_lookup(&inner, Ok(lookup))
             .map_err(|error| static_files_http_error(py, error))?;
+        self.initial_lookup_pending = false;
         self.apply_response_step(py, step)
     }
 
     fn resume_lookup_error(&mut self, py: Python<'_>, error: PyErr) -> PyResult<MachineAction> {
+        if !self.initial_lookup_pending {
+            return Err(error);
+        }
         let native_error = static_files_lookup_error(py, error)?;
         let owner = self.owner.borrow(py);
         let inner = owner.inner.clone();

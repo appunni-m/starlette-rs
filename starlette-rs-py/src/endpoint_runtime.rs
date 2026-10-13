@@ -6,7 +6,7 @@
 //! sequencing.
 
 use pyo3::class::gc::{PyTraverseError, PyVisit};
-use pyo3::exceptions::{PyAssertionError, PyException, PyRuntimeError};
+use pyo3::exceptions::{PyAssertionError, PyException, PyRuntimeError, PyStopIteration};
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList, PyModule, PyString};
 
@@ -272,7 +272,7 @@ impl AwaitableStateMachine for WebSocketEndpointCall {
     }
 
     fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
-        match input {
+        let result = match input {
             MachineResume::Start if self.pending.is_none() => self.start(py),
             MachineResume::Value(value) => match self.pending.take() {
                 Some(WebSocketEndpointPending::Connect) => self.connected(py),
@@ -316,8 +316,23 @@ impl AwaitableStateMachine for WebSocketEndpointCall {
             MachineResume::Start => Err(PyRuntimeError::new_err(
                 "WebSocket endpoint continuation has a pending operation",
             )),
+        };
+        match result {
+            Err(error) if error.is_instance_of::<PyStopIteration>(py) => {
+                Err(coroutine_stop_iteration_error(py, error))
+            }
+            result => result,
         }
     }
+}
+
+// Starlette's dispatch coroutine gets PEP 479 conversion after its finally block. A raw
+// StopIteration from this custom awaitable would otherwise look like successful completion.
+fn coroutine_stop_iteration_error(py: Python<'_>, cause: PyErr) -> PyErr {
+    let error = PyRuntimeError::new_err("coroutine raised StopIteration");
+    error.set_context(py, Some(cause.clone_ref(py)));
+    error.set_cause(py, Some(cause));
+    error
 }
 
 impl WebSocketEndpointCall {

@@ -342,8 +342,8 @@ impl StaticFilesResponseFlow {
     ///
     /// Resume this flow once for each [`StaticFilesResponseStep::Lookup`]. A
     /// filesystem error terminates the flow and is returned unchanged, except
-    /// `ENAMETOOLONG`, which Starlette maps to not found. Resuming a completed
-    /// flow returns an invalid-input I/O error.
+    /// that `InvalidPath` and `ENAMETOOLONG` from the initial lookup map to not
+    /// found. Resuming a completed flow returns an invalid-input I/O error.
     pub fn resume_lookup(
         &mut self,
         static_files: &StaticFiles,
@@ -355,11 +355,15 @@ impl StaticFilesResponseFlow {
 
         let lookup = match result {
             Ok(lookup) => lookup,
-            Err(StaticFilesError::InvalidPath) => {
+            Err(StaticFilesError::InvalidPath)
+                if self.phase == ResponseFlowPhase::InitialLookup =>
+            {
                 self.phase = ResponseFlowPhase::Complete;
                 return Err(StaticFilesError::NotFound);
             }
-            Err(StaticFilesError::Io(error)) if is_name_too_long(&error) => {
+            Err(StaticFilesError::Io(error))
+                if self.phase == ResponseFlowPhase::InitialLookup && is_name_too_long(&error) =>
+            {
                 self.phase = ResponseFlowPhase::Complete;
                 return Err(StaticFilesError::NotFound);
             }
