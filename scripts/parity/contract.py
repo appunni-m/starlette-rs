@@ -6840,8 +6840,7 @@ def _validate_file_response_case_stimulus(case: dict[str, Any]) -> None:
     if FILE_RESPONSE_ZERO_CHUNK_SIZE_REQUIREMENT in case["covers"]:
         if (
             case["covers"] != [FILE_RESPONSE_ZERO_CHUNK_SIZE_REQUIREMENT]
-            or case["target_profiles"]
-            != ["rust-native-local", "python-package-cpython312"]
+            or case["target_profiles"] != ["rust-native-local", "python-package-cpython312"]
             or case.get("chunk_size") != 0
             or send_error is None
             or error_path_kind is not None
@@ -6866,6 +6865,14 @@ def _validate_file_response_case_stimulus(case: dict[str, Any]) -> None:
                 "FileResponse zero-chunk-size coverage requires a simple non-range response"
             )
     has_short_read_inputs = "stat_result" in case
+    if (
+        send_error is not None
+        and not has_short_read_inputs
+        and FILE_RESPONSE_ZERO_CHUNK_SIZE_REQUIREMENT not in case["covers"]
+    ):
+        raise ContractError(
+            "FileResponse bounded send failures require short-read or zero-chunk-size loop inputs"
+        )
     if has_short_read_inputs:
         if (
             "stat_result" not in case
