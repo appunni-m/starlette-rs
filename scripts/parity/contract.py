@@ -1324,6 +1324,9 @@ STARLETTE_ADD_ROUTE_WORKFLOW_REQUIREMENTS = {
     "success": "starlette.applications.Starlette.add_route.success-dispatch",
     "method_miss": "starlette.applications.Starlette.add_route.method-miss-405",
 }
+STARLETTE_ROUTE_CONVERTER_ORDER_REQUIREMENT = (
+    "starlette.applications.Starlette.__call__.router-converter-error-before-method-check"
+)
 STARLETTE_ROUTE_MIDDLEWARE_REQUIREMENTS = {
     "route": "starlette.applications.Starlette.__call__.route-middleware-response-header",
     "mount_routes": "starlette.applications.Starlette.__call__.mount-routes-middleware-response-header",
@@ -1471,6 +1474,8 @@ REQUEST_CONSUMPTION_REQUIREMENTS = {
     "body_receive_error": "starlette.request.body.receive-error-propagation",
     "body_receive_error_retry": "starlette.request.body.retry-after-receive-error",
     "body_cancellation_retry": "starlette.request.body.retry-after-cancellation",
+    "stream_receive_error": "starlette.request.stream.receive-error-propagation",
+    "body_stream_cancellation_retry": "starlette.request.body.retry-after-stream-cancellation",
     "stream_disconnect_retry": "starlette.request.stream-disconnect-retry",
     "stream_close_recovery": "starlette.request.stream-close-recovers-remaining-body",
 }
@@ -3282,7 +3287,7 @@ def _validate_websocket_message(
                 f"{context}.type.str_subclass must select not_equal_result or hash_error"
             )
         message_type_value = _string(subclass["value"], f"{context}.type.str_subclass.value")
-    elif incoming and allow_unhashable_type and isinstance(raw_type, (list, dict)):
+    elif allow_unhashable_type and isinstance(raw_type, (list, dict)):
         _exact(message, {"type"}, context)
         return raw_type
     message_type = _string(message_type_value, f"{context}.type")
@@ -3729,15 +3734,26 @@ def _validate_websocket_case_stimulus(case: dict[str, Any]) -> None:
             for action in actions
         )
     )
+    has_python_unhashable_send = (
+        operation == WEBSOCKET_STATE_OPERATION
+        and isinstance(actions, list)
+        and any(
+            isinstance(action, dict)
+            and action.get("action") == "send"
+            and isinstance(action.get("message"), dict)
+            and isinstance(action["message"].get("type"), (list, dict))
+            for action in actions
+        )
+    )
     expected_profiles = (
         ["python-package-cpython312"]
-        if has_python_string_subclass_send
+        if has_python_string_subclass_send or has_python_unhashable_send
         else ["rust-native-local", "python-package-cpython312"]
     )
     if case["target_profiles"] != expected_profiles:
         raise ContractError(
-            "WebSocket cases must select both target profiles unless an outgoing Python "
-            "string-subclass input requires the Python-package profile"
+            "WebSocket cases must select both target profiles unless outgoing Python "
+            "value semantics require the Python-package profile"
         )
     _validate_websocket_scope(case["scope"])
     incoming = case["incoming"]
@@ -3757,6 +3773,7 @@ def _validate_websocket_case_stimulus(case: dict[str, Any]) -> None:
     terminal_receive_count = 0
     send_oserror_action_valid = False
     send_non_string_type_action_valid = False
+    send_unhashable_type_action_valid = False
     send_string_subclass_hash_error_observed = False
     denial_response_started = False
     denial_response_body_continued = False
@@ -3835,9 +3852,19 @@ def _validate_websocket_case_stimulus(case: dict[str, Any]) -> None:
                     message,
                     f"{context}.message",
                     incoming=False,
+                    allow_unhashable_type=(
+                        operation == WEBSOCKET_STATE_OPERATION
+                        and isinstance(message.get("type"), (list, dict))
+                    ),
                     allow_string_subclass_hash_error=operation == WEBSOCKET_OPERATION,
                 )
                 raw_message_type = message.get("type")
+                if isinstance(raw_message_type, (list, dict)):
+                    if application_state not in {"CONNECTING", "CONNECTED"}:
+                        raise ContractError(
+                            f"{context} unhashable send type requires CONNECTING or CONNECTED state"
+                        )
+                    send_unhashable_type_action_valid = True
                 if (
                     application_state == "CONNECTED"
                     and message_type == "websocket.send"
@@ -3979,6 +4006,8 @@ def _validate_websocket_case_stimulus(case: dict[str, Any]) -> None:
         coverage.add(f"{requirement_prefix}.send-string-subclass-hash-error")
     if send_non_string_type_action_valid:
         coverage.add("starlette.websocket.state.send-non-string-event-type")
+    if send_unhashable_type_action_valid:
+        coverage.add("starlette.websocket.state.send-unhashable-event-type")
     if (
         operation == WEBSOCKET_STATE_OPERATION
         and incoming_types[:2] == ["websocket.connect", "websocket.disconnect"]
@@ -7198,6 +7227,7 @@ def _validate_static_files_case_stimulus(
     conditional_match = False
     conditional_numeric_timezone = False
     conditional_named_timezone = False
+    conditional_trailing_rfc_comment = False
     request_headers: dict[str, str] = {}
     if method == "GET" and normalized_path in selected_files and not os_specific_path_normalization:
         if permission_denial_stress is not None:
@@ -7215,6 +7245,7 @@ def _validate_static_files_case_stimulus(
             request_headers[name] = value
             if name == "if-modified-since":
                 conditional_numeric_timezone = bool(re.search(r"[+-][0-9]{4}$", value.strip()))
+                conditional_trailing_rfc_comment = value.rstrip().endswith(")") and "(" in value
                 timezone_token = value.strip().rsplit(" ", 1)[-1]
                 conditional_named_timezone = (
                     timezone_token.isascii()
@@ -7273,7 +7304,9 @@ def _validate_static_files_case_stimulus(
                     )
             elif conditional_match:
                 derived.add(
-                    "if-modified-since-omitted-timezone"
+                    "if-modified-since-trailing-rfc-comment"
+                    if conditional_trailing_rfc_comment
+                    else "if-modified-since-omitted-timezone"
                     if conditional_omitted_timezone
                     else "if-modified-since-named-timezone"
                     if conditional_named_timezone
@@ -15289,7 +15322,17 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
                 raise ContractError("TestClient WebSocket close reason must be a string or null")
             client_close_workflow = True
         elif session_actions[0].get("operation") == "receive_bytes":
-            _exact(session_actions[0], {"operation"}, "TestClient WebSocket bytes receive action")
+            receive_action = _exact(
+                session_actions[0],
+                {"operation"} | (session_actions[0].keys() & {"capture_exception"}),
+                "TestClient WebSocket bytes receive action",
+            )
+            if (
+                "capture_exception" in receive_action
+                and type(receive_action["capture_exception"]) is not bool
+            ):
+                raise ContractError("TestClient WebSocket receive capture flags must be boolean")
+            client_exception_capture_workflow = receive_action.get("capture_exception") is True
             client_binary_receive_workflow = True
         elif session_actions[0].get("operation") == "receive_text":
             receive_action = _exact(
@@ -15318,7 +15361,7 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
         else:
             receive_action = _exact(
                 session_actions[0],
-                {"operation", "mode"} & session_actions[0].keys(),
+                {"operation"} | (session_actions[0].keys() & {"mode", "capture_exception"}),
                 "TestClient WebSocket JSON receive action",
             )
             if receive_action["operation"] != "receive_json":
@@ -15330,6 +15373,12 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
             )
             if client_json_receive_mode not in {"text", "binary"}:
                 raise ContractError("TestClient WebSocket receive_json mode must be text or binary")
+            if (
+                "capture_exception" in receive_action
+                and type(receive_action["capture_exception"]) is not bool
+            ):
+                raise ContractError("TestClient WebSocket receive capture flags must be boolean")
+            client_exception_capture_workflow = receive_action.get("capture_exception") is True
             client_json_workflow = True
     else:
         raise ContractError(
@@ -15867,6 +15916,24 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
         and app_actions[1].get("operation") == "raise"
     )
     app_error_cleanup_close_error_workflow = app_error_stream_closure_workflow and no_client_actions
+    post_accept_denial_workflow = (
+        client_exception_capture_workflow
+        and len(session_actions) == 1
+        and isinstance(session_actions[0], dict)
+        and session_actions[0].get("operation") in {"receive_text", "receive_bytes", "receive_json"}
+        and isinstance(app_actions, list)
+        and len(app_actions) >= 4
+        and isinstance(app_actions[0], dict)
+        and app_actions[0].get("operation") == "receive"
+        and isinstance(app_actions[1], dict)
+        and app_actions[1].get("operation") == "send"
+        and isinstance(app_actions[1].get("message"), dict)
+        and app_actions[1]["message"].get("type") == "websocket.accept"
+        and isinstance(app_actions[2], dict)
+        and app_actions[2].get("operation") == "send"
+        and isinstance(app_actions[2].get("message"), dict)
+        and app_actions[2]["message"].get("type") == "websocket.http.response.start"
+    )
     application_exception_workflow = (
         is_starlette_websocket_route_error
         or (
@@ -15879,6 +15946,88 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
     )
     if no_client_actions and (accepted_flow_workflow or application_exception_workflow):
         denial_workflow = False
+    if post_accept_denial_workflow:
+        if settings["raise_server_exceptions"] is not True:
+            raise ContractError("TestClient post-accept denial cases require server exceptions")
+        connect_action = _exact(
+            app_actions[0], {"operation"}, "TestClient post-accept denial connect action"
+        )
+        if connect_action["operation"] != "receive":
+            raise ContractError("TestClient post-accept denial app must receive connect")
+        accept_action = _exact(
+            app_actions[1], {"operation", "message"}, "TestClient WebSocket accept action"
+        )
+        accept_message = _exact(
+            accept_action["message"], {"type"}, "TestClient WebSocket accept message"
+        )
+        if accept_message["type"] != "websocket.accept":
+            raise ContractError("TestClient post-accept denial app must accept the WebSocket")
+        start_action = _exact(
+            app_actions[2], {"operation", "message"}, "TestClient post-accept denial start action"
+        )
+        if start_action["operation"] != "send":
+            raise ContractError("TestClient post-accept denial app must send its response start")
+        start_message = _exact(
+            start_action["message"],
+            {"type", "status", "headers_base64_pairs"},
+            "TestClient post-accept denial response start message",
+        )
+        if start_message["type"] != "websocket.http.response.start":
+            raise ContractError("TestClient post-accept denial app must start an HTTP response")
+        status_code = start_message["status"]
+        if type(status_code) is not int or not 100 <= status_code <= 599:
+            raise ContractError("TestClient post-accept denial status must be an HTTP status code")
+        denial_headers = start_message["headers_base64_pairs"]
+        if not isinstance(denial_headers, list):
+            raise ContractError("TestClient post-accept denial headers must be an array")
+        for index, pair in enumerate(denial_headers):
+            if not isinstance(pair, list) or len(pair) != 2:
+                raise ContractError(
+                    f"TestClient post-accept denial headers[{index}] must contain two base64 strings"
+                )
+            for part, value in zip(("name", "value"), pair, strict=True):
+                validate_base64(value, f"TestClient post-accept denial header {index} {part}")
+        body_actions = app_actions[3:]
+        for index, action in enumerate(body_actions):
+            body_action = _exact(
+                action,
+                {"operation", "message"},
+                f"TestClient post-accept denial body action[{index}]",
+            )
+            if body_action["operation"] != "send":
+                raise ContractError("TestClient post-accept denial body action must send")
+            body_message = _exact(
+                body_action["message"],
+                {"type", "body_base64", "more_body"},
+                f"TestClient post-accept denial body message[{index}]",
+            )
+            if body_message["type"] != "websocket.http.response.body":
+                raise ContractError(
+                    "TestClient post-accept denial app must send response body events"
+                )
+            validate_base64(
+                body_message["body_base64"],
+                f"TestClient post-accept denial body[{index}].body_base64",
+            )
+            expected_more_body = index < len(body_actions) - 1
+            if (
+                type(body_message["more_body"]) is not bool
+                or body_message["more_body"] != expected_more_body
+            ):
+                raise ContractError(
+                    "TestClient post-accept denial body events must continue until one terminal body"
+                )
+        expected_covers = {
+            TESTCLIENT_WEBSOCKET_REQUIREMENTS["scope"],
+            TESTCLIENT_WEBSOCKET_REQUIREMENTS["handshake"],
+            TESTCLIENT_WEBSOCKET_REQUIREMENTS["denial_response"],
+            TESTCLIENT_WEBSOCKET_REQUIREMENTS["portal_cleanup"],
+        }
+        if set(case["covers"]) != expected_covers:
+            raise ContractError(
+                "TestClient post-accept denial covers must include handshake, denial response, and cleanup"
+            )
+        return
     if application_exception_workflow:
         if (
             settings["raise_server_exceptions"] is not True
@@ -22477,6 +22626,89 @@ def _validate_live_status_handler_registration_application(
         )
 
 
+def _validate_route_converter_ordering_application(args: dict[str, Any]) -> None:
+    if (
+        args["debug"] is not False
+        or args["middleware"] != []
+        or args["exception_handlers"] != []
+        or args["lifespan"] is not None
+        or args["max_body_size"] is not None
+        or not isinstance(args["routes"], list)
+        or len(args["routes"]) != 2
+    ):
+        raise ContractError("route converter ordering requires a bare two-route HTTP app")
+
+    routes = [
+        _exact(route, {"kind", "path", "methods", "endpoint"}, f"route[{index}]")
+        for index, route in enumerate(args["routes"])
+    ]
+    first, second = routes
+    first_path = _string(first["path"], "route[0].path")
+    second_path = _string(second["path"], "route[1].path")
+    first_parameters = _route_template_parameters(first_path)
+    second_parameters = _route_template_parameters(second_path)
+    if len(first_parameters) == 1 and len(second_parameters) == 1:
+        first_name, first_converter = first_parameters[0]
+        second_name, second_converter = second_parameters[0]
+        first_normalized = first_path.replace(
+            f"{{{first_name}:{first_converter}}}", f"{{{first_name}}}"
+        )
+        second_normalized = second_path.replace(
+            f"{{{second_name}:{second_converter}}}", f"{{{second_name}}}"
+        )
+    else:
+        first_name = second_name = None
+        first_converter = second_converter = None
+        first_normalized = second_normalized = None
+    if (
+        first["kind"] != "http-route"
+        or second["kind"] != "http-route"
+        or not first_path.startswith("/")
+        or first_name != second_name
+        or {first_converter, second_converter} != {"int", "str"}
+        or first_normalized != second_normalized
+    ):
+        raise ContractError(
+            "route converter ordering requires the same one-parameter int and str route"
+        )
+    for index, route in enumerate(routes):
+        methods = route["methods"]
+        if (
+            not isinstance(methods, list)
+            or not methods
+            or any(not isinstance(method, str) or not method for method in methods)
+            or len(methods) != len(set(methods))
+        ):
+            raise ContractError(f"route[{index}].methods must be unique strings")
+
+    first_endpoint = _exact(first["endpoint"], {"kind", "message"}, "route[0] raising endpoint")
+    if first_endpoint["kind"] != "raise-runtime-error":
+        raise ContractError("the method-mismatched route endpoint must be a raising endpoint")
+    _string(first_endpoint["message"], "route[0].endpoint.message")
+    second_endpoint = _exact(
+        second["endpoint"],
+        {"kind", "content", "status_code", "media_type", "cookies"},
+        "route[1] response endpoint",
+    )
+    if second_endpoint["kind"] != "plain-text-response":
+        raise ContractError("the later method-matching route must return a text response")
+    _string(second_endpoint["content"], "route[1].endpoint.content")
+    if (
+        type(second_endpoint["status_code"]) is not int
+        or not 100 <= second_endpoint["status_code"] <= 599
+    ):
+        raise ContractError("route[1].endpoint.status_code must be an HTTP status code")
+    if second_endpoint["media_type"] is not None:
+        _string(second_endpoint["media_type"], "route[1].endpoint.media_type")
+    cookies = second_endpoint["cookies"]
+    if not isinstance(cookies, list):
+        raise ContractError("route[1].endpoint.cookies must be an array")
+    for index, cookie in enumerate(cookies):
+        _exact(cookie, {"key", "value"}, f"route[1].endpoint.cookies[{index}]")
+        _string(cookie["key"], f"route[1].endpoint.cookies[{index}].key")
+        _string(cookie["value"], f"route[1].endpoint.cookies[{index}].value")
+
+
 def _validate_application_stimulus(
     args: dict[str, Any],
     request_dispatch: bool,
@@ -22569,6 +22801,9 @@ def _validate_application_stimulus(
         and args["routes"][0].get("kind") == "websocket-route"
     ):
         _validate_websocket_exception_application(args)
+        return
+    if not request_dispatch and isinstance(args["routes"], list) and len(args["routes"]) > 1:
+        _validate_route_converter_ordering_application(args)
         return
     if not request_dispatch and _is_server_error_stimulus(args):
         _validate_server_error_application(args)
@@ -24898,6 +25133,22 @@ def _validate_request_body_stream_json_case(case: dict[str, Any]) -> None:
         )
 
     receive_cancellation_probe = bool(receive_cancellation_indices)
+    stream_cancellation_recovery_probe = (
+        receive_cancellation_probe
+        and action_operations
+        == [
+            "stream-next",
+            "stream-next",
+            "body",
+            "stream-next",
+            "stream-next",
+            "stream-next",
+        ]
+        and len(stream_ids) == 5
+        and stream_ids[0] == stream_ids[1]
+        and len(set(stream_ids[2:])) == 1
+        and stream_ids[0] != stream_ids[2]
+    )
     if receive_cancellation_probe:
         first_chunk = (
             base64.b64decode(receive[0].get("body_base64", ""), validate=True)
@@ -24909,30 +25160,48 @@ def _validate_request_body_stream_json_case(case: dict[str, Any]) -> None:
             if len(receive) > 2 and receive[2].get("type") == "http.request"
             else b""
         )
-        cancellation_actions = (
-            len(actions) == 3
-            and actions[0].get("operation") == "start-body"
-            and actions[1].get("operation") == "await-body"
-            and actions[0].get("task_id") == actions[1].get("task_id")
-            and actions[2] == {"operation": "body"}
-        )
-        if (
-            receive_cancellation_indices != [1]
-            or len(receive) != 3
-            or receive[0].get("type") != "http.request"
-            or receive[0].get("more_body") is not True
-            or receive[1].get("exception_type") != "CancelledError"
-            or receive[2].get("more_body") is not False
-            or not first_chunk
-            or not remaining_chunk
-            or not cancellation_actions
-            or blocked_receive_calls
-            or scope_headers
-        ):
-            raise ContractError(
-                "Request.body cancellation retry requires a partial request, a receive cancellation, "
-                "then a final request and a new body() call"
+        if stream_cancellation_recovery_probe:
+            if (
+                receive_cancellation_indices != [1]
+                or len(receive) != 3
+                or receive[0].get("type") != "http.request"
+                or receive[0].get("more_body") is not True
+                or receive[1].get("exception_type") != "CancelledError"
+                or receive[2].get("more_body") is not False
+                or not first_chunk
+                or not remaining_chunk
+                or blocked_receive_calls
+                or scope_headers
+            ):
+                raise ContractError(
+                    "Request stream cancellation recovery requires a partial stream chunk, "
+                    "a receive cancellation, body collection of the final request, and fresh replay"
+                )
+        else:
+            cancellation_actions = (
+                len(actions) == 3
+                and actions[0].get("operation") == "start-body"
+                and actions[1].get("operation") == "await-body"
+                and actions[0].get("task_id") == actions[1].get("task_id")
+                and actions[2] == {"operation": "body"}
             )
+            if (
+                receive_cancellation_indices != [1]
+                or len(receive) != 3
+                or receive[0].get("type") != "http.request"
+                or receive[0].get("more_body") is not True
+                or receive[1].get("exception_type") != "CancelledError"
+                or receive[2].get("more_body") is not False
+                or not first_chunk
+                or not remaining_chunk
+                or not cancellation_actions
+                or blocked_receive_calls
+                or scope_headers
+            ):
+                raise ContractError(
+                    "Request.body cancellation retry requires a partial request, a receive cancellation, "
+                    "then a final request and a new body() call"
+                )
 
     stream_close_recovery_probe = bool(closed_stream_ids)
     if stream_close_recovery_probe:
@@ -24978,7 +25247,15 @@ def _validate_request_body_stream_json_case(case: dict[str, Any]) -> None:
                 REQUEST_CONSUMPTION_REQUIREMENTS["body_stream_replay"],
             }
         )
-    if receive_cancellation_probe:
+    if receive_cancellation_probe and stream_cancellation_recovery_probe:
+        expected_covers.update(
+            {
+                REQUEST_CONSUMPTION_REQUIREMENTS["stream_receive_error"],
+                REQUEST_CONSUMPTION_REQUIREMENTS["body_stream_cancellation_retry"],
+                REQUEST_CONSUMPTION_REQUIREMENTS["body_stream_replay"],
+            }
+        )
+    elif receive_cancellation_probe:
         expected_covers.add(REQUEST_CONSUMPTION_REQUIREMENTS["body_cancellation_retry"])
     if receive_error_probe:
         expected_covers.update(
@@ -25031,6 +25308,7 @@ def _validate_request_body_stream_json_case(case: dict[str, Any]) -> None:
         and stream_positions
         and stream_positions[0] < direct_body_positions[0]
         and not stream_close_recovery_probe
+        and not stream_cancellation_recovery_probe
     ):
         expected_covers.add(REQUEST_CONSUMPTION_REQUIREMENTS["stream_body_consumed"])
     if stream_positions and form_positions and stream_positions[0] < form_positions[0]:
@@ -25065,6 +25343,7 @@ def _validate_request_body_stream_json_case(case: dict[str, Any]) -> None:
         len(set(stream_ids)) > 1
         and not first_stream_ended_on_disconnect
         and not stream_close_recovery_probe
+        and not stream_cancellation_recovery_probe
     ):
         expected_covers.add(REQUEST_CONSUMPTION_REQUIREMENTS["stream_interleaving"])
     if (stream_positions or direct_body_positions) and any(
@@ -32046,6 +32325,59 @@ def _starlette_add_route_semantic_coverage(case: dict[str, Any]) -> set[str]:
     return coverage
 
 
+def _starlette_route_converter_order_semantic_coverage(
+    case: dict[str, Any], app_arguments: dict[str, Any]
+) -> set[str] | None:
+    if (
+        case["operation"] != "__call__"
+        or case["target_profiles"] != ["python-package-cpython312"]
+        or len(app_arguments["routes"]) < 2
+    ):
+        return None
+
+    dispatch_arguments = {
+        key: descriptor["value"] for key, descriptor in case["steps"][-1]["arguments"].items()
+    }
+    scope = dispatch_arguments["scope"]
+    if scope.get("type") != "http":
+        return None
+
+    path = scope["path"]
+    method = scope["method"]
+    integer_limit = sys.get_int_max_str_digits()
+    if integer_limit <= 0:
+        return None
+
+    for route in app_arguments["routes"]:
+        if route["kind"] != "http-route":
+            return None
+        captures = _route_template_capture(route["path"], path)
+        if captures is None:
+            continue
+        converters = dict(_route_template_parameters(route["path"]))
+        has_integer_digit_limit_error = any(
+            converters.get(name) == "int" and len(value) > integer_limit
+            for name, value in captures.items()
+        )
+        if has_integer_digit_limit_error:
+            coverage = {
+                "starlette.routing.request-scope-values",
+                "starlette.asgi.request-dispatch-events",
+                STARLETTE_ROUTE_CONVERTER_ORDER_REQUIREMENT,
+            }
+            if not app_arguments["debug"] and not app_arguments["exception_handlers"]:
+                coverage.add("starlette.asgi.server-error.default-response")
+            return coverage
+
+        methods = {"GET"} if route["methods"] is None else set(route["methods"])
+        if "GET" in methods:
+            methods.add("HEAD")
+        if method in methods:
+            return None
+
+    return None
+
+
 def _semantic_coverage(case: dict[str, Any]) -> set[str]:
     if case["surface"] == GZIP_SURFACE:
         return _gzip_semantic_coverage(case)
@@ -32087,6 +32419,9 @@ def _semantic_coverage(case: dict[str, Any]) -> set[str]:
             key: descriptor["value"] for key, descriptor in case["steps"][1]["arguments"].items()
         }
         return {_lifespan_case_requirement(app_arguments["lifespan"], lifecycle_args)}
+    route_order_coverage = _starlette_route_converter_order_semantic_coverage(case, app_arguments)
+    if route_order_coverage is not None:
+        return route_order_coverage
     route = app_arguments["routes"][0]
     endpoint = route["endpoint"]
     dispatch_arguments = {

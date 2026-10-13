@@ -600,7 +600,7 @@ fn parse_http_date_ignoring_weekday(value: &str) -> Option<SystemTime> {
         "Sunday",
     ];
 
-    let value = value.trim();
+    let value = strip_trailing_email_comments(value.trim());
     let normalized_timezone = normalize_email_timezone(value);
     let value = normalized_timezone.as_deref().unwrap_or(value);
     if let Ok(timestamp) = httpdate::parse_http_date(value) {
@@ -645,6 +645,51 @@ fn parse_http_date_ignoring_weekday(value: &str) -> Option<SystemTime> {
             .ok()
             .or_else(|| httpdate::parse_http_date(&format!("{normalized} GMT")).ok())
     })
+}
+
+/// Removes terminal RFC date comments accepted by `email.utils.parsedate`.
+fn strip_trailing_email_comments(mut value: &str) -> &str {
+    value = value.trim_end();
+    loop {
+        if !value.ends_with(')') {
+            return value;
+        }
+
+        let mut depth = 0_usize;
+        let mut escaped = false;
+        let mut opening = None;
+        let mut terminal_comment_start = None;
+        for (index, byte) in value.bytes().enumerate() {
+            if escaped {
+                escaped = false;
+                continue;
+            }
+            if byte == b'\\' && depth > 0 {
+                escaped = true;
+                continue;
+            }
+            match byte {
+                b'(' => {
+                    if depth == 0 {
+                        opening = Some(index);
+                    }
+                    depth += 1;
+                }
+                b')' if depth > 0 => {
+                    depth -= 1;
+                    if depth == 0 && index + 1 == value.len() {
+                        terminal_comment_start = opening;
+                        break;
+                    }
+                }
+                _ => {}
+            }
+        }
+        let Some(opening) = terminal_comment_start else {
+            return value;
+        };
+        value = value[..opening].trim_end();
+    }
 }
 
 fn normalize_email_timezone(value: &str) -> Option<String> {

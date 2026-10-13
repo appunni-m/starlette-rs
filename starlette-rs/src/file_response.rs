@@ -14,6 +14,7 @@ use crate::response::{
 };
 
 const DEFAULT_CHUNK_SIZE: usize = 64 * 1024;
+const PYTHON_INT_MAX_STR_DIGITS: usize = 4_300;
 type RawHeaderPair = (Vec<u8>, Vec<u8>);
 type RawHeaders = Vec<RawHeaderPair>;
 
@@ -1224,6 +1225,11 @@ fn parse_decimal(value: &str) -> Option<ParsedDecimal> {
                 || !bytes[index + 1].is_ascii_digit()
         })
     {
+        return None;
+    }
+    // Starlette 1.6.0 parses range bounds with Python `int()` and ignores
+    // ValueError. Match the pinned CPython 3.12 default digit limit here.
+    if bytes.iter().filter(|byte| byte.is_ascii_digit()).count() > PYTHON_INT_MAX_STR_DIGITS {
         return None;
     }
     let value = bytes

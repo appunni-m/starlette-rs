@@ -449,52 +449,7 @@ impl WebSocketSendMachine {
         }
 
         let message = self.message.bind(py);
-        let message_type = message.get_item("type")?;
-        // Starlette validates the allowed event types with set membership in
-        // the CONNECTING and CONNECTED branches. A `str` subclass can
-        // override `__hash__`, so preserve that Python operation before
-        // extracting the value into Rust. The RESPONSE branch uses direct
-        // rich comparison instead and must not hash the value.
-        if message_type.is_instance_of::<PyString>()
-            && !message_type.is_exact_instance_of::<PyString>()
-        {
-            let accepted = match application_state {
-                WebSocketState::Connecting => PySet::new(
-                    py,
-                    [
-                        "websocket.accept",
-                        "websocket.close",
-                        "websocket.http.response.start",
-                    ],
-                )?
-                .contains(&message_type)?,
-                WebSocketState::Connected => PySet::new(py, ["websocket.send", "websocket.close"])?
-                    .contains(&message_type)?,
-                WebSocketState::Disconnected | WebSocketState::Response => true,
-            };
-            if !accepted {
-                let received_repr = message_type.repr()?.extract::<String>()?;
-                let error = protocol_state(&self.state)?.invalid_send_type_error(&received_repr);
-                return Err(PyRuntimeError::new_err(error.to_string()));
-            }
-        }
-        let message_type = if message_type.is_instance_of::<PyString>() {
-            message_type.extract::<String>()?
-        } else {
-            let received_repr = message_type.repr()?.extract::<String>()?;
-            let error = protocol_state(&self.state)?.invalid_send_type_error(&received_repr);
-            return Err(PyRuntimeError::new_err(error.to_string()));
-        };
-        let more_body = if application_state == WebSocketState::Response {
-            let value = message.getattr("get")?.call1(("more_body", false))?;
-            value.is_truthy()?
-        } else {
-            false
-        };
-
-        self.catches_os_error = protocol_state(&self.state)?
-            .begin_send(&message_type, more_body)
-            .map_err(|error| PyRuntimeError::new_err(error.to_string()))?;
+        self.catches_os_error = Self::begin_send(py, &self.state, message, application_state)?;
 
         // Starlette changes application state before invoking/awaiting send.
         // A synchronous callback error is inside the same OSError handler as an
@@ -504,6 +459,79 @@ impl WebSocketSendMachine {
             Ok(awaitable) => Ok(MachineAction::Await(awaitable.unbind())),
             Err(error) => self.callback_error(py, error),
         }
+    }
+
+    fn begin_send(
+        py: Python<'_>,
+        state: &SharedProtocolState,
+        message: &Bound<'_, PyAny>,
+        application_state: WebSocketState,
+    ) -> PyResult<bool> {
+        // Starlette applies Python set membership to arbitrary message type
+        // objects in the CONNECTING and CONNECTED branches, then compares the
+        // original object again to select state transitions. Keep those
+        // Python hash/equality operations at the PyO3 boundary so user-defined
+        // values retain their TypeError, rich-comparison, and re-entrant state
+        // mutation behavior while Rust still selects and records the protocol
+        // outcome.
+        let message_type = message.get_item("type")?;
+        match application_state {
+            WebSocketState::Connecting => {
+                let accepted = PySet::new(
+                    py,
+                    [
+                        "websocket.accept",
+                        "websocket.close",
+                        "websocket.http.response.start",
+                    ],
+                )?;
+                if !accepted.contains(&message_type)? {
+                    return Self::invalid_message_type(application_state, &message_type);
+                }
+                let next_state = if message_type.eq("websocket.close")? {
+                    WebSocketState::Disconnected
+                } else if message_type.eq("websocket.http.response.start")? {
+                    WebSocketState::Response
+                } else {
+                    WebSocketState::Connected
+                };
+                protocol_state(state)?.set_application_state(next_state);
+                Ok(false)
+            }
+            WebSocketState::Connected => {
+                let accepted = PySet::new(py, ["websocket.send", "websocket.close"])?;
+                if !accepted.contains(&message_type)? {
+                    return Self::invalid_message_type(application_state, &message_type);
+                }
+                if message_type.eq("websocket.close")? {
+                    protocol_state(state)?.set_application_state(WebSocketState::Disconnected);
+                }
+                Ok(true)
+            }
+            WebSocketState::Response => {
+                if message_type.ne("websocket.http.response.body")? {
+                    return Self::invalid_message_type(application_state, &message_type);
+                }
+                let more_body = message.getattr("get")?.call1(("more_body", false))?;
+                if !more_body.is_truthy()? {
+                    protocol_state(state)?.set_application_state(WebSocketState::Disconnected);
+                }
+                Ok(false)
+            }
+            WebSocketState::Disconnected => Err(PyRuntimeError::new_err(
+                "Cannot call \"send\" once a close message has been sent.",
+            )),
+        }
+    }
+
+    fn invalid_message_type(
+        application_state: WebSocketState,
+        message_type: &Bound<'_, PyAny>,
+    ) -> PyResult<bool> {
+        let received_repr = message_type.repr()?.extract::<String>()?;
+        let error =
+            WebSocketStateMachine::invalid_send_type_error_for(application_state, &received_repr);
+        Err(PyRuntimeError::new_err(error.to_string()))
     }
 
     fn callback_error(&mut self, py: Python<'_>, error: PyErr) -> PyResult<MachineAction> {

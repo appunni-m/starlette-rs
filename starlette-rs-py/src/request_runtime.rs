@@ -1243,7 +1243,7 @@ impl StreamMachine {
                 return Err(PyStopAsyncIteration::new_err(()));
             }
             StreamCommand::Throw(_) if protocol.closed => {
-                return Err(PyStopAsyncIteration::new_err(()));
+                return Ok(MachineAction::Complete(py.None()));
             }
             StreamCommand::Advance(Some(value))
                 if !protocol.started && !value.bind(py).is_none() =>

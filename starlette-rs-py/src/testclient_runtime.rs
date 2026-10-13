@@ -764,6 +764,18 @@ impl PyWebSocketTestSession {
         Ok(PyErr::from_value(exception))
     }
 
+    fn raise_on_close(&self, py: Python<'_>, message: &Bound<'_, PyDict>) -> PyResult<()> {
+        let message_type = message
+            .get_item("type")?
+            .ok_or_else(|| PyKeyError::new_err("type"))?
+            .extract::<String>()?;
+        match message_type.as_str() {
+            "websocket.close" => Err(websocket_disconnect(py, message)?),
+            "websocket.http.response.start" => Err(self.websocket_denial_response(py, message)?),
+            _ => Ok(()),
+        }
+    }
+
     fn send_client_message(&self, py: Python<'_>, message: Py<PyAny>) -> PyResult<()> {
         let portal = self
             .portal
@@ -972,13 +984,7 @@ impl PyWebSocketTestSession {
     fn receive_text(&self, py: Python<'_>) -> PyResult<String> {
         let message = self.receive_app_message(py)?;
         let message = message.bind(py).cast::<PyDict>()?;
-        let message_type = message
-            .get_item("type")?
-            .ok_or_else(|| PyKeyError::new_err("type"))?
-            .extract::<String>()?;
-        if message_type == "websocket.close" {
-            return Err(websocket_disconnect(py, message)?);
-        }
+        self.raise_on_close(py, message)?;
         message
             .get_item("text")?
             .ok_or_else(|| PyKeyError::new_err("text"))?
@@ -1012,13 +1018,7 @@ impl PyWebSocketTestSession {
     fn receive_bytes(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let message = self.receive_app_message(py)?;
         let message = message.bind(py).cast::<PyDict>()?;
-        let message_type = message
-            .get_item("type")?
-            .ok_or_else(|| PyKeyError::new_err("type"))?
-            .extract::<String>()?;
-        if message_type == "websocket.close" {
-            return Err(websocket_disconnect(py, message)?);
-        }
+        self.raise_on_close(py, message)?;
         message
             .get_item("bytes")?
             .ok_or_else(|| PyKeyError::new_err("bytes"))
@@ -1029,13 +1029,7 @@ impl PyWebSocketTestSession {
     fn receive_json(&self, py: Python<'_>, mode: &str) -> PyResult<Py<PyAny>> {
         let message = self.receive_app_message(py)?;
         let message = message.bind(py).cast::<PyDict>()?;
-        let message_type = message
-            .get_item("type")?
-            .ok_or_else(|| PyKeyError::new_err("type"))?
-            .extract::<String>()?;
-        if message_type == "websocket.close" {
-            return Err(websocket_disconnect(py, message)?);
-        }
+        self.raise_on_close(py, message)?;
         let value = if mode == "text" {
             message
                 .get_item("text")?

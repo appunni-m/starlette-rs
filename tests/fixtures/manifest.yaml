@@ -355,6 +355,7 @@
       "build/parity/inputs/parity/asgi-call-boundary.json",
       "build/parity/inputs/parity/request-runtime.json",
       "build/parity/inputs/parity/request-stream-terminal-throw.json",
+      "build/parity/inputs/parity/request-stream-receive-cancellation-retry.json",
       "build/parity/inputs/parity/request-client-address.json",
       "build/parity/inputs/parity/request-scope-interface.json",
       "build/parity/inputs/parity/request-consumption.json",
@@ -387,6 +388,7 @@
       "build/parity/inputs/parity/websocket-send-non-string-type.json",
       "build/parity/inputs/parity/websocket-receive-unhashable-type.json",
       "build/parity/inputs/parity/websocket-send-string-subclass-hash-error.json",
+      "build/parity/inputs/parity/websocket-send-unhashable-event-type.json",
       "build/parity/inputs/parity/websocket-accept-invalid-connect-event.json",
       "build/parity/inputs/parity/router-converter-dispatch.json",
       "build/parity/inputs/parity/router-slash-redirect.json",
@@ -487,6 +489,7 @@
       "build/parity/inputs/parity/testclient-partial-websocket-endpoints.json",
       "build/parity/inputs/parity/fault-contracts.json",
       "build/parity/inputs/parity/testclient-websocket.json",
+      "build/parity/inputs/parity/testclient-websocket-denial-after-accept.json",
       "build/parity/inputs/parity/testclient-websocket-routing.json",
       "build/parity/inputs/parity/testclient-websocket-bytes.json",
       "build/parity/inputs/parity/testclient-websocket-public.json",
@@ -494,6 +497,7 @@
       "build/parity/inputs/parity/testclient-docs-inputs.json",
       "build/parity/inputs/parity/testclient-lifespan-context.json",
       "build/parity/inputs/parity/application-routes.json",
+      "build/parity/inputs/parity/router-converter-ordering.json",
       "build/parity/inputs/parity/application-subclass-builder.json",
       "build/parity/inputs/parity/concurrency.json",
       "build/parity/inputs/parity/websocket-scope-interface.json",
@@ -531,6 +535,7 @@
       "build/parity/inputs/parity/static-files-named-timezone.json",
       "build/parity/inputs/parity/static-files-omitted-timezone.json",
       "build/parity/inputs/parity/static-files-weekdayless-date.json",
+      "build/parity/inputs/parity/static-files-if-modified-since-rfc-comment.json",
       "build/parity/inputs/parity/testclient-reentrant-lifespan-entry.json",
       "build/parity/inputs/parity/native-service-streaming.json",
       "build/parity/inputs/parity/native-service-error-boundaries.json",
@@ -1111,7 +1116,7 @@
             {
               "id": "starlette.asgi.server-error.default-response",
               "dimension": "error_path",
-              "description": "An uncaught HTTP RuntimeError without a configured 500 or Exception handler sends the default Internal Server Error response and re-raises the original error. Upstream: starlette/middleware/errors.py::error_response.",
+              "description": "An uncaught HTTP Exception without a configured 500 or Exception handler sends the default Internal Server Error response and re-raises the original error. Upstream: starlette/middleware/errors.py::error_response.",
               "lanes": [
                 "parity"
               ],
@@ -1157,6 +1162,17 @@
               "id": "starlette.applications.Starlette.__call__.sync-route-return-response",
               "dimension": "boundary",
               "description": "Construct a Starlette app with a synchronous HTTP endpoint and default Route methods, then dispatch GET and HEAD /func through the public ASGI callable. Compare exact response events and verify one worker-thread invocation per request. Upstream: tests/test_applications.py::test_func_route.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.applications.Starlette.__call__.router-converter-error-before-method-check",
+              "dimension": "error_path",
+              "description": "During Router.app's route scan, each path-matching HTTP route converts captures before checking its method. A CPython 3.12 integer digit-limit ValueError on any matching route reached before the first full match, including a later route after earlier partial matches, must reach the server-error response. Pinned source: starlette/routing.py::Route.matches and Router.app; starlette/convertors.py::IntegerConvertor.convert.",
               "lanes": [
                 "parity"
               ],
@@ -15879,6 +15895,36 @@
               ]
             },
             {
+              "id": "starlette.request.stream.receive-error-propagation",
+              "dimension": "error_path",
+              "description": "Propagate the original CancelledError when ASGI receive is cancelled after Request.stream() has yielded a partial request chunk. Pinned source: starlette/requests.py:239–252; tests/test_requests.py::test_request_stream, test_request_stream_then_body.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
+              "id": "starlette.request.body.retry-after-stream-cancellation",
+              "dimension": "boundary",
+              "description": "After a partially consumed Request.stream() raises CancelledError from ASGI receive, Request.body() can collect and cache the remaining request messages; a fresh stream replays the cached body. Pinned source: starlette/requests.py:234–260; tests/test_requests.py::test_request_stream_then_body, test_request_body_then_stream.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
               "id": "starlette.request.stream-disconnect-retry",
               "dimension": "error_path",
               "description": "Let Request.stream() receive http.disconnect and raise ClientDisconnect, then create a fresh stream iterator and consume a later http.request body to completion. The comparison observes the live exception, yielded chunks, and receive ordering. Pinned source: starlette/requests.py:234-252.",
@@ -17302,6 +17348,18 @@
               "id": "starlette.responses.FileResponse.asgi-call.range-empty-header",
               "dimension": "error_path",
               "description": "Submit an empty byte-range set and compare the live malformed-range response. Upstream: starlette/responses.py::FileResponse._parse_range_header; tests/test_responses.py::test_file_response_range_must_be_requested.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.FileResponse.asgi-call.range-bound-over-cpython-int-limit",
+              "dimension": "error_path",
+              "description": "On CPython 3.12 with its default 4,300-digit conversion limit, a Range bound containing 4,301 digits raises ValueError in int() and is ignored; compare the resulting malformed-range response. The Rust-native FileResponse must preserve the pinned behavior; the installed package serves as a live oracle. Pinned source: starlette/responses.py::FileResponse._parse_ranges and FileResponse._parse_range_header (lines 473–482, 502–528).",
               "lanes": [
                 "parity"
               ],
@@ -25046,6 +25104,18 @@
                 "rust-native-local",
                 "python-package-cpython312"
               ]
+            },
+            {
+              "id": "starlette.staticfiles.StaticFiles.asgi-call.if-modified-since-trailing-rfc-comment",
+              "dimension": "boundary",
+              "description": "Supply an If-Modified-Since date with a trailing RFC-style comment and compare the conditional response for an input-defined asset. Pinned Starlette uses email.utils.parsedate, which accepts this comment form. Source: starlette/staticfiles.py::StaticFiles.is_not_modified at the authority commit.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
             }
           ],
           "parity": {
@@ -26690,6 +26760,17 @@
               ],
               "target_profiles": [
                 "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.websocket.state.send-unhashable-event-type",
+              "dimension": "error_path",
+              "description": "Pass the input list [] as message['type'] to WebSocket.send while CONNECTING and after accept while CONNECTED; compare the exact Python exception class and message plus both final state enums. Starlette applies set membership before raising its RuntimeError for these states, so list hashing propagates TypeError. Pinned source: starlette/websockets.py:58-84.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
                 "python-package-cpython312"
               ]
             },
@@ -29111,7 +29192,7 @@
             {
               "id": "starlette.testclient.TestClient.websocket-session.denial-response-exception",
               "dimension": "error_path",
-              "description": "When the app sends a WebSocket Denial Response before acceptance, websocket_connect raises the public WebSocketDenialResponse, which is both a WebSocketDisconnect and an httpx.Response, carrying the response status, headers, and concatenated body. Pinned source: starlette/testclient.py:92-100,115-128,150-163; tests/test_applications.py:263-268; tests/test_websockets.py:12,364-385.",
+              "description": "When the app sends a WebSocket Denial Response before acceptance or receive_text/receive_bytes/receive_json encounters one in the accepted session, raise the public WebSocketDenialResponse, which is both a WebSocketDisconnect and an httpx.Response, carrying the response status, headers, and concatenated body. Pinned source: starlette/testclient.py:92-100,115-128,150-163,186-205; tests/test_applications.py:263-268; tests/test_websockets.py:12,364-385.",
               "lanes": [
                 "parity"
               ],

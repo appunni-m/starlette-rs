@@ -1367,6 +1367,17 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
             {field: _safe(scope[field]) for field in app_input["scope_fields"]}
         )
 
+    def describe_denial_response(exception: BaseException) -> dict[str, Any]:
+        exception_type = type(exception)
+        return {
+            "class": f"{exception_type.__module__}.{exception_type.__qualname__}",
+            "is_websocket_disconnect": isinstance(exception, WebSocketDisconnect),
+            "is_httpx_response": isinstance(exception, httpx.Response),
+            "status_code": exception.status_code,
+            "headers": exception.headers.multi_items(),
+            "body_base64": base64.b64encode(exception.content).decode("ascii"),
+        }
+
     async def run_app_body(receive: Any, send: Any) -> None:
         for action in app_input["actions"]:
             if action["operation"] == "receive":
@@ -1849,6 +1860,16 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
                         raise ValueError(
                             f"unsupported TestClient WebSocket action: {action['operation']!r}"
                         )
+                except WebSocketDenialResponse as error:
+                    if not action.get("capture_exception", False):
+                        raise
+                    denial_response = describe_denial_response(error)
+                    action_results.append(
+                        {
+                            "operation": action["operation"],
+                            "denial_response": denial_response,
+                        }
+                    )
                 except WebSocketDisconnect as error:
                     if action.get("capture_exception", False):
                         action_results.append(
@@ -1889,15 +1910,7 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
                     action_results.append({"operation": action["operation"], "value": _safe(value)})
             session_body_completed = True
     except WebSocketDenialResponse as exception:
-        exception_type = type(exception)
-        denial_response = {
-            "class": f"{exception_type.__module__}.{exception_type.__qualname__}",
-            "is_websocket_disconnect": isinstance(exception, WebSocketDisconnect),
-            "is_httpx_response": isinstance(exception, httpx.Response),
-            "status_code": exception.status_code,
-            "headers": exception.headers.multi_items(),
-            "body_base64": base64.b64encode(exception.content).decode("ascii"),
-        }
+        denial_response = describe_denial_response(exception)
     except WebSocketDisconnect as error:
         captured_error = error
         if not session_entered:

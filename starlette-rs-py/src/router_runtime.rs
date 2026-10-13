@@ -856,6 +856,22 @@ impl RouterDispatchMachine {
         if let Some(error) = callback_error {
             return Err(error);
         }
+
+        match &plan {
+            HttpDispatchPlan::Matched { route_index, .. } => {
+                validate_native_http_route_conversion_order(
+                    py,
+                    scope,
+                    routes,
+                    *route_index,
+                    false,
+                )?;
+            }
+            HttpDispatchPlan::MethodNotAllowed { route_index, .. } => {
+                validate_native_http_route_conversion_order(py, scope, routes, *route_index, true)?;
+            }
+            HttpDispatchPlan::NotFound | HttpDispatchPlan::Redirect { .. } => {}
+        }
         Ok((plan, child_scopes))
     }
 
@@ -904,6 +920,50 @@ impl RouterDispatchMachine {
         }
         Ok((plan, child_scopes))
     }
+}
+
+fn validate_native_http_route_conversion_order(
+    py: Python<'_>,
+    scope: &Bound<'_, PyDict>,
+    routes: &RouterRoutes,
+    selected_route_index: usize,
+    scan_after_partial: bool,
+) -> PyResult<()> {
+    let route_limit = if scan_after_partial {
+        routes.routes.len()
+    } else {
+        selected_route_index
+    };
+    let prefix_is_native_http =
+        routes
+            .kinds
+            .iter()
+            .take(route_limit)
+            .enumerate()
+            .all(|(index, kind)| {
+                *kind == RouteKind::Http && !routes.custom_http_indexes.contains(&index)
+            });
+    if !prefix_is_native_http {
+        return Ok(());
+    }
+
+    // Starlette converts each path capture before checking that route's
+    // method, then keeps scanning after a partial match. The native table can
+    // stop at the first partial match or choose a later full match without
+    // running the same converters in declaration order.
+    for route_index in 0..route_limit {
+        let route = routes.routes.get(route_index).ok_or_else(|| {
+            PyRuntimeError::new_err(format!("router selected missing route index {route_index}"))
+        })?;
+        let route_match = route.bind(py).call_method1("matches", (scope,))?;
+        let route_match = route_match.cast::<PyTuple>()?;
+        let match_kind = route_match.get_item(0)?.getattr("value")?.extract::<u8>()?;
+        if match_kind == 2 {
+            break;
+        }
+    }
+
+    Ok(())
 }
 
 struct NotFoundMachine {

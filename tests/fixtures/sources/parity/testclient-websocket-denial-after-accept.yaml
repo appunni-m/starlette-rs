@@ -1,0 +1,158 @@
+{
+  "schema": "migration-parity/parity-input@48",
+  "cases": [
+    {
+      "case_id": "starlette.testclient.TestClient.websocket-session.receive-text-denial-after-accept",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "websocket-session",
+      "covers": [
+        "starlette.testclient.TestClient.websocket-session.scope-projection",
+        "starlette.testclient.TestClient.websocket-session.accept-handshake",
+        "starlette.testclient.TestClient.websocket-session.denial-response-exception",
+        "starlette.testclient.TestClient.websocket-session.portal-cleanup"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "observations": ["websocket-session"],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": ["testclient", 50000],
+        "headers": []
+      },
+      "websocket": {
+        "url": "/denial-after-accept",
+        "subprotocols": [],
+        "headers": [],
+        "actions": [{"operation": "receive_text", "capture_exception": true}]
+      },
+      "asgi_app": {
+        "kind": "asgi3",
+        "scope_fields": ["type", "path"],
+        "actions": [
+          {"operation": "receive"},
+          {"operation": "send", "message": {"type": "websocket.accept"}},
+          {
+            "operation": "send",
+            "message": {
+              "type": "websocket.http.response.start",
+              "status": 409,
+              "headers_base64_pairs": [["eC1kZW5pYWw=", "cG9zdC1hY2NlcHQ="]]
+            }
+          },
+          {
+            "operation": "send",
+            "message": {
+              "type": "websocket.http.response.body",
+              "body_base64": "ZGVuaWVk",
+              "more_body": false
+            }
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.testclient.TestClient.websocket-session.receive-bytes-denial-after-accept",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "websocket-session",
+      "covers": [
+        "starlette.testclient.TestClient.websocket-session.scope-projection",
+        "starlette.testclient.TestClient.websocket-session.accept-handshake",
+        "starlette.testclient.TestClient.websocket-session.denial-response-exception",
+        "starlette.testclient.TestClient.websocket-session.portal-cleanup"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "observations": ["websocket-session"],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": ["testclient", 50000],
+        "headers": []
+      },
+      "websocket": {
+        "url": "/denial-after-accept",
+        "subprotocols": [],
+        "headers": [],
+        "actions": [{"operation": "receive_bytes", "capture_exception": true}]
+      },
+      "asgi_app": {
+        "kind": "asgi3",
+        "scope_fields": ["type", "path"],
+        "actions": [
+          {"operation": "receive"},
+          {"operation": "send", "message": {"type": "websocket.accept"}},
+          {
+            "operation": "send",
+            "message": {
+              "type": "websocket.http.response.start",
+              "status": 409,
+              "headers_base64_pairs": [["eC1kZW5pYWw=", "cG9zdC1hY2NlcHQ="]]
+            }
+          },
+          {
+            "operation": "send",
+            "message": {
+              "type": "websocket.http.response.body",
+              "body_base64": "ZGVuaWVk",
+              "more_body": false
+            }
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.testclient.TestClient.websocket-session.receive-json-denial-after-accept",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "websocket-session",
+      "covers": [
+        "starlette.testclient.TestClient.websocket-session.scope-projection",
+        "starlette.testclient.TestClient.websocket-session.accept-handshake",
+        "starlette.testclient.TestClient.websocket-session.denial-response-exception",
+        "starlette.testclient.TestClient.websocket-session.portal-cleanup"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "observations": ["websocket-session"],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": ["testclient", 50000],
+        "headers": []
+      },
+      "websocket": {
+        "url": "/denial-after-accept",
+        "subprotocols": [],
+        "headers": [],
+        "actions": [{"operation": "receive_json", "capture_exception": true}]
+      },
+      "asgi_app": {
+        "kind": "asgi3",
+        "scope_fields": ["type", "path"],
+        "actions": [
+          {"operation": "receive"},
+          {"operation": "send", "message": {"type": "websocket.accept"}},
+          {
+            "operation": "send",
+            "message": {
+              "type": "websocket.http.response.start",
+              "status": 409,
+              "headers_base64_pairs": [["eC1kZW5pYWw=", "cG9zdC1hY2NlcHQ="]]
+            }
+          },
+          {
+            "operation": "send",
+            "message": {
+              "type": "websocket.http.response.body",
+              "body_base64": "ZGVuaWVk",
+              "more_body": false
+            }
+          }
+        ]
+      }
+    }
+  ]
+}
