@@ -66,6 +66,35 @@
         {"action_id": "read-second-missing", "receiver": "second", "call": "get-item", "arguments": ["key"]}
       ],
       "observations": ["consumer-sequence"]
+    },
+    {
+      "case_id": "starlette.datastructures.State.consumer-sequence.missing-attribute-format-protocol",
+      "surface": "starlette.datastructures.State",
+      "operation": "consumer-sequence",
+      "covers": [
+        "starlette.datastructures.State.missing-attribute-error",
+        "starlette.datastructures.State.missing-attribute-message-format-protocol"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "instances": [
+        {"instance_id": "state", "initial_state": null}
+      ],
+      "actions": [
+        {
+          "action_id": "missing-attribute-format-protocol",
+          "receiver": "state",
+          "call": "get-attribute-method",
+          "arguments": [
+            {
+              "kind": "formatted-str-subclass",
+              "value": "missing_key",
+              "format_value": "formatted attribute key"
+            }
+          ]
+        }
+      ],
+      "observations": ["consumer-sequence"]
     }
   ]
 }

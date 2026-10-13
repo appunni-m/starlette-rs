@@ -385,6 +385,42 @@
       ]
     },
     {
+      "case_id": "starlette.config.Config.value-resolution.cast-error-context",
+      "surface": "starlette.config.Config",
+      "operation": "value-resolution",
+      "covers": [
+        "starlette.config.Config.cast-error",
+        "starlette.config.Config.cast-error-context"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "config": {
+        "env_prefix": "",
+        "environ": {
+          "INVALID_INTEGER": "not-an-integer"
+        },
+        "env_file_lines": []
+      },
+      "lookups": [
+        {
+          "key": "INVALID_INTEGER",
+          "cast": "int",
+          "inspect": [
+            "exception-context"
+          ]
+        }
+      ],
+      "observations": [
+        "lookup-results"
+      ]
+    },
+    {
       "case_id": "starlette.config.Environ.mapping-sequence.default-process-environment-and-read-freezes",
       "surface": "starlette.config.Environ",
       "operation": "mapping-sequence",

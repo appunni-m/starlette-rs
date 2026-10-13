@@ -408,6 +408,51 @@
       "observations": [
         "url-record"
       ]
+    },
+    {
+      "case_id": "starlette.datastructures.URL.component-and-replacement-sequence.username-format-coercion",
+      "surface": "starlette.datastructures.URL",
+      "operation": "component-and-replacement-sequence",
+      "covers": [
+        "starlette.datastructures.URL.component-construction",
+        "starlette.datastructures.URL.component-access",
+        "starlette.datastructures.URL.component-replacement",
+        "starlette.datastructures.URL.component-replacement.username-format-coercion"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "url": "http://example.test/a?keep=one#frag",
+      "actions": [
+        {
+          "method": "replace",
+          "kwargs": {
+            "username": 123
+          }
+        },
+        {
+          "method": "replace",
+          "kwargs": {
+            "password": 456
+          }
+        },
+        {
+          "method": "replace",
+          "kwargs": {
+            "username": 123,
+            "password": "pw"
+          }
+        }
+      ],
+      "observations": [
+        "url-record",
+        "action-results"
+      ]
     }
   ]
 }

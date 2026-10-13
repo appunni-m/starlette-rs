@@ -5265,6 +5265,21 @@
               ]
             },
             {
+              "id": "starlette.config.Config.cast-error-context",
+              "dimension": "error_path",
+              "description": "Preserve the ValueError from an invalid integer cast as the implicit __context__ of Config's replacement ValueError. Upstream: starlette/config.py:137-140.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
               "id": "starlette.config.Config.custom-cast-callback-boundary",
               "dimension": "boundary",
               "description": "Invoke a caller-supplied synchronous Python cast from Rust and preserve Config's ValueError wrapper, including the input key, value, and callback name. Upstream: starlette/config.py:123-140; tests/test_config.py::test_config_types.",
@@ -7137,6 +7152,17 @@
               ]
             },
             {
+              "id": "starlette.datastructures.State.missing-attribute-message-format-protocol",
+              "dimension": "error_path",
+              "description": "When the State.__getattr__ consumer is called with a missing str-subclass key, interpolate the key through its __format__ override in the AttributeError message. Pinned source: starlette/datastructures.py:681-686.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.datastructures.State.item-set-get",
               "dimension": "protocol_variant",
               "description": "Read back values written through item access. Pinned source: starlette/datastructures.py:664-704; tests/test_requests.py::test_request_state_object.",
@@ -8764,6 +8790,21 @@
               "id": "starlette.datastructures.URL.component-replacement",
               "dimension": "parameter_combination",
               "description": "Replace scheme and authority components while preserving unaffected URL components, including IPv6 brackets, credentials, existing ports, and URLs with no authority. Pinned source: starlette/datastructures.py:115-141; tests/test_datastructures.py::test_url.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
+              "id": "starlette.datastructures.URL.component-replacement.username-format-coercion",
+              "dimension": "parameter_combination",
+              "description": "Apply Python empty-format-spec semantics when the final f-string embeds a dynamically supplied username, such as an integer username without a password, while preserving the preceding += operand behavior and errors when a password is supplied. URL.replace accepts **kwargs: Any; this records source behavior for accepted dynamic inputs rather than documenting non-string usernames as a typed component value. Pinned source: starlette/datastructures.py:115-141, especially lines 130-138.",
               "lanes": [
                 "parity"
               ],

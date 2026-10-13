@@ -42,6 +42,8 @@ def _call_state(state: Any, call: str, arguments: list[Any]) -> Any:
         return None
     if call == "get-attribute":
         return getattr(state, *arguments)
+    if call == "get-attribute-method":
+        return state.__getattr__(_resolve_attribute_argument(arguments[0]))
     if call == "delete-attribute":
         delattr(state, *arguments)
         return None
@@ -60,6 +62,25 @@ def _call_state(state: Any, call: str, arguments: list[Any]) -> Any:
     if call == "vars":
         return vars(state)
     raise ValueError(f"unsupported State action: {call!r}")
+
+
+def _resolve_attribute_argument(value: Any) -> Any:
+    if not isinstance(value, dict) or value.get("kind") != "formatted-str-subclass":
+        return value
+    format_value = value["format_value"]
+
+    class InputFormattedString(str):
+        def __new__(cls, text: str) -> InputFormattedString:
+            instance = super().__new__(cls, text)
+            instance.format_value = format_value
+            return instance
+
+        def __format__(self, format_spec: str) -> str:
+            if not format_spec:
+                return self.format_value
+            return str.__format__(self, format_spec)
+
+    return InputFormattedString(value["value"])
 
 
 def _snapshot(instance_id: str, state: Any, provided_mapping: Any) -> dict[str, Any]:

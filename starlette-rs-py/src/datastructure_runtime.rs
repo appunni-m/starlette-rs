@@ -1518,6 +1518,8 @@ fn replace_split<'py>(
             hostname
         };
 
+        // Upstream uses `+=` for these fields, including its operand errors.
+        let in_place_add = py.import("operator")?.getattr("iadd")?;
         let mut netloc = hostname;
         if !port.is_none() {
             let port_text = py
@@ -1525,7 +1527,7 @@ fn replace_split<'py>(
                 .getattr("format")?
                 .call1((port, ""))?;
             let suffix = PyString::new(py, ":").call_method1("__add__", (port_text,))?;
-            netloc = netloc.call_method1("__add__", (suffix,))?;
+            netloc = in_place_add.call1((netloc, suffix))?;
         }
         if !username.is_none() {
             let mut userpass = username;
@@ -1535,10 +1537,16 @@ fn replace_split<'py>(
                     .getattr("format")?
                     .call1((password, ""))?;
                 let suffix = PyString::new(py, ":").call_method1("__add__", (password_text,))?;
-                userpass = userpass.call_method1("__add__", (suffix,))?;
+                userpass = in_place_add.call1((userpass, suffix))?;
             }
-            let prefix = userpass.call_method1("__add__", ("@",))?;
-            netloc = prefix.call_method1("__add__", (netloc,))?;
+            // Starlette forms this final authority with an f-string, so values
+            // accepted through **kwargs use Python's empty-format-spec protocol.
+            let format = py.import("builtins")?.getattr("format")?;
+            let userpass = format.call1((userpass, ""))?;
+            let hostname = format.call1((netloc, ""))?;
+            let prefix = PyString::new(py, "").call_method1("__add__", (userpass,))?;
+            let prefix = prefix.call_method1("__add__", ("@",))?;
+            netloc = prefix.call_method1("__add__", (hostname,))?;
         }
         kwargs.set_item("netloc", netloc)?;
     }
@@ -1663,10 +1671,15 @@ fn state_getattr(
     match state.get_item(key) {
         Ok(value) => Ok(value.unbind()),
         Err(error) if error.is_instance_of::<PyKeyError>(py) => {
-            let key_text = key.str()?.to_str()?.to_owned();
-            let attribute_error = PyAttributeError::new_err(format!(
-                "'{class_name}' object has no attribute '{key_text}'"
-            ));
+            let message = PyString::new(py, "'{}' object has no attribute '{}'");
+            let formatted = match message.call_method1("format", (class_name, key)) {
+                Ok(formatted) => formatted,
+                Err(format_error) => {
+                    format_error.set_context(py, Some(error));
+                    return Err(format_error);
+                }
+            };
+            let attribute_error = PyAttributeError::new_err(formatted.extract::<String>()?);
             attribute_error.set_context(py, Some(error));
             Err(attribute_error)
         }

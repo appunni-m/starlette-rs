@@ -766,6 +766,9 @@ URL_COMPONENTS_OPERATION = (
     "starlette.datastructures.URL",
     "component-and-replacement-sequence",
 )
+URL_COMPONENT_USERNAME_FORMAT_REQUIREMENT = (
+    "starlette.datastructures.URL.component-replacement.username-format-coercion"
+)
 PYTHON_VERSION_MATRIX_OPERATIONS = {
     *CONFIG_OPERATIONS,
     THREADPOOL_OPERATION_KEY,
@@ -818,6 +821,7 @@ STATE_REQUIREMENTS = {
     "attribute_set_get": f"{STATE_SURFACE}.attribute-set-get",
     "attribute_delete": f"{STATE_SURFACE}.attribute-delete",
     "missing_attribute": f"{STATE_SURFACE}.missing-attribute-error",
+    "missing_attribute_format": f"{STATE_SURFACE}.missing-attribute-message-format-protocol",
     "item_set_get": f"{STATE_SURFACE}.item-set-get",
     "item_alias": f"{STATE_SURFACE}.item-to-attribute-alias",
     "item_delete": f"{STATE_SURFACE}.item-delete",
@@ -829,6 +833,7 @@ STATE_REQUIREMENTS = {
 STATE_ACTIONS = {
     "set-attribute",
     "get-attribute",
+    "get-attribute-method",
     "delete-attribute",
     "set-item",
     "get-item",
@@ -28000,6 +28005,11 @@ def _validate_config_case(case: dict[str, Any]) -> None:
                 raise ContractError(
                     f"Config lookups[{index}].inspect must be a unique string array"
                 )
+            inspects_exception_context = "exception-context" in inspect
+            if inspects_exception_context and inspect != ["exception-context"]:
+                raise ContractError(
+                    f"Config lookups[{index}].inspect exception-context must be selected alone"
+                )
             inspectable = {
                 "URL": {
                     "scheme",
@@ -28015,7 +28025,11 @@ def _validate_config_case(case: dict[str, Any]) -> None:
                 },
                 "Secret": {"repr", "truthiness"},
             }
-            if inspect and (public_class is None or not set(inspect) <= inspectable[public_class]):
+            if (
+                inspect
+                and not inspects_exception_context
+                and (public_class is None or not set(inspect) <= inspectable[public_class])
+            ):
                 raise ContractError(
                     f"Config lookups[{index}].inspect selectors do not match its public cast class"
                 )
@@ -28042,6 +28056,7 @@ def _validate_config_case(case: dict[str, Any]) -> None:
                 selected.add("starlette.config.Config.env-prefix")
             raw_value = environ.get(prefixed, file_values.get(prefixed))
             cast_value = raw_value if raw_value is not None else lookup.get("default")
+            cast_error = False
             if cast_operation == "bool" and isinstance(cast_value, str):
                 selected.add("starlette.config.Config.bool-cast")
                 if cast_value.lower() not in {"true", "1", "false", "0"}:
@@ -28050,7 +28065,14 @@ def _validate_config_case(case: dict[str, Any]) -> None:
                 try:
                     int(cast_value)
                 except ValueError:
+                    cast_error = True
                     selected.add("starlette.config.Config.cast-error")
+            if inspects_exception_context:
+                if public_class is not None or cast_operation != "int" or not cast_error:
+                    raise ContractError(
+                        f"Config lookups[{index}] exception-context inspection requires an invalid int cast"
+                    )
+                selected.add("starlette.config.Config.cast-error-context")
         if set(case["covers"]) != selected:
             raise ContractError("Config value-resolution coverage must match its input lookups")
         return
@@ -29652,6 +29674,7 @@ def _validate_url_components_case(case: dict[str, Any]) -> None:
         raise ContractError("URL component observations must select unique declared results")
 
     replacements = False
+    username_format_coercion = False
     allowed_components = {
         "scheme",
         "netloc",
@@ -29680,6 +29703,8 @@ def _validate_url_components_case(case: dict[str, Any]) -> None:
                 raise ContractError(f"{context}.kwargs[{key!r}] must be a string, integer, or null")
             if isinstance(value, bool):
                 raise ContractError(f"{context}.kwargs[{key!r}] must not be boolean")
+            if key == "username" and isinstance(value, int):
+                username_format_coercion = True
         replacements = True
 
     exercised = {"starlette.datastructures.URL.component-construction"}
@@ -29688,6 +29713,10 @@ def _validate_url_components_case(case: dict[str, Any]) -> None:
         exercised.add("starlette.datastructures.URL.password-redaction")
     if replacements:
         exercised.add("starlette.datastructures.URL.component-replacement")
+    if username_format_coercion:
+        if "action-results" not in observations:
+            raise ContractError("URL username format-coercion cases must observe action-results")
+        exercised.add(URL_COMPONENT_USERNAME_FORMAT_REQUIREMENT)
     unexercised = set(case["covers"]) - exercised
     if unexercised:
         raise ContractError(
@@ -29967,6 +29996,7 @@ def _validate_state_case(case: dict[str, Any]) -> None:
     item_get_keys: dict[str, set[str]] = {instance_id: set() for instance_id in instance_ids}
     item_delete_keys: dict[str, set[str]] = {instance_id: set() for instance_id in instance_ids}
     missing_attributes: set[str] = set()
+    formatted_missing_attributes: set[str] = set()
     missing_items: set[str] = set()
     iterated: set[str] = set()
     measured_length: set[str] = set()
@@ -29993,21 +30023,46 @@ def _validate_state_case(case: dict[str, Any]) -> None:
             {2}
             if call in {"set-attribute", "set-item"}
             else {1}
-            if call in {"get-attribute", "delete-attribute", "get-item", "delete-item"}
+            if call
+            in {
+                "get-attribute",
+                "get-attribute-method",
+                "delete-attribute",
+                "get-item",
+                "delete-item",
+            }
             else {0}
         )
         if len(arguments) not in expected_arity:
             raise ContractError(f"{context}.arguments has invalid arity for {call}")
         for argument_index, argument in enumerate(arguments):
-            _validate_threadpool_json(argument, f"{context}.arguments[{argument_index}]")
-        if call in {
-            "set-attribute",
-            "get-attribute",
-            "delete-attribute",
-            "set-item",
-            "get-item",
-            "delete-item",
-        } and not isinstance(arguments[0], str):
+            argument_context = f"{context}.arguments[{argument_index}]"
+            if call == "get-attribute-method":
+                descriptor = _exact(
+                    argument,
+                    {"kind", "value", "format_value"},
+                    argument_context,
+                )
+                if descriptor["kind"] != "formatted-str-subclass":
+                    raise ContractError(f"{argument_context}.kind must be formatted-str-subclass")
+                _string(descriptor["value"], f"{argument_context}.value")
+                _string(descriptor["format_value"], f"{argument_context}.format_value")
+            else:
+                _validate_threadpool_json(argument, argument_context)
+        if (
+            call
+            in {
+                "set-attribute",
+                "get-attribute",
+                "get-attribute-method",
+                "delete-attribute",
+                "set-item",
+                "get-item",
+                "delete-item",
+            }
+            and not isinstance(arguments[0], str)
+            and call != "get-attribute-method"
+        ):
             raise ContractError(f"{context}.arguments[0] must be a string key")
 
         if call in {"set-attribute", "set-item"}:
@@ -30034,6 +30089,15 @@ def _validate_state_case(case: dict[str, Any]) -> None:
             else:
                 missing_items.add(receiver)
                 read_missing_instances.add(receiver)
+        elif call == "get-attribute-method":
+            argument = arguments[0]
+            key = argument.get("value") if isinstance(argument, dict) else argument
+            if key in current_keys[receiver]:
+                attribute_get_keys[receiver].add(key)
+            else:
+                missing_attributes.add(receiver)
+                if isinstance(argument, dict):
+                    formatted_missing_attributes.add(receiver)
         elif call in {"delete-attribute", "delete-item"}:
             key = arguments[0]
             keys = current_keys[receiver]
@@ -30063,6 +30127,8 @@ def _validate_state_case(case: dict[str, Any]) -> None:
         exercised.add(STATE_REQUIREMENTS["attribute_delete"])
     if missing_attributes:
         exercised.add(STATE_REQUIREMENTS["missing_attribute"])
+    if formatted_missing_attributes:
+        exercised.add(STATE_REQUIREMENTS["missing_attribute_format"])
     if any(item_set_keys[item] & item_get_keys[item] for item in instance_ids):
         exercised.add(STATE_REQUIREMENTS["item_set_get"])
     if any(item_set_keys[item] & attribute_get_keys[item] for item in instance_ids):

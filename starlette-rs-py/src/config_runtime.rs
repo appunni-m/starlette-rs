@@ -332,9 +332,13 @@ fn perform_cast<'py>(
         {
             let value = value.str()?.extract::<String>()?;
             let cast_name = cast.getattr("__name__")?.str()?.extract::<String>()?;
-            Err(PyValueError::new_err(format!(
+            let wrapped = PyValueError::new_err(format!(
                 "Config '{key}' has value '{value}'. Not a valid {cast_name}."
-            )))
+            ));
+            // Config raises its replacement ValueError inside the except block,
+            // so Python exposes the cast failure as the implicit exception context.
+            wrapped.value(py).setattr("__context__", error.value(py))?;
+            Err(wrapped)
         }
         Err(error) => Err(error),
     }

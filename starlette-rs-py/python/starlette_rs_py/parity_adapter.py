@@ -10686,6 +10686,14 @@ def _error_snapshot(exc: Exception) -> dict[str, str]:
     return {"class": f"{type(exc).__module__}.{type(exc).__qualname__}", "message": str(exc)}
 
 
+def _config_error_snapshot(exc: Exception, selectors: list[str]) -> dict[str, Any]:
+    snapshot: dict[str, Any] = _error_snapshot(exc)
+    if "exception-context" in selectors:
+        context = exc.__context__
+        snapshot["context"] = _error_snapshot(context) if context is not None else None
+    return snapshot
+
+
 AUTHENTICATION_OPERATIONS = {
     ("starlette.authentication", "value-operations"),
     ("starlette.authentication", "scope-check"),
@@ -11398,7 +11406,7 @@ def _run_config_case(case: dict[str, Any]) -> dict[str, Any]:
                         result = {
                             "key": lookup["key"],
                             "outcome": "error",
-                            "error": _error_snapshot(exc),
+                            "error": _config_error_snapshot(exc, lookup.get("inspect", [])),
                         }
                     else:
                         result = {
