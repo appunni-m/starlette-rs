@@ -824,9 +824,7 @@ HEADERS_OPERATIONS = {
     (MUTABLE_HEADERS_SURFACE, HEADERS_CONSUMER_OPERATION),
 }
 HEADERS_OBSERVATIONS = {"action-trace", "instance-snapshots", "scope-snapshots", "raw-pairs"}
-MUTABLE_HEADERS_VARY_REQUIREMENT = (
-    "starlette.datastructures.MutableHeaders.add-vary-header"
-)
+MUTABLE_HEADERS_VARY_REQUIREMENT = "starlette.datastructures.MutableHeaders.add-vary-header"
 STATE_SURFACE = "starlette.datastructures.State"
 STATE_CONSUMER_OPERATION = "consumer-sequence"
 STATE_OPERATION_KEY = (STATE_SURFACE, STATE_CONSUMER_OPERATION)
@@ -15619,9 +15617,7 @@ def _validate_testclient_case(
             raise ContractError(f"{message_context}.body_kind requires an HTTP response body")
         body_kind = _string(body_message["body_kind"], f"{message_context}.body_kind")
         if body_kind not in {"bytearray", "memoryview"}:
-            raise ContractError(
-                f"{message_context}.body_kind must select bytearray or memoryview"
-            )
+            raise ContractError(f"{message_context}.body_kind must select bytearray or memoryview")
         validate_base64(body_message["body_base64"], f"{message_context}.body_base64")
         if type(body_message["more_body"]) is not bool:
             raise ContractError(f"{message_context}.more_body must be boolean")
@@ -31381,7 +31377,9 @@ def _validate_headers_case(case: dict[str, Any]) -> None:
     package_profile = ["python-package-cpython312"]
     native_and_package_profiles = ["rust-native-local", "python-package-cpython312"]
     if case["target_profiles"] not in (package_profile, native_and_package_profiles):
-        raise ContractError("Headers parity selects the Python package profile and optional native slice")
+        raise ContractError(
+            "Headers parity selects the Python package profile and optional native slice"
+        )
     if case["assets"] != []:
         raise ContractError("Headers cases do not use external assets")
     observations = case["observations"]

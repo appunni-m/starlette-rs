@@ -374,9 +374,7 @@ def run_headers_case(case: dict[str, Any]) -> dict[str, Any]:
             {
                 "step_id": selector,
                 "status": "ok",
-                "value": {"raw-pairs": values["raw-pairs"]}
-                if selector == "raw-pairs"
-                else values,
+                "value": {"raw-pairs": values["raw-pairs"]} if selector == "raw-pairs" else values,
             }
             for selector in observations
         ],

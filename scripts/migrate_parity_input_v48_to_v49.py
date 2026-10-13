@@ -14,17 +14,17 @@ from scripts.migrate_parity_input_v47_to_v48 import (
 )
 from scripts.parity.api_sources import load_api_metadata, public_module_names
 from scripts.parity.contract import (
+    INPUT_SCHEMA,
     INPUT_SCHEMA_V48,
     INPUT_SCHEMA_V49,
     INPUT_SCHEMA_V50,
-    INPUT_SCHEMA,
     ContractError,
     load_json,
     load_manifest,
+    validate_input_document,
     validate_input_document_v48,
     validate_input_document_v49,
     validate_input_document_v50,
-    validate_input_document,
     validate_manifest,
 )
 
