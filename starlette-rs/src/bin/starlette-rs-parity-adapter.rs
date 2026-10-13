@@ -3,6 +3,7 @@
 use std::collections::{BTreeSet, HashSet, VecDeque};
 use std::env;
 use std::error::Error;
+use std::ffi::OsString;
 use std::fs;
 use std::future::{Future, pending, ready};
 use std::io::{self, Read, Write};
@@ -18,7 +19,7 @@ use std::time::{Duration, UNIX_EPOCH};
 #[cfg(unix)]
 use std::ffi::CString;
 #[cfg(unix)]
-use std::os::unix::ffi::OsStrExt;
+use std::os::unix::ffi::{OsStrExt, OsStringExt};
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 
@@ -6686,6 +6687,73 @@ fn validated_file_response_scope(scope: &Value) -> Result<(Map<String, Value>, b
     Ok((validated, pathsend_extension))
 }
 
+fn validated_static_files_scope(
+    scope: &Value,
+) -> Result<(Map<String, Value>, bool, OsString, OsString), String> {
+    let scope_object = scope
+        .as_object()
+        .ok_or_else(|| String::from("StaticFiles HTTP scope must be a JSON object"))?;
+    let path = static_files_scope_path_value(
+        scope_object
+            .get("path")
+            .ok_or_else(|| String::from("StaticFiles HTTP scope path is missing"))?,
+        "StaticFiles HTTP scope.path",
+    )?;
+    let root_path = static_files_scope_path_value(
+        scope_object
+            .get("root_path")
+            .ok_or_else(|| String::from("StaticFiles HTTP scope root_path is missing"))?,
+        "StaticFiles HTTP scope.root_path",
+    )?;
+
+    let mut validator_scope = scope.clone();
+    let validator_object = validator_scope
+        .as_object_mut()
+        .ok_or_else(|| String::from("StaticFiles HTTP scope must be a JSON object"))?;
+    if validator_object.get("path").is_some_and(Value::is_object) {
+        validator_object.insert(String::from("path"), Value::String(String::new()));
+    }
+    if validator_object
+        .get("root_path")
+        .is_some_and(Value::is_object)
+    {
+        validator_object.insert(String::from("root_path"), Value::String(String::new()));
+    }
+    let (validated, pathsend_extension) = validated_file_response_scope(&validator_scope)?;
+    Ok((validated, pathsend_extension, path, root_path))
+}
+
+fn static_files_scope_path_value(value: &Value, context: &str) -> Result<OsString, String> {
+    match value {
+        Value::String(path) => Ok(OsString::from(path)),
+        Value::Object(_) => {
+            let encoded_path = exact_object(value, &["encoding", "data"], context)?;
+            if string_field(encoded_path, "encoding", context)? != "filesystem-bytes-base64" {
+                return Err(format!(
+                    "{context}.encoding must be filesystem-bytes-base64"
+                ));
+            }
+            let data = decode_base64(
+                string_field(encoded_path, "data", context)?,
+                &format!("{context}.data"),
+            )?;
+            #[cfg(unix)]
+            {
+                Ok(OsString::from_vec(data))
+            }
+            #[cfg(not(unix))]
+            {
+                String::from_utf8(data)
+                    .map(OsString::from)
+                    .map_err(|_| format!("{context} filesystem bytes are not valid UTF-8"))
+            }
+        }
+        _ => Err(format!(
+            "{context} must be a string or tagged filesystem-byte value"
+        )),
+    }
+}
+
 type HeaderPairs = Vec<(Vec<u8>, Vec<u8>)>;
 
 fn parse_scope_request_headers(
@@ -7892,7 +7960,10 @@ fn run_static_files_lookup_path_case(case: &Value) -> Result<Value, String> {
             "StaticFiles lookup-path requires at least one input file",
         ));
     }
-    let lookup_path = string_field(case, "lookup_path", "StaticFiles lookup-path case")?;
+    let lookup_path = static_files_lookup_path_value(
+        case.get("lookup_path")
+            .ok_or_else(|| String::from("StaticFiles lookup-path path is missing"))?,
+    )?;
     let filesystem = case
         .get("filesystem")
         .ok_or_else(|| String::from("StaticFiles lookup-path filesystem is missing"))?;
@@ -7906,7 +7977,7 @@ fn run_static_files_lookup_path_case(case: &Value) -> Result<Value, String> {
         follow_symlink,
     )
     .map_err(|error| format!("StaticFiles lookup-path construction failed: {error:?}"))?;
-    let observation = match static_files.lookup_path(lookup_path) {
+    let observation = match static_files.lookup_path(&lookup_path) {
         Err(StaticFilesError::InvalidPath) => json!({
             "lookup_error": {
                 "class": "builtins.ValueError",
@@ -7976,6 +8047,40 @@ fn run_static_files_lookup_path_case(case: &Value) -> Result<Value, String> {
             "value": observation,
         }],
     }))
+}
+
+fn static_files_lookup_path_value(value: &Value) -> Result<OsString, String> {
+    match value {
+        Value::String(path) => Ok(OsString::from(path)),
+        Value::Object(_) => {
+            let value = exact_object(
+                value,
+                &["encoding", "data"],
+                "StaticFiles lookup-path encoded path",
+            )?;
+            let encoding = string_field(value, "encoding", "StaticFiles lookup-path encoding")?;
+            if encoding != "filesystem-bytes-base64" {
+                return Err(String::from(
+                    "StaticFiles lookup-path encoding must be filesystem-bytes-base64",
+                ));
+            }
+            let encoded = string_field(value, "data", "StaticFiles lookup-path encoded data")?;
+            let bytes = decode_base64(encoded, "StaticFiles lookup-path encoded data")?;
+            #[cfg(unix)]
+            {
+                Ok(OsString::from_vec(bytes))
+            }
+            #[cfg(not(unix))]
+            {
+                String::from_utf8(bytes)
+                    .map(OsString::from)
+                    .map_err(|_| String::from("filesystem path bytes are not valid UTF-8"))
+            }
+        }
+        _ => Err(String::from(
+            "StaticFiles lookup-path must be a string or tagged filesystem-byte value",
+        )),
+    }
 }
 
 fn parse_static_files_actions_before(
@@ -8204,20 +8309,19 @@ fn run_static_files_case(case: &Value) -> Result<Value, String> {
     let first_call = call_inputs
         .first()
         .ok_or_else(|| String::from("StaticFiles ASGI-call has no requests"))?;
-    let (scope, _) = validated_file_response_scope(
+    let (_, _, scope_path, root_path) = validated_static_files_scope(
         first_call
             .get("scope")
             .ok_or_else(|| String::from("StaticFiles ASGI-call scope is missing"))?,
     )?;
-    let scope_path = string_field(&scope, "path", "StaticFiles HTTP scope")?;
-    let root_path = string_field(&scope, "root_path", "StaticFiles HTTP scope")?;
-    let path = NativeStaticFiles::get_path(scope_path, root_path);
+    let path = NativeStaticFiles::get_path(&scope_path, &root_path);
+    let request_path = path.to_string_lossy();
     let root = match path_limit_stress {
         Some(stress) => {
             match prepare_static_files_path_limit_stress(
                 &root,
                 &package_roots,
-                &path,
+                &request_path,
                 follow_symlink,
                 stress,
             )? {
@@ -8243,7 +8347,7 @@ fn run_static_files_case(case: &Value) -> Result<Value, String> {
         .check_config()
         .map_err(|error| format!("StaticFiles configuration failed: {error:?}"))?;
     let permission_guard = if let Some(stress) = permission_denial_stress {
-        match prepare_static_files_permission_denial_stress(&root, &path, stress)? {
+        match prepare_static_files_permission_denial_stress(&root, &request_path, stress)? {
             StaticFilesPermissionDenialStressSetup::Ready(guard) => Some(guard),
             StaticFilesPermissionDenialStressSetup::Skipped(reason) => {
                 return Ok(static_files_skipped_result(case_id, &reason));
@@ -8319,17 +8423,15 @@ fn observe_static_files_call(
     static_files: &NativeStaticFiles,
     request: &Map<String, Value>,
 ) -> Result<Value, String> {
-    let (scope, pathsend_extension) = validated_file_response_scope(
+    let (scope, pathsend_extension, scope_path, root_path) = validated_static_files_scope(
         request
             .get("scope")
             .ok_or_else(|| String::from("StaticFiles call scope is missing"))?,
     )?;
-    let scope_path = string_field(&scope, "path", "StaticFiles HTTP scope")?;
-    let root_path = string_field(&scope, "root_path", "StaticFiles HTTP scope")?;
     let method = string_field(&scope, "method", "StaticFiles HTTP scope")?;
     let request_headers = parse_scope_request_headers(&scope, "StaticFiles HTTP scope")?;
-    let path = NativeStaticFiles::get_path(scope_path, root_path);
-    let selected = match static_files.get_response(&path, scope_path, method, &request_headers) {
+    let path = NativeStaticFiles::get_path(&scope_path, &root_path);
+    let selected = match static_files.get_response(&path, &scope_path, method, &request_headers) {
         Ok(selected) => selected,
         Err(StaticFilesError::MethodNotAllowed) => {
             return Ok(static_files_call_error_observation(
@@ -8432,9 +8534,10 @@ fn observe_static_files_call(
                     u16::try_from(values.get(1)?.as_u64()?).ok()?,
                 ))
             });
+            let redirect_path = path.to_string_lossy();
             let url = connection_url(
                 scope.get("scheme").and_then(Value::as_str),
-                &path,
+                &redirect_path,
                 &query,
                 &headers,
                 server,

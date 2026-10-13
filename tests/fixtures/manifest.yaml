@@ -248,7 +248,7 @@
   ],
   "interfaces": {
     "parity": {
-      "input_schema": "migration-parity/parity-input@51",
+      "input_schema": "migration-parity/parity-input@52",
       "result_schema": "migration-parity/parity-result@8",
       "command_id": "parity"
     },
@@ -485,6 +485,7 @@
       "build/parity/inputs/parity/static-files-os-path.json",
       "build/parity/inputs/parity/static-files-get-directories-subclass.json",
       "build/parity/inputs/parity/static-files-secondary-lookup-error.json",
+      "build/parity/inputs/parity/static-files-asgi-surrogateescape.json",
       "build/parity/inputs/parity/wsgi-middleware.json",
       "build/parity/inputs/parity/wsgi-response-header-unpack-error.json",
       "build/parity/inputs/parity/wsgi-boundary.json",
@@ -26280,6 +26281,18 @@
               "target_profiles": [
                 "python-package-cpython312"
               ]
+            },
+            {
+              "id": "starlette.staticfiles.StaticFiles.asgi-call.surrogateescape-scope-path",
+              "dimension": "boundary",
+              "description": "Preserve invalid filesystem bytes represented with surrogateescape through ASGI scope.path and root_path, StaticFiles.get_path, path normalization, and file lookup; compare the live not-found response. Pinned source: starlette/staticfiles.py::StaticFiles.__call__, StaticFiles.get_path, and StaticFiles.get_response.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
             }
           ],
           "parity": {
@@ -26488,7 +26501,7 @@
             {
               "target_id": "rust-native",
               "path": "starlette_rs::StaticFiles::lookup_path",
-              "signature": "StaticFiles::lookup_path(path) -> Option<StaticFile>",
+              "signature": "StaticFiles::lookup_path(path: impl AsRef<OsStr>) -> Result<Option<StaticFile>, StaticFilesError>",
               "support": {
                 "status": "supported"
               }
@@ -26507,6 +26520,18 @@
               "id": "starlette.staticfiles.StaticFiles.lookup-path.file-metadata",
               "dimension": "success_path",
               "description": "Look up an input-defined regular file and compare its root-relative path, file type, size, and modification time. Upstream: starlette/staticfiles.py::StaticFiles.lookup_path.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.staticfiles.StaticFiles.lookup-path.surrogateescape-path",
+              "dimension": "boundary",
+              "description": "Preserve invalid UTF-8 filesystem path bytes supplied through Python surrogateescape at the StaticFiles.lookup_path boundary and return the ordinary no-hit result. Upstream: starlette/staticfiles.py:22,154-173.",
               "lanes": [
                 "parity"
               ],

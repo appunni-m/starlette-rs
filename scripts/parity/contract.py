@@ -42,8 +42,9 @@ INPUT_SCHEMA_V47 = "migration-parity/parity-input@47"
 INPUT_SCHEMA_V48 = "migration-parity/parity-input@48"
 INPUT_SCHEMA_V49 = "migration-parity/parity-input@49"
 INPUT_SCHEMA_V50 = "migration-parity/parity-input@50"
+INPUT_SCHEMA_V51 = "migration-parity/parity-input@51"
 PREVIOUS_INPUT_SCHEMA = INPUT_SCHEMA_V50
-INPUT_SCHEMA = "migration-parity/parity-input@51"
+INPUT_SCHEMA = "migration-parity/parity-input@52"
 BENCHMARK_INPUT_SCHEMA = "migration-parity/benchmark-input@1"
 RESULT_SCHEMA = "migration-parity/parity-result@8"
 BENCHMARK_RESULT_SCHEMA = "migration-parity/benchmark-result@1"
@@ -1242,6 +1243,9 @@ STATIC_FILES_ROOT_PATH_PREFIX_INDEX_REDIRECT = "root-path-prefix-html-index-redi
 STATIC_FILES_EMPTY_IF_NONE_MATCH_FALLBACK = "empty-if-none-match-falls-through-to-if-modified-since"
 STATIC_FILES_LOOKUP_PATH_NULL_BYTE_REQUIREMENT = (
     f"{STATIC_FILES_SURFACE}.{STATIC_FILES_LOOKUP_PATH_OPERATION}.null-byte-error"
+)
+STATIC_FILES_LOOKUP_PATH_SURROGATEESCAPE_REQUIREMENT = (
+    f"{STATIC_FILES_SURFACE}.{STATIC_FILES_LOOKUP_PATH_OPERATION}.surrogateescape-path"
 )
 STATIC_FILES_STATEFUL_PATHLIKE_REQUIREMENT = (
     f"{STATIC_FILES_SURFACE}.{STATIC_FILES_LOOKUP_PATH_OPERATION}.stateful-pathlike-root-resolution"
@@ -3686,6 +3690,7 @@ def _validate_websocket_endpoint_case_stimulus(case: dict[str, Any]) -> None:
     elif receive_kind in {
         "raise-value-error",
         "raise-stop-iteration-synchronously",
+        "delete-internal-error-close-code-and-raise-value-error",
     }:
         on_receive = _exact(
             on_receive,
@@ -3938,6 +3943,7 @@ def _validate_websocket_endpoint_case_stimulus(case: dict[str, Any]) -> None:
         callback_raises = on_receive["kind"] in {
             "raise-value-error",
             "raise-stop-iteration-synchronously",
+            "delete-internal-error-close-code-and-raise-value-error",
         }
         if callback_raises:
             if (
@@ -7297,6 +7303,26 @@ def _validate_file_response_case_stimulus(case: dict[str, Any]) -> None:
             raise ContractError("FileResponse repeated calls require both target profiles")
 
 
+def _decode_static_files_filesystem_scope_path(value: Any, context: str) -> tuple[str, bytes]:
+    encoded_path = _exact(value, {"encoding", "data"}, context)
+    if encoded_path["encoding"] != "filesystem-bytes-base64":
+        raise ContractError(f"{context}.encoding must be filesystem-bytes-base64")
+    encoded_data = _string(encoded_path["data"], f"{context}.data")
+    try:
+        path_bytes = base64.b64decode(encoded_data, validate=True)
+    except (binascii.Error, ValueError) as error:
+        raise ContractError(f"{context}.data must be valid base64") from error
+    if not path_bytes or b"\x00" in path_bytes:
+        raise ContractError(f"{context}.data must encode a non-empty path without NUL")
+    decoded_path = path_bytes.decode("utf-8", errors="surrogateescape")
+    if (
+        not any(0xDC80 <= ord(character) <= 0xDCFF for character in decoded_path)
+        or decoded_path.encode("utf-8", errors="surrogateescape") != path_bytes
+    ):
+        raise ContractError(f"{context}.data must require filesystem surrogateescape")
+    return decoded_path, path_bytes
+
+
 def _validate_static_files_case_stimulus(
     case: dict[str, Any], *, validate_covers: bool = True, allow_empty_files: bool = False
 ) -> set[str]:
@@ -7339,6 +7365,14 @@ def _validate_static_files_case_stimulus(
                 call_keys,
                 f"StaticFiles calls[{index}]",
             )
+            call_scope = call.get("scope")
+            if isinstance(call_scope, dict) and (
+                isinstance(call_scope.get("path"), dict)
+                or isinstance(call_scope.get("root_path"), dict)
+            ):
+                raise ContractError(
+                    "StaticFiles filesystem-byte ASGI scope paths require a single-call input"
+                )
             call_scopes.append(call["scope"])
             actions = call.get("filesystem_actions_before", [])
             if not isinstance(actions, list):
@@ -7746,6 +7780,27 @@ def _validate_static_files_case_stimulus(
             raise ContractError("StaticFiles scope.extensions may only declare pathsend")
     if case["incoming"] != [] or case["send"] != {"kind": "capture-asgi-send"}:
         raise ContractError("StaticFiles asgi-call requires empty receive and captured send")
+    scope_path_encoded = isinstance(scope["path"], dict) or isinstance(scope["root_path"], dict)
+    if scope_path_encoded:
+        if not isinstance(scope["path"], dict) or not isinstance(scope["root_path"], dict):
+            raise ContractError(
+                "StaticFiles filesystem-byte ASGI inputs must encode both path and root_path"
+            )
+        path, path_bytes = _decode_static_files_filesystem_scope_path(
+            scope["path"], "StaticFiles scope.path"
+        )
+        root_path, _root_path_bytes = _decode_static_files_filesystem_scope_path(
+            scope["root_path"], "StaticFiles scope.root_path"
+        )
+        try:
+            raw_path_bytes = base64.b64decode(scope["raw_path_base64"], validate=True)
+        except (binascii.Error, ValueError) as error:
+            raise ContractError("StaticFiles scope.raw_path_base64 must be valid base64") from error
+        if raw_path_bytes != path_bytes:
+            raise ContractError("StaticFiles raw_path bytes must match the filesystem-byte path")
+        scope = dict(scope)
+        scope["path"] = path
+        scope["root_path"] = root_path
     dispatch_scope = {key: value for key, value in scope.items() if key != "extensions"}
     _validate_dispatch_stimulus(
         {"scope": dispatch_scope, "receive": case["incoming"], "send": case["send"]},
@@ -7884,6 +7939,8 @@ def _validate_static_files_case_stimulus(
         and (normalized_path in selected_files) != (windows_normalized_path in selected_files)
     )
     derived: set[str] = set()
+    if scope_path_encoded:
+        derived.add("surrogateescape-scope-path")
     filesystem_requirement_by_lookup = {
         "external-file-link.follow-symlink-disabled": "follow-symlink-file-rejected",
         "external-file-link.follow-symlink-enabled": "follow-symlink-file-served",
@@ -8410,8 +8467,48 @@ def _validate_static_files_lookup_path_case(
         if any(link_path.startswith(f"{file_path}/") for file_path in workspace_file_paths):
             raise ContractError("StaticFiles lookup-path filesystem has a file above a symlink")
 
-    lookup_path = _string(case["lookup_path"], "StaticFiles lookup_path")
-    if pathlike_results is not None:
+    lookup_path_input = case["lookup_path"]
+    if isinstance(lookup_path_input, dict):
+        encoded_path = _exact(
+            lookup_path_input,
+            {"encoding", "data"},
+            "StaticFiles lookup-path encoded path",
+        )
+        if encoded_path["encoding"] != "filesystem-bytes-base64":
+            raise ContractError("StaticFiles lookup-path encoding must be filesystem-bytes-base64")
+        encoded_data = _string(encoded_path["data"], "StaticFiles lookup-path encoded data")
+        try:
+            path_bytes = base64.b64decode(encoded_data, validate=True)
+        except (binascii.Error, ValueError) as error:
+            raise ContractError("StaticFiles lookup-path data must be valid base64") from error
+        if (
+            not path_bytes
+            or b"\x00" in path_bytes
+            or b"/" in path_bytes
+            or b"\\" in path_bytes
+            or path_bytes in (b".", b"..")
+        ):
+            raise ContractError(
+                "StaticFiles filesystem-byte lookup paths must be a relative filename"
+            )
+        decoded_path = path_bytes.decode("utf-8", errors="surrogateescape")
+        if not any(0xDC80 <= ord(character) <= 0xDCFF for character in decoded_path):
+            raise ContractError(
+                "StaticFiles filesystem-byte lookup path must require surrogateescape"
+            )
+        if pathlike_results is not None:
+            raise ContractError(
+                "StaticFiles filesystem-byte lookup cannot use a stateful directory PathLike"
+            )
+        requirement = "surrogateescape-path"
+        lookup_path = None
+    else:
+        lookup_path = _string(lookup_path_input, "StaticFiles lookup_path")
+        requirement = None
+
+    if requirement is not None:
+        pass
+    elif pathlike_results is not None:
         if "\x00" in lookup_path or lookup_path.startswith(("/", "\\")):
             raise ContractError(
                 "StaticFiles stateful PathLike lookup paths must be ordinary relative paths"
@@ -8500,6 +8597,8 @@ def _validate_static_files_lookup_path_case(
     if validate_covers:
         if requirement == "null-byte-error":
             requirement_id = STATIC_FILES_LOOKUP_PATH_NULL_BYTE_REQUIREMENT
+        elif requirement == "surrogateescape-path":
+            requirement_id = STATIC_FILES_LOOKUP_PATH_SURROGATEESCAPE_REQUIREMENT
         elif requirement == "stateful-pathlike-root-resolution":
             requirement_id = STATIC_FILES_STATEFUL_PATHLIKE_REQUIREMENT
         else:
@@ -26608,7 +26707,7 @@ def _validate_dispatch_stimulus(
         _string(scope["method"], "HTTP scope.method")
         path = _string(scope["path"], "HTTP scope.path")
         try:
-            path_bytes = path.encode("utf-8")
+            path_bytes = path.encode("utf-8", errors="surrogateescape")
         except UnicodeEncodeError as exc:
             raise ContractError("HTTP scope.path must be UTF-8 encodable") from exc
         try:
@@ -36139,8 +36238,87 @@ def migrate_input_document_v50(document: Any) -> dict[str, Any]:
             ]
             del arguments["exception"]
 
+    migrated["schema"] = INPUT_SCHEMA_V51
+    return migrated
+
+
+def migrate_input_document_v51(document: Any) -> dict[str, Any]:
+    """Advance unchanged @51 inputs to @52 while rejecting the @52-only shapes."""
+    _exact(document, {"schema", "cases"}, "parity input")
+    if document["schema"] != INPUT_SCHEMA_V51:
+        raise ContractError(f"unsupported @51 parity input schema: {document['schema']!r}")
+    if not isinstance(document["cases"], list) or not document["cases"]:
+        raise ContractError("parity input must select at least one case")
+
+    for case_index, case in enumerate(document["cases"]):
+        if not isinstance(case, dict):
+            continue
+        if (case.get("surface"), case.get("operation")) == (
+            RESPONSE_SURFACE,
+            "consumer-construction",
+        ):
+            boundary = case.get("construction_boundary")
+            headers = boundary.get("headers") if isinstance(boundary, dict) else None
+            if isinstance(headers, dict) and "item_kind" in headers:
+                raise ContractError(
+                    f"parity case {case_index} cannot use Response header item_kind in @51 input"
+                )
+        if (case.get("surface"), case.get("operation")) == (
+            STATIC_FILES_SURFACE,
+            STATIC_FILES_LOOKUP_PATH_OPERATION,
+        ) and isinstance(case.get("lookup_path"), dict):
+            raise ContractError(
+                f"parity case {case_index} cannot use encoded filesystem paths in @51 input"
+            )
+        if (case.get("surface"), case.get("operation")) == (
+            STATIC_FILES_SURFACE,
+            RESPONSE_OPERATION,
+        ):
+            scope = case.get("scope")
+            if isinstance(scope, dict) and (
+                isinstance(scope.get("path"), dict) or isinstance(scope.get("root_path"), dict)
+            ):
+                raise ContractError(
+                    f"parity case {case_index} cannot use encoded ASGI filesystem paths in @51 input"
+                )
+            calls = case.get("calls")
+            if isinstance(calls, list) and any(
+                isinstance(call, dict)
+                and isinstance(call.get("scope"), dict)
+                and (
+                    isinstance(call["scope"].get("path"), dict)
+                    or isinstance(call["scope"].get("root_path"), dict)
+                )
+                for call in calls
+            ):
+                raise ContractError(
+                    f"parity case {case_index} cannot use encoded ASGI filesystem paths in @51 input"
+                )
+        if (case.get("surface"), case.get("operation")) == WEBSOCKET_ENDPOINT_OPERATION_KEY:
+            endpoint = case.get("endpoint")
+            receive = endpoint.get("on_receive") if isinstance(endpoint, dict) else None
+            if (
+                isinstance(receive, dict)
+                and receive.get("kind") == "delete-internal-error-close-code-and-raise-value-error"
+            ):
+                raise ContractError(
+                    f"parity case {case_index} cannot use status-lookup fault input in @51"
+                )
+
+    migrated = dict(document)
     migrated["schema"] = INPUT_SCHEMA
     return migrated
+
+
+def validate_input_document_v51(
+    document: Any,
+    manifest: dict[str, Any],
+    *,
+    public_modules: frozenset[str] | None = None,
+) -> list[dict[str, Any]]:
+    """Validate @51 inputs before their deterministic @52 schema-header migration."""
+    migrated = migrate_input_document_v51(document)
+    return validate_input_document(migrated, manifest, public_modules=public_modules)
 
 
 def validate_input_document_v50(
@@ -36149,9 +36327,13 @@ def validate_input_document_v50(
     *,
     public_modules: frozenset[str] | None = None,
 ) -> list[dict[str, Any]]:
-    """Validate @50 inputs after applying the deterministic @51 migration."""
-    migrated = migrate_input_document_v50(document)
-    return validate_input_document(migrated, manifest, public_modules=public_modules)
+    """Validate @50 inputs after the deterministic @51 and @52 migrations."""
+    migrated_v51 = migrate_input_document_v50(document)
+    return validate_input_document_v51(
+        migrated_v51,
+        manifest,
+        public_modules=public_modules,
+    )
 
 
 def validate_previous_input_document(
@@ -36160,7 +36342,7 @@ def validate_previous_input_document(
     *,
     public_modules: frozenset[str] | None = None,
 ) -> list[dict[str, Any]]:
-    """Validate the previous @50 schema before migrating it to the active @51 contract."""
+    """Validate @50 inputs before migrating them through the active @52 contract."""
     return validate_input_document_v50(document, manifest, public_modules=public_modules)
 
 
@@ -41118,11 +41300,12 @@ def _validate_response_construction_boundary(value: Any) -> None:
             raise ContractError("Response seed headers require text pairs")
     if probe["headers"] is None:
         return
-    headers = _exact(
-        probe["headers"],
-        {"pairs", "mutations", "items_failure"},
-        "Response header mapping protocol",
-    )
+    header_keys = {"pairs", "mutations", "items_failure"}
+    if isinstance(probe["headers"], dict) and "item_kind" in probe["headers"]:
+        header_keys.add("item_kind")
+    headers = _exact(probe["headers"], header_keys, "Response header mapping protocol")
+    if headers.get("item_kind", "tuple") not in ("tuple", "list", "iterator"):
+        raise ContractError("Response header items must be tuple, list, or iterator pairs")
     _validate_response_consumer_attributes(headers["mutations"], body=True)
     _validate_response_construction_failure(headers["items_failure"])
     if not isinstance(headers["pairs"], list):

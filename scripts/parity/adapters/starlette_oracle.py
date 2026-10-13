@@ -7452,6 +7452,11 @@ def _websocket_endpoint_receive_hook(spec: dict[str, Any], calls: list[dict[str,
             await websocket.send_bytes(prefix + data)
         elif spec["kind"] == "raise-value-error":
             raise ValueError(spec["message"])
+        elif spec["kind"] == "delete-internal-error-close-code-and-raise-value-error":
+            from starlette import status
+
+            delattr(status, "WS_1011_INTERNAL_ERROR")
+            raise ValueError(spec["message"])
         else:
             await websocket.send_json({spec["key"]: data}, mode=spec["mode"])
 
@@ -7578,7 +7583,10 @@ def _run_websocket_endpoint_case(case: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("workflow is outside the declared WebSocketEndpoint dispatch operation")
     if case["observations"] != [WEBSOCKET_ENDPOINT_OPERATION]:
         raise ValueError("WebSocketEndpoint observations must select the dispatch workflow")
+    from starlette import status
     from starlette.endpoints import WebSocketEndpoint
+
+    internal_error_close_code = status.WS_1011_INTERNAL_ERROR
 
     endpoint_spec = case["endpoint"]
     connection_results: list[dict[str, Any]] = []
@@ -7626,18 +7634,22 @@ def _run_websocket_endpoint_case(case: dict[str, Any]) -> dict[str, Any]:
             receive.waiting = cancellation_ready
         send = _WebSocketEndpointCaptureSend(sent_messages)
 
-        if session_spec.get("cancel_at") in {"receive", "disconnect"}:
-            error = asyncio.run(
-                _await_cancelled_websocket_endpoint(
-                    endpoint_type, scope, receive, send, cancellation_ready
+        try:
+            if session_spec.get("cancel_at") in {"receive", "disconnect"}:
+                error = asyncio.run(
+                    _await_cancelled_websocket_endpoint(
+                        endpoint_type, scope, receive, send, cancellation_ready
+                    )
                 )
-            )
-        else:
-            error: dict[str, Any] | None = None
-            try:
-                asyncio.run(_await_websocket_endpoint(endpoint_type, scope, receive, send))
-            except Exception as exc:
-                error = _websocket_endpoint_error(exc)
+            else:
+                error: dict[str, Any] | None = None
+                try:
+                    asyncio.run(_await_websocket_endpoint(endpoint_type, scope, receive, send))
+                except Exception as exc:
+                    error = _websocket_endpoint_error(exc)
+        finally:
+            if on_receive_spec["kind"] == "delete-internal-error-close-code-and-raise-value-error":
+                status.WS_1011_INTERNAL_ERROR = internal_error_close_code
         if (
             receive.index != len(incoming)
             and endpoint_spec["on_connect"]["kind"] != "raise-value-error"
@@ -10113,6 +10125,26 @@ def _apply_static_files_actions(root: Path, actions: Any) -> None:
         (parent / components[-1]).unlink()
 
 
+def _static_files_scope_path(value: Any, context: str) -> str:
+    if isinstance(value, str):
+        return value
+    encoded_path = _strict_object(value, {"encoding", "data"}, context)
+    if encoded_path["encoding"] != "filesystem-bytes-base64":
+        raise ValueError(f"{context}.encoding must be filesystem-bytes-base64")
+    return os.fsdecode(_decode_b64(encoded_path["data"], f"{context}.data"))
+
+
+def _make_static_files_scope(
+    spec: dict[str, Any], container: str | dict[str, Any] = "dict"
+) -> dict[str, Any] | UserDict:
+    decoded_spec = dict(spec)
+    decoded_spec["path"] = _static_files_scope_path(spec["path"], "StaticFiles scope.path")
+    decoded_spec["root_path"] = _static_files_scope_path(
+        spec["root_path"], "StaticFiles scope.root_path"
+    )
+    return _make_scope(decoded_spec, container)
+
+
 def _run_static_files_case(case: dict[str, Any]) -> dict[str, Any]:
     request_sequence = "calls" in case
     expected_fields = {
@@ -10401,7 +10433,9 @@ def _run_static_files_case(case: dict[str, Any]) -> dict[str, Any]:
             if request_sequence:
 
                 async def observe_call(call: dict[str, Any]) -> dict[str, Any]:
-                    scope = _make_scope(call["scope"], case.get("scope_container", "dict"))
+                    scope = _make_static_files_scope(
+                        call["scope"], case.get("scope_container", "dict")
+                    )
                     sent: list[dict[str, Any]] = []
 
                     async def receive() -> dict[str, Any]:
@@ -10483,7 +10517,7 @@ def _run_static_files_case(case: dict[str, Any]) -> dict[str, Any]:
                         }
                     ],
                 }
-            scope = _make_scope(case["scope"], case.get("scope_container", "dict"))
+            scope = _make_static_files_scope(case["scope"], case.get("scope_container", "dict"))
             sent: list[dict[str, Any]] = []
 
             async def receive() -> dict[str, Any]:
@@ -10795,13 +10829,36 @@ def _run_static_files_lookup_path_case(case: dict[str, Any]) -> dict[str, Any]:
                 case["directory_pathlike"]["fspath_results_relative_to_workspace"],
             )
             configured_directory = directory_pathlike
+        lookup_path_input = case["lookup_path"]
+        if isinstance(lookup_path_input, dict):
+            lookup_path_input = _strict_object(
+                lookup_path_input,
+                {"encoding", "data"},
+                "StaticFiles lookup-path encoded path",
+            )
+            if lookup_path_input["encoding"] != "filesystem-bytes-base64":
+                raise ValueError("StaticFiles lookup-path encoding must be filesystem-bytes-base64")
+            # JSON cannot carry a lone surrogate, so the input encodes the
+            # filesystem bytes and this adapter creates Python's path string.
+            lookup_path = os.fsdecode(
+                _decode_b64(
+                    lookup_path_input["data"],
+                    "StaticFiles lookup-path encoded data",
+                )
+            )
+        elif isinstance(lookup_path_input, str):
+            lookup_path = lookup_path_input
+        else:
+            raise ValueError(
+                "StaticFiles lookup-path must be a string or tagged filesystem-byte value"
+            )
         application = StaticFiles(
             directory=configured_directory,
             check_dir=case["check_dir"],
             follow_symlink=case["follow_symlink"],
         )
         try:
-            full_path, stat_result = application.lookup_path(case["lookup_path"])
+            full_path, stat_result = application.lookup_path(lookup_path)
         except Exception as exc:
             observation = {
                 "lookup_error": {

@@ -1,9 +1,13 @@
 //! Rust-owned path lookup and response selection for Starlette static files.
 
+use std::ffi::{OsStr, OsString};
 use std::fs::{self, Metadata};
 use std::io;
 use std::path::{Component, Path, PathBuf};
 use std::time::SystemTime;
+
+#[cfg(unix)]
+use std::os::unix::ffi::{OsStrExt, OsStringExt};
 
 use crate::{FileMetadata, FileResponse, FileResponseError, FileResponseOptions};
 
@@ -66,7 +70,7 @@ pub enum StaticFilesResponse {
     /// Redirect a directory URL to the corresponding slash-terminated path.
     Redirect {
         /// Original ASGI path with a trailing slash.
-        path: String,
+        path: OsString,
     },
 }
 
@@ -76,7 +80,7 @@ pub enum StaticFilesResponse {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum StaticFilesResponseStep {
     /// Look up this path and resume the flow with its result.
-    Lookup(String),
+    Lookup(OsString),
     /// Invoke the consumer's `StaticFiles.file_response` hook with this file.
     SelectFileResponse {
         /// Resolved file and response metadata.
@@ -92,8 +96,8 @@ pub enum StaticFilesResponseStep {
 /// asynchronously by a caller such as the Python AnyIO boundary.
 #[derive(Debug)]
 pub struct StaticFilesResponseFlow {
-    path: String,
-    scope_path: String,
+    path: OsString,
+    scope_path: OsString,
     phase: ResponseFlowPhase,
 }
 
@@ -208,15 +212,21 @@ impl StaticFiles {
         Ok(())
     }
 
-    /// Derives the normalized relative path from an ASGI path and root path.
+    /// Derives the normalized native relative path from an ASGI path and root path.
+    ///
+    /// Native OS strings retain filesystem bytes that cannot be represented in
+    /// UTF-8, including Python's Unix surrogateescape values.
     #[must_use]
-    pub fn get_path(path: &str, root_path: &str) -> String {
-        let route_path = route_path(path, root_path);
-        normalize_route_path(route_path)
+    pub fn get_path<P: AsRef<OsStr>, R: AsRef<OsStr>>(path: P, root_path: R) -> OsString {
+        let route_path = route_path(path.as_ref(), root_path.as_ref());
+        normalize_route_path(&route_path)
     }
 
-    /// Looks up a relative path while enforcing the configured-root boundary.
-    pub fn lookup_path(&self, path: &str) -> Result<Option<StaticFile>, StaticFilesError> {
+    /// Looks up a relative native path while enforcing the configured-root boundary.
+    pub fn lookup_path<P: AsRef<OsStr>>(
+        &self,
+        path: P,
+    ) -> Result<Option<StaticFile>, StaticFilesError> {
         self.lookup_path_with_directory(path, None)
     }
 
@@ -225,15 +235,16 @@ impl StaticFiles {
     /// The first path is joined with the relative request path. The second path
     /// is used as the root boundary. Keeping them separate preserves Python
     /// `PathLike` objects whose `__fspath__` result changes between calls.
-    pub fn lookup_path_with_directory(
+    pub fn lookup_path_with_directory<P: AsRef<OsStr>>(
         &self,
-        path: &str,
+        path: P,
         directory: Option<(&Path, &Path)>,
     ) -> Result<Option<StaticFile>, StaticFilesError> {
-        if path.starts_with('/') || path.starts_with('\\') {
+        let path = path.as_ref();
+        if is_absolute_lookup_path(path) {
             return Ok(None);
         }
-        if path.contains('\0') {
+        if contains_nul(path) {
             return Err(StaticFilesError::InvalidPath);
         }
         if let Some((joined_directory, boundary_directory)) = directory {
@@ -261,10 +272,10 @@ impl StaticFiles {
     }
 
     /// Selects the StaticFiles response for one request.
-    pub fn get_response(
+    pub fn get_response<P: AsRef<OsStr>, S: AsRef<OsStr>>(
         &self,
-        path: &str,
-        scope_path: &str,
+        path: P,
+        scope_path: S,
         method: &str,
         request_headers: &[(Vec<u8>, Vec<u8>)],
     ) -> Result<StaticFilesResponse, StaticFilesError> {
@@ -288,10 +299,10 @@ impl StaticFiles {
     /// The method check happens before the first lookup, matching
     /// [`Self::get_response`]. Each subsequent lookup is requested by
     /// [`StaticFilesResponseFlow::resume_lookup`].
-    pub fn start_response_flow(
+    pub fn start_response_flow<P: AsRef<OsStr>, S: AsRef<OsStr>>(
         &self,
-        path: &str,
-        scope_path: &str,
+        path: P,
+        scope_path: S,
         method: &str,
         _request_headers: &[(Vec<u8>, Vec<u8>)],
     ) -> Result<(StaticFilesResponseFlow, StaticFilesResponseStep), StaticFilesError> {
@@ -301,11 +312,11 @@ impl StaticFiles {
 
         Ok((
             StaticFilesResponseFlow {
-                path: path.to_owned(),
-                scope_path: scope_path.to_owned(),
+                path: path.as_ref().to_os_string(),
+                scope_path: scope_path.as_ref().to_os_string(),
                 phase: ResponseFlowPhase::InitialLookup,
             },
-            StaticFilesResponseStep::Lookup(path.to_owned()),
+            StaticFilesResponseStep::Lookup(path.as_ref().to_os_string()),
         ))
     }
 
@@ -398,7 +409,7 @@ impl StaticFilesResponseFlow {
                 self.phase = ResponseFlowPhase::IndexLookup;
                 return Ok(StaticFilesResponseStep::Lookup(join_relative(
                     &self.path,
-                    "index.html",
+                    OsStr::new("index.html"),
                 )));
             }
         }
@@ -412,16 +423,16 @@ impl StaticFilesResponseFlow {
         lookup: Option<StaticFile>,
     ) -> Result<StaticFilesResponseStep, StaticFilesError> {
         if let Some(index) = lookup.filter(|file| file.is_file) {
-            if self.scope_path.ends_with('/') {
+            if ends_with_slash(&self.scope_path) {
                 self.phase = ResponseFlowPhase::Complete;
                 return Ok(StaticFilesResponseStep::SelectFileResponse {
                     file: index,
                     status_code: 200,
                 });
             } else {
-                let response = StaticFilesResponse::Redirect {
-                    path: format!("{}/", self.scope_path),
-                };
+                let mut path = self.scope_path.clone();
+                path.push("/");
+                let response = StaticFilesResponse::Redirect { path };
                 self.phase = ResponseFlowPhase::Complete;
                 return Ok(StaticFilesResponseStep::Complete(response));
             }
@@ -436,7 +447,7 @@ impl StaticFilesResponseFlow {
     ) -> Result<StaticFilesResponseStep, StaticFilesError> {
         if static_files.html {
             self.phase = ResponseFlowPhase::NotFoundLookup;
-            Ok(StaticFilesResponseStep::Lookup("404.html".to_owned()))
+            Ok(StaticFilesResponseStep::Lookup(OsString::from("404.html")))
         } else {
             self.phase = ResponseFlowPhase::Complete;
             Err(StaticFilesError::NotFound)
@@ -467,8 +478,33 @@ fn invalid_response_flow() -> StaticFilesError {
     ))
 }
 
+fn is_absolute_lookup_path(path: &OsStr) -> bool {
+    #[cfg(unix)]
+    {
+        path.as_bytes()
+            .first()
+            .is_some_and(|byte| *byte == b'/' || *byte == b'\\')
+    }
+    #[cfg(not(unix))]
+    {
+        path.to_str()
+            .is_some_and(|value| value.starts_with('/') || value.starts_with('\\'))
+    }
+}
+
+fn contains_nul(path: &OsStr) -> bool {
+    #[cfg(unix)]
+    {
+        path.as_bytes().contains(&0)
+    }
+    #[cfg(not(unix))]
+    {
+        path.to_str().is_some_and(|value| value.contains('\0'))
+    }
+}
+
 fn lookup_in_directory(
-    path: &str,
+    path: &OsStr,
     joined_directory: &Path,
     boundary_directory: &Path,
     follow_symlink: bool,
@@ -880,23 +916,46 @@ fn header(headers: &[(Vec<u8>, Vec<u8>)], name: &[u8]) -> Option<String> {
         .map(|(_, value)| value.iter().map(|byte| char::from(*byte)).collect())
 }
 
-fn route_path<'a>(path: &'a str, root_path: &str) -> &'a str {
-    if root_path.is_empty() || !path.starts_with(root_path) || path == root_path {
-        return if path == root_path && !root_path.is_empty() {
-            ""
+fn route_path(path: &OsStr, root_path: &OsStr) -> OsString {
+    #[cfg(unix)]
+    {
+        let path_bytes = path.as_bytes();
+        let root_bytes = root_path.as_bytes();
+        if root_bytes.is_empty() || !path_bytes.starts_with(root_bytes) {
+            return path.to_os_string();
+        }
+        if path_bytes == root_bytes {
+            return OsString::new();
+        }
+        let route_path = &path_bytes[root_bytes.len()..];
+        if route_path.starts_with(b"/") {
+            OsString::from_vec(route_path.to_vec())
         } else {
-            path
-        };
+            path.to_os_string()
+        }
     }
-    path.strip_prefix(root_path)
-        .filter(|route_path| route_path.starts_with('/'))
-        .unwrap_or(path)
+    #[cfg(not(unix))]
+    {
+        let (Some(path_string), Some(root_string)) = (path.to_str(), root_path.to_str()) else {
+            return path.to_os_string();
+        };
+        if root_string.is_empty() || !path_string.starts_with(root_string) {
+            return path.to_os_string();
+        }
+        if path_string == root_string {
+            return OsString::new();
+        }
+        path_string
+            .strip_prefix(root_string)
+            .filter(|route_path| route_path.starts_with('/'))
+            .map_or_else(|| path.to_os_string(), OsString::from)
+    }
 }
 
-fn normalize_route_path(path: &str) -> String {
+fn normalize_route_path(path: &OsStr) -> OsString {
     #[cfg(windows)]
     {
-        return normalize_windows_route_path(path);
+        normalize_windows_route_path(path)
     }
 
     #[cfg(not(windows))]
@@ -906,27 +965,63 @@ fn normalize_route_path(path: &str) -> String {
 }
 
 #[cfg(not(windows))]
-fn normalize_posix_route_path(path: &str) -> String {
-    let mut components = Vec::new();
-    for component in path.split('/') {
-        match component {
-            "" | "." => {}
-            ".." if components.last().is_some_and(|part| *part != "..") => {
-                components.pop();
+fn normalize_posix_route_path(path: &OsStr) -> OsString {
+    #[cfg(unix)]
+    {
+        let mut components: Vec<&[u8]> = Vec::new();
+        for component in path.as_bytes().split(|byte| *byte == b'/') {
+            match component {
+                b"" | b"." => {}
+                b".." if components.last().is_some_and(|part| *part != b"..") => {
+                    components.pop();
+                }
+                b".." => components.push(component),
+                other => components.push(other),
             }
-            ".." => components.push(".."),
-            other => components.push(other),
         }
+        if components.is_empty() {
+            return OsString::from(".");
+        }
+        let size = components.iter().map(|part| part.len()).sum::<usize>()
+            + components.len().saturating_sub(1);
+        let mut normalized = Vec::with_capacity(size);
+        for (index, component) in components.into_iter().enumerate() {
+            if index > 0 {
+                normalized.push(b'/');
+            }
+            normalized.extend_from_slice(component);
+        }
+        OsString::from_vec(normalized)
     }
-    if components.is_empty() {
-        ".".to_owned()
-    } else {
-        components.join("/")
+    #[cfg(not(unix))]
+    {
+        let Some(path) = path.to_str() else {
+            return path.to_os_string();
+        };
+        let mut components = Vec::new();
+        for component in path.split('/') {
+            match component {
+                "" | "." => {}
+                ".." if components.last().is_some_and(|part| *part != "..") => {
+                    components.pop();
+                }
+                ".." => components.push(".."),
+                other => components.push(other),
+            }
+        }
+        if components.is_empty() {
+            OsString::from(".")
+        } else {
+            OsString::from(components.join("/"))
+        }
     }
 }
 
 #[cfg(windows)]
-fn normalize_windows_route_path(path: &str) -> String {
+fn normalize_windows_route_path(path: &OsStr) -> OsString {
+    let Some(path) = path.to_str() else {
+        return path.to_os_string();
+    };
     let mut joined = PathBuf::new();
     for component in path.split('/') {
         joined.push(component);
@@ -950,17 +1045,30 @@ fn normalize_windows_route_path(path: &str) -> String {
     }
 
     if normalized.as_os_str().is_empty() {
-        ".".to_owned()
+        OsString::from(".")
     } else {
-        normalized.to_string_lossy().into_owned()
+        normalized.into_os_string()
     }
 }
 
-fn join_relative(path: &str, child: &str) -> String {
+fn join_relative(path: &OsStr, child: &OsStr) -> OsString {
     if path.is_empty() {
-        child.to_owned()
+        child.to_os_string()
     } else {
-        format!("{path}/{child}")
+        let mut joined = PathBuf::from(path);
+        joined.push(child);
+        joined.into_os_string()
+    }
+}
+
+fn ends_with_slash(path: &OsStr) -> bool {
+    #[cfg(unix)]
+    {
+        path.as_bytes().ends_with(b"/")
+    }
+    #[cfg(not(unix))]
+    {
+        path.to_str().is_some_and(|value| value.ends_with('/'))
     }
 }
 

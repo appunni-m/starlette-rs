@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@51",
+  "schema": "migration-parity/parity-input@52",
   "cases": [
     {
       "case_id": "starlette.applications.Starlette.__call__.route-body-limit-exact-route-override-fragmented-body",

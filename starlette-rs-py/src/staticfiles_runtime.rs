@@ -1,6 +1,10 @@
 //! PyO3 boundary for Rust-owned Starlette static-file dispatch.
 
+use std::ffi::OsString;
 use std::path::{Path, PathBuf};
+
+#[cfg(unix)]
+use std::os::unix::ffi::{OsStrExt, OsStringExt};
 
 use crate::awaitable::{
     AwaitableStateMachine, MachineAction, MachineResume, into_sendable_python_awaitable,
@@ -37,7 +41,7 @@ fn static_files_get_directories(
         paths.append(directory.bind(py))?;
     }
     for path in package_paths {
-        paths.append(path_string(&path)?)?;
+        paths.append(path_string(py, &path)?)?;
     }
     Ok(paths.into_any().unbind())
 }
@@ -190,41 +194,44 @@ impl PyStaticFiles {
         static_files_get_directories(py, directory, packages)
     }
 
-    fn get_path(&self, scope: &Bound<'_, PyAny>) -> PyResult<String> {
-        let path = scope.get_item("path")?.extract::<String>()?;
-        let root_path = scope
-            .call_method1("get", ("root_path", ""))?
-            .extract::<String>()?;
-        Ok(NativeStaticFiles::get_path(&path, &root_path))
+    fn get_path(&self, py: Python<'_>, scope: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+        let path = scope_path_from_python(py, &scope.get_item("path")?)?;
+        let root_path = scope_path_from_python(py, &scope.call_method1("get", ("root_path", ""))?)?;
+        let path = NativeStaticFiles::get_path(path.as_os_str(), root_path.as_os_str());
+        path_string(py, Path::new(&path)).map(Bound::unbind)
     }
 
-    fn lookup_path(&self, py: Python<'_>, path: &str) -> PyResult<(String, Py<PyAny>)> {
+    fn lookup_path(
+        &self,
+        py: Python<'_>,
+        path: &Bound<'_, PyString>,
+    ) -> PyResult<(Py<PyAny>, Py<PyAny>)> {
         let inner = self.inner.clone();
-        let path = path.to_owned();
+        let path = path_from_python(py, path.as_any())?;
         let dynamic_directory = self.directory.as_ref().filter(|directory| {
             self.directory_is_lookup_root && !directory.bind(py).is_instance_of::<PyString>()
         });
-        let lookup = if path.starts_with('/') || path.starts_with('\\') {
-            py.detach(move || inner.lookup_path(&path))
+        let lookup = if is_absolute_lookup_path(&path) {
+            py.detach(move || inner.lookup_path(path.as_os_str()))
         } else if let Some(directory) = dynamic_directory {
             let joined_directory = path_from_python(py, directory.bind(py))?;
             let boundary_directory = path_from_python(py, directory.bind(py))?;
             py.detach(move || {
                 inner.lookup_path_with_directory(
-                    &path,
+                    path.as_os_str(),
                     Some((joined_directory.as_path(), boundary_directory.as_path())),
                 )
             })
         } else {
-            py.detach(move || inner.lookup_path(&path))
+            py.detach(move || inner.lookup_path(path.as_os_str()))
         }
         .map_err(static_files_error)?;
         match lookup {
             Some(file) => Ok((
-                path_string(&file.path)?,
+                path_string(py, &file.path)?.unbind(),
                 stat_result(py, &file.path, file.metadata.stat_result())?,
             )),
-            None => Ok((String::new(), py.None())),
+            None => Ok((PyString::new(py, "").into_any().unbind(), py.None())),
         }
     }
 
@@ -232,7 +239,7 @@ impl PyStaticFiles {
     fn file_response(
         &self,
         py: Python<'_>,
-        full_path: &str,
+        full_path: &Bound<'_, PyAny>,
         stat_result: &Bound<'_, PyAny>,
         scope: &Bound<'_, PyAny>,
         is_not_modified: Py<PyAny>,
@@ -328,11 +335,12 @@ impl PyStaticFiles {
     fn get_response(
         slf: Py<Self>,
         py: Python<'_>,
-        path: &str,
+        path: &Bound<'_, PyString>,
         scope: &Bound<'_, PyAny>,
         lookup_path: Py<PyAny>,
         file_response: Py<PyAny>,
     ) -> PyResult<Py<PyAny>> {
+        let path = path_from_python(py, path.as_any())?;
         into_sendable_python_awaitable(
             py,
             StaticFilesCallMachine::new(
@@ -344,7 +352,7 @@ impl PyStaticFiles {
                 None,
                 None,
                 None,
-                path.to_owned(),
+                path.into_os_string(),
                 StaticFilesCallPurpose::Response,
             ),
         )
@@ -379,7 +387,7 @@ impl PyStaticFiles {
                 Some(get_path),
                 Some(get_response),
                 Some((receive, send)),
-                String::new(),
+                OsString::new(),
                 StaticFilesCallPurpose::Asgi,
             ),
         )
@@ -405,7 +413,7 @@ impl PyStaticFiles {
                 };
                 kwargs.set_item("stat_result", stat_result)?;
                 response_type
-                    .call((path_string(&file.path)?,), Some(&kwargs))
+                    .call((path_string(py, &file.path)?,), Some(&kwargs))
                     .map(Bound::unbind)
             }
             StaticFilesResponse::NotModified { headers } => {
@@ -460,7 +468,7 @@ struct StaticFilesCallMachine {
     get_path: Option<Py<PyAny>>,
     get_response: Option<Py<PyAny>>,
     response_callbacks: Option<(Py<PyAny>, Py<PyAny>)>,
-    response_path: String,
+    response_path: OsString,
     purpose: StaticFilesCallPurpose,
     state: StaticFilesCallState,
     initial_lookup_pending: bool,
@@ -480,7 +488,7 @@ impl StaticFilesCallMachine {
         get_path: Option<Py<PyAny>>,
         get_response: Option<Py<PyAny>>,
         response_callbacks: Option<(Py<PyAny>, Py<PyAny>)>,
-        response_path: String,
+        response_path: OsString,
         purpose: StaticFilesCallPurpose,
     ) -> Self {
         Self {
@@ -526,13 +534,13 @@ impl StaticFilesCallMachine {
                 return Ok(MachineAction::Await(awaitable.unbind()));
             }
         };
-        let scope_path = scope.get_item("path")?.extract::<String>()?;
+        let scope_path = scope_path_from_python(py, &scope.get_item("path")?)?;
         let method = scope.get_item("method")?.extract::<String>()?;
         let (flow, step) = {
             let owner = self.owner.borrow(py);
             owner
                 .inner
-                .start_response_flow(&path, &scope_path, &method, &[])
+                .start_response_flow(&path, scope_path.as_os_str(), &method, &[])
                 .map_err(|error| static_files_http_error(py, error))?
         };
         self.flow = Some(flow);
@@ -546,7 +554,8 @@ impl StaticFilesCallMachine {
     ) -> PyResult<MachineAction> {
         match step {
             StaticFilesResponseStep::Lookup(path) => {
-                let awaitable = anyio_run_sync(py, &self.lookup_path, Some(path))?;
+                let lookup_path = path_string(py, Path::new(&path))?.unbind();
+                let awaitable = anyio_run_sync(py, &self.lookup_path, Some(lookup_path))?;
                 self.state = StaticFilesCallState::AwaitLookup;
                 Ok(MachineAction::Await(awaitable))
             }
@@ -556,20 +565,17 @@ impl StaticFilesCallMachine {
                     Some(stat_result) => stat_result.clone_ref(py),
                     None => stat_result(py, &file.path, file.metadata.stat_result())?,
                 };
-                let full_path = path_string(&file.path)?;
+                let full_path = path_string(py, &file.path)?;
                 let response = if status_code == 200 {
-                    self.file_response.bind(py).call1((
-                        full_path.as_str(),
-                        stat_result.bind(py),
-                        scope,
-                    ))?
+                    self.file_response
+                        .bind(py)
+                        .call1((full_path, stat_result.bind(py), scope))?
                 } else {
                     let kwargs = PyDict::new(py);
                     kwargs.set_item("status_code", status_code)?;
-                    self.file_response.bind(py).call(
-                        (full_path.as_str(), stat_result.bind(py), scope),
-                        Some(&kwargs),
-                    )?
+                    self.file_response
+                        .bind(py)
+                        .call((full_path, stat_result.bind(py), scope), Some(&kwargs))?
                 };
                 self.complete_python_response(py, response.unbind())
             }
@@ -745,11 +751,11 @@ impl AwaitableStateMachine for StaticFilesCheckConfigMachine {
 fn anyio_run_sync(
     py: Python<'_>,
     callback: &Py<PyAny>,
-    argument: Option<String>,
+    argument: Option<Py<PyAny>>,
 ) -> PyResult<Py<PyAny>> {
     let run_sync = PyModule::import(py, "anyio.to_thread")?.getattr("run_sync")?;
     let awaitable = match argument {
-        Some(argument) => run_sync.call1((callback.bind(py), argument))?,
+        Some(argument) => run_sync.call1((callback.bind(py), argument.bind(py)))?,
         None => run_sync.call1((callback.bind(py),))?,
     };
     Ok(awaitable.unbind())
@@ -874,18 +880,65 @@ fn resolve_directories(
 }
 
 fn path_from_python(py: Python<'_>, value: &Bound<'_, PyAny>) -> PyResult<PathBuf> {
-    let path = PyModule::import(py, "os")?
-        .getattr("fspath")?
-        .call1((value,))?;
-    path.extract::<String>()
-        .map(PathBuf::from)
-        .map_err(|_| pyo3::exceptions::PyTypeError::new_err("path must be str or path-like"))
+    let os = PyModule::import(py, "os")?;
+    let path = os.getattr("fspath")?.call1((value,))?;
+    if !path.is_instance_of::<PyString>() {
+        return Err(pyo3::exceptions::PyTypeError::new_err(
+            "path must be str or path-like",
+        ));
+    }
+    #[cfg(unix)]
+    {
+        // `fsencode` preserves Python's surrogateescape code points as the
+        // original filesystem bytes before crossing into an `OsStr`.
+        let encoded_path = os.getattr("fsencode")?.call1((path,))?;
+        let encoded_path = encoded_path.cast::<PyBytes>()?;
+        Ok(PathBuf::from(OsString::from_vec(
+            encoded_path.as_bytes().to_vec(),
+        )))
+    }
+    #[cfg(not(unix))]
+    {
+        path.extract::<String>()
+            .map(PathBuf::from)
+            .map_err(|_| pyo3::exceptions::PyTypeError::new_err("path must be str or path-like"))
+    }
 }
 
-fn path_string(path: &Path) -> PyResult<String> {
-    path.to_str()
-        .map(str::to_owned)
-        .ok_or_else(|| PyValueError::new_err("filesystem path is not valid UTF-8"))
+fn scope_path_from_python(py: Python<'_>, value: &Bound<'_, PyAny>) -> PyResult<PathBuf> {
+    let path = value.cast::<PyString>()?;
+    path_from_python(py, path.as_any())
+}
+
+fn is_absolute_lookup_path(path: &Path) -> bool {
+    #[cfg(unix)]
+    {
+        path.as_os_str()
+            .as_bytes()
+            .first()
+            .is_some_and(|byte| *byte == b'/' || *byte == 0x5c)
+    }
+    #[cfg(not(unix))]
+    {
+        path.to_str()
+            .is_some_and(|value| value.starts_with('/') || value.starts_with('\\'))
+    }
+}
+
+fn path_string<'py>(py: Python<'py>, path: &Path) -> PyResult<Bound<'py, PyAny>> {
+    #[cfg(unix)]
+    {
+        let encoded_path = PyBytes::new(py, path.as_os_str().as_bytes());
+        PyModule::import(py, "os")?
+            .getattr("fsdecode")?
+            .call1((encoded_path,))
+    }
+    #[cfg(not(unix))]
+    {
+        path.to_str()
+            .map(|value| PyString::new(py, value).into_any())
+            .ok_or_else(|| PyValueError::new_err("filesystem path is not valid UTF-8"))
+    }
 }
 
 fn stat_result(py: Python<'_>, path: &Path, stat: Option<&FileStat>) -> PyResult<Py<PyAny>> {
@@ -893,7 +946,7 @@ fn stat_result(py: Python<'_>, path: &Path, stat: Option<&FileStat>) -> PyResult
     let Some(stat) = stat else {
         return os
             .getattr("stat")?
-            .call1((path_string(path)?,))
+            .call1((path_string(py, path)?,))
             .map(Bound::unbind);
     };
 

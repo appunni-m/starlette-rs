@@ -5587,6 +5587,11 @@ def _websocket_endpoint_receive_hook(spec: dict[str, Any], calls: list[dict[str,
             await websocket.send_bytes(prefix + data)
         elif spec["kind"] == "raise-value-error":
             raise ValueError(spec["message"])
+        elif spec["kind"] == "delete-internal-error-close-code-and-raise-value-error":
+            from starlette import status
+
+            delattr(status, "WS_1011_INTERNAL_ERROR")
+            raise ValueError(spec["message"])
         else:
             await websocket.send_json({spec["key"]: data}, mode=spec["mode"])
 
@@ -5694,7 +5699,10 @@ def _run_websocket_endpoint_case(case: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("workflow is outside the declared WebSocketEndpoint dispatch operation")
     if case["observations"] != [WEBSOCKET_ENDPOINT_OPERATION]:
         raise ValueError("WebSocketEndpoint observations must select the dispatch workflow")
+    from starlette import status
     from starlette.endpoints import WebSocketEndpoint
+
+    internal_error_close_code = status.WS_1011_INTERNAL_ERROR
 
     endpoint_spec = case["endpoint"]
     connection_results: list[dict[str, Any]] = []
@@ -5737,16 +5745,20 @@ def _run_websocket_endpoint_case(case: dict[str, Any]) -> dict[str, Any]:
         )
         send = _WebSocketEndpointCaptureSend(sent_messages)
 
-        if session_spec.get("cancel_at") == "receive":
-            error = asyncio.run(
-                _await_cancelled_websocket_endpoint(endpoint_type, scope, receive, send)
-            )
-        else:
-            error: dict[str, Any] | None = None
-            try:
-                asyncio.run(_await_websocket_endpoint(endpoint_type, scope, receive, send))
-            except Exception as exc:
-                error = _websocket_endpoint_error(exc)
+        try:
+            if session_spec.get("cancel_at") == "receive":
+                error = asyncio.run(
+                    _await_cancelled_websocket_endpoint(endpoint_type, scope, receive, send)
+                )
+            else:
+                error: dict[str, Any] | None = None
+                try:
+                    asyncio.run(_await_websocket_endpoint(endpoint_type, scope, receive, send))
+                except Exception as exc:
+                    error = _websocket_endpoint_error(exc)
+        finally:
+            if on_receive_spec["kind"] == "delete-internal-error-close-code-and-raise-value-error":
+                status.WS_1011_INTERNAL_ERROR = internal_error_close_code
         if (
             receive.index != len(incoming)
             and endpoint_spec["on_connect"]["kind"] != "raise-value-error"

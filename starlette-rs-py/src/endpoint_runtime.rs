@@ -458,7 +458,17 @@ impl WebSocketEndpointCall {
                     self.close_code = Some(code.unbind());
                     error
                 }
-                Err(status_error) => status_error,
+                Err(status_error) => {
+                    // Starlette reads this constant inside `except Exception`.
+                    // If the lookup fails, Python therefore chains that lookup
+                    // error to the original callback exception automatically.
+                    if status_error.context(py).is_none()
+                        && !status_error.value(py).is(error.value(py))
+                    {
+                        status_error.set_context(py, Some(error.clone_ref(py)));
+                    }
+                    status_error
+                }
             }
         } else {
             error

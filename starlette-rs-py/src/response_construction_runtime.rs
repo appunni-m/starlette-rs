@@ -1,7 +1,7 @@
 //! Source-ordered construction over live Python response protocol values.
 
 use pyo3::basic::CompareOp;
-use pyo3::exceptions::PyAttributeError;
+use pyo3::exceptions::{PyAttributeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyList, PyString, PyTuple};
 
@@ -162,7 +162,32 @@ pub(crate) fn initialize_headers(
     let keys = PyList::empty(py);
     if let Some(headers) = headers {
         for pair in headers.call_method0("items")?.try_iter()? {
-            let (name, value) = pair?.extract::<(Bound<'_, PyAny>, Bound<'_, PyAny>)>()?;
+            let pair = pair?;
+            // Starlette's tuple unpacking accepts any two-item iterable and
+            // raises Python's ValueError after observing exhaustion or a third item.
+            let mut pair_items = pair.try_iter()?;
+            let name = match pair_items.next() {
+                Some(name) => name?,
+                None => {
+                    return Err(PyValueError::new_err(
+                        "not enough values to unpack (expected 2, got 0)",
+                    ));
+                }
+            };
+            let value = match pair_items.next() {
+                Some(value) => value?,
+                None => {
+                    return Err(PyValueError::new_err(
+                        "not enough values to unpack (expected 2, got 1)",
+                    ));
+                }
+            };
+            if let Some(extra) = pair_items.next() {
+                extra?;
+                return Err(PyValueError::new_err(
+                    "too many values to unpack (expected 2)",
+                ));
+            }
             let name = name
                 .call_method0("lower")?
                 .call_method1("encode", ("latin-1",))?;

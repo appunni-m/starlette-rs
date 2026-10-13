@@ -21,6 +21,7 @@ from scripts.parity.contract import (
     load_manifest,
     migrate_input_document_v50,
     validate_input_document,
+    validate_input_document_v51,
     validate_manifest,
     validate_previous_input_document,
 )
@@ -57,7 +58,7 @@ def migrate(root: Path, *, check_only: bool) -> tuple[int, int]:
                 public_modules=public_modules,
             )
             migrated = migrate_input_document_v50(document)
-            validate_input_document(migrated, manifest, public_modules=public_modules)
+            validate_input_document_v51(migrated, manifest, public_modules=public_modules)
             serialized = json.dumps(migrated, indent=2) + "\n"
             pending.append((source, serialized))
         elif schema == INPUT_SCHEMA:

@@ -61,6 +61,7 @@ class ConstructionProbe:
         probe = self
         headers = self.spec["headers"]
         if headers is not None:
+            item_kind = headers.get("item_kind", "tuple")
             items_failure = _error(headers["items_failure"], self.errors)
 
             class HeaderText(str):
@@ -95,13 +96,19 @@ class ConstructionProbe:
                         raise items_failure
                     for name, value in headers["mutations"].items():
                         setattr(probe.response, name, _content(value) if name == "body" else value)
-                    return [
-                        (
+                    result = []
+                    for pair in headers["pairs"]:
+                        entry = (
                             HeaderText(pair["name"], "name", pair["name_policy"]),
                             HeaderText(pair["value"], "value", pair["value_policy"]),
                         )
-                        for pair in headers["pairs"]
-                    ]
+                        if item_kind == "list":
+                            result.append(list(entry))
+                        elif item_kind == "iterator":
+                            result.append(iter(entry))
+                        else:
+                            result.append(entry)
+                    return result
 
             kwargs["headers"] = HeaderMapping()
         media = self.spec["media"]

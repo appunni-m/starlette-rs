@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@51",
+  "schema": "migration-parity/parity-input@52",
   "cases": [
     {
       "case_id": "starlette.staticfiles.StaticFiles.lookup-path.file-metadata",
@@ -580,6 +580,42 @@
       "lookup_path": "../private.txt",
       "check_dir": true,
       "follow_symlink": true,
+      "observations": [
+        "lookup-path"
+      ]
+    },
+    {
+      "case_id": "starlette.staticfiles.StaticFiles.lookup-path.surrogateescape-path",
+      "surface": "starlette.staticfiles.StaticFiles",
+      "operation": "lookup-path",
+      "covers": [
+        "starlette.staticfiles.StaticFiles.lookup-path.surrogateescape-path"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "directory": "public",
+      "files": [
+        {
+          "path": "present.txt",
+          "contents_base64": "cHJlc2VudA==",
+          "mtime_seconds": 1700000000.0
+        }
+      ],
+      "filesystem": {
+        "root_symlink_target": null,
+        "directories": [],
+        "outside_files": [],
+        "symlinks": []
+      },
+      "lookup_path": {
+        "encoding": "filesystem-bytes-base64",
+        "data": "bm90LWZvdW5kLf8="
+      },
+      "check_dir": true,
+      "follow_symlink": false,
       "observations": [
         "lookup-path"
       ]
