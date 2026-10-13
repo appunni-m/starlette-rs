@@ -24512,6 +24512,7 @@ def _validate_dispatch_stimulus(
     allow_oserror_send: bool = False,
     allow_host: bool = False,
     allow_client: bool = False,
+    allow_out_of_range_server_port: bool = False,
     allow_lifespan_callback_failures: bool = False,
     allow_inherited_mount_scope: bool = False,
     allow_http_disconnect: bool = False,
@@ -24638,7 +24639,7 @@ def _validate_dispatch_stimulus(
             or len(scope["server"]) != 2
             or not isinstance(scope["server"][0], str)
             or type(scope["server"][1]) is not int
-            or not 1 <= scope["server"][1] <= 65535
+            or (not allow_out_of_range_server_port and not 1 <= scope["server"][1] <= 65535)
         ):
             raise ContractError("HTTP scope server is invalid for Host route dispatch")
         if not request_dispatch and not allow_query and scope["query_string_base64"] != "":
@@ -31862,6 +31863,7 @@ def _validate_asgi_middleware_dispatch(surface: str, args: dict[str, Any]) -> No
             allow_headers=True,
             allow_query=True,
             allow_host=True,
+            allow_out_of_range_server_port=surface == HTTPS_REDIRECT_SURFACE,
         )
         return
     if not isinstance(scope, dict) or scope.get("type") != "websocket":
@@ -32297,10 +32299,18 @@ def _asgi_middleware_semantic_coverage(case: dict[str, Any]) -> set[str]:
         if scope["type"] in {"http", "websocket"} and scheme in {"http", "ws"}:
             if scheme == "ws":
                 covered.add(suffix("websocket-redirect"))
-            elif scope["server"][1] in {80, 443}:
-                covered.add(suffix("http-redirect-default-port"))
-            elif scope["query_string_base64"]:
-                covered.add(suffix("http-redirect-preserves-port-and-query"))
+            else:
+                host_header = decoded_headers(scope).get("host")
+                host_port = None
+                if host_header is not None:
+                    try:
+                        host_port = urlsplit(f"//{host_header}").port
+                    except ValueError:
+                        pass
+                if scope["server"][1] in {80, 443} or host_port in {80, 443}:
+                    covered.add(suffix("http-redirect-default-port"))
+                elif scope["query_string_base64"]:
+                    covered.add(suffix("http-redirect-preserves-port-and-query"))
         elif scope["type"] == "websocket" and scheme == "wss":
             covered.add(suffix("secure-websocket-pass-through"))
         else:

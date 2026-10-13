@@ -58,7 +58,8 @@ use starlette_rs::{
     RequestHeaders as NativeRequestHeaders, Response, ResponseError, ResponseEvent, RouteTable,
     ServerErrorPlan, ServerErrorPolicy as NativeServerErrorPolicy,
     ServerErrorState as NativeServerErrorState, WebSocketState, WebSocketStateMachine,
-    classify_scope, connection_url as native_connection_url, parse_cookie_header,
+    classify_scope, connection_url_with_port_text as native_connection_url_with_port_text,
+    parse_cookie_header,
 };
 
 type RouteDecision = (
@@ -1371,11 +1372,19 @@ fn connection_url(
     path: &str,
     query_string: &Bound<'_, PyBytes>,
     headers: Vec<(Vec<u8>, Vec<u8>)>,
-    server: Option<(String, u16)>,
+    server: Option<(String, String)>,
 ) -> PyResult<String> {
     let query_bytes = query_string.as_bytes();
-    let server = server.as_ref().map(|(host, port)| (host.as_str(), *port));
-    match native_connection_url(scheme.as_deref(), path, query_bytes, &headers, server) {
+    let server = server
+        .as_ref()
+        .map(|(host, port)| (host.as_str(), port.as_str()));
+    match native_connection_url_with_port_text(
+        scheme.as_deref(),
+        path,
+        query_bytes,
+        &headers,
+        server,
+    ) {
         Ok(url) => Ok(url),
         Err(ConnectionUrlError::UnsupportedScheme(scheme)) => Err(PyKeyError::new_err(scheme)),
         Err(ConnectionUrlError::InvalidQueryUtf8(_)) => {

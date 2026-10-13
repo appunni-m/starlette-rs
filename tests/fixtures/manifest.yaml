@@ -425,6 +425,7 @@
       "build/parity/inputs/parity/cors-middleware.json",
       "build/parity/inputs/parity/middleware-docs-inputs.json",
       "build/parity/inputs/parity/host-middleware.json",
+      "build/parity/inputs/parity/https-redirect-valid-host-ignores-server-port.json",
       "build/parity/inputs/parity/config-runtime.json",
       "build/parity/inputs/parity/schemas-runtime.json",
       "build/parity/inputs/parity/schemas-optional-pyyaml-boundary.json",

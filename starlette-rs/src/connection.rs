@@ -64,6 +64,27 @@ pub fn connection_url(
     headers: &[(Vec<u8>, Vec<u8>)],
     server: Option<(&str, u16)>,
 ) -> Result<String, ConnectionUrlError> {
+    let server_with_text_port = server.map(|(host, port)| (host, port.to_string()));
+    let server_with_text_port = server_with_text_port
+        .as_ref()
+        .map(|(host, port)| (*host, port.as_str()));
+    connection_url_with_port_text(scheme, path, query_string, headers, server_with_text_port)
+}
+
+/// Builds a connection URL while preserving the textual server port supplied
+/// at a dynamic-language boundary.
+///
+/// Starlette formats the ASGI server port before `urllib.parse` validates it.
+/// Keeping that text here lets the public URL property report the same range
+/// error for out-of-range integer ports, while a valid Host header can still
+/// make the server tuple irrelevant.
+pub fn connection_url_with_port_text(
+    scheme: Option<&str>,
+    path: &str,
+    query_string: &[u8],
+    headers: &[(Vec<u8>, Vec<u8>)],
+    server: Option<(&str, &str)>,
+) -> Result<String, ConnectionUrlError> {
     let scheme = scheme.unwrap_or("http");
     let host_header = headers
         .iter()
@@ -82,8 +103,8 @@ pub fn connection_url(
         (Some(netloc), _) => Some(netloc),
         (None, Some((host, port))) => {
             let default_port = match scheme {
-                "http" | "ws" => 80,
-                "https" | "wss" => 443,
+                "http" | "ws" => "80",
+                "https" | "wss" => "443",
                 _ => return Err(ConnectionUrlError::UnsupportedScheme(scheme.to_owned())),
             };
             Some(if port == default_port {

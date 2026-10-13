@@ -47,7 +47,7 @@ pub use asgi::{AsgiScopeKind, classify_scope};
 pub use comma_separated_strings::{
     CommaSeparatedStrings, CommaSeparatedStringsParseError, PythonCodePointStrings,
 };
-pub use connection::{ConnectionUrlError, connection_url};
+pub use connection::{ConnectionUrlError, connection_url, connection_url_with_port_text};
 pub use exception_handlers::ExceptionHandlerTable;
 pub use file_response::{
     FileMetadata, FileResponse, FileResponseCall, FileResponseCallError, FileResponseCallInput,

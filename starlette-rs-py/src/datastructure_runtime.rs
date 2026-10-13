@@ -1309,7 +1309,10 @@ fn url_init(
             py.None()
         } else {
             let host = server.get_item(0)?;
-            let port = server.get_item(1)?;
+            let port = py
+                .import("builtins")?
+                .getattr("str")?
+                .call1((server.get_item(1)?,))?;
             PyTuple::new(py, [host, port])?.into_any().unbind()
         };
         let core = py.import("starlette_rs_py._core")?;
