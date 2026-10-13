@@ -24,6 +24,10 @@ class BackgroundTask:
     def func(self, func: Callable[P, Any]) -> None:
         self._inner.func = func
 
+    @func.deleter
+    def func(self) -> None:
+        self._inner.delete_func()
+
     @property
     def args(self) -> P.args:
         return self._inner.args
@@ -31,6 +35,10 @@ class BackgroundTask:
     @args.setter
     def args(self, args: P.args) -> None:
         self._inner.args = args
+
+    @args.deleter
+    def args(self) -> None:
+        self._inner.delete_args()
 
     @property
     def kwargs(self) -> P.kwargs:
@@ -40,6 +48,10 @@ class BackgroundTask:
     def kwargs(self, kwargs: P.kwargs) -> None:
         self._inner.kwargs = kwargs
 
+    @kwargs.deleter
+    def kwargs(self) -> None:
+        self._inner.delete_kwargs()
+
     @property
     def is_async(self) -> bool:
         return self._inner.is_async
@@ -47,6 +59,10 @@ class BackgroundTask:
     @is_async.setter
     def is_async(self, is_async: bool) -> None:
         self._inner.is_async = is_async
+
+    @is_async.deleter
+    def is_async(self) -> None:
+        self._inner.delete_is_async()
 
     async def __call__(self) -> None:
         await self._inner.run()

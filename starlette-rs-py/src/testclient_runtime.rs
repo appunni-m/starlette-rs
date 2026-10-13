@@ -1868,15 +1868,13 @@ fn build_websocket_scope(
         "wss" => 443,
         _ => return Err(PyKeyError::new_err(scheme)),
     };
-    let (host, port) = if let Some((host, port)) = netloc.split_once(':') {
-        (
-            host.to_owned(),
-            port.parse::<u16>()
-                .map_err(|_| PyRuntimeError::new_err("invalid TestClient URL port"))?,
-        )
-    } else {
-        (netloc, default_port)
-    };
+    let (host, port): (String, Bound<'_, PyAny>) =
+        if let Some((host, port)) = netloc.split_once(':') {
+            let port = py.import("builtins")?.getattr("int")?.call1((port,))?;
+            (host.to_owned(), port)
+        } else {
+            (netloc, PyInt::new(py, default_port).into_any())
+        };
 
     let path = url.getattr("path")?.extract::<String>()?;
     let raw_path = url
@@ -1897,8 +1895,12 @@ fn build_websocket_scope(
         .extract::<bool>()?;
     let headers = PyList::empty(py);
     if !has_host {
-        let host_with_port = format!("{host}:{port}");
-        let host_value = if port == default_port {
+        let port_text = port.str()?.to_string_lossy().into_owned();
+        let host_with_port = format!("{host}:{port_text}");
+        let is_default_port = port
+            .call_method1("__eq__", (default_port,))?
+            .extract::<bool>()?;
+        let host_value = if is_default_port {
             host.as_str()
         } else {
             host_with_port.as_str()

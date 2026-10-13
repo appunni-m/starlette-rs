@@ -699,6 +699,16 @@ TEMPLATING_ALLOWED_REQUIREMENTS = TEMPLATING_REQUIREMENTS | {
 }
 URL_QUERY_OPERATION = ("starlette.datastructures.URL", "query-parameter-operations")
 URL_SCOPE_OPERATION = ("starlette.datastructures.URL", "scope-construction")
+BACKGROUND_ATTRIBUTES_OPERATION = ("starlette.background", "attribute-operations")
+BACKGROUND_ATTRIBUTES_OBSERVATION = "background-task-attributes"
+BACKGROUND_ATTRIBUTES_REQUIREMENTS = {
+    "background-task": (
+        "starlette.background.BackgroundTask.attribute-operations.mutable-attribute-deletion"
+    ),
+    "background-tasks": (
+        "starlette.background.BackgroundTasks.attribute-operations.inherited-attribute-lookup-and-deletion"
+    ),
+}
 URL_COMPONENTS_OPERATION = (
     "starlette.datastructures.URL",
     "component-and-replacement-sequence",
@@ -952,6 +962,7 @@ RUST_OWNED_PYTHON_OPERATIONS = (
         URL_QUERY_OPERATION,
         URL_SCOPE_OPERATION,
         URL_COMPONENTS_OPERATION,
+        BACKGROUND_ATTRIBUTES_OPERATION,
         URLPATH_ABSOLUTE_OPERATION,
         *HEADERS_OPERATIONS,
         STATE_OPERATION_KEY,
@@ -19379,6 +19390,7 @@ def _validate_case_payload(
                 "actions",
             },
             ("starlette.config", "environ"): {"initial_environ", "actions"},
+            BACKGROUND_ATTRIBUTES_OPERATION: {"task"},
             ("starlette.schemas.SchemaGenerator", "schema-generation"): {
                 "base_schema",
                 "routes",
@@ -20001,6 +20013,8 @@ def _validate_case_payload(
             _validate_url_scope_case(case)
         elif (case["surface"], case["operation"]) == URL_COMPONENTS_OPERATION:
             _validate_url_components_case(case)
+        elif (case["surface"], case["operation"]) == BACKGROUND_ATTRIBUTES_OPERATION:
+            _validate_background_attributes_case(case)
         elif (case["surface"], case["operation"]) == URLPATH_ABSOLUTE_OPERATION:
             _validate_urlpath_absolute_case(case)
         elif (case["surface"], case["operation"]) in HEADERS_OPERATIONS:
@@ -20917,6 +20931,71 @@ def _validate_server_error_middleware_handler(value: Any, context: str) -> None:
         or not isinstance(handler["content"], dict)
     ):
         raise ContractError(f"{context} must describe a JSON server-error response callable")
+
+
+def _validate_background_attributes_case(case: dict[str, Any]) -> None:
+    case_id = _string(case["case_id"], "BackgroundTask case_id")
+    if not case_id.startswith(
+        f"{BACKGROUND_ATTRIBUTES_OPERATION[0]}.{BACKGROUND_ATTRIBUTES_OPERATION[1]}."
+    ):
+        raise ContractError("BackgroundTask case ID must bind to attribute-operations")
+    if case["assets"] != []:
+        raise ContractError("BackgroundTask attribute workflows do not use assets")
+    if case["target_profiles"] != ["python-package-cpython312"]:
+        raise ContractError("BackgroundTask attribute workflows select the Python-package profile")
+    if case["observations"] != [BACKGROUND_ATTRIBUTES_OBSERVATION]:
+        raise ContractError("BackgroundTask cases must select background-task-attributes")
+
+    task = case["task"]
+    if not isinstance(task, dict):
+        raise ContractError("BackgroundTask task input must be an object")
+    kind = task.get("kind")
+    if kind == "background-task":
+        task = _exact(
+            task,
+            {"kind", "func", "args", "kwargs", "actions"},
+            "BackgroundTask input",
+        )
+        function = _exact(task["func"], {"kind", "value"}, "BackgroundTask func")
+        if function["kind"] != "sync-noop":
+            raise ContractError("BackgroundTask func kind must be sync-noop")
+        _string(function["value"], "BackgroundTask func value")
+        if not isinstance(task["args"], list):
+            raise ContractError("BackgroundTask args must be an array")
+        _validate_threadpool_json(task["args"], "BackgroundTask args")
+        if not isinstance(task["kwargs"], dict):
+            raise ContractError("BackgroundTask kwargs must be an object")
+        _validate_threadpool_json(task["kwargs"], "BackgroundTask kwargs")
+        expected_requirement = BACKGROUND_ATTRIBUTES_REQUIREMENTS["background-task"]
+    elif kind == "background-tasks":
+        task = _exact(task, {"kind", "tasks", "actions"}, "BackgroundTasks input")
+        if not isinstance(task["tasks"], list):
+            raise ContractError("BackgroundTasks tasks must be an array")
+        if task["tasks"]:
+            raise ContractError("BackgroundTasks attribute workflow starts with an empty task list")
+        expected_requirement = BACKGROUND_ATTRIBUTES_REQUIREMENTS["background-tasks"]
+    else:
+        raise ContractError("BackgroundTask task kind is unsupported")
+
+    actions = task["actions"]
+    if not isinstance(actions, list) or not actions:
+        raise ContractError("BackgroundTask actions must be a non-empty array")
+    for index, raw_action in enumerate(actions):
+        context = f"BackgroundTask actions[{index}]"
+        if not isinstance(raw_action, dict):
+            raise ContractError(f"{context} must be an object")
+        action_kind = raw_action.get("action")
+        fields = {"action", "attribute"} | ({"value"} if action_kind == "set" else set())
+        action = _exact(raw_action, fields, context)
+        if action_kind not in {"read", "set", "delete"}:
+            raise ContractError(f"{context}.action must be read, set, or delete")
+        if action["attribute"] not in {"func", "args", "kwargs", "is_async"}:
+            raise ContractError(f"{context}.attribute is unsupported")
+        if action_kind == "set":
+            _validate_threadpool_json(action["value"], f"{context}.value")
+
+    if case["covers"] != [expected_requirement]:
+        raise ContractError("BackgroundTask case must cover its declared attribute requirement")
 
 
 def _validate_threadpool_case(case: dict[str, Any]) -> None:

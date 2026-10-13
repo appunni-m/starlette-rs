@@ -22,10 +22,26 @@ use crate::awaitable::{
 
 #[pyclass(name = "BackgroundTask")]
 struct PyBackgroundTask {
-    func: Py<PyAny>,
-    args: Py<PyAny>,
-    kwargs: Py<PyAny>,
-    is_async: Py<PyAny>,
+    func: Option<Py<PyAny>>,
+    args: Option<Py<PyAny>>,
+    kwargs: Option<Py<PyAny>>,
+    is_async: Option<Py<PyAny>>,
+}
+
+fn task_attribute(
+    py: Python<'_>,
+    class_name: &str,
+    attribute_name: &str,
+    value: Option<&Py<PyAny>>,
+) -> PyResult<Py<PyAny>> {
+    value.map_or_else(
+        || {
+            Err(PyAttributeError::new_err(format!(
+                "'{class_name}' object has no attribute '{attribute_name}'"
+            )))
+        },
+        |value| Ok(value.clone_ref(py)),
+    )
 }
 
 #[pymethods]
@@ -45,65 +61,90 @@ impl PyBackgroundTask {
         );
 
         Ok(Self {
-            func,
-            args: args.clone().into_any().unbind(),
-            kwargs,
-            is_async: PyBool::new(py, is_async).to_owned().into_any().unbind(),
+            func: Some(func),
+            args: Some(args.clone().into_any().unbind()),
+            kwargs: Some(kwargs),
+            is_async: Some(PyBool::new(py, is_async).to_owned().into_any().unbind()),
         })
     }
 
     #[getter]
-    fn func(&self, py: Python<'_>) -> Py<PyAny> {
-        self.func.clone_ref(py)
+    fn func(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        task_attribute(py, "BackgroundTask", "func", self.func.as_ref())
     }
 
     #[setter]
     fn set_func(&mut self, func: Py<PyAny>) {
-        self.func = func;
+        self.func = Some(func);
+    }
+
+    fn delete_func(&mut self) {
+        self.func = None;
     }
 
     #[getter]
-    fn args(&self, py: Python<'_>) -> Py<PyAny> {
-        self.args.clone_ref(py)
+    fn args(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        task_attribute(py, "BackgroundTask", "args", self.args.as_ref())
     }
 
     #[setter]
     fn set_args(&mut self, args: Py<PyAny>) {
-        self.args = args;
+        self.args = Some(args);
+    }
+
+    fn delete_args(&mut self) {
+        self.args = None;
     }
 
     #[getter]
-    fn kwargs(&self, py: Python<'_>) -> Py<PyAny> {
-        self.kwargs.clone_ref(py)
+    fn kwargs(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        task_attribute(py, "BackgroundTask", "kwargs", self.kwargs.as_ref())
     }
 
     #[setter]
     fn set_kwargs(&mut self, kwargs: Py<PyAny>) {
-        self.kwargs = kwargs;
+        self.kwargs = Some(kwargs);
+    }
+
+    fn delete_kwargs(&mut self) {
+        self.kwargs = None;
     }
 
     #[getter]
-    fn is_async(&self, py: Python<'_>) -> Py<PyAny> {
-        self.is_async.clone_ref(py)
+    fn is_async(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        task_attribute(py, "BackgroundTask", "is_async", self.is_async.as_ref())
     }
 
     #[setter]
     fn set_is_async(&mut self, is_async: Py<PyAny>) {
-        self.is_async = is_async;
+        self.is_async = Some(is_async);
+    }
+
+    fn delete_is_async(&mut self) {
+        self.is_async = None;
     }
 
     fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
-        visit.call(&self.func)?;
-        visit.call(&self.args)?;
-        visit.call(&self.kwargs)?;
-        visit.call(&self.is_async)
+        if let Some(func) = self.func.as_ref() {
+            visit.call(func)?;
+        }
+        if let Some(args) = self.args.as_ref() {
+            visit.call(args)?;
+        }
+        if let Some(kwargs) = self.kwargs.as_ref() {
+            visit.call(kwargs)?;
+        }
+        if let Some(is_async) = self.is_async.as_ref() {
+            visit.call(is_async)?;
+        }
+        Ok(())
     }
 
-    fn __clear__(&mut self, py: Python<'_>) {
-        self.func = py.None();
-        self.args = py.None();
-        self.kwargs = py.None();
-        self.is_async = py.None();
+    fn __clear__(&mut self, _py: Python<'_>) {
+        self.func = None;
+        self.args = None;
+        self.kwargs = None;
+        self.is_async = None;
     }
 
     /// Return an awaitable that executes this task through the active Python loop.
@@ -115,6 +156,10 @@ impl PyBackgroundTask {
 #[pyclass(name = "BackgroundTasks")]
 struct PyBackgroundTasks {
     tasks: Py<PyAny>,
+    func: Option<Py<PyAny>>,
+    args: Option<Py<PyAny>>,
+    kwargs: Option<Py<PyAny>>,
+    is_async: Option<Py<PyAny>>,
 }
 
 #[pymethods]
@@ -131,7 +176,13 @@ impl PyBackgroundTasks {
                 .unbind(),
             _ => PyList::empty(py).into_any().unbind(),
         };
-        Ok(Self { tasks })
+        Ok(Self {
+            tasks,
+            func: None,
+            args: None,
+            kwargs: None,
+            is_async: None,
+        })
     }
 
     #[getter]
@@ -144,12 +195,85 @@ impl PyBackgroundTasks {
         self.tasks = tasks;
     }
 
+    #[getter]
+    fn func(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        task_attribute(py, "BackgroundTasks", "func", self.func.as_ref())
+    }
+
+    #[setter]
+    fn set_func(&mut self, func: Py<PyAny>) {
+        self.func = Some(func);
+    }
+
+    fn delete_func(&mut self) {
+        self.func = None;
+    }
+
+    #[getter]
+    fn args(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        task_attribute(py, "BackgroundTasks", "args", self.args.as_ref())
+    }
+
+    #[setter]
+    fn set_args(&mut self, args: Py<PyAny>) {
+        self.args = Some(args);
+    }
+
+    fn delete_args(&mut self) {
+        self.args = None;
+    }
+
+    #[getter]
+    fn kwargs(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        task_attribute(py, "BackgroundTasks", "kwargs", self.kwargs.as_ref())
+    }
+
+    #[setter]
+    fn set_kwargs(&mut self, kwargs: Py<PyAny>) {
+        self.kwargs = Some(kwargs);
+    }
+
+    fn delete_kwargs(&mut self) {
+        self.kwargs = None;
+    }
+
+    #[getter]
+    fn is_async(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        task_attribute(py, "BackgroundTasks", "is_async", self.is_async.as_ref())
+    }
+
+    #[setter]
+    fn set_is_async(&mut self, is_async: Py<PyAny>) {
+        self.is_async = Some(is_async);
+    }
+
+    fn delete_is_async(&mut self) {
+        self.is_async = None;
+    }
+
     fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
-        visit.call(&self.tasks)
+        visit.call(&self.tasks)?;
+        if let Some(func) = self.func.as_ref() {
+            visit.call(func)?;
+        }
+        if let Some(args) = self.args.as_ref() {
+            visit.call(args)?;
+        }
+        if let Some(kwargs) = self.kwargs.as_ref() {
+            visit.call(kwargs)?;
+        }
+        if let Some(is_async) = self.is_async.as_ref() {
+            visit.call(is_async)?;
+        }
+        Ok(())
     }
 
     fn __clear__(&mut self, py: Python<'_>) {
         self.tasks = py.None();
+        self.func = None;
+        self.args = None;
+        self.kwargs = None;
+        self.is_async = None;
     }
 
     /// Append a public Python task wrapper to the mutable task sequence.
@@ -781,10 +905,13 @@ impl AwaitableStateMachine for BackgroundTaskCall {
         match input {
             MachineResume::Start => {
                 let task = self.task.borrow(py);
-                let func = task.func.clone_ref(py);
-                let args = task.args.clone_ref(py);
-                let kwargs = task.kwargs.clone_ref(py);
-                let is_async = task.is_async.bind(py).is_truthy()?;
+                let is_async =
+                    task_attribute(py, "BackgroundTask", "is_async", task.is_async.as_ref())?
+                        .bind(py)
+                        .is_truthy()?;
+                let func = task_attribute(py, "BackgroundTask", "func", task.func.as_ref())?;
+                let args = task_attribute(py, "BackgroundTask", "args", task.args.as_ref())?;
+                let kwargs = task_attribute(py, "BackgroundTask", "kwargs", task.kwargs.as_ref())?;
                 drop(task);
 
                 let awaitable = if is_async {

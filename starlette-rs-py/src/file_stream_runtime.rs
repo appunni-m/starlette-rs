@@ -15,7 +15,7 @@ use crate::awaitable::{
 
 pub(crate) enum BodyKind {
     Simple(bool),
-    Single(u64, u64, u64),
+    Single(Py<PyAny>, Py<PyAny>, Py<PyAny>),
     Multiple(Py<PyAny>, Py<PyAny>),
 }
 
@@ -38,8 +38,10 @@ pub(crate) fn handler(
             file: None,
             ranges: Vec::new(),
             index: 0,
-            start: 0,
-            end: 0,
+            start: py.None(),
+            end: py.None(),
+            multipart_start: 0,
+            multipart_end: 0,
             generator: None,
             boundary: None,
             chunk: None,
@@ -73,8 +75,10 @@ struct FileBody {
     file: Option<Py<PyAny>>,
     ranges: Vec<(u64, u64)>,
     index: usize,
-    start: u64,
-    end: u64,
+    start: Py<PyAny>,
+    end: Py<PyAny>,
+    multipart_start: u64,
+    multipart_end: u64,
     generator: Option<Py<PyAny>>,
     boundary: Option<String>,
     chunk: Option<Py<PyAny>>,
@@ -88,12 +92,22 @@ impl AwaitableStateMachine for FileBody {
         visit.call(&self.send)?;
         visit.call(&self.manager)?;
         visit.call(&self.file)?;
+        visit.call(&self.start)?;
+        visit.call(&self.end)?;
         visit.call(&self.generator)?;
         visit.call(&self.chunk)?;
         visit.call(&self.error)?;
-        if let BodyKind::Multiple(ranges, size) = &self.kind {
-            visit.call(ranges)?;
-            visit.call(size)?;
+        match &self.kind {
+            BodyKind::Simple(_) => {}
+            BodyKind::Single(start, end, size) => {
+                visit.call(start)?;
+                visit.call(end)?;
+                visit.call(size)?;
+            }
+            BodyKind::Multiple(ranges, size) => {
+                visit.call(ranges)?;
+                visit.call(size)?;
+            }
         }
         Ok(())
     }
@@ -137,24 +151,21 @@ impl FileBody {
                 message.set_item("headers", response.getattr("raw_headers")?)?;
             }
             BodyKind::Single(start, end, size) => {
-                self.start = *start;
-                self.end = *end;
+                self.start = start.clone_ref(py);
+                self.end = end.clone_ref(py);
                 let headers = copied_headers(py, response)?;
+                let last = end.bind(py).call_method1("__sub__", (1,))?;
+                let length = end.bind(py).call_method1("__sub__", (start.bind(py),))?;
                 headers.set_item(
                     "content-range",
                     format!(
-                        "bytes {start}-{}/{size}",
-                        end.checked_sub(1).ok_or_else(|| PyRuntimeError::new_err(
-                            "file range has no final byte"
-                        ))?
+                        "bytes {}-{}/{}",
+                        start.bind(py).str()?,
+                        last.str()?,
+                        size.bind(py).str()?
                     ),
                 )?;
-                headers.set_item(
-                    "content-length",
-                    end.checked_sub(*start)
-                        .ok_or_else(|| PyRuntimeError::new_err("file range ends before it starts"))?
-                        .to_string(),
-                )?;
+                headers.set_item("content-length", length.str()?)?;
                 message.set_item("status", 206)?;
                 message.set_item("headers", headers.getattr("raw")?)?;
             }
@@ -245,19 +256,24 @@ impl FileBody {
                             .eq(self.response.bind(py).getattr("chunk_size")?)?;
                     }
                     BodyKind::Single(_, _, _) => {
-                        self.start = self.start.checked_add(size as u64).ok_or_else(|| {
-                            PyRuntimeError::new_err("file position exceeds the supported size")
-                        })?;
+                        self.start = self
+                            .start
+                            .bind(py)
+                            .call_method1("__add__", (size,))?
+                            .unbind();
                         self.more_body = size
                             .into_pyobject(py)?
                             .into_any()
                             .eq(self.response.bind(py).getattr("chunk_size")?)?
-                            && self.start < self.end;
+                            && self.start.bind(py).lt(self.end.bind(py))?;
                     }
                     BodyKind::Multiple(_, _) => {
-                        self.start = self.start.checked_add(size as u64).ok_or_else(|| {
-                            PyRuntimeError::new_err("file position exceeds the supported size")
-                        })?;
+                        self.multipart_start = self
+                            .multipart_start
+                            .checked_add(size as u64)
+                            .ok_or_else(|| {
+                                PyRuntimeError::new_err("file position exceeds the supported size")
+                            })?;
                         self.more_body = true;
                     }
                 }
@@ -272,7 +288,7 @@ impl FileBody {
                     }
                 }
                 BodyKind::Multiple(_, _) => {
-                    if self.start < self.end {
+                    if self.multipart_start < self.multipart_end {
                         self.read(py)
                     } else {
                         self.send_body(
@@ -317,13 +333,26 @@ impl FileBody {
 
     fn read(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
         let chunk_size = self.response.bind(py).getattr("chunk_size")?;
-        let size = if matches!(self.kind, BodyKind::Simple(_)) {
-            chunk_size
-        } else {
-            // Python numeric conversion/comparison remains at the representation boundary.
-            py.import("builtins")?
-                .getattr("min")?
-                .call1((chunk_size, self.end - self.start))?
+        let size = match self.kind {
+            BodyKind::Simple(_) => chunk_size,
+            BodyKind::Single(_, _, _) => {
+                let remaining = self
+                    .end
+                    .bind(py)
+                    .call_method1("__sub__", (self.start.bind(py),))?;
+                py.import("builtins")?
+                    .getattr("min")?
+                    .call1((chunk_size, remaining))?
+            }
+            BodyKind::Multiple(_, _) => {
+                let remaining = self
+                    .multipart_end
+                    .checked_sub(self.multipart_start)
+                    .ok_or_else(|| PyRuntimeError::new_err("file range ends before it starts"))?;
+                py.import("builtins")?
+                    .getattr("min")?
+                    .call1((chunk_size, remaining))?
+            }
         };
         let awaitable = self.file(py)?.call_method1("read", (size,))?;
         self.pending = Pending::Read;
@@ -331,15 +360,22 @@ impl FileBody {
     }
 
     fn seek(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
-        let awaitable = self.file(py)?.call_method1("seek", (self.start,))?;
+        let position = match self.kind {
+            BodyKind::Single(_, _, _) => self.start.clone_ref(py),
+            BodyKind::Multiple(_, _) => self.multipart_start.into_pyobject(py)?.into_any().unbind(),
+            BodyKind::Simple(_) => {
+                return Err(PyRuntimeError::new_err("simple file response cannot seek"));
+            }
+        };
+        let awaitable = self.file(py)?.call_method1("seek", (position,))?;
         self.pending = Pending::Seek;
         Ok(MachineAction::Await(awaitable.unbind()))
     }
 
     fn part(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
         if let Some(&(start, end)) = self.ranges.get(self.index) {
-            self.start = start;
-            self.end = end;
+            self.multipart_start = start;
+            self.multipart_end = end;
             let generator = self.generator.as_ref().ok_or_else(|| {
                 PyRuntimeError::new_err("multipart file handler has no header generator")
             })?;

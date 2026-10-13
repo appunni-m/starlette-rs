@@ -78,6 +78,16 @@
       ]
     },
     {
+      "surface_id": "starlette.background",
+      "source_path": "starlette/background.py:12",
+      "operations": [
+        {
+          "operation_id": "attribute-operations",
+          "source_path": "starlette.background.BackgroundTask and BackgroundTasks public attributes"
+        }
+      ]
+    },
+    {
       "surface_id": "starlette.concurrency",
       "source_path": "starlette/concurrency.py:16",
       "operations": [

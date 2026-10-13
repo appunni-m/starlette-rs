@@ -150,6 +150,7 @@ SCHEMA_OPERATIONS = {
 }
 URL_QUERY_OPERATION = ("starlette.datastructures.URL", "query-parameter-operations")
 URL_SCOPE_OPERATION = ("starlette.datastructures.URL", "scope-construction")
+BACKGROUND_ATTRIBUTES_OPERATION = ("starlette.background", "attribute-operations")
 _MISSING = object()
 
 
@@ -14509,6 +14510,19 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         from scripts.parity.adapters.response_consumer import run_response_consumer_case
 
         return run_response_consumer_case(case)
+    if (
+        isinstance(case, dict)
+        and (
+            case.get("surface"),
+            case.get("operation"),
+        )
+        == BACKGROUND_ATTRIBUTES_OPERATION
+    ):
+        from starlette import background
+
+        from scripts.parity.adapters.background_attributes import run_background_attributes_case
+
+        return run_background_attributes_case(case, background)
     if isinstance(case, dict) and (case.get("surface"), case.get("operation")) in {
         ("starlette.datastructures.CommaSeparatedStrings", "ownership-graph"),
         ("starlette.datastructures.UploadFile", "ownership-graph"),

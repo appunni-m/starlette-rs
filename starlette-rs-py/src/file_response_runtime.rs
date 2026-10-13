@@ -128,7 +128,7 @@ impl PyFileResponse {
         py: Python<'_>,
         response: Py<PyAny>,
         send: Py<PyAny>,
-        range: (u64, u64, u64),
+        range: &Bound<'_, PyAny>,
         header_only: bool,
     ) -> PyResult<Py<PyAny>> {
         crate::file_stream_runtime::handler(
@@ -136,7 +136,11 @@ impl PyFileResponse {
             response,
             send,
             header_only,
-            crate::file_stream_runtime::BodyKind::Single(range.0, range.1, range.2),
+            crate::file_stream_runtime::BodyKind::Single(
+                range.get_item(0)?.unbind(),
+                range.get_item(1)?.unbind(),
+                range.get_item(2)?.unbind(),
+            ),
         )
     }
 

@@ -409,6 +409,7 @@
       "build/parity/inputs/parity/redirect-response.json",
       "build/parity/inputs/parity/responses-basic.json",
       "build/parity/inputs/parity/background-tasks.json",
+      "build/parity/inputs/parity/background-task-attribute-deletion.json",
       "build/parity/inputs/parity/background-task-sync-kwargs-mapping.json",
       "build/parity/inputs/parity/streaming-response.json",
       "build/parity/inputs/parity/streaming-response-lazy-iterator-start-send-failure.json",
@@ -436,6 +437,7 @@
       "build/parity/inputs/parity/query-params.json",
       "build/parity/inputs/parity/comma-separated-strings.json",
       "build/parity/inputs/parity/file-response.json",
+      "build/parity/inputs/parity/response-file-range-large-integer.json",
       "build/parity/inputs/parity/file-response-mjs-media-type.json",
       "build/parity/inputs/parity/file-response-range-decimal-inputs.json",
       "build/parity/inputs/parity/file-response-if-range-last-modified.json",
@@ -502,6 +504,7 @@
       "build/parity/inputs/parity/testclient-websocket.json",
       "build/parity/inputs/parity/testclient-websocket-entry-cleanup-error.json",
       "build/parity/inputs/parity/testclient-websocket-denial-after-accept.json",
+      "build/parity/inputs/parity/testclient-websocket-server-port-preservation.json",
       "build/parity/inputs/parity/testclient-websocket-routing.json",
       "build/parity/inputs/parity/testclient-websocket-bytes.json",
       "build/parity/inputs/parity/testclient-websocket-public.json",
@@ -4070,6 +4073,119 @@
           "benchmark": {
             "applicability": "not_applicable",
             "reason": "Authentication is outside the declared benchmark workloads."
+          }
+        }
+      ]
+    },
+    {
+      "id": "starlette.background",
+      "kind": "module",
+      "source_path": "starlette/background.py:12",
+      "storage_slug": "starlette-background-attribute-operations",
+      "operations": [
+        {
+          "id": "attribute-operations",
+          "kind": "protocol_operation",
+          "classification": "non_endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.background.BackgroundTask and BackgroundTasks public attributes",
+            "signature": "Construct an input-selected BackgroundTask or BackgroundTasks instance; observe public attribute reads, assignments, and deletions.",
+            "parameters": [
+              {
+                "id": "task",
+                "style": "option",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "background-task-attributes",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "out_of_scope",
+                "reason": "These are Python compatibility types; the Rust-native API remains distinct from the starlette.* compatibility surface.",
+                "authority": "AGENTS.md: keep Rust-native APIs distinct from the compatibility surface."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.background.BackgroundTask and BackgroundTasks",
+              "signature": "Construct and mutate the public background task attribute surface.",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.background.BackgroundTask.attribute-operations.mutable-attribute-deletion",
+              "dimension": "boundary",
+              "description": "Compare public reads, assignment, and deletion for func, args, kwargs, and is_async on a BackgroundTask. Pinned source: starlette/background.py:12-23; docs/background.md:1-78.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.background.BackgroundTasks.attribute-operations.inherited-attribute-lookup-and-deletion",
+              "dimension": "boundary",
+              "description": "Compare inherited BackgroundTask attribute lookup, assignment, and deletion on a BackgroundTasks instance whose initializer only creates tasks. Pinned source: starlette/background.py:26-33; docs/background.md:1-78.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This input-only behavior comparison makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "Background task attribute access is outside the declared benchmark workloads."
           }
         }
       ]
