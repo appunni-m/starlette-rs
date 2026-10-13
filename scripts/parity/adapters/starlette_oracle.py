@@ -1271,6 +1271,29 @@ def _materialize_exception_handlers(
             elif key_spec.get("name") == "Exception":
                 _strict_object(key_spec, {"kind", "name"}, f"{context}.key")
                 key = Exception
+            elif key_spec.get("name") == "ExceptionEqualSubclass":
+                _strict_object(
+                    key_spec,
+                    {"kind", "name", "base_class", "metaclass_equality"},
+                    f"{context}.key",
+                )
+                if (
+                    key_spec["base_class"] != "Exception"
+                    or key_spec["metaclass_equality"] != "Exception"
+                ):
+                    raise ValueError("ExceptionEqualSubclass input is unsupported")
+
+                class ExceptionEqualityMeta(type):
+                    def __eq__(cls, other: object) -> bool:
+                        if other is Exception:
+                            return True
+                        return type.__eq__(cls, other) is True
+
+                    def __hash__(cls) -> int:
+                        return hash(Exception)
+
+                key = ExceptionEqualityMeta("ExceptionEqualSubclass", (Exception,), {})
+                exception_types["ExceptionEqualSubclass"] = key
             elif key_spec.get("name") == "BodyReuseException":
                 _strict_object(key_spec, {"kind", "name", "base_class"}, f"{context}.key")
                 if key_spec["base_class"] != "HTTPException":
@@ -2483,16 +2506,11 @@ def _materialize_application(
             )
             if type(response_spec["status_code"]) is not int:
                 raise ValueError("HTTP exception status_code must be an integer")
-            if response_spec["detail"] is not None and not isinstance(response_spec["detail"], str):
-                raise ValueError("HTTP exception detail must be a string or null")
             headers = response_spec["headers"]
             if not isinstance(headers, list) or any(
-                not isinstance(pair, list)
-                or len(pair) != 2
-                or not all(isinstance(value, str) for value in pair)
-                for pair in headers
+                not isinstance(pair, list) or len(pair) != 2 for pair in headers
             ):
-                raise ValueError("HTTP exception headers must be string pairs")
+                raise ValueError("HTTP exception headers must be input-defined pairs")
 
             from starlette.exceptions import HTTPException
 
@@ -6911,10 +6929,12 @@ def _canonical_websocket_message(message: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
-def _websocket_state_name(state: Any) -> str:
+def _websocket_state_name(state: Any) -> Any:
     name = getattr(state, "name", None)
     if isinstance(name, str):
         return name
+    if type(state) is int:
+        return state
     raise ValueError("WebSocket state does not expose its public enum name")
 
 
@@ -7051,10 +7071,12 @@ def _run_websocket_state_case(case: dict[str, Any]) -> dict[str, Any]:
 
     incoming = [_materialize_websocket_message(message) for message in case["incoming"]]
     incoming_index = 0
+    receive_calls = 0
     pending_send_error: dict[str, Any] | None = None
 
     async def receive() -> dict[str, Any]:
-        nonlocal incoming_index
+        nonlocal incoming_index, receive_calls
+        receive_calls += 1
         if incoming_index >= len(incoming):
             raise ValueError("WebSocket receive action exhausted its input-only message sequence")
         message = incoming[incoming_index]
@@ -7085,6 +7107,8 @@ def _run_websocket_state_case(case: dict[str, Any]) -> dict[str, Any]:
                         pending_send_error = None
                 elif action["action"] == "set-client-state":
                     websocket.client_state = WebSocketState[action["state"]]
+                elif action["action"] == "set-client-state-raw":
+                    websocket.client_state = action["value"]
                 elif action["action"] == "set-application-state":
                     websocket.application_state = WebSocketState[action["state"]]
                 else:
@@ -7123,6 +7147,7 @@ def _run_websocket_state_case(case: dict[str, Any]) -> dict[str, Any]:
         "action_results": action_results,
         "client_state": _websocket_state_name(websocket.client_state),
         "application_state": _websocket_state_name(websocket.application_state),
+        "receive_calls": receive_calls,
     }
     if case["observations"] != [WEBSOCKET_STATE_OPERATION]:
         raise ValueError("WebSocket observations must select the state-sequence workflow result")
@@ -8938,6 +8963,8 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
         case_keys.add("content_disposition_type")
     if "background_task" in case:
         case_keys.add("background_task")
+    if "stat_result" in case:
+        case_keys.add("stat_result")
     _strict_object(
         case,
         case_keys,
@@ -8995,6 +9022,18 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
         if type(mtime_seconds) not in {int, float} or not math.isfinite(mtime_seconds):
             raise ValueError("FileResponse file.mtime_seconds must be a finite number")
         contents = _decode_b64(encoded_contents, "file.contents_base64")
+    stat_result_spec = case.get("stat_result")
+    if stat_result_spec is not None:
+        stat_result_spec = _strict_object(
+            stat_result_spec, {"size", "mtime_seconds"}, "FileResponse stat_result"
+        )
+        if (
+            type(stat_result_spec["size"]) is not int
+            or not 0 <= stat_result_spec["size"] <= 2**64 - 1
+            or type(stat_result_spec["mtime_seconds"]) not in {int, float}
+            or not math.isfinite(stat_result_spec["mtime_seconds"])
+        ):
+            raise ValueError("FileResponse stat_result size and mtime must be valid")
 
     if type(case["status_code"]) is not int:
         raise ValueError("FileResponse status_code must be an integer")
@@ -9114,8 +9153,22 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
                 raise ValueError("FileResponse scope.extensions may only declare pathsend")
     if call_specs[0]["incoming"] != []:
         raise ValueError("FileResponse ASGI-call requires an empty incoming stream")
+    send_error_spec = None
     if call_specs[0]["send"] != {"kind": "capture-asgi-send"}:
-        raise ValueError("send input must select the declared ASGI message collector")
+        if request_sequence:
+            raise ValueError("FileResponse call sequences require captured ASGI messages")
+        send_error_spec = _strict_object(
+            call_specs[0]["send"],
+            {"kind", "event_index", "message"},
+            "FileResponse bounded failing send",
+        )
+        if (
+            send_error_spec["kind"] != "capture-asgi-send-until-oserror"
+            or type(send_error_spec["event_index"]) is not int
+            or not 6 <= send_error_spec["event_index"] <= 64
+            or not isinstance(send_error_spec["message"], str)
+        ):
+            raise ValueError("FileResponse bounded failing send input is invalid")
 
     scheduling = case.get("scheduling")
     if scheduling is not None:
@@ -9148,6 +9201,10 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
             stat_result = None
         elif scheduling is None:
             path.write_bytes(contents)
+            stat_size = stat_result_spec["size"] if stat_result_spec is not None else len(contents)
+            stat_mtime = (
+                stat_result_spec["mtime_seconds"] if stat_result_spec is not None else mtime_seconds
+            )
             stat_result = os.stat_result(
                 (
                     stat.S_IFREG | 0o644,
@@ -9156,10 +9213,10 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
                     1,
                     0,
                     0,
-                    len(contents),
-                    mtime_seconds,
-                    mtime_seconds,
-                    mtime_seconds,
+                    stat_size,
+                    stat_mtime,
+                    stat_mtime,
+                    stat_mtime,
                 )
             )
         else:
@@ -9327,15 +9384,21 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
 
         captured_dispatch_error: dict[str, Any] | None = None
         if scheduling is None:
+            send_index = 0
 
             async def send(message: dict[str, Any]) -> None:
+                nonlocal send_index
+                if send_error_spec is not None and send_index == send_error_spec["event_index"]:
+                    send_index += 1
+                    raise OSError(send_error_spec["message"])
                 sent.append(message)
                 execution_trace.append(message["type"])
+                send_index += 1
 
             try:
                 asyncio.run(response(scope, receive, send))
             except Exception as exc:
-                if file_kind == "regular":
+                if file_kind == "regular" and send_error_spec is None:
                     raise
                 captured_dispatch_error = _dispatch_error(exc)
         else:
@@ -15115,6 +15178,7 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         or endpoint_kind
         in {
             "asgi-callable-action-sequence",
+            "http-exception",
             "raise-runtime-error",
             "response-background-task-error",
         }

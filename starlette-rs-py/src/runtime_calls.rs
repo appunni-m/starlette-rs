@@ -648,7 +648,8 @@ impl StreamingCallMachine {
     fn pull_chunk(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
         if self.iterator.is_none() {
             let iterator = if self.async_iterable {
-                self.content.bind(py).call_method0("__aiter__")?
+                py.import("builtins")?
+                    .call_method1("aiter", (self.content.bind(py),))?
             } else {
                 let existing = sync_iterator_state(&self.sync_iterator)?
                     .as_ref()
@@ -675,7 +676,7 @@ impl StreamingCallMachine {
             .ok_or_else(|| PyRuntimeError::new_err("stream iterator was not initialized"))?
             .bind(py);
         let awaitable = if self.async_iterable {
-            iterator.call_method0("__anext__")?
+            py.import("builtins")?.call_method1("anext", (iterator,))?
         } else {
             let sentinel = match self.sentinel.as_ref() {
                 Some(sentinel) => sentinel.clone_ref(py),

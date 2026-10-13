@@ -1,0 +1,49 @@
+{
+  "schema": "migration-parity/parity-input@49",
+  "cases": [
+    {
+      "case_id": "starlette.routing.Router.url_path_for.mount-path-none-is-not-forwarded",
+      "surface": "starlette.routing.Router",
+      "operation": "url_path_for",
+      "covers": [
+        "starlette.routing.Mount.url_path_for.none-path-is-not-forwarded"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "route_graph": {
+        "kind": "router",
+        "routes": [
+          {
+            "kind": "mount",
+            "path": "/api",
+            "name": "api",
+            "routes": [
+              {
+                "kind": "http-route",
+                "path": "/assets/{path:path}",
+                "name": "asset",
+                "methods": [
+                  "GET"
+                ],
+                "observer": null
+              }
+            ]
+          }
+        ]
+      },
+      "lookup": {
+        "name": "api:asset",
+        "path_params": {
+          "path": null
+        }
+      },
+      "request_scope": null,
+      "custom_convertors": [],
+      "observations": [
+        "reverse-url"
+      ]
+    }
+  ]
+}

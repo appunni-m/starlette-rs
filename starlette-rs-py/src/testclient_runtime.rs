@@ -1435,37 +1435,6 @@ impl PyTestClientTransport {
             method,
             ..TestClientResponseState::default()
         }));
-        let anyio = py.import("anyio")?;
-        let (manager, portal) = if let Some(lifespan) = self.lifespan.as_ref() {
-            let portal = lifespan
-                .portal
-                .as_ref()
-                .ok_or_else(|| PyRuntimeError::new_err("TestClient portal is unavailable"))?
-                .clone_ref(py);
-            (None, portal)
-        } else {
-            let from_thread = anyio.getattr("from_thread")?;
-            let start_portal = from_thread.getattr("start_blocking_portal")?;
-            let portal_kwargs = PyDict::new(py);
-            portal_kwargs.set_item("backend", &self.backend)?;
-            portal_kwargs.set_item("backend_options", self.backend_options.bind(py))?;
-            let manager = start_portal.call((), Some(&portal_kwargs))?;
-            let portal = manager.call_method0("__enter__")?;
-            (Some(manager.unbind()), portal.unbind())
-        };
-        let event = match portal
-            .bind(py)
-            .call_method1("call", (anyio.getattr("Event")?,))
-        {
-            Ok(event) => event,
-            Err(error) => {
-                if let Some(manager) = manager.as_ref() {
-                    exit_portal(py, manager.bind(py).clone(), Some(&error))?;
-                }
-                return Err(error);
-            }
-        };
-        lock_state(&state)?.response_complete_event = Some(event.unbind());
         let receive = Py::new(
             py,
             TestClientReceive {
@@ -1483,15 +1452,52 @@ impl PyTestClientTransport {
         } else {
             self.asgi2_runner.bind(py)
         };
-        let app_result = portal
-            .bind(py)
-            .call_method1("call", (runner, self.app.bind(py), &scope, receive, send));
-        if let Some(manager) = manager {
-            match &app_result {
-                Ok(_) => exit_portal(py, manager.bind(py).clone(), None)?,
-                Err(error) => exit_portal(py, manager.bind(py).clone(), Some(error))?,
+        let anyio = py.import("anyio")?;
+        let mut manager: Option<Py<PyAny>> = None;
+        let operation_result = (|| -> PyResult<()> {
+            let portal = if let Some(lifespan) = self.lifespan.as_ref() {
+                lifespan
+                    .portal
+                    .as_ref()
+                    .ok_or_else(|| PyRuntimeError::new_err("TestClient portal is unavailable"))?
+                    .clone_ref(py)
+            } else {
+                let from_thread = anyio.getattr("from_thread")?;
+                let start_portal = from_thread.getattr("start_blocking_portal")?;
+                let portal_kwargs = PyDict::new(py);
+                portal_kwargs.set_item("backend", &self.backend)?;
+                portal_kwargs.set_item("backend_options", self.backend_options.bind(py))?;
+                let portal_manager = start_portal.call((), Some(&portal_kwargs))?;
+                let portal = portal_manager.call_method0("__enter__")?;
+                manager = Some(portal_manager.unbind());
+                portal.unbind()
+            };
+            let event = portal
+                .bind(py)
+                .call_method1("call", (anyio.getattr("Event")?,))?;
+            lock_state(&state)?.response_complete_event = Some(event.unbind());
+            portal
+                .bind(py)
+                .call_method1("call", (runner, self.app.bind(py), &scope, receive, send))?;
+            Ok(())
+        })();
+        let exit_result = if let Some(manager) = manager {
+            exit_portal(
+                py,
+                manager.bind(py).clone(),
+                operation_result.as_ref().err(),
+            )
+        } else {
+            Ok(())
+        };
+        let app_result = match (operation_result, exit_result) {
+            (Ok(()), Ok(())) => Ok(()),
+            (Err(error), Ok(())) | (Ok(()), Err(error)) => Err(error),
+            (Err(original), Err(error)) => {
+                chain_exception_context(py, &error, &original)?;
+                Err(error)
             }
-        }
+        };
         if let Err(error) = app_result {
             if self.raise_server_exceptions {
                 return Err(error);

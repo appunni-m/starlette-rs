@@ -143,7 +143,23 @@ def stream_content(spec: dict[str, Any], trace: list[Any], errors: list[BaseExce
 
             return chunk()
 
-    return Iterator()
+    iterator = Iterator()
+    for method_name in spec.get("instance_special_method_shadows", []):
+        if method_name == "__aiter__":
+
+            def shadowed_aiter(instance: Any = iterator) -> Any:
+                trace.append({"event": "instance-special-method", "name": "__aiter__"})
+                return Iterator.__aiter__(instance)
+
+            setattr(iterator, method_name, shadowed_aiter)
+        elif method_name == "__anext__":
+
+            def shadowed_anext(instance: Any = iterator) -> Any:
+                trace.append({"event": "instance-special-method", "name": "__anext__"})
+                return Iterator.__anext__(instance)
+
+            setattr(iterator, method_name, shadowed_anext)
+    return iterator
 
 
 def stream_aiter_property_error(

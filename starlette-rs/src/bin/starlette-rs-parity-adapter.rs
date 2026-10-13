@@ -48,22 +48,23 @@ use sha2 as _;
 use starlette_rs::{
     ActiveNativeLifespan, ApplicationRoute, AsgiScopeKind, CommaSeparatedStrings, CookieOptions,
     Cookies, CustomPathConverter, CustomPathConverterRegistry, DEFAULT_EXCLUDED_CONTENT_TYPES,
-    DetailedRouteMatch, FileMetadata, FileResponse as NativeFileResponse, FileResponseCallInput,
-    FileResponseCallStep, FileResponseError, FileResponseEvent, FileResponseOptions, GzipConfig,
-    GzipHeader, GzipResponseStart, HostPattern, HttpScope, LifespanAction, LifespanState,
-    Mount as NativeMount, MountChild, MountScope, MultiDict as NativeMultiDict, NamedHost,
-    NamedMount, NamedRoute as NativeNamedRoute, NamedRouteError, NamedRouter, NamedRouterError,
-    NativeApplication as NativeServiceApplication, NativeApplicationChild, NativeApplicationError,
-    NativeHostApplication, NativeHostRoute, NativeLifespan, NativeLifespanError,
-    NativeLifespanState, NativeMount as NativeServiceMount, NativeRequest, NativeRequestScope,
-    NativeRoute, NativeWebSocketAcceptance, NativeWebSocketClose, NativeWebSocketDriver,
-    NativeWebSocketError, NativeWebSocketEvent, NativeWebSocketHandshake, NativeWebSocketMessage,
-    NativeWebSocketPeerClose, NativeWebSocketRoute, NativeWebSocketRouter,
-    NativeWebSocketTransportError, PathConverter, PathParameterCapture, QueryParams,
-    RequestBodyAccumulator, RequestHeaders, Response, ResponseEvent, RouteTable,
-    Starlette as NativeApplication, StaticFiles as NativeStaticFiles, StaticFilesError,
-    StaticFilesResponse, StreamingResponse, StreamingResponseCallInput, StreamingResponseCallStep,
-    StreamingResponseEvent, WebSocketState, WebSocketStateMachine, classify_scope, connection_url,
+    DetailedRouteMatch, FileMetadata, FileResponse as NativeFileResponse, FileResponseCallError,
+    FileResponseCallInput, FileResponseCallStep, FileResponseError, FileResponseEvent,
+    FileResponseOptions, GzipConfig, GzipHeader, GzipResponseStart, HostPattern, HttpScope,
+    LifespanAction, LifespanState, Mount as NativeMount, MountChild, MountScope,
+    MultiDict as NativeMultiDict, NamedHost, NamedMount, NamedRoute as NativeNamedRoute,
+    NamedRouteError, NamedRouter, NamedRouterError, NativeApplication as NativeServiceApplication,
+    NativeApplicationChild, NativeApplicationError, NativeHostApplication, NativeHostRoute,
+    NativeLifespan, NativeLifespanError, NativeLifespanState, NativeMount as NativeServiceMount,
+    NativeRequest, NativeRequestScope, NativeRoute, NativeWebSocketAcceptance,
+    NativeWebSocketClose, NativeWebSocketDriver, NativeWebSocketError, NativeWebSocketEvent,
+    NativeWebSocketHandshake, NativeWebSocketMessage, NativeWebSocketPeerClose,
+    NativeWebSocketRoute, NativeWebSocketRouter, NativeWebSocketTransportError, PathConverter,
+    PathParameterCapture, QueryParams, RequestBodyAccumulator, RequestHeaders, Response,
+    ResponseEvent, RouteTable, Starlette as NativeApplication, StaticFiles as NativeStaticFiles,
+    StaticFilesError, StaticFilesResponse, StreamingResponse, StreamingResponseCallInput,
+    StreamingResponseCallStep, StreamingResponseEvent, WebSocketState, WebSocketStateMachine,
+    classify_scope, connection_url,
 };
 use tower_layer as _;
 use tower_service as _;
@@ -7131,6 +7132,9 @@ fn run_file_response_case(case: &Value) -> Result<Value, String> {
     if case.get("background_task").is_some() {
         expected_fields.push("background_task");
     }
+    if case.get("stat_result").is_some() {
+        expected_fields.push("stat_result");
+    }
     let case = exact_object(case, &expected_fields, "FileResponse asgi-call case")?;
     let case_id = string_field(case, "case_id", "FileResponse asgi-call case")?;
     if !case_id.starts_with(&format!("{FILE_RESPONSE_SURFACE}.{RESPONSE_OPERATION}."))
@@ -7150,6 +7154,7 @@ fn run_file_response_case(case: &Value) -> Result<Value, String> {
         "FileResponse asgi-call target_profiles",
         false,
     )?;
+    let mut send_error = None;
     let call_inputs: Vec<&Map<String, Value>> = if request_sequence {
         let calls = case
             .get("calls")
@@ -7179,10 +7184,46 @@ fn run_file_response_case(case: &Value) -> Result<Value, String> {
                 "FileResponse asgi-call requires an empty incoming sequence",
             ));
         }
-        validate_capture_send(
-            case.get("send")
-                .ok_or_else(|| String::from("FileResponse asgi-call send input is missing"))?,
-        )?;
+        let send = case
+            .get("send")
+            .ok_or_else(|| String::from("FileResponse asgi-call send input is missing"))?;
+        let send_object = send
+            .as_object()
+            .ok_or_else(|| String::from("FileResponse asgi-call send input must be an object"))?;
+        if send_object.get("kind").and_then(Value::as_str) == Some("capture-asgi-send") {
+            validate_capture_send(send)?;
+        } else {
+            let send_error_input = exact_object(
+                send,
+                &["kind", "event_index", "message"],
+                "FileResponse bounded failing send",
+            )?;
+            if string_field(
+                send_error_input,
+                "kind",
+                "FileResponse bounded failing send",
+            )? != "capture-asgi-send-until-oserror"
+            {
+                return Err(String::from(
+                    "FileResponse send input must select captured ASGI messages or bounded OSError",
+                ));
+            }
+            let event_index = send_error_input
+                .get("event_index")
+                .and_then(Value::as_u64)
+                .and_then(|value| usize::try_from(value).ok())
+                .filter(|value| (6..=64).contains(value))
+                .ok_or_else(|| {
+                    String::from("FileResponse bounded failing send event_index must be 6 to 64")
+                })?;
+            let message = string_field(
+                send_error_input,
+                "message",
+                "FileResponse bounded failing send",
+            )?
+            .to_owned();
+            send_error = Some((event_index, message));
+        }
         vec![case]
     };
 
@@ -7246,11 +7287,37 @@ fn run_file_response_case(case: &Value) -> Result<Value, String> {
                 .ok_or_else(|| String::from("FileResponse file.mtime_seconds must be finite"))?;
             let mtime_text = python_float_text_for_input(mtime_number);
             let (temporary_directory, path) = create_file_response_input(file_name, &contents)?;
-            let metadata = FileMetadata::from_unix_seconds(
-                u64::try_from(contents.len()).map_err(|error| error.to_string())?,
-                mtime_number,
-                mtime_text,
-            )
+            let metadata = if let Some(stat_result) = case.get("stat_result") {
+                let stat_result = exact_object(
+                    stat_result,
+                    &["size", "mtime_seconds"],
+                    "FileResponse stat_result",
+                )?;
+                let size = stat_result
+                    .get("size")
+                    .and_then(Value::as_u64)
+                    .ok_or_else(|| {
+                        String::from("FileResponse stat_result.size must be an unsigned integer")
+                    })?;
+                let modified_seconds = stat_result
+                    .get("mtime_seconds")
+                    .and_then(Value::as_f64)
+                    .filter(|value| value.is_finite())
+                    .ok_or_else(|| {
+                        String::from("FileResponse stat_result.mtime_seconds must be finite")
+                    })?;
+                FileMetadata::from_unix_seconds(
+                    size,
+                    modified_seconds,
+                    python_float_text_for_input(modified_seconds),
+                )
+            } else {
+                FileMetadata::from_unix_seconds(
+                    u64::try_from(contents.len()).map_err(|error| error.to_string())?,
+                    mtime_number,
+                    mtime_text,
+                )
+            }
             .map_err(|error| error.to_string())?;
             (Some(temporary_directory), path, Some(metadata), None)
         };
@@ -7421,9 +7488,48 @@ fn run_file_response_case(case: &Value) -> Result<Value, String> {
         let mut ordered_headers = Vec::new();
         let mut response_bytes = Vec::new();
         let mut events = Vec::new();
+        let mut send_index = 0usize;
         loop {
             match call.step().map_err(|error| error.to_string())? {
                 FileResponseCallStep::Send(event) => {
+                    if send_error
+                        .as_ref()
+                        .is_some_and(|(event_index, _)| send_index == *event_index)
+                    {
+                        let message = send_error
+                            .as_ref()
+                            .map(|(_, message)| message.clone())
+                            .ok_or_else(|| {
+                                String::from("FileResponse failing send input disappeared")
+                            })?;
+                        match call
+                            .advance(FileResponseCallInput::<String>::Send(Err(message.clone())))
+                        {
+                            Err(FileResponseCallError::Operation(error)) if error == message => {
+                                captured_dispatch_error = Some(json!({
+                                    "class": "builtins.OSError",
+                                    "kind": "exception",
+                                    "message": message,
+                                    "stage": "dispatch",
+                                    "code": null,
+                                    "cause": null,
+                                    "suppress_context": false,
+                                }));
+                                break;
+                            }
+                            Err(error) => {
+                                return Err(format!(
+                                    "FileResponse failed-send transition returned an unexpected error: {error:?}"
+                                ));
+                            }
+                            Ok(()) => {
+                                return Err(String::from(
+                                    "FileResponse failed-send transition unexpectedly succeeded",
+                                ));
+                            }
+                        }
+                    }
+                    send_index += 1;
                     let event_type = match &event {
                         FileResponseEvent::Start { .. } => "http.response.start",
                         FileResponseEvent::Body { .. } => "http.response.body",

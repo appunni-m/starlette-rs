@@ -195,7 +195,9 @@ impl PyStarletteRuntime {
             let pair = entry?.cast_into::<PyTuple>()?;
             let key = pair.get_item(0)?;
             let value = pair.get_item(1)?;
-            if key.eq(500)? || key.is(&exception_type) {
+            // Match tuple membership in Starlette's `key in (500, Exception)`:
+            // an Exception subclass may define a metaclass equality override.
+            if key.eq(500)? || key.eq(&exception_type)? {
                 server_error_handler = Some(value.unbind());
             } else {
                 user_exception_handlers.set_item(key, value)?;

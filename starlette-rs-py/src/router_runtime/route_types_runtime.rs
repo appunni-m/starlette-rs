@@ -2652,7 +2652,9 @@ fn mount_url_path_for(
             let prefix = format!("{}:", mount_name.extract::<String>()?);
             PyString::new(py, name_text.strip_prefix(&prefix).unwrap_or(&name_text)).into_any()
         };
-        let path_kwarg = current_params.get_item("path")?;
+        let path_kwarg = current_params
+            .get_item("path")?
+            .filter(|value| !value.is_none());
         current_params.set_item("path", "")?;
         let (path_prefix, remaining_params) = format_path_params(py, mount, &current_params, true)?;
         if let Some(path_kwarg) = path_kwarg {

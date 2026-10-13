@@ -359,6 +359,7 @@
       "build/parity/inputs/parity/request-client-address.json",
       "build/parity/inputs/parity/request-scope-interface.json",
       "build/parity/inputs/parity/request-consumption.json",
+      "build/parity/inputs/parity/request-custom-receive-event-interleaved.json",
       "build/parity/inputs/parity/request-explicit-none-receive.json",
       "build/parity/inputs/parity/request-stream-close-recovery.json",
       "build/parity/inputs/parity/request-body-receive-error-retry.json",
@@ -388,6 +389,7 @@
       "build/parity/inputs/parity/route-representations.json",
       "build/parity/inputs/parity/route-constructor-errors.json",
       "build/parity/inputs/parity/websocket-state-sequence.json",
+      "build/parity/inputs/parity/websocket-raw-state-assignment.json",
       "build/parity/inputs/parity/websocket-send-non-string-type.json",
       "build/parity/inputs/parity/websocket-receive-unhashable-type.json",
       "build/parity/inputs/parity/websocket-send-string-subclass-hash-error.json",
@@ -427,6 +429,7 @@
       "build/parity/inputs/parity/router-host-header-case-insensitive.json",
       "build/parity/inputs/parity/status-constants.json",
       "build/parity/inputs/parity/cors-middleware.json",
+      "build/parity/inputs/parity/cors-private-network-empty-header.json",
       "build/parity/inputs/parity/cors-response-header-container.json",
       "build/parity/inputs/parity/middleware-docs-inputs.json",
       "build/parity/inputs/parity/host-middleware.json",
@@ -509,6 +512,7 @@
       "build/parity/inputs/parity/testclient-client-port-preservation.json",
       "build/parity/inputs/parity/testclient-server-port-preservation.json",
       "build/parity/inputs/parity/testclient-incomplete-response-return.json",
+      "build/parity/inputs/parity/testclient-portal-setup-exception-policy.json",
       "build/parity/inputs/parity/testclient-partial-response-exception.json",
       "build/parity/inputs/parity/testclient-generator-body-buffering.json",
       "build/parity/inputs/parity/testclient-template-debug-extension.json",
@@ -544,6 +548,7 @@
       "build/parity/inputs/parity/request-property-worker-lifetime.json",
       "build/parity/inputs/parity/public-value-lifetime.json",
       "build/parity/inputs/parity/response-consumers.json",
+      "build/parity/inputs/parity/response-async-special-method-lookup.json",
       "build/parity/inputs/parity/response-streaming-subclass-callback.json",
       "build/parity/inputs/parity/response-call-override.json",
       "build/parity/inputs/parity/response-subclasses.json",
@@ -572,6 +577,7 @@
       "build/parity/inputs/parity/static-files-named-timezone.json",
       "build/parity/inputs/parity/static-files-omitted-timezone.json",
       "build/parity/inputs/parity/static-files-weekdayless-date.json",
+      "build/parity/inputs/parity/static-files-empty-if-none-match.json",
       "build/parity/inputs/parity/static-files-if-modified-since-full-month.json",
       "build/parity/inputs/parity/static-files-if-modified-since-rfc-comment.json",
       "build/parity/inputs/parity/static-files-if-modified-since-internal-comment.json",
@@ -599,6 +605,10 @@
       "build/parity/inputs/parity/wsgi-sender-protocols.json",
       "build/parity/inputs/parity/wsgi-empty-response-iterable.json",
       "build/parity/inputs/parity/asgi-http-exception-explicit-integer-status.json",
+      "build/parity/inputs/parity/asgi-http-exception-value-errors.json",
+      "build/parity/inputs/parity/file-response-multipart-short-read-loop.json",
+      "build/parity/inputs/parity/middleware-special-handler-equality.json",
+      "build/parity/inputs/parity/router-url-path-none-parameter.json",
       "build/parity/inputs/parity/native-service-mounted-child.json",
       "build/parity/inputs/parity/native-service-host-routing.json",
       "build/parity/inputs/parity/native-streaming-response-source.json",
@@ -1852,6 +1862,17 @@
               ]
             },
             {
+              "id": "starlette.applications.Starlette.build_middleware_stack.special-handler-equality",
+              "dimension": "boundary",
+              "description": "Classify an Exception subclass key by Python equality during middleware-stack construction, then select its ServerErrorMiddleware handler for a raised RuntimeError. Pinned source: starlette/applications.py:68-72.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.asgi.server-error.special-key-order",
               "dimension": "parameter_combination",
               "description": "When both 500 and Exception handlers are configured, the last mapping entry wins for unhandled HTTP exceptions. Upstream: starlette/applications.py middleware-stack iteration order.",
@@ -2151,6 +2172,28 @@
               "id": "starlette.asgi.http-exception.explicit-status-python-integer",
               "dimension": "parameter_combination",
               "description": "Raise HTTPException with an explicit detail and statuses outside the standard HTTPStatus range, including integers larger than u16 and i64; preserve the original Python status and plain-text rendering through ExceptionMiddleware. Pinned source: starlette/exceptions.py:7-16; starlette/middleware/exceptions.py:65-69; starlette/responses.py:33-47,57-81.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.asgi.http-exception.non-string-detail-error",
+              "dimension": "error_path",
+              "description": "Pass an input-defined non-string detail through the default HTTPException handler to PlainTextResponse without adapter-side coercion. Pinned source: starlette/middleware/exceptions.py:65-69; starlette/responses.py:33-53.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.asgi.http-exception.non-string-header-key-error",
+              "dimension": "error_path",
+              "description": "Pass an input-defined non-string exception header key into default response construction without adapter-side string narrowing. Pinned source: starlette/middleware/exceptions.py:65-69; starlette/responses.py:55-62.",
               "lanes": [
                 "parity"
               ],
@@ -11674,6 +11717,17 @@
               ]
             },
             {
+              "id": "starlette.middleware.cors.CORSMiddleware.private-network-empty-header-denial",
+              "dimension": "boundary",
+              "description": "Reject an otherwise eligible preflight when Access-Control-Request-Private-Network is present with an empty value and private-network access is disabled. Pinned source checks for a non-None header value without requiring the string true: starlette/middleware/cors.py:110-112,137-148. The upstream test and docs only exercise/document the true value: tests/middleware/test_cors.py::test_cors_private_network_access_disallowed; docs/middleware.md:96-102.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.middleware.cors.CORSMiddleware.simple-denied-origin-preserves-app-response",
               "dimension": "error_path",
               "description": "Preserve the inner response when a simple request origin is denied.",
@@ -16229,6 +16283,21 @@
               ]
             },
             {
+              "id": "starlette.request.stream-ignore-custom-receive-event-between-body-chunks",
+              "dimension": "boundary",
+              "description": "Ignore an application-defined receive event between a partial http.request chunk and the final chunk, append only the request body chunks, and continue reading until completion. Pinned source: starlette/requests.py:239-252,254-260; the stream loop reads until its final http.request and handles only http.request and http.disconnect.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
               "id": "starlette.request.concurrent-body-stream-consumption",
               "dimension": "boundary",
               "description": "Overlap Request.body() with a second Request.stream() while the first receive callback is blocked, then compare completion, cached body, and receive ordering. Pinned source: starlette/requests.py::Request.body and Request.stream.",
@@ -17994,6 +18063,18 @@
               "id": "starlette.responses.FileResponse.asgi-call.range-head-max",
               "dimension": "parameter_combination",
               "description": "Request an end offset beyond the file extent using HEAD and compare the clamped 206 range headers. Upstream: starlette/responses.py::FileResponse._parse_ranges; tests/test_responses.py::test_file_response_range_head_max.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.FileResponse.asgi-call.multipart-short-read-loop",
+              "dimension": "error_path",
+              "description": "Supply stat metadata larger than the actual file, request a multipart range extending past EOF, and bound the pinned repeated empty-body loop with an input-indexed ASGI send OSError. Pinned source: starlette/responses.py:439-447.",
               "lanes": [
                 "parity"
               ],
@@ -21163,6 +21244,17 @@
               "target_profiles": [
                 "python-package-cpython312"
               ]
+            },
+            {
+              "id": "starlette.responses.StreamingResponse.consumer-construction.async-iteration-special-method-lookup",
+              "dimension": "protocol_variant",
+              "description": "When StreamingResponse consumes a custom async iterator, Python's async-for protocol resolves __aiter__ and __anext__ on the object's type and ignores same-named instance attributes. Pinned source: starlette/responses.py:248-255.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
             }
           ],
           "parity": {
@@ -21835,6 +21927,17 @@
               "id": "starlette.routing.Mount.url_path_for.mismatch",
               "dimension": "error_path",
               "description": "A missing path or extra parameter on direct Mount lookup raises NoMatchFound.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Mount.url_path_for.none-path-is-not-forwarded",
+              "dimension": "error_path",
+              "description": "When a namespaced child route requires its path parameter, a Mount lookup omits a supplied None value before delegating, so the child raises NoMatchFound instead of formatting None. Pinned source: starlette/routing.py:260-269,441-449.",
               "lanes": [
                 "parity"
               ],
@@ -25741,6 +25844,18 @@
               ]
             },
             {
+              "id": "starlette.staticfiles.StaticFiles.asgi-call.empty-if-none-match-falls-through-to-if-modified-since",
+              "dimension": "boundary",
+              "description": "Supply an empty If-None-Match value with a matching If-Modified-Since validator and compare the live 304 response and ASGI events. The falsey If-None-Match assignment expression skips the ETag branch and evaluates the date validator. Pinned source: starlette/staticfiles.py:205-221; related upstream test: tests/test_staticfiles.py::test_staticfiles_200_with_etag_mismatch_and_timestamp_match.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.staticfiles.StaticFiles.asgi-call.if-modified-since-numeric-timezone",
               "dimension": "parameter_combination",
               "description": "Compare StaticFiles conditional response handling when If-Modified-Since uses a numeric timezone suffix; the pinned implementation delegates to email.utils.parsedate and compares the parsed date fields.",
@@ -27263,7 +27378,7 @@
           "source": {
             "oracle_id": "starlette-python",
             "path": "starlette.websockets.WebSocket",
-            "signature": "Parity workflow: drive public WebSocket.accept(), receive(), and send(message) calls plus input-defined client_state and application_state assignments, project each outcome to ok/error-class-and-message/send-error-handled, and observe both state enums. Python targets report the fully qualified class of the actual exception; the Rust-native adapter models accept with receive/send state transitions and reports the Python compatibility class associated with its typed state error (PyRuntimeError -> builtins.RuntimeError) or input-declared callback OSError. Exception causes and context remain excluded; adapter/runtime failures are top-level infrastructure errors.",
+            "signature": "Parity workflow: drive public WebSocket.accept(), receive(), and send(message) calls plus input-defined client_state and application_state assignments, including raw Python state values, project each outcome to ok/error-class-and-message/send-error-handled, and observe both state values and the ASGI receive callback count. Python targets report the fully qualified class of the actual exception; the Rust-native adapter models accept with receive/send state transitions and reports the Python compatibility class associated with its typed state error (PyRuntimeError -> builtins.RuntimeError) or input-declared callback OSError. Exception causes and context remain excluded; adapter/runtime failures are top-level infrastructure errors.",
             "parameters": [
               {
                 "id": "scope",
@@ -27311,7 +27426,8 @@
                 {
                   "path": "client_state",
                   "value_types": [
-                    "enum"
+                    "enum",
+                    "integer"
                   ],
                   "comparison": {
                     "kind": "exact"
@@ -27321,6 +27437,15 @@
                   "path": "application_state",
                   "value_types": [
                     "enum"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                },
+                {
+                  "path": "receive_calls",
+                  "value_types": [
+                    "integer"
                   ],
                   "comparison": {
                     "kind": "exact"
@@ -27556,6 +27681,17 @@
               ],
               "target_profiles": [
                 "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.websocket.state.raw-client-state-assignment",
+              "dimension": "boundary",
+              "description": "Assign the supplied integer directly to the public client_state attribute, observe the unchanged integer getter value, then call receive() and verify its terminal-state RuntimeError occurs without invoking the ASGI receive callback. The Python package implements state transitions in Rust and retains this raw Python value at the PyO3 boundary. Pinned source: starlette/websockets.py:32-57.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
                 "python-package-cpython312"
               ]
             },
@@ -29033,6 +29169,17 @@
               "id": "starlette.testclient.TestClient.request-response.exception-policy",
               "dimension": "error_path",
               "description": "Propagate application exceptions by default, return a 500 response when raise_server_exceptions is false before response start or while decoding response-start headers, and return an already completed response when the app raises afterward. Pinned source: starlette/testclient.py:330-367; docs/testclient.md:74-77; tests/middleware/test_errors.py:25-48.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.request-response.backend-setup-exception-policy",
+              "dimension": "error_path",
+              "description": "Include AnyIO portal creation and entry in the TestClient error-policy boundary: propagate backend setup failures when raise_server_exceptions is true and return an empty 500 response when it is false. Pinned source: starlette/testclient.py:348-363,382-395,422-428.",
               "lanes": [
                 "parity"
               ],

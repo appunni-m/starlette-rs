@@ -1008,7 +1008,11 @@ impl FileResponseCall {
                     let size = file.read(&mut body)?;
                     body.truncate(size);
                     let next_cursor = cursor.saturating_add(size as u64);
-                    let after = if next_cursor >= end || size == 0 {
+                    // Starlette's `while start < end` does not advance on EOF
+                    // when caller-supplied stat data is larger than the file.
+                    // Preserve its repeated empty body events until the caller
+                    // terminates the ASGI send sequence.
+                    let after = if next_cursor >= end {
                         FileResponsePhase::MultipartSeparator { index }
                     } else {
                         FileResponsePhase::MultipartBody {

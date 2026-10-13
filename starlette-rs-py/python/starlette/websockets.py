@@ -39,23 +39,25 @@ class WebSocket(HTTPConnection[StateT]):
         super().__init__(scope)
         self._receive = receive
         self._send = send
-        self._protocol = _core.WebSocketProtocol(scope, receive, send, WebSocketDisconnect)
+        self._protocol = _core.WebSocketProtocol(
+            scope, receive, send, WebSocketDisconnect, WebSocketState
+        )
 
     @property
     def client_state(self) -> WebSocketState:
-        return WebSocketState(self._protocol.client_state())
+        return self._protocol.client_state()
 
     @client_state.setter
     def client_state(self, state: WebSocketState) -> None:
-        self._protocol.set_client_state(state.value)
+        self._protocol.set_client_state(state)
 
     @property
     def application_state(self) -> WebSocketState:
-        return WebSocketState(self._protocol.application_state())
+        return self._protocol.application_state()
 
     @application_state.setter
     def application_state(self, state: WebSocketState) -> None:
-        self._protocol.set_application_state(state.value)
+        self._protocol.set_application_state(state)
 
     async def receive(self) -> Message:
         return await self._protocol.receive()

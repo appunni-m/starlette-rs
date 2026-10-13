@@ -279,6 +279,7 @@ TESTCLIENT_REQUIREMENTS = {
     "asgi3_asyncio_marker": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.asyncio-marked-asgi3-callable",
     "timeout_warning": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.timeout-deprecation-warning",
     "exception_policy": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.exception-policy",
+    "backend_setup_exception_policy": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.backend-setup-exception-policy",
     "message_mapping": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.asgi-message-mutable-mapping",
     "non_string_message_exception": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.non-string-asgi-message-before-exception",
     "no_response_return": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.normal-return-without-response",
@@ -1220,6 +1221,7 @@ FILE_RESPONSE_SURFACE = "starlette.responses.FileResponse"
 STATIC_FILES_SURFACE = "starlette.staticfiles.StaticFiles"
 STATIC_FILES_LOOKUP_PATH_OPERATION = "lookup-path"
 STATIC_FILES_OS_SPECIFIC_PATH_BEHAVIOR = "os-specific-path-normalization"
+STATIC_FILES_EMPTY_IF_NONE_MATCH_FALLBACK = "empty-if-none-match-falls-through-to-if-modified-since"
 STATIC_FILES_LOOKUP_PATH_NULL_BYTE_REQUIREMENT = (
     f"{STATIC_FILES_SURFACE}.{STATIC_FILES_LOOKUP_PATH_OPERATION}.null-byte-error"
 )
@@ -1247,6 +1249,9 @@ STREAMING_RESPONSE_MUTABLE_STATUS_REQUIREMENT = (
 )
 STREAMING_RESPONSE_AWAIT_FACTORY_STOP_REQUIREMENT = (
     f"{STREAMING_RESPONSE_SURFACE}.{STREAMING_RESPONSE_OPERATION}.async-iterator-await-factory-stop"
+)
+STREAMING_RESPONSE_ASYNC_ITERATION_SPECIAL_METHOD_REQUIREMENT = (
+    f"{STREAMING_RESPONSE_SURFACE}.consumer-construction.async-iteration-special-method-lookup"
 )
 STREAMING_RESPONSE_START_SEND_DISCONNECT_REQUIREMENT = f"{STREAMING_RESPONSE_SURFACE}.{STREAMING_RESPONSE_OPERATION}.client-disconnect-start-send-oserror"
 STREAMING_RESPONSE_FINAL_SEND_DISCONNECT_REQUIREMENT = f"{STREAMING_RESPONSE_SURFACE}.{STREAMING_RESPONSE_OPERATION}.client-disconnect-final-send-oserror"
@@ -1284,6 +1289,12 @@ RESPONSE_BACKGROUND_REQUIREMENTS = {
 }
 RESPONSE_BACKGROUND_CONTEXTVAR_REQUIREMENT = "starlette.responses.Response.consumer-construction.sync-background-contextvar-worker-propagation"
 FILE_RESPONSE_PATHSEND_REQUIREMENT = f"{FILE_RESPONSE_SURFACE}.{RESPONSE_OPERATION}.pathsend"
+FILE_RESPONSE_MULTIPART_SHORT_READ_REQUIREMENT = (
+    f"{FILE_RESPONSE_SURFACE}.{RESPONSE_OPERATION}.multipart-short-read-loop"
+)
+MOUNT_NONE_PATH_FORWARDING_REQUIREMENT = (
+    "starlette.routing.Mount.url_path_for.none-path-is-not-forwarded"
+)
 FILE_RESPONSE_ASYNC_FILE_OPEN_SCHEDULING_REQUIREMENT = (
     f"{FILE_RESPONSE_SURFACE}.{RESPONSE_OPERATION}.async-file-open-scheduling"
 )
@@ -1573,6 +1584,9 @@ REQUEST_CONSUMPTION_REQUIREMENTS = {
     "stream_disconnect_retry": "starlette.request.stream-disconnect-retry",
     "stream_close_recovery": "starlette.request.stream-close-recovers-remaining-body",
     "custom_receive_event": "starlette.request.stream-ignore-custom-receive-events",
+    "custom_receive_event_between_chunks": (
+        "starlette.request.stream-ignore-custom-receive-event-between-body-chunks"
+    ),
 }
 SYNC_REQUEST_RUNTIME_REQUIREMENTS = {
     "receive": "starlette.request.receive-worker-access",
@@ -1676,6 +1690,9 @@ GZIP_RESPONDER_REQUIREMENTS = {
 CORS_SURFACE = "starlette.middleware.cors.CORSMiddleware"
 CORS_PRIVATE_NETWORK_DENIAL_REQUIREMENT = (
     "starlette.middleware.cors.CORSMiddleware.private-network-access-denial"
+)
+CORS_PRIVATE_NETWORK_EMPTY_HEADER_DENIAL_REQUIREMENT = (
+    "starlette.middleware.cors.CORSMiddleware.private-network-empty-header-denial"
 )
 HTTPS_REDIRECT_SURFACE = "starlette.middleware.httpsredirect.HTTPSRedirectMiddleware"
 TRUSTED_HOST_SURFACE = "starlette.middleware.trustedhost.TrustedHostMiddleware"
@@ -3888,14 +3905,22 @@ def _validate_websocket_case_stimulus(case: dict[str, Any]) -> None:
             for action in actions
         )
     )
+    has_raw_state_assignment = (
+        operation == WEBSOCKET_STATE_OPERATION
+        and isinstance(actions, list)
+        and any(
+            isinstance(action, dict) and action.get("action") == "set-client-state-raw"
+            for action in actions
+        )
+    )
     expected_profiles = (
         ["python-package-cpython312"]
-        if has_python_string_subclass_send or has_python_unhashable_send
+        if has_python_string_subclass_send or has_python_unhashable_send or has_raw_state_assignment
         else ["rust-native-local", "python-package-cpython312"]
     )
     if case["target_profiles"] != expected_profiles:
         raise ContractError(
-            "WebSocket cases must select both target profiles unless outgoing Python "
+            "WebSocket cases must select both target profiles unless Python-boundary "
             "value semantics require the Python-package profile"
         )
     _validate_websocket_scope(case["scope"])
@@ -3911,6 +3936,7 @@ def _validate_websocket_case_stimulus(case: dict[str, Any]) -> None:
     ]
     action_ids: set[str] = set()
     incoming_index = 0
+    receive_calls = 0
     client_state = "CONNECTING"
     application_state = "CONNECTING"
     terminal_receive_count = 0
@@ -3925,6 +3951,7 @@ def _validate_websocket_case_stimulus(case: dict[str, Any]) -> None:
     client_state_reset_pending = False
     invalid_receive_after_client_state_reset = False
     application_state_assignment_observed = False
+    raw_client_state_assignment_observed = False
     for index, action in enumerate(actions):
         context = f"WebSocket actions[{index}]"
         if not isinstance(action, dict):
@@ -3943,6 +3970,7 @@ def _validate_websocket_case_stimulus(case: dict[str, Any]) -> None:
                     )
                 message_type = incoming_types[incoming_index]
                 incoming_index += 1
+                receive_calls += 1
                 if client_state_reset_pending:
                     invalid_receive_after_client_state_reset = message_type != "websocket.connect"
                     client_state_reset_pending = False
@@ -3955,6 +3983,7 @@ def _validate_websocket_case_stimulus(case: dict[str, Any]) -> None:
                     )
                 message_type = incoming_types[incoming_index]
                 incoming_index += 1
+                receive_calls += 1
                 if message_type == "websocket.disconnect":
                     client_state = "DISCONNECTED"
             else:
@@ -3969,6 +3998,7 @@ def _validate_websocket_case_stimulus(case: dict[str, Any]) -> None:
                     raise ContractError(f"{context} has no input message for accept()")
                 message_type = incoming_types[incoming_index]
                 incoming_index += 1
+                receive_calls += 1
                 if message_type == "websocket.connect":
                     client_state = "CONNECTED"
                 else:
@@ -4073,6 +4103,17 @@ def _validate_websocket_case_stimulus(case: dict[str, Any]) -> None:
                 raise ContractError(f"{context}.state is not a WebSocketState name")
             application_state_assignment_observed |= requested_state != application_state
             application_state = requested_state
+        elif action_kind == "set-client-state-raw":
+            if operation != WEBSOCKET_STATE_OPERATION:
+                raise ContractError(
+                    f"{context}.set-client-state-raw is supported only by state-sequence"
+                )
+            _exact(action, {"action_id", "action", "value"}, context)
+            if type(action["value"]) is not int:
+                raise ContractError(f"{context}.value must be an integer")
+            client_state = "INVALID"
+            client_state_reset_pending = False
+            raw_client_state_assignment_observed = True
         else:
             raise ContractError(
                 f"{context}.action is unsupported by the Rust-equivalent raw protocol surface; "
@@ -4192,6 +4233,12 @@ def _validate_websocket_case_stimulus(case: dict[str, Any]) -> None:
             coverage.add("starlette.websocket.state.client-state-reset-invalid-receive")
         if application_state_assignment_observed:
             coverage.add("starlette.websocket.state.application-state-assignment")
+        if (
+            raw_client_state_assignment_observed
+            and terminal_receive_count > 0
+            and receive_calls == 0
+        ):
+            coverage.add("starlette.websocket.state.raw-client-state-assignment")
     unexercised = set(case["covers"]) - coverage
     if unexercised:
         raise ContractError(
@@ -6360,6 +6407,7 @@ def _validate_file_response_case_stimulus(case: dict[str, Any]) -> None:
             "call_time_field_assignments",
             "content_disposition_type",
             "background_task",
+            "stat_result",
         )
         if key in case
     }
@@ -6495,12 +6543,26 @@ def _validate_file_response_case_stimulus(case: dict[str, Any]) -> None:
             file_input["contents_base64"], "FileResponse file.contents_base64"
         )
         try:
-            base64.b64decode(contents_base64, validate=True)
+            file_contents = base64.b64decode(contents_base64, validate=True)
         except (ValueError, TypeError) as exc:
             raise ContractError("FileResponse file.contents_base64 must be valid base64") from exc
         mtime_seconds = file_input["mtime_seconds"]
         if type(mtime_seconds) not in {int, float} or not math.isfinite(mtime_seconds):
             raise ContractError("FileResponse file.mtime_seconds must be a finite number")
+        if "stat_result" in case:
+            stat_input = _exact(
+                case["stat_result"],
+                {"size", "mtime_seconds"},
+                "FileResponse stat_result",
+            )
+            if type(stat_input["size"]) is not int or not 0 <= stat_input["size"] <= 2**64 - 1:
+                raise ContractError("FileResponse stat_result.size must be an unsigned integer")
+            if type(stat_input["mtime_seconds"]) not in {int, float} or not math.isfinite(
+                stat_input["mtime_seconds"]
+            ):
+                raise ContractError("FileResponse stat_result.mtime_seconds must be finite")
+        else:
+            file_contents = b""
     if background_task is not None and error_path_kind is not None:
         raise ContractError("FileResponse background task requires a regular file input")
 
@@ -6673,8 +6735,88 @@ def _validate_file_response_case_stimulus(case: dict[str, Any]) -> None:
             raise ContractError(
                 "FileResponse pathsend coverage requires a GET without a Range request header"
             )
-    if incoming != [] or send != {"kind": "capture-asgi-send"}:
-        raise ContractError("FileResponse asgi-call requires empty receive and captured send")
+    send_error = None
+    if send != {"kind": "capture-asgi-send"}:
+        if not isinstance(send, dict):
+            raise ContractError("FileResponse send must select captured ASGI messages")
+        send_error = _exact(
+            send,
+            {"kind", "event_index", "message"},
+            "FileResponse bounded failing send",
+        )
+        if (
+            send_error["kind"] != "capture-asgi-send-until-oserror"
+            or type(send_error["event_index"]) is not int
+            or not 6 <= send_error["event_index"] <= 64
+        ):
+            raise ContractError("FileResponse bounded failing send input is invalid")
+        _string(send_error["message"], "FileResponse bounded failing send message")
+    if incoming != []:
+        raise ContractError("FileResponse asgi-call requires an empty receive stream")
+    has_short_read_inputs = "stat_result" in case or send_error is not None
+    if has_short_read_inputs:
+        if (
+            "stat_result" not in case
+            or send_error is None
+            or error_path_kind is not None
+            or call_sequence
+            or any(
+                key in case
+                for key in (
+                    "background_task",
+                    "call_time_field_assignments",
+                    "header_view_probe",
+                    "scheduling",
+                )
+            )
+            or case["target_profiles"] != ["rust-native-local", "python-package-cpython312"]
+            or case["covers"] != [FILE_RESPONSE_MULTIPART_SHORT_READ_REQUIREMENT]
+        ):
+            raise ContractError(
+                "FileResponse short-read inputs must select their bounded direct-call slice"
+            )
+        stat_size = case["stat_result"]["size"]
+        if stat_size <= len(file_contents):
+            raise ContractError("FileResponse short-read stat size must exceed the file bytes")
+        if scope_spec["method"].upper() != "GET":
+            raise ContractError("FileResponse short-read input requires a direct GET")
+        range_values = []
+        for pair in scope_spec["headers_base64_pairs"]:
+            try:
+                name = base64.b64decode(pair[0], validate=True).lower()
+                value = base64.b64decode(pair[1], validate=True).decode("latin-1")
+            except (ValueError, TypeError, UnicodeDecodeError) as exc:
+                raise ContractError(
+                    "FileResponse short-read request headers must be valid base64"
+                ) from exc
+            if name == b"range":
+                range_values.append(value)
+        if len(range_values) != 1 or not range_values[0].startswith("bytes="):
+            raise ContractError("FileResponse short-read input requires one bytes Range header")
+        ranges = range_values[0][len("bytes=") :].split(",")
+        if len(ranges) < 2:
+            raise ContractError("FileResponse short-read input requires multipart ranges")
+        reaches_short_read = False
+        for range_value in ranges:
+            pieces = range_value.strip().split("-", maxsplit=1)
+            if len(pieces) != 2 or any(
+                not piece.isascii() or not piece.isdigit() for piece in pieces
+            ):
+                raise ContractError(
+                    "FileResponse short-read ranges must be explicit byte intervals"
+                )
+            start, end = (int(piece) for piece in pieces)
+            if start > end or end >= stat_size:
+                raise ContractError(
+                    "FileResponse short-read ranges must fit the supplied stat size"
+                )
+            reaches_short_read = reaches_short_read or start >= len(file_contents)
+        if not reaches_short_read:
+            raise ContractError("FileResponse short-read ranges must reach beyond the actual file")
+    elif case["covers"] == [FILE_RESPONSE_MULTIPART_SHORT_READ_REQUIREMENT]:
+        raise ContractError(
+            "FileResponse multipart short-read coverage requires stat and send faults"
+        )
     if "scheduling" in case:
         scheduling = _exact(
             case["scheduling"],
@@ -6751,6 +6893,7 @@ def _validate_file_response_case_stimulus(case: dict[str, Any]) -> None:
         {"scope": dispatch_scope, "receive": incoming, "send": send},
         request_dispatch=True,
         allow_headers=True,
+        allow_oserror_send=send_error is not None,
     )
     if "header_view_probe" in case:
         probe = _exact(
@@ -7577,19 +7720,22 @@ def _validate_static_files_case_stimulus(
                         else "conditional-etag-mismatch"
                     )
             elif conditional_match:
-                derived.add(
-                    "if-modified-since-trailing-rfc-comment"
-                    if conditional_trailing_rfc_comment
-                    else "if-modified-since-omitted-timezone"
-                    if conditional_omitted_timezone
-                    else "if-modified-since-named-timezone"
-                    if conditional_named_timezone
-                    else "if-modified-since-numeric-timezone"
-                    if conditional_numeric_timezone
-                    else "if-modified-since-full-month"
-                    if conditional_full_month
-                    else "conditional-date-match"
-                )
+                if "if-none-match" in request_headers and not request_headers["if-none-match"]:
+                    derived.add(STATIC_FILES_EMPTY_IF_NONE_MATCH_FALLBACK)
+                else:
+                    derived.add(
+                        "if-modified-since-trailing-rfc-comment"
+                        if conditional_trailing_rfc_comment
+                        else "if-modified-since-omitted-timezone"
+                        if conditional_omitted_timezone
+                        else "if-modified-since-named-timezone"
+                        if conditional_named_timezone
+                        else "if-modified-since-numeric-timezone"
+                        if conditional_numeric_timezone
+                        else "if-modified-since-full-month"
+                        if conditional_full_month
+                        else "conditional-date-match"
+                    )
             elif selected_files[normalized_path][1]:
                 if "python-package-cpython312" in case["target_profiles"]:
                     derived.add("package-static-assets")
@@ -10495,6 +10641,20 @@ def _reverse_input_requirements(case: dict[str, Any]) -> set[str]:
             for node in _reverse_graph_nodes(graph)
         ):
             derived.add(rid("mount-asgi-app-route-with-middleware-no-match"))
+    if (
+        surface in {"starlette.routing.Router", "starlette.routing.Mount"}
+        and params.get("path", object()) is None
+        and found
+    ):
+        for _index, candidate in candidates:
+            if not any(_reverse_candidate_mount_paths(graph, {id(candidate)})):
+                continue
+            candidate_parameters = dict(
+                _validate_reverse_path(candidate["path"], custom, "Mount None-path child route")
+            )
+            if candidate_parameters.get("path") == "path":
+                derived.add(MOUNT_NONE_PATH_FORWARDING_REQUIREMENT)
+                break
     elif surface == HOST_SURFACE and found:
         if lookup["name"] == graph["name"]:
             derived.add(rid("direct-path"))
@@ -13198,7 +13358,7 @@ def _validate_testclient_case(
 ) -> None:
     settings_value = case["testclient"]
     optional_settings = (
-        {key for key in ("follow_redirects", "cookies") if key in settings_value}
+        {key for key in ("follow_redirects", "cookies", "backend") if key in settings_value}
         if isinstance(settings_value, dict)
         else set()
     )
@@ -13215,6 +13375,12 @@ def _validate_testclient_case(
         raise ContractError("TestClient.raise_server_exceptions must be boolean")
     if "follow_redirects" in settings and type(settings["follow_redirects"]) is not bool:
         raise ContractError("TestClient.follow_redirects must be boolean")
+    backend_setup_failure = False
+    if "backend" in settings:
+        backend = _string(settings["backend"], "TestClient.backend")
+        if not backend:
+            raise ContractError("TestClient.backend must not be empty")
+        backend_setup_failure = backend not in {"asyncio", "trio"}
     if "cookies" in settings and (
         not isinstance(settings["cookies"], dict)
         or any(
@@ -14983,6 +15149,15 @@ def _validate_testclient_case(
             > 1
         ):
             raise ContractError("TestClient ASGI response may contain one debug message")
+    if backend_setup_failure and (
+        asgi_app["kind"] not in {"asgi2", "asgi3", "asgi3-asyncio-marked"}
+        or messages
+        or exception_spec is not None
+        or followup_requests
+    ):
+        raise ContractError(
+            "TestClient backend setup-error inputs require a raw ASGI app without dispatch actions"
+        )
     observed_requests = [request, *followup_requests]
     if (
         any("auth" in item for item in observed_requests)
@@ -14994,6 +15169,8 @@ def _validate_testclient_case(
     ):
         raise ContractError("TestClient file uploads require the multipart-form request consumer")
     expected_covers = {TESTCLIENT_REQUIREMENTS["scope"]}
+    if backend_setup_failure:
+        expected_covers.add(TESTCLIENT_REQUIREMENTS["backend_setup_exception_policy"])
     if asgi_app.get("message_mapping") == "user-dict":
         expected_covers.add(TESTCLIENT_REQUIREMENTS["message_mapping"])
     if any("auth" in item for item in observed_requests):
@@ -15233,6 +15410,7 @@ def _validate_testclient_case(
         asgi_app["kind"] in {"asgi2", "asgi3", "asgi3-asyncio-marked"}
         and not messages
         and "exception" not in asgi_app
+        and not backend_setup_failure
     ):
         expected_covers.add(TESTCLIENT_REQUIREMENTS["no_response_return"])
     if (
@@ -20360,6 +20538,7 @@ def _validate_case_payload(
                     "call_time_field_assignments",
                     "content_disposition_type",
                     "background_task",
+                    "stat_result",
                 )
                 if key in case
             }
@@ -21954,6 +22133,12 @@ def _validate_server_error_application(args: dict[str, Any]) -> None:
     has_outer_handler = any(
         key == {"kind": "status-code", "status_code": 500}
         or key == {"kind": "exception-class", "name": "Exception"}
+        or (
+            key.get("kind") == "exception-class"
+            and key.get("name") == "ExceptionEqualSubclass"
+            and key.get("base_class") == "Exception"
+            and key.get("metaclass_equality") == "Exception"
+        )
         for key in keys
     )
     if handlers and not has_outer_handler:
@@ -25232,6 +25417,14 @@ def _validate_exception_handler_registry(value: Any) -> None:
                 _exact(key, {"kind", "name"}, f"{context}.key")
             elif name == "Exception":
                 _exact(key, {"kind", "name"}, f"{context}.key")
+            elif name == "ExceptionEqualSubclass":
+                _exact(
+                    key,
+                    {"kind", "name", "base_class", "metaclass_equality"},
+                    f"{context}.key",
+                )
+                if key["base_class"] != "Exception" or key["metaclass_equality"] != "Exception":
+                    raise ContractError("ExceptionEqualSubclass must compare equal to Exception")
             elif name == "BodyReuseException":
                 _exact(key, {"kind", "name", "base_class"}, f"{context}.key")
                 if key["base_class"] != "HTTPException":
@@ -25412,19 +25605,13 @@ def _validate_http_exception_application(route: dict[str, Any], handlers: Any) -
     ):
         raise ContractError("HTTP exception routes must select one absolute-path GET")
     status_code = endpoint["status_code"]
-    if (
-        type(status_code) is not int
-        or (endpoint["detail"] is not None and not isinstance(endpoint["detail"], str))
-        or not isinstance(endpoint["headers"], list)
-    ):
-        raise ContractError("HTTP exception stimulus has an invalid status, detail, or headers")
+    if type(status_code) is not int or not isinstance(endpoint["headers"], list):
+        raise ContractError("HTTP exception stimulus has an invalid status or headers")
     for index, pair in enumerate(endpoint["headers"]):
-        if (
-            not isinstance(pair, list)
-            or len(pair) != 2
-            or any(not isinstance(value, str) for value in pair)
-        ):
-            raise ContractError(f"HTTP exception header input[{index}] must be a string pair")
+        if not isinstance(pair, list) or len(pair) != 2:
+            raise ContractError(
+                f"HTTP exception header input[{index}] must be an input-defined pair"
+            )
     bool_key_equivalence = (
         status_code in {0, 1}
         and endpoint["headers"] == []
@@ -25447,6 +25634,9 @@ def _validate_http_exception_application(route: dict[str, Any], handlers: Any) -
             or handlers[0]["key"] != {"kind": "exception-class", "name": "HTTPException"}
             or handlers[0]["handler"].get("kind") != "json-exception-detail-headers-response"
             or not endpoint["headers"]
+            or any(
+                not all(isinstance(value, str) for value in pair) for pair in endpoint["headers"]
+            )
         ):
             raise ContractError(
                 "HTTPException header forwarding requires its documented custom handler and headers"
@@ -26753,16 +26943,35 @@ def _validate_request_body_stream_json_case(case: dict[str, Any]) -> None:
             ),
             None,
         )
+        custom_before_request = first_request_index is not None and all(
+            index < first_request_index for index in custom_receive_indices
+        )
+        interleaved_custom_index = (
+            custom_receive_indices[0] if len(custom_receive_indices) == 1 else None
+        )
+        custom_between_chunks = (
+            len(receive) == 3
+            and interleaved_custom_index == 1
+            and receive[0].get("type") == "http.request"
+            and receive[0].get("more_body", False) is True
+            and receive[2].get("type") == "http.request"
+            and receive[2].get("more_body", False) is False
+        )
         if (
-            first_request_index is None
-            or any(index > first_request_index for index in custom_receive_indices)
+            (not custom_before_request and not custom_between_chunks)
             or (not body_positions and not stream_positions)
             or blocked_receive_calls
         ):
             raise ContractError(
-                "custom receive events must precede an http.request consumed by body() or stream()"
+                "custom receive events must precede the first request or separate a partial "
+                "request from its final chunk consumed by body() or stream()"
             )
-        expected_covers.add(REQUEST_CONSUMPTION_REQUIREMENTS["custom_receive_event"])
+        requirement = (
+            "custom_receive_event_between_chunks"
+            if custom_between_chunks
+            else "custom_receive_event"
+        )
+        expected_covers.add(REQUEST_CONSUMPTION_REQUIREMENTS[requirement])
     if optional_receive_fields:
         expected_covers.add(REQUEST_CONSUMPTION_REQUIREMENTS["optional_receive_fields"])
     if len(direct_body_positions) > 1 and not receive_error_probe:
@@ -33470,6 +33679,24 @@ def _asgi_middleware_semantic_coverage(case: dict[str, Any]) -> set[str]:
                 cors_scope.get("type") == "http"
                 and cors_scope.get("method") == "OPTIONS"
                 and request_method is not None
+                and "access-control-request-private-network" in cors_headers
+                and cors_headers["access-control-request-private-network"] == ""
+                and not constructor["allow_private_network"]
+                and request_origin_allowed
+                and (
+                    "*" in constructor["allow_methods"]
+                    or request_method in constructor["allow_methods"]
+                )
+                and (
+                    "*" in allowed_request_headers
+                    or all(value in allowed_request_headers for value in request_headers)
+                )
+            ):
+                covered.add(CORS_PRIVATE_NETWORK_EMPTY_HEADER_DENIAL_REQUIREMENT)
+            if (
+                cors_scope.get("type") == "http"
+                and cors_scope.get("method") == "OPTIONS"
+                and request_method is not None
                 and cors_headers.get("access-control-request-private-network") == "true"
                 and constructor["allow_private_network"]
                 and request_origin_allowed
@@ -34393,14 +34620,25 @@ def _semantic_coverage(case: dict[str, Any]) -> set[str]:
             key_specs = [entry["key"] for entry in handlers]
             has_status_500 = {"kind": "status-code", "status_code": 500} in key_specs
             has_exception = {"kind": "exception-class", "name": "Exception"} in key_specs
+            has_exception_equal_subclass = any(
+                key.get("kind") == "exception-class"
+                and key.get("name") == "ExceptionEqualSubclass"
+                and key.get("base_class") == "Exception"
+                and key.get("metaclass_equality") == "Exception"
+                for key in key_specs
+            )
             if path_matches and method_matches:
                 if endpoint["kind"] == "raise-runtime-error":
                     if not handlers and not app_arguments["debug"]:
                         coverage.add("starlette.asgi.server-error.default-response")
                     if has_status_500:
                         coverage.add("starlette.asgi.server-error.status-500-handler")
-                    if has_exception:
+                    if has_exception or has_exception_equal_subclass:
                         coverage.add("starlette.asgi.server-error.exception-handler")
+                    if has_exception_equal_subclass:
+                        coverage.add(
+                            "starlette.applications.Starlette.build_middleware_stack.special-handler-equality"
+                        )
                     if has_status_500 and has_exception:
                         coverage.add("starlette.asgi.server-error.special-key-order")
                     if app_arguments["debug"]:
@@ -34531,6 +34769,14 @@ def _semantic_coverage(case: dict[str, Any]) -> set[str]:
                     coverage.add("starlette.asgi.http-exception.headers-200")
                 elif (status_code < 100 or status_code > 599) and isinstance(detail, str):
                     coverage.add("starlette.asgi.http-exception.explicit-status-python-integer")
+                elif 100 <= status_code <= 599 and type(detail) is int and not headers:
+                    coverage.add("starlette.asgi.http-exception.non-string-detail-error")
+                elif (
+                    100 <= status_code <= 599
+                    and isinstance(detail, str)
+                    and any(not isinstance(header_name, str) for header_name, _value in headers)
+                ):
+                    coverage.add("starlette.asgi.http-exception.non-string-header-key-error")
             return coverage
         if path_matches and method_matches:
             coverage.update(
@@ -38689,9 +38935,10 @@ def _validate_response_consumer_content(value: Any) -> None:
                 "Response memoryview shape must match its buffer; stride requires one dimension"
             )
     elif kind == "async-iterator":
-        definition = _exact(
-            content, {"chunks", "completion", "checkpoint", "failure"}, "Response async iterator"
-        )
+        fields = {"chunks", "completion", "checkpoint", "failure"}
+        if "instance_special_method_shadows" in content:
+            fields.add("instance_special_method_shadows")
+        definition = _exact(content, fields, "Response async iterator")
         if (
             definition["completion"] not in {"synchronous", "awaited"}
             or type(definition["checkpoint"]) is not bool
@@ -38721,6 +38968,20 @@ def _validate_response_consumer_content(value: Any) -> None:
                 "StopAsyncIteration",
             } or not isinstance(failure["message"], str):
                 raise ContractError("Response iterator failure requires a supported class and text")
+        if "instance_special_method_shadows" in definition:
+            shadows = definition["instance_special_method_shadows"]
+            if (
+                not isinstance(shadows, list)
+                or not shadows
+                or any(
+                    not isinstance(name, str) or name not in {"__aiter__", "__anext__"}
+                    for name in shadows
+                )
+                or len(shadows) != len(set(shadows))
+            ):
+                raise ContractError(
+                    "Response async iterator shadows require unique __aiter__ or __anext__ names"
+                )
     elif kind == "async-iterator-aiter-property-error":
         definition = _exact(content, {"message"}, "Response async-iterator descriptor failure")
         if not isinstance(definition["message"], str):
@@ -38832,6 +39093,7 @@ def _validate_response_consumer_case(case: dict[str, Any]) -> None:
             "starlette.responses.Response.consumer-construction.documented-subclass-call-override"
         )
     content_kind = case["construction"]["content"].get("kind")
+    async_iterator_value = case["construction"]["content"].get("value")
     if "protocols" in case or content_kind in {
         "async-iterator",
         "async-iterator-aiter-property-error",
@@ -38839,6 +39101,16 @@ def _validate_response_consumer_case(case: dict[str, Any]) -> None:
         expected_requirements.append(case["surface"] + ".consumer-construction.user-call-protocols")
         if "protocols" in case:
             _validate_response_user_protocols(case)
+    if (
+        content_kind == "async-iterator"
+        and isinstance(async_iterator_value, dict)
+        and async_iterator_value.get("instance_special_method_shadows")
+    ):
+        if case["surface"] != STREAMING_RESPONSE_SURFACE:
+            raise ContractError(
+                "Async iteration special-method lookup belongs to StreamingResponse"
+            )
+        expected_requirements.append(STREAMING_RESPONSE_ASYNC_ITERATION_SPECIAL_METHOD_REQUIREMENT)
     if content_kind == "async-iterator-aiter-property-error":
         if case["surface"] != "starlette.responses.StreamingResponse":
             raise ContractError(

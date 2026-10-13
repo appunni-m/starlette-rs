@@ -1078,6 +1078,7 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
         base_url=settings["base_url"],
         raise_server_exceptions=settings["raise_server_exceptions"],
         root_path=settings["root_path"],
+        backend=settings.get("backend", "asyncio"),
         client=tuple(settings["client"]),
         headers=dict(settings["headers"]),
         follow_redirects=settings.get("follow_redirects", True),

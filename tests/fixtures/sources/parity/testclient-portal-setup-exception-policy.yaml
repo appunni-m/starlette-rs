@@ -1,0 +1,70 @@
+{
+  "schema": "migration-parity/parity-input@49",
+  "cases": [
+    {
+      "case_id": "starlette.testclient.TestClient.request-response.backend-setup-error-suppressed-to-empty-500",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "request-response",
+      "covers": [
+        "starlette.testclient.TestClient.request-response.scope-projection",
+        "starlette.testclient.TestClient.request-response.backend-setup-exception-policy",
+        "starlette.testclient.TestClient.request-response.response-and-debug"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "observations": ["request-response"],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": false,
+        "root_path": "",
+        "client": ["testclient", 50000],
+        "headers": [],
+        "backend": "no-such-anyio-backend"
+      },
+      "request": {
+        "method": "GET",
+        "url": "/",
+        "headers_base64_pairs": [],
+        "body_base64": ""
+      },
+      "asgi_app": {
+        "kind": "asgi3",
+        "scope_fields": ["type"],
+        "receive_count": 0,
+        "messages": []
+      }
+    },
+    {
+      "case_id": "starlette.testclient.TestClient.request-response.backend-setup-error-propagates-by-default",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "request-response",
+      "covers": [
+        "starlette.testclient.TestClient.request-response.scope-projection",
+        "starlette.testclient.TestClient.request-response.backend-setup-exception-policy"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "observations": ["request-response"],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": ["testclient", 50000],
+        "headers": [],
+        "backend": "no-such-anyio-backend"
+      },
+      "request": {
+        "method": "GET",
+        "url": "/",
+        "headers_base64_pairs": [],
+        "body_base64": ""
+      },
+      "asgi_app": {
+        "kind": "asgi3",
+        "scope_fields": ["type"],
+        "receive_count": 0,
+        "messages": []
+      }
+    }
+  ]
+}

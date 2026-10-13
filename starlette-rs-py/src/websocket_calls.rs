@@ -16,12 +16,69 @@ use crate::awaitable::{
     AwaitableStateMachine, MachineAction, MachineResume, into_sendable_python_awaitable,
 };
 
-type SharedProtocolState = Arc<Mutex<WebSocketStateMachine>>;
+struct ProtocolState {
+    machine: WebSocketStateMachine,
+    client_state_override: Option<Py<PyAny>>,
+    application_state_override: Option<Py<PyAny>>,
+}
 
-fn protocol_state(state: &SharedProtocolState) -> PyResult<MutexGuard<'_, WebSocketStateMachine>> {
+type SharedProtocolState = Arc<Mutex<ProtocolState>>;
+
+#[pyclass(name = "_WebSocketProtocolState")]
+struct PyWebSocketProtocolState {
+    state: SharedProtocolState,
+}
+
+fn protocol_state(state: &SharedProtocolState) -> PyResult<MutexGuard<'_, ProtocolState>> {
     state
         .lock()
         .map_err(|_| PyRuntimeError::new_err("WebSocket state mutex was poisoned"))
+}
+
+fn clone_state_gc(
+    py: Python<'_>,
+    state_gc: Option<&Py<PyWebSocketProtocolState>>,
+) -> PyResult<Py<PyWebSocketProtocolState>> {
+    state_gc
+        .map(|state| state.clone_ref(py))
+        .ok_or_else(|| PyRuntimeError::new_err("WebSocket state was cleared"))
+}
+
+fn visit_protocol_state_values(
+    state: &SharedProtocolState,
+    visit: &PyVisit<'_>,
+) -> Result<(), PyTraverseError> {
+    let Ok(state) = state.lock() else {
+        return Ok(());
+    };
+    if let Some(value) = &state.client_state_override {
+        visit.call(value)?;
+    }
+    if let Some(value) = &state.application_state_override {
+        visit.call(value)?;
+    }
+    Ok(())
+}
+
+#[pymethods]
+impl PyWebSocketProtocolState {
+    fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit_protocol_state_values(&self.state, &visit)
+    }
+
+    fn __clear__(&mut self, _py: Python<'_>) {
+        let overrides = if let Ok(mut state) = self.state.lock() {
+            (
+                state.client_state_override.take(),
+                state.application_state_override.take(),
+            )
+        } else {
+            (None, None)
+        };
+        // Dropping the last reference may run a Python finalizer. Do so only
+        // after releasing the protocol mutex.
+        drop(overrides);
+    }
 }
 
 // Only Rust flags cross threads. No Python callback executes while a native
@@ -52,12 +109,15 @@ impl SharedFlag {
 #[pyclass(name = "WebSocketProtocol")]
 pub(crate) struct PyWebSocketProtocol {
     state: SharedProtocolState,
+    state_gc: Option<Py<PyWebSocketProtocolState>>,
     receive_callback: Py<PyAny>,
     send_callback: Py<PyAny>,
     disconnect_error: Py<PyAny>,
+    state_type: Py<PyAny>,
 }
 
 pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
+    module.add_class::<PyWebSocketProtocolState>()?;
     module.add_class::<PyWebSocketProtocol>()?;
     module.add_class::<PyWebSocketIterator>()?;
     module.add_class::<PyWebSocketClose>()?;
@@ -69,48 +129,123 @@ impl PyWebSocketProtocol {
     fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
         visit.call(&self.receive_callback)?;
         visit.call(&self.send_callback)?;
-        visit.call(&self.disconnect_error)
+        visit.call(&self.disconnect_error)?;
+        visit.call(&self.state_type)?;
+        if let Some(state_gc) = &self.state_gc {
+            visit.call(state_gc)?;
+        }
+        Ok(())
     }
     fn __clear__(&mut self, py: Python<'_>) {
         self.receive_callback = py.None();
         self.send_callback = py.None();
         self.disconnect_error = py.None();
+        self.state_type = py.None();
+        // The GC-visible state node clears its raw Python overrides itself.
+        // Keep this edge until then; an active awaitable may share the node.
     }
     #[new]
     fn new(
+        py: Python<'_>,
         scope: &Bound<'_, PyAny>,
         receive_callback: Py<PyAny>,
         send_callback: Py<PyAny>,
         disconnect_error: Py<PyAny>,
+        state_type: Py<PyAny>,
     ) -> PyResult<Self> {
         let scope_type = scope.get_item("type")?;
         if !scope_type.eq("websocket")? {
             return Err(PyAssertionError::new_err(()));
         }
 
+        let state = Arc::new(Mutex::new(ProtocolState {
+            machine: WebSocketStateMachine::new(),
+            client_state_override: None,
+            application_state_override: None,
+        }));
+        let state_gc = Py::new(
+            py,
+            PyWebSocketProtocolState {
+                state: state.clone(),
+            },
+        )?;
+
         Ok(Self {
-            state: Arc::new(Mutex::new(WebSocketStateMachine::new())),
+            state,
+            state_gc: Some(state_gc),
             receive_callback,
             send_callback,
             disconnect_error,
+            state_type,
         })
     }
 
-    fn client_state(&self) -> PyResult<u8> {
-        Ok(state_code(protocol_state(&self.state)?.client_state()))
+    fn client_state(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        let (override_value, client_state) = {
+            let state = protocol_state(&self.state)?;
+            (
+                state
+                    .client_state_override
+                    .as_ref()
+                    .map(|value| value.clone_ref(py)),
+                state.machine.client_state(),
+            )
+        };
+        public_state_value(py, &self.state_type, override_value.as_ref(), client_state)
     }
 
-    fn set_client_state(&self, state: u8) -> PyResult<()> {
-        protocol_state(&self.state)?.set_client_state(state_from_code(state)?);
+    fn set_client_state(&self, py: Python<'_>, value: Py<PyAny>) -> PyResult<()> {
+        let (client_state, override_value) =
+            if let Some(valid_state) = assigned_enum_state(py, &self.state_type, &value)? {
+                (valid_state, None)
+            } else {
+                // Python's WebSocket.client_state is a plain assignable
+                // attribute. Retain unrecognized values so the protocol
+                // branch performs the same rich comparison as Starlette.
+                (WebSocketState::Disconnected, Some(value))
+            };
+        let previous = {
+            let mut state = protocol_state(&self.state)?;
+            state.machine.set_client_state(client_state);
+            std::mem::replace(&mut state.client_state_override, override_value)
+        };
+        // Replacing an override can release its last Python reference.
+        drop(previous);
         Ok(())
     }
 
-    fn application_state(&self) -> PyResult<u8> {
-        Ok(state_code(protocol_state(&self.state)?.application_state()))
+    fn application_state(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        let (override_value, application_state) = {
+            let state = protocol_state(&self.state)?;
+            (
+                state
+                    .application_state_override
+                    .as_ref()
+                    .map(|value| value.clone_ref(py)),
+                state.machine.application_state(),
+            )
+        };
+        public_state_value(
+            py,
+            &self.state_type,
+            override_value.as_ref(),
+            application_state,
+        )
     }
 
-    fn set_application_state(&self, state: u8) -> PyResult<()> {
-        protocol_state(&self.state)?.set_application_state(state_from_code(state)?);
+    fn set_application_state(&self, py: Python<'_>, value: Py<PyAny>) -> PyResult<()> {
+        let (application_state, override_value) =
+            if let Some(valid_state) = assigned_enum_state(py, &self.state_type, &value)? {
+                (valid_state, None)
+            } else {
+                (WebSocketState::Disconnected, Some(value))
+            };
+        let previous = {
+            let mut state = protocol_state(&self.state)?;
+            state.machine.set_application_state(application_state);
+            std::mem::replace(&mut state.application_state_override, override_value)
+        };
+        drop(previous);
         Ok(())
     }
 
@@ -119,6 +254,8 @@ impl PyWebSocketProtocol {
             py,
             WebSocketReceiveMachine {
                 state: self.state.clone(),
+                state_gc: clone_state_gc(py, self.state_gc.as_ref())?,
+                state_type: self.state_type.clone_ref(py),
                 callback: self.receive_callback.clone_ref(py),
                 client_state_at_start: None,
             },
@@ -130,6 +267,8 @@ impl PyWebSocketProtocol {
             py,
             WebSocketSendMachine {
                 state: self.state.clone(),
+                state_gc: clone_state_gc(py, self.state_gc.as_ref())?,
+                state_type: self.state_type.clone_ref(py),
                 callback: self.send_callback.clone_ref(py),
                 disconnect_error: self.disconnect_error.clone_ref(py),
                 message,
@@ -151,6 +290,8 @@ impl PyWebSocketProtocol {
             py,
             AcceptMachine {
                 state: self.state.clone(),
+                state_gc: clone_state_gc(py, self.state_gc.as_ref())?,
+                state_type: self.state_type.clone_ref(py),
                 receive_callback,
                 send_callback,
                 subprotocol,
@@ -169,6 +310,8 @@ impl PyWebSocketProtocol {
         typed_receive_awaitable(
             py,
             &self.state,
+            clone_state_gc(py, self.state_gc.as_ref())?,
+            self.state_type.clone_ref(py),
             receive_callback,
             disconnect_handler,
             TypedReceiveKind::Text,
@@ -184,6 +327,8 @@ impl PyWebSocketProtocol {
         typed_receive_awaitable(
             py,
             &self.state,
+            clone_state_gc(py, self.state_gc.as_ref())?,
+            self.state_type.clone_ref(py),
             receive_callback,
             disconnect_handler,
             TypedReceiveKind::Bytes,
@@ -200,6 +345,8 @@ impl PyWebSocketProtocol {
         typed_receive_awaitable(
             py,
             &self.state,
+            clone_state_gc(py, self.state_gc.as_ref())?,
+            self.state_type.clone_ref(py),
             receive_callback,
             disconnect_handler,
             TypedReceiveKind::Json(mode),
@@ -312,13 +459,18 @@ impl PyWebSocketProtocol {
 
 struct WebSocketReceiveMachine {
     state: SharedProtocolState,
+    state_gc: Py<PyWebSocketProtocolState>,
+    state_type: Py<PyAny>,
     callback: Py<PyAny>,
     client_state_at_start: Option<WebSocketState>,
 }
 
 impl AwaitableStateMachine for WebSocketReceiveMachine {
     fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
-        visit.call(&self.callback)
+        visit.call(&self.state_gc)?;
+        visit.call(&self.state_type)?;
+        visit.call(&self.callback)?;
+        Ok(())
     }
     fn finalize_on_drop(&self) -> bool {
         true
@@ -338,15 +490,29 @@ impl AwaitableStateMachine for WebSocketReceiveMachine {
 
 impl WebSocketReceiveMachine {
     fn start(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
-        let client_state_at_start = protocol_state(&self.state)?.client_state();
-        if matches!(
-            client_state_at_start,
-            WebSocketState::Disconnected | WebSocketState::Response
-        ) {
+        let client_state_at_start = if protocol_state_matches(
+            py,
+            &self.state,
+            &self.state_type,
+            ProtocolStateSlot::Client,
+            WebSocketState::Connecting,
+            RichComparison::Equal,
+        )? {
+            WebSocketState::Connecting
+        } else if protocol_state_matches(
+            py,
+            &self.state,
+            &self.state_type,
+            ProtocolStateSlot::Client,
+            WebSocketState::Connected,
+            RichComparison::Equal,
+        )? {
+            WebSocketState::Connected
+        } else {
             return Err(PyRuntimeError::new_err(
                 "Cannot call \"receive\" once a disconnect message has been received.",
             ));
-        }
+        };
 
         self.client_state_at_start = Some(client_state_at_start);
         let awaitable = self.callback.bind(py).call0()?;
@@ -372,7 +538,7 @@ impl WebSocketReceiveMachine {
                 }
                 // Starlette assigns this after the callback returns, so it
                 // overwrites state changes made while that callback was pending.
-                protocol_state(&self.state)?.set_client_state(WebSocketState::Connected);
+                set_client_protocol_state(&self.state, WebSocketState::Connected)?;
             }
             WebSocketState::Connected => {
                 let expected = PySet::new(py, ["websocket.receive", "websocket.disconnect"])?;
@@ -383,7 +549,7 @@ impl WebSocketReceiveMachine {
                     )));
                 }
                 if message_type.eq("websocket.disconnect")? {
-                    protocol_state(&self.state)?.set_client_state(WebSocketState::Disconnected);
+                    set_client_protocol_state(&self.state, WebSocketState::Disconnected)?;
                 }
             }
             WebSocketState::Disconnected | WebSocketState::Response => {
@@ -398,6 +564,8 @@ impl WebSocketReceiveMachine {
 
 struct WebSocketSendMachine {
     state: SharedProtocolState,
+    state_gc: Py<PyWebSocketProtocolState>,
+    state_type: Py<PyAny>,
     callback: Py<PyAny>,
     disconnect_error: Py<PyAny>,
     message: Py<PyAny>,
@@ -407,9 +575,12 @@ struct WebSocketSendMachine {
 
 impl AwaitableStateMachine for WebSocketSendMachine {
     fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.state_gc)?;
+        visit.call(&self.state_type)?;
         visit.call(&self.callback)?;
         visit.call(&self.disconnect_error)?;
-        visit.call(&self.message)
+        visit.call(&self.message)?;
+        Ok(())
     }
     fn finalize_on_drop(&self) -> bool {
         true
@@ -432,18 +603,38 @@ impl AwaitableStateMachine for WebSocketSendMachine {
 
 impl WebSocketSendMachine {
     fn start(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
-        let application_state = protocol_state(&self.state)?.application_state();
-        if application_state == WebSocketState::Disconnected {
-            let error = match protocol_state(&self.state)?.begin_send("", false) {
-                Err(error) => error,
-                Ok(_) => {
-                    return Err(PyRuntimeError::new_err(
-                        "Cannot call \"send\" once a close message has been sent.",
-                    ));
-                }
-            };
-            return Err(PyRuntimeError::new_err(error.to_string()));
-        }
+        let application_state = if protocol_state_matches(
+            py,
+            &self.state,
+            &self.state_type,
+            ProtocolStateSlot::Application,
+            WebSocketState::Connecting,
+            RichComparison::Equal,
+        )? {
+            WebSocketState::Connecting
+        } else if protocol_state_matches(
+            py,
+            &self.state,
+            &self.state_type,
+            ProtocolStateSlot::Application,
+            WebSocketState::Connected,
+            RichComparison::Equal,
+        )? {
+            WebSocketState::Connected
+        } else if protocol_state_matches(
+            py,
+            &self.state,
+            &self.state_type,
+            ProtocolStateSlot::Application,
+            WebSocketState::Response,
+            RichComparison::Equal,
+        )? {
+            WebSocketState::Response
+        } else {
+            return Err(PyRuntimeError::new_err(
+                "Cannot call \"send\" once a close message has been sent.",
+            ));
+        };
 
         let message = self.message.bind(py);
         self.catches_os_error = Self::begin_send(py, &self.state, message, application_state)?;
@@ -492,7 +683,7 @@ impl WebSocketSendMachine {
                 } else {
                     WebSocketState::Connected
                 };
-                protocol_state(state)?.set_application_state(next_state);
+                set_application_protocol_state(state, next_state)?;
                 Ok(false)
             }
             WebSocketState::Connected => {
@@ -501,7 +692,7 @@ impl WebSocketSendMachine {
                     return Self::invalid_message_type(application_state, &message_type);
                 }
                 if message_type.eq("websocket.close")? {
-                    protocol_state(state)?.set_application_state(WebSocketState::Disconnected);
+                    set_application_protocol_state(state, WebSocketState::Disconnected)?;
                 }
                 Ok(true)
             }
@@ -511,7 +702,7 @@ impl WebSocketSendMachine {
                 }
                 let more_body = message.getattr("get")?.call1(("more_body", false))?;
                 if !more_body.is_truthy()? {
-                    protocol_state(state)?.set_application_state(WebSocketState::Disconnected);
+                    set_application_protocol_state(state, WebSocketState::Disconnected)?;
                 }
                 Ok(false)
             }
@@ -534,7 +725,12 @@ impl WebSocketSendMachine {
     fn callback_error(&mut self, py: Python<'_>, error: PyErr) -> PyResult<MachineAction> {
         self.callback_pending = false;
         if self.catches_os_error && error.is_instance_of::<PyOSError>(py) {
-            protocol_state(&self.state)?.send_failed();
+            let previous = {
+                let mut state = protocol_state(&self.state)?;
+                state.machine.send_failed();
+                state.application_state_override.take()
+            };
+            drop(previous);
             let kwargs = PyDict::new(py);
             kwargs.set_item("code", 1006)?;
             let exception = self.disconnect_error.bind(py).call((), Some(&kwargs))?;
@@ -555,6 +751,8 @@ enum TypedReceiveKind {
 fn typed_receive_awaitable(
     py: Python<'_>,
     state: &SharedProtocolState,
+    state_gc: Py<PyWebSocketProtocolState>,
+    state_type: Py<PyAny>,
     receive_callback: Py<PyAny>,
     disconnect_handler: Py<PyAny>,
     kind: TypedReceiveKind,
@@ -563,6 +761,8 @@ fn typed_receive_awaitable(
         py,
         TypedReceiveMachine {
             state: state.clone(),
+            state_gc,
+            state_type,
             receive_callback,
             disconnect_handler,
             kind,
@@ -573,6 +773,8 @@ fn typed_receive_awaitable(
 
 struct TypedReceiveMachine {
     state: SharedProtocolState,
+    state_gc: Py<PyWebSocketProtocolState>,
+    state_type: Py<PyAny>,
     receive_callback: Py<PyAny>,
     disconnect_handler: Py<PyAny>,
     kind: TypedReceiveKind,
@@ -581,12 +783,14 @@ struct TypedReceiveMachine {
 
 impl AwaitableStateMachine for TypedReceiveMachine {
     fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.state_gc)?;
+        visit.call(&self.state_type)?;
         visit.call(&self.receive_callback)?;
         visit.call(&self.disconnect_handler)?;
-        match &self.kind {
-            TypedReceiveKind::Json(mode) => visit.call(mode),
-            _ => Ok(()),
+        if let TypedReceiveKind::Json(mode) = &self.kind {
+            visit.call(mode)?;
         }
+        Ok(())
     }
     fn finalize_on_drop(&self) -> bool {
         true
@@ -606,7 +810,14 @@ impl TypedReceiveMachine {
         if let TypedReceiveKind::Json(mode) = &self.kind {
             self.json_binary = json_mode_is_binary(py, mode.bind(py))?;
         }
-        if protocol_state(&self.state)?.application_state() != WebSocketState::Connected {
+        if protocol_state_matches(
+            py,
+            &self.state,
+            &self.state_type,
+            ProtocolStateSlot::Application,
+            WebSocketState::Connected,
+            RichComparison::NotEqual,
+        )? {
             return Err(PyRuntimeError::new_err(
                 "WebSocket is not connected. Need to call \"accept\" first.",
             ));
@@ -671,6 +882,8 @@ enum AcceptPending {
 
 struct AcceptMachine {
     state: SharedProtocolState,
+    state_gc: Py<PyWebSocketProtocolState>,
+    state_type: Py<PyAny>,
     receive_callback: Py<PyAny>,
     send_callback: Py<PyAny>,
     subprotocol: Py<PyAny>,
@@ -680,6 +893,8 @@ struct AcceptMachine {
 
 impl AwaitableStateMachine for AcceptMachine {
     fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.state_gc)?;
+        visit.call(&self.state_type)?;
         visit.call(&self.receive_callback)?;
         visit.call(&self.send_callback)?;
         visit.call(&self.subprotocol)?;
@@ -711,7 +926,14 @@ impl AcceptMachine {
         if !self.headers.bind(py).is_truthy()? {
             self.headers = PyList::empty(py).into_any().unbind();
         }
-        if protocol_state(&self.state)?.client_state() == WebSocketState::Connecting {
+        if protocol_state_matches(
+            py,
+            &self.state,
+            &self.state_type,
+            ProtocolStateSlot::Client,
+            WebSocketState::Connecting,
+            RichComparison::Equal,
+        )? {
             self.pending = AcceptPending::Receive;
             let awaitable = self.receive_callback.bind(py).call0()?;
             return Ok(MachineAction::Await(awaitable.unbind()));
@@ -1275,6 +1497,107 @@ fn normalize_reason(py: Python<'_>, reason: Py<PyAny>) -> PyResult<Py<PyAny>> {
     }
 }
 
+#[derive(Clone, Copy)]
+enum ProtocolStateSlot {
+    Client,
+    Application,
+}
+
+#[derive(Clone, Copy)]
+enum RichComparison {
+    Equal,
+    NotEqual,
+}
+
+fn protocol_state_matches(
+    py: Python<'_>,
+    shared: &SharedProtocolState,
+    state_type: &Py<PyAny>,
+    slot: ProtocolStateSlot,
+    expected: WebSocketState,
+    comparison: RichComparison,
+) -> PyResult<bool> {
+    let (override_value, current_state) = {
+        let state = protocol_state(shared)?;
+        match slot {
+            ProtocolStateSlot::Client => (
+                state
+                    .client_state_override
+                    .as_ref()
+                    .map(|value| value.clone_ref(py)),
+                state.machine.client_state(),
+            ),
+            ProtocolStateSlot::Application => (
+                state
+                    .application_state_override
+                    .as_ref()
+                    .map(|value| value.clone_ref(py)),
+                state.machine.application_state(),
+            ),
+        }
+    };
+
+    // The input can define __eq__ or __ne__ that re-enters this WebSocket.
+    // Snapshot references under the mutex, then perform all Python rich
+    // comparisons after releasing it.
+    let expected = state_type.bind(py).getattr(state_member_name(expected))?;
+    match override_value {
+        Some(value) => compare_python_state(value.bind(py), &expected, comparison),
+        None => {
+            let current = state_type
+                .bind(py)
+                .getattr(state_member_name(current_state))?;
+            compare_python_state(&current, &expected, comparison)
+        }
+    }
+}
+
+fn compare_python_state(
+    left: &Bound<'_, PyAny>,
+    right: &Bound<'_, PyAny>,
+    comparison: RichComparison,
+) -> PyResult<bool> {
+    match comparison {
+        RichComparison::Equal => left.eq(right),
+        RichComparison::NotEqual => left.ne(right),
+    }
+}
+
+fn set_client_protocol_state(
+    shared: &SharedProtocolState,
+    next_state: WebSocketState,
+) -> PyResult<()> {
+    let previous = {
+        let mut state = protocol_state(shared)?;
+        state.machine.set_client_state(next_state);
+        state.client_state_override.take()
+    };
+    drop(previous);
+    Ok(())
+}
+
+fn set_application_protocol_state(
+    shared: &SharedProtocolState,
+    next_state: WebSocketState,
+) -> PyResult<()> {
+    let previous = {
+        let mut state = protocol_state(shared)?;
+        state.machine.set_application_state(next_state);
+        state.application_state_override.take()
+    };
+    drop(previous);
+    Ok(())
+}
+
+fn state_member_name(state: WebSocketState) -> &'static str {
+    match state {
+        WebSocketState::Connecting => "CONNECTING",
+        WebSocketState::Connected => "CONNECTED",
+        WebSocketState::Disconnected => "DISCONNECTED",
+        WebSocketState::Response => "RESPONSE",
+    }
+}
+
 fn state_code(state: WebSocketState) -> u8 {
     match state {
         WebSocketState::Connecting => 0,
@@ -1282,6 +1605,37 @@ fn state_code(state: WebSocketState) -> u8 {
         WebSocketState::Disconnected => 2,
         WebSocketState::Response => 3,
     }
+}
+
+fn public_state_value(
+    py: Python<'_>,
+    state_type: &Py<PyAny>,
+    override_value: Option<&Py<PyAny>>,
+    state: WebSocketState,
+) -> PyResult<Py<PyAny>> {
+    match override_value {
+        Some(value) => Ok(value.clone_ref(py)),
+        None => state_type
+            .bind(py)
+            .call1((state_code(state),))
+            .map(Bound::unbind),
+    }
+}
+
+fn assigned_enum_state(
+    py: Python<'_>,
+    state_type: &Py<PyAny>,
+    value: &Py<PyAny>,
+) -> PyResult<Option<WebSocketState>> {
+    if !value.bind(py).is_instance(state_type.bind(py))? {
+        return Ok(None);
+    }
+    value
+        .bind(py)
+        .getattr("value")?
+        .extract::<u8>()
+        .and_then(state_from_code)
+        .map(Some)
 }
 
 fn state_from_code(state: u8) -> PyResult<WebSocketState> {
