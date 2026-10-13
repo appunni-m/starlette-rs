@@ -9,9 +9,12 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use pyo3::class::gc::{PyTraverseError, PyVisit};
-use pyo3::exceptions::{PyAssertionError, PyException, PyRuntimeError, PyStopAsyncIteration};
+use pyo3::exceptions::{
+    PyAssertionError, PyAttributeError, PyException, PyRuntimeError, PyStopAsyncIteration,
+    PyTypeError, PyValueError,
+};
 use pyo3::prelude::*;
-use pyo3::types::{PyDict, PyInt, PyList, PyModule, PySet, PyTuple};
+use pyo3::types::{PyDict, PyInt, PyList, PyModule, PySet, PyString, PyTuple};
 
 use crate::awaitable::{
     AwaitableStateMachine, MachineAction, MachineResume, into_sendable_python_awaitable,
@@ -261,17 +264,97 @@ impl PyStarletteRuntime {
         let mut asgi_app = router.unbind();
         for config in middleware_configs.into_iter().rev() {
             let config = config.bind(py);
-            let middleware_class = config.getattr("cls")?;
-            let args = config.getattr("args")?.cast_into::<PyTuple>()?;
-            let kwargs = config.getattr("kwargs")?.cast_into::<PyDict>()?;
-            let mut positional = Vec::with_capacity(args.len() + 1);
+            // Python's tuple-unpacking call in Starlette must dynamically invoke a
+            // Middleware subclass's `__iter__`; reading `cls`/`args`/`kwargs`
+            // directly skips that public special-method override.
+            let values = collect_iterable(config, Some(4))?;
+            if values.len() != 3 {
+                let message = if values.len() < 3 {
+                    format!(
+                        "not enough values to unpack (expected 3, got {})",
+                        values.len()
+                    )
+                } else {
+                    String::from("too many values to unpack (expected 3)")
+                };
+                return Err(PyValueError::new_err(message));
+            }
+            let mut values = values.into_iter();
+            let middleware_class = values.next().ok_or_else(|| {
+                PyRuntimeError::new_err("middleware iterator omitted its factory")
+            })?;
+            let args = values
+                .next()
+                .ok_or_else(|| PyRuntimeError::new_err("middleware iterator omitted args"))?;
+            let kwargs = values
+                .next()
+                .ok_or_else(|| PyRuntimeError::new_err("middleware iterator omitted kwargs"))?;
+            let mut positional = Vec::with_capacity(1);
             positional.push(asgi_app);
-            positional.extend(args.iter().map(Bound::unbind));
+            positional.extend(collect_iterable(args.bind(py), None)?);
             let call_args = PyTuple::new(py, positional)?;
-            asgi_app = middleware_class.call(&call_args, Some(&kwargs))?.unbind();
+            let call_kwargs =
+                middleware_kwargs_to_dict(py, kwargs.bind(py), middleware_class.bind(py))?;
+            asgi_app = middleware_class
+                .bind(py)
+                .call(&call_args, Some(&call_kwargs))?
+                .unbind();
         }
         Ok(asgi_app)
     }
+}
+
+/// Consume an iterable through its Python protocol, optionally stopping after a limit.
+fn collect_iterable(iterable: &Bound<'_, PyAny>, limit: Option<usize>) -> PyResult<Vec<Py<PyAny>>> {
+    let mut iterator = iterable.try_iter()?;
+    let mut values = Vec::new();
+    while match limit {
+        Some(limit) => values.len() < limit,
+        None => true,
+    } {
+        match iterator.next() {
+            Some(value) => values.push(value?.unbind()),
+            None => break,
+        }
+    }
+    Ok(values)
+}
+
+/// Materialize Python's `**mapping` expansion as keyword arguments.
+fn middleware_kwargs_to_dict<'py>(
+    py: Python<'py>,
+    mapping: &Bound<'py, PyAny>,
+    callable: &Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyDict>> {
+    let keys = match mapping.getattr("keys") {
+        Ok(keys) => keys.call0()?,
+        Err(error) if error.is_instance_of::<PyAttributeError>(py) => {
+            let type_name = mapping.get_type().name()?.to_string();
+            return Err(PyTypeError::new_err(format!(
+                "argument after ** must be a mapping, not {type_name}"
+            )));
+        }
+        Err(error) => return Err(error),
+    };
+    let result = PyDict::new(py);
+    for key in keys.try_iter()? {
+        let key = key?;
+        if !key.is_instance_of::<PyString>() {
+            return Err(PyTypeError::new_err("keywords must be strings"));
+        }
+        if result.contains(&key)? {
+            let key_repr = key.repr()?.extract::<String>()?;
+            let callable_name = callable
+                .getattr("__qualname__")
+                .and_then(|name| name.extract::<String>())
+                .unwrap_or_else(|_| "middleware".to_owned());
+            return Err(PyTypeError::new_err(format!(
+                "{callable_name}() got multiple values for keyword argument {key_repr}"
+            )));
+        }
+        result.set_item(&key, mapping.get_item(&key)?)?;
+    }
+    Ok(result)
 }
 
 fn make_middleware_config<'py>(

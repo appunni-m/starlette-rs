@@ -116,10 +116,9 @@ impl AwaitableStateMachine for Stream {
                 if matches!(self.pending, StreamPending::Pull)
                     && error.is_instance_of::<PyStopAsyncIteration>(py) =>
             {
-                // async-for treats StopAsyncIteration raised anywhere while
-                // obtaining or awaiting this next item as iterator exhaustion.
-                // The awaitable's __await__ factory can raise before delegation
-                // starts, which the driver reports through the general error path.
+                // END_ASYNC_FOR consumes StopAsyncIteration raised by the
+                // delegated await after the __anext__ result passed validation.
+                // Invalid awaitable results are wrapped by the driver first.
                 self.finish_stream(py)
             }
             MachineResume::Error(error) => Err(error),
@@ -156,7 +155,7 @@ impl Stream {
             .import("builtins")?
             .call_method1("anext", (iterator.bind(py),))
         {
-            Ok(awaitable) => Ok(MachineAction::Await(awaitable.unbind())),
+            Ok(awaitable) => Ok(MachineAction::AwaitAsyncIteratorNext(awaitable.unbind())),
             // A synchronous __anext__ can end async-for without returning an
             // awaitable. Only StopAsyncIteration at this pull site ends it.
             Err(error) if error.is_instance_of::<PyStopAsyncIteration>(py) => {

@@ -2111,7 +2111,7 @@ fn route_matches(
     }
 
     let path = route_path_from_scope(scope)?;
-    let mut matched = python_regex_match(py, route, &path)?;
+    let mut matched = python_regex_match(py, route, &path, "path_regex")?;
     let Some(matched_params) = matched.take() else {
         return match_result(py, match_type, "NONE", PyDict::new(py));
     };
@@ -2149,7 +2149,7 @@ fn host_route_child_scope(
 ) -> PyResult<Option<Py<PyDict>>> {
     let host = host_header_value(py, scope)?;
     let hostname = host.split(':').next().unwrap_or_default();
-    let matched_params = python_regex_match(py, route, hostname)?;
+    let matched_params = python_regex_match(py, route, hostname, "host_regex")?;
     let Some(converted) = matched_params else {
         return Ok(None);
     };
@@ -2199,8 +2199,9 @@ fn python_regex_match(
     py: Python<'_>,
     route: &Bound<'_, PyAny>,
     path: &str,
+    regex_attribute: &str,
 ) -> PyResult<Option<Py<PyDict>>> {
-    let pattern = route.getattr("path_regex")?;
+    let pattern = route.getattr(regex_attribute)?;
     let matched = pattern.call_method1("match", (path,))?;
     if matched.is_none() {
         return Ok(None);

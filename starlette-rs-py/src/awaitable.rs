@@ -36,6 +36,11 @@ pub(crate) enum MachineResume {
 pub(crate) enum MachineAction {
     /// Delegate to a Python awaitable, such as a callback or iterator operation.
     Await(Py<PyAny>),
+    /// Delegate to the awaitable returned by an async iterator's `__anext__`.
+    ///
+    /// Python's `async for` bytecode validates this result before awaiting it,
+    /// and wraps invalid awaitable results in its async-iteration TypeError.
+    AwaitAsyncIteratorNext(Py<PyAny>),
     /// Complete the outer Python awaitable with this result.
     Complete(Py<PyAny>),
 }
@@ -44,9 +49,10 @@ pub(crate) enum MachineAction {
 ///
 /// Implementations hold their own protocol state and return the next Python
 /// awaitable to execute. For [`MachineAction::Await`], the driver calls that
-/// object's `__await__()` factory and delegates to the returned iterator. It
-/// forwards the result, `StopAsyncIteration`, or other exception through
-/// [`MachineResume`].
+/// object's `__await__()` factory and delegates to the returned iterator. For
+/// [`MachineAction::AwaitAsyncIteratorNext`], it also wraps invalid awaitable
+/// results using the error raised by Python's `async for` machinery. It forwards
+/// the result, `StopAsyncIteration`, or other exception through [`MachineResume`].
 pub(crate) trait AwaitableStateMachine: 'static {
     /// Advance the state machine after startup or completion of a delegated awaitable.
     fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction>;
@@ -191,6 +197,19 @@ impl<M: AwaitableStateMachine + ?Sized> AwaitableDriver<M> {
                         input = DriverInput::Machine(MachineResume::Error(error));
                     }
                 },
+                MachineAction::AwaitAsyncIteratorNext(awaitable) => {
+                    match await_iterator(py, awaitable.clone_ref(py)) {
+                        Ok(iterator) => {
+                            self.active_iterator = Some(iterator);
+                            input = DriverInput::Send(py.None());
+                        }
+                        Err(cause) => {
+                            input = DriverInput::Machine(MachineResume::Error(
+                                async_for_invalid_anext(py, awaitable.bind(py), cause)?,
+                            ));
+                        }
+                    }
+                }
                 MachineAction::Complete(value) => {
                     self.finish();
                     return Err(PyStopIteration::new_err((value,)));
@@ -430,6 +449,20 @@ fn await_iterator(py: Python<'_>, awaitable: Py<PyAny>) -> PyResult<Py<PyAny>> {
         return Err(PyTypeError::new_err("__await__() returned a non-iterator"));
     }
     Ok(iterator.unbind())
+}
+
+fn async_for_invalid_anext(
+    py: Python<'_>,
+    awaitable: &Bound<'_, PyAny>,
+    cause: PyErr,
+) -> PyResult<PyErr> {
+    let type_name = awaitable.get_type().name()?.to_string();
+    let error = PyTypeError::new_err(format!(
+        "'async for' received an invalid object from __anext__: {type_name}"
+    ));
+    error.set_context(py, Some(cause.clone_ref(py)));
+    error.set_cause(py, Some(cause));
+    Ok(error)
 }
 
 fn send_value(iterator: &Bound<'_, PyAny>, value: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {

@@ -450,21 +450,13 @@ fn disposition_parameter(header: &[u8], wanted: &str) -> Option<Vec<u8>> {
 
         let raw_value = raw_value.trim();
         let quoted = raw_value.len() >= 2 && raw_value.starts_with('"') && raw_value.ends_with('"');
-        let mut parsed = if quoted {
+        let parsed = if quoted {
             raw_value[1..raw_value.len() - 1]
                 .replace("\\\\", "\\")
                 .replace("\\\"", "\"")
         } else {
             raw_value.to_owned()
         };
-
-        if wanted == "filename"
-            && (parsed.as_bytes().get(1..3) == Some(b":\\") || parsed.starts_with("\\\\"))
-        {
-            if let Some(separator) = parsed.rfind('\\') {
-                parsed = parsed[separator + 1..].to_owned();
-            }
-        }
 
         value = Some(parsed.chars().map(|character| character as u8).collect());
     }

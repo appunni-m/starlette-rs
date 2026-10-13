@@ -1,4 +1,4 @@
-"""Input-defined Python containers for Starlette application workflows."""
+"""Input-defined Python values for Starlette application workflows."""
 
 from __future__ import annotations
 
@@ -45,3 +45,19 @@ class ObservableSequence(Sequence[Any]):
 
     def __len__(self) -> int:
         return len(self._values)
+
+
+def middleware_with_iterator_override(
+    middleware_type: type[Any],
+    original_factory: Any,
+    yielded_factory: Any,
+    yielded_args: Any,
+    yielded_kwargs: Mapping[Any, Any],
+) -> Any:
+    """Create a public Middleware subclass with input-selected iterator values."""
+
+    class InputMiddleware(middleware_type):
+        def __iter__(self) -> Iterator[Any]:
+            return iter((yielded_factory, yielded_args, yielded_kwargs))
+
+    return InputMiddleware(original_factory)

@@ -97,6 +97,9 @@ TYPING_CONSUMER_OPERATIONS = frozenset(TYPING_CONSUMER_SPECS)
 STARLETTE_SUBCLASS_BUILDER_REQUIREMENT = (
     "starlette.applications.Starlette.__call__.middleware-stack-subclass-override"
 )
+STARLETTE_MIDDLEWARE_ITERATOR_REQUIREMENT = (
+    "starlette.applications.Starlette.__call__.middleware-config-subclass-iteration"
+)
 
 TOP_KEYS = {
     "schema",
@@ -22430,6 +22433,10 @@ def _validate_case_payload(
                 case["surface"] == "starlette.applications.Starlette"
                 and case["operation"] == "__call__"
             ),
+            allow_middleware_iterator_subclass=(
+                case["surface"] == "starlette.applications.Starlette"
+                and case["operation"] == "__call__"
+            ),
         )
     server_error_case = not is_protocol_middleware and _is_server_error_stimulus(app_args)
     body_reuse = False
@@ -25062,11 +25069,19 @@ def _validate_route_converter_ordering_application(args: dict[str, Any]) -> None
         _string(cookie["value"], f"route[1].endpoint.cookies[{index}].value")
 
 
+def _has_middleware_iterator_subclass(middleware: Any) -> bool:
+    return isinstance(middleware, list) and any(
+        isinstance(spec, dict) and spec.get("kind") == "middleware-iterator-subclass"
+        for spec in middleware
+    )
+
+
 def _validate_application_stimulus(
     args: dict[str, Any],
     request_dispatch: bool,
     allow_lifespan_variants: bool = False,
     allow_observable_constructor_inputs: bool = False,
+    allow_middleware_iterator_subclass: bool = False,
 ) -> None:
     if set(args) != {
         "debug",
@@ -25122,6 +25137,43 @@ def _validate_application_stimulus(
             )
         normalized_args = dict(args)
         normalized_args["exception_handlers"] = []
+        normalized_args["middleware"] = []
+        _validate_application_stimulus(
+            normalized_args,
+            request_dispatch,
+            allow_lifespan_variants=allow_lifespan_variants,
+        )
+        return
+    if _has_middleware_iterator_subclass(args["middleware"]):
+        if not allow_middleware_iterator_subclass or request_dispatch:
+            raise ContractError(
+                "Middleware iterator overrides require a public Starlette.__call__ workflow"
+            )
+        middleware = args["middleware"]
+        if not isinstance(middleware, list) or len(middleware) != 1:
+            raise ContractError(
+                "Middleware iterator override input must declare exactly one middleware"
+            )
+        middleware_spec = _exact(
+            middleware[0],
+            {"kind", "iterated"},
+            "Middleware iterator override",
+        )
+        iterated = _exact(
+            middleware_spec["iterated"],
+            {"kind", "name", "value"},
+            "Middleware iterator yielded configuration",
+        )
+        if (
+            middleware_spec["kind"] != "middleware-iterator-subclass"
+            or iterated["kind"] != "append-response-header"
+        ):
+            raise ContractError(
+                "Middleware iterator override must yield the declared response-header middleware"
+            )
+        _string(iterated["name"], "Middleware iterator yielded header name")
+        _string(iterated["value"], "Middleware iterator yielded header value")
+        normalized_args = dict(args)
         normalized_args["middleware"] = []
         _validate_application_stimulus(
             normalized_args,
@@ -35403,6 +35455,17 @@ def _semantic_coverage(case: dict[str, Any]) -> set[str]:
     coverage: set[str] = set()
     exception_handlers = app_arguments["exception_handlers"]
     middleware_input = app_arguments["middleware"]
+    if (
+        case["operation"] == "__call__"
+        and case["target_profiles"] == ["python-package-cpython312"]
+        and route["kind"] == "http-route"
+        and endpoint["kind"] in {"plain-text-response", "json-response"}
+        and path_matches
+        and method_matches
+        and scope.get("type") == "http"
+        and _has_middleware_iterator_subclass(middleware_input)
+    ):
+        coverage.add(STARLETTE_MIDDLEWARE_ITERATOR_REQUIREMENT)
     if (
         isinstance(exception_handlers, dict)
         and exception_handlers.get("kind") == "observable-mapping"

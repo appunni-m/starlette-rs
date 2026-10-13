@@ -1238,6 +1238,17 @@
               ]
             },
             {
+              "id": "starlette.applications.Starlette.__call__.middleware-config-subclass-iteration",
+              "dimension": "boundary",
+              "description": "Construct a public Middleware subclass whose __iter__ yields a different middleware factory, then dispatch through Starlette.__call__; middleware stack construction must honor Python special-method dispatch and expand the yielded constructor values. Pinned source: starlette/applications.py::Starlette.build_middleware_stack and starlette/middleware/__init__.py::Middleware.__iter__.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.applications.Starlette.__call__.async-route-return-response",
               "dimension": "boundary",
               "description": "Construct a Starlette app with an async HTTP endpoint that returns JSONResponse, then dispatch GET / through the public ASGI callable. Compare status, headers, bytes, and complete events. Upstream: tests/test_applications.py::test_app_add_route.",
@@ -20901,7 +20912,7 @@
             {
               "id": "starlette.responses.StreamingResponse.asgi-call.async-iterator-await-factory-stop",
               "dimension": "protocol_variant",
-              "description": "Return an input-selected awaitable from async __anext__ whose synchronous __await__ call raises StopAsyncIteration, then compare the normally terminated response events. Starlette's async-for stream loop treats StopAsyncIteration raised while awaiting __anext__ as exhaustion. Pinned source: starlette/responses.py::StreamingResponse.stream_response and Python's asynchronous-iterator protocol.",
+              "description": "Return an input-selected awaitable from async __anext__ whose synchronous __await__ call raises StopAsyncIteration, then compare CPython's TypeError and its StopAsyncIteration context/cause. Starlette's async-for stream loop rejects this invalid awaitable result; the exception is not iterator exhaustion. Pinned source: starlette/responses.py::StreamingResponse.stream_response; CPython 3.12 GET_ANEXT async-for semantics.",
               "lanes": [
                 "parity"
               ],

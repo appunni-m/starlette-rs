@@ -30,9 +30,14 @@ from collections.abc import AsyncIterator, Callable, Iterator
 from dataclasses import dataclass
 from html.parser import HTMLParser
 from pathlib import Path
+from types import MappingProxyType
 from typing import Any
 
-from scripts.parity.adapters.application_inputs import ObservableMapping, ObservableSequence
+from scripts.parity.adapters.application_inputs import (
+    ObservableMapping,
+    ObservableSequence,
+    middleware_with_iterator_override,
+)
 from scripts.parity.adapters.input_pathlike import InputSequencePathLike
 from scripts.parity.adapters.ownership_cleanup import observe_ownership
 from scripts.parity.adapters.staticfiles_config import (
@@ -1576,9 +1581,9 @@ def _materialize_application_middleware(middleware_specs: Any) -> list[Any]:
             await self.app(scope, receive, send)
 
     class AppendResponseHeaderMiddleware:
-        def __init__(self, app: Any, *, name: str) -> None:
+        def __init__(self, app: Any, name: str, *, value: str = "true") -> None:
             self.app = app
-            self.response_header = (f"X-{name}".encode("ascii"), b"true")
+            self.response_header = (f"X-{name}".encode("ascii"), value.encode("ascii"))
 
         async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
             async def modified_send(message: Any) -> None:
@@ -1614,10 +1619,15 @@ def _materialize_application_middleware(middleware_specs: Any) -> list[Any]:
 
     middleware = []
     for index, raw_spec in enumerate(middleware_specs):
-        if isinstance(raw_spec, dict) and raw_spec.get("kind") == "append-response-header":
+        if isinstance(raw_spec, dict) and raw_spec.get("kind") in {
+            "append-response-header",
+            "middleware-iterator-subclass",
+        }:
             spec = _strict_object(
                 raw_spec,
-                {"kind", "name"},
+                {"kind", "name"}
+                if raw_spec["kind"] == "append-response-header"
+                else {"kind", "iterated"},
                 f"application middleware[{index}]",
             )
         else:
@@ -1634,6 +1644,25 @@ def _materialize_application_middleware(middleware_specs: Any) -> list[Any]:
             middleware.append(Middleware(AuthenticationMiddleware, backend=BasicAuthBackend()))
         elif spec["kind"] == "append-response-header":
             middleware.append(Middleware(AppendResponseHeaderMiddleware, name=spec["name"]))
+        elif spec["kind"] == "middleware-iterator-subclass":
+            iterated = _strict_object(
+                spec["iterated"],
+                {"kind", "name", "value"},
+                f"application middleware[{index}].iterated",
+            )
+            if iterated["kind"] != "append-response-header":
+                raise ValueError(
+                    "middleware iterator subclass must yield a declared middleware factory"
+                )
+            middleware.append(
+                middleware_with_iterator_override(
+                    Middleware,
+                    CopyScopeMiddleware,
+                    AppendResponseHeaderMiddleware,
+                    [iterated["name"]],
+                    MappingProxyType({"value": iterated["value"]}),
+                )
+            )
         else:
             raise ValueError(f"unsupported application middleware action: {spec['kind']!r}")
     return middleware
