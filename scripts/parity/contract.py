@@ -1155,6 +1155,7 @@ STATIC_FILES_CONFIGURATION_CHECK_OPERATION_KEY = (
 STATIC_FILES_CONFIGURATION_CHECK_REQUIREMENTS = {
     "constructor_missing": f"{STATIC_FILES_SURFACE}.{STATIC_FILES_CONFIGURATION_CHECK_OPERATION}.constructor-missing-directory",
     "constructor_not_directory": f"{STATIC_FILES_SURFACE}.{STATIC_FILES_CONFIGURATION_CHECK_OPERATION}.constructor-not-directory",
+    "constructor_pathlike_display": f"{STATIC_FILES_SURFACE}.{STATIC_FILES_CONFIGURATION_CHECK_OPERATION}.constructor-pathlike-display",
     "lazy_missing": f"{STATIC_FILES_SURFACE}.{STATIC_FILES_CONFIGURATION_CHECK_OPERATION}.lazy-missing-directory",
     "lazy_not_directory": f"{STATIC_FILES_SURFACE}.{STATIC_FILES_CONFIGURATION_CHECK_OPERATION}.lazy-not-directory",
     "repeated_call": f"{STATIC_FILES_SURFACE}.{STATIC_FILES_CONFIGURATION_CHECK_OPERATION}.repeated-call-state-and-asgi-events",
@@ -1289,6 +1290,15 @@ STATIC_FILES_CONFIGURATION_CHECK_CASE_KEYS = (CASE_KEYS - {"steps", "execution_s
     "follow_symlink",
     "calls",
 }
+
+
+def _static_files_configuration_check_case_keys(case: Any) -> set[str]:
+    keys = set(STATIC_FILES_CONFIGURATION_CHECK_CASE_KEYS)
+    if isinstance(case, dict) and "directory_pathlike" in case:
+        keys.add("directory_pathlike")
+    return keys
+
+
 RESPONSE_OBSERVATIONS = [
     "response_status",
     "ordered_repeated_headers",
@@ -7878,7 +7888,7 @@ def _validate_static_files_async_boundary_case(case: dict[str, Any]) -> None:
 def _validate_static_files_configuration_check_case(case: dict[str, Any]) -> None:
     _exact(
         case,
-        STATIC_FILES_CONFIGURATION_CHECK_CASE_KEYS,
+        _static_files_configuration_check_case_keys(case),
         "StaticFiles configuration-check case",
     )
     if (case["surface"], case["operation"]) != STATIC_FILES_CONFIGURATION_CHECK_OPERATION_KEY:
@@ -7908,6 +7918,22 @@ def _validate_static_files_configuration_check_case(case: dict[str, Any]) -> Non
         raise ContractError(
             "StaticFiles configuration-check.directory_path must be beneath build/parity/static-files-config"
         )
+
+    directory_pathlike = None
+    if "directory_pathlike" in case:
+        directory_pathlike = _exact(
+            case["directory_pathlike"],
+            {"display"},
+            "StaticFiles configuration-check.directory_pathlike",
+        )
+        _string(
+            directory_pathlike["display"],
+            "StaticFiles configuration-check.directory_pathlike.display",
+        )
+        if directory_pathlike["display"] == directory_path:
+            raise ContractError(
+                "StaticFiles configuration-check PathLike display must differ from its filesystem path"
+            )
 
     directory_kind = case["directory_kind"]
     if directory_kind not in {"missing", "file", "directory"}:
@@ -7994,7 +8020,11 @@ def _validate_static_files_configuration_check_case(case: dict[str, Any]) -> Non
         )
 
     if directory_kind == "missing" and case["check_dir"] and not calls:
-        requirement = STATIC_FILES_CONFIGURATION_CHECK_REQUIREMENTS["constructor_missing"]
+        requirement = STATIC_FILES_CONFIGURATION_CHECK_REQUIREMENTS[
+            "constructor_pathlike_display"
+            if directory_pathlike is not None
+            else "constructor_missing"
+        ]
     elif directory_kind == "file" and case["check_dir"] and not calls:
         requirement = STATIC_FILES_CONFIGURATION_CHECK_REQUIREMENTS["constructor_not_directory"]
     elif directory_kind == "missing" and not case["check_dir"] and len(calls) == 1:
@@ -18980,7 +19010,7 @@ def _validate_case_payload(
         if is_static_files
         else STATIC_FILES_ASYNC_BOUNDARY_CASE_KEYS
         if is_static_files_async_boundary
-        else STATIC_FILES_CONFIGURATION_CHECK_CASE_KEYS
+        else _static_files_configuration_check_case_keys(case)
         if is_static_files_configuration_check
         else STATIC_FILES_LOOKUP_PATH_CASE_KEYS
         if is_static_files_lookup_path

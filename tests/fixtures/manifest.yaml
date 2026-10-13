@@ -450,6 +450,7 @@
       "build/parity/inputs/parity/static-files-async-boundary.json",
       "build/parity/inputs/parity/static-files-config.json",
       "build/parity/inputs/parity/static-files-config-direct-check.json",
+      "build/parity/inputs/parity/static-files-constructor-pathlike-display.json",
       "build/parity/inputs/parity/static-files-docs-inputs.json",
       "build/parity/inputs/parity/static-files-null-byte-lookup.json",
       "build/parity/inputs/parity/static-files-stateful-pathlike.json",
@@ -25584,6 +25585,17 @@
                 }
               },
               {
+                "id": "directory_pathlike",
+                "style": "input_asset",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": null
+                }
+              },
+              {
                 "id": "directory_kind",
                 "style": "input_asset",
                 "value_types": [
@@ -25706,6 +25718,16 @@
                   "comparison": {
                     "kind": "exact"
                   }
+                },
+                {
+                  "path": "directory_pathlike_calls",
+                  "value_types": [
+                    "record",
+                    "null"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
                 }
               ],
               "error": {
@@ -25754,6 +25776,17 @@
               "id": "starlette.staticfiles.StaticFiles.configuration-check.constructor-not-directory",
               "dimension": "error_path",
               "description": "Construct StaticFiles with check_dir enabled and an input-defined regular file as the configured root, then compare the live constructor exception. Pinned source: starlette/staticfiles.py:54-56; the source rejects every path for which os.path.isdir returns false.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.staticfiles.StaticFiles.configuration-check.constructor-pathlike-display",
+              "dimension": "error_path",
+              "description": "Construct StaticFiles with an input-defined PathLike whose __fspath__ value identifies a missing directory and whose __str__ value differs; compare the live constructor exception and protocol calls. Pinned source: starlette/staticfiles.py:54-56.",
               "lanes": [
                 "parity"
               ],

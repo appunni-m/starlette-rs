@@ -116,14 +116,27 @@ impl PyStaticFiles {
                 .map(|directory| path_from_python(py, directory.bind(py)))
                 .transpose()?;
         }
-        let inner = NativeStaticFiles::new(
+        let inner = match NativeStaticFiles::new(
             native_directory,
             directories,
             html,
             check_dir,
             follow_symlink,
-        )
-        .map_err(static_files_error)?;
+        ) {
+            Ok(inner) => inner,
+            Err(error @ StaticFilesError::DirectoryConfiguration(_)) => {
+                if let Some(directory) = directory.as_ref() {
+                    // Starlette formats a failed constructor check with
+                    // `str(directory)`, which can differ from `__fspath__`.
+                    let display = directory.bind(py).str()?.extract::<String>()?;
+                    return Err(PyRuntimeError::new_err(format!(
+                        "Directory '{display}' does not exist"
+                    )));
+                }
+                return Err(static_files_error(error));
+            }
+            Err(error) => return Err(static_files_error(error)),
+        };
         Ok(Self {
             inner,
             config_checked: false,

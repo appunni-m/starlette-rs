@@ -17,6 +17,24 @@ STATIC_FILES_CONFIGURATION_STEP = "configuration-check"
 _FILESYSTEM_ROOT = Path("build/parity/static-files-config")
 
 
+class _InputDisplayPathLike:
+    """Input-backed path with a display string distinct from its filesystem path."""
+
+    def __init__(self, path: Path, display: str) -> None:
+        self._path = path
+        self._display = display
+        self.fspath_calls = 0
+        self.str_calls = 0
+
+    def __fspath__(self) -> str:
+        self.fspath_calls += 1
+        return str(self._path)
+
+    def __str__(self) -> str:
+        self.str_calls += 1
+        return self._display
+
+
 def _exact_object(value: Any, keys: set[str], context: str) -> dict[str, Any]:
     if not isinstance(value, dict) or set(value) != keys:
         raise ValueError(f"{context} must contain exactly {sorted(keys)}")
@@ -256,25 +274,29 @@ def run_static_files_configuration_case(
     canonical_message: Callable[[dict[str, Any]], dict[str, Any]],
 ) -> dict[str, Any]:
     """Build stable input-defined filesystem state and observe construction and ASGI calls."""
+    case_fields = {
+        "case_id",
+        "surface",
+        "operation",
+        "covers",
+        "target_profiles",
+        "assets",
+        "directory_path",
+        "directory_kind",
+        "root_file_contents_base64",
+        "files",
+        "html",
+        "check_dir",
+        "follow_symlink",
+        "calls",
+        "observations",
+    }
+    has_pathlike = "directory_pathlike" in case
+    if has_pathlike:
+        case_fields.add("directory_pathlike")
     _exact_object(
         case,
-        {
-            "case_id",
-            "surface",
-            "operation",
-            "covers",
-            "target_profiles",
-            "assets",
-            "directory_path",
-            "directory_kind",
-            "root_file_contents_base64",
-            "files",
-            "html",
-            "check_dir",
-            "follow_symlink",
-            "calls",
-            "observations",
-        },
+        case_fields,
         "StaticFiles configuration-check case",
     )
     if (
@@ -298,18 +320,31 @@ def run_static_files_configuration_case(
         raise ValueError("StaticFiles follow_symlink must be boolean")
 
     directory = _configuration_path(case["directory_path"])
+    directory_pathlike = None
+    configured_directory: Any = directory
+    if has_pathlike:
+        pathlike_spec = _exact_object(
+            case["directory_pathlike"],
+            {"display"},
+            "StaticFiles directory_pathlike",
+        )
+        if not isinstance(pathlike_spec["display"], str):
+            raise ValueError("StaticFiles directory_pathlike.display must be a string")
+        directory_pathlike = _InputDisplayPathLike(directory, pathlike_spec["display"])
+        configured_directory = directory_pathlike
     observation = {
         "config_checked_after_construction": None,
         "check_config_calls_after_construction": None,
         "calls": [],
         "config_checked_final": None,
         "constructor_error": None,
+        "directory_pathlike_calls": None,
     }
     try:
         _prepare_filesystem(case, directory)
         try:
             application = static_files_type(
-                directory=directory,
+                directory=configured_directory,
                 html=case["html"],
                 check_dir=case["check_dir"],
                 follow_symlink=case["follow_symlink"],
@@ -339,6 +374,11 @@ def run_static_files_configuration_case(
                 observation["config_checked_final"] = bool(application.config_checked)
             finally:
                 _restore_check_config(application, original_check_config)
+        if directory_pathlike is not None:
+            observation["directory_pathlike_calls"] = {
+                "fspath": directory_pathlike.fspath_calls,
+                "str": directory_pathlike.str_calls,
+            }
         return {
             "case_id": case["case_id"],
             "status": "completed",
