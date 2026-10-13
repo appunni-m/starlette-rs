@@ -17,6 +17,7 @@ import statistics
 import subprocess
 import sys
 import uuid
+from collections.abc import Callable
 from datetime import datetime, timezone
 from email import policy as email_policy
 from email.parser import BytesParser
@@ -37,8 +38,9 @@ MANIFEST_SCHEMA = "migration-parity/manifest@6"
 INPUT_SCHEMA_V45 = "migration-parity/parity-input@45"
 INPUT_SCHEMA_V46 = "migration-parity/parity-input@46"
 INPUT_SCHEMA_V47 = "migration-parity/parity-input@47"
-PREVIOUS_INPUT_SCHEMA = INPUT_SCHEMA_V47
-INPUT_SCHEMA = "migration-parity/parity-input@48"
+INPUT_SCHEMA_V48 = "migration-parity/parity-input@48"
+PREVIOUS_INPUT_SCHEMA = INPUT_SCHEMA_V48
+INPUT_SCHEMA = "migration-parity/parity-input@49"
 BENCHMARK_INPUT_SCHEMA = "migration-parity/benchmark-input@1"
 RESULT_SCHEMA = "migration-parity/parity-result@8"
 BENCHMARK_RESULT_SCHEMA = "migration-parity/benchmark-result@1"
@@ -171,6 +173,15 @@ WEBSOCKET_CONVENIENCE_OPERATION = "convenience-sequence"
 NATIVE_SERVICE_SURFACE = "starlette-rs.NativeApplication"
 NATIVE_SERVICE_OPERATION = "service-body-streaming"
 NATIVE_SERVICE_MIDDLEWARE_OPERATION = "service-tower-middleware"
+NATIVE_MOUNTED_CHILD_OPERATION = "service-mounted-child"
+NATIVE_HOST_SERVICE_SURFACE = "starlette-rs.NativeHostApplication"
+NATIVE_HOST_SERVICE_OPERATION = "service-host-routing"
+NATIVE_STREAMING_RESPONSE_SURFACE = "starlette-rs.StreamingResponse"
+NATIVE_LAZY_SOURCE_OPERATION = "lazy-source-call"
+NATIVE_ROUTE_TABLE_SURFACE = "starlette-rs.RouteTable"
+NATIVE_CUSTOM_CONVERTER_MATCH_OPERATION = "custom-converter-match"
+NATIVE_NAMED_ROUTE_SURFACE = "starlette-rs.NamedRoute"
+NATIVE_CUSTOM_CONVERTER_URL_OPERATION = "custom-converter-url-path-for"
 NATIVE_WEBSOCKET_SURFACE = "starlette-rs.NativeWebSocket"
 NATIVE_WEBSOCKET_OPERATION = "native-session-sequence"
 NATIVE_LIFESPAN_OPERATION = "native-lifespan"
@@ -358,6 +369,8 @@ TESTCLIENT_WEBSOCKET_REQUIREMENTS = {
     "extra_headers": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.extra-headers",
     "text_messages": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.text-message-exchange",
     "binary_messages": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.binary-message-exchange",
+    "raw_send": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.raw-send-message",
+    "raw_receive": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.raw-receive-message",
     "cleanup": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.context-cleanup",
     "denial_response": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.denial-response-exception",
     "blocking_receive": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.blocking-receive-progress",
@@ -508,6 +521,7 @@ REQUEST_HEADER_CACHE_SEQUENCE_CASE_KEYS = (CASE_KEYS - {"steps", "execution_sche
     "actions",
 }
 REQUEST_SCOPE_MAPPING_REQUIREMENT = "starlette.requests.Request.scope-mapping.minimal-http-scope"
+REQUEST_SCOPE_IDENTITY_REQUIREMENT = "starlette.requests.Request.scope-mapping.object-identity"
 REQUEST_CONSTRUCTOR_REQUIREMENT = "starlette.requests.Request.constructor.scope-type-validation"
 REQUEST_CONSTRUCTOR_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {"scope"}
 WEBSOCKET_SCOPE_MAPPING_OPERATION = ("starlette.websockets.WebSocket", "scope-mapping")
@@ -623,6 +637,18 @@ UPLOAD_FILE_WRITE_ERROR_REQUIREMENT = (
     "starlette.datastructures.UploadFile.rolled-write-error-propagation"
 )
 WSGI_BOUNDARY_SURFACE = "starlette.middleware.wsgi"
+WSGI_SURFACE = "starlette.middleware.wsgi.WSGIMiddleware"
+WSGI_PROTOCOL_OPERATION = (WSGI_SURFACE, "__call__")
+WSGI_PROTOCOL_REQUIREMENTS = {
+    name: f"{WSGI_SURFACE}.sender-protocols.{name}"
+    for name in (
+        "unbounded-response-queue",
+        "sender-task-context",
+        "callback-lifetime",
+        "send-error-propagation",
+        "dispatch-cancellation",
+    )
+}
 WSGI_BUILD_ENVIRON_OPERATION = (WSGI_BOUNDARY_SURFACE, "build-environ")
 WSGI_MODULE_IMPORT_OPERATION = (WSGI_BOUNDARY_SURFACE, "module-import-warning")
 WSGI_BOUNDARY_OPERATIONS = {WSGI_BUILD_ENVIRON_OPERATION, WSGI_MODULE_IMPORT_OPERATION}
@@ -1071,6 +1097,9 @@ HOST_SURFACE = "starlette.routing.Host"
 HOST_REVERSE_OPERATION = "url_path_for"
 ROUTER_HOST_PORT_REQUIREMENT = "starlette.routing.Router.route-dispatch.host-parameter-port-ignored"
 ROUTER_HOST_IPV6_REQUIREMENT = "starlette.routing.Router.route-dispatch.host-ipv6-authority-match"
+ROUTER_CACHE_GC_REQUIREMENT = (
+    "starlette.routing.Router.route-dispatch.cached-route-cycle-garbage-collection"
+)
 ROUTER_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
     "custom_convertors",
     "redirect_slashes",
@@ -1616,7 +1645,6 @@ GZIP_RESPONDER_REQUIREMENTS = {
     "direct-compression": f"{GZIP_RESPONDER_SURFACE}.direct-compression-without-negotiation",
     "excluded-content-type": f"{GZIP_RESPONDER_SURFACE}.excluded-content-type-normalization",
 }
-WSGI_SURFACE = "starlette.middleware.wsgi.WSGIMiddleware"
 CORS_SURFACE = "starlette.middleware.cors.CORSMiddleware"
 CORS_PRIVATE_NETWORK_DENIAL_REQUIREMENT = (
     "starlette.middleware.cors.CORSMiddleware.private-network-access-denial"
@@ -2397,6 +2425,11 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                             "route_scope.path_params",
                         }
                     )
+                    router_cache_gc_probe = (
+                        condition["input_key"] == "garbage_collection"
+                        and key == (ROUTER_SURFACE, ROUTER_OPERATION)
+                        and observation["path"] == "garbage_collection"
+                    )
                     testclient_lifespan_callback_trace = (
                         condition["input_key"] == "asgi_app.callback"
                         and key == TESTCLIENT_LIFESPAN_OPERATION_KEY
@@ -2569,6 +2602,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         not response_header_probe
                         and not file_response_scheduling_probe
                         and not router_scope_probe
+                        and not router_cache_gc_probe
                         and not testclient_lifespan_callback_trace
                         and not testclient_lifespan_runvar_context
                         and not testclient_lifespan_typing_contract
@@ -2854,6 +2888,10 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                 or key[0]
                 in {
                     NATIVE_SERVICE_SURFACE,
+                    NATIVE_HOST_SERVICE_SURFACE,
+                    NATIVE_STREAMING_RESPONSE_SURFACE,
+                    NATIVE_ROUTE_TABLE_SURFACE,
+                    NATIVE_NAMED_ROUTE_SURFACE,
                     NATIVE_WEBSOCKET_SURFACE,
                     NATIVE_LIFESPAN_SURFACE,
                 }
@@ -3456,8 +3494,25 @@ def _validate_websocket_endpoint_case_stimulus(case: dict[str, Any]) -> None:
         "WebSocketEndpoint endpoint input",
     )
     encoding = endpoint["encoding"]
-    if encoding is not None and not isinstance(encoding, str):
-        raise ContractError("WebSocketEndpoint encoding must be null or a string")
+    if isinstance(encoding, dict):
+        encoding = _exact(
+            encoding,
+            {"kind", "value", "format_value"},
+            "WebSocketEndpoint formatted encoding",
+        )
+        if encoding["kind"] != "formatted-str-subclass":
+            raise ContractError(
+                "WebSocketEndpoint formatted encoding kind must be formatted-str-subclass"
+            )
+        _string(encoding["value"], "WebSocketEndpoint formatted encoding.value")
+        _string(encoding["format_value"], "WebSocketEndpoint formatted encoding.format_value")
+        if encoding["value"] in {"text", "bytes", "json"}:
+            raise ContractError("WebSocketEndpoint formatted encoding must select an invalid value")
+        encoding_supported = False
+    else:
+        if encoding is not None and not isinstance(encoding, str):
+            raise ContractError("WebSocketEndpoint encoding must be null or a string")
+        encoding_supported = encoding is None or encoding in {"text", "bytes", "json"}
 
     on_connect = endpoint["on_connect"]
     if not isinstance(on_connect, dict):
@@ -3684,7 +3739,7 @@ def _validate_websocket_endpoint_case_stimulus(case: dict[str, Any]) -> None:
             continue
         message = incoming[1]
         message_encoding = "text" if "text" in message else "bytes"
-        if encoding not in {None, "text", "bytes", "json"}:
+        if not encoding_supported:
             if (
                 message_types != ["websocket.connect", "websocket.receive"]
                 or on_disconnect["kind"] != "record-and-close"
@@ -8911,11 +8966,58 @@ def _application_has_slash_redirect(
     return any(_route_template_matches(route["path"], candidate_route_path) for route in routes)
 
 
+def _validate_router_cache_gc_case(case: dict[str, Any], routes: list[dict[str, Any]]) -> None:
+    specification = _exact(
+        case["garbage_collection"],
+        {"endpoint_label", "guard_label", "automatic_gc", "collect_generations", "thread"},
+        "Router cache garbage collection",
+    )
+    endpoint_label = _string(specification["endpoint_label"], "Router GC endpoint_label")
+    guard_label = _string(specification["guard_label"], "Router GC guard_label")
+    if endpoint_label == guard_label:
+        raise ContractError("Router GC endpoint and guard labels must be distinct")
+    generations = specification["collect_generations"]
+    if (
+        type(specification["automatic_gc"]) is not bool
+        or not isinstance(generations, list)
+        or not generations
+        or any(
+            type(generation) is not int or generation not in {0, 1, 2} for generation in generations
+        )
+        or specification["thread"] not in {"caller", "worker"}
+    ):
+        raise ContractError("Router GC requires explicit collection settings")
+    if (
+        case["target_profiles"] != ["python-package-cpython312"]
+        or case["assets"] != []
+        or case["custom_convertors"] != []
+        or len(routes) != 1
+    ):
+        raise ContractError("Router GC requires one Python-package direct HTTP route")
+    route = routes[0]
+    endpoint = route["endpoint"]
+    if (
+        route["kind"] != "http-route"
+        or route["methods"] != ["GET"]
+        or _route_template_parameters(route["path"])
+        or endpoint["kind"] != "plain-text-response"
+        or case["scope"]["path"] != route["path"]
+        or case["scope"]["root_path"] != ""
+        or case["scope"]["method"] != "GET"
+        or case["scope"]["query_string_base64"] != ""
+    ):
+        raise ContractError(
+            "Router GC must dispatch one literal GET Route with a plain-text response"
+        )
+
+
 def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
     if "steps" in case:
         _validate_router_sequence_case_stimulus(case)
         return
     optional_keys = {"observe_router_scope"} if "observe_router_scope" in case else set()
+    if "garbage_collection" in case:
+        optional_keys.add("garbage_collection")
     if "max_body_size" in case:
         optional_keys.add("max_body_size")
     _exact(case, ROUTER_CASE_KEYS | optional_keys, "Router route-dispatch case")
@@ -8924,6 +9026,8 @@ def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
     if case["observations"] != [ROUTER_OPERATION]:
         raise ContractError("Router observations must select route-dispatch")
     if "max_body_size" in case:
+        if "garbage_collection" in case:
+            raise ContractError("Router cache collection requires a direct route-dispatch case")
         _validate_router_body_limit_case(case)
         return
     if type(case["redirect_slashes"]) is not bool:
@@ -8958,6 +9062,8 @@ def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
         )
         for index, route in enumerate(case["routes"])
     ]
+    if "garbage_collection" in case:
+        _validate_router_cache_gc_case(case, routes)
     path = case["scope"].get("path")
     root_path = case["scope"].get("root_path")
     method = case["scope"].get("method")
@@ -9013,6 +9119,8 @@ def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
         )
     ]
     derived: set[str] = set()
+    if "garbage_collection" in case:
+        derived.add(ROUTER_CACHE_GC_REQUIREMENT)
     mount_requirements, selected_route = _router_mount_requirements(
         routes,
         path,
@@ -15456,6 +15564,114 @@ def _validate_testclient_websocket_authorization_route_case(
         )
 
 
+def _validate_testclient_raw_websocket_workflow(
+    case: dict[str, Any],
+    settings: dict[str, Any],
+    websocket: dict[str, Any],
+    asgi_app: dict[str, Any],
+    validate_base64: Callable[[Any, str], None],
+) -> None:
+    session_actions = websocket["actions"]
+    app_actions = asgi_app.get("actions")
+    if (
+        asgi_app["kind"] != "asgi3"
+        or settings["raise_server_exceptions"] is not True
+        or not {"type", "path"} <= set(asgi_app["scope_fields"])
+        or not isinstance(app_actions, list)
+        or len(app_actions) != 6
+        or any(not isinstance(action, dict) for action in app_actions)
+        or [action.get("operation") for action in app_actions]
+        != ["receive", "send", "receive", "send", "send", "receive"]
+        or [action.get("operation") for action in session_actions]
+        != ["send", "receive", "receive", "send"]
+    ):
+        raise ContractError(
+            "Raw TestClient WebSocket workflow must accept, exchange raw messages, send a raw close, and receive the raw client disconnect"
+        )
+
+    def validate_message(value: Any, message_type: str, context: str) -> dict[str, Any]:
+        if (
+            not isinstance(value, dict)
+            or any(not isinstance(key, str) for key in value)
+            or value.get("type") != message_type
+        ):
+            raise ContractError(f"{context} must supply an input-defined {message_type} message")
+        try:
+            json.dumps(value, allow_nan=False)
+        except (TypeError, ValueError) as exc:
+            raise ContractError(f"{context} must contain finite JSON values") from exc
+        for encoded_field, materialized_field in (
+            ("bytes_base64", "bytes"),
+            ("body_base64", "body"),
+        ):
+            if encoded_field in value:
+                if materialized_field in value:
+                    raise ContractError(
+                        f"{context} must supply only one representation of {materialized_field}"
+                    )
+                validate_base64(value[encoded_field], f"{context}.{encoded_field}")
+        if "headers_base64_pairs" in value:
+            if "headers" in value:
+                raise ContractError(f"{context} must supply only one representation of headers")
+            headers = value["headers_base64_pairs"]
+            if not isinstance(headers, list):
+                raise ContractError(f"{context}.headers_base64_pairs must be an array")
+            for index, pair in enumerate(headers):
+                if not isinstance(pair, list) or len(pair) != 2:
+                    raise ContractError(
+                        f"{context}.headers_base64_pairs[{index}] must contain two base64 strings"
+                    )
+                for part, encoded in zip(("name", "value"), pair, strict=True):
+                    validate_base64(encoded, f"{context}.headers_base64_pairs[{index}].{part}")
+        return value
+
+    for index, action in enumerate(app_actions):
+        context = f"Raw TestClient WebSocket app action[{index}]"
+        _exact(
+            action,
+            {"operation", "message"} if action["operation"] == "send" else {"operation"},
+            context,
+        )
+    validate_message(
+        session_actions[0]["message"],
+        "websocket.receive",
+        "Raw TestClient WebSocket client send message",
+    )
+    validate_message(
+        session_actions[3]["message"],
+        "websocket.disconnect",
+        "Raw TestClient WebSocket client disconnect message",
+    )
+    accept_message = validate_message(
+        app_actions[1]["message"],
+        "websocket.accept",
+        "Raw TestClient WebSocket application accept message",
+    )
+    validate_message(
+        app_actions[3]["message"],
+        "websocket.send",
+        "Raw TestClient WebSocket application send message",
+    )
+    validate_message(
+        app_actions[4]["message"],
+        "websocket.close",
+        "Raw TestClient WebSocket application close message",
+    )
+    expected_covers = {
+        TESTCLIENT_WEBSOCKET_REQUIREMENTS["scope"],
+        TESTCLIENT_WEBSOCKET_REQUIREMENTS["handshake"],
+        TESTCLIENT_WEBSOCKET_REQUIREMENTS["raw_send"],
+        TESTCLIENT_WEBSOCKET_REQUIREMENTS["raw_receive"],
+        TESTCLIENT_WEBSOCKET_REQUIREMENTS["portal_cleanup"],
+    }
+    if "params" in websocket:
+        expected_covers.add(TESTCLIENT_WEBSOCKET_REQUIREMENTS["query_params"])
+    if "headers_base64_pairs" in accept_message or "headers" in accept_message:
+        expected_covers.add(TESTCLIENT_WEBSOCKET_REQUIREMENTS["extra_headers"])
+    if set(case["covers"]) != expected_covers:
+        raise ContractError("Raw TestClient WebSocket covers must follow the supplied actions")
+
+
 def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
     settings_keys = {"base_url", "raise_server_exceptions", "root_path", "client", "headers"}
     raw_settings = case["testclient"]
@@ -15547,6 +15763,10 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
     if not isinstance(session_actions, list):
         raise ContractError("TestClient WebSocket actions must be an array")
     no_client_actions = not session_actions
+    raw_session_workflow = any(
+        isinstance(action, dict) and action.get("operation") in {"send", "receive"}
+        for action in session_actions
+    )
     denial_workflow = no_client_actions
     client_json_workflow = False
     client_binary_receive_workflow = False
@@ -15560,6 +15780,15 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
     client_exception_capture_workflow = False
     if denial_workflow:
         pass
+    elif raw_session_workflow:
+        for index, action in enumerate(session_actions):
+            context = f"TestClient raw WebSocket session action[{index}]"
+            if isinstance(action, dict) and action.get("operation") == "send":
+                _exact(action, {"operation", "message"}, context)
+            else:
+                action = _exact(action, {"operation"}, context)
+                if action["operation"] != "receive":
+                    raise ContractError("Raw TestClient WebSocket actions must use send or receive")
     elif len(session_actions) == 4 and all(isinstance(action, dict) for action in session_actions):
         send_action = _exact(session_actions[0], {"operation", "value"}, "Stream echo JSON send")
         receive_action = _exact(session_actions[1], {"operation"}, "Stream echo JSON receive")
@@ -15895,6 +16124,12 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
         or len(scope_fields) != len(set(scope_fields))
     ):
         raise ContractError("TestClient WebSocket scope_fields must be unique supported scope keys")
+
+    if raw_session_workflow:
+        _validate_testclient_raw_websocket_workflow(
+            case, settings, websocket, asgi_app, validate_base64
+        )
+        return
 
     preserves_non_string_subprotocol = (
         no_client_actions
@@ -16637,6 +16872,58 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
             expected_covers.add(TESTCLIENT_WEBSOCKET_REQUIREMENTS["query_params"])
         if set(case["covers"]) != expected_covers:
             raise ContractError("TestClient WebSocket covers must match the denial workflow")
+        return
+
+    raw_application_close_workflow = (
+        isinstance(app_actions, list)
+        and len(app_actions) == 3
+        and all(isinstance(action, dict) for action in app_actions)
+        and [action.get("operation") for action in app_actions] == ["receive", "send", "send"]
+        and isinstance(app_actions[2].get("message"), dict)
+        and app_actions[2]["message"].get("type") == "websocket.close"
+    )
+    if raw_application_close_workflow:
+        if (
+            settings["raise_server_exceptions"] is not True
+            or not {"type", "path"} <= set(scope_fields)
+            or session_actions != [{"operation": "receive_text", "capture_disconnect": True}]
+        ):
+            raise ContractError(
+                "Raw TestClient application-close input must capture the accepted-session disconnect"
+            )
+        _exact(app_actions[0], {"operation"}, "Raw TestClient WebSocket connect action")
+        accept_action = _exact(
+            app_actions[1], {"operation", "message"}, "Raw TestClient WebSocket accept action"
+        )
+        accept_message = _exact(
+            accept_action["message"], {"type"}, "Raw TestClient WebSocket accept message"
+        )
+        if accept_message["type"] != "websocket.accept":
+            raise ContractError("Raw TestClient application-close input must accept first")
+        close_action = _exact(
+            app_actions[2], {"operation", "message"}, "Raw TestClient WebSocket close action"
+        )
+        raw_close = close_action["message"]
+        close_message = _exact(
+            raw_close,
+            {"type"} | (raw_close.keys() & {"code", "reason"}),
+            "Raw TestClient WebSocket close message",
+        )
+        if "code" in close_message and type(close_message["code"]) is not int:
+            raise ContractError("Raw TestClient WebSocket close code must be an integer")
+        if "reason" in close_message and not isinstance(close_message["reason"], str):
+            raise ContractError("Raw TestClient WebSocket close reason must be a string")
+        expected_covers = {
+            TESTCLIENT_WEBSOCKET_REQUIREMENTS["scope"],
+            TESTCLIENT_WEBSOCKET_REQUIREMENTS["handshake"],
+            TESTCLIENT_WEBSOCKET_REQUIREMENTS["application_close_code"],
+            TESTCLIENT_WEBSOCKET_REQUIREMENTS["application_close_reason"],
+            TESTCLIENT_WEBSOCKET_REQUIREMENTS["portal_cleanup"],
+        }
+        if set(case["covers"]) != expected_covers:
+            raise ContractError(
+                "Raw TestClient application-close covers must match the captured fields"
+            )
         return
 
     if accepted_flow_workflow:
@@ -18535,6 +18822,37 @@ def _validate_native_api_case(
     operation_key = (case.get("surface"), case.get("operation"))
     input_fields = {
         (NATIVE_SERVICE_SURFACE, NATIVE_SERVICE_OPERATION): {"application", "request", "drive"},
+        (NATIVE_SERVICE_SURFACE, NATIVE_MOUNTED_CHILD_OPERATION): {
+            "application",
+            "request",
+            "drive",
+        },
+        (NATIVE_HOST_SERVICE_SURFACE, NATIVE_HOST_SERVICE_OPERATION): {
+            "application",
+            "request",
+            "drive",
+        },
+        (NATIVE_STREAMING_RESPONSE_SURFACE, NATIVE_LAZY_SOURCE_OPERATION): {
+            "status_code",
+            "header_pairs",
+            "media_type",
+            "source",
+            "scope",
+            "incoming",
+            "send",
+            "background",
+            "streaming",
+        },
+        (NATIVE_ROUTE_TABLE_SURFACE, NATIVE_CUSTOM_CONVERTER_MATCH_OPERATION): {
+            "converters",
+            "routes",
+            "match",
+        },
+        (NATIVE_NAMED_ROUTE_SURFACE, NATIVE_CUSTOM_CONVERTER_URL_OPERATION): {
+            "converters",
+            "route",
+            "lookup",
+        },
         (NATIVE_SERVICE_SURFACE, NATIVE_SERVICE_MIDDLEWARE_OPERATION): {"inputs"},
         (NATIVE_WEBSOCKET_SURFACE, NATIVE_WEBSOCKET_OPERATION): {"input"},
         (NATIVE_LIFESPAN_SURFACE, NATIVE_LIFESPAN_OPERATION): {"inputs"},
@@ -18616,6 +18934,16 @@ def _validate_native_api_case(
 
     if operation_key == (NATIVE_SERVICE_SURFACE, NATIVE_SERVICE_OPERATION):
         _validate_native_service_input(case)
+    elif operation_key == (NATIVE_SERVICE_SURFACE, NATIVE_MOUNTED_CHILD_OPERATION):
+        _validate_native_mounted_child_input(case)
+    elif operation_key == (NATIVE_HOST_SERVICE_SURFACE, NATIVE_HOST_SERVICE_OPERATION):
+        _validate_native_host_service_input(case)
+    elif operation_key == (NATIVE_STREAMING_RESPONSE_SURFACE, NATIVE_LAZY_SOURCE_OPERATION):
+        _validate_native_lazy_stream_input(case)
+    elif operation_key == (NATIVE_ROUTE_TABLE_SURFACE, NATIVE_CUSTOM_CONVERTER_MATCH_OPERATION):
+        _validate_native_custom_converter_match_input(case)
+    elif operation_key == (NATIVE_NAMED_ROUTE_SURFACE, NATIVE_CUSTOM_CONVERTER_URL_OPERATION):
+        _validate_native_custom_converter_url_input(case)
     elif operation_key == (NATIVE_SERVICE_SURFACE, NATIVE_SERVICE_MIDDLEWARE_OPERATION):
         _validate_native_service_middleware_input(case["inputs"])
     elif operation_key == (NATIVE_WEBSOCKET_SURFACE, NATIVE_WEBSOCKET_OPERATION):
@@ -18657,6 +18985,326 @@ def _validate_native_service_input(case: dict[str, Any]) -> None:
         if "service_future" not in drive or set(drive) - {"service_future", "response_body"}:
             raise ContractError("native service drive has unsupported fields")
         _string(drive["service_future"], "native service drive.service_future")
+
+
+def _validate_native_service_drive(value: Any, context: str) -> None:
+    drive = _exact(value, {"service_future", "response_body"}, context)
+    if drive["service_future"] != "resolve":
+        raise ContractError(f"{context}.service_future must be resolve")
+    if drive["response_body"] != "read-to-end":
+        raise ContractError(f"{context}.response_body must be read-to-end")
+
+
+def _validate_native_mounted_child_input(case: dict[str, Any]) -> None:
+    application = _exact(case["application"], {"children"}, "native mounted application")
+    children = application["children"]
+    if not isinstance(children, list) or not children:
+        raise ContractError("native mounted application.children must be a non-empty array")
+    for index, child_value in enumerate(children):
+        context = f"native mounted application.children[{index}]"
+        child = _exact(child_value, {"kind", "path", "application"}, context)
+        if child["kind"] != "mount":
+            raise ContractError(f"{context}.kind must be mount")
+        _string(child["path"], f"{context}.path")
+        nested = _exact(child["application"], {"routes"}, f"{context}.application")
+        routes = nested["routes"]
+        if not isinstance(routes, list) or not routes:
+            raise ContractError(f"{context}.application.routes must be a non-empty array")
+        for route_index, route_value in enumerate(routes):
+            route_context = f"{context}.application.routes[{route_index}]"
+            route = _exact(route_value, {"path", "methods", "endpoint"}, route_context)
+            _string(route["path"], f"{route_context}.path")
+            methods = route["methods"]
+            if (
+                not isinstance(methods, list)
+                or not methods
+                or any(not isinstance(method, str) or not method for method in methods)
+            ):
+                raise ContractError(f"{route_context}.methods must be a non-empty string array")
+            endpoint = route["endpoint"]
+            if not isinstance(endpoint, dict) or "request_body_action" not in endpoint:
+                raise ContractError(f"{route_context}.endpoint must declare request_body_action")
+            if set(endpoint) == {"request_body_action", "response_body"}:
+                _validate_native_body_source(
+                    endpoint["response_body"], f"{route_context}.endpoint.response_body"
+                )
+            elif set(endpoint) == {"request_body_action", "response_body_from_request"}:
+                fields = endpoint["response_body_from_request"]
+                if (
+                    not isinstance(fields, list)
+                    or not fields
+                    or any(
+                        field not in {"path", "root_path", "app_root_path", "path_params"}
+                        for field in fields
+                    )
+                    or len(fields) != len(set(fields))
+                ):
+                    raise ContractError(
+                        f"{route_context}.endpoint.response_body_from_request is invalid"
+                    )
+            else:
+                raise ContractError(f"{route_context}.endpoint has unsupported fields")
+            _string(
+                endpoint["request_body_action"],
+                f"{route_context}.endpoint.request_body_action",
+            )
+    request = _exact(case["request"], {"method", "uri", "scope", "body"}, "native mounted request")
+    _string(request["method"], "native mounted request.method")
+    _string(request["uri"], "native mounted request.uri")
+    scope_value = request["scope"]
+    if not isinstance(scope_value, dict):
+        raise ContractError("native mounted request.scope must be an object")
+    scope = _exact(
+        scope_value,
+        {"root_path", "app_root_path"}
+        | ({"path_params"} if "path_params" in scope_value else set()),
+        "native mounted request.scope",
+    )
+    for key in ("root_path", "app_root_path"):
+        _string(scope[key], f"native mounted request.scope.{key}")
+    if "path_params" in scope:
+        params = scope["path_params"]
+        if not isinstance(params, list):
+            raise ContractError("native mounted request.scope.path_params must be an array")
+        for index, parameter_value in enumerate(params):
+            context = f"native mounted request.scope.path_params[{index}]"
+            parameter = _exact(parameter_value, {"name", "value", "converter"}, context)
+            for key in ("name", "value", "converter"):
+                _string(parameter[key], f"{context}.{key}")
+    _validate_native_body_source(request["body"], "native mounted request.body")
+    _validate_native_service_drive(case["drive"], "native mounted drive")
+
+
+def _validate_native_host_service_input(case: dict[str, Any]) -> None:
+    application = _exact(case["application"], {"host_routes"}, "native host application")
+    host_routes = application["host_routes"]
+    if not isinstance(host_routes, list) or not host_routes:
+        raise ContractError("native host application.host_routes must be a non-empty array")
+    for index, host_route_value in enumerate(host_routes):
+        context = f"native host application.host_routes[{index}]"
+        host_route = _exact(host_route_value, {"host", "routes"}, context)
+        _string(host_route["host"], f"{context}.host")
+        routes = host_route["routes"]
+        if not isinstance(routes, list) or not routes:
+            raise ContractError(f"{context}.routes must be a non-empty array")
+        for route_index, route_value in enumerate(routes):
+            route_context = f"{context}.routes[{route_index}]"
+            route = _exact(route_value, {"path", "methods", "endpoint"}, route_context)
+            _string(route["path"], f"{route_context}.path")
+            methods = route["methods"]
+            if (
+                not isinstance(methods, list)
+                or not methods
+                or any(not isinstance(method, str) or not method for method in methods)
+            ):
+                raise ContractError(f"{route_context}.methods must be a non-empty string array")
+            endpoint = _exact(route["endpoint"], {"action"}, f"{route_context}.endpoint")
+            if endpoint["action"] != "echo-path-params":
+                raise ContractError(f"{route_context}.endpoint.action is unsupported")
+    request = _exact(
+        case["request"],
+        {"method", "uri", "host_header", "body"},
+        "native host request",
+    )
+    _string(request["method"], "native host request.method")
+    _string(request["uri"], "native host request.uri")
+    if request["host_header"] is not None:
+        _string(request["host_header"], "native host request.host_header")
+    _validate_native_body_source(request["body"], "native host request.body")
+    _validate_native_service_drive(case["drive"], "native host drive")
+
+
+def _validate_native_http_scope(value: Any) -> None:
+    context = "native streaming HTTP scope"
+    scope = _exact(
+        value,
+        {
+            "type",
+            "asgi",
+            "http_version",
+            "method",
+            "scheme",
+            "path",
+            "raw_path_base64",
+            "query_string_base64",
+            "root_path",
+            "headers_base64_pairs",
+            "client",
+            "server",
+        },
+        context,
+    )
+    if scope["type"] != "http":
+        raise ContractError(f"{context}.type must be http")
+    asgi = _exact(scope["asgi"], {"version", "spec_version"}, f"{context}.asgi")
+    _string(asgi["version"], f"{context}.asgi.version")
+    _string(asgi["spec_version"], f"{context}.asgi.spec_version")
+    for key in ("http_version", "method", "scheme", "path"):
+        _string(scope[key], f"{context}.{key}")
+    if not isinstance(scope["root_path"], str):
+        raise ContractError(f"{context}.root_path must be a string")
+    for key in ("raw_path_base64", "query_string_base64"):
+        encoded = scope[key]
+        if not isinstance(encoded, str):
+            raise ContractError(f"{context}.{key} must be a base64 string")
+        try:
+            base64.b64decode(encoded, validate=True)
+        except (binascii.Error, ValueError) as exc:
+            raise ContractError(f"{context}.{key} must be valid base64") from exc
+    _validate_header_pairs(scope["headers_base64_pairs"], f"{context}.headers_base64_pairs")
+    for key in ("client", "server"):
+        address = scope[key]
+        if (
+            not isinstance(address, list)
+            or len(address) != 2
+            or not isinstance(address[0], str)
+            or type(address[1]) is not int
+            or not 0 <= address[1] <= 65535
+        ):
+            raise ContractError(f"{context}.{key} must be a host/port pair")
+
+
+def _validate_native_lazy_stream_input(case: dict[str, Any]) -> None:
+    status = case["status_code"]
+    if type(status) is not int or not 100 <= status <= 599:
+        raise ContractError("native streaming response status_code must be an HTTP status")
+    headers = case["header_pairs"]
+    if not isinstance(headers, list):
+        raise ContractError("native streaming response header_pairs must be an array")
+    for index, pair in enumerate(headers):
+        if not isinstance(pair, list) or len(pair) != 2:
+            raise ContractError(f"native streaming response header_pairs[{index}] must be a pair")
+        _string(pair[0], f"native streaming response header_pairs[{index}][0]")
+        _string(pair[1], f"native streaming response header_pairs[{index}][1]")
+    if case["media_type"] is not None:
+        _string(case["media_type"], "native streaming response media_type")
+    source = _exact(
+        case["source"],
+        {"items", "terminal", "pull_markers", "finally_marker"},
+        "native streaming source",
+    )
+    items = source["items"]
+    if not isinstance(items, list):
+        raise ContractError("native streaming source.items must be an array")
+    for index, item_value in enumerate(items):
+        context = f"native streaming source.items[{index}]"
+        item = _exact(item_value, {"kind", "value"}, context)
+        if item["kind"] == "text":
+            _string(item["value"], f"{context}.value")
+        elif item["kind"] == "base64":
+            encoded = _string(item["value"], f"{context}.value")
+            try:
+                base64.b64decode(encoded, validate=True)
+            except (binascii.Error, ValueError) as exc:
+                raise ContractError(f"{context}.value must be valid base64") from exc
+        else:
+            raise ContractError(f"{context}.kind must be text or base64")
+    terminal = source["terminal"]
+    if not isinstance(terminal, dict) or terminal.get("kind") not in {"end", "error"}:
+        raise ContractError("native streaming source.terminal must select end or error")
+    if terminal["kind"] == "end":
+        _exact(terminal, {"kind"}, "native streaming source.terminal")
+    else:
+        terminal = _exact(terminal, {"kind", "error"}, "native streaming source.terminal")
+        error = _exact(terminal["error"], {"type", "message"}, "native streaming source error")
+        _string(error["type"], "native streaming source error.type")
+        _string(error["message"], "native streaming source error.message")
+    markers = source["pull_markers"]
+    if not isinstance(markers, list) or len(markers) < len(items):
+        raise ContractError("native streaming source.pull_markers must cover every source item")
+    for index, marker in enumerate(markers):
+        _string(marker, f"native streaming source.pull_markers[{index}]")
+    _string(source["finally_marker"], "native streaming source.finally_marker")
+    _validate_native_http_scope(case["scope"])
+    if case["incoming"] != []:
+        raise ContractError("native streaming response incoming must be an empty array")
+    send = case["send"]
+    if not isinstance(send, dict) or not isinstance(send.get("kind"), str):
+        raise ContractError("native streaming response send must select a send driver")
+    send_kind = send["kind"]
+    if send_kind == "capture-asgi-send":
+        _exact(send, {"kind"}, "native streaming response send")
+    elif send_kind == "capture-asgi-send-with-checkpoint-gate":
+        send = _exact(
+            send, {"kind", "event_index", "release_after_checkpoints"}, "native streaming send gate"
+        )
+        if type(send["event_index"]) is not int or send["event_index"] < 0:
+            raise ContractError("native streaming send gate event_index must be non-negative")
+        if (
+            type(send["release_after_checkpoints"]) is not int
+            or send["release_after_checkpoints"] < 0
+        ):
+            raise ContractError("native streaming send gate release count must be non-negative")
+    elif send_kind == "capture-asgi-send-with-caller-cancellation":
+        send = _exact(send, {"kind", "event_index"}, "native streaming cancellation send")
+        if type(send["event_index"]) is not int or send["event_index"] < 0:
+            raise ContractError("native streaming cancellation event_index must be non-negative")
+    else:
+        raise ContractError("native streaming response send kind is unsupported")
+    background = _exact(case["background"], {"kind", "values"}, "native streaming background")
+    if background["kind"] != "async-values-recorder" or not isinstance(background["values"], list):
+        raise ContractError("native streaming background must be an async-values-recorder")
+    for index, value in enumerate(background["values"]):
+        _string(value, f"native streaming background.values[{index}]")
+    if case["streaming"] != "async-generator":
+        raise ContractError("native streaming response streaming kind must be async-generator")
+
+
+def _validate_native_custom_converters(value: Any) -> None:
+    converters = value
+    if not isinstance(converters, list) or not converters:
+        raise ContractError("native custom converters must be a non-empty array")
+    names: set[str] = set()
+    for index, converter_value in enumerate(converters):
+        context = f"native custom converters[{index}]"
+        converter = _exact(converter_value, {"name", "regex", "convert", "to_string"}, context)
+        name = _string(converter["name"], f"{context}.name")
+        if name in names:
+            raise ContractError("native custom converter names must be unique")
+        names.add(name)
+        pattern = _string(converter["regex"], f"{context}.regex")
+        try:
+            re.compile(pattern)
+        except re.error as exc:
+            raise ContractError(f"{context}.regex must compile") from exc
+        if converter["convert"] not in {"identity", "lowercase", "uppercase"}:
+            raise ContractError(f"{context}.convert is unsupported")
+        if converter["to_string"] not in {"identity", "lowercase", "uppercase"}:
+            raise ContractError(f"{context}.to_string is unsupported")
+
+
+def _validate_native_custom_converter_match_input(case: dict[str, Any]) -> None:
+    _validate_native_custom_converters(case["converters"])
+    routes = case["routes"]
+    if not isinstance(routes, list) or not routes:
+        raise ContractError("native custom RouteTable routes must be a non-empty array")
+    for index, route_value in enumerate(routes):
+        context = f"native custom RouteTable routes[{index}]"
+        route = _exact(route_value, {"path", "methods"}, context)
+        _string(route["path"], f"{context}.path")
+        methods = route["methods"]
+        if not isinstance(methods, list) or not methods:
+            raise ContractError(f"{context}.methods must be a non-empty array")
+        for method_index, method in enumerate(methods):
+            _string(method, f"{context}.methods[{method_index}]")
+    match = _exact(case["match"], {"path", "method"}, "native custom RouteTable match")
+    _string(match["path"], "native custom RouteTable match.path")
+    _string(match["method"], "native custom RouteTable match.method")
+
+
+def _validate_native_custom_converter_url_input(case: dict[str, Any]) -> None:
+    _validate_native_custom_converters(case["converters"])
+    route = _exact(case["route"], {"path", "name"}, "native custom NamedRoute")
+    _string(route["path"], "native custom NamedRoute.path")
+    _string(route["name"], "native custom NamedRoute.name")
+    lookup = _exact(case["lookup"], {"name", "path_params"}, "native custom URL lookup")
+    _string(lookup["name"], "native custom URL lookup.name")
+    params = lookup["path_params"]
+    if not isinstance(params, dict):
+        raise ContractError("native custom URL lookup.path_params must be an object")
+    for name, value in params.items():
+        _string(name, "native custom URL lookup parameter name")
+        _string(value, f"native custom URL lookup.path_params.{name}")
 
 
 def _validate_native_service_middleware_input(value: Any) -> None:
@@ -19075,6 +19723,10 @@ def _validate_case_payload(
             native_surface
             in {
                 NATIVE_SERVICE_SURFACE,
+                NATIVE_HOST_SERVICE_SURFACE,
+                NATIVE_STREAMING_RESPONSE_SURFACE,
+                NATIVE_ROUTE_TABLE_SURFACE,
+                NATIVE_NAMED_ROUTE_SURFACE,
                 NATIVE_WEBSOCKET_SURFACE,
                 NATIVE_LIFESPAN_SURFACE,
             }
@@ -19201,9 +19853,14 @@ def _validate_case_payload(
         isinstance(case, dict)
         and (case.get("surface"), case.get("operation")) in VALUE_FORMATTING_OPERATIONS
     )
-    is_rust_owned_python = (
+    is_wsgi_protocol = (
         isinstance(case, dict)
-        and (case.get("surface"), case.get("operation")) in RUST_OWNED_PYTHON_OPERATIONS
+        and (case.get("surface"), case.get("operation")) == WSGI_PROTOCOL_OPERATION
+        and "send_action" in case
+    )
+    is_rust_owned_python = isinstance(case, dict) and (
+        (case.get("surface"), case.get("operation")) in RUST_OWNED_PYTHON_OPERATIONS
+        or is_wsgi_protocol
     )
     is_headers_consumer_sequence = (
         isinstance(case, dict)
@@ -19658,6 +20315,14 @@ def _validate_case_payload(
             STATE_OPERATION_KEY: {"instances", "actions"},
             WSGI_BUILD_ENVIRON_OPERATION: {"scope", "body_base64", "environ_probes"},
             WSGI_MODULE_IMPORT_OPERATION: {"module_name"},
+            WSGI_PROTOCOL_OPERATION: {
+                "scope",
+                "incoming",
+                "app",
+                "context",
+                "hold_timeout_seconds",
+                "send_action",
+            },
             ("starlette.testclient.TestClient", "module-import-policy"): {"imports"},
             ("starlette.requests.Request", "module-import-policy"): {"imports"},
             ("starlette.middleware.sessions.SessionMiddleware", "module-import-policy"): {
@@ -19681,6 +20346,8 @@ def _validate_case_payload(
             and "mapping_source" in case
         ):
             expected_case_keys = expected_case_keys | {"mapping_source"}
+        if is_wsgi_protocol and "callback_lifetime" in case:
+            expected_case_keys = expected_case_keys | {"callback_lifetime"}
         if is_headers_consumer_sequence and "actions" in case:
             expected_case_keys = expected_case_keys | {"actions"}
     elif is_multidict:
@@ -19749,6 +20416,8 @@ def _validate_case_payload(
         expected_case_keys = STATUS_CASE_KEYS
     elif is_session_workflow:
         expected_case_keys = SESSION_WORKFLOW_CASE_KEYS
+    if is_router and "steps" not in case and "garbage_collection" in case:
+        expected_case_keys = expected_case_keys | {"garbage_collection"}
     if is_static_files_lookup_path and "directory_pathlike" in case:
         expected_case_keys = expected_case_keys | {"directory_pathlike"}
     if (case["surface"], case["operation"]) == TEMPLATING_PUBLIC_OPERATION:
@@ -20250,6 +20919,8 @@ def _validate_case_payload(
             _validate_headers_case(case)
         elif (case["surface"], case["operation"]) == STATE_OPERATION_KEY:
             _validate_state_case(case)
+        elif is_wsgi_protocol:
+            _validate_wsgi_protocol_case(case)
         elif (case["surface"], case["operation"]) in WSGI_BOUNDARY_OPERATIONS:
             _validate_wsgi_boundary_case(case)
         else:
@@ -24549,8 +25220,10 @@ def _validate_http_exception_application(route: dict[str, Any], handlers: Any) -
         and int(handlers[0]["key"]["status_code"]) == status_code
         and handlers[0]["handler"].get("kind") == "json-literal-response"
     )
-    if not 100 <= status_code <= 599 and not bool_key_equivalence:
-        raise ContractError("HTTP exception status must be valid or match a bool handler key")
+    if not 100 <= status_code <= 599 and not bool_key_equivalence and endpoint["detail"] is None:
+        raise ContractError(
+            "out-of-range HTTP exception statuses require an explicit detail to bypass HTTPStatus defaults"
+        )
     if handlers and bool_key_equivalence:
         return
     if handlers:
@@ -25295,8 +25968,14 @@ def _validate_request_scope_mapping_case(case: dict[str, Any]) -> None:
     expected_scope = {"type": "http", "method": "GET", "path": "/abc/"}
     if case["scope"] != expected_scope:
         raise ContractError("Request scope-mapping input must preserve the pinned minimal scope")
-    if case["covers"] != [REQUEST_SCOPE_MAPPING_REQUIREMENT]:
-        raise ContractError("Request scope-mapping case must cover its canonical requirement")
+    requirements = set(case["covers"])
+    if REQUEST_SCOPE_MAPPING_REQUIREMENT not in requirements or not requirements <= {
+        REQUEST_SCOPE_MAPPING_REQUIREMENT,
+        REQUEST_SCOPE_IDENTITY_REQUIREMENT,
+    }:
+        raise ContractError(
+            "Request scope-mapping case must cover its declared mapping requirements"
+        )
 
 
 def _validate_request_constructor_case(case: dict[str, Any]) -> None:
@@ -26694,6 +27373,67 @@ def _wsgi_build_environ_semantic_coverage(case: dict[str, Any]) -> set[str]:
     return covered
 
 
+def _validate_wsgi_scope(scope_input: Any, body_base64: Any) -> dict[str, Any]:
+    scope = _exact(
+        scope_input,
+        {
+            "type",
+            "http_version",
+            "method",
+            "scheme",
+            "path",
+            "root_path",
+            "query_string_base64",
+            "headers_base64_pairs",
+            "client",
+            "server",
+        }
+        & set(scope_input)
+        | {"http_version", "method", "path", "query_string_base64"},
+        "build_environ scope",
+    )
+    if "type" in scope and scope["type"] != "http":
+        raise ContractError("build_environ scope type must be HTTP when supplied")
+    for name in ("http_version", "method", "path"):
+        _string(scope[name], f"build_environ scope.{name}")
+    if "scheme" in scope:
+        _string(scope["scheme"], "build_environ scope.scheme")
+    if "root_path" in scope:
+        _string(scope["root_path"], "build_environ scope.root_path")
+    try:
+        base64.b64decode(scope["query_string_base64"], validate=True).decode("ascii")
+        base64.b64decode(body_base64, validate=True)
+    except (ValueError, TypeError, UnicodeDecodeError) as exc:
+        raise ContractError(
+            "build_environ body and query must be valid ASCII/base64 input"
+        ) from exc
+    raw_headers = scope.get("headers_base64_pairs", [])
+    if not isinstance(raw_headers, list):
+        raise ContractError("build_environ scope headers must be an array")
+    for index, pair in enumerate(raw_headers):
+        if (
+            not isinstance(pair, list)
+            or len(pair) != 2
+            or any(not isinstance(value, str) for value in pair)
+        ):
+            raise ContractError(f"build_environ scope header[{index}] must be a base64 pair")
+        try:
+            base64.b64decode(pair[0], validate=True)
+            base64.b64decode(pair[1], validate=True)
+        except (ValueError, TypeError) as exc:
+            raise ContractError(f"build_environ scope header[{index}] is invalid base64") from exc
+    for name in ("server", "client"):
+        value = scope.get(name)
+        if value is not None and (
+            not isinstance(value, list)
+            or len(value) != 2
+            or not isinstance(value[0], str)
+            or type(value[1]) is not int
+        ):
+            raise ContractError(f"build_environ scope.{name} must be null or a two-item tuple")
+    return scope
+
+
 def _validate_wsgi_boundary_case(case: dict[str, Any]) -> None:
     if case["target_profiles"] != ["python-package-cpython312"]:
         raise ContractError("WSGI helper and import parity cases select the Python package profile")
@@ -26703,65 +27443,7 @@ def _validate_wsgi_boundary_case(case: dict[str, Any]) -> None:
     if operation == WSGI_BUILD_ENVIRON_OPERATION:
         if case["observations"] != ["environ-results"]:
             raise ContractError("build_environ cases must select environ-results")
-        scope = _exact(
-            case["scope"],
-            {
-                "type",
-                "http_version",
-                "method",
-                "scheme",
-                "path",
-                "root_path",
-                "query_string_base64",
-                "headers_base64_pairs",
-                "client",
-                "server",
-            }
-            & set(case["scope"])
-            | {"http_version", "method", "path", "query_string_base64"},
-            "build_environ scope",
-        )
-        if "type" in scope and scope["type"] != "http":
-            raise ContractError("build_environ scope type must be HTTP when supplied")
-        for name in ("http_version", "method", "path"):
-            _string(scope[name], f"build_environ scope.{name}")
-        if "scheme" in scope:
-            _string(scope["scheme"], "build_environ scope.scheme")
-        if "root_path" in scope:
-            _string(scope["root_path"], "build_environ scope.root_path")
-        try:
-            base64.b64decode(scope["query_string_base64"], validate=True).decode("ascii")
-            base64.b64decode(case["body_base64"], validate=True)
-        except (ValueError, TypeError, UnicodeDecodeError) as exc:
-            raise ContractError(
-                "build_environ body and query must be valid ASCII/base64 input"
-            ) from exc
-        raw_headers = scope.get("headers_base64_pairs", [])
-        if not isinstance(raw_headers, list):
-            raise ContractError("build_environ scope headers must be an array")
-        for index, pair in enumerate(raw_headers):
-            if (
-                not isinstance(pair, list)
-                or len(pair) != 2
-                or any(not isinstance(value, str) for value in pair)
-            ):
-                raise ContractError(f"build_environ scope header[{index}] must be a base64 pair")
-            try:
-                base64.b64decode(pair[0], validate=True)
-                base64.b64decode(pair[1], validate=True)
-            except (ValueError, TypeError) as exc:
-                raise ContractError(
-                    f"build_environ scope header[{index}] is invalid base64"
-                ) from exc
-        for name in ("server", "client"):
-            value = scope.get(name)
-            if value is not None and (
-                not isinstance(value, list)
-                or len(value) != 2
-                or not isinstance(value[0], str)
-                or type(value[1]) is not int
-            ):
-                raise ContractError(f"build_environ scope.{name} must be null or a two-item tuple")
+        _validate_wsgi_scope(case["scope"], case["body_base64"])
         probes = case["environ_probes"]
         if not isinstance(probes, list) or not probes:
             raise ContractError("build_environ requires at least one environ probe")
@@ -26796,6 +27478,120 @@ def _validate_wsgi_boundary_case(case: dict[str, Any]) -> None:
             "WSGI boundary covers must match the scope probes or module import input: "
             f"expected={sorted(exercised)}, actual={sorted(case['covers'])}"
         )
+
+
+def _validate_wsgi_protocol_case(case: dict[str, Any]) -> None:
+    if case["target_profiles"] != ["python-package-cpython312"] or case["assets"] != []:
+        raise ContractError("WSGI sender protocol comparisons select CPython 3.12 without assets")
+    if case["observations"] != ["protocol-results"]:
+        raise ContractError("WSGI sender protocol comparisons must select protocol-results")
+    scope = _validate_wsgi_scope(case["scope"], "")
+    incoming = case["incoming"]
+    if not isinstance(incoming, list) or not incoming:
+        raise ContractError("WSGI sender protocol input requires at least one request message")
+    for index, message in enumerate(incoming):
+        message = _exact(
+            message,
+            {"type", "body_base64", "more_body"},
+            f"WSGI sender protocol incoming[{index}]",
+        )
+        if message["type"] != "http.request" or type(message["more_body"]) is not bool:
+            raise ContractError("WSGI sender protocol input messages must be http.request values")
+        try:
+            base64.b64decode(message["body_base64"], validate=True)
+        except (ValueError, TypeError) as exc:
+            raise ContractError("WSGI sender protocol request body must be base64") from exc
+        if message["more_body"] is (index == len(incoming) - 1):
+            raise ContractError("WSGI request messages must end with exactly one terminal message")
+    if not isinstance(scope, dict):
+        raise ContractError("WSGI sender protocol scope must be an object")
+
+    app = _exact(case["app"], {"status", "headers", "chunks_base64"}, "WSGI sender protocol app")
+    _string(app["status"], "WSGI sender protocol app.status")
+    if not isinstance(app["headers"], list):
+        raise ContractError("WSGI sender protocol app.headers must be an array")
+    for index, pair in enumerate(app["headers"]):
+        if (
+            not isinstance(pair, list)
+            or len(pair) != 2
+            or any(not isinstance(value, str) for value in pair)
+        ):
+            raise ContractError(f"WSGI sender protocol app.headers[{index}] must be a string pair")
+    if not isinstance(app["chunks_base64"], list):
+        raise ContractError("WSGI sender protocol app.chunks_base64 must be an array")
+    for index, chunk in enumerate(app["chunks_base64"]):
+        try:
+            base64.b64decode(chunk, validate=True)
+        except (ValueError, TypeError) as exc:
+            raise ContractError(f"WSGI sender protocol chunk[{index}] must be base64") from exc
+
+    context = _exact(
+        case["context"],
+        {"name", "caller_value", "worker_value", "send_value"},
+        "WSGI sender protocol context",
+    )
+    for name, value in context.items():
+        _string(value, f"WSGI sender protocol context.{name}")
+        if not value:
+            raise ContractError(f"WSGI sender protocol context.{name} must not be empty")
+    timeout = case["hold_timeout_seconds"]
+    if type(timeout) not in {int, float} or not math.isfinite(timeout) or timeout <= 0:
+        raise ContractError("WSGI sender protocol hold_timeout_seconds must be positive and finite")
+
+    action = _exact(
+        case["send_action"],
+        {"kind", "at_event", "failure"},
+        "WSGI sender protocol send_action",
+    )
+    if action["kind"] not in {"complete", "raise", "cancel-call"}:
+        raise ContractError("WSGI sender protocol send_action.kind is unsupported")
+    if (
+        type(action["at_event"]) is not int
+        or not 1 <= action["at_event"] <= len(app["chunks_base64"]) + 2
+    ):
+        raise ContractError(
+            "WSGI sender protocol send_action.at_event is outside the response trace"
+        )
+    if action["kind"] == "raise":
+        failure = _exact(
+            action["failure"], {"class", "message"}, "WSGI sender protocol send failure"
+        )
+        if failure["class"] not in {"OSError", "RuntimeError"}:
+            raise ContractError("WSGI sender protocol failure class is unsupported")
+        _string(failure["message"], "WSGI sender protocol failure message")
+    elif action["failure"] is not None:
+        raise ContractError("WSGI sender protocol non-error actions must set failure to null")
+
+    callback_lifetime = None
+    if "callback_lifetime" in case:
+        callback_lifetime = _exact(
+            case["callback_lifetime"],
+            {"collect_generations"},
+            "WSGI sender protocol callback_lifetime",
+        )
+        generations = callback_lifetime["collect_generations"]
+        if (
+            not isinstance(generations, list)
+            or not generations
+            or any(type(value) is not int or value not in {0, 1, 2} for value in generations)
+            or len(generations) != len(set(generations))
+        ):
+            raise ContractError(
+                "WSGI callback_lifetime.collect_generations must select unique CPython GC generations"
+            )
+
+    expected = {
+        WSGI_PROTOCOL_REQUIREMENTS["unbounded-response-queue"],
+        WSGI_PROTOCOL_REQUIREMENTS["sender-task-context"],
+    }
+    if callback_lifetime is not None:
+        expected.add(WSGI_PROTOCOL_REQUIREMENTS["callback-lifetime"])
+    if action["kind"] == "raise":
+        expected.add(WSGI_PROTOCOL_REQUIREMENTS["send-error-propagation"])
+    elif action["kind"] == "cancel-call":
+        expected.add(WSGI_PROTOCOL_REQUIREMENTS["dispatch-cancellation"])
+    if set(case["covers"]) != expected:
+        raise ContractError("WSGI sender protocol covers must follow its supplied send action")
 
 
 def _validate_config_case(case: dict[str, Any]) -> None:
@@ -33369,6 +34165,8 @@ def _semantic_coverage(case: dict[str, Any]) -> set[str]:
                     coverage.add("starlette.asgi.http-exception.not-modified-304")
                 elif status_code == 200 and detail is None and headers:
                     coverage.add("starlette.asgi.http-exception.headers-200")
+                elif (status_code < 100 or status_code > 599) and isinstance(detail, str):
+                    coverage.add("starlette.asgi.http-exception.explicit-status-python-integer")
             return coverage
         if path_matches and method_matches:
             coverage.update(
@@ -33645,7 +34443,7 @@ def validate_input_document_v47(
     *,
     public_modules: frozenset[str] | None = None,
 ) -> list[dict[str, Any]]:
-    """Validate an @47 document before migrating its schema header to @48."""
+    """Validate an @47 document under its pre-@48 acceptance rules for migration."""
     _exact(document, {"schema", "cases"}, "parity input")
     if document["schema"] != INPUT_SCHEMA_V47:
         raise ContractError(f"unsupported @47 parity input schema: {document['schema']!r}")
@@ -33656,6 +34454,23 @@ def validate_input_document_v47(
         for case in document["cases"]
     ):
         raise ContractError("parity-input@47 does not allow upstream test applicability metadata")
+    v48_document = dict(document)
+    v48_document["schema"] = INPUT_SCHEMA_V48
+    return validate_input_document_v48(v48_document, manifest, public_modules=public_modules)
+
+
+def validate_input_document_v48(
+    document: Any,
+    manifest: dict[str, Any],
+    *,
+    public_modules: frozenset[str] | None = None,
+) -> list[dict[str, Any]]:
+    """Validate an @48 document before migrating it to the active @49 contract."""
+    _exact(document, {"schema", "cases"}, "parity input")
+    if document["schema"] != INPUT_SCHEMA_V48:
+        raise ContractError(f"unsupported @48 parity input schema: {document['schema']!r}")
+    if not isinstance(document["cases"], list) or not document["cases"]:
+        raise ContractError("parity input must select at least one case")
     current_document = dict(document)
     current_document["schema"] = INPUT_SCHEMA
     return validate_input_document(current_document, manifest, public_modules=public_modules)
@@ -33667,8 +34482,8 @@ def validate_previous_input_document(
     *,
     public_modules: frozenset[str] | None = None,
 ) -> list[dict[str, Any]]:
-    """Validate the previous @47 schema before migrating it to the active @48 contract."""
-    return validate_input_document_v47(document, manifest, public_modules=public_modules)
+    """Validate the previous @48 schema before migrating it to the active @49 contract."""
+    return validate_input_document_v48(document, manifest, public_modules=public_modules)
 
 
 def validate_previous_input_v45_document(

@@ -18,17 +18,38 @@ def _safe(value: Any) -> Any:
     return str(value)
 
 
+def _probe(action: Callable[[], Any]) -> dict[str, Any]:
+    try:
+        return {"outcome": "ok", "value": _safe(action())}
+    except Exception as error:
+        error_type = type(error)
+        return {
+            "outcome": "error",
+            "exception_type": f"{error_type.__module__}.{error_type.__qualname__}",
+            "message": str(error),
+        }
+
+
 def run_request_scope_mapping_case(
     case: dict[str, Any],
     request_type: type[Any],
 ) -> dict[str, Any]:
     """Observe the mapping API using the exact scope supplied by the case."""
     request = request_type(case["scope"])
+    peer = request_type(dict(case["scope"]))
     value = {
         "keyed_method": _safe(request["method"]),
         "mapping": _safe(dict(request)),
         "iteration_order": _safe(list(request)),
         "length": len(request),
+        "identity": {
+            "same_scope_values": _probe(lambda: dict(request) == dict(peer)),
+            "self_equal": _probe(lambda: request == request),
+            "peer_equal": _probe(lambda: request == peer),
+            "peer_not_equal": _probe(lambda: request != peer),
+            "self_hashable": _probe(lambda: request in {request}),
+            "peer_in_self_set": _probe(lambda: peer in {request}),
+        },
     }
     return {
         "case_id": case["case_id"],

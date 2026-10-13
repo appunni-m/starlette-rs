@@ -1,0 +1,259 @@
+{
+  "schema": "migration-parity/parity-input@49",
+  "cases": [
+    {
+      "case_id": "starlette-rs.NativeHostApplication.service-host-routing.host-and-path-captures",
+      "surface": "starlette-rs.NativeHostApplication",
+      "operation": "service-host-routing",
+      "covers": [
+        "starlette-rs.NativeHostApplication.service-host-routing.host-match",
+        "starlette-rs.NativeHostApplication.service-host-routing.path-dispatch"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "application": {
+        "host_routes": [
+          {
+            "host": "{tenant}.example.test:8080",
+            "routes": [
+              {
+                "path": "/items/{item_id}",
+                "methods": [
+                  "GET"
+                ],
+                "endpoint": {
+                  "action": "echo-path-params"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "request": {
+        "method": "GET",
+        "uri": "/items/blue",
+        "host_header": "acme.example.test:9453",
+        "body": {
+          "frames": [
+            {
+              "end": true
+            }
+          ]
+        }
+      },
+      "drive": {
+        "service_future": "resolve",
+        "response_body": "read-to-end"
+      },
+      "observations": [
+        "workflow"
+      ]
+    },
+    {
+      "case_id": "starlette-rs.NativeHostApplication.service-host-routing.path-capture-replaces-host-capture",
+      "surface": "starlette-rs.NativeHostApplication",
+      "operation": "service-host-routing",
+      "covers": [
+        "starlette-rs.NativeHostApplication.service-host-routing.path-dispatch"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "application": {
+        "host_routes": [
+          {
+            "host": "{tenant}.example.test",
+            "routes": [
+              {
+                "path": "/{tenant}",
+                "methods": [
+                  "GET"
+                ],
+                "endpoint": {
+                  "action": "echo-path-params"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "request": {
+        "method": "GET",
+        "uri": "/inner",
+        "host_header": "outer.example.test",
+        "body": {
+          "frames": [
+            {
+              "end": true
+            }
+          ]
+        }
+      },
+      "drive": {
+        "service_future": "resolve",
+        "response_body": "read-to-end"
+      },
+      "observations": [
+        "workflow"
+      ]
+    },
+    {
+      "case_id": "starlette-rs.NativeHostApplication.service-host-routing.host-miss",
+      "surface": "starlette-rs.NativeHostApplication",
+      "operation": "service-host-routing",
+      "covers": [
+        "starlette-rs.NativeHostApplication.service-host-routing.host-match",
+        "starlette-rs.NativeHostApplication.service-host-routing.host-fallback"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "application": {
+        "host_routes": [
+          {
+            "host": "{tenant}.example.test",
+            "routes": [
+              {
+                "path": "/items/{item_id}",
+                "methods": [
+                  "GET"
+                ],
+                "endpoint": {
+                  "action": "echo-path-params"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "request": {
+        "method": "GET",
+        "uri": "/items/blue",
+        "host_header": "other.test",
+        "body": {
+          "frames": [
+            {
+              "end": true
+            }
+          ]
+        }
+      },
+      "drive": {
+        "service_future": "resolve",
+        "response_body": "read-to-end"
+      },
+      "observations": [
+        "workflow"
+      ]
+    },
+    {
+      "case_id": "starlette-rs.NativeHostApplication.service-host-routing.child-method-miss",
+      "surface": "starlette-rs.NativeHostApplication",
+      "operation": "service-host-routing",
+      "covers": [
+        "starlette-rs.NativeHostApplication.service-host-routing.path-dispatch",
+        "starlette-rs.NativeHostApplication.service-host-routing.host-fallback"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "application": {
+        "host_routes": [
+          {
+            "host": "{tenant}.example.test",
+            "routes": [
+              {
+                "path": "/items/{item_id}",
+                "methods": [
+                  "GET"
+                ],
+                "endpoint": {
+                  "action": "echo-path-params"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "request": {
+        "method": "POST",
+        "uri": "/items/blue",
+        "host_header": "acme.example.test",
+        "body": {
+          "frames": [
+            {
+              "end": true
+            }
+          ]
+        }
+      },
+      "drive": {
+        "service_future": "resolve",
+        "response_body": "read-to-end"
+      },
+      "observations": [
+        "workflow"
+      ]
+    },
+    {
+      "case_id": "starlette-rs.NativeHostApplication.service-host-routing.missing-host-header",
+      "surface": "starlette-rs.NativeHostApplication",
+      "operation": "service-host-routing",
+      "covers": [
+        "starlette-rs.NativeHostApplication.service-host-routing.host-match",
+        "starlette-rs.NativeHostApplication.service-host-routing.host-fallback"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "application": {
+        "host_routes": [
+          {
+            "host": "{tenant}.example.test",
+            "routes": [
+              {
+                "path": "/items/{item_id}",
+                "methods": [
+                  "GET"
+                ],
+                "endpoint": {
+                  "action": "echo-path-params"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "request": {
+        "method": "GET",
+        "uri": "/items/blue",
+        "host_header": null,
+        "body": {
+          "frames": [
+            {
+              "end": true
+            }
+          ]
+        }
+      },
+      "drive": {
+        "service_future": "resolve",
+        "response_body": "read-to-end"
+      },
+      "observations": [
+        "workflow"
+      ]
+    }
+  ]
+}

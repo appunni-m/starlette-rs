@@ -1,16 +1,16 @@
 //! Reverse URL formatting for one named HTTP or WebSocket route.
 
-use crate::{NamedRouteError, RouteError, RouteTable, RouteUrlPath};
+use crate::{CustomPathConverterRegistry, NamedRouteError, RouteError, RouteTable, RouteUrlPath};
 
 /// A Rust-native, reverse-only view of one named path pattern.
 ///
 /// This type formats a route path without constructing an endpoint or
 /// dispatching requests. Parameter values are supplied as strings already
-/// formatted by the corresponding built-in converter. The supported path
-/// syntax and built-in converters are the same as [`RouteTable`]. Values are
-/// not percent-encoded. Python-registered converters and Python object
-/// conversion are outside this Rust-native API. [`Self::new`] creates an HTTP
-/// route, while [`Self::new_websocket`] creates a WebSocket route.
+/// represented by the corresponding converter. The supported path syntax and
+/// built-in converters are the same as [`RouteTable`]. Custom
+/// string converters can be provided with [`Self::new_with_custom_converters`]
+/// or [`Self::new_websocket_with_custom_converters`]. Values are not
+/// percent-encoded.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct NamedRoute {
     route: RouteTable,
@@ -27,13 +27,35 @@ impl NamedRoute {
     /// # Errors
     ///
     /// Returns [`RouteError`] when the path does not start with `/`, uses an
-    /// unsupported converter, or contains invalid or duplicate parameters.
+    /// unregistered converter, or contains invalid or duplicate parameters.
     pub fn new<P, N>(path: P, name: N) -> Result<Self, RouteError>
     where
         P: Into<String>,
         N: Into<String>,
     {
-        let mut route = RouteTable::new();
+        Self::new_with_custom_converters(path, name, &CustomPathConverterRegistry::new())
+    }
+
+    /// Creates an HTTP route using the supplied custom converter registry.
+    ///
+    /// Register converters before constructing the route. Converter inputs
+    /// and outputs are strings; a converter's `matches`, `convert`, and
+    /// `to_string` methods define its bounded native behavior.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RouteError`] when the path is invalid or names a converter
+    /// that is neither built in nor present in `converters`.
+    pub fn new_with_custom_converters<P, N>(
+        path: P,
+        name: N,
+        converters: &CustomPathConverterRegistry,
+    ) -> Result<Self, RouteError>
+    where
+        P: Into<String>,
+        N: Into<String>,
+    {
+        let mut route = RouteTable::with_custom_converters(converters.clone());
         route.add_route(path, std::iter::empty::<&str>())?;
         Ok(Self {
             route,
@@ -44,19 +66,39 @@ impl NamedRoute {
 
     /// Creates a reverse-only WebSocket route with an explicit name.
     ///
-    /// The route shares the built-in path converter and parameter contract of
+    /// The route shares the path converter and parameter contract of
     /// [`Self::new`], and successful URL paths carry the `websocket` protocol.
     ///
     /// # Errors
     ///
-    /// Returns [`RouteError`] when the path is invalid or uses an unsupported
+    /// Returns [`RouteError`] when the path is invalid or uses an unregistered
     /// converter.
     pub fn new_websocket<P, N>(path: P, name: N) -> Result<Self, RouteError>
     where
         P: Into<String>,
         N: Into<String>,
     {
-        let mut route = RouteTable::new();
+        Self::new_websocket_with_custom_converters(path, name, &CustomPathConverterRegistry::new())
+    }
+
+    /// Creates a WebSocket route using the supplied custom converter registry.
+    ///
+    /// See [`Self::new_with_custom_converters`] for the converter contract.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RouteError`] when the path is invalid or names an unregistered
+    /// converter.
+    pub fn new_websocket_with_custom_converters<P, N>(
+        path: P,
+        name: N,
+        converters: &CustomPathConverterRegistry,
+    ) -> Result<Self, RouteError>
+    where
+        P: Into<String>,
+        N: Into<String>,
+    {
+        let mut route = RouteTable::with_custom_converters(converters.clone());
         route.add_route(path, std::iter::empty::<&str>())?;
         Ok(Self {
             route,
@@ -69,14 +111,14 @@ impl NamedRoute {
     ///
     /// Name mismatch and missing or extra path parameters return
     /// [`NamedRouteError::NoMatchFound`]. Values that match the parameter set
-    /// are checked by the built-in converter formatter in [`RouteTable`].
+    /// are formatted and checked by the converter in [`RouteTable`].
     ///
     /// # Errors
     ///
     /// Returns [`NamedRouteError::NoMatchFound`] if the name or parameter-name
     /// set differs from this route. Returns
     /// [`NamedRouteError::RouteFormatting`] when a matching parameter value
-    /// violates its built-in converter's formatting contract.
+    /// violates its converter's formatting contract.
     pub fn url_path_for(
         &self,
         name: &str,

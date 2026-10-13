@@ -1,0 +1,74 @@
+{
+  "schema": "migration-parity/parity-input@49",
+  "cases": [
+    {
+      "case_id": "starlette.routing.Router.route-dispatch.cached-route-cycle-garbage-collection",
+      "surface": "starlette.routing.Router",
+      "operation": "route-dispatch",
+      "covers": [
+        "starlette.routing.Router.route-dispatch.cached-route-cycle-garbage-collection"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "custom_convertors": [],
+      "redirect_slashes": true,
+      "routes": [
+        {
+          "kind": "http-route",
+          "path": "/route-cache-cycle",
+          "methods": [
+            "GET"
+          ],
+          "endpoint": {
+            "kind": "plain-text-response",
+            "content": "cache-cycle",
+            "status_code": 200,
+            "media_type": "text/plain",
+            "cookies": []
+          }
+        }
+      ],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/route-cache-cycle",
+        "raw_path_base64": "L3JvdXRlLWNhY2hlLWN5Y2xl",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "route-dispatch"
+      ],
+      "garbage_collection": {
+        "endpoint_label": "cached-route-endpoint",
+        "guard_label": "cached-route-guard",
+        "automatic_gc": false,
+        "collect_generations": [
+          2
+        ],
+        "thread": "caller"
+      }
+    }
+  ]
+}

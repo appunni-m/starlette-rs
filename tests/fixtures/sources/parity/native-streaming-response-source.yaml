@@ -1,0 +1,236 @@
+{
+  "schema": "migration-parity/parity-input@49",
+  "cases": [
+    {
+      "case_id": "starlette-rs.StreamingResponse.lazy-source-call.backpressure-background",
+      "surface": "starlette-rs.StreamingResponse",
+      "operation": "lazy-source-call",
+      "covers": [
+        "starlette-rs.StreamingResponse.lazy-source-call.pull-backpressure",
+        "starlette-rs.StreamingResponse.lazy-source-call.event-order",
+        "starlette-rs.StreamingResponse.lazy-source-call.background-order"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "status_code": 202,
+      "header_pairs": [
+        [
+          "x-stream-source",
+          "incremental"
+        ]
+      ],
+      "media_type": "application/octet-stream",
+      "source": {
+        "items": [
+          {
+            "kind": "text",
+            "value": "first"
+          },
+          {
+            "kind": "text",
+            "value": "second"
+          }
+        ],
+        "terminal": {
+          "kind": "end"
+        },
+        "pull_markers": [
+          "source-pull-1",
+          "source-pull-2"
+        ],
+        "finally_marker": "source-finished"
+      },
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/stream",
+        "raw_path_base64": "L3N0cmVhbQ==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send-with-checkpoint-gate",
+        "event_index": 1,
+        "release_after_checkpoints": 1
+      },
+      "background": {
+        "kind": "async-values-recorder",
+        "values": [
+          "background-start",
+          "background-finished"
+        ]
+      },
+      "observations": [
+        "workflow"
+      ],
+      "streaming": "async-generator"
+    },
+    {
+      "case_id": "starlette-rs.StreamingResponse.lazy-source-call.producer-error",
+      "surface": "starlette-rs.StreamingResponse",
+      "operation": "lazy-source-call",
+      "covers": [
+        "starlette-rs.StreamingResponse.lazy-source-call.producer-error-propagation",
+        "starlette-rs.StreamingResponse.lazy-source-call.error-skips-final-send-and-background"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "status_code": 200,
+      "header_pairs": [],
+      "media_type": null,
+      "source": {
+        "items": [
+          {
+            "kind": "text",
+            "value": "prefix"
+          }
+        ],
+        "terminal": {
+          "kind": "error",
+          "error": {
+            "type": "RuntimeError",
+            "message": "stream producer failed"
+          }
+        },
+        "pull_markers": [
+          "source-pull-1"
+        ],
+        "finally_marker": "source-finalized-after-error"
+      },
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/stream-error",
+        "raw_path_base64": "L3N0cmVhbS1lcnJvcg==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "background": {
+        "kind": "async-values-recorder",
+        "values": [
+          "background-after-response"
+        ]
+      },
+      "observations": [
+        "workflow"
+      ],
+      "streaming": "async-generator"
+    },
+    {
+      "case_id": "starlette-rs.StreamingResponse.lazy-source-call.caller-cancellation",
+      "surface": "starlette-rs.StreamingResponse",
+      "operation": "lazy-source-call",
+      "covers": [
+        "starlette-rs.StreamingResponse.lazy-source-call.producer-drop-on-cancellation",
+        "starlette-rs.StreamingResponse.lazy-source-call.background-skipped-on-cancellation"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "status_code": 200,
+      "header_pairs": [],
+      "media_type": null,
+      "source": {
+        "items": [
+          {
+            "kind": "text",
+            "value": "first"
+          },
+          {
+            "kind": "text",
+            "value": "not-consumed"
+          }
+        ],
+        "terminal": {
+          "kind": "end"
+        },
+        "pull_markers": [
+          "source-pull-1",
+          "source-pull-2"
+        ],
+        "finally_marker": "source-finalized-after-cancellation"
+      },
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/stream-cancel",
+        "raw_path_base64": "L3N0cmVhbS1jYW5jZWw=",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send-with-caller-cancellation",
+        "event_index": 1
+      },
+      "background": {
+        "kind": "async-values-recorder",
+        "values": [
+          "background-not-run"
+        ]
+      },
+      "observations": [
+        "workflow"
+      ],
+      "streaming": "async-generator"
+    }
+  ]
+}

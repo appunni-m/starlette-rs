@@ -68,6 +68,21 @@ struct PyRequiresConfig {
     redirect: Py<PyAny>,
 }
 
+#[pymethods]
+impl PyRequiresConfig {
+    fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.scopes)?;
+        visit.call(&self.status_code)?;
+        visit.call(&self.redirect)
+    }
+
+    fn __clear__(&mut self, py: Python<'_>) {
+        self.scopes = py.None();
+        self.status_code = py.None();
+        self.redirect = py.None();
+    }
+}
+
 // The immutable Python handles are only used while holding the GIL. A sync
 // Starlette endpoint may invoke this runtime from AnyIO's worker thread.
 #[pyclass(name = "_AuthenticationRequiresRuntime")]
@@ -83,6 +98,31 @@ struct PyRequiresRuntime {
     websocket_type: Py<PyAny>,
     http_exception_type: Py<PyAny>,
     redirect_response_type: Py<PyAny>,
+}
+
+#[pymethods]
+impl PyRequiresRuntime {
+    fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.func)?;
+        visit.call(&self.scopes)?;
+        visit.call(&self.status_code)?;
+        visit.call(&self.redirect)?;
+        visit.call(&self.request_type)?;
+        visit.call(&self.websocket_type)?;
+        visit.call(&self.http_exception_type)?;
+        visit.call(&self.redirect_response_type)
+    }
+
+    fn __clear__(&mut self, py: Python<'_>) {
+        self.func = py.None();
+        self.scopes = py.None();
+        self.status_code = py.None();
+        self.redirect = py.None();
+        self.request_type = py.None();
+        self.websocket_type = py.None();
+        self.http_exception_type = py.None();
+        self.redirect_response_type = py.None();
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -532,6 +572,29 @@ struct PyAuthenticationMiddlewareRuntime {
     authentication_error_type: Py<PyAny>,
     credentials_type: Py<PyAny>,
     unauthenticated_user_type: Py<PyAny>,
+}
+
+#[pymethods]
+impl PyAuthenticationMiddlewareRuntime {
+    fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.app)?;
+        visit.call(&self.backend)?;
+        visit.call(&self.on_error)?;
+        visit.call(&self.http_connection_type)?;
+        visit.call(&self.authentication_error_type)?;
+        visit.call(&self.credentials_type)?;
+        visit.call(&self.unauthenticated_user_type)
+    }
+
+    fn __clear__(&mut self, py: Python<'_>) {
+        self.app = py.None();
+        self.backend = py.None();
+        self.on_error = py.None();
+        self.http_connection_type = py.None();
+        self.authentication_error_type = py.None();
+        self.credentials_type = py.None();
+        self.unauthenticated_user_type = py.None();
+    }
 }
 
 #[pyfunction]

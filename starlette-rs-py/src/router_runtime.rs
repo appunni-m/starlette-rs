@@ -112,24 +112,72 @@ struct CachedRouterRoutes {
     signatures: Vec<RouteSignature>,
 }
 
+impl CachedRouterRoutes {
+    fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
+        for route in &self.routes.routes {
+            visit.call(route)?;
+        }
+        for signature in &self.signatures {
+            visit.call(&signature.path_value)?;
+            for method in &signature.method_values {
+                visit.call(method)?;
+            }
+        }
+        Ok(())
+    }
+}
+
+// The cache is shared by the runtime and outstanding dispatch continuations.
+// Keep its Python edges in one GC-visible object so each cached handle is
+// reported once even when several Rust owners hold this node.
+#[pyclass]
+struct RouterRoutesCache {
+    cached: Mutex<Option<Arc<CachedRouterRoutes>>>,
+}
+
+#[pymethods]
+impl RouterRoutesCache {
+    fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
+        let cached = match self.cached.lock() {
+            Ok(cached) => cached.as_ref().cloned(),
+            Err(poisoned) => poisoned.into_inner().as_ref().cloned(),
+        };
+        if let Some(cached) = cached {
+            cached.traverse(&visit)?;
+        }
+        Ok(())
+    }
+
+    fn __clear__(&mut self) {
+        let cached = match self.cached.lock() {
+            Ok(mut cached) => cached.take(),
+            Err(poisoned) => poisoned.into_inner().take(),
+        };
+        // Release the route references after unlocking; Python finalizers may
+        // re-enter routing code that accesses this cache.
+        drop(cached);
+    }
+}
+
 /// Caches route metadata behind a mutex and only accesses Python handles under the GIL.
 #[pyclass(name = "RouterRuntime")]
 pub(crate) struct PyRouterRuntime {
     route_types: RouteTypes,
-    routes_cache: Arc<Mutex<Option<Arc<CachedRouterRoutes>>>>,
+    routes_cache: Option<Py<RouterRoutesCache>>,
 }
 
 #[pymethods]
 impl PyRouterRuntime {
     #[new]
     fn new(
+        py: Python<'_>,
         base_route_type: Py<PyAny>,
         http_route_type: Py<PyAny>,
         websocket_route_type: Py<PyAny>,
         mount_type: Py<PyAny>,
         host_type: Py<PyAny>,
-    ) -> Self {
-        Self {
+    ) -> PyResult<Self> {
+        Ok(Self {
             route_types: RouteTypes {
                 base_route: base_route_type,
                 http: http_route_type,
@@ -137,8 +185,31 @@ impl PyRouterRuntime {
                 mount: mount_type,
                 host: host_type,
             },
-            routes_cache: Arc::new(Mutex::new(None)),
-        }
+            routes_cache: Some(Py::new(
+                py,
+                RouterRoutesCache {
+                    cached: Mutex::new(None),
+                },
+            )?),
+        })
+    }
+
+    fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.route_types.base_route)?;
+        visit.call(&self.route_types.http)?;
+        visit.call(&self.route_types.websocket)?;
+        visit.call(&self.route_types.mount)?;
+        visit.call(&self.route_types.host)?;
+        visit.call(&self.routes_cache)
+    }
+
+    fn __clear__(&mut self, py: Python<'_>) {
+        self.route_types.base_route = py.None();
+        self.route_types.http = py.None();
+        self.route_types.websocket = py.None();
+        self.route_types.mount = py.None();
+        self.route_types.host = py.None();
+        self.routes_cache = None;
     }
 
     fn dispatch(&self, py: Python<'_>, args: RouterDispatchArgs) -> PyResult<Py<PyAny>> {
@@ -167,7 +238,11 @@ impl PyRouterRuntime {
                     mount: self.route_types.mount.clone_ref(py),
                     host: self.route_types.host.clone_ref(py),
                 },
-                routes_cache: self.routes_cache.clone(),
+                routes_cache: self
+                    .routes_cache
+                    .as_ref()
+                    .ok_or_else(|| PyRuntimeError::new_err("router cache was cleared"))?
+                    .clone_ref(py),
                 routes_source: routes,
                 router,
                 scope,
@@ -211,18 +286,23 @@ impl PyRouterRuntime {
 
     #[cfg(feature = "fault-contract")]
     #[pyo3(name = "_fault_contract_poison_route_cache")]
-    fn fault_contract_poison_route_cache(&self) -> PyResult<()> {
+    fn fault_contract_poison_route_cache(&self, py: Python<'_>) -> PyResult<()> {
         // This panic is deliberately contained in a feature-only parity build to
         // exercise the public error contract for a poisoned cache mutex.
+        let cache = self
+            .routes_cache
+            .as_ref()
+            .ok_or_else(|| PyRuntimeError::new_err("router cache was cleared"))?
+            .borrow(py);
         let poisoned = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            let _guard = match self.routes_cache.lock() {
+            let _guard = match cache.cached.lock() {
                 Ok(guard) => guard,
                 Err(error) => error.into_inner(),
             };
             std::panic::resume_unwind(Box::new("fault-contract route-cache poison"));
         }))
         .is_err();
-        if poisoned && self.routes_cache.is_poisoned() {
+        if poisoned && cache.cached.is_poisoned() {
             Ok(())
         } else {
             Err(PyRuntimeError::new_err(
@@ -577,7 +657,7 @@ impl RouterRoutes {
 
 struct RouterDispatchMachine {
     route_types: RouteTypes,
-    routes_cache: Arc<Mutex<Option<Arc<CachedRouterRoutes>>>>,
+    routes_cache: Py<RouterRoutesCache>,
     routes_source: Py<PyAny>,
     router: Py<PyAny>,
     scope: Py<PyAny>,
@@ -618,6 +698,7 @@ impl AwaitableStateMachine for RouterDispatchMachine {
         visit.call(&self.route_types.websocket)?;
         visit.call(&self.route_types.mount)?;
         visit.call(&self.route_types.host)?;
+        visit.call(&self.routes_cache)?;
         Ok(())
     }
 
@@ -673,9 +754,11 @@ impl RouterDispatchMachine {
                 .map(Bound::unbind);
         }
 
-        let routes =
+        let routes = {
+            let cache = self.routes_cache.try_borrow(py)?;
             self.route_types
-                .routes_for(py, self.routes_source.bind(py), &self.routes_cache)?;
+                .routes_for(py, self.routes_source.bind(py), &cache.cached)?
+        };
         let (plan, custom_child_scopes) = if scope_type == "http" {
             self.http_plan(py, scope_dict, &routes)?
         } else {

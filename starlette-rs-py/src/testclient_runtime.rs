@@ -988,6 +988,14 @@ impl PyWebSocketTestSession {
         Ok(false)
     }
 
+    fn send(&self, py: Python<'_>, message: Py<PyAny>) -> PyResult<()> {
+        self.send_client_message(py, message)
+    }
+
+    fn receive(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        self.receive_app_message(py)
+    }
+
     fn send_text(&self, py: Python<'_>, data: &str) -> PyResult<()> {
         self.send_text_inner(py, data)
     }

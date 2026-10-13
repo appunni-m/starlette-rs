@@ -30,7 +30,7 @@ import sys
 import tempfile
 import threading
 import warnings
-from collections.abc import AsyncIterator, Callable, Iterator
+from collections.abc import AsyncIterator, Callable, Iterator, Mapping
 from dataclasses import dataclass
 from html.parser import HTMLParser
 from pathlib import Path
@@ -141,6 +141,15 @@ URL_QUERY_OPERATION = ("starlette.datastructures.URL", "query-parameter-operatio
 URL_SCOPE_OPERATION = ("starlette.datastructures.URL", "scope-construction")
 NATIVE_SERVICE_SURFACE = "starlette-rs.NativeApplication"
 NATIVE_SERVICE_OPERATION = "service-body-streaming"
+NATIVE_MOUNTED_CHILD_OPERATION = "service-mounted-child"
+NATIVE_HOST_SERVICE_SURFACE = "starlette-rs.NativeHostApplication"
+NATIVE_HOST_SERVICE_OPERATION = "service-host-routing"
+NATIVE_STREAM_SOURCE_SURFACE = "starlette-rs.StreamingResponse"
+NATIVE_STREAM_SOURCE_OPERATION = "lazy-source-call"
+NATIVE_ROUTE_TABLE_SURFACE = "starlette-rs.RouteTable"
+NATIVE_ROUTE_TABLE_CONVERTER_OPERATION = "custom-converter-match"
+NATIVE_NAMED_ROUTE_SURFACE = "starlette-rs.NamedRoute"
+NATIVE_NAMED_ROUTE_CONVERTER_OPERATION = "custom-converter-url-path-for"
 NATIVE_WEBSOCKET_SURFACE = "starlette-rs.NativeWebSocket"
 NATIVE_WEBSOCKET_OPERATION = "native-session-sequence"
 NATIVE_LIFESPAN_SURFACE = "starlette-rs.NativeLifespan"
@@ -4111,6 +4120,592 @@ def _run_native_service_streaming_case(case: dict[str, Any]) -> dict[str, Any]:
     return _native_workflow_result(case, asyncio.run(run()))
 
 
+def _native_scope_path_params(scope: Mapping[str, Any]) -> list[list[str]]:
+    path_params = scope.get("path_params", {})
+    if not isinstance(path_params, Mapping):
+        return []
+    return [[str(name), str(value)] for name, value in path_params.items()]
+
+
+def _native_service_scope(
+    request_spec: dict[str, Any], initial_scope: dict[str, Any]
+) -> dict[str, Any]:
+    uri = request_spec["uri"]
+    path, separator, query = uri.partition("?")
+    headers: list[tuple[bytes, bytes]] = []
+    host_header = request_spec.get("host_header", "example.test")
+    if host_header is not None:
+        headers.append((b"host", host_header.encode("latin-1")))
+    scope = {
+        "type": "http",
+        "asgi": {"version": "3.0", "spec_version": "2.4"},
+        "http_version": request_spec.get("version", "1.1"),
+        "method": request_spec["method"],
+        "scheme": "http",
+        "path": path,
+        "raw_path": path.encode("utf-8"),
+        "query_string": query.encode("utf-8") if separator else b"",
+        "root_path": initial_scope.get("root_path", ""),
+        "headers": headers,
+        "client": ("127.0.0.1", 12345),
+        "server": ("example.test", 80),
+    }
+    if "app_root_path" in initial_scope:
+        scope["app_root_path"] = initial_scope["app_root_path"]
+    if initial_scope.get("path_params"):
+        converted: dict[str, Any] = {}
+        for item in initial_scope["path_params"]:
+            value = item["value"]
+            if item["converter"] == "int":
+                value = int(value)
+            converted[item["name"]] = value
+        scope["path_params"] = converted
+    return scope
+
+
+def _native_service_receive(request_spec: dict[str, Any]) -> Callable[[], Any]:
+    frames = request_spec["body"]["frames"]
+    state = {"index": 0}
+
+    async def receive() -> dict[str, Any]:
+        index = state["index"]
+        if index >= len(frames):
+            return {"type": "http.request", "body": b"", "more_body": False}
+        frame = frames[index]
+        state["index"] = index + 1
+        if "data_base64" in frame:
+            return {
+                "type": "http.request",
+                "body": _decode_base64(frame["data_base64"], "request frame data_base64"),
+                "more_body": index + 1 < len(frames),
+            }
+        if "error" in frame:
+            error_spec = frame["error"]
+            raise _InputProbeBodyError(error_spec["kind"], error_spec["message"])
+        if frame.get("end") is True:
+            return {"type": "http.request", "body": b"", "more_body": False}
+        if frame.get("pending") is True:
+            await asyncio.Future()
+        raise ValueError("unsupported native service request body frame")
+
+    return receive
+
+
+def _run_native_service_routing_case(case: dict[str, Any]) -> dict[str, Any]:
+    _exact_object(
+        case,
+        {
+            "case_id",
+            "surface",
+            "operation",
+            "covers",
+            "target_profiles",
+            "assets",
+            "application",
+            "request",
+            "drive",
+            "observations",
+        },
+        "native service routing case",
+    )
+    if case["observations"] != ["workflow"]:
+        raise ValueError("native service routing observations must select workflow")
+
+    is_mounted = (
+        case["surface"] == NATIVE_SERVICE_SURFACE
+        and case["operation"] == NATIVE_MOUNTED_CHILD_OPERATION
+    )
+    is_host = (
+        case["surface"] == NATIVE_HOST_SERVICE_SURFACE
+        and case["operation"] == NATIVE_HOST_SERVICE_OPERATION
+    )
+    if not (is_mounted or is_host):
+        raise ValueError("case is outside the native service routing operations")
+
+    from starlette.applications import Starlette
+    from starlette.requests import Request
+    from starlette.responses import JSONResponse, StreamingResponse
+    from starlette.routing import Host, Mount, Route
+
+    request_spec = case["request"]
+    capture: dict[str, Any] = {}
+
+    def record_scope(scope: Mapping[str, Any]) -> None:
+        capture["scope"] = scope
+
+    def make_route(route_spec: dict[str, Any]) -> Any:
+        endpoint_spec = route_spec["endpoint"]
+
+        async def endpoint(request: Request) -> Any:
+            record_scope(request.scope)
+            if "response_body_from_request" in endpoint_spec:
+                selected: list[list[Any]] = []
+                for field in endpoint_spec["response_body_from_request"]:
+                    if field == "path":
+                        value = request.scope["path"]
+                    elif field == "root_path":
+                        value = request.scope.get("root_path", "")
+                    elif field == "app_root_path":
+                        value = request.scope.get("app_root_path")
+                    elif field == "path_params":
+                        value = _native_scope_path_params(request.scope)
+                    else:
+                        raise ValueError(f"unsupported native request field: {field!r}")
+                    selected.append([field, value])
+                return JSONResponse(selected)
+            if endpoint_spec.get("action") == "echo-path-params":
+                return JSONResponse(_native_scope_path_params(request.scope))
+            if "response_body" in endpoint_spec:
+
+                async def response_body() -> AsyncIterator[bytes]:
+                    for frame in endpoint_spec["response_body"]["frames"]:
+                        if "data_base64" in frame:
+                            yield _decode_base64(frame["data_base64"], "response frame data_base64")
+                        elif "error" in frame:
+                            error_spec = frame["error"]
+                            raise _InputProbeBodyError(error_spec["kind"], error_spec["message"])
+                        elif frame.get("end") is True:
+                            return
+                        else:
+                            raise ValueError("unsupported native service response body frame")
+
+                return StreamingResponse(response_body())
+            return JSONResponse([])
+
+        class ScopeCaptureRoute(Route):
+            async def handle(
+                self,
+                scope: dict[str, Any],
+                receive: Callable[..., Any],
+                send: Callable[..., Any],
+            ) -> None:
+                record_scope(scope)
+                await super().handle(scope, receive, send)
+
+        return ScopeCaptureRoute(
+            route_spec["path"],
+            endpoint,
+            methods=route_spec.get("methods"),
+        )
+
+    if is_mounted:
+        children = case["application"]["children"]
+        mounts = []
+        for child in children:
+            if child["kind"] == "mount":
+                child_app = Starlette(
+                    routes=[make_route(route_spec) for route_spec in child["application"]["routes"]]
+                )
+
+                async def capture_child_scope(
+                    scope: dict[str, Any],
+                    receive: Callable[..., Any],
+                    send: Callable[..., Any],
+                    app: Any = child_app,
+                ) -> None:
+                    record_scope(scope)
+                    await app(scope, receive, send)
+
+                mounts.append(Mount(child["path"], app=capture_child_scope))
+            else:
+                raise ValueError(f"unsupported native application child: {child['kind']!r}")
+        app = Starlette(routes=mounts)
+    else:
+        host_routes = []
+        for host_route in case["application"]["host_routes"]:
+            child_app = Starlette(
+                routes=[make_route(route_spec) for route_spec in host_route["routes"]]
+            )
+
+            async def capture_host_scope(
+                scope: dict[str, Any],
+                receive: Callable[..., Any],
+                send: Callable[..., Any],
+                app: Any = child_app,
+            ) -> None:
+                record_scope(scope)
+                await app(scope, receive, send)
+
+            host_routes.append(Host(host_route["host"], app=capture_host_scope))
+        app = Starlette(routes=host_routes)
+
+    initial_scope = case["request"].get("scope", {})
+    scope = _native_service_scope(request_spec, initial_scope)
+    record_scope(scope)
+    messages: list[dict[str, Any]] = []
+
+    async def send(message: dict[str, Any]) -> None:
+        messages.append(message)
+
+    service_error: str | None = None
+    try:
+        asyncio.run(app(scope, _native_service_receive(request_spec), send))
+    except Exception as exc:
+        service_error = str(exc)
+
+    response_start = next(
+        (message for message in messages if message["type"] == "http.response.start"),
+        None,
+    )
+    body_chunks = [
+        base64.b64encode(message.get("body", b"")).decode("ascii")
+        for message in messages
+        if message["type"] == "http.response.body" and message.get("body", b"")
+    ]
+    final_scope = capture.get("scope", scope)
+    workflow = {
+        "status": response_start["status"] if response_start is not None else None,
+        "response_body_chunks": body_chunks,
+        "path_params": _native_scope_path_params(final_scope),
+        "root_path": final_scope.get("root_path"),
+        "app_root_path": final_scope.get("app_root_path"),
+        "service_error": service_error,
+    }
+    return _native_workflow_result(case, workflow)
+
+
+def _native_custom_converter_scope(converter_specs: list[dict[str, Any]]) -> Any:
+    from starlette.convertors import CONVERTOR_TYPES, Convertor, register_url_convertor
+
+    previous = {
+        spec["name"]: CONVERTOR_TYPES.get(spec["name"], _MISSING) for spec in converter_specs
+    }
+
+    class InputDefinedConvertor(Convertor[str]):
+        def __init__(self, spec: dict[str, Any]) -> None:
+            self.regex = spec["regex"]
+            self.convert_mode = spec["convert"]
+            self.format_mode = spec["to_string"]
+
+        @staticmethod
+        def _apply(mode: str, value: str) -> str:
+            if mode == "lowercase":
+                return value.lower()
+            if mode == "uppercase":
+                return value.upper()
+            if mode == "identity":
+                return value
+            raise ValueError(f"unsupported input converter mode: {mode!r}")
+
+        def convert(self, value: str) -> str:
+            return self._apply(self.convert_mode, value)
+
+        def to_string(self, value: str) -> str:
+            return self._apply(self.format_mode, str(value))
+
+    class RegistryContext:
+        def __enter__(self) -> None:
+            for spec in converter_specs:
+                register_url_convertor(spec["name"], InputDefinedConvertor(spec))
+            return None
+
+        def __exit__(self, exc_type: Any, exc: Any, traceback: Any) -> bool:
+            for name, old_value in previous.items():
+                if old_value is _MISSING:
+                    CONVERTOR_TYPES.pop(name, None)
+                else:
+                    CONVERTOR_TYPES[name] = old_value
+            return False
+
+    return RegistryContext()
+
+
+def _run_native_custom_converter_match_case(case: dict[str, Any]) -> dict[str, Any]:
+    _exact_object(
+        case,
+        {
+            "case_id",
+            "surface",
+            "operation",
+            "covers",
+            "target_profiles",
+            "assets",
+            "converters",
+            "routes",
+            "match",
+            "observations",
+        },
+        "native custom-converter match case",
+    )
+    if (
+        case["surface"] != NATIVE_ROUTE_TABLE_SURFACE
+        or case["operation"] != NATIVE_ROUTE_TABLE_CONVERTER_OPERATION
+        or case["observations"] != ["workflow"]
+    ):
+        raise ValueError("case is outside the native custom-converter match operation")
+
+    from starlette.routing import Match, Route
+
+    for index, spec in enumerate(case["converters"]):
+        _exact_object(
+            spec,
+            {"name", "regex", "convert", "to_string"},
+            f"custom path converter[{index}]",
+        )
+    path = case["match"]["path"]
+    method = case["match"]["method"]
+    scope = {"type": "http", "path": path, "method": method, "path_params": {}}
+    matched: dict[str, Any] | None = None
+    first_partial: dict[str, Any] | None = None
+    try:
+        with _native_custom_converter_scope(case["converters"]):
+            for route_index, route_spec in enumerate(case["routes"]):
+                route = Route(
+                    route_spec["path"],
+                    lambda _scope: None,
+                    methods=route_spec.get("methods"),
+                )
+                match, child_scope = route.matches(scope)
+                if match is Match.FULL:
+                    matched = {
+                        "route_index": route_index,
+                        "path_params": _native_scope_path_params(child_scope),
+                    }
+                    break
+                if match is Match.PARTIAL and first_partial is None:
+                    first_partial = {
+                        "route_index": route_index,
+                        "path_params": _native_scope_path_params(child_scope),
+                    }
+    except Exception as exc:
+        return _native_workflow_result(case, {"match": None, "error": str(exc)})
+    return _native_workflow_result(case, {"match": matched or first_partial, "error": None})
+
+
+def _run_native_custom_converter_url_case(case: dict[str, Any]) -> dict[str, Any]:
+    _exact_object(
+        case,
+        {
+            "case_id",
+            "surface",
+            "operation",
+            "covers",
+            "target_profiles",
+            "assets",
+            "converters",
+            "route",
+            "lookup",
+            "observations",
+        },
+        "native custom-converter URL case",
+    )
+    if (
+        case["surface"] != NATIVE_NAMED_ROUTE_SURFACE
+        or case["operation"] != NATIVE_NAMED_ROUTE_CONVERTER_OPERATION
+        or case["observations"] != ["workflow"]
+    ):
+        raise ValueError("case is outside the native custom-converter URL operation")
+
+    from starlette.routing import Route
+
+    for index, spec in enumerate(case["converters"]):
+        _exact_object(
+            spec,
+            {"name", "regex", "convert", "to_string"},
+            f"custom path converter[{index}]",
+        )
+    route_spec = case["route"]
+    lookup = case["lookup"]
+    try:
+        with _native_custom_converter_scope(case["converters"]):
+            route = Route(
+                route_spec["path"],
+                lambda _scope: None,
+                name=route_spec["name"],
+            )
+            url_path = route.url_path_for(
+                lookup["name"],
+                **lookup["path_params"],
+            )
+        workflow = {
+            "path": str(url_path),
+            "protocol": url_path.protocol,
+            "host": url_path.host,
+            "error": None,
+        }
+    except Exception as exc:
+        workflow = {
+            "path": None,
+            "protocol": None,
+            "host": None,
+            "error": str(exc),
+        }
+    return _native_workflow_result(case, workflow)
+
+
+def _run_native_lazy_source_case(case: dict[str, Any]) -> dict[str, Any]:
+    _exact_object(
+        case,
+        {
+            "case_id",
+            "surface",
+            "operation",
+            "covers",
+            "target_profiles",
+            "assets",
+            "status_code",
+            "header_pairs",
+            "media_type",
+            "source",
+            "scope",
+            "incoming",
+            "send",
+            "background",
+            "observations",
+            "streaming",
+        },
+        "native lazy streaming response case",
+    )
+    if (
+        case["surface"] != NATIVE_STREAM_SOURCE_SURFACE
+        or case["operation"] != NATIVE_STREAM_SOURCE_OPERATION
+        or case["observations"] != ["asgi-call", "execution-trace", "source-poll-trace"]
+        or case["streaming"] != "async-generator"
+        or case["incoming"] != []
+    ):
+        raise ValueError("case is outside the native lazy streaming response operation")
+
+    from starlette.background import BackgroundTask
+    from starlette.responses import StreamingResponse
+
+    source_spec = case["source"]
+    items: list[bytes] = []
+    for index, item in enumerate(source_spec["items"]):
+        if item["kind"] == "text":
+            items.append(item["value"].encode("utf-8"))
+        elif item["kind"] == "base64-bytes":
+            items.append(_decode_base64(item["value"], f"source.items[{index}].value"))
+        else:
+            raise ValueError(f"unsupported lazy response source item: {item['kind']!r}")
+    markers = source_spec["pull_markers"]
+    if len(markers) != len(items):
+        raise ValueError("lazy response source pull markers must align with its items")
+    terminal = source_spec["terminal"]
+    execution_trace: list[str] = []
+    source_poll_trace: list[str] = []
+    background_trace: list[str] = []
+    events: list[dict[str, Any]] = []
+    send_spec = case["send"]
+    send_index = 0
+
+    def source_error() -> BaseException:
+        error_spec = terminal["error"]
+        error_class = getattr(builtins, error_spec["type"], None)
+        if not isinstance(error_class, type) or not issubclass(error_class, BaseException):
+            raise ValueError(f"unsupported lazy response error class: {error_spec['type']!r}")
+        return error_class(error_spec["message"])
+
+    async def source() -> AsyncIterator[bytes]:
+        try:
+            for marker, item in zip(markers, items, strict=True):
+                source_poll_trace.append(marker)
+                execution_trace.append(f"source:{marker}")
+                yield item
+            if terminal["kind"] == "error":
+                error = source_error()
+                execution_trace.append(f"source-error:{type(error).__qualname__}:{error}")
+                raise error
+            if terminal["kind"] != "end":
+                raise ValueError(f"unsupported lazy response terminal: {terminal['kind']!r}")
+        finally:
+            marker = source_spec["finally_marker"]
+            finalizer = f"source-finalize:{marker}"
+            source_poll_trace.append(finalizer)
+            execution_trace.append(finalizer)
+
+    async def run_background() -> None:
+        for value in case["background"]["values"]:
+            background_trace.append(value)
+            execution_trace.append(f"background:{value}")
+
+    response = StreamingResponse(
+        source(),
+        status_code=case["status_code"],
+        headers=dict(case["header_pairs"]),
+        media_type=case["media_type"],
+        background=BackgroundTask(run_background),
+    )
+    scope = _make_scope(case["scope"])
+
+    async def receive() -> dict[str, Any]:
+        return {"type": "http.disconnect"}
+
+    async def send(message: dict[str, Any]) -> None:
+        nonlocal send_index
+        current_index = send_index
+        send_index += 1
+        if send_spec["kind"] == "capture-asgi-send-with-checkpoint-gate":
+            if current_index == send_spec["event_index"]:
+                for _ in range(send_spec["release_after_checkpoints"]):
+                    await asyncio.sleep(0)
+        elif (
+            send_spec["kind"] == "capture-asgi-send-with-caller-cancellation"
+            and current_index == send_spec["event_index"]
+        ):
+            execution_trace.append("send:cancel")
+            raise asyncio.CancelledError
+
+        if message["type"] == "http.response.start":
+            header_pairs = [
+                [
+                    base64.b64encode(name).decode("ascii"),
+                    base64.b64encode(value).decode("ascii"),
+                ]
+                for name, value in message["headers"]
+            ]
+            events.append(
+                {
+                    "type": message["type"],
+                    "status": message["status"],
+                    "headers_base64_pairs": header_pairs,
+                }
+            )
+            execution_trace.append("send:start")
+        elif message["type"] == "http.response.body":
+            body = message.get("body", b"")
+            encoded_body = base64.b64encode(body).decode("ascii")
+            more_body = bool(message.get("more_body", False))
+            events.append(
+                {
+                    "type": message["type"],
+                    "body_base64": encoded_body,
+                    "more_body": more_body,
+                }
+            )
+            if more_body:
+                execution_trace.append(f"send:chunk:{encoded_body}")
+            else:
+                execution_trace.append("send:final")
+        else:
+            raise ValueError(f"unsupported lazy response ASGI message: {message['type']!r}")
+
+    error_value: dict[str, str] | None = None
+    try:
+        asyncio.run(response(scope, receive, send))
+    except BaseException as exc:
+        if isinstance(exc, (KeyboardInterrupt, SystemExit)):
+            raise
+        error_value = {"class": type(exc).__qualname__, "message": str(exc)}
+
+    headers = [
+        [
+            base64.b64encode(name).decode("ascii"),
+            base64.b64encode(value).decode("ascii"),
+        ]
+        for name, value in response.raw_headers
+    ]
+    workflow = {
+        "status": response.status_code,
+        "headers": headers,
+        "events": events,
+        "execution_trace": execution_trace,
+        "source_poll_trace": source_poll_trace,
+        "background_execution_trace": background_trace,
+        "error": error_value,
+    }
+    return _native_workflow_result(case, workflow)
+
+
 def _run_native_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
     _exact_object(
         case,
@@ -4881,6 +5476,25 @@ async def _await_cancelled_websocket_endpoint(
     return None
 
 
+def _websocket_endpoint_encoding(value: Any) -> Any:
+    if not isinstance(value, dict) or value.get("kind") != "formatted-str-subclass":
+        return value
+    format_value = value["format_value"]
+
+    class InputFormattedEncoding(str):
+        def __new__(cls, text: str) -> InputFormattedEncoding:
+            instance = super().__new__(cls, text)
+            instance.format_value = format_value
+            return instance
+
+        def __format__(self, format_spec: str) -> str:
+            if not format_spec:
+                return self.format_value
+            return str.__format__(self, format_spec)
+
+    return InputFormattedEncoding(value["value"])
+
+
 def _run_websocket_endpoint_case(case: dict[str, Any]) -> dict[str, Any]:
     _exact_object(
         case,
@@ -4915,7 +5529,9 @@ def _run_websocket_endpoint_case(case: dict[str, Any]) -> dict[str, Any]:
         )
         hook_calls: list[dict[str, Any]] = []
         sent_messages: list[dict[str, Any]] = []
-        methods: dict[str, Any] = {"encoding": endpoint_spec["encoding"]}
+        methods: dict[str, Any] = {
+            "encoding": _websocket_endpoint_encoding(endpoint_spec["encoding"])
+        }
 
         if endpoint_spec["on_connect"]["kind"] == "accept":
             methods["on_connect"] = _websocket_endpoint_accept_hook(
@@ -14612,6 +15228,26 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         NATIVE_SERVICE_OPERATION,
     ):
         return _run_native_service_streaming_case(case)
+    if (case.get("surface"), case.get("operation")) in {
+        (NATIVE_SERVICE_SURFACE, NATIVE_MOUNTED_CHILD_OPERATION),
+        (NATIVE_HOST_SERVICE_SURFACE, NATIVE_HOST_SERVICE_OPERATION),
+    }:
+        return _run_native_service_routing_case(case)
+    if (case.get("surface"), case.get("operation")) == (
+        NATIVE_STREAM_SOURCE_SURFACE,
+        NATIVE_STREAM_SOURCE_OPERATION,
+    ):
+        return _run_native_lazy_source_case(case)
+    if (case.get("surface"), case.get("operation")) == (
+        NATIVE_ROUTE_TABLE_SURFACE,
+        NATIVE_ROUTE_TABLE_CONVERTER_OPERATION,
+    ):
+        return _run_native_custom_converter_match_case(case)
+    if (case.get("surface"), case.get("operation")) == (
+        NATIVE_NAMED_ROUTE_SURFACE,
+        NATIVE_NAMED_ROUTE_CONVERTER_OPERATION,
+    ):
+        return _run_native_custom_converter_url_case(case)
     if (case.get("surface"), case.get("operation")) == (
         NATIVE_WEBSOCKET_SURFACE,
         NATIVE_WEBSOCKET_OPERATION,

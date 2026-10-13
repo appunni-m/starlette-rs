@@ -210,6 +210,14 @@ impl Mount {
         })
     }
 
+    /// Returns the catch-all route pattern registered for this Mount.
+    ///
+    /// This crate-private accessor lets the Rust-native service compose the
+    /// same validated mount prefix into its ordered route table.
+    pub(crate) fn route_pattern(&self) -> &str {
+        &self.mount_pattern
+    }
+
     /// Routes one HTTP scope through the Mount and its child routes.
     ///
     /// A Mount miss returns the same plain-text 404 response as calling a

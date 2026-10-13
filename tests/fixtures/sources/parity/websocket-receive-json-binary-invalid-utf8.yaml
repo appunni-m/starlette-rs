@@ -1,0 +1,83 @@
+{
+  "schema": "migration-parity/parity-input@49",
+  "cases": [
+    {
+      "case_id": "starlette.websockets.WebSocket.convenience-sequence.receive-json-binary-invalid-utf8-then-valid",
+      "surface": "starlette.websockets.WebSocket",
+      "operation": "convenience-sequence",
+      "covers": [
+        "starlette.websocket.api.receive.json.binary"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "websocket",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.5"
+        },
+        "http_version": "1.1",
+        "scheme": "ws",
+        "path": "/chat",
+        "raw_path_base64": "L2NoYXQ=",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "ZXhhbXBsZS50ZXN0"
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ],
+        "subprotocols": []
+      },
+      "incoming": [
+        {
+          "type": "websocket.connect",
+          "subprotocols": []
+        },
+        {
+          "type": "websocket.receive",
+          "bytes_base64": "/w=="
+        },
+        {
+          "type": "websocket.receive",
+          "bytes_base64": "eyJvayI6dHJ1ZX0="
+        }
+      ],
+      "actions": [
+        {
+          "action_id": "accept",
+          "method": "accept",
+          "arguments": {}
+        },
+        {
+          "action_id": "receive-invalid-utf8-json",
+          "method": "receive_json",
+          "arguments": {
+            "mode": "binary"
+          }
+        },
+        {
+          "action_id": "receive-valid-binary-json-after-decode-error",
+          "method": "receive_json",
+          "arguments": {
+            "mode": "binary"
+          }
+        }
+      ],
+      "observations": [
+        "convenience-sequence"
+      ]
+    }
+  ]
+}

@@ -9,14 +9,14 @@ from pathlib import Path, PurePosixPath
 
 from scripts.parity.api_sources import load_api_metadata, public_module_names
 from scripts.parity.contract import (
-    INPUT_SCHEMA,
-    PREVIOUS_INPUT_SCHEMA,
+    INPUT_SCHEMA_V47,
+    INPUT_SCHEMA_V48,
     ContractError,
     load_json,
     load_manifest,
-    validate_input_document,
+    validate_input_document_v47,
+    validate_input_document_v48,
     validate_manifest,
-    validate_previous_input_document,
 )
 
 MANIFEST_PATH = Path("tests/fixtures/manifest.yaml")
@@ -74,9 +74,9 @@ def _replace_schema_header(raw: str, source: Path) -> str:
         r'(?P<prefix>\s*"schema"\s*:\s*")(?P<schema>[^"]+)(?P<suffix>"\s*,?)',
         body,
     )
-    if match is None or match.group("schema") != PREVIOUS_INPUT_SCHEMA:
+    if match is None or match.group("schema") != INPUT_SCHEMA_V47:
         raise ContractError(f"{source} does not have the expected top-level schema header")
-    lines[1] = f"{match['prefix']}{INPUT_SCHEMA}{match['suffix']}{ending}"
+    lines[1] = f"{match['prefix']}{INPUT_SCHEMA_V48}{match['suffix']}{ending}"
     return "".join(lines)
 
 
@@ -105,24 +105,20 @@ def migrate(root: Path, *, check_only: bool) -> tuple[int, int]:
         if not isinstance(document, dict):
             raise ContractError(f"{source} must contain an object")
         schema = document.get("schema")
-        if schema == PREVIOUS_INPUT_SCHEMA:
-            validate_previous_input_document(
-                document,
-                manifest,
-                public_modules=public_modules,
-            )
+        if schema == INPUT_SCHEMA_V47:
+            validate_input_document_v47(document, manifest, public_modules=public_modules)
             migrated = dict(document)
-            migrated["schema"] = INPUT_SCHEMA
-            validate_input_document(migrated, manifest, public_modules=public_modules)
+            migrated["schema"] = INPUT_SCHEMA_V48
+            validate_input_document_v48(migrated, manifest, public_modules=public_modules)
             pending.append((source, _replace_schema_header(raw, source)))
-        elif schema == INPUT_SCHEMA:
-            validate_input_document(document, manifest, public_modules=public_modules)
+        elif schema == INPUT_SCHEMA_V48:
+            validate_input_document_v48(document, manifest, public_modules=public_modules)
         else:
             raise ContractError(f"{source} uses unexpected schema {schema!r}")
 
     if check_only and pending:
         stale = [source.relative_to(root).as_posix() for source, _ in pending]
-        raise ContractError(f"indexed authored inputs still use {PREVIOUS_INPUT_SCHEMA}: {stale}")
+        raise ContractError(f"indexed authored inputs still use {INPUT_SCHEMA_V47}: {stale}")
     for source, updated in pending:
         source.write_text(updated, encoding="utf-8")
     return len(pending), len(sources)

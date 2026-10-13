@@ -24,6 +24,7 @@ import sys
 import tempfile
 import threading
 import warnings
+import weakref
 from collections.abc import AsyncIterator, Callable, Iterator
 from dataclasses import dataclass
 from html.parser import HTMLParser
@@ -32,11 +33,13 @@ from typing import Any
 
 from scripts.parity.adapters.application_inputs import ObservableMapping, ObservableSequence
 from scripts.parity.adapters.input_pathlike import InputSequencePathLike
+from scripts.parity.adapters.ownership_cleanup import observe_ownership
 from scripts.parity.adapters.staticfiles_config import (
     STATIC_FILES_CONFIGURATION_OPERATION,
     run_static_files_configuration_case,
 )
 from scripts.parity.adapters.status_module import run_status_module_sequence
+from scripts.parity.adapters.traceback_cleanup import TracebackCleanup
 
 PROTOCOL_REQUEST = "migration-parity/adapter-request@1"
 PROTOCOL_RESPONSE = "migration-parity/adapter-response@1"
@@ -60,6 +63,15 @@ WEBSOCKET_ROUTE_OPERATION = "route-dispatch"
 NATIVE_SERVICE_SURFACE = "starlette-rs.NativeApplication"
 NATIVE_SERVICE_OPERATION = "service-body-streaming"
 NATIVE_SERVICE_MIDDLEWARE_OPERATION = "service-tower-middleware"
+NATIVE_SERVICE_MOUNTED_CHILD_OPERATION = "service-mounted-child"
+NATIVE_HOST_APPLICATION_SURFACE = "starlette-rs.NativeHostApplication"
+NATIVE_HOST_ROUTING_OPERATION = "service-host-routing"
+NATIVE_STREAMING_RESPONSE_SURFACE = "starlette-rs.StreamingResponse"
+NATIVE_LAZY_SOURCE_OPERATION = "lazy-source-call"
+NATIVE_ROUTE_TABLE_SURFACE = "starlette-rs.RouteTable"
+NATIVE_CUSTOM_CONVERTER_MATCH_OPERATION = "custom-converter-match"
+NATIVE_NAMED_ROUTE_SURFACE = "starlette-rs.NamedRoute"
+NATIVE_CUSTOM_CONVERTER_URL_OPERATION = "custom-converter-url-path-for"
 NATIVE_WEBSOCKET_SURFACE = "starlette-rs.NativeWebSocket"
 NATIVE_WEBSOCKET_OPERATION = "native-session-sequence"
 NATIVE_LIFESPAN_SURFACE = "starlette-rs.NativeLifespan"
@@ -7227,6 +7239,25 @@ async def _await_cancelled_websocket_endpoint(
     return None
 
 
+def _websocket_endpoint_encoding(value: Any) -> Any:
+    if not isinstance(value, dict) or value.get("kind") != "formatted-str-subclass":
+        return value
+    format_value = value["format_value"]
+
+    class InputFormattedEncoding(str):
+        def __new__(cls, text: str) -> InputFormattedEncoding:
+            instance = super().__new__(cls, text)
+            instance.format_value = format_value
+            return instance
+
+        def __format__(self, format_spec: str) -> str:
+            if not format_spec:
+                return self.format_value
+            return str.__format__(self, format_spec)
+
+    return InputFormattedEncoding(value["value"])
+
+
 def _run_websocket_endpoint_case(case: dict[str, Any]) -> dict[str, Any]:
     _strict_object(
         case,
@@ -7261,7 +7292,9 @@ def _run_websocket_endpoint_case(case: dict[str, Any]) -> dict[str, Any]:
         )
         hook_calls: list[dict[str, Any]] = []
         sent_messages: list[dict[str, Any]] = []
-        methods: dict[str, Any] = {"encoding": endpoint_spec["encoding"]}
+        methods: dict[str, Any] = {
+            "encoding": _websocket_endpoint_encoding(endpoint_spec["encoding"])
+        }
 
         if endpoint_spec["on_connect"]["kind"] == "accept":
             methods["on_connect"] = _websocket_endpoint_accept_hook(
@@ -8026,6 +8059,7 @@ def _run_route_dispatch_case(case: dict[str, Any]) -> dict[str, Any]:
     surface = case.get("surface")
     is_router = surface == ROUTER_SURFACE
     is_mount = surface == MOUNT_SURFACE
+    garbage_collection = case.get("garbage_collection")
     if not (is_router or is_mount) or case.get("operation") != "route-dispatch":
         raise ValueError(
             "workflow is outside the declared Router or Mount route-dispatch operation"
@@ -8043,6 +8077,8 @@ def _run_route_dispatch_case(case: dict[str, Any]) -> dict[str, Any]:
         if "max_body_size" in case:
             router_keys.add("max_body_size")
         router_keys |= {"steps"} if router_sequence else {"scope", "incoming", "send"}
+        if garbage_collection is not None and not router_sequence:
+            router_keys.add("garbage_collection")
         if "observe_router_scope" in case:
             router_keys.add("observe_router_scope")
         _strict_object(
@@ -8088,6 +8124,8 @@ def _run_route_dispatch_case(case: dict[str, Any]) -> dict[str, Any]:
         spec["name"]: CONVERTOR_TYPES.get(spec["name"], _MISSING) for spec in custom_convertors
     }
     route_index_observations: list[int] = []
+    gc_endpoint_instances: list[Any] = []
+    gc_observer: TracebackCleanup | None = None
 
     for spec in custom_convertors:
 
@@ -8110,6 +8148,38 @@ def _run_route_dispatch_case(case: dict[str, Any]) -> dict[str, Any]:
         register_url_convertor(spec["name"], InputConvertor(spec))
 
     def make_endpoint(endpoint_spec: dict[str, Any], route_index: int) -> Any:
+        if garbage_collection is not None:
+            _strict_object(
+                endpoint_spec,
+                {"kind", "content", "status_code", "media_type", "cookies"},
+                "Router GC endpoint response",
+            )
+
+            class CachedRouteCycleEndpoint:
+                def __init__(self) -> None:
+                    self.router: Any = None
+                    if gc_observer is None:
+                        raise RuntimeError("Router GC observer was not installed")
+                    self.guard = gc_observer.guard(garbage_collection["guard_label"])
+
+                async def __call__(
+                    self,
+                    scope: dict[str, Any],
+                    receive: Callable[[], Any],
+                    send: Callable[[dict[str, Any]], Any],
+                ) -> None:
+                    route_index_observations.append(route_index)
+                    response = PlainTextResponse(
+                        content=endpoint_spec["content"],
+                        status_code=endpoint_spec["status_code"],
+                        media_type=endpoint_spec["media_type"],
+                    )
+                    await response(scope, receive, send)
+
+            endpoint = CachedRouteCycleEndpoint()
+            gc_endpoint_instances.append(endpoint)
+            return endpoint
+
         if endpoint_spec.get("kind") == "request-body-echo":
             _strict_object(endpoint_spec, {"kind"}, "request-body echo endpoint")
 
@@ -8397,7 +8467,7 @@ def _run_route_dispatch_case(case: dict[str, Any]) -> dict[str, Any]:
         route.path = route_spec["path"]
         return route
 
-    async def run() -> tuple[Any, dict[str, Any] | None]:
+    async def run() -> tuple[Any, dict[str, Any] | None, list[Any], list[Any]]:
         if is_mount:
             route_objects = [make_mount_child(route) for route in routes_spec]
         else:
@@ -8482,6 +8552,16 @@ def _run_route_dispatch_case(case: dict[str, Any]) -> dict[str, Any]:
                 routes=route_objects,
                 max_body_size=mount_spec.get("max_body_size"),
             )
+
+        gc_roots: list[Any] = []
+        gc_references: list[Any] = []
+        if garbage_collection is not None:
+            if len(gc_endpoint_instances) != 1:
+                raise RuntimeError("Router GC input did not construct one route endpoint")
+            gc_endpoint = gc_endpoint_instances.pop()
+            gc_endpoint.router = application
+            gc_roots.append(application)
+            gc_references = [weakref.ref(gc_endpoint), weakref.ref(gc_endpoint.guard)]
 
         async def dispatch(
             scope_spec: dict[str, Any], incoming_spec: list[dict[str, Any]]
@@ -8597,12 +8677,28 @@ def _run_route_dispatch_case(case: dict[str, Any]) -> dict[str, Any]:
                         raise ValueError("unsupported Router route mutation")
                 selected, _mount_scope = await dispatch(step["scope"], step["incoming"])
                 observations.append({"step_id": step["step_id"], "status": "ok", "value": selected})
-            return observations, None
+            return observations, None, gc_roots, gc_references
 
-        return await dispatch(case["scope"], case["incoming"])
+        selected, mount_scope = await dispatch(case["scope"], case["incoming"])
+        return selected, mount_scope, gc_roots, gc_references
 
+    gc_observation: dict[str, Any] | None = None
     try:
-        selected, mount_scope = asyncio.run(run())
+        if garbage_collection is None:
+            selected, mount_scope, _gc_roots, _gc_references = asyncio.run(run())
+        else:
+            with TracebackCleanup(garbage_collection) as gc_observer:
+                with warnings.catch_warnings(record=True) as warning_events:
+                    warnings.simplefilter("always")
+                    selected, mount_scope, gc_roots, gc_references = asyncio.run(run())
+                    gc_observation = observe_ownership(
+                        garbage_collection,
+                        gc_roots,
+                        gc_references,
+                        [],
+                        gc_observer,
+                        warning_events,
+                    )
     finally:
         for name, old_convertor in previous_convertors.items():
             if old_convertor is _MISSING:
@@ -8625,6 +8721,16 @@ def _run_route_dispatch_case(case: dict[str, Any]) -> dict[str, Any]:
             **selected,
             "route_index": route_index_observations[0] if route_index_observations else None,
         }
+        if garbage_collection is not None:
+            if gc_observation is None:
+                raise RuntimeError("Router GC observation was not produced")
+            observation_value["garbage_collection"] = {
+                "reference_labels": [
+                    garbage_collection["endpoint_label"],
+                    garbage_collection["guard_label"],
+                ],
+                **gc_observation,
+            }
     return {
         "case_id": case["case_id"],
         "status": "completed",
@@ -14224,6 +14330,26 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
     ):
         return _run_native_service_middleware_asgi_case(case)
     if (case.get("surface"), case.get("operation")) == (
+        NATIVE_SERVICE_SURFACE,
+        NATIVE_SERVICE_MOUNTED_CHILD_OPERATION,
+    ):
+        return _run_native_mounted_child_case(case)
+    if (case.get("surface"), case.get("operation")) == (
+        NATIVE_HOST_APPLICATION_SURFACE,
+        NATIVE_HOST_ROUTING_OPERATION,
+    ):
+        return _run_native_host_routing_case(case)
+    if (case.get("surface"), case.get("operation")) == (
+        NATIVE_STREAMING_RESPONSE_SURFACE,
+        NATIVE_LAZY_SOURCE_OPERATION,
+    ):
+        return _run_native_lazy_source_case(case)
+    if (case.get("surface"), case.get("operation")) in {
+        (NATIVE_ROUTE_TABLE_SURFACE, NATIVE_CUSTOM_CONVERTER_MATCH_OPERATION),
+        (NATIVE_NAMED_ROUTE_SURFACE, NATIVE_CUSTOM_CONVERTER_URL_OPERATION),
+    }:
+        return _run_native_custom_converter_case(case)
+    if (case.get("surface"), case.get("operation")) == (
         NATIVE_WEBSOCKET_SURFACE,
         NATIVE_WEBSOCKET_OPERATION,
     ):
@@ -14329,6 +14455,14 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         from scripts.parity.adapters.wsgi_boundary import run_wsgi_boundary_case
 
         return run_wsgi_boundary_case(case)
+    if (
+        case.get("surface") == WSGI_SURFACE
+        and case.get("operation") == "__call__"
+        and "send_action" in case
+    ):
+        from scripts.parity.adapters.wsgi_protocols import run_wsgi_protocol_case
+
+        return run_wsgi_protocol_case(case)
     if (
         isinstance(case, dict)
         and case.get("surface") == "starlette.applications.Starlette"
@@ -15031,6 +15165,713 @@ def _native_probe_frames(value: Any, context: str) -> list[dict[str, Any]]:
         else:
             raise ValueError(f"{frame_context} must select data_base64, end, pending, or error")
     return frames
+
+
+def _native_scope_path_parameters(scope: dict[str, Any]) -> list[list[str]]:
+    return [[name, str(value)] for name, value in scope.get("path_params", {}).items()]
+
+
+def _native_initial_scope(request_spec: dict[str, Any]) -> dict[str, Any]:
+    scope_value = request_spec.get("scope", {})
+    if not isinstance(scope_value, dict) or set(scope_value) - {
+        "root_path",
+        "app_root_path",
+        "path_params",
+    }:
+        raise ValueError("native request scope has unsupported fields")
+    scope_spec = scope_value
+    from starlette.convertors import CONVERTOR_TYPES
+
+    scope = _native_http_scope(request_spec["method"], request_spec["uri"])
+    if "root_path" in scope_spec:
+        scope["root_path"] = scope_spec["root_path"]
+    if "app_root_path" in scope_spec:
+        scope["app_root_path"] = scope_spec["app_root_path"]
+    raw_parameters = scope_spec.get("path_params", [])
+    if not isinstance(raw_parameters, list):
+        raise ValueError("native request scope.path_params must be an array")
+    path_parameters: dict[str, Any] = {}
+    for index, raw_parameter in enumerate(raw_parameters):
+        context = f"native request scope.path_params[{index}]"
+        parameter = _strict_object(raw_parameter, {"name", "value", "converter"}, context)
+        name, value, converter_name = (
+            parameter["name"],
+            parameter["value"],
+            parameter["converter"],
+        )
+        if (
+            not isinstance(name, str)
+            or not isinstance(value, str)
+            or not isinstance(converter_name, str)
+        ):
+            raise ValueError(f"{context} fields must be strings")
+        converter = CONVERTOR_TYPES.get(converter_name)
+        if converter is None:
+            raise ValueError(f"{context}.converter is not registered by Starlette")
+        path_parameters[name] = converter.convert(value)
+    if path_parameters:
+        scope["path_params"] = path_parameters
+    body_spec = _strict_object(request_spec.get("body"), {"frames"}, "native request body")
+    _native_probe_frames(body_spec["frames"], "native request frames")
+    return scope
+
+
+def _native_service_workflow_result(
+    case: dict[str, Any],
+    scope: dict[str, Any],
+    sent: list[dict[str, Any]],
+    service_error: str | None,
+) -> dict[str, Any]:
+    start = next((message for message in sent if message["type"] == "http.response.start"), None)
+    response_body_chunks = [
+        base64.b64encode(message["body"]).decode("ascii")
+        for message in sent
+        if message["type"] == "http.response.body" and message.get("body")
+    ]
+    return _native_workflow_result(
+        case,
+        {
+            "status": start["status"] if start is not None else None,
+            "response_body_chunks": response_body_chunks,
+            "path_params": _native_scope_path_parameters(scope),
+            "root_path": scope.get("root_path"),
+            "app_root_path": scope.get("app_root_path", scope.get("root_path", "")),
+            "service_error": service_error,
+        },
+    )
+
+
+async def _native_response_stream(frames: list[dict[str, Any]]) -> AsyncIterator[bytes]:
+    for frame in frames:
+        if frame["kind"] == "end":
+            return
+        if frame["kind"] == "pending":
+            await asyncio.Future()
+        elif frame["kind"] == "error":
+            raise RuntimeError(frame["message"])
+        else:
+            yield frame["data"]
+
+
+def _run_native_mounted_child_case(case: dict[str, Any]) -> dict[str, Any]:
+    _validate_native_workflow_case(
+        case,
+        surface=NATIVE_SERVICE_SURFACE,
+        operation=NATIVE_SERVICE_MOUNTED_CHILD_OPERATION,
+        fields={"application", "request", "drive", "observations"},
+        context="NativeApplication mounted-child workflow",
+    )
+    application_spec = _strict_object(case["application"], {"children"}, "native application")
+    children = application_spec["children"]
+    if not isinstance(children, list) or not children:
+        raise ValueError("native application children must be a non-empty array")
+    request_spec = _strict_object(
+        case["request"], {"method", "uri", "scope", "body"}, "native request"
+    )
+    drive = _strict_object(
+        case["drive"], {"service_future", "response_body"}, "native service drive"
+    )
+    if drive != {"service_future": "resolve", "response_body": "read-to-end"}:
+        raise ValueError("native mounted-child drive must resolve and read the response to end")
+
+    from starlette.applications import Starlette
+    from starlette.requests import Request
+    from starlette.responses import JSONResponse, Response, StreamingResponse
+    from starlette.routing import Mount, Route
+
+    mounted_routes = []
+    for child_index, child_value in enumerate(children):
+        context = f"native application child[{child_index}]"
+        child = _strict_object(child_value, {"kind", "path", "application"}, context)
+        if child["kind"] != "mount" or not isinstance(child["path"], str):
+            raise ValueError(f"{context} must be a mount with a string path")
+        child_application = _strict_object(
+            child["application"], {"routes"}, f"{context}.application"
+        )
+        route_specs = child_application["routes"]
+        if not isinstance(route_specs, list) or not route_specs:
+            raise ValueError(f"{context}.application.routes must be a non-empty array")
+        routes = []
+        for route_index, route_value in enumerate(route_specs):
+            route_context = f"{context}.application.routes[{route_index}]"
+            route_spec = _strict_object(route_value, {"path", "methods", "endpoint"}, route_context)
+            endpoint_spec = _strict_object(
+                route_spec["endpoint"],
+                {"request_body_action", "response_body"}
+                if "response_body" in route_spec["endpoint"]
+                else {"request_body_action", "response_body_from_request"},
+                f"{route_context}.endpoint",
+            )
+            if endpoint_spec["request_body_action"] != "leave-unread":
+                raise ValueError(f"{route_context} must leave the request body unread")
+
+            async def endpoint(
+                request: Request,
+                *,
+                endpoint_spec: dict[str, Any] = endpoint_spec,
+            ) -> Any:
+                if "response_body_from_request" in endpoint_spec:
+                    fields = endpoint_spec["response_body_from_request"]
+                    if not isinstance(fields, list) or any(
+                        not isinstance(field, str)
+                        or field not in {"path", "root_path", "app_root_path", "path_params"}
+                        for field in fields
+                    ):
+                        raise ValueError("response_body_from_request contains an unsupported field")
+                    selected: list[list[Any]] = []
+                    for field in fields:
+                        if field == "path":
+                            value = request.scope["path"]
+                        elif field == "root_path":
+                            value = request.scope.get("root_path", "")
+                        elif field == "app_root_path":
+                            value = request.scope.get(
+                                "app_root_path", request.scope.get("root_path", "")
+                            )
+                        else:
+                            value = _native_scope_path_parameters(request.scope)
+                        selected.append([field, value])
+                    return JSONResponse(selected)
+
+                body_spec = _strict_object(
+                    endpoint_spec["response_body"], {"frames"}, "native response body"
+                )
+                frames = _native_probe_frames(body_spec["frames"], "native response frames")
+                if len(frames) == 1 and frames[0]["kind"] == "data":
+                    return Response(frames[0]["data"])
+                return StreamingResponse(_native_response_stream(frames))
+
+            routes.append(Route(route_spec["path"], endpoint, methods=route_spec["methods"]))
+        mounted_routes.append(Mount(child["path"], app=Starlette(routes=routes)))
+
+    app = Starlette(routes=mounted_routes)
+    scope = _native_initial_scope(request_spec)
+    sent: list[dict[str, Any]] = []
+    service_error: str | None = None
+
+    async def receive() -> dict[str, Any]:
+        return {"type": "http.request", "body": b"", "more_body": False}
+
+    async def send(message: dict[str, Any]) -> None:
+        sent.append(message)
+
+    async def invoke() -> None:
+        nonlocal service_error
+        try:
+            await app(scope, receive, send)
+        except Exception as exc:
+            service_error = str(exc)
+
+    asyncio.run(invoke())
+    return _native_service_workflow_result(case, scope, sent, service_error)
+
+
+def _run_native_host_routing_case(case: dict[str, Any]) -> dict[str, Any]:
+    _validate_native_workflow_case(
+        case,
+        surface=NATIVE_HOST_APPLICATION_SURFACE,
+        operation=NATIVE_HOST_ROUTING_OPERATION,
+        fields={"application", "request", "drive", "observations"},
+        context="NativeHostApplication host-routing workflow",
+    )
+    application_spec = _strict_object(case["application"], {"host_routes"}, "native host app")
+    host_specs = application_spec["host_routes"]
+    if not isinstance(host_specs, list) or not host_specs:
+        raise ValueError("native host application host_routes must be a non-empty array")
+    request_spec = _strict_object(
+        case["request"], {"method", "uri", "host_header", "body"}, "native host request"
+    )
+    if case["drive"] != {"service_future": "resolve", "response_body": "read-to-end"}:
+        raise ValueError("native host-routing drive must resolve and read the response to end")
+    host_header = request_spec["host_header"]
+    if host_header is not None and not isinstance(host_header, str):
+        raise ValueError("native host request.host_header must be a string or null")
+
+    from starlette.applications import Starlette
+    from starlette.requests import Request
+    from starlette.responses import JSONResponse
+    from starlette.routing import Host, Route, Router
+
+    host_routes = []
+    for host_index, host_value in enumerate(host_specs):
+        host_context = f"native host_routes[{host_index}]"
+        host_spec = _strict_object(host_value, {"host", "routes"}, host_context)
+        if not isinstance(host_spec["host"], str) or not isinstance(host_spec["routes"], list):
+            raise ValueError(f"{host_context} host and routes are invalid")
+        routes = []
+        for route_index, route_value in enumerate(host_spec["routes"]):
+            route_context = f"{host_context}.routes[{route_index}]"
+            route_spec = _strict_object(route_value, {"path", "methods", "endpoint"}, route_context)
+            endpoint_spec = _strict_object(
+                route_spec["endpoint"], {"action"}, f"{route_context}.endpoint"
+            )
+            if endpoint_spec["action"] != "echo-path-params":
+                raise ValueError(f"{route_context}.endpoint.action is unsupported")
+
+            async def endpoint(request: Request) -> Any:
+                return JSONResponse(_native_scope_path_parameters_dict(request.scope))
+
+            routes.append(Route(route_spec["path"], endpoint, methods=route_spec["methods"]))
+        host_routes.append(Host(host_spec["host"], app=Router(routes=routes)))
+
+    app = Starlette(routes=host_routes)
+    request_body = _strict_object(request_spec["body"], {"frames"}, "native host request body")
+    _native_probe_frames(request_body["frames"], "native host request frames")
+    scope = _native_http_scope(request_spec["method"], request_spec["uri"])
+    if host_header is not None:
+        scope["headers"].append((b"host", host_header.encode("latin-1")))
+    sent: list[dict[str, Any]] = []
+    service_error: str | None = None
+
+    async def receive() -> dict[str, Any]:
+        return {"type": "http.request", "body": b"", "more_body": False}
+
+    async def send(message: dict[str, Any]) -> None:
+        sent.append(message)
+
+    async def invoke() -> None:
+        nonlocal service_error
+        try:
+            await app(scope, receive, send)
+        except Exception as exc:
+            service_error = str(exc)
+
+    asyncio.run(invoke())
+    return _native_service_workflow_result(case, scope, sent, service_error)
+
+
+def _native_scope_path_parameters_dict(scope: dict[str, Any]) -> list[list[str]]:
+    return _native_scope_path_parameters(scope)
+
+
+def _run_native_lazy_source_case(case: dict[str, Any]) -> dict[str, Any]:
+    _validate_native_workflow_case(
+        case,
+        surface=NATIVE_STREAMING_RESPONSE_SURFACE,
+        operation=NATIVE_LAZY_SOURCE_OPERATION,
+        fields={
+            "status_code",
+            "header_pairs",
+            "media_type",
+            "source",
+            "scope",
+            "incoming",
+            "send",
+            "background",
+            "observations",
+            "streaming",
+        },
+        context="native StreamingResponse lazy-source workflow",
+    )
+    if case["streaming"] != "async-generator":
+        raise ValueError("native lazy-source streaming must use an async generator")
+    if not isinstance(case["status_code"], int) or isinstance(case["status_code"], bool):
+        raise ValueError("native lazy-source status_code must be an integer")
+    header_pairs = case["header_pairs"]
+    if not isinstance(header_pairs, list) or any(
+        not isinstance(pair, list)
+        or len(pair) != 2
+        or any(not isinstance(value, str) for value in pair)
+        for pair in header_pairs
+    ):
+        raise ValueError("native lazy-source header_pairs must be string pairs")
+    media_type = case["media_type"]
+    if media_type is not None and not isinstance(media_type, str):
+        raise ValueError("native lazy-source media_type must be a string or null")
+    if case["incoming"] != []:
+        raise ValueError("native lazy-source call requires an empty incoming stream")
+
+    source = _strict_object(
+        case["source"], {"items", "terminal", "pull_markers", "finally_marker"}, "stream source"
+    )
+    items = source["items"]
+    if not isinstance(items, list):
+        raise ValueError("stream source items must be an array")
+    chunks: list[bytes] = []
+    for index, item_value in enumerate(items):
+        item_context = f"stream source items[{index}]"
+        item = _strict_object(item_value, {"kind", "value"}, item_context)
+        if item["kind"] == "text" and isinstance(item["value"], str):
+            chunks.append(item["value"].encode("utf-8"))
+        elif item["kind"] == "base64-bytes" and isinstance(item["value"], str):
+            chunks.append(_decode_b64(item["value"], f"{item_context}.value"))
+        else:
+            raise ValueError(f"{item_context} must be text or base64-bytes")
+    markers = source["pull_markers"]
+    if (
+        not isinstance(markers, list)
+        or len(markers) != len(chunks)
+        or any(not isinstance(marker, str) or not marker for marker in markers)
+    ):
+        raise ValueError("stream source pull_markers must have one non-empty marker per item")
+    finally_marker = source["finally_marker"]
+    if not isinstance(finally_marker, str) or not finally_marker:
+        raise ValueError("stream source finally_marker must be a non-empty string")
+    terminal_value = source["terminal"]
+    if not isinstance(terminal_value, dict) or not isinstance(terminal_value.get("kind"), str):
+        raise ValueError("stream source terminal must select a kind")
+    terminal = _strict_object(
+        terminal_value,
+        {"kind", "error"} if terminal_value["kind"] == "error" else {"kind"},
+        "stream source terminal",
+    )
+    if terminal["kind"] == "error":
+        error_spec = _strict_object(terminal["error"], {"type", "message"}, "stream source error")
+        error_type = error_spec["type"]
+        error_message = error_spec["message"]
+        error_class = getattr(builtins, error_type, None) if isinstance(error_type, str) else None
+        if (
+            error_class is None
+            or not isinstance(error_class, type)
+            or not issubclass(error_class, Exception)
+            or not isinstance(error_message, str)
+        ):
+            raise ValueError("stream source error must name a built-in Exception and message")
+    elif terminal["kind"] != "end":
+        raise ValueError("stream source terminal.kind must be end or error")
+    else:
+        error_class = None
+        error_message = None
+
+    send_spec = case["send"]
+    if not isinstance(send_spec, dict):
+        raise ValueError("native lazy-source send must be an object")
+    if send_spec.get("kind") == "capture-asgi-send":
+        send_spec = _strict_object(send_spec, {"kind"}, "native lazy-source send")
+    elif send_spec.get("kind") == "capture-asgi-send-with-checkpoint-gate":
+        send_spec = _strict_object(
+            send_spec,
+            {"kind", "event_index", "release_after_checkpoints"},
+            "native lazy-source send gate",
+        )
+        if (
+            send_spec["event_index"] != 1
+            or not isinstance(send_spec["release_after_checkpoints"], int)
+            or isinstance(send_spec["release_after_checkpoints"], bool)
+            or send_spec["release_after_checkpoints"] < 1
+        ):
+            raise ValueError("native lazy-source send gate input is invalid")
+    elif send_spec.get("kind") == "capture-asgi-send-with-caller-cancellation":
+        send_spec = _strict_object(
+            send_spec, {"kind", "event_index"}, "native lazy-source cancel send"
+        )
+        if send_spec["event_index"] != 1:
+            raise ValueError("native lazy-source cancellation send event_index must be 1")
+    else:
+        raise ValueError("native lazy-source send kind is unsupported")
+
+    background_spec = _strict_object(
+        case["background"], {"kind", "values"}, "native lazy-source background"
+    )
+    if background_spec["kind"] != "async-values-recorder":
+        raise ValueError("native lazy-source background kind is unsupported")
+    background_values = background_spec["values"]
+    if not isinstance(background_values, list) or any(
+        not isinstance(value, str) for value in background_values
+    ):
+        raise ValueError("native lazy-source background values must be strings")
+
+    from starlette.background import BackgroundTask
+    from starlette.responses import StreamingResponse
+
+    scope = _make_scope(case["scope"])
+    execution_trace: list[str] = []
+    source_poll_trace: list[str] = []
+    background_execution_trace: list[str] = []
+    events: list[dict[str, Any]] = []
+    captured_status: int | None = None
+    captured_headers: list[list[str]] = []
+    captured_error: BaseException | None = None
+    send_index = 0
+    gate_entered = asyncio.Event() if send_spec["kind"] != "capture-asgi-send" else None
+    gate_release = asyncio.Event() if send_spec["kind"] != "capture-asgi-send" else None
+
+    async def source_iterator() -> AsyncIterator[bytes]:
+        try:
+            for index, chunk in enumerate(chunks):
+                marker = markers[index]
+                source_poll_trace.append(marker)
+                execution_trace.append(f"source:{marker}")
+                yield chunk
+            if terminal["kind"] == "error":
+                if error_class is None or error_message is None:
+                    raise RuntimeError("stream source error metadata is unavailable")
+                execution_trace.append(f"source-error:{error_class.__name__}:{error_message}")
+                raise error_class(error_message)
+        finally:
+            source_marker = f"source-finalize:{finally_marker}"
+            source_poll_trace.append(source_marker)
+            execution_trace.append(source_marker)
+
+    async def record_background() -> None:
+        for value in background_values:
+            background_execution_trace.append(value)
+            execution_trace.append(f"background:{value}")
+
+    response_arguments: dict[str, Any] = {
+        "content": source_iterator(),
+        "status_code": case["status_code"],
+        "headers": dict(header_pairs),
+        "background": BackgroundTask(record_background),
+    }
+    if media_type is not None:
+        response_arguments["media_type"] = media_type
+    response = StreamingResponse(**response_arguments)
+
+    async def receive() -> dict[str, Any]:
+        return {"type": "http.disconnect"}
+
+    async def send(message: dict[str, Any]) -> None:
+        nonlocal send_index, captured_status, captured_headers
+        gate_index = send_spec.get("event_index")
+        if gate_index == send_index and gate_entered is not None and gate_release is not None:
+            gate_entered.set()
+            await gate_release.wait()
+        if message["type"] == "http.response.start":
+            captured_status = message["status"]
+            captured_headers = [
+                [base64.b64encode(name).decode("ascii"), base64.b64encode(value).decode("ascii")]
+                for name, value in message["headers"]
+            ]
+            events.append(
+                {
+                    "type": message["type"],
+                    "status": message["status"],
+                    "headers_base64_pairs": captured_headers,
+                }
+            )
+            execution_trace.append("send:start")
+        elif message["type"] == "http.response.body":
+            body = message.get("body", b"")
+            encoded_body = base64.b64encode(body).decode("ascii")
+            more_body = bool(message.get("more_body", False))
+            events.append(
+                {
+                    "type": message["type"],
+                    "body_base64": encoded_body,
+                    "more_body": more_body,
+                }
+            )
+            execution_trace.append(f"send:chunk:{encoded_body}" if more_body else "send:final")
+        else:
+            raise ValueError(f"unexpected native StreamingResponse event: {message['type']!r}")
+        send_index += 1
+
+    async def run_response() -> None:
+        nonlocal captured_error
+        response_task = asyncio.create_task(response(scope, receive, send))
+        try:
+            if send_spec["kind"] == "capture-asgi-send-with-checkpoint-gate":
+                if gate_entered is None or gate_release is None:
+                    raise RuntimeError("native lazy-source send gate state is unavailable")
+                await gate_entered.wait()
+                for _ in range(send_spec["release_after_checkpoints"]):
+                    await asyncio.sleep(0)
+                gate_release.set()
+                await response_task
+            elif send_spec["kind"] == "capture-asgi-send-with-caller-cancellation":
+                if gate_entered is None:
+                    raise RuntimeError("native lazy-source cancellation gate is unavailable")
+                await gate_entered.wait()
+                execution_trace.append("send:cancel")
+                response_task.cancel()
+                try:
+                    await response_task
+                except asyncio.CancelledError as exc:
+                    captured_error = exc
+            else:
+                await response_task
+        except Exception as exc:
+            captured_error = exc
+        finally:
+            if gate_release is not None and not gate_release.is_set():
+                gate_release.set()
+            if not response_task.done():
+                response_task.cancel()
+                try:
+                    await response_task
+                except BaseException:
+                    pass
+
+    asyncio.run(run_response())
+    error_record = (
+        {"class": type(captured_error).__name__, "message": str(captured_error)}
+        if captured_error is not None
+        else None
+    )
+    return _native_workflow_result(
+        case,
+        {
+            "status": captured_status,
+            "headers": captured_headers,
+            "events": events,
+            "execution_trace": execution_trace,
+            "source_poll_trace": source_poll_trace,
+            "background_execution_trace": background_execution_trace,
+            "error": error_record,
+        },
+    )
+
+
+def _register_native_input_convertors(
+    raw_convertors: Any,
+) -> tuple[Any, dict[str, Any]]:
+    from starlette.convertors import CONVERTOR_TYPES, Convertor, register_url_convertor
+
+    if not isinstance(raw_convertors, list) or not raw_convertors:
+        raise ValueError("custom converters must be a non-empty array")
+    specs = []
+    for index, raw_value in enumerate(raw_convertors):
+        context = f"custom converters[{index}]"
+        spec = _strict_object(raw_value, {"name", "regex", "convert", "to_string"}, context)
+        if any(not isinstance(spec[field], str) for field in spec):
+            raise ValueError(f"{context} fields must be strings")
+        if spec["convert"] not in {"identity", "lowercase"} or spec["to_string"] not in {
+            "identity",
+            "lowercase",
+        }:
+            raise ValueError(f"{context} conversion mode is unsupported")
+        specs.append(spec)
+
+    old_values: dict[str, Any] = {}
+    for spec in specs:
+        old_values[spec["name"]] = CONVERTOR_TYPES.get(spec["name"], _MISSING)
+    try:
+        for spec in specs:
+
+            class InputConvertor(Convertor[Any]):
+                def __init__(self, descriptor: dict[str, Any]) -> None:
+                    self.descriptor = descriptor
+                    self.regex = descriptor["regex"]
+
+                def convert(self, value: str) -> Any:
+                    if self.descriptor["convert"] == "lowercase":
+                        return value.lower()
+                    return value
+
+                def to_string(self, value: Any) -> str:
+                    text = str(value)
+                    if self.descriptor["to_string"] == "lowercase":
+                        return text.lower()
+                    return text
+
+            register_url_convertor(spec["name"], InputConvertor(spec))
+    except Exception:
+        for name, old_value in old_values.items():
+            if old_value is _MISSING:
+                CONVERTOR_TYPES.pop(name, None)
+            else:
+                CONVERTOR_TYPES[name] = old_value
+        raise
+    return CONVERTOR_TYPES, old_values
+
+
+def _restore_native_input_convertors(registry: Any, old_values: dict[str, Any]) -> None:
+    for name, old_value in old_values.items():
+        if old_value is _MISSING:
+            registry.pop(name, None)
+        else:
+            registry[name] = old_value
+
+
+def _run_native_custom_converter_case(case: dict[str, Any]) -> dict[str, Any]:
+    is_match = (case.get("surface"), case.get("operation")) == (
+        NATIVE_ROUTE_TABLE_SURFACE,
+        NATIVE_CUSTOM_CONVERTER_MATCH_OPERATION,
+    )
+    surface = NATIVE_ROUTE_TABLE_SURFACE if is_match else NATIVE_NAMED_ROUTE_SURFACE
+    operation = (
+        NATIVE_CUSTOM_CONVERTER_MATCH_OPERATION
+        if is_match
+        else NATIVE_CUSTOM_CONVERTER_URL_OPERATION
+    )
+    fields = (
+        {"converters", "observations", "routes", "match"}
+        if is_match
+        else {
+            "converters",
+            "observations",
+            "route",
+            "lookup",
+        }
+    )
+    _validate_native_workflow_case(
+        case,
+        surface=surface,
+        operation=operation,
+        fields=fields,
+        context="native custom-converter workflow",
+    )
+
+    from starlette.routing import Route, Router
+
+    registry, old_values = _register_native_input_convertors(case["converters"])
+    record: dict[str, Any]
+    try:
+        if is_match:
+            route_values = case["routes"]
+            if not isinstance(route_values, list) or not route_values:
+                raise ValueError("native route table routes must be a non-empty array")
+            routes = []
+            matched: dict[str, Any] = {}
+            for index, route_value in enumerate(route_values):
+                context = f"native route table routes[{index}]"
+                route_spec = _strict_object(route_value, {"path", "methods"}, context)
+
+                async def matching_endpoint(request: Any, *, route_index: int = index) -> Any:
+                    from starlette.responses import Response
+
+                    matched.update(
+                        {
+                            "route_index": route_index,
+                            "path_params": _native_scope_path_parameters(request.scope),
+                        }
+                    )
+                    return Response()
+
+                routes.append(
+                    Route(route_spec["path"], matching_endpoint, methods=route_spec["methods"])
+                )
+            match_spec = _strict_object(case["match"], {"path", "method"}, "native route match")
+            scope = _native_http_scope(match_spec["method"], match_spec["path"])
+            router = Router(routes=routes, redirect_slashes=False)
+
+            async def receive() -> dict[str, Any]:
+                return {"type": "http.disconnect"}
+
+            async def send(_message: dict[str, Any]) -> None:
+                return None
+
+            asyncio.run(router(scope, receive, send))
+            record = {"match": matched or None, "error": None}
+        else:
+            route_spec = _strict_object(case["route"], {"path", "name"}, "native named route")
+            lookup = _strict_object(case["lookup"], {"name", "path_params"}, "native URL lookup")
+            path_parameters = lookup["path_params"]
+            if not isinstance(path_parameters, dict):
+                raise ValueError("native URL lookup path_params must be an object")
+            route = Route(route_spec["path"], lambda _scope: None, name=route_spec["name"])
+            try:
+                url_path = route.url_path_for(lookup["name"], **path_parameters)
+            except Exception as exc:
+                record = {"path": None, "protocol": None, "host": None, "error": str(exc)}
+            else:
+                record = {
+                    "path": str(url_path),
+                    "protocol": url_path.protocol,
+                    "host": url_path.host,
+                    "error": None,
+                }
+    except Exception as exc:
+        record = (
+            {"match": None, "error": str(exc)}
+            if is_match
+            else {"path": None, "protocol": None, "host": None, "error": str(exc)}
+        )
+    finally:
+        _restore_native_input_convertors(registry, old_values)
+
+    return _native_workflow_result(case, record)
 
 
 def _run_native_service_asgi_case(case: dict[str, Any]) -> dict[str, Any]:

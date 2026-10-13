@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@48",
+  "schema": "migration-parity/parity-input@49",
   "cases": [
     {
       "case_id": "starlette.testclient.TestClient.websocket-session.application-headers.asyncio",

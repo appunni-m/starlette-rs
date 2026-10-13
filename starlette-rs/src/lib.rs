@@ -83,9 +83,10 @@ pub use native_lifespan::{
     NativeLifespanStateError,
 };
 pub use native_service::{
-    NativeApplication, NativeApplicationError, NativeBodyError, NativeHttpResponse, NativeRequest,
-    NativeRequestBody, NativeResponseBody, NativeResponseConversionError, NativeRoute,
-    box_native_body, native_body,
+    NativeApplication, NativeApplicationChild, NativeApplicationError, NativeBodyError,
+    NativeHostApplication, NativeHostRoute, NativeHttpResponse, NativeMount, NativeRequest,
+    NativeRequestBody, NativeRequestScope, NativeResponseBody, NativeResponseConversionError,
+    NativeRoute, box_native_body, native_body,
 };
 pub use native_websocket::{
     NativeWebSocketAcceptance, NativeWebSocketApplicationError, NativeWebSocketClose,
@@ -108,10 +109,11 @@ pub use response::{
     StreamingResponseDisconnectCallStep, StreamingResponseDisconnectListener,
     StreamingResponseDisconnectListenerError, StreamingResponseDisconnectListenerInput,
     StreamingResponseDisconnectListenerStep, StreamingResponseDisconnectMessage,
-    StreamingResponseEvent,
+    StreamingResponseEvent, StreamingResponseStream,
 };
 pub use route_table::{
-    DetailedRouteMatch, PathConverter, PathParameterCapture, RouteError, RouteMatch, RouteTable,
+    CustomPathConverter, CustomPathConverterRegistry, DetailedRouteMatch, PathConverter,
+    PathParameterCapture, RouteError, RouteMatch, RouteTable,
 };
 pub use router_dispatch::{DispatchPlanError, HttpDispatchPlan, SupplementalRouteMatch};
 pub use server_error::{ServerErrorPlan, ServerErrorPolicy, ServerErrorState};

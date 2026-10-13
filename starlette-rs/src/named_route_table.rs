@@ -3,15 +3,16 @@
 use std::error::Error;
 use std::fmt::{self, Display, Formatter};
 
-use crate::{RouteError, RouteTable};
+use crate::{CustomPathConverter, CustomPathConverterRegistry, RouteError, RouteTable};
 
 /// An insertion-ordered table for reverse lookup across directly named HTTP routes.
 ///
 /// This covers the flat `Router.url_path_for` behavior for named HTTP routes:
 /// lookup skips routes whose name or exact parameter-name set does not match,
 /// then formats the first matching route. Parameter values are strings already
-/// formatted by the corresponding built-in converter. Custom converters,
-/// nested `Mount` or `Host` routes, and WebSocket routes are outside this API.
+/// formatted by the corresponding converter. Custom string converters may be
+/// registered before their routes are added. Nested `Mount` or `Host` routes
+/// and WebSocket routes are outside this API.
 ///
 /// Successful results carry `protocol = "http"` and an empty host, matching
 /// Starlette's direct HTTP `URLPath` metadata. Path values are not
@@ -106,16 +107,42 @@ impl NamedRouteTable {
         }
     }
 
+    /// Creates a table using the supplied custom converter registry.
+    #[must_use]
+    pub fn new_with_custom_converters(converters: CustomPathConverterRegistry) -> Self {
+        Self {
+            routes: RouteTable::with_custom_converters(converters),
+            names: Vec::new(),
+        }
+    }
+
+    /// Registers or replaces a custom converter for routes added afterwards.
+    ///
+    /// Routes already present retain their parsed converter instance.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RouteError::InvalidPathConverterName`] for names outside the
+    /// path pattern's ASCII identifier syntax.
+    pub fn register_converter<N, C>(&mut self, name: N, converter: C) -> Result<(), RouteError>
+    where
+        N: Into<String>,
+        C: CustomPathConverter + 'static,
+    {
+        self.routes.register_converter(name, converter)
+    }
+
     /// Adds a directly named HTTP route and returns its stable insertion index.
     ///
-    /// Route path syntax and the supported built-in converters follow
-    /// [`RouteTable::add_route`]. Names need not be unique; when names repeat,
+    /// Route path syntax and the supported converters follow
+    /// [`RouteTable::add_route`]. Register custom converters before adding the
+    /// route. Names need not be unique; when names repeat,
     /// [`Self::url_path_for`] selects the first route whose parameter names
     /// exactly match the supplied set.
     ///
     /// # Errors
     ///
-    /// Returns [`RouteError`] if the path is invalid or uses an unsupported
+    /// Returns [`RouteError`] if the path is invalid or uses an unregistered
     /// converter.
     pub fn add_route<P, N>(&mut self, path: P, name: N) -> Result<usize, RouteError>
     where
@@ -129,8 +156,8 @@ impl NamedRouteTable {
 
     /// Builds a URL path for the first route matching both name and parameter names.
     ///
-    /// Parameter values must already be formatted by their corresponding
-    /// built-in converter, as required by [`RouteTable::build_path`]. A route
+    /// Parameter values are strings formatted by their corresponding
+    /// converter, as required by [`RouteTable::build_path`]. A route
     /// with a different name or a non-exact parameter-name set is skipped.
     /// Once a route matches both, converter-formatting errors are returned
     /// immediately rather than trying later routes.

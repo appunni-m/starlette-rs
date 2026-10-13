@@ -4,8 +4,8 @@ use std::error::Error;
 use std::fmt::{self, Display, Formatter};
 
 use crate::{
-    HostPattern, HostPatternError, NamedRoute, NamedRouteError, RouteError, RouteTable,
-    RouteUrlPath,
+    CustomPathConverter, CustomPathConverterRegistry, HostPattern, HostPatternError, NamedRoute,
+    NamedRouteError, RouteError, RouteTable, RouteUrlPath,
 };
 
 /// A named-router miss or a nested route formatting failure.
@@ -104,13 +104,42 @@ impl From<NamedHost> for NamedRouterRoute {
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct NamedRouter {
     routes: Vec<NamedRouterRoute>,
+    custom_converters: CustomPathConverterRegistry,
 }
 
 impl NamedRouter {
     /// Creates an empty reverse-lookup router.
     #[must_use]
     pub const fn new() -> Self {
-        Self { routes: Vec::new() }
+        Self {
+            routes: Vec::new(),
+            custom_converters: CustomPathConverterRegistry::new(),
+        }
+    }
+
+    /// Creates an empty router using the supplied custom converter registry.
+    #[must_use]
+    pub fn new_with_custom_converters(custom_converters: CustomPathConverterRegistry) -> Self {
+        Self {
+            routes: Vec::new(),
+            custom_converters,
+        }
+    }
+
+    /// Registers or replaces a custom converter for routes added afterwards.
+    ///
+    /// Routes already present retain their parsed converter instance.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RouteError::InvalidPathConverterName`] for names outside the
+    /// path pattern's ASCII identifier syntax.
+    pub fn register_converter<N, C>(&mut self, name: N, converter: C) -> Result<(), RouteError>
+    where
+        N: Into<String>,
+        C: CustomPathConverter + 'static,
+    {
+        self.custom_converters.register_converter(name, converter)
     }
 
     /// Creates a router from insertion-ordered routes, Mounts, and Hosts.
@@ -122,24 +151,26 @@ impl NamedRouter {
     {
         Self {
             routes: routes.into_iter().map(Into::into).collect(),
+            custom_converters: CustomPathConverterRegistry::new(),
         }
     }
 
     /// Adds a named HTTP route and returns its stable insertion index.
     ///
-    /// The route uses the same built-in converter syntax and formatting
-    /// contract as [`NamedRoute`].
+    /// The route uses the same converter syntax and formatting contract as
+    /// [`NamedRoute`]. Registered custom converters are captured when the
+    /// route is added.
     ///
     /// # Errors
     ///
-    /// Returns [`RouteError`] if the path is invalid or uses an unsupported
+    /// Returns [`RouteError`] if the path is invalid or uses an unregistered
     /// converter.
     pub fn add_route<P, N>(&mut self, path: P, name: N) -> Result<usize, RouteError>
     where
         P: Into<String>,
         N: Into<String>,
     {
-        let route = NamedRoute::new(path, name)?;
+        let route = NamedRoute::new_with_custom_converters(path, name, &self.custom_converters)?;
         Ok(self.add_entry(route))
     }
 
@@ -156,7 +187,8 @@ impl NamedRouter {
         P: Into<String>,
         N: Into<String>,
     {
-        let route = NamedRoute::new_websocket(path, name)?;
+        let route =
+            NamedRoute::new_websocket_with_custom_converters(path, name, &self.custom_converters)?;
         Ok(self.add_entry(route))
     }
 
@@ -192,7 +224,7 @@ impl NamedRouter {
     /// Builds a URL path through the first route matching `name` and the
     /// supplied parameter names.
     ///
-    /// Parameter values are strings already formatted by the route's built-in
+    /// Parameter values are strings already formatted by the route's
     /// converter. Named Mounts and Hosts prefix nested route names with `:`;
     /// unnamed ones forward child names unchanged. Values are not
     /// percent-encoded.
@@ -257,9 +289,31 @@ impl NamedMount {
     where
         P: Into<String>,
     {
+        Self::new_with_custom_converters(path, name, router, &CustomPathConverterRegistry::new())
+    }
+
+    /// Creates a nested named-route Mount using the supplied custom converter
+    /// registry for its prefix path.
+    ///
+    /// Register converters before constructing the Mount. The child router
+    /// keeps its own converter registry for child paths.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RouteError`] when the prefix path is invalid or names an
+    /// unregistered converter.
+    pub fn new_with_custom_converters<P>(
+        path: P,
+        name: Option<String>,
+        router: NamedRouter,
+        converters: &CustomPathConverterRegistry,
+    ) -> Result<Self, RouteError>
+    where
+        P: Into<String>,
+    {
         let path = path.into();
         let mount_pattern = format!("{}/{{path:path}}", path.trim_end_matches('/'));
-        let mut mount_routes = RouteTable::new();
+        let mut mount_routes = RouteTable::with_custom_converters(converters.clone());
         mount_routes.add_route(mount_pattern, std::iter::empty::<&str>())?;
 
         Ok(Self {

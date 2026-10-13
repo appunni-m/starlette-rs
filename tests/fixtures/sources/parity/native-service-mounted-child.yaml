@@ -1,0 +1,144 @@
+{
+  "schema": "migration-parity/parity-input@49",
+  "cases": [
+    {
+      "case_id": "starlette-rs.NativeApplication.service-mounted-child.scope-and-child-route",
+      "surface": "starlette-rs.NativeApplication",
+      "operation": "service-mounted-child",
+      "covers": [
+        "starlette-rs.NativeApplication.service-mounted-child.mount-prefix",
+        "starlette-rs.NativeApplication.service-mounted-child.child-parameters",
+        "starlette-rs.NativeApplication.service-mounted-child.scope-extension"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "application": {
+        "children": [
+          {
+            "kind": "mount",
+            "path": "/tenant/{tenant_id:int}",
+            "application": {
+              "routes": [
+                {
+                  "path": "/items/{item_id:int}",
+                  "methods": [
+                    "GET"
+                  ],
+                  "endpoint": {
+                    "request_body_action": "leave-unread",
+                    "response_body_from_request": [
+                      "path",
+                      "root_path",
+                      "app_root_path",
+                      "path_params"
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "request": {
+        "method": "GET",
+        "uri": "/proxy/tenant/0042/items/0007",
+        "scope": {
+          "root_path": "/proxy",
+          "app_root_path": "/edge",
+          "path_params": [
+            {
+              "name": "tenant_id",
+              "value": "999",
+              "converter": "int"
+            },
+            {
+              "name": "region",
+              "value": "eu",
+              "converter": "str"
+            }
+          ]
+        },
+        "body": {
+          "frames": [
+            {
+              "end": true
+            }
+          ]
+        }
+      },
+      "drive": {
+        "service_future": "resolve",
+        "response_body": "read-to-end"
+      },
+      "observations": [
+        "workflow"
+      ]
+    },
+    {
+      "case_id": "starlette-rs.NativeApplication.service-mounted-child.child-not-found",
+      "surface": "starlette-rs.NativeApplication",
+      "operation": "service-mounted-child",
+      "covers": [
+        "starlette-rs.NativeApplication.service-mounted-child.child-response-dispatch"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "application": {
+        "children": [
+          {
+            "kind": "mount",
+            "path": "/tenant/{tenant_id:int}",
+            "application": {
+              "routes": [
+                {
+                  "path": "/items/{item_id:int}",
+                  "methods": [
+                    "GET"
+                  ],
+                  "endpoint": {
+                    "request_body_action": "leave-unread",
+                    "response_body": {
+                      "frames": [
+                        {
+                          "data_base64": "bm90LWZvdW5k"
+                        }
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "request": {
+        "method": "GET",
+        "uri": "/proxy/tenant/0042/missing",
+        "scope": {
+          "root_path": "/proxy",
+          "app_root_path": "/edge"
+        },
+        "body": {
+          "frames": [
+            {
+              "end": true
+            }
+          ]
+        }
+      },
+      "drive": {
+        "service_future": "resolve",
+        "response_body": "read-to-end"
+      },
+      "observations": [
+        "workflow"
+      ]
+    }
+  ]
+}

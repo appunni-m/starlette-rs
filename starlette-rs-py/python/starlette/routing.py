@@ -16,7 +16,7 @@ from starlette.exceptions import HTTPException, StarletteDeprecationWarning
 from starlette.middleware import Middleware
 from starlette.requests import Request
 from starlette.responses import PlainTextResponse, RedirectResponse
-from starlette.types import ASGIApp, Lifespan
+from starlette.types import ASGIApp, Lifespan, Receive, Scope, Send
 from starlette.websockets import WebSocket, WebSocketClose
 
 
@@ -129,20 +129,16 @@ class BaseRoute:
     param_convertors: dict[str, Convertor[Any]]
     _uses_custom_convertors: bool
 
-    def matches(self, scope: dict[str, Any]) -> tuple[Match, dict[str, Any]]:
+    def matches(self, scope: Scope) -> tuple[Match, Scope]:
         return _core.base_route_unimplemented("matches")
 
     def url_path_for(self, name: str, /, **path_params: Any) -> URLPath:
         return _core.base_route_unimplemented("url_path_for")
 
-    async def handle(
-        self, scope: dict[str, Any], receive: Callable[..., Any], send: Callable[..., Any]
-    ) -> None:
+    async def handle(self, scope: Scope, receive: Receive, send: Send) -> None:
         await _core.base_route_unimplemented_async("handle")
 
-    async def __call__(
-        self, scope: dict[str, Any], receive: Callable[..., Any], send: Callable[..., Any]
-    ) -> None:
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         await _core.base_route_call(self, scope, receive, send, PlainTextResponse, WebSocketClose)
 
 

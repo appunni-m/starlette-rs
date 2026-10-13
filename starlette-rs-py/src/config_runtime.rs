@@ -4,6 +4,7 @@
 //! selects the precedence, performs file parsing, applies bool conversion, and
 //! translates cast failures to the Starlette-compatible error surface.
 
+use pyo3::class::gc::{PyTraverseError, PyVisit};
 use pyo3::create_exception;
 use pyo3::exceptions::{PyException, PyKeyError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
@@ -43,6 +44,18 @@ struct PyEnviron {
 
 #[pymethods]
 impl PyEnviron {
+    fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.environ)?;
+        visit.call(&self.has_been_read)
+    }
+
+    fn __clear__(&mut self, py: Python<'_>) {
+        self.environ = py.None();
+        // Reuse the existing set so clearing cannot fail from allocating a
+        // replacement while the cycle collector is breaking ownership edges.
+        self.has_been_read.bind(py).clear();
+    }
+
     #[new]
     fn new(py: Python<'_>, environ: Py<PyAny>) -> PyResult<Self> {
         Ok(Self {
@@ -124,6 +137,18 @@ struct PyConfig {
 
 #[pymethods]
 impl PyConfig {
+    fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.environ)?;
+        visit.call(&self.env_prefix)?;
+        visit.call(&self.file_values)
+    }
+
+    fn __clear__(&mut self, py: Python<'_>) {
+        self.environ = py.None();
+        self.env_prefix = py.None();
+        self.file_values.bind(py).clear();
+    }
+
     #[new]
     fn new(
         py: Python<'_>,

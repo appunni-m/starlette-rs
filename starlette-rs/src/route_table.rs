@@ -1,6 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::fmt::{self, Display, Formatter};
+use std::sync::Arc;
 
 use crate::{Response, ResponseError};
 
@@ -9,9 +10,8 @@ use crate::{Response, ResponseError};
 /// Paths are case-sensitive and compared byte-for-byte as Rust strings. This
 /// slice supports exact static paths, whole-segment and inline `{name}` / `{name:str}`
 /// string parameters, and Starlette's `{name:int}`, `{name:float}`, `{name:uuid}`,
-/// and `{name:path}` converters.
-/// Only these five built-in converters are recognized by the Rust-native
-/// table; Python-registered custom URL converters remain outside this API.
+/// and `{name:path}` converters. Additional converter names can be registered
+/// with [`Self::register_converter`].
 /// Slash redirect detection is available through
 /// [`find_slash_redirect_path`](Self::find_slash_redirect_path). Use
 /// [`matches_detailed_with_root_path`](Self::matches_detailed_with_root_path)
@@ -20,10 +20,19 @@ use crate::{Response, ResponseError};
 /// also accepts `HEAD`, matching Starlette's `Route` behavior. Methods added
 /// later through [`Self::add_method`] preserve their supplied spelling and do
 /// not synthesize `HEAD`, matching direct mutation of `Route.methods`.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default)]
 pub struct RouteTable {
     routes: Vec<Route>,
+    custom_converters: CustomPathConverterRegistry,
 }
+
+impl PartialEq for RouteTable {
+    fn eq(&self, other: &Self) -> bool {
+        self.routes == other.routes && self.custom_converters == other.custom_converters
+    }
+}
+
+impl Eq for RouteTable {}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct Route {
@@ -37,7 +46,7 @@ enum PathSegment {
     Static(String),
     Parameter {
         name: String,
-        converter: PathConverter,
+        converter: RoutePathConverter,
     },
 }
 
@@ -56,6 +65,148 @@ pub enum PathConverter {
     Path,
 }
 
+/// A custom Rust-native path converter.
+///
+/// Converters operate on strings in this API. [`Self::matches`] recognizes a
+/// complete candidate capture, [`Self::convert`] maps a matched capture to its
+/// string parameter value, and [`Self::to_string`] formats a supplied string
+/// parameter for reverse URL generation. The route table tries candidate
+/// captures from longest to shortest, then accepts the first one that lets the
+/// remainder of the route match. Implementations should be deterministic and
+/// side-effect free because matching can inspect multiple candidate slices.
+pub trait CustomPathConverter: fmt::Debug + Send + Sync {
+    /// Returns whether the complete candidate capture is accepted.
+    fn matches(&self, value: &str) -> bool;
+
+    /// Converts an accepted path capture to the string value exposed by the
+    /// native route table.
+    fn convert(&self, value: &str) -> String {
+        String::from(value)
+    }
+
+    /// Formats a supplied string parameter for reverse URL generation.
+    ///
+    /// Return an error when the value cannot be represented by this
+    /// converter. The route table also checks the returned string with
+    /// [`Self::matches`].
+    fn to_string(&self, value: &str) -> Result<String, String> {
+        Ok(String::from(value))
+    }
+}
+
+#[derive(Clone, Debug)]
+enum RoutePathConverter {
+    Builtin(PathConverter),
+    Custom {
+        name: String,
+        converter: Arc<dyn CustomPathConverter>,
+    },
+}
+
+impl PartialEq for RoutePathConverter {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Builtin(left), Self::Builtin(right)) => left == right,
+            (
+                Self::Custom {
+                    name: left_name,
+                    converter: left_converter,
+                },
+                Self::Custom {
+                    name: right_name,
+                    converter: right_converter,
+                },
+            ) => left_name == right_name && Arc::ptr_eq(left_converter, right_converter),
+            _ => false,
+        }
+    }
+}
+
+impl Eq for RoutePathConverter {}
+
+impl RoutePathConverter {
+    fn tag(&self) -> PathConverter {
+        match self {
+            Self::Builtin(converter) => *converter,
+            Self::Custom { .. } => PathConverter::String,
+        }
+    }
+}
+
+/// A reusable registry of custom path converters.
+///
+/// Register a converter before adding routes that name it. Routes retain the
+/// converter that was registered when each route was added, so replacing a
+/// registry entry only affects routes registered later. Equality compares
+/// converter registration identity; cloning a registry preserves that
+/// identity.
+#[derive(Clone, Debug, Default)]
+pub struct CustomPathConverterRegistry {
+    converters: Vec<(String, Arc<dyn CustomPathConverter>)>,
+}
+
+impl PartialEq for CustomPathConverterRegistry {
+    fn eq(&self, other: &Self) -> bool {
+        self.converters.len() == other.converters.len()
+            && self.converters.iter().all(|(name, converter)| {
+                other
+                    .converters
+                    .iter()
+                    .find(|(other_name, _)| other_name == name)
+                    .is_some_and(|(_, other)| Arc::ptr_eq(converter, other))
+            })
+    }
+}
+
+impl Eq for CustomPathConverterRegistry {}
+
+impl CustomPathConverterRegistry {
+    /// Creates an empty custom converter registry.
+    #[must_use]
+    pub const fn new() -> Self {
+        Self {
+            converters: Vec::new(),
+        }
+    }
+
+    /// Registers or replaces a converter for a path parameter name.
+    ///
+    /// Previously added routes retain the converter they were parsed with.
+    /// Replacing a name therefore changes only routes added afterwards.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RouteError::InvalidPathConverterName`] when `name` is not an
+    /// ASCII identifier accepted by the route-pattern grammar.
+    pub fn register_converter<N, C>(&mut self, name: N, converter: C) -> Result<(), RouteError>
+    where
+        N: Into<String>,
+        C: CustomPathConverter + 'static,
+    {
+        let name = name.into();
+        if !valid_converter_name(&name) {
+            return Err(RouteError::InvalidPathConverterName(name));
+        }
+        if let Some((_, existing)) = self
+            .converters
+            .iter_mut()
+            .find(|(existing_name, _)| existing_name == &name)
+        {
+            *existing = Arc::new(converter);
+        } else {
+            self.converters.push((name, Arc::new(converter)));
+        }
+        Ok(())
+    }
+
+    pub(crate) fn converter(&self, name: &str) -> Option<Arc<dyn CustomPathConverter>> {
+        self.converters
+            .iter()
+            .find(|(converter_name, _)| converter_name == name)
+            .map(|(_, converter)| Arc::clone(converter))
+    }
+}
+
 /// A path capture tagged with the converter Starlette applies to it.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PathParameterCapture {
@@ -63,7 +214,8 @@ pub struct PathParameterCapture {
     pub name: String,
     /// Captured value; integer captures use canonical decimal spelling.
     pub value: String,
-    /// Converter declared for this parameter.
+    /// Built-in converter declared for this parameter. Custom converters
+    /// expose their string-converted value with `String` here.
     pub converter: PathConverter,
 }
 
@@ -101,8 +253,8 @@ pub enum RouteMatch {
 /// use the 8-4-4-4-12 hexadecimal form with optional hyphens, and paths use
 /// `.*` (which may be empty and does not cross line feeds). Integer values are
 /// returned as canonical decimal strings, so values are not limited by the
-/// platform's integer width. Other values preserve their matched spelling for
-/// conversion at the Python boundary.
+/// platform's integer width. Registered custom converters apply their
+/// string-valued `convert` method to each accepted capture.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum DetailedRouteMatch {
     /// A route accepted both the path and method.
@@ -195,6 +347,8 @@ impl RouteMatch {
 pub enum RouteError {
     /// Starlette requires routed paths to start with `/`.
     PathMustStartWithSlash,
+    /// A custom converter registration name is not a valid ASCII identifier.
+    InvalidPathConverterName(String),
     /// A syntactically valid path parameter names an unsupported converter.
     UnknownPathConverter(String),
     /// A parameter name occurs more than once in a path pattern.
@@ -219,12 +373,22 @@ pub enum RouteError {
         /// Stable description of the rejected value.
         reason: &'static str,
     },
+    /// A custom converter could not format a reverse URL parameter.
+    CustomPathConverterFormatting {
+        /// Parameter name from the route pattern.
+        name: String,
+        /// Converter-specific formatting failure or validation detail.
+        reason: String,
+    },
 }
 
 impl Display for RouteError {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
         match self {
             Self::PathMustStartWithSlash => formatter.write_str("routed paths must start with '/'"),
+            Self::InvalidPathConverterName(name) => {
+                write!(formatter, "invalid path converter name '{name}'")
+            }
             Self::UnknownPathConverter(name) => {
                 write!(formatter, "unknown path converter '{name}'")
             }
@@ -250,6 +414,9 @@ impl Display for RouteError {
             Self::InvalidPathParameter { name, reason } => {
                 write!(formatter, "invalid path parameter '{name}': {reason}")
             }
+            Self::CustomPathConverterFormatting { name, reason } => {
+                write!(formatter, "custom path converter '{name}' failed: {reason}")
+            }
         }
     }
 }
@@ -260,14 +427,44 @@ impl RouteTable {
     /// Creates an empty route table.
     #[must_use]
     pub const fn new() -> Self {
-        Self { routes: Vec::new() }
+        Self {
+            routes: Vec::new(),
+            custom_converters: CustomPathConverterRegistry::new(),
+        }
+    }
+
+    /// Creates an empty route table with an existing custom converter registry.
+    #[must_use]
+    pub fn with_custom_converters(custom_converters: CustomPathConverterRegistry) -> Self {
+        Self {
+            routes: Vec::new(),
+            custom_converters,
+        }
+    }
+
+    /// Registers or replaces a custom converter for routes added afterwards.
+    ///
+    /// Routes already in the table retain the converter instance used when
+    /// they were parsed.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RouteError::InvalidPathConverterName`] for names outside the
+    /// route grammar's ASCII identifier syntax.
+    pub fn register_converter<N, C>(&mut self, name: N, converter: C) -> Result<(), RouteError>
+    where
+        N: Into<String>,
+        C: CustomPathConverter + 'static,
+    {
+        self.custom_converters.register_converter(name, converter)
     }
 
     /// Adds one path and returns its stable insertion index.
     ///
     /// A path may be exact and static, or contain Starlette path parameters
-    /// such as `/items/{item_id:int}` and `/assets/{file:path}`. Parameters
-    /// may be embedded in literal path text. Methods are uppercased and
+    /// such as `/items/{item_id:int}` and `/assets/{file:path}`, as well as
+    /// converters registered before this call. Parameters may be embedded in
+    /// literal path text. Methods are uppercased and
     /// deduplicated while retaining their input order.
     /// Registering `GET` also adds `HEAD`. An empty method collection follows
     /// Starlette's route matching behavior and accepts any method.
@@ -346,7 +543,7 @@ impl RouteTable {
         }
 
         let route_index = self.routes.len();
-        let path_segments = parse_path(&path)?;
+        let path_segments = parse_path(&path, &self.custom_converters)?;
         self.routes.push(Route {
             path_segments,
             path,
@@ -384,17 +581,16 @@ impl RouteTable {
     /// Builds a route path from converter-formatted parameter values.
     ///
     /// Parameter names must exactly match those declared by the route. The
-    /// caller supplies each value after applying the corresponding
-    /// `Convertor.to_string` behavior at its language boundary. This method
-    /// performs structural substitution and validates the built-in string,
-    /// integer, and float output forms. UUID values preserve the converter's
-    /// `str(value)` result; path values are inserted as-is. Values are not
+    /// caller supplies each parameter as a string. This method applies the
+    /// registered custom converter's `to_string` method and validates the
+    /// result with `matches`; built-in values retain their documented
+    /// formatting rules. Values are not
     /// percent-escaped, matching Starlette's `URLPath` behavior.
     ///
     /// # Errors
     ///
-    /// Returns a route-index, parameter-name, duplicate-value, or built-in
-    /// converter-output error.
+    /// Returns a route-index, parameter-name, duplicate-value, or converter
+    /// output error.
     pub fn build_path(
         &self,
         route_index: usize,
@@ -461,13 +657,12 @@ impl RouteTable {
     ///
     /// Missing route parameters remain as `{name}` placeholders. Extra values
     /// remain in the returned vector in input order so a caller can pass them
-    /// to a nested route. The supplied values must already be formatted by
-    /// their converter's `to_string` method.
+    /// to a nested route. Supplied values are formatted by the corresponding
+    /// converter.
     ///
     /// # Errors
     ///
-    /// Returns a route-index, duplicate-value, or built-in converter-output
-    /// error.
+    /// Returns a route-index, duplicate-value, or converter-output error.
     pub fn build_path_partial(
         &self,
         route_index: usize,
@@ -578,7 +773,7 @@ impl RouteTable {
                         PathSegment::Parameter {
                             name: parameter_name,
                             converter,
-                        } if parameter_name == name => Some(*converter),
+                        } if parameter_name == name => Some(converter.tag()),
                         PathSegment::Static(_) | PathSegment::Parameter { .. } => None,
                     })
                     .ok_or_else(|| RouteError::UnknownPathParameter(name.clone()))?;
@@ -612,8 +807,8 @@ impl RouteTable {
     /// match takes precedence over an earlier partial match, matching
     /// Starlette's ordered route selection. Captured values preserve their
     /// lexical spelling, except integer parameters, which are canonical
-    /// arbitrary-size decimal strings. The Python boundary converts float and
-    /// UUID values into their Starlette runtime types.
+    /// arbitrary-size decimal strings. Custom converters return their
+    /// string-converted values directly.
     #[must_use]
     pub fn matches_detailed(&self, path: &str, method: &str) -> DetailedRouteMatch {
         let mut first_partial = None;
@@ -670,8 +865,8 @@ impl RouteTable {
     /// to `root_path` ends in `/`, or appends `/` otherwise. It returns the
     /// candidate only when a route accepts its path, including a method-only
     /// partial match. A relative path of exactly `/` is never redirected.
-    /// This checks only routes registered in this table; it does not recurse
-    /// into mounted routers or invoke custom converters.
+    /// This checks only routes registered in this table and applies their
+    /// registered converter matchers; it does not recurse into mounted routers.
     #[must_use]
     pub fn find_slash_redirect_path(
         &self,
@@ -763,10 +958,14 @@ fn match_path_segments(
                     };
 
                     if let Some(value) = path.get(path_offset..end) {
-                        let value = if *converter == PathConverter::Integer {
-                            canonical_integer(value)
-                        } else {
-                            String::from(value)
+                        let value = match converter {
+                            RoutePathConverter::Builtin(PathConverter::Integer) => {
+                                canonical_integer(value)
+                            }
+                            RoutePathConverter::Builtin(_) => String::from(value),
+                            RoutePathConverter::Custom { converter, .. } => {
+                                converter.convert(value)
+                            }
                         };
                         suffix.insert(0, (name.clone(), value));
                         matched = Some(suffix);
@@ -786,14 +985,18 @@ fn regex_end_matches(path: &str, offset: usize) -> bool {
     offset == path.len() || (path.ends_with('\n') && offset + '\n'.len_utf8() == path.len())
 }
 
-fn converter_candidate_ends(path: &str, offset: usize, converter: &PathConverter) -> Vec<usize> {
+fn converter_candidate_ends(
+    path: &str,
+    offset: usize,
+    converter: &RoutePathConverter,
+) -> Vec<usize> {
     let Some(suffix) = path.get(offset..) else {
         return Vec::new();
     };
     let mut ends = Vec::new();
 
     match converter {
-        PathConverter::String => {
+        RoutePathConverter::Builtin(PathConverter::String) => {
             for (relative, character) in suffix.char_indices() {
                 if character == '/' {
                     break;
@@ -801,7 +1004,7 @@ fn converter_candidate_ends(path: &str, offset: usize, converter: &PathConverter
                 ends.push(offset + relative + character.len_utf8());
             }
         }
-        PathConverter::Integer => {
+        RoutePathConverter::Builtin(PathConverter::Integer) => {
             for (relative, byte) in suffix.bytes().enumerate() {
                 if !byte.is_ascii_digit() {
                     break;
@@ -809,7 +1012,7 @@ fn converter_candidate_ends(path: &str, offset: usize, converter: &PathConverter
                 ends.push(offset + relative + 1);
             }
         }
-        PathConverter::Float => {
+        RoutePathConverter::Builtin(PathConverter::Float) => {
             let digit_end = suffix.bytes().take_while(u8::is_ascii_digit).count();
             if digit_end > 0 {
                 let fractional_start = offset + digit_end;
@@ -827,7 +1030,7 @@ fn converter_candidate_ends(path: &str, offset: usize, converter: &PathConverter
                 }
             }
         }
-        PathConverter::Uuid => {
+        RoutePathConverter::Builtin(PathConverter::Uuid) => {
             for (relative, byte) in suffix.bytes().enumerate().take(36) {
                 if !byte.is_ascii_hexdigit() && byte != b'-' {
                     break;
@@ -839,7 +1042,7 @@ fn converter_candidate_ends(path: &str, offset: usize, converter: &PathConverter
             }
             ends.reverse();
         }
-        PathConverter::Path => {
+        RoutePathConverter::Builtin(PathConverter::Path) => {
             for (relative, character) in suffix.char_indices() {
                 if character == '\n' {
                     break;
@@ -848,11 +1051,25 @@ fn converter_candidate_ends(path: &str, offset: usize, converter: &PathConverter
             }
             ends.push(offset);
         }
+        RoutePathConverter::Custom { converter, .. } => {
+            for (relative, character) in suffix.char_indices() {
+                ends.push(offset + relative + character.len_utf8());
+            }
+            ends.push(offset);
+            ends.reverse();
+            ends.retain(|end| {
+                path.get(offset..*end)
+                    .is_some_and(|candidate| converter.matches(candidate))
+            });
+            return ends;
+        }
     }
 
     if matches!(
         converter,
-        PathConverter::String | PathConverter::Integer | PathConverter::Path
+        RoutePathConverter::Builtin(
+            PathConverter::String | PathConverter::Integer | PathConverter::Path
+        )
     ) {
         ends.reverse();
     }
@@ -903,7 +1120,7 @@ fn canonical_integer(value: &str) -> String {
 fn format_path_parameter(
     name: &str,
     value: &str,
-    converter: &PathConverter,
+    converter: &RoutePathConverter,
 ) -> Result<String, RouteError> {
     let invalid = |reason| RouteError::InvalidPathParameter {
         name: String::from(name),
@@ -911,25 +1128,43 @@ fn format_path_parameter(
     };
 
     match converter {
-        PathConverter::String if value.is_empty() => {
+        RoutePathConverter::Builtin(PathConverter::String) if value.is_empty() => {
             Err(invalid("string converter values must not be empty"))
         }
-        PathConverter::String if value.contains('/') => Err(invalid(
+        RoutePathConverter::Builtin(PathConverter::String) if value.contains('/') => Err(invalid(
             "string converter values may not contain path separators",
         )),
-        PathConverter::Integer
+        RoutePathConverter::Builtin(PathConverter::Integer)
             if value.is_empty() || !value.bytes().all(|byte| byte.is_ascii_digit()) =>
         {
             Err(invalid(
                 "integer converter values must be non-negative ASCII decimal digits",
             ))
         }
-        PathConverter::Integer => Ok(canonical_integer(value)),
-        PathConverter::Float if !valid_float_lexeme(value) => Err(invalid(
-            "float converter values must use non-negative decimal notation",
-        )),
-        PathConverter::Float | PathConverter::Uuid | PathConverter::Path => Ok(String::from(value)),
-        PathConverter::String => Ok(String::from(value)),
+        RoutePathConverter::Builtin(PathConverter::Integer) => Ok(canonical_integer(value)),
+        RoutePathConverter::Builtin(PathConverter::Float) if !valid_float_lexeme(value) => Err(
+            invalid("float converter values must use non-negative decimal notation"),
+        ),
+        RoutePathConverter::Builtin(
+            PathConverter::Float | PathConverter::Uuid | PathConverter::Path,
+        )
+        | RoutePathConverter::Builtin(PathConverter::String) => Ok(String::from(value)),
+        RoutePathConverter::Custom { name, converter } => {
+            let formatted = converter.to_string(value).map_err(|reason| {
+                RouteError::CustomPathConverterFormatting {
+                    name: name.clone(),
+                    reason,
+                }
+            })?;
+            if converter.matches(&formatted) {
+                Ok(formatted)
+            } else {
+                Err(RouteError::CustomPathConverterFormatting {
+                    name: name.clone(),
+                    reason: String::from("formatted value is not accepted by the converter"),
+                })
+            }
+        }
     }
 }
 
@@ -969,7 +1204,10 @@ fn method_not_allowed_response(
     Ok(Some(response))
 }
 
-fn parse_path(path: &str) -> Result<Option<Vec<PathSegment>>, RouteError> {
+fn parse_path(
+    path: &str,
+    custom_converters: &CustomPathConverterRegistry,
+) -> Result<Option<Vec<PathSegment>>, RouteError> {
     let bytes = path.as_bytes();
     let mut segments = Vec::new();
     let mut parameter_names = HashSet::new();
@@ -992,13 +1230,20 @@ fn parse_path(path: &str) -> Result<Option<Vec<PathSegment>>, RouteError> {
             )));
         }
 
-        let converter = match converter_name {
-            "str" => PathConverter::String,
-            "int" => PathConverter::Integer,
-            "float" => PathConverter::Float,
-            "uuid" => PathConverter::Uuid,
-            "path" => PathConverter::Path,
-            other => return Err(RouteError::UnknownPathConverter(String::from(other))),
+        let converter = if let Some(converter) = custom_converters.converter(converter_name) {
+            RoutePathConverter::Custom {
+                name: String::from(converter_name),
+                converter,
+            }
+        } else {
+            RoutePathConverter::Builtin(match converter_name {
+                "str" => PathConverter::String,
+                "int" => PathConverter::Integer,
+                "float" => PathConverter::Float,
+                "uuid" => PathConverter::Uuid,
+                "path" => PathConverter::Path,
+                other => return Err(RouteError::UnknownPathConverter(String::from(other))),
+            })
         };
         if !parameter_names.insert(name) {
             return Err(RouteError::DuplicatePathParameter(String::from(name)));
@@ -1058,4 +1303,9 @@ fn scan_identifier(bytes: &[u8], start: usize) -> Option<usize> {
         end += 1;
     }
     Some(end)
+}
+
+fn valid_converter_name(name: &str) -> bool {
+    let bytes = name.as_bytes();
+    scan_identifier(bytes, 0) == Some(bytes.len())
 }

@@ -7,7 +7,7 @@ from typing import Any, Literal
 from starlette_rs_py import _core
 from typing_extensions import Self
 
-from starlette.types import ASGIApp
+from starlette.types import ASGIApp, Message
 from starlette.websockets import WebSocketDisconnect
 
 httpx = _core.testclient_httpx()
@@ -60,6 +60,12 @@ class WebSocketTestSession:
 
     def __exit__(self, *args: Any) -> bool | None:
         return self._runtime.__exit__(*args)
+
+    def send(self, message: Message) -> None:
+        self._runtime.send(message)
+
+    def receive(self) -> Message:
+        return self._runtime.receive()
 
     def send_text(self, data: str) -> None:
         self._runtime.send_text(data)

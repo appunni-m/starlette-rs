@@ -1,7 +1,8 @@
 # Rust-native HTTP service API
 
 The crate exposes a server-neutral Rust HTTP API through `NativeApplication`,
-`NativeRoute`, and `NativeRequest`. This path accepts Rust
+`NativeRoute`, and `NativeRequest`, with `NativeMount` for child applications
+and `NativeHostApplication` for host-based dispatch. This path accepts Rust
 `http::Request` values and does not invoke Python or ASGI dictionaries. The
 existing Python-compatible Starlette/ASGI path remains a separate API.
 
@@ -38,6 +39,14 @@ explicitly collect it if their handler requires buffering. Dropping the body
 releases its source, but this API does not expose an explicit request
 cancellation token or typed peer/TLS metadata.
 
+Use `NativeApplication::with_children` to register ordered routes and
+`NativeMount` entries in the same route table. A selected Mount forwards the
+original request body to its child application and carries `root_path`,
+`app_root_path`, and typed path captures through `NativeRequestScope`. Child
+path captures replace inherited captures with the same name, following
+Starlette's scope merge order. `NativeRequest` exposes the resulting scope,
+root paths, and merged parameters to the endpoint.
+
 Response bodies are `http_body::Body` values erased to
 `UnsyncBoxBody<Bytes, NativeBodyError>` at the heterogeneous route endpoint
 boundary. `box_native_body` forwards frames and maps the body error without
@@ -46,6 +55,22 @@ body. Tower middleware can wrap the application with `NativeApplication::layer`;
 outer layers receive requests first and responses last. Middleware ordering is
 the standard Tower layer order, not a claim that every Python Starlette
 middleware feature is implemented in this native API.
+
+### Host-based dispatch
+
+`NativeHostApplication` implements the same Tower service boundary while
+selecting an ordered `NativeHostRoute` by its `Host` header before matching the
+child path and method. Construct each host entry with a compiled
+`HostPattern` and its ordered `NativeRoute` values. The first matching host
+entry owns the request; an unmatched child path returns 404 and a path matched
+with an unsupported method returns 405. A request without a `Host` header
+returns 404. Host parameters are added to `NativeRequest::path_params()`;
+child path parameters replace host parameters with the same name.
+
+Host capture and configured port behavior follow `HostPattern`: incoming and
+configured port suffixes are ignored for matching, while captures retain their
+declared names and order. The service decodes header bytes as Latin-1 to match
+Starlette's Host header boundary.
 
 ### Pull polling and backpressure
 
@@ -62,6 +87,10 @@ pull-based backpressure at the `http_body::Body` boundary: the service does not
 advance a body until a consumer polls it. A user-supplied body can still do
 work or buffer internally when it is constructed or polled, and a Tower layer
 may choose to poll or buffer it.
+
+Mounted child services preserve this pull boundary: a Mount only updates the
+request scope and delegates the same body to its child application. It does
+not read or buffer the request body itself.
 
 ### Errors and cancellation
 
@@ -99,7 +128,7 @@ serialization are zero-copy.
 
 This is an initial HTTP service surface. It does not implement the Python
 Starlette application model, route-level dependency injection, the full
-Starlette middleware catalog, mounts, server protocol negotiation, or a
+Starlette middleware catalog, server protocol negotiation, or a
 cross-repository FastAPI composition. Separate transport-neutral Rust APIs
 provide [WebSocket sessions](native-websocket.md) and
 [lifespan hooks](native-lifespan.md); they remain distinct from Starlette's

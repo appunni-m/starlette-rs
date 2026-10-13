@@ -65,6 +65,17 @@ struct PyDefaultLifespanRuntime {
     _router: Py<PyAny>,
 }
 
+#[pymethods]
+impl PyDefaultLifespanRuntime {
+    fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self._router)
+    }
+
+    fn __clear__(&mut self, py: Python<'_>) {
+        self._router = py.None();
+    }
+}
+
 /// Callable adapter created by Rust for deprecated synchronous generator lifespans.
 #[pyclass(name = "_SyncGeneratorLifespanFactory", dict)]
 struct PySyncGeneratorLifespanFactory {

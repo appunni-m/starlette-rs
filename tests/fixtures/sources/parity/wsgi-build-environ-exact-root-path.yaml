@@ -1,0 +1,30 @@
+{
+  "schema": "migration-parity/parity-input@49",
+  "cases": [
+    {
+      "case_id": "starlette.middleware.wsgi.build-environ.path-equals-root-path",
+      "surface": "starlette.middleware.wsgi",
+      "operation": "build-environ",
+      "covers": [
+        "starlette.middleware.wsgi.build-environ.root-path-stripping"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "scope": {
+        "type": "http",
+        "http_version": "1.1",
+        "method": "GET",
+        "path": "/mount",
+        "root_path": "/mount",
+        "query_string_base64": "",
+        "headers_base64_pairs": []
+      },
+      "body_base64": "",
+      "environ_probes": [
+        {"key": "SCRIPT_NAME", "kind": "value"},
+        {"key": "PATH_INFO", "kind": "value"}
+      ],
+      "observations": ["environ-results"]
+    }
+  ]
+}

@@ -600,7 +600,12 @@ impl WebSocketDecodeCall {
             return self.decode_json(py);
         }
         if self.debug && !encoding.is_none() {
-            let name = py.import("builtins")?.getattr("str")?.call1((encoding,))?;
+            // Match the pinned source's f-string formatting, which invokes
+            // __format__ rather than str() on user-supplied encoding values.
+            let name = py
+                .import("builtins")?
+                .getattr("format")?
+                .call1((encoding,))?;
             return Err(PyAssertionError::new_err(format!(
                 "Unsupported 'encoding' attribute {}",
                 name.extract::<String>()?

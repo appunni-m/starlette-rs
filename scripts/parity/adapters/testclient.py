@@ -1842,7 +1842,11 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
             accepted_extra_headers = session.extra_headers
             for action in websocket_input["actions"]:
                 try:
-                    if action["operation"] == "send_text":
+                    if action["operation"] == "send":
+                        value = session.send(_message(action["message"]))
+                    elif action["operation"] == "receive":
+                        value = session.receive()
+                    elif action["operation"] == "send_text":
                         value = session.send_text(action["text"])
                     elif action["operation"] == "send_bytes":
                         value = session.send_bytes(base64.b64decode(action["data_base64"]))

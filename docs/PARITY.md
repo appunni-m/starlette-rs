@@ -1,6 +1,6 @@
 # Migration parity contract and evidence
 
-The working-tree input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@6`, `scope.mode: slice`, and `parity-input@48`. It currently contains 2,185 cases across 229 parity inputs and two benchmark inputs. The compatibility registry has 135 Starlette operations; the separate native registry has 7 Rust-native operations. Together they declare 1,154 parity requirements: 1,131 compatibility requirements and 23 native requirements. The source inventory has 843 rows: 788 input mappings, 55 source-backed `not_applicable` rows, and zero fixture-backlog rows. The latest unexecuted inputs cover BackgroundTask attribute deletion and reassignment, FileResponse range endpoints above `u64::MAX` and empty-filename MIME inference, TestClient WebSocket server ports above `u16` and non-string accepted subprotocol values, arbitrary-precision `SessionMiddleware.max_age`, FormData key preservation, mixed-case Host header names, an unpadded StaticFiles conditional date, Jinja2 `url_for` callable metadata (`__module__` and `__qualname__`), HTTPSRedirect Host precedence over an out-of-range server port, Response cookie control-character validation order, two lazy StaticFiles PathLike error-display cases, and nested Rust-native Host/Mount/WebSocket reverse-routing cases. Earlier inputs cover StaticFiles internal-comment date parsing and lifespan exception identity/traceback behavior. The typing consumer now observes HTTPConnection, Request, WebSocket, and WebSocketClose ASGI signatures and Request value annotations. Exact comparisons are JSON-type-sensitive; full parity remains deferred.
+The working-tree input contract is [`tests/fixtures/manifest.yaml`](../tests/fixtures/manifest.yaml), using `migration-parity/manifest@6`, `scope.mode: slice`, and `parity-input@49`. It currently contains 2,219 cases across 247 parity input files and two benchmark inputs. The compatibility registry has 135 Starlette operations; the separate native registry has 12 Rust-native operations. Together they declare 1,184 parity requirements: 1,145 compatibility requirements and 39 native requirements. The source inventory has 843 rows: 788 input mappings, 55 source-backed `not_applicable` rows, and zero fixture-backlog rows. The latest unexecuted inputs cover BackgroundTask attribute deletion and reassignment, FileResponse range endpoints above `u64::MAX` and empty-filename MIME inference, TestClient WebSocket server ports above `u16` and non-string accepted subprotocol values, arbitrary-precision `SessionMiddleware.max_age`, FormData key preservation, mixed-case Host header names, an unpadded StaticFiles conditional date, Jinja2 `url_for` callable metadata (`__module__` and `__qualname__`), HTTPSRedirect Host precedence over an out-of-range server port, Response cookie control-character validation order, two lazy StaticFiles PathLike error-display cases, and nested Rust-native Host/Mount/WebSocket reverse-routing cases. Earlier inputs cover StaticFiles internal-comment date parsing and lifespan exception identity/traceback behavior. The typing consumer now observes HTTPConnection, Request, WebSocket, and WebSocketClose ASGI signatures and Request value annotations. Exact comparisons are JSON-type-sensitive; full parity remains deferred.
 
 The latest clean full parity preflight, `dc8c8ca6-f2b7-449b-9f53-45860e3cad4c`, passed 2,254/2,254 comparisons for the preceding 1,992-case contract: 1,988 Python-package and 266 Rust-native comparisons, with zero failures, infrastructure errors, or `not_run` rows. Both target-only fault contracts passed on clean revision `57aab659fb09cd252df110cc9daef7eeaec1ea1a`. Later @48 additions cover optional-backend behavior, WebSocket authorization, Router truthiness, BaseHTTPMiddleware iterator cancellation, response subclasses, Python-version applicability, StaticFiles OS-specific paths and NUL handling, StreamingResponse OSError mapping and await-factory exhaustion, TestClient callback decoding, BaseException and close-code behavior, WebSocket close-code forwarding, CPython custom-regex syntax, AuthenticationMiddleware iterable backend results, nested Host/Mount reverse lookup, Request body retry and interleaved iterator consumption after `http.disconnect`, cached Request.is_disconnected() state after body/stream disconnect observations, and async background-list failure ordering. The additional BackgroundTasks live-list mutation, async-list cancellation, and sync cancellation-then-worker-error inputs, plus StreamingResponse caller-cancellation inputs also remain unexecuted; full parity remains deferred until implementation closes.
 
@@ -9,7 +9,7 @@ WebSocket, Tower middleware, and lifespan APIs, including partial
 response-body pulls, paired pre-commit request-body and post-start response-body
 errors, a BaseHTTPMiddleware call-next response whose body iterator is closed
 before return, and three target-only lifespan fault contracts. Contract
-validation passes for all 2,185 cases; these cases and faults remain unexecuted
+validation passes for all 2,219 cases; these cases and faults remain unexecuted
 until the grouped parity phase.
 
 Ten additional compatibility inputs remain unexecuted: closing a partially
@@ -51,6 +51,21 @@ Both installed parity environments currently lack `uvloop`, so the fixture does 
 `parity-input@48` adds optional `upstream_test_applicability` metadata to ordinary parity cases. The metadata names the pinned pytest test and declares per-profile `required`, `skip`, or `xfail` status with a source-backed reason. It records pytest harness applicability only: the runner still sends the identical input to both live implementations for every selected profile, including upstream-skipped and xfailed profiles. The new source-backed declarations capture the pinned `test_testclient.py::test_domain_restricted_cookies` xfail for the `testserver` parameter on CPython 3.10 and the `test_responses.py::test_set_cookie_raises_for_invalid_python_version` skip on CPython 3.14+, where the same input observes supported partitioned-cookie behavior.
 
 `make migrate-parity-inputs-v47-v48` validates every @47 indexed source under its previous acceptance rules, validates the migrated document under @48, and changes only the top-level schema header. It enforces a one-to-one mapping between the manifest input index and all authored parity YAML sources. Use `python3.10 -m scripts.migrate_parity_input_v47_to_v48 --check` to validate without rewriting. This preserves the historical v46→v47 migration rules.
+
+## Input contract evolution: @49
+
+`parity-input@49` adds operation-specific input shapes for five native
+workflows: mounted child services, host-based service dispatch, lazy streaming
+response sources, custom route-converter matching, and custom-converter URL
+formatting. The cases remain input-only; adapters construct each workflow from
+the supplied input and return live oracle or target observations.
+
+`make migrate-parity-inputs-v48-v49` validates each indexed @48 input under the
+previous acceptance rules, validates it under @49, and changes only its schema
+header. It also verifies one-to-one correspondence between authored parity
+YAML sources and the manifest index. Use
+`python3.12 -m scripts.migrate_parity_input_v48_to_v49 --check` to validate
+without rewriting inputs.
 
 ## Supported CPython profiles and version-scoped parity inputs
 

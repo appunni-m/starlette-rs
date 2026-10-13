@@ -11,7 +11,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use pyo3::class::gc::{PyTraverseError, PyVisit};
 use pyo3::exceptions::{PyAssertionError, PyException, PyRuntimeError, PyStopAsyncIteration};
 use pyo3::prelude::*;
-use pyo3::types::{PyDict, PyInt, PyList, PyModule, PyTuple};
+use pyo3::types::{PyDict, PyInt, PyList, PyModule, PySet, PyTuple};
 
 use crate::awaitable::{
     AwaitableStateMachine, MachineAction, MachineResume, into_sendable_python_awaitable,
@@ -467,29 +467,30 @@ impl PyExceptionMiddlewareRuntime {
         exception: Py<PyAny>,
     ) -> PyResult<Py<PyAny>> {
         let exception = exception.bind(py);
-        let status_code = exception.getattr("status_code")?.extract::<u16>()?;
-        let detail = exception.getattr("detail")?.extract::<String>()?;
-        let headers = exception.getattr("headers")?;
-        let headers = if headers.is_none() {
-            Vec::new()
+        if !exception.is_instance(self.http_exception_type.bind(py))? {
+            return Err(PyAssertionError::new_err(()));
+        }
+        // Keep the original Python values and source evaluation order: status
+        // membership may run user hashing, and rendering owns detail/header
+        // conversion. An explicit HTTPException status is not limited to u16.
+        let bodyless = PySet::new(py, [204, 304])?.contains(exception.getattr("status_code")?)?;
+        let kwargs = PyDict::new(py);
+        if bodyless {
+            kwargs.set_item("status_code", exception.getattr("status_code")?)?;
+            kwargs.set_item("headers", exception.getattr("headers")?)?;
+            self.response_type
+                .bind(py)
+                .call((), Some(&kwargs))
+                .map(Bound::unbind)
         } else {
-            py.import("builtins")?
-                .getattr("list")?
-                .call1((headers.call_method0("items")?,))?
-                .extract::<Vec<(String, String)>>()?
-        };
-        let response = py
-            .import("starlette_rs_py._core")?
-            .getattr("_http_exception_response")?
-            .call1((status_code, detail, headers))?;
-        let response_type = if matches!(status_code, 204 | 304) {
-            self.response_type.bind(py)
-        } else {
-            self.plain_text_response_type.bind(py)
-        };
-        response_type
-            .call_method1("_from_native", (response,))
-            .map(Bound::unbind)
+            let detail = exception.getattr("detail")?;
+            kwargs.set_item("status_code", exception.getattr("status_code")?)?;
+            kwargs.set_item("headers", exception.getattr("headers")?)?;
+            self.plain_text_response_type
+                .bind(py)
+                .call((detail,), Some(&kwargs))
+                .map(Bound::unbind)
+        }
     }
 
     fn websocket_exception(
@@ -499,6 +500,9 @@ impl PyExceptionMiddlewareRuntime {
         exception: Py<PyAny>,
     ) -> PyResult<Py<PyAny>> {
         let exception = exception.bind(py);
+        if !exception.is_instance(self.websocket_exception_type.bind(py))? {
+            return Err(PyAssertionError::new_err(()));
+        }
         let kwargs = PyDict::new(py);
         kwargs.set_item("code", exception.getattr("code")?)?;
         kwargs.set_item("reason", exception.getattr("reason")?)?;

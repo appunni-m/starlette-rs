@@ -1,5 +1,11 @@
 use std::error::Error;
 use std::fmt::{self, Display, Formatter};
+use std::pin::Pin;
+use std::task::{Context, Poll};
+
+use futures::Stream;
+
+type StreamingSource<'a, E> = dyn Stream<Item = Result<Vec<u8>, E>> + 'a;
 
 /// An HTTP response for the initial text-response slice.
 ///
@@ -169,6 +175,23 @@ pub struct StreamingResponse {
     status_code: u16,
     headers: Vec<(Vec<u8>, Vec<u8>)>,
     chunks: Vec<Vec<u8>>,
+}
+
+/// A lazy body source paired with streaming-response metadata.
+///
+/// The source is polled only when the consumer requests the next item. Drive
+/// response ordering with [`Self::call_state`]: it requests a chunk only after
+/// the start event or preceding chunk has been sent successfully. A source
+/// error is yielded once with its original type and then drops the source.
+/// Dropping this value also drops the source and any producer state it owns.
+///
+/// The response metadata contains no collected body chunks. Use
+/// [`Self::start_event`] and [`Self::call_state`] for an ASGI call; the
+/// buffered-only [`StreamingResponse::asgi_events`] helper does not consume
+/// this source.
+pub struct StreamingResponseStream<'a, E> {
+    response: StreamingResponse,
+    source: Option<Pin<Box<StreamingSource<'a, E>>>>,
 }
 
 /// The next operation for a runtime driving a [`StreamingResponse`] ASGI call.
@@ -1032,6 +1055,51 @@ impl StreamingResponse {
         })
     }
 
+    /// Creates a streaming response whose body is pulled from a Rust stream.
+    ///
+    /// The returned [`StreamingResponseStream`] owns the response metadata and
+    /// pins the supplied source without polling or collecting it. Its items
+    /// are forwarded as `Result<Vec<u8>, E>`, preserving the source error
+    /// value. Feed each result to
+    /// [`StreamingResponseCallInput::ChunkPulled`]. Poll it only when the
+    /// associated call state returns [`StreamingResponseCallStep::PullChunk`];
+    /// this keeps source polling behind ASGI send backpressure. A source error
+    /// is terminal and drops the source. Dropping the returned value at any
+    /// point also drops the source, which is the cancellation mechanism for
+    /// producer state owned by that source.
+    ///
+    /// The response has no automatically generated `content-length` header.
+    /// Header normalization and media-type handling match [`Self::from_chunks`].
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ResponseError::HeaderDataIsNotLatin1`] if a header name,
+    /// value, or media type cannot be encoded as Latin-1.
+    pub fn from_stream<'a, S, E, H, K, V>(
+        status_code: u16,
+        source: S,
+        media_type: Option<&str>,
+        headers: H,
+    ) -> Result<StreamingResponseStream<'a, E>, ResponseError>
+    where
+        S: Stream<Item = Result<Vec<u8>, E>> + 'a,
+        H: IntoIterator<Item = (K, V)>,
+        K: AsRef<str>,
+        V: AsRef<str>,
+    {
+        let response = Self::from_chunks(
+            status_code,
+            std::iter::empty::<Vec<u8>>(),
+            media_type,
+            headers,
+        )?;
+
+        Ok(StreamingResponseStream {
+            response,
+            source: Some(Box::pin(source)),
+        })
+    }
+
     /// Appends a cookie using the same encoding and validation as [`Response`].
     pub fn set_cookie(&mut self, key: &str, value: &str) -> Result<(), ResponseError> {
         self.set_cookie_with_options(key, value, &CookieOptions::default())
@@ -1190,6 +1258,63 @@ impl StreamingResponse {
         );
         events.push(Self::final_event());
         events
+    }
+}
+
+impl<E> StreamingResponseStream<'_, E> {
+    /// Returns the response metadata used by this lazy body source.
+    ///
+    /// The returned response has no buffered chunks. Its status, headers, and
+    /// start event are suitable for use with the streaming call state machine.
+    #[must_use]
+    pub fn response(&self) -> &StreamingResponse {
+        &self.response
+    }
+
+    /// Returns mutable response metadata for header updates before dispatch.
+    pub fn response_mut(&mut self) -> &mut StreamingResponse {
+        &mut self.response
+    }
+
+    /// Returns the `http.response.start` event for this response.
+    #[must_use]
+    pub fn start_event(&self) -> StreamingResponseEvent {
+        self.response.start_event()
+    }
+
+    /// Starts an ASGI call state machine for this response.
+    ///
+    /// The returned state machine requests one source poll after each
+    /// successful send and runs the optional background operation only after
+    /// the final body event has been sent successfully.
+    #[must_use]
+    pub fn call_state(&self, has_background_callback: bool) -> StreamingResponseCall {
+        self.response.call_state(has_background_callback)
+    }
+}
+
+impl<E> Stream for StreamingResponseStream<'_, E> {
+    type Item = Result<Vec<u8>, E>;
+
+    fn poll_next(self: Pin<&mut Self>, context: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        let this = self.get_mut();
+        let poll = match this.source.as_mut() {
+            Some(source) => source.as_mut().poll_next(context),
+            None => return Poll::Ready(None),
+        };
+
+        match poll {
+            Poll::Ready(Some(Err(error))) => {
+                this.source = None;
+                Poll::Ready(Some(Err(error)))
+            }
+            Poll::Ready(None) => {
+                this.source = None;
+                Poll::Ready(None)
+            }
+            Poll::Pending => Poll::Pending,
+            Poll::Ready(Some(Ok(chunk))) => Poll::Ready(Some(Ok(chunk))),
+        }
     }
 }
 

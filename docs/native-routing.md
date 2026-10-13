@@ -52,6 +52,17 @@ path through a `path` parameter. For nested results, Mount preserves the child
 protocol and drops child Host metadata, matching Starlette's `URLPath`
 reconstruction.
 
+## Register a Rust-native path converter
+
+`CustomPathConverterRegistry` accepts Rust implementations of
+`CustomPathConverter`. Implement `matches` for a complete capture,
+`convert` for the value exposed by route matching, and `to_string` for reverse
+URL formatting. Register a converter before adding routes that use its name;
+each route retains the converter instance used when its pattern was parsed.
+`RouteTable` and `NamedRouter` support registration directly, while
+`NamedRoute` accepts a registry at construction. This Rust-native contract is
+string-based and never invokes Python converter callbacks.
+
 ## Add a Host and a WebSocket route
 
 `NamedHost` applies the same name-prefix and insertion-order rules, and returns
@@ -95,7 +106,7 @@ child protocol and drops the child's Host metadata; when a Host wraps a Mount,
 the Host supplies the result's host metadata.
 
 The current Rust-native graph includes named HTTP and WebSocket routes,
-nested Mounts, and nested Host routes. It does not represent arbitrary Python
-endpoint callables or custom Python converters. Native lookup errors are typed
-Rust values; Python exception identity and messages remain part of the
-compatibility boundary rather than this API.
+nested Mounts, nested Host routes, and custom Rust converters. It does not
+represent arbitrary Python endpoint callables or Python converter objects.
+Native lookup errors are typed Rust values; Python exception identity and
+messages remain part of the compatibility boundary rather than this API.

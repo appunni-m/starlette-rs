@@ -1,0 +1,242 @@
+{
+  "schema": "migration-parity/parity-input@49",
+  "cases": [
+    {
+      "surface": "starlette.middleware.wsgi.WSGIMiddleware",
+      "operation": "__call__",
+      "covers": [
+        "starlette.middleware.wsgi.WSGIMiddleware.sender-protocols.unbounded-response-queue",
+        "starlette.middleware.wsgi.WSGIMiddleware.sender-protocols.sender-task-context"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "protocol-results"
+      ],
+      "scope": {
+        "type": "http",
+        "http_version": "1.1",
+        "method": "POST",
+        "path": "/wsgi",
+        "query_string_base64": "",
+        "headers_base64_pairs": []
+      },
+      "incoming": [
+        {
+          "type": "http.request",
+          "body_base64": "cmVxdWVzdA==",
+          "more_body": false
+        }
+      ],
+      "app": {
+        "status": "200 OK",
+        "headers": [
+          [
+            "Content-Type",
+            "text/plain"
+          ]
+        ],
+        "chunks_base64": [
+          "b25l",
+          "dHdv"
+        ]
+      },
+      "context": {
+        "name": "wsgi-sender-context",
+        "caller_value": "caller-input",
+        "worker_value": "worker-input",
+        "send_value": "sender-input"
+      },
+      "hold_timeout_seconds": 2.0,
+      "send_action": {
+        "kind": "complete",
+        "at_event": 1,
+        "failure": null
+      },
+      "case_id": "starlette.middleware.wsgi.WSGIMiddleware.__call__.sender-protocols.queued-worker-completion-and-sender-context"
+    },
+    {
+      "surface": "starlette.middleware.wsgi.WSGIMiddleware",
+      "operation": "__call__",
+      "covers": [
+        "starlette.middleware.wsgi.WSGIMiddleware.sender-protocols.unbounded-response-queue",
+        "starlette.middleware.wsgi.WSGIMiddleware.sender-protocols.sender-task-context",
+        "starlette.middleware.wsgi.WSGIMiddleware.sender-protocols.send-error-propagation"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "protocol-results"
+      ],
+      "scope": {
+        "type": "http",
+        "http_version": "1.1",
+        "method": "POST",
+        "path": "/wsgi",
+        "query_string_base64": "",
+        "headers_base64_pairs": []
+      },
+      "incoming": [
+        {
+          "type": "http.request",
+          "body_base64": "cmVxdWVzdA==",
+          "more_body": false
+        }
+      ],
+      "app": {
+        "status": "200 OK",
+        "headers": [
+          [
+            "Content-Type",
+            "text/plain"
+          ]
+        ],
+        "chunks_base64": [
+          "b25l",
+          "dHdv"
+        ]
+      },
+      "context": {
+        "name": "wsgi-sender-context",
+        "caller_value": "caller-input",
+        "worker_value": "worker-input",
+        "send_value": "sender-input"
+      },
+      "hold_timeout_seconds": 2.0,
+      "send_action": {
+        "kind": "raise",
+        "at_event": 1,
+        "failure": {
+          "class": "OSError",
+          "message": "input-defined ASGI send failure"
+        }
+      },
+      "case_id": "starlette.middleware.wsgi.WSGIMiddleware.__call__.sender-protocols.sender-oserror-propagation"
+    },
+    {
+      "surface": "starlette.middleware.wsgi.WSGIMiddleware",
+      "operation": "__call__",
+      "covers": [
+        "starlette.middleware.wsgi.WSGIMiddleware.sender-protocols.unbounded-response-queue",
+        "starlette.middleware.wsgi.WSGIMiddleware.sender-protocols.sender-task-context",
+        "starlette.middleware.wsgi.WSGIMiddleware.sender-protocols.dispatch-cancellation"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "protocol-results"
+      ],
+      "scope": {
+        "type": "http",
+        "http_version": "1.1",
+        "method": "POST",
+        "path": "/wsgi",
+        "query_string_base64": "",
+        "headers_base64_pairs": []
+      },
+      "incoming": [
+        {
+          "type": "http.request",
+          "body_base64": "cmVxdWVzdA==",
+          "more_body": false
+        }
+      ],
+      "app": {
+        "status": "200 OK",
+        "headers": [
+          [
+            "Content-Type",
+            "text/plain"
+          ]
+        ],
+        "chunks_base64": [
+          "b25l",
+          "dHdv"
+        ]
+      },
+      "context": {
+        "name": "wsgi-sender-context",
+        "caller_value": "caller-input",
+        "worker_value": "worker-input",
+        "send_value": "sender-input"
+      },
+      "hold_timeout_seconds": 2.0,
+      "send_action": {
+        "kind": "cancel-call",
+        "at_event": 1,
+        "failure": null
+      },
+      "case_id": "starlette.middleware.wsgi.WSGIMiddleware.__call__.sender-protocols.sender-cancels-dispatch"
+    },
+    {
+      "surface": "starlette.middleware.wsgi.WSGIMiddleware",
+      "operation": "__call__",
+      "covers": [
+        "starlette.middleware.wsgi.WSGIMiddleware.sender-protocols.unbounded-response-queue",
+        "starlette.middleware.wsgi.WSGIMiddleware.sender-protocols.sender-task-context",
+        "starlette.middleware.wsgi.WSGIMiddleware.sender-protocols.callback-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "protocol-results"
+      ],
+      "scope": {
+        "type": "http",
+        "http_version": "1.1",
+        "method": "POST",
+        "path": "/wsgi",
+        "query_string_base64": "",
+        "headers_base64_pairs": []
+      },
+      "incoming": [
+        {
+          "type": "http.request",
+          "body_base64": "cmVxdWVzdA==",
+          "more_body": false
+        }
+      ],
+      "app": {
+        "status": "200 OK",
+        "headers": [
+          [
+            "Content-Type",
+            "text/plain"
+          ]
+        ],
+        "chunks_base64": [
+          "b25l",
+          "dHdv"
+        ]
+      },
+      "context": {
+        "name": "wsgi-sender-context",
+        "caller_value": "caller-input",
+        "worker_value": "worker-input",
+        "send_value": "sender-input"
+      },
+      "hold_timeout_seconds": 2.0,
+      "send_action": {
+        "kind": "complete",
+        "at_event": 1,
+        "failure": null
+      },
+      "case_id": "starlette.middleware.wsgi.WSGIMiddleware.__call__.sender-protocols.retained-start-response-ownership-cycle",
+      "callback_lifetime": {
+        "collect_generations": [
+          0,
+          1,
+          2
+        ]
+      }
+    }
+  ]
+}

@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@48",
+  "schema": "migration-parity/parity-input@49",
   "cases": [
     {
       "case_id": "starlette.public-api-inspection.removed-api-surface",
@@ -92,6 +92,41 @@
           {
             "name": "starlette.routing",
             "symbols": [
+              {
+                "name": "BaseRoute",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "BaseRoute.matches",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "BaseRoute.url_path_for",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "BaseRoute.handle",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "BaseRoute.__call__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
               {
                 "name": "Router",
                 "observe": [

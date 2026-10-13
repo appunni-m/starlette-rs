@@ -1,6 +1,6 @@
 //! Process-isolated native adapter for the first Starlette migration-parity slice.
 
-use std::collections::{HashSet, VecDeque};
+use std::collections::{BTreeSet, HashSet, VecDeque};
 use std::env;
 use std::error::Error;
 use std::fs;
@@ -29,6 +29,7 @@ use bytes::Bytes;
 use encoding_rs as _;
 use flate2 as _;
 use futures as _;
+use futures::Stream;
 use futures::executor::block_on;
 use getrandom as _;
 use hmac as _;
@@ -46,21 +47,23 @@ use sha1 as _;
 use sha2 as _;
 use starlette_rs::{
     ActiveNativeLifespan, ApplicationRoute, AsgiScopeKind, CommaSeparatedStrings, CookieOptions,
-    Cookies, DEFAULT_EXCLUDED_CONTENT_TYPES, DetailedRouteMatch, FileMetadata,
-    FileResponse as NativeFileResponse, FileResponseCallInput, FileResponseCallStep,
-    FileResponseError, FileResponseEvent, FileResponseOptions, GzipConfig, GzipHeader,
-    GzipResponseStart, HostPattern, HttpScope, LifespanAction, LifespanState, Mount as NativeMount,
-    MountChild, MountScope, MultiDict as NativeMultiDict, NamedHost, NamedMount,
-    NamedRoute as NativeNamedRoute, NamedRouteError, NamedRouter, NamedRouterError,
-    NativeApplicationError, NativeLifespan, NativeLifespanError, NativeLifespanState, NativeRoute,
-    NativeWebSocketAcceptance, NativeWebSocketClose, NativeWebSocketDriver, NativeWebSocketError,
-    NativeWebSocketEvent, NativeWebSocketHandshake, NativeWebSocketMessage,
+    Cookies, CustomPathConverter, CustomPathConverterRegistry, DEFAULT_EXCLUDED_CONTENT_TYPES,
+    DetailedRouteMatch, FileMetadata, FileResponse as NativeFileResponse, FileResponseCallInput,
+    FileResponseCallStep, FileResponseError, FileResponseEvent, FileResponseOptions, GzipConfig,
+    GzipHeader, GzipResponseStart, HostPattern, HttpScope, LifespanAction, LifespanState,
+    Mount as NativeMount, MountChild, MountScope, MultiDict as NativeMultiDict, NamedHost,
+    NamedMount, NamedRoute as NativeNamedRoute, NamedRouteError, NamedRouter, NamedRouterError,
+    NativeApplication as NativeServiceApplication, NativeApplicationChild, NativeApplicationError,
+    NativeHostApplication, NativeHostRoute, NativeLifespan, NativeLifespanError,
+    NativeLifespanState, NativeMount as NativeServiceMount, NativeRequest, NativeRequestScope,
+    NativeRoute, NativeWebSocketAcceptance, NativeWebSocketClose, NativeWebSocketDriver,
+    NativeWebSocketError, NativeWebSocketEvent, NativeWebSocketHandshake, NativeWebSocketMessage,
     NativeWebSocketPeerClose, NativeWebSocketRoute, NativeWebSocketRouter,
     NativeWebSocketTransportError, PathConverter, PathParameterCapture, QueryParams,
     RequestBodyAccumulator, RequestHeaders, Response, ResponseEvent, RouteTable,
     Starlette as NativeApplication, StaticFiles as NativeStaticFiles, StaticFilesError,
-    StaticFilesResponse, StreamingResponse, StreamingResponseEvent, WebSocketState,
-    WebSocketStateMachine, classify_scope, connection_url,
+    StaticFilesResponse, StreamingResponse, StreamingResponseCallInput, StreamingResponseCallStep,
+    StreamingResponseEvent, WebSocketState, WebSocketStateMachine, classify_scope, connection_url,
 };
 use tower_layer as _;
 use tower_service as _;
@@ -95,6 +98,11 @@ const WEBSOCKET_STATE_OPERATION: &str = "state-sequence";
 const NATIVE_WEBSOCKET_SURFACE: &str = "starlette-rs.NativeWebSocket";
 const NATIVE_WEBSOCKET_OPERATION: &str = "native-session-sequence";
 const NATIVE_SERVICE_MIDDLEWARE_OPERATION: &str = "service-tower-middleware";
+const NATIVE_SERVICE_MOUNTED_CHILD_OPERATION: &str = "service-mounted-child";
+const NATIVE_SERVICE_HOST_ROUTING_OPERATION: &str = "service-host-routing";
+const NATIVE_STREAMING_RESPONSE_SOURCE_OPERATION: &str = "lazy-source-call";
+const NATIVE_ROUTE_TABLE_CUSTOM_CONVERTER_OPERATION: &str = "custom-converter-match";
+const NATIVE_NAMED_ROUTE_CUSTOM_CONVERTER_OPERATION: &str = "custom-converter-url-path-for";
 // The Python facade maps Rust state-transition errors through PyRuntimeError.
 const WEBSOCKET_STATE_ERROR_COMPATIBILITY_CLASS: &str = "builtins.RuntimeError";
 const WEBSOCKET_CALLBACK_OSERROR_CLASS: &str = "builtins.OSError";
@@ -477,6 +485,27 @@ fn run_case(case: &Value) -> Result<Value, String> {
     ) {
         (Some("starlette-rs.NativeApplication"), Some("service-body-streaming")) => {
             return run_native_service_case(case);
+        }
+        (Some("starlette-rs.NativeApplication"), Some(NATIVE_SERVICE_MOUNTED_CHILD_OPERATION)) => {
+            return run_native_mounted_child_case(case);
+        }
+        (
+            Some("starlette-rs.NativeHostApplication"),
+            Some(NATIVE_SERVICE_HOST_ROUTING_OPERATION),
+        ) => {
+            return run_native_host_routing_case(case);
+        }
+        (
+            Some("starlette-rs.StreamingResponse"),
+            Some(NATIVE_STREAMING_RESPONSE_SOURCE_OPERATION),
+        ) => {
+            return run_native_streaming_source_case(case);
+        }
+        (Some("starlette-rs.RouteTable"), Some(NATIVE_ROUTE_TABLE_CUSTOM_CONVERTER_OPERATION)) => {
+            return run_native_custom_converter_match_case(case);
+        }
+        (Some("starlette-rs.NamedRoute"), Some(NATIVE_NAMED_ROUTE_CUSTOM_CONVERTER_OPERATION)) => {
+            return run_native_custom_converter_url_case(case);
         }
         (Some("starlette-rs.NativeApplication"), Some(NATIVE_SERVICE_MIDDLEWARE_OPERATION)) => {
             return run_native_service_middleware_case(case);
@@ -1040,6 +1069,1558 @@ fn run_native_service_case(case: &Value) -> Result<Value, String> {
         );
     }
     native_observation_result(case_id, case, values, "native service")
+}
+
+#[derive(Clone, Default)]
+struct NativeServiceObservation {
+    path_params: Vec<(String, String)>,
+    root_path: Option<String>,
+    app_root_path: Option<String>,
+}
+
+#[derive(Clone)]
+enum NativeServiceEndpointOutput {
+    Frames(Vec<NativeProbeFrame>),
+    ResponseBodyFromRequest(Vec<String>),
+    EchoPathParams,
+}
+
+type NativeServiceObservationHandle = Arc<Mutex<Option<NativeServiceObservation>>>;
+
+fn native_route_from_input(
+    value: &Value,
+    observation: NativeServiceObservationHandle,
+    context: &str,
+) -> Result<NativeRoute, String> {
+    let route = exact_object(value, &["path", "methods", "endpoint"], context)?;
+    let path = string_field(route, "path", context)?.to_owned();
+    let methods = string_array_field(route, "methods", context)?;
+    let endpoint = route
+        .get("endpoint")
+        .ok_or_else(|| format!("{context}.endpoint is missing"))?;
+    let endpoint_context = format!("{context}.endpoint");
+    let output = if endpoint.get("action").is_some() {
+        let endpoint = exact_object(endpoint, &["action"], &endpoint_context)?;
+        if string_field(endpoint, "action", &endpoint_context)? != "echo-path-params" {
+            return Err(format!("{endpoint_context}.action is unsupported"));
+        }
+        NativeServiceEndpointOutput::EchoPathParams
+    } else if endpoint.get("response_body_from_request").is_some() {
+        let endpoint = exact_object(
+            endpoint,
+            &["request_body_action", "response_body_from_request"],
+            &endpoint_context,
+        )?;
+        if string_field(endpoint, "request_body_action", &endpoint_context)? != "leave-unread" {
+            return Err(format!(
+                "{endpoint_context}.request_body_action is unsupported"
+            ));
+        }
+        let fields = endpoint
+            .get("response_body_from_request")
+            .and_then(Value::as_array)
+            .ok_or_else(|| {
+                format!("{endpoint_context}.response_body_from_request must be an array")
+            })?
+            .iter()
+            .enumerate()
+            .map(|(index, field)| {
+                field.as_str().map(str::to_owned).ok_or_else(|| {
+                    format!(
+                        "{endpoint_context}.response_body_from_request[{index}] must be a string"
+                    )
+                })
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        if fields.iter().any(|field| {
+            !["path", "root_path", "app_root_path", "path_params"].contains(&field.as_str())
+        }) {
+            return Err(format!(
+                "{endpoint_context}.response_body_from_request has an unsupported field"
+            ));
+        }
+        NativeServiceEndpointOutput::ResponseBodyFromRequest(fields)
+    } else {
+        let endpoint = exact_object(
+            endpoint,
+            &["request_body_action", "response_body"],
+            &endpoint_context,
+        )?;
+        if string_field(endpoint, "request_body_action", &endpoint_context)? != "leave-unread" {
+            return Err(format!(
+                "{endpoint_context}.request_body_action is unsupported"
+            ));
+        }
+        let body = exact_object(
+            endpoint
+                .get("response_body")
+                .ok_or_else(|| format!("{endpoint_context}.response_body is missing"))?,
+            &["frames"],
+            &format!("{endpoint_context}.response_body"),
+        )?;
+        NativeServiceEndpointOutput::Frames(parse_native_probe_frames(
+            body.get("frames")
+                .ok_or_else(|| format!("{endpoint_context}.response_body.frames is missing"))?,
+            &format!("{endpoint_context}.response_body.frames"),
+        )?)
+    };
+
+    Ok(NativeRoute::new(
+        path,
+        methods,
+        move |request: NativeRequest| {
+            let observation = Arc::clone(&observation);
+            let output = output.clone();
+            async move {
+                let captured = NativeServiceObservation {
+                    path_params: request.path_params().to_vec(),
+                    root_path: Some(request.root_path().to_owned()),
+                    app_root_path: Some(request.app_root_path().to_owned()),
+                };
+                let mut slot = observation.lock().map_err(|_| {
+                    NativeApplicationError::Endpoint(Box::new(io::Error::other(
+                        "native service observation lock is poisoned",
+                    )))
+                })?;
+                *slot = Some(captured);
+                drop(slot);
+
+                let body = match output {
+                    NativeServiceEndpointOutput::Frames(frames) => {
+                        let trace = Arc::new(Mutex::new(Vec::new()));
+                        let dropped = Arc::new(AtomicBool::new(false));
+                        let body = NativeProbeBody::new(frames, trace, dropped);
+                        starlette_rs::box_native_body(body)
+                    }
+                    NativeServiceEndpointOutput::ResponseBodyFromRequest(fields) => {
+                        let pairs = fields
+                            .iter()
+                            .map(|field| {
+                                let value = match field.as_str() {
+                                    "path" => Value::String(request.path().to_owned()),
+                                    "root_path" => Value::String(request.root_path().to_owned()),
+                                    "app_root_path" => {
+                                        Value::String(request.app_root_path().to_owned())
+                                    }
+                                    "path_params" => json!(request.path_params()),
+                                    _ => Value::Null,
+                                };
+                                json!([field, value])
+                            })
+                            .collect::<Vec<_>>();
+                        let bytes = serde_json::to_vec(&Value::Array(pairs))
+                            .map_err(|error| NativeApplicationError::Endpoint(Box::new(error)))?;
+                        starlette_rs::native_body(Bytes::from(bytes))
+                    }
+                    NativeServiceEndpointOutput::EchoPathParams => {
+                        let bytes = serde_json::to_vec(&json!(request.path_params()))
+                            .map_err(|error| NativeApplicationError::Endpoint(Box::new(error)))?;
+                        starlette_rs::native_body(Bytes::from(bytes))
+                    }
+                };
+                Ok(HttpResponse::new(body))
+            }
+        },
+    ))
+}
+
+fn native_children_from_input(
+    value: &Value,
+    observation: NativeServiceObservationHandle,
+    context: &str,
+) -> Result<Vec<NativeApplicationChild>, String> {
+    let children = value
+        .as_array()
+        .filter(|children| !children.is_empty())
+        .ok_or_else(|| format!("{context} must be a non-empty array"))?;
+    children
+        .iter()
+        .enumerate()
+        .map(|(index, child)| {
+            let child_context = format!("{context}[{index}]");
+            let kind = child
+                .get("kind")
+                .and_then(Value::as_str)
+                .ok_or_else(|| format!("{child_context}.kind must be a string"))?;
+            match kind {
+                "mount" => {
+                    let child =
+                        exact_object(child, &["kind", "path", "application"], &child_context)?;
+                    let path = string_field(child, "path", &child_context)?;
+                    let application_input = exact_object(
+                        child
+                            .get("application")
+                            .ok_or_else(|| format!("{child_context}.application is missing"))?,
+                        &["routes"],
+                        &format!("{child_context}.application"),
+                    )?;
+                    let route_values = application_input
+                        .get("routes")
+                        .and_then(Value::as_array)
+                        .filter(|routes| !routes.is_empty())
+                        .ok_or_else(|| {
+                            format!("{child_context}.application.routes must be a non-empty array")
+                        })?;
+                    let routes = route_values
+                        .iter()
+                        .enumerate()
+                        .map(|(route_index, route)| {
+                            native_route_from_input(
+                                route,
+                                Arc::clone(&observation),
+                                &format!("{child_context}.application.routes[{route_index}]"),
+                            )
+                        })
+                        .collect::<Result<Vec<_>, _>>()?;
+                    let child_application =
+                        NativeServiceApplication::new(routes).map_err(|error| error.to_string())?;
+                    let mount = NativeServiceMount::new(path, child_application)
+                        .map_err(|error| error.to_string())?;
+                    Ok(NativeApplicationChild::Mount(mount))
+                }
+                "route" => native_route_from_input(child, Arc::clone(&observation), &child_context)
+                    .map(NativeApplicationChild::Route),
+                _ => Err(format!("{child_context}.kind is unsupported")),
+            }
+        })
+        .collect()
+}
+
+fn native_request_scope_from_input(value: Option<&Value>) -> Result<NativeRequestScope, String> {
+    let Some(value) = value else {
+        return Ok(NativeRequestScope::new());
+    };
+    let scope = object_with_optional_keys(
+        value,
+        &[],
+        &["root_path", "app_root_path", "path_params"],
+        "native service request scope",
+    )?;
+    let mut result = NativeRequestScope::new();
+    if let Some(root_path) = scope.get("root_path") {
+        result = result.with_root_path(
+            root_path
+                .as_str()
+                .ok_or_else(|| String::from("native service scope.root_path must be a string"))?,
+        );
+    }
+    if let Some(app_root_path) = scope.get("app_root_path") {
+        result =
+            result.with_app_root_path(app_root_path.as_str().ok_or_else(|| {
+                String::from("native service scope.app_root_path must be a string")
+            })?);
+    }
+    let mut path_params = Vec::new();
+    if let Some(raw_params) = scope.get("path_params") {
+        let raw_params = raw_params
+            .as_array()
+            .ok_or_else(|| String::from("native service scope.path_params must be an array"))?;
+        for (index, raw_param) in raw_params.iter().enumerate() {
+            let context = format!("native service scope.path_params[{index}]");
+            let param = exact_object(raw_param, &["name", "value", "converter"], &context)?;
+            let name = string_field(param, "name", &context)?.to_owned();
+            let value = match param.get("value") {
+                Some(Value::String(value)) => value.clone(),
+                Some(Value::Number(value)) => value.to_string(),
+                _ => return Err(format!("{context}.value must be a string or number")),
+            };
+            let converter = match string_field(param, "converter", &context)? {
+                "str" => PathConverter::String,
+                "int" => PathConverter::Integer,
+                "float" => PathConverter::Float,
+                "path" => PathConverter::Path,
+                "uuid" => PathConverter::Uuid,
+                _ => return Err(format!("{context}.converter is unsupported")),
+            };
+            path_params.push(PathParameterCapture {
+                name,
+                value,
+                converter,
+            });
+        }
+    }
+    Ok(result.with_path_params(path_params))
+}
+
+fn native_service_request_from_input(
+    value: &Value,
+    include_host: bool,
+) -> Result<Request<NativeProbeBody>, String> {
+    let request = if include_host {
+        exact_object(
+            value,
+            &["method", "uri", "host_header", "body"],
+            "native host request",
+        )?
+    } else {
+        exact_object(value, &["method", "uri", "body"], "native mounted request")?
+    };
+    let body = exact_object(
+        request
+            .get("body")
+            .ok_or_else(|| String::from("native service request body is missing"))?,
+        &["frames"],
+        "native service request body",
+    )?;
+    let frames = parse_native_probe_frames(
+        body.get("frames")
+            .ok_or_else(|| String::from("native service request body.frames is missing"))?,
+        "native service request body.frames",
+    )?;
+    let request_body = NativeProbeBody::new(
+        frames,
+        Arc::new(Mutex::new(Vec::new())),
+        Arc::new(AtomicBool::new(false)),
+    );
+    let method =
+        Method::from_bytes(string_field(request, "method", "native service request")?.as_bytes())
+            .map_err(|error| format!("native service request method is invalid: {error}"))?;
+    let uri = Uri::from_str(string_field(request, "uri", "native service request")?)
+        .map_err(|error| format!("native service request URI is invalid: {error}"))?;
+    let scope = native_request_scope_from_input(request.get("scope"))?;
+    let mut builder = Request::builder().method(method).uri(uri);
+    if let Some(host_header) = request.get("host_header") {
+        match host_header {
+            Value::Null => {}
+            Value::String(host) => builder = builder.header(http::header::HOST, host),
+            _ => {
+                return Err(String::from(
+                    "native host request.host_header must be a string or null",
+                ));
+            }
+        }
+    }
+    let mut request = builder
+        .body(request_body)
+        .map_err(|error| format!("cannot construct native service request: {error}"))?;
+    request.extensions_mut().insert(scope);
+    Ok(request)
+}
+
+fn native_service_response_observation(
+    case_id: &str,
+    case: &Map<String, Value>,
+    mut response: Option<starlette_rs::NativeHttpResponse>,
+    service_error: Option<String>,
+    observation: &NativeServiceObservationHandle,
+    context: &str,
+) -> Result<Value, String> {
+    let mut response_body_chunks = Vec::new();
+    let mut status = None;
+    let mut service_error = service_error;
+    if let Some(mut response) = response.take() {
+        status = Some(response.status().as_u16());
+        block_on(async {
+            while let Some(frame) = response.body_mut().frame().await {
+                match frame {
+                    Ok(frame) => {
+                        if let Ok(data) = frame.into_data() {
+                            response_body_chunks.push(encode_base64(&data));
+                        }
+                    }
+                    Err(error) => {
+                        service_error = Some(error.to_string());
+                        break;
+                    }
+                }
+            }
+        });
+    }
+    let captured = observation
+        .lock()
+        .map_err(|_| format!("{context} observation lock is poisoned"))?
+        .clone()
+        .unwrap_or_default();
+    let values = Map::from_iter([
+        (
+            String::from("status"),
+            status.map_or(Value::Null, |value| json!(value)),
+        ),
+        (
+            String::from("response_body_chunks"),
+            json!(response_body_chunks),
+        ),
+        (String::from("path_params"), json!(captured.path_params)),
+        (
+            String::from("root_path"),
+            captured.root_path.map_or(Value::Null, Value::String),
+        ),
+        (
+            String::from("app_root_path"),
+            captured.app_root_path.map_or(Value::Null, Value::String),
+        ),
+        (
+            String::from("service_error"),
+            service_error.map_or(Value::Null, Value::String),
+        ),
+    ]);
+    native_observation_result(case_id, case, values, context)
+}
+
+fn run_native_mounted_child_case(case: &Value) -> Result<Value, String> {
+    let case = exact_object(
+        case,
+        &[
+            "case_id",
+            "surface",
+            "operation",
+            "covers",
+            "target_profiles",
+            "assets",
+            "application",
+            "request",
+            "drive",
+            "observations",
+        ],
+        "native mounted child case",
+    )?;
+    let case_id = string_field(case, "case_id", "native mounted child case")?;
+    if string_field(case, "surface", "native mounted child case")?
+        != "starlette-rs.NativeApplication"
+        || string_field(case, "operation", "native mounted child case")?
+            != NATIVE_SERVICE_MOUNTED_CHILD_OPERATION
+    {
+        return Err(String::from(
+            "case is outside the native mounted-child operation",
+        ));
+    }
+    let observation = Arc::new(Mutex::new(None));
+    let application_input = exact_object(
+        case.get("application")
+            .ok_or_else(|| String::from("native mounted child case misses application"))?,
+        &["children"],
+        "native mounted child application",
+    )?;
+    let children = native_children_from_input(
+        application_input
+            .get("children")
+            .ok_or_else(|| String::from("native mounted child application misses children"))?,
+        Arc::clone(&observation),
+        "native mounted child application.children",
+    )?;
+    let mut application =
+        NativeServiceApplication::with_children(children).map_err(|error| error.to_string())?;
+    let request = native_service_request_from_input(
+        case.get("request")
+            .ok_or_else(|| String::from("native mounted child case misses request"))?,
+        false,
+    )?;
+    let (response, service_error) =
+        match block_on(tower_service::Service::call(&mut application, request)) {
+            Ok(response) => (Some(response), None),
+            Err(error) => (None, Some(native_application_error_message(&error))),
+        };
+    native_service_response_observation(
+        case_id,
+        case,
+        response,
+        service_error,
+        &observation,
+        "native mounted child",
+    )
+}
+
+fn run_native_host_routing_case(case: &Value) -> Result<Value, String> {
+    let case = exact_object(
+        case,
+        &[
+            "case_id",
+            "surface",
+            "operation",
+            "covers",
+            "target_profiles",
+            "assets",
+            "application",
+            "request",
+            "drive",
+            "observations",
+        ],
+        "native host routing case",
+    )?;
+    let case_id = string_field(case, "case_id", "native host routing case")?;
+    if string_field(case, "surface", "native host routing case")?
+        != "starlette-rs.NativeHostApplication"
+        || string_field(case, "operation", "native host routing case")?
+            != NATIVE_SERVICE_HOST_ROUTING_OPERATION
+    {
+        return Err(String::from(
+            "case is outside the native host-routing operation",
+        ));
+    }
+    let observation = Arc::new(Mutex::new(None));
+    let application_input = exact_object(
+        case.get("application")
+            .ok_or_else(|| String::from("native host routing case misses application"))?,
+        &["host_routes"],
+        "native host application",
+    )?;
+    let host_values = application_input
+        .get("host_routes")
+        .and_then(Value::as_array)
+        .filter(|routes| !routes.is_empty())
+        .ok_or_else(|| String::from("native host application.host_routes must be non-empty"))?;
+    let mut host_routes = Vec::with_capacity(host_values.len());
+    for (index, value) in host_values.iter().enumerate() {
+        let context = format!("native host application.host_routes[{index}]");
+        let value = exact_object(value, &["host", "routes"], &context)?;
+        let host = HostPattern::new(string_field(value, "host", &context)?)
+            .map_err(|error| error.to_string())?;
+        let route_values = value
+            .get("routes")
+            .and_then(Value::as_array)
+            .filter(|routes| !routes.is_empty())
+            .ok_or_else(|| format!("{context}.routes must be a non-empty array"))?;
+        let routes = route_values
+            .iter()
+            .enumerate()
+            .map(|(route_index, route)| {
+                native_route_from_input(
+                    route,
+                    Arc::clone(&observation),
+                    &format!("{context}.routes[{route_index}]"),
+                )
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        host_routes.push(NativeHostRoute::new(host, routes));
+    }
+    let mut application =
+        NativeHostApplication::new(host_routes).map_err(|error| error.to_string())?;
+    let request = native_service_request_from_input(
+        case.get("request")
+            .ok_or_else(|| String::from("native host routing case misses request"))?,
+        true,
+    )?;
+    let (response, service_error) =
+        match block_on(tower_service::Service::call(&mut application, request)) {
+            Ok(response) => (Some(response), None),
+            Err(error) => (None, Some(native_application_error_message(&error))),
+        };
+    native_service_response_observation(
+        case_id,
+        case,
+        response,
+        service_error,
+        &observation,
+        "native host routing",
+    )
+}
+
+#[derive(Clone, Debug)]
+enum InputRegexNode {
+    Bytes(Box<[bool; 256]>),
+    Sequence(Vec<Self>),
+    Alternative(Vec<Self>),
+    Repeat { inner: Box<Self>, minimum: usize },
+}
+
+impl InputRegexNode {
+    fn matches_from(&self, input: &[u8], start: usize) -> BTreeSet<usize> {
+        match self {
+            Self::Bytes(accepted) => {
+                let mut positions = BTreeSet::new();
+                if let Some(byte) = input.get(start)
+                    && accepted[usize::from(*byte)]
+                {
+                    positions.insert(start + 1);
+                }
+                positions
+            }
+            Self::Sequence(nodes) => {
+                let mut positions = BTreeSet::from([start]);
+                for node in nodes {
+                    let mut next = BTreeSet::new();
+                    for position in positions {
+                        next.extend(node.matches_from(input, position));
+                    }
+                    positions = next;
+                    if positions.is_empty() {
+                        break;
+                    }
+                }
+                positions
+            }
+            Self::Alternative(nodes) => nodes
+                .iter()
+                .flat_map(|node| node.matches_from(input, start))
+                .collect(),
+            Self::Repeat { inner, minimum } => {
+                let mut reachable = BTreeSet::new();
+                let mut frontier = if *minimum == 0 {
+                    BTreeSet::from([start])
+                } else {
+                    inner.matches_from(input, start)
+                };
+                reachable.extend(frontier.iter().copied());
+                loop {
+                    let mut next = BTreeSet::new();
+                    for position in &frontier {
+                        next.extend(
+                            inner
+                                .matches_from(input, *position)
+                                .into_iter()
+                                .filter(|candidate| candidate > position),
+                        );
+                    }
+                    next.retain(|position| !reachable.contains(position));
+                    if next.is_empty() {
+                        break;
+                    }
+                    reachable.extend(next.iter().copied());
+                    frontier = next;
+                }
+                reachable
+            }
+        }
+    }
+
+    fn matches_entire_input(&self, input: &str) -> bool {
+        self.matches_from(input.as_bytes(), 0)
+            .contains(&input.len())
+    }
+}
+
+struct InputRegexParser<'a> {
+    pattern: &'a [u8],
+    offset: usize,
+}
+
+impl<'a> InputRegexParser<'a> {
+    fn parse(pattern: &'a str) -> Result<InputRegexNode, String> {
+        let mut parser = Self {
+            pattern: pattern.as_bytes(),
+            offset: 0,
+        };
+        let expression = parser.parse_alternative()?;
+        if parser.offset != parser.pattern.len() {
+            return Err(String::from("converter regex has trailing syntax"));
+        }
+        Ok(expression)
+    }
+
+    fn parse_alternative(&mut self) -> Result<InputRegexNode, String> {
+        let mut alternatives = vec![InputRegexNode::Sequence(self.parse_sequence()?)];
+        while self.peek() == Some(b'|') {
+            self.offset += 1;
+            alternatives.push(InputRegexNode::Sequence(self.parse_sequence()?));
+        }
+        if alternatives.len() == 1 {
+            alternatives
+                .pop()
+                .ok_or_else(|| String::from("converter regex alternative is missing"))
+        } else {
+            Ok(InputRegexNode::Alternative(alternatives))
+        }
+    }
+
+    fn parse_sequence(&mut self) -> Result<Vec<InputRegexNode>, String> {
+        let mut nodes = Vec::new();
+        while let Some(byte) = self.peek() {
+            if byte == b')' || byte == b'|' {
+                break;
+            }
+            let atom = self.parse_atom()?;
+            let node = match self.peek() {
+                Some(b'*') => {
+                    self.offset += 1;
+                    InputRegexNode::Repeat {
+                        inner: Box::new(atom),
+                        minimum: 0,
+                    }
+                }
+                Some(b'+') => {
+                    self.offset += 1;
+                    InputRegexNode::Repeat {
+                        inner: Box::new(atom),
+                        minimum: 1,
+                    }
+                }
+                Some(b'?') => {
+                    self.offset += 1;
+                    InputRegexNode::Repeat {
+                        inner: Box::new(atom),
+                        minimum: 0,
+                    }
+                }
+                Some(b'{') => {
+                    return Err(String::from(
+                        "converter regex counted repeats are unsupported",
+                    ));
+                }
+                _ => atom,
+            };
+            nodes.push(node);
+        }
+        Ok(nodes)
+    }
+
+    fn parse_atom(&mut self) -> Result<InputRegexNode, String> {
+        let byte = self
+            .next()
+            .ok_or_else(|| String::from("converter regex atom is missing"))?;
+        match byte {
+            b'[' => self.parse_character_class(),
+            b'(' => {
+                if self.pattern.get(self.offset..self.offset + 2) == Some(b"?:") {
+                    self.offset += 2;
+                }
+                let expression = self.parse_alternative()?;
+                if self.next() != Some(b')') {
+                    return Err(String::from("converter regex group is not closed"));
+                }
+                Ok(expression)
+            }
+            b'.' => Ok(InputRegexNode::Bytes(Box::new([true; 256]))),
+            b'\\' => self.parse_literal(),
+            b')' | b'|' | b'*' | b'+' | b'?' => Err(String::from(
+                "converter regex has an unexpected metacharacter",
+            )),
+            literal => Ok(Self::literal_node(literal)),
+        }
+    }
+
+    fn parse_character_class(&mut self) -> Result<InputRegexNode, String> {
+        let mut accepted = [false; 256];
+        let negated = self.peek() == Some(b'^');
+        if negated {
+            self.offset += 1;
+        }
+        let mut found = false;
+        while let Some(byte) = self.peek() {
+            if byte == b']' {
+                self.offset += 1;
+                if !found {
+                    return Err(String::from("converter regex character class is empty"));
+                }
+                if negated {
+                    for value in &mut accepted {
+                        *value = !*value;
+                    }
+                }
+                return Ok(InputRegexNode::Bytes(Box::new(accepted)));
+            }
+            let left = self.parse_class_byte()?;
+            if self.peek() == Some(b'-') && self.pattern.get(self.offset + 1) != Some(&b']') {
+                self.offset += 1;
+                let right = self.parse_class_byte()?;
+                if left > right {
+                    return Err(String::from("converter regex character range is reversed"));
+                }
+                for value in left..=right {
+                    accepted[usize::from(value)] = true;
+                }
+            } else {
+                accepted[usize::from(left)] = true;
+            }
+            found = true;
+        }
+        Err(String::from(
+            "converter regex character class is not closed",
+        ))
+    }
+
+    fn parse_class_byte(&mut self) -> Result<u8, String> {
+        match self.next() {
+            Some(b'\\') => self
+                .next()
+                .ok_or_else(|| String::from("converter regex class escape is incomplete")),
+            Some(byte) => Ok(byte),
+            None => Err(String::from("converter regex class byte is missing")),
+        }
+    }
+
+    fn parse_literal(&mut self) -> Result<InputRegexNode, String> {
+        self.next()
+            .map(Self::literal_node)
+            .ok_or_else(|| String::from("converter regex escape is incomplete"))
+    }
+
+    fn literal_node(byte: u8) -> InputRegexNode {
+        let mut accepted = [false; 256];
+        accepted[usize::from(byte)] = true;
+        InputRegexNode::Bytes(Box::new(accepted))
+    }
+
+    fn peek(&self) -> Option<u8> {
+        self.pattern.get(self.offset).copied()
+    }
+
+    fn next(&mut self) -> Option<u8> {
+        let byte = self.peek()?;
+        self.offset += 1;
+        Some(byte)
+    }
+}
+
+#[derive(Debug)]
+struct InputCustomPathConverter {
+    regex: InputRegexNode,
+    conversion: String,
+    formatting: String,
+}
+
+impl CustomPathConverter for InputCustomPathConverter {
+    fn matches(&self, value: &str) -> bool {
+        self.regex.matches_entire_input(value)
+    }
+
+    fn convert(&self, value: &str) -> String {
+        match self.conversion.as_str() {
+            "lowercase" => value.to_lowercase(),
+            "uppercase" => value.to_uppercase(),
+            _ => String::from(value),
+        }
+    }
+
+    fn to_string(&self, value: &str) -> Result<String, String> {
+        let value = match self.formatting.as_str() {
+            "lowercase" => value.to_lowercase(),
+            "uppercase" => value.to_uppercase(),
+            _ => String::from(value),
+        };
+        if self.matches(&value) {
+            Ok(value)
+        } else {
+            Err(String::from(
+                "value does not match the custom converter regex",
+            ))
+        }
+    }
+}
+
+fn custom_converter_registry_from_input(
+    value: &Value,
+    context: &str,
+) -> Result<CustomPathConverterRegistry, String> {
+    let converters = value
+        .as_array()
+        .ok_or_else(|| format!("{context} must be an array"))?;
+    let mut registry = CustomPathConverterRegistry::new();
+    for (index, raw_converter) in converters.iter().enumerate() {
+        let converter_context = format!("{context}[{index}]");
+        let raw_converter = exact_object(
+            raw_converter,
+            &["name", "regex", "convert", "to_string"],
+            &converter_context,
+        )?;
+        let name = string_field(raw_converter, "name", &converter_context)?;
+        let regex =
+            InputRegexParser::parse(string_field(raw_converter, "regex", &converter_context)?)?;
+        let conversion = string_field(raw_converter, "convert", &converter_context)?;
+        let formatting = string_field(raw_converter, "to_string", &converter_context)?;
+        if !["identity", "lowercase", "uppercase"].contains(&conversion)
+            || !["identity", "lowercase", "uppercase"].contains(&formatting)
+        {
+            return Err(format!(
+                "{converter_context} conversion mode is unsupported"
+            ));
+        }
+        registry
+            .register_converter(
+                name,
+                InputCustomPathConverter {
+                    regex,
+                    conversion: conversion.to_owned(),
+                    formatting: formatting.to_owned(),
+                },
+            )
+            .map_err(|error| error.to_string())?;
+    }
+    Ok(registry)
+}
+
+fn custom_converter_case_error(
+    case_id: &str,
+    case: &Map<String, Value>,
+    error: String,
+) -> Result<Value, String> {
+    let mut values = Map::new();
+    values.insert(String::from("error"), Value::String(error));
+    values.insert(String::from("match"), Value::Null);
+    native_observation_result(case_id, case, values, "native custom converter match")
+}
+
+fn run_native_custom_converter_match_case(case: &Value) -> Result<Value, String> {
+    let case = exact_object(
+        case,
+        &[
+            "case_id",
+            "surface",
+            "operation",
+            "covers",
+            "target_profiles",
+            "assets",
+            "converters",
+            "routes",
+            "match",
+            "observations",
+        ],
+        "native custom converter match case",
+    )?;
+    let case_id = string_field(case, "case_id", "native custom converter match case")?;
+    if string_field(case, "surface", "native custom converter match case")?
+        != "starlette-rs.RouteTable"
+        || string_field(case, "operation", "native custom converter match case")?
+            != NATIVE_ROUTE_TABLE_CUSTOM_CONVERTER_OPERATION
+    {
+        return Err(String::from(
+            "case is outside the native custom-converter match operation",
+        ));
+    }
+    let result = (|| {
+        let registry = custom_converter_registry_from_input(
+            case.get("converters")
+                .ok_or_else(|| String::from("native custom converter case misses converters"))?,
+            "native custom converters",
+        )?;
+        let mut table = RouteTable::with_custom_converters(registry);
+        let routes = case
+            .get("routes")
+            .and_then(Value::as_array)
+            .ok_or_else(|| String::from("native custom converter routes must be an array"))?;
+        for (index, raw_route) in routes.iter().enumerate() {
+            let context = format!("native custom converter routes[{index}]");
+            let route = exact_object(raw_route, &["path", "methods"], &context)?;
+            table
+                .add_route(
+                    string_field(route, "path", &context)?,
+                    string_array_field(route, "methods", &context)?,
+                )
+                .map_err(|error| error.to_string())?;
+        }
+        let lookup = exact_object(
+            case.get("match")
+                .ok_or_else(|| String::from("native custom converter case misses match"))?,
+            &["path", "method"],
+            "native custom converter match input",
+        )?;
+        let route_match = table.matches_detailed(
+            string_field(lookup, "path", "native custom converter match input")?,
+            string_field(lookup, "method", "native custom converter match input")?,
+        );
+        Ok::<_, String>(match route_match {
+            DetailedRouteMatch::Matched {
+                route_index,
+                path_params,
+            } => json!({
+                "route_index": route_index,
+                "path_params": path_params,
+            }),
+            DetailedRouteMatch::MethodNotAllowed { .. } | DetailedRouteMatch::NotFound => {
+                Value::Null
+            }
+        })
+    })();
+    match result {
+        Ok(route_match) => {
+            let values = Map::from_iter([
+                (String::from("match"), route_match),
+                (String::from("error"), Value::Null),
+            ]);
+            native_observation_result(case_id, case, values, "native custom converter match")
+        }
+        Err(error) => custom_converter_case_error(case_id, case, error),
+    }
+}
+
+fn run_native_custom_converter_url_case(case: &Value) -> Result<Value, String> {
+    let case = exact_object(
+        case,
+        &[
+            "case_id",
+            "surface",
+            "operation",
+            "covers",
+            "target_profiles",
+            "assets",
+            "converters",
+            "route",
+            "lookup",
+            "observations",
+        ],
+        "native custom converter URL case",
+    )?;
+    let case_id = string_field(case, "case_id", "native custom converter URL case")?;
+    if string_field(case, "surface", "native custom converter URL case")?
+        != "starlette-rs.NamedRoute"
+        || string_field(case, "operation", "native custom converter URL case")?
+            != NATIVE_NAMED_ROUTE_CUSTOM_CONVERTER_OPERATION
+    {
+        return Err(String::from(
+            "case is outside the native custom-converter URL operation",
+        ));
+    }
+    let result = (|| {
+        let registry = custom_converter_registry_from_input(
+            case.get("converters").ok_or_else(|| {
+                String::from("native custom converter URL case misses converters")
+            })?,
+            "native custom converters",
+        )?;
+        let route_input = exact_object(
+            case.get("route")
+                .ok_or_else(|| String::from("native custom converter URL case misses route"))?,
+            &["path", "name"],
+            "native custom converter route",
+        )?;
+        let route = starlette_rs::NamedRoute::new_with_custom_converters(
+            string_field(route_input, "path", "native custom converter route")?,
+            string_field(route_input, "name", "native custom converter route")?,
+            &registry,
+        )
+        .map_err(|error| error.to_string())?;
+        let lookup = exact_object(
+            case.get("lookup")
+                .ok_or_else(|| String::from("native custom converter URL case misses lookup"))?,
+            &["name", "path_params"],
+            "native custom converter URL lookup",
+        )?;
+        let params = lookup
+            .get("path_params")
+            .and_then(Value::as_object)
+            .ok_or_else(|| {
+                String::from("native custom converter URL path_params must be an object")
+            })?
+            .iter()
+            .map(|(name, value)| {
+                value
+                    .as_str()
+                    .map(|value| (name.clone(), value.to_owned()))
+                    .ok_or_else(|| {
+                        String::from("native custom converter URL values must be strings")
+                    })
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        route
+            .url_path_for(
+                string_field(lookup, "name", "native custom converter URL lookup")?,
+                &params,
+            )
+            .map(|url| json!({"path": url.path, "protocol": url.protocol, "host": url.host}))
+            .map_err(|error| error.to_string())
+    })();
+    let values = match result {
+        Ok(url) => Map::from_iter([
+            (String::from("path"), url["path"].clone()),
+            (String::from("protocol"), url["protocol"].clone()),
+            (String::from("host"), url["host"].clone()),
+            (String::from("error"), Value::Null),
+        ]),
+        Err(error) => Map::from_iter([
+            (String::from("path"), Value::Null),
+            (String::from("protocol"), Value::Null),
+            (String::from("host"), Value::Null),
+            (String::from("error"), Value::String(error)),
+        ]),
+    };
+    native_observation_result(case_id, case, values, "native custom converter URL")
+}
+
+#[derive(Debug)]
+struct NativeStreamProducerError {
+    class: String,
+    message: String,
+}
+
+impl std::fmt::Display for NativeStreamProducerError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(&self.message)
+    }
+}
+
+impl Error for NativeStreamProducerError {}
+
+#[derive(Clone, Copy)]
+enum NativeStreamTerminal {
+    End,
+    Error,
+}
+
+struct NativeSourceProbe {
+    items: VecDeque<Vec<u8>>,
+    pull_markers: Vec<String>,
+    next_marker: usize,
+    terminal: NativeStreamTerminal,
+    producer_error: Option<NativeStreamProducerError>,
+    terminal_sent: bool,
+    finally_marker: String,
+    poll_trace: Arc<Mutex<Vec<String>>>,
+    execution_trace: Arc<Mutex<Vec<String>>>,
+    finalized: Arc<AtomicBool>,
+}
+
+impl Stream for NativeSourceProbe {
+    type Item = Result<Vec<u8>, NativeStreamProducerError>;
+
+    fn poll_next(mut self: Pin<&mut Self>, _context: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        if let Some(item) = self.items.pop_front() {
+            let marker = self.pull_markers.get(self.next_marker).cloned();
+            self.next_marker += 1;
+            if let Some(marker) = marker {
+                if let Ok(mut trace) = self.poll_trace.lock() {
+                    trace.push(marker.clone());
+                }
+                if let Ok(mut trace) = self.execution_trace.lock() {
+                    trace.push(format!("source:{marker}"));
+                }
+            }
+            return Poll::Ready(Some(Ok(item)));
+        }
+        if !self.terminal_sent {
+            self.terminal_sent = true;
+            if let NativeStreamTerminal::Error = self.terminal {
+                return Poll::Ready(self.producer_error.take().map(Err));
+            }
+        }
+        Poll::Ready(None)
+    }
+}
+
+impl Drop for NativeSourceProbe {
+    fn drop(&mut self) {
+        if !self.finalized.swap(true, Ordering::AcqRel)
+            && let Ok(mut trace) = self.poll_trace.lock()
+        {
+            trace.push(self.finally_marker.clone());
+        }
+    }
+}
+
+fn native_stream_event(event: starlette_rs::StreamingResponseEvent) -> Value {
+    match event {
+        starlette_rs::StreamingResponseEvent::Start {
+            status_code,
+            headers,
+        } => json!({
+            "type": "http.response.start",
+            "status": status_code,
+            "headers_base64_pairs": canonical_headers(&headers),
+        }),
+        starlette_rs::StreamingResponseEvent::Body { body, more_body } => json!({
+            "type": "http.response.body",
+            "body_base64": encode_base64(&body),
+            "more_body": more_body,
+        }),
+    }
+}
+
+fn run_native_streaming_source_case(case: &Value) -> Result<Value, String> {
+    let case = exact_object(
+        case,
+        &[
+            "case_id",
+            "surface",
+            "operation",
+            "covers",
+            "target_profiles",
+            "assets",
+            "status_code",
+            "header_pairs",
+            "media_type",
+            "source",
+            "scope",
+            "incoming",
+            "send",
+            "background",
+            "observations",
+            "streaming",
+        ],
+        "native streaming source case",
+    )?;
+    let case_id = string_field(case, "case_id", "native streaming source case")?;
+    if string_field(case, "surface", "native streaming source case")? != STREAMING_RESPONSE_SURFACE
+        || string_field(case, "operation", "native streaming source case")?
+            != NATIVE_STREAMING_RESPONSE_SOURCE_OPERATION
+    {
+        return Err(String::from(
+            "case is outside the native lazy-source operation",
+        ));
+    }
+    if case.get("incoming") != Some(&json!([])) {
+        return Err(String::from(
+            "native streaming source incoming must be empty",
+        ));
+    }
+    if string_field(case, "streaming", "native streaming source case")? != "async-generator" {
+        return Err(String::from(
+            "native streaming source must use async-generator input",
+        ));
+    }
+    let status_code = case
+        .get("status_code")
+        .and_then(Value::as_u64)
+        .and_then(|status| u16::try_from(status).ok())
+        .ok_or_else(|| String::from("native streaming source status_code must be a u16"))?;
+    let headers = case
+        .get("header_pairs")
+        .and_then(Value::as_array)
+        .ok_or_else(|| String::from("native streaming source header_pairs must be an array"))?
+        .iter()
+        .enumerate()
+        .map(|(index, pair)| {
+            let pair = pair
+                .as_array()
+                .filter(|pair| pair.len() == 2)
+                .ok_or_else(|| {
+                    format!("native streaming source header_pairs[{index}] must be a pair")
+                })?;
+            let name = pair[0].as_str().ok_or_else(|| {
+                format!("native streaming source header_pairs[{index}] name must be a string")
+            })?;
+            let value = pair[1].as_str().ok_or_else(|| {
+                format!("native streaming source header_pairs[{index}] value must be a string")
+            })?;
+            Ok((name.to_owned(), value.to_owned()))
+        })
+        .collect::<Result<Vec<_>, String>>()?;
+    let media_type = match case.get("media_type") {
+        Some(Value::Null) => None,
+        Some(Value::String(media_type)) => Some(media_type.as_str()),
+        _ => {
+            return Err(String::from(
+                "native streaming source media_type must be a string or null",
+            ));
+        }
+    };
+
+    let source = exact_object(
+        case.get("source")
+            .ok_or_else(|| String::from("native streaming source misses source"))?,
+        &["items", "terminal", "pull_markers", "finally_marker"],
+        "native streaming source input",
+    )?;
+    let item_values = source
+        .get("items")
+        .and_then(Value::as_array)
+        .ok_or_else(|| String::from("native streaming source items must be an array"))?;
+    let items = item_values
+        .iter()
+        .enumerate()
+        .map(|(index, item)| {
+            let context = format!("native streaming source items[{index}]");
+            let item = exact_object(item, &["kind", "value"], &context)?;
+            let value = string_field(item, "value", &context)?;
+            match string_field(item, "kind", &context)? {
+                "text" => Ok(value.as_bytes().to_vec()),
+                "base64-bytes" => decode_base64(value, &context),
+                _ => Err(format!("{context}.kind must be text or base64-bytes")),
+            }
+        })
+        .collect::<Result<Vec<_>, String>>()?;
+    let pull_markers = source
+        .get("pull_markers")
+        .and_then(Value::as_array)
+        .ok_or_else(|| String::from("native streaming source pull_markers must be an array"))?
+        .iter()
+        .enumerate()
+        .map(|(index, marker)| {
+            marker.as_str().map(str::to_owned).ok_or_else(|| {
+                format!("native streaming source pull_markers[{index}] must be a string")
+            })
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    if items.len() != pull_markers.len() {
+        return Err(String::from(
+            "native streaming source pull_markers must match item count",
+        ));
+    }
+    let finally_marker =
+        string_field(source, "finally_marker", "native streaming source")?.to_owned();
+    let terminal = exact_object(
+        source
+            .get("terminal")
+            .ok_or_else(|| String::from("native streaming source terminal is missing"))?,
+        if source
+            .get("terminal")
+            .and_then(|value| value.get("kind"))
+            .and_then(Value::as_str)
+            == Some("error")
+        {
+            &["kind", "error"]
+        } else {
+            &["kind"]
+        },
+        "native streaming source terminal",
+    )?;
+    let (terminal, producer_error) =
+        match string_field(terminal, "kind", "native streaming source terminal")? {
+            "end" => (NativeStreamTerminal::End, None),
+            "error" => {
+                let error = exact_object(
+                    terminal.get("error").ok_or_else(|| {
+                        String::from("native streaming source terminal error is missing")
+                    })?,
+                    &["type", "message"],
+                    "native streaming source terminal error",
+                )?;
+                (
+                    NativeStreamTerminal::Error,
+                    Some(NativeStreamProducerError {
+                        class: string_field(
+                            error,
+                            "type",
+                            "native streaming source terminal error",
+                        )?
+                        .to_owned(),
+                        message: string_field(
+                            error,
+                            "message",
+                            "native streaming source terminal error",
+                        )?
+                        .to_owned(),
+                    }),
+                )
+            }
+            _ => {
+                return Err(String::from(
+                    "native streaming source terminal.kind is unsupported",
+                ));
+            }
+        };
+    let send = case
+        .get("send")
+        .ok_or_else(|| String::from("native streaming source send input is missing"))?;
+    let send = send
+        .as_object()
+        .ok_or_else(|| String::from("native streaming source send must be an object"))?;
+    let send_kind = string_field(send, "kind", "native streaming source send")?;
+    let cancellation_event_index = match send_kind {
+        "capture-asgi-send" => {
+            exact_keys(send, &["kind"], "native streaming source send")?;
+            None
+        }
+        "capture-asgi-send-with-checkpoint-gate" => {
+            exact_keys(
+                send,
+                &["kind", "event_index", "release_after_checkpoints"],
+                "native streaming source send",
+            )?;
+            for field in ["event_index", "release_after_checkpoints"] {
+                if send.get(field).and_then(Value::as_u64).is_none() {
+                    return Err(format!(
+                        "native streaming source send.{field} must be an unsigned integer"
+                    ));
+                }
+            }
+            None
+        }
+        "capture-asgi-send-with-caller-cancellation" => {
+            exact_keys(
+                send,
+                &["kind", "event_index"],
+                "native streaming source send",
+            )?;
+            Some(
+                send.get("event_index")
+                    .and_then(Value::as_u64)
+                    .ok_or_else(|| {
+                        String::from(
+                            "native streaming source send.event_index must be an unsigned integer",
+                        )
+                    })?,
+            )
+        }
+        _ => {
+            return Err(String::from(
+                "native streaming source send kind is unsupported",
+            ));
+        }
+    };
+    let background = exact_object(
+        case.get("background")
+            .ok_or_else(|| String::from("native streaming source background is missing"))?,
+        &["kind", "values"],
+        "native streaming source background",
+    )?;
+    if string_field(background, "kind", "native streaming source background")?
+        != "async-values-recorder"
+    {
+        return Err(String::from(
+            "native streaming source background kind is unsupported",
+        ));
+    }
+    let background_values =
+        string_array_field(background, "values", "native streaming source background")?;
+
+    let source_poll_trace = Arc::new(Mutex::new(Vec::new()));
+    let execution_trace = Arc::new(Mutex::new(Vec::new()));
+    let finalized = Arc::new(AtomicBool::new(false));
+    let source = NativeSourceProbe {
+        items: items.into(),
+        pull_markers,
+        next_marker: 0,
+        terminal,
+        producer_error,
+        terminal_sent: false,
+        finally_marker: finally_marker.clone(),
+        poll_trace: Arc::clone(&source_poll_trace),
+        execution_trace: Arc::clone(&execution_trace),
+        finalized: Arc::clone(&finalized),
+    };
+    let mut response = StreamingResponse::from_stream(
+        status_code,
+        source,
+        media_type,
+        headers
+            .iter()
+            .map(|(name, value)| (name.as_str(), value.as_str())),
+    )
+    .map_err(|error| error.to_string())?;
+    let mut call = response.call_state(true);
+    let mut events = Vec::new();
+    let mut sent_status = None;
+    let mut sent_headers = Vec::new();
+    let mut error = Value::Null;
+    let mut sent_index = 0_u64;
+    let mut execution_finalized = false;
+    let mut background_execution_trace = Vec::new();
+    loop {
+        match call.step() {
+            StreamingResponseCallStep::Send(event) => {
+                let observation_event = native_stream_event(event.clone());
+                match &event {
+                    starlette_rs::StreamingResponseEvent::Start {
+                        status_code,
+                        headers,
+                    } => {
+                        sent_status = Some(*status_code);
+                        sent_headers = canonical_headers(headers);
+                        if let Ok(mut trace) = execution_trace.lock() {
+                            trace.push(String::from("send:start"));
+                        }
+                    }
+                    starlette_rs::StreamingResponseEvent::Body { body, more_body } => {
+                        if let Ok(mut trace) = execution_trace.lock() {
+                            if *more_body {
+                                trace.push(format!("send:chunk:{}", encode_base64(body)));
+                            } else {
+                                trace.push(String::from("send:final"));
+                            }
+                        }
+                    }
+                }
+                events.push(observation_event);
+                if cancellation_event_index == Some(sent_index) {
+                    if let Ok(mut trace) = execution_trace.lock() {
+                        trace.push(String::from("send:cancel"));
+                    }
+                    let cancellation = NativeStreamProducerError {
+                        class: String::from("asyncio.CancelledError"),
+                        message: String::new(),
+                    };
+                    let _ = call.advance(
+                        StreamingResponseCallInput::<NativeStreamProducerError>::Send(Err(
+                            cancellation,
+                        )),
+                    );
+                    error = json!({"class": "asyncio.CancelledError", "message": ""});
+                    drop(response);
+                    if finalized.load(Ordering::Acquire) && !execution_finalized {
+                        if let Ok(mut trace) = execution_trace.lock() {
+                            trace.push(format!("source-finalize:{finally_marker}"));
+                        }
+                    }
+                    break;
+                }
+                sent_index += 1;
+                if let Err(advance_error) = call
+                    .advance(StreamingResponseCallInput::<NativeStreamProducerError>::Send(Ok(())))
+                {
+                    error = json!({"class": "NativeCallError", "message": format!("{advance_error:?}")});
+                    break;
+                }
+            }
+            StreamingResponseCallStep::PullChunk => {
+                let pulled = block_on(futures::future::poll_fn(|context| {
+                    Pin::new(&mut response).poll_next(context)
+                }));
+                match pulled {
+                    Some(Ok(chunk)) => {
+                        let _ = call.advance(
+                            StreamingResponseCallInput::<NativeStreamProducerError>::ChunkPulled(
+                                Ok(Some(chunk)),
+                            ),
+                        );
+                    }
+                    Some(Err(producer_error)) => {
+                        if let Ok(mut trace) = execution_trace.lock() {
+                            trace.push(format!(
+                                "source-error:{}:{}",
+                                producer_error.class, producer_error.message
+                            ));
+                        }
+                        let error_class = producer_error.class.clone();
+                        let error_message = producer_error.message.clone();
+                        let _ = call.advance(
+                            StreamingResponseCallInput::<NativeStreamProducerError>::ChunkPulled(
+                                Err(producer_error),
+                            ),
+                        );
+                        error = json!({
+                            "class": error_class,
+                            "message": error_message,
+                        });
+                        if finalized.load(Ordering::Acquire) && !execution_finalized {
+                            if let Ok(mut trace) = execution_trace.lock() {
+                                trace.push(format!("source-finalize:{finally_marker}"));
+                            }
+                        }
+                        break;
+                    }
+                    None => {
+                        if finalized.load(Ordering::Acquire) && !execution_finalized {
+                            if let Ok(mut trace) = execution_trace.lock() {
+                                trace.push(format!("source-finalize:{finally_marker}"));
+                            }
+                            execution_finalized = true;
+                        }
+                        let _ = call.advance(
+                            StreamingResponseCallInput::<NativeStreamProducerError>::ChunkPulled(
+                                Ok(None),
+                            ),
+                        );
+                    }
+                }
+            }
+            StreamingResponseCallStep::RunBackground => {
+                for value in &background_values {
+                    if let Ok(mut trace) = execution_trace.lock() {
+                        trace.push(format!("background:{value}"));
+                    }
+                    background_execution_trace.push(value.clone());
+                }
+                let _ = call.advance(
+                    StreamingResponseCallInput::<NativeStreamProducerError>::BackgroundFinished(
+                        Ok(()),
+                    ),
+                );
+            }
+            StreamingResponseCallStep::Complete | StreamingResponseCallStep::Failed => break,
+        }
+    }
+    let source_poll_trace = source_poll_trace
+        .lock()
+        .map_err(|_| String::from("native streaming source poll trace lock is poisoned"))?
+        .clone();
+    let execution_trace = execution_trace
+        .lock()
+        .map_err(|_| String::from("native streaming source execution trace lock is poisoned"))?
+        .clone();
+    let values = Map::from_iter([
+        (
+            String::from("status"),
+            sent_status.map_or(Value::Null, |status| json!(status)),
+        ),
+        (String::from("headers"), json!(sent_headers)),
+        (String::from("events"), json!(events)),
+        (String::from("execution_trace"), json!(execution_trace)),
+        (String::from("source_poll_trace"), json!(source_poll_trace)),
+        (
+            String::from("background_execution_trace"),
+            json!(background_execution_trace),
+        ),
+        (String::from("error"), error),
+    ]);
+    native_observation_result(case_id, case, values, "native streaming source")
 }
 
 type NativeTowerFuture = Pin<
