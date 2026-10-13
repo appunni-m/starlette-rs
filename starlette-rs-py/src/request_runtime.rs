@@ -1229,10 +1229,13 @@ impl StreamMachine {
         let yielded_chunk = protocol.yielded_chunk;
         let terminal_yielded = protocol.terminal_yielded;
         match &self.command {
-            StreamCommand::Close if protocol.closed || !protocol.started => {
-                protocol.closed = true;
-                drop(protocol);
-                self.close_stream();
+            StreamCommand::Close if protocol.closed => {
+                return Ok(MachineAction::Complete(py.None()));
+            }
+            StreamCommand::Close if !protocol.started => {
+                // An async generator's body has not run before its first
+                // advancement, so aclose() at this point leaves it available
+                // for a later anext().
                 return Ok(MachineAction::Complete(py.None()));
             }
             StreamCommand::Advance(_) if terminal_yielded => {

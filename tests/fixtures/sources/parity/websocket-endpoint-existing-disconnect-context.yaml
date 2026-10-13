@@ -1,0 +1,86 @@
+{
+  "schema": "migration-parity/parity-input@49",
+  "cases": [
+    {
+      "case_id": "starlette.endpoints.WebSocketEndpoint.dispatch.on-disconnect-existing-hook-context",
+      "surface": "starlette.endpoints.WebSocketEndpoint",
+      "operation": "dispatch",
+      "covers": [
+        "starlette.endpoints.WebSocketEndpoint.dispatch.lifecycle",
+        "starlette.endpoints.WebSocketEndpoint.dispatch.decode-default-text",
+        "starlette.endpoints.WebSocketEndpoint.dispatch.callback-error-propagation",
+        "starlette.endpoints.WebSocketEndpoint.dispatch.on-disconnect-error-context"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "endpoint": {
+        "encoding": null,
+        "on_connect": {
+          "kind": "default"
+        },
+        "on_receive": {
+          "kind": "raise-value-error",
+          "message": "receive hook failed"
+        },
+        "on_disconnect": {
+          "kind": "raise-runtime-error-from-value-error",
+          "message": "disconnect hook failed",
+          "context_message": "disconnect hook inner failure"
+        }
+      },
+      "sessions": [
+        {
+          "scope": {
+            "type": "websocket",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.5"
+            },
+            "http_version": "1.1",
+            "scheme": "ws",
+            "path": "/ws",
+            "raw_path_base64": "L3dz",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [
+              [
+                "aG9zdA==",
+                "ZXhhbXBsZS50ZXN0"
+              ]
+            ],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ],
+            "subprotocols": [
+              "soap",
+              "wamp"
+            ]
+          },
+          "incoming": [
+            {
+              "type": "websocket.connect",
+              "subprotocols": [
+                "soap",
+                "wamp"
+              ]
+            },
+            {
+              "type": "websocket.receive",
+              "text": "payload"
+            }
+          ]
+        }
+      ],
+      "observations": [
+        "dispatch"
+      ]
+    }
+  ]
+}

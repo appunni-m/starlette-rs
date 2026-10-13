@@ -11,7 +11,9 @@ use pyo3::exceptions::{
     PyValueError,
 };
 use pyo3::prelude::*;
-use pyo3::types::{PyBool, PyDict, PyList, PyMapping, PyModule, PyTuple};
+use pyo3::types::{
+    PyBool, PyCFunction, PyDict, PyFunction, PyList, PyMapping, PyModule, PyTuple, PyType,
+};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -921,7 +923,17 @@ impl AwaitableStateMachine for BackgroundTaskCall {
                 let task = self.task.borrow(py);
                 let kwargs = task_attribute(py, "BackgroundTask", "kwargs", task.kwargs.as_ref())?;
                 drop(task);
-                let kwargs = keyword_mapping_to_dict(py, kwargs.bind(py))?;
+                // The source expands kwargs into the callback on async tasks,
+                // but into run_in_threadpool on sync tasks. CPython includes
+                // that callable in duplicate-key TypeErrors.
+                let duplicate_call_name =
+                    (!is_async).then_some("starlette.concurrency.run_in_threadpool");
+                let kwargs = keyword_mapping_to_dict(
+                    py,
+                    kwargs.bind(py),
+                    func.bind(py),
+                    duplicate_call_name,
+                )?;
 
                 let awaitable = if is_async {
                     func.bind(py).call(&args, Some(&kwargs))?.unbind()
@@ -1206,7 +1218,7 @@ fn threadpool_awaitable(
     // event-loop thread. Keep both the expansion order and partial's eager
     // callable validation at this boundary.
     let args = positional_args(py, func, args)?;
-    let kwargs = keyword_mapping_to_dict(py, kwargs.bind(py))?;
+    let kwargs = keyword_mapping_to_dict(py, kwargs.bind(py), func.bind(py), None)?;
     threadpool_awaitable_expanded(py, &args, &kwargs)
 }
 
@@ -1235,6 +1247,8 @@ fn threadpool_awaitable_expanded(
 fn keyword_mapping_to_dict<'py>(
     py: Python<'py>,
     mapping: &Bound<'py, PyAny>,
+    callable: &Bound<'py, PyAny>,
+    duplicate_call_name: Option<&str>,
 ) -> PyResult<Bound<'py, PyDict>> {
     let keys = match mapping.getattr("keys") {
         Ok(keys) => keys.call0()?,
@@ -1249,10 +1263,62 @@ fn keyword_mapping_to_dict<'py>(
     let result = PyDict::new(py);
     for key in keys.try_iter()? {
         let key = key?;
+        // CPython rejects a duplicate during dict merge, before it asks the
+        // mapping for that duplicate key's value. Keep this check ahead of
+        // __getitem__ so custom mappings observe the same access order.
+        if result.contains(&key)? {
+            return Err(duplicate_keyword_error(
+                callable,
+                &key,
+                duplicate_call_name,
+            )?);
+        }
         let value = mapping.get_item(&key)?;
-        result.set_item(key, value)?;
+        result.set_item(&key, value)?;
     }
     Ok(result)
+}
+
+fn duplicate_keyword_error(
+    callable: &Bound<'_, PyAny>,
+    key: &Bound<'_, PyAny>,
+    duplicate_call_name: Option<&str>,
+) -> PyResult<PyErr> {
+    if let Some(call_name) = duplicate_call_name {
+        let key = key.repr()?.extract::<String>()?;
+        return Ok(PyTypeError::new_err(format!(
+            "{call_name}() got multiple values for keyword argument {key}"
+        )));
+    }
+    let named_callable = if callable.is_instance_of::<PyFunction>()
+        || callable.is_instance_of::<PyCFunction>()
+        || callable.is_instance_of::<PyType>()
+    {
+        Some(callable.clone())
+    } else if callable.hasattr("__func__")? {
+        Some(callable.getattr("__func__")?)
+    } else {
+        None
+    };
+    let prefix = if let Some(named_callable) = named_callable {
+        let name = named_callable
+            .getattr("__qualname__")?
+            .extract::<String>()?;
+        let module = named_callable
+            .getattr("__module__")
+            .ok()
+            .and_then(|module| module.extract::<String>().ok());
+        match module.as_deref() {
+            Some(module) if module != "builtins" => format!("{module}.{name}()"),
+            _ => format!("{name}()"),
+        }
+    } else {
+        callable.repr()?.extract::<String>()?
+    };
+    let key = key.repr()?.extract::<String>()?;
+    Ok(PyTypeError::new_err(format!(
+        "{prefix} got multiple values for keyword argument {key}"
+    )))
 }
 
 fn positional_args<'py>(

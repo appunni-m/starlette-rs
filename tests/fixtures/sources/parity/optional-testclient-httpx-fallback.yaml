@@ -1,0 +1,45 @@
+{
+  "schema": "migration-parity/parity-input@49",
+  "cases": [
+    {
+      "case_id": "starlette.testclient.TestClient.module-import-policy.httpx-fallback",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "module-import-policy",
+      "covers": [
+        "starlette.testclient.TestClient.module-import-policy.dependency-errors-and-selection"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "import-policy"
+      ],
+      "imports": {
+        "module": "starlette.testclient",
+        "consumer_attribute": "TestClient",
+        "failures": [
+          {
+            "module": "httpx2",
+            "exception": "ModuleNotFoundError",
+            "message": "input primary backend missing"
+          }
+        ],
+        "warning_filter": "always",
+        "actions": [
+          {
+            "action": "client-backend"
+          },
+          {
+            "action": "client-request",
+            "method": "GET",
+            "path": "/legacy",
+            "status_code": 200,
+            "content_type": "text/plain",
+            "body_base64": "bGVnYWN5"
+          }
+        ]
+      }
+    }
+  ]
+}

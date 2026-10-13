@@ -1270,6 +1270,7 @@ RESPONSE_BACKGROUND_REQUIREMENTS = {
     "async_task": "starlette.responses.Response.asgi-call.background-async-task",
     "sync_task": "starlette.responses.Response.asgi-call.background-sync-task",
     "kwargs_mapping": "starlette.responses.Response.asgi-call.background-kwargs-mapping-expansion",
+    "kwargs_duplicate_key_error": "starlette.responses.Response.asgi-call.background-kwargs-mapping-duplicate-key-error",
     "argument_expansion_order": "starlette.responses.Response.asgi-call.background-task-argument-expansion-precedes-kwargs-lookup",
     "task_add": "starlette.responses.Response.asgi-call.background-task-add",
     "task_order": "starlette.responses.Response.asgi-call.background-task-order",
@@ -1583,6 +1584,7 @@ REQUEST_CONSUMPTION_REQUIREMENTS = {
     "body_stream_cancellation_retry": "starlette.request.body.retry-after-stream-cancellation",
     "stream_disconnect_retry": "starlette.request.stream-disconnect-retry",
     "stream_close_recovery": "starlette.request.stream-close-recovers-remaining-body",
+    "stream_close_unstarted": "starlette.request.stream-aclose-before-first-advance",
     "custom_receive_event": "starlette.request.stream-ignore-custom-receive-events",
     "custom_receive_event_between_chunks": (
         "starlette.request.stream-ignore-custom-receive-event-between-body-chunks"
@@ -3647,17 +3649,27 @@ def _validate_websocket_endpoint_case_stimulus(case: dict[str, Any]) -> None:
     elif on_disconnect.get("kind") in {
         "raise-runtime-error",
         "raise-runtime-error-synchronously",
+        "raise-runtime-error-from-value-error",
     }:
+        fields = {"kind", "message"}
+        if on_disconnect["kind"] == "raise-runtime-error-from-value-error":
+            fields.add("context_message")
         on_disconnect = _exact(
             on_disconnect,
-            {"kind", "message"},
+            fields,
             "WebSocketEndpoint.on_disconnect",
         )
         _string(on_disconnect["message"], "WebSocketEndpoint.on_disconnect.message")
+        if "context_message" in on_disconnect:
+            _string(
+                on_disconnect["context_message"],
+                "WebSocketEndpoint.on_disconnect.context_message",
+            )
     else:
         raise ContractError(
             "WebSocketEndpoint.on_disconnect.kind must be default, record-and-close, "
-            "raise-runtime-error, or raise-runtime-error-synchronously"
+            "raise-runtime-error, raise-runtime-error-from-value-error, or "
+            "raise-runtime-error-synchronously"
         )
 
     sessions = case["sessions"]
@@ -3849,23 +3861,43 @@ def _validate_websocket_endpoint_case_stimulus(case: dict[str, Any]) -> None:
             if (
                 not decode_succeeds
                 or message_types != ["websocket.connect", "websocket.receive"]
-                or on_disconnect["kind"] not in {"record-and-close", "raise-runtime-error"}
+                or on_disconnect["kind"]
+                not in {
+                    "record-and-close",
+                    "raise-runtime-error",
+                    "raise-runtime-error-from-value-error",
+                }
             ):
                 raise ContractError(
                     f"{context} callback failure requires observed on_disconnect finalization"
                 )
             exercised_requirements.add(WEBSOCKET_ENDPOINT_REQUIREMENTS["callback_error"])
+            if on_disconnect["kind"] == "raise-runtime-error-from-value-error" and (
+                on_receive["kind"] != "raise-value-error"
+            ):
+                raise ContractError(
+                    f"{context} nested on_disconnect context requires a failing on_receive hook"
+                )
         has_disconnect = message_types[-1] == "websocket.disconnect"
         expected_disconnect = decode_succeeds and not callback_raises
         if expected_disconnect != has_disconnect:
             raise ContractError(
                 f"{context} must supply disconnect after successful handling and omit it after errors"
             )
-        if on_disconnect["kind"] == "raise-runtime-error":
+        if on_disconnect["kind"] in {
+            "raise-runtime-error",
+            "raise-runtime-error-from-value-error",
+        }:
             if not decode_succeeds or not (has_disconnect or callback_raises):
                 raise ContractError(
                     f"{context} on_disconnect failure requires a decoded normal disconnect "
                     "or an on_receive callback failure"
+                )
+            if on_disconnect["kind"] == "raise-runtime-error-from-value-error" and (
+                not callback_raises or on_receive["kind"] != "raise-value-error"
+            ):
+                raise ContractError(
+                    f"{context} nested on_disconnect context requires an on_receive failure"
                 )
             exercised_requirements.add(WEBSOCKET_ENDPOINT_REQUIREMENTS["disconnect_error"])
         exercised_requirements.add(WEBSOCKET_ENDPOINT_REQUIREMENTS[requirement_name])
@@ -6099,21 +6131,48 @@ def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
                         {"kind", "items"},
                         f"{context}.kwargs_mapping",
                     )
-                    if mapping["kind"] != "user-dict":
-                        raise ContractError(f"{context}.kwargs_mapping.kind must be user-dict")
                     items = mapping["items"]
                     if not isinstance(items, list):
                         raise ContractError(f"{context}.kwargs_mapping.items must be an array")
-                    for item_index, item in enumerate(items):
-                        if (
-                            not isinstance(item, list)
-                            or len(item) != 2
-                            or not isinstance(item[0], str)
-                            or type(item[1]) not in {str, int}
-                        ):
+                    if mapping["kind"] == "user-dict":
+                        for item_index, item in enumerate(items):
+                            if (
+                                not isinstance(item, list)
+                                or len(item) != 2
+                                or not isinstance(item[0], str)
+                                or type(item[1]) not in {str, int}
+                            ):
+                                raise ContractError(
+                                    f"{context}.kwargs_mapping.items[{item_index}] must be a string and string or integer pair"
+                                )
+                    elif mapping["kind"] == "ordered-key-mapping":
+                        if task["mode"] != "sync":
                             raise ContractError(
-                                f"{context}.kwargs_mapping.items[{item_index}] must be a string and string or integer pair"
+                                f"{context}.kwargs_mapping ordered-key-mapping requires a synchronous task"
                             )
+                        seen_keys: set[str | int | bool] = set()
+                        has_duplicate_key = False
+                        for item_index, item in enumerate(items):
+                            if (
+                                not isinstance(item, list)
+                                or len(item) != 2
+                                or type(item[0]) not in {str, int, bool}
+                                or type(item[1]) not in {str, int}
+                            ):
+                                raise ContractError(
+                                    f"{context}.kwargs_mapping.items[{item_index}] must contain a string, integer, or boolean key and a string or integer value"
+                                )
+                            if item[0] in seen_keys:
+                                has_duplicate_key = True
+                            seen_keys.add(item[0])
+                        if not has_duplicate_key:
+                            raise ContractError(
+                                f"{context}.kwargs_mapping ordered-key-mapping requires duplicate Python-equal keys"
+                            )
+                    else:
+                        raise ContractError(
+                            f"{context}.kwargs_mapping.kind must be user-dict or ordered-key-mapping"
+                        )
                 if "argument_protocol" in task:
                     protocol = _exact(
                         task["argument_protocol"],
@@ -6209,6 +6268,16 @@ def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
                     callable_kind = _string(callable_input.get("kind"), f"{context}.callable.kind")
                     if callable_kind in {"function", "bound-method", "callable-object"}:
                         _exact(callable_input, {"kind"}, f"{context}.callable")
+                    elif callable_kind == "builtin":
+                        callable_input = _exact(
+                            callable_input,
+                            {"kind", "name"},
+                            f"{context}.callable",
+                        )
+                        if callable_input["name"] != "dict":
+                            raise ContractError(
+                                f"{context}.callable.name must select the dict builtin"
+                            )
                     elif callable_kind == "non-callable-object":
                         _exact(callable_input, {"kind"}, f"{context}.callable")
                         if kind != "single-task" or task["mode"] != "sync":
@@ -6259,7 +6328,20 @@ def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
                         raise ContractError(
                             f"{context}.callable.kind selects an unsupported callable form"
                         )
-                    has_callable_shape |= callable_kind != "function"
+                    has_callable_shape |= callable_kind not in {"function", "builtin"}
+
+                if (
+                    "kwargs_mapping" in task
+                    and task["kwargs_mapping"]["kind"] == "ordered-key-mapping"
+                    and (
+                        "callable" not in task
+                        or task["callable"].get("kind") != "builtin"
+                        or task["callable"].get("name") != "dict"
+                    )
+                ):
+                    raise ContractError(
+                        f"{context}.kwargs_mapping ordered-key-mapping requires the dict builtin callback"
+                    )
 
             if background_control is not None:
                 if has_argument_expansion_order:
@@ -6330,13 +6412,17 @@ def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
                     RESPONSE_BACKGROUND_REQUIREMENTS["task_list_live_mutation"],
                 ]
             elif kind == "single-task":
-                derived = [
-                    RESPONSE_BACKGROUND_REQUIREMENTS[
-                        "async_task" if tasks[0]["mode"] == "async" else "sync_task"
+                mapping = tasks[0].get("kwargs_mapping")
+                if mapping is not None and mapping["kind"] == "ordered-key-mapping":
+                    derived = [RESPONSE_BACKGROUND_REQUIREMENTS["kwargs_duplicate_key_error"]]
+                else:
+                    derived = [
+                        RESPONSE_BACKGROUND_REQUIREMENTS[
+                            "async_task" if tasks[0]["mode"] == "async" else "sync_task"
+                        ]
                     ]
-                ]
-                if "kwargs_mapping" in tasks[0]:
-                    derived.append(RESPONSE_BACKGROUND_REQUIREMENTS["kwargs_mapping"])
+                    if mapping is not None:
+                        derived.append(RESPONSE_BACKGROUND_REQUIREMENTS["kwargs_mapping"])
             elif failures:
                 if len(failures) != 1 or failures[0] >= len(tasks) - 1:
                     raise ContractError(
@@ -26847,7 +26933,39 @@ def _validate_request_body_stream_json_case(case: dict[str, Any]) -> None:
                     "then a final request and a new body() call"
                 )
 
-    stream_close_recovery_probe = bool(closed_stream_ids)
+    stream_close_unstarted_probe = (
+        len(closed_stream_ids) == 1
+        and action_operations
+        == [
+            "stream-close",
+            "stream-next",
+            "stream-next",
+            "stream-next",
+            "stream-next",
+        ]
+        and len(stream_ids) == 4
+        and len(set(stream_ids)) == 1
+        and stream_ids[0] == closed_stream_ids[0]
+        and len(receive) == 2
+        and all(message.get("type") == "http.request" for message in receive)
+        and bool(base64.b64decode(receive[0].get("body_base64", ""), validate=True))
+        and receive[0].get("more_body") is True
+        and bool(base64.b64decode(receive[1].get("body_base64", ""), validate=True))
+        and receive[1].get("more_body") is False
+        and not blocked_receive_calls
+        and not scope_headers
+    )
+    if (
+        closed_stream_ids
+        and action_operations[0] == "stream-close"
+        and not stream_close_unstarted_probe
+    ):
+        raise ContractError(
+            "Request unstarted stream close requires one close followed by four advances on the "
+            "same iterator and a two-chunk completed request"
+        )
+
+    stream_close_recovery_probe = bool(closed_stream_ids) and not stream_close_unstarted_probe
     if stream_close_recovery_probe:
         close_stream_id = closed_stream_ids[0] if len(closed_stream_ids) == 1 else None
         replay_stream_ids = stream_ids[2:]
@@ -26893,6 +27011,8 @@ def _validate_request_body_stream_json_case(case: dict[str, Any]) -> None:
                 REQUEST_CONSUMPTION_REQUIREMENTS["body_stream_replay"],
             }
         )
+    if stream_close_unstarted_probe:
+        expected_covers.add(REQUEST_CONSUMPTION_REQUIREMENTS["stream_close_unstarted"])
     if receive_cancellation_probe and stream_cancellation_recovery_probe:
         expected_covers.update(
             {

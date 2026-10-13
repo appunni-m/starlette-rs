@@ -470,7 +470,10 @@ impl WebSocketEndpointCall {
 
     fn disconnect_error(&self, py: Python<'_>, error: PyErr) -> PyErr {
         if let Some(original) = &self.original_exception {
-            if !error.value(py).is(original.bind(py)) {
+            // Python establishes chaining at the hook's raise site, where an
+            // inner handled exception may be active. Preserve that context
+            // instead of replacing it with the pending dispatch error.
+            if error.context(py).is_none() && !error.value(py).is(original.bind(py)) {
                 error.set_context(py, Some(PyErr::from_value(original.bind(py).clone())));
             }
         }

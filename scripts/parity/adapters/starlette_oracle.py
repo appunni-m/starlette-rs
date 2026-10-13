@@ -266,6 +266,20 @@ async def _record_background_values(
     execution_trace.append({"event": "background-complete"})
 
 
+class _OrderedKeywordMapping:
+    def __init__(self, items: list[list[Any]]) -> None:
+        self._items = items
+
+    def keys(self) -> list[Any]:
+        return [key for key, _value in self._items]
+
+    def __getitem__(self, key: Any) -> Any:
+        for candidate, value in self._items:
+            if candidate == key:
+                return value
+        raise KeyError(key)
+
+
 def _record_input_background_task(
     task_index: int,
     args: tuple[Any, ...],
@@ -463,7 +477,9 @@ def _input_background_tasks(
         callable_spec = task_spec.get("callable", {"kind": "function"})
         callable_kind = callable_spec["kind"]
         callback = base_callback
-        if callable_kind == "non-callable-object":
+        if callable_kind == "builtin":
+            callback = getattr(builtins, callable_spec["name"])
+        elif callable_kind == "non-callable-object":
             callback = object()
         elif callable_kind == "bound-method":
             if task_spec["mode"] == "async":
@@ -598,9 +614,12 @@ def _input_background_tasks(
                     {"kind", "items"},
                     f"Response background task[{task_index}].kwargs_mapping",
                 )
-                if mapping_spec["kind"] != "user-dict":
+                if mapping_spec["kind"] == "user-dict":
+                    task.kwargs = UserDict(dict(mapping_spec["items"]))
+                elif mapping_spec["kind"] == "ordered-key-mapping":
+                    task.kwargs = _OrderedKeywordMapping(mapping_spec["items"])
+                else:
                     raise ValueError("Response background kwargs mapping kind is unsupported")
-                task.kwargs = UserDict(dict(mapping_spec["items"]))
             tasks.append(task)
         else:
             background_tasks.add_task(callback, *task_spec["args"], **task_spec["kwargs"])
@@ -7256,6 +7275,12 @@ def _websocket_endpoint_disconnect_hook(spec: dict[str, Any], calls: list[dict[s
         calls.append({"hook": "on_disconnect", "close_code": close_code})
         if spec["kind"] == "raise-runtime-error":
             raise RuntimeError(spec["message"])
+        if spec["kind"] == "raise-runtime-error-from-value-error":
+            try:
+                raise ValueError(spec["context_message"])
+            except ValueError:
+                # Preserve implicit context without setting an explicit cause.
+                raise RuntimeError(spec["message"])  # noqa: B904
         await websocket.close(code=close_code)
 
     return on_disconnect
@@ -7376,6 +7401,7 @@ def _run_websocket_endpoint_case(case: dict[str, Any]) -> dict[str, Any]:
             "record-and-close",
             "raise-runtime-error",
             "raise-runtime-error-synchronously",
+            "raise-runtime-error-from-value-error",
         }:
             methods["on_disconnect"] = _websocket_endpoint_disconnect_hook(
                 endpoint_spec["on_disconnect"], hook_calls

@@ -362,6 +362,7 @@
       "build/parity/inputs/parity/request-custom-receive-event-interleaved.json",
       "build/parity/inputs/parity/request-explicit-none-receive.json",
       "build/parity/inputs/parity/request-stream-close-recovery.json",
+      "build/parity/inputs/parity/request-stream-aclose-before-first-advance.json",
       "build/parity/inputs/parity/request-body-receive-error-retry.json",
       "build/parity/inputs/parity/request-stream-disconnect-retry.json",
       "build/parity/inputs/parity/request-custom-receive-event.json",
@@ -500,6 +501,7 @@
       "build/parity/inputs/parity/upload-file.json",
       "build/parity/inputs/parity/upload-file-rolled-write-error.json",
       "build/parity/inputs/parity/websocket-endpoint-dispatch.json",
+      "build/parity/inputs/parity/websocket-endpoint-existing-disconnect-context.json",
       "build/parity/inputs/parity/websocket-mutable-scope.json",
       "build/parity/inputs/parity/websocket-endpoint-sync-disconnect-hook-error.json",
       "build/parity/inputs/parity/websocket-endpoint-sync-stop-iteration.json",
@@ -564,8 +566,10 @@
       "build/parity/inputs/parity/response-typing-consumer.json",
       "build/parity/inputs/parity/templating-protocols.json",
       "build/parity/inputs/parity/optional-imports.json",
+      "build/parity/inputs/parity/optional-testclient-httpx-fallback.json",
       "build/parity/inputs/parity/optional-testclient-missing-backend.json",
       "build/parity/inputs/parity/response-call-protocols.json",
+      "build/parity/inputs/parity/background-task-kwargs-duplicate-key.json",
       "build/parity/inputs/parity/websocket-thread-ownership.json",
       "build/parity/inputs/parity/public-api-inspection.json",
       "build/parity/inputs/parity/public-exceptions-api.json",
@@ -9262,7 +9266,7 @@
             {
               "id": "starlette.endpoints.WebSocketEndpoint.dispatch.on-disconnect-error-context",
               "dimension": "error_path",
-              "description": "Propagate an exception raised by on_disconnect; when it replaces an on_receive exception, preserve the original exception as Python exception context. Pinned source: starlette/endpoints.py:75-89.",
+              "description": "Propagate an exception raised by on_disconnect; preserve an existing hook-raised exception context when it replaces an on_receive exception, or chain to the pending dispatch exception when no direct context exists. Pinned source: starlette/endpoints.py:75-89.",
               "lanes": [
                 "parity"
               ],
@@ -16461,6 +16465,21 @@
                 "python-package-cpython313",
                 "python-package-cpython314"
               ]
+            },
+            {
+              "id": "starlette.request.stream-aclose-before-first-advance",
+              "dimension": "runtime",
+              "description": "Call a Request.stream() async generator's aclose() before its first anext(), then advance it and observe that both input body chunks and the terminal empty chunk remain available. Pinned source: starlette/requests.py:234-260.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
             }
           ],
           "parity": {
@@ -19869,6 +19888,17 @@
               "id": "starlette.responses.Response.asgi-call.background-kwargs-mapping-expansion",
               "dimension": "boundary",
               "description": "Replace the mutable kwargs attribute of a synchronous BackgroundTask with an input-defined UserDict and compare callback invocation with Python's **mapping expansion. Upstream: starlette/background.py:12-23; starlette/concurrency.py:32-34.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.Response.asgi-call.background-kwargs-mapping-duplicate-key-error",
+              "dimension": "error_path",
+              "description": "Replace synchronous BackgroundTask.kwargs with an ordered input mapping whose distinct keys compare equal under Python equality, then observe the duplicate-key error produced while BackgroundTask expands **kwargs into run_in_threadpool before reading the duplicate value. Pinned source: starlette/background.py:22-23; starlette/concurrency.py:32-34.",
               "lanes": [
                 "parity"
               ],

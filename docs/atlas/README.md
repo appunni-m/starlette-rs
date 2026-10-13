@@ -25,17 +25,16 @@ with no conventional Python or Rust unit-test suite.
 ## Current implementation status
 
 Implementation remains active for the full Starlette 1.6.0 replacement. The
-working-tree `parity-input@49` contract indexes 2,241 cases across 261
+working-tree `parity-input@49` contract indexes 2,257 cases across 275
 parity input files and two benchmark files, with 136 Starlette compatibility
-operations, 12 native operations, and 1,199 parity requirements. The latest
+operations, 12 native operations, and 1,212 parity requirements. The latest
 static source-inventory check passed: all 999 API candidates are dispositioned,
 and the generated atlas has 843 source rows with 788 input mappings, 55
 source-backed `not_applicable` rows, and zero backlog items.
-The newest source-confirmed implementation inputs cover StaticFiles internal
-If-Modified-Since comments, lifespan exception identity, Request custom receive
-events, BaseHTTPMiddleware body-iterator replacement, TestClient MutableMapping
-send messages, WSGI header-unpack ordering, and AnyIO CancelScope worker-error
-propagation; all remain unexecuted.
+The newest source-confirmed implementation inputs cover the deprecated
+TestClient `httpx` fallback, Request stream closure before first advancement,
+WebSocketEndpoint disconnect-hook context preservation, and duplicate-key
+BackgroundTask kwargs expansion. All four comparisons remain unexecuted.
 
 StaticFiles, response-protocol, TestClient exception/close-code, WebSocket
 close-code, custom-regex, AuthenticationMiddleware iterable-result, nested
