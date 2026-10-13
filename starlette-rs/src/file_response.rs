@@ -429,7 +429,18 @@ impl FileResponse {
             .filename
             .as_deref()
             .map_or_else(|| path.clone(), PathBuf::from);
-        let guessed_type = mime_guess::from_path(source).first_raw();
+        // CPython's mimetypes table classifies `.mjs` as `text/javascript`,
+        // while mime_guess 2.0.5 classifies it as `application/javascript`.
+        // FileResponse delegates its default type to mimetypes.guess_type.
+        let guessed_type = if source
+            .extension()
+            .and_then(|extension| extension.to_str())
+            .is_some_and(|extension| extension.eq_ignore_ascii_case("mjs"))
+        {
+            Some("text/javascript")
+        } else {
+            mime_guess::from_path(&source).first_raw()
+        };
         let media_type = options
             .media_type
             .as_deref()

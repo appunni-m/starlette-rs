@@ -242,7 +242,7 @@ TESTCLIENT_REQUIREMENTS = {
     "scope": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.scope-projection",
     "receive": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.request-message",
     "request_body_lazy_read": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.request-body-read-on-receive",
-    "request_body_streaming": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.request-body-streaming-chunks",
+    "request_body_generator_buffering": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.request-body-generator-buffering",
     "response": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.response-and-debug",
     "template_debug_extension": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.template-response-debug-extension",
     "follow_redirects_disabled": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.follow-redirects-disabled",
@@ -334,6 +334,7 @@ TESTCLIENT_LIFESPAN_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | 
 TESTCLIENT_WEBSOCKET_REQUIREMENTS = {
     "scope": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.scope-projection",
     "application_exception": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.application-exception-propagation",
+    "entry_cleanup_error_precedence": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.entry-cleanup-error-precedence",
     "app_error_stream_closure": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.app-error-closes-client-stream",
     "app_error_wins_cleanup_close_error": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.app-error-wins-cleanup-close-error",
     "duplicate_disconnect": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.duplicate-disconnect-error-propagation",
@@ -4722,21 +4723,30 @@ def _validate_websocket_route_case_stimulus(case: dict[str, Any]) -> None:
         raise ContractError("WebSocketRoute middleware must be an array")
     for index, middleware_spec in enumerate(middleware):
         context = f"WebSocketRoute middleware[{index}]"
-        spec = _exact(middleware_spec, {"kind", "header"}, context)
-        if spec["kind"] != "append-websocket-accept-header":
+        if not isinstance(middleware_spec, dict):
+            raise ContractError(f"{context} must be an object")
+        kind = middleware_spec.get("kind")
+        if kind == "append-websocket-accept-header":
+            spec = _exact(middleware_spec, {"kind", "header"}, context)
+            header = spec["header"]
+            if (
+                not isinstance(header, list)
+                or len(header) != 2
+                or not all(isinstance(value, str) for value in header)
+            ):
+                raise ContractError(f"{context}.header must be a two-string [name, value] pair")
+            try:
+                for value in header:
+                    value.encode("latin-1")
+            except UnicodeEncodeError as exc:
+                raise ContractError(f"{context}.header values must be Latin-1 encodable") from exc
+        elif kind == "catch-websocket-exception-with-close":
+            spec = _exact(middleware_spec, {"kind", "code", "reason"}, context)
+            if type(spec["code"]) is not int or spec["code"] < 0:
+                raise ContractError(f"{context}.code must be a non-negative integer")
+            _string(spec["reason"], f"{context}.reason")
+        else:
             raise ContractError(f"{context}.kind is unsupported")
-        header = spec["header"]
-        if (
-            not isinstance(header, list)
-            or len(header) != 2
-            or not all(isinstance(value, str) for value in header)
-        ):
-            raise ContractError(f"{context}.header must be a two-string [name, value] pair")
-        try:
-            for value in header:
-                value.encode("latin-1")
-        except UnicodeEncodeError as exc:
-            raise ContractError(f"{context}.header values must be Latin-1 encodable") from exc
     _validate_websocket_route_scope(case["scope"])
     incoming = case["incoming"]
     actions = case["endpoint_actions"]
@@ -4761,6 +4771,11 @@ def _validate_websocket_route_case_stimulus(case: dict[str, Any]) -> None:
                 raise ContractError(f"{context}.code must be a non-negative integer")
             if not isinstance(action["reason"], str):
                 raise ContractError(f"{context}.reason must be a string")
+        elif action["action"] == "raise-websocket-exception":
+            _exact(action, {"action", "code", "reason"}, context)
+            if type(action["code"]) is not int or action["code"] < 0:
+                raise ContractError(f"{context}.code must be a non-negative integer")
+            _string(action["reason"], f"{context}.reason")
         else:
             raise ContractError(f"{context}.action is unsupported")
     if case["observations"] != list(WEBSOCKET_ROUTE_OBSERVATIONS):
@@ -4810,6 +4825,21 @@ def _validate_websocket_route_case_stimulus(case: dict[str, Any]) -> None:
         and [action["action"] for action in actions] == ["accept", "send_text", "close"]
     ):
         coverage.add("starlette.routing.WebSocketRoute.route-dispatch.middleware-accept-header")
+    if (
+        case["dispatch"] == "application"
+        and scope["type"] == "websocket"
+        and scope["path"] == expected_route == "/ws"
+        and [message["type"] for message in incoming] == ["websocket.connect"]
+        and len(actions) == 1
+        and actions[0]["action"] == "raise-websocket-exception"
+        and actions[0]["code"] == 1008
+        and actions[0]["reason"] == "policy violation"
+        and len(middleware) == 1
+        and middleware[0]["kind"] == "catch-websocket-exception-with-close"
+        and middleware[0]["code"] == 4401
+        and middleware[0]["reason"] == "route middleware caught endpoint exception"
+    ):
+        coverage.add("starlette.routing.WebSocketRoute.route-dispatch.middleware-exception-order")
     if (
         case["dispatch"] == "standalone-route"
         and scope["type"] == "websocket"
@@ -14378,25 +14408,17 @@ def _validate_testclient_case(
         receive_count = asgi_app["receive_count"]
         if type(receive_count) is not int or receive_count < 0:
             raise ContractError("TestClient receive_count must be a non-negative integer")
-        if receive_count > 1 and (
-            "content_generator_chunks_base64" not in request
-            or followup_requests
-            or receive_count != len(request["content_generator_chunks_base64"]) + 1
-        ):
-            raise ContractError(
-                "multiple TestClient receives require draining the input request generator through its terminal event"
-            )
         if (
             "content_generator_chunks_base64" in request
             and not followup_requests
-            and receive_count
-            not in {
-                0,
-                len(request["content_generator_chunks_base64"]) + 1,
-            }
+            and receive_count not in {0, 1}
         ):
             raise ContractError(
-                "TestClient generator requests must remain unread or be consumed through their terminal event"
+                "TestClient generator requests must remain unread or be consumed in one buffered request message"
+            )
+        if receive_count > 1:
+            raise ContractError(
+                "the TestClient input adapter cannot issue another receive before response completion"
             )
         if not isinstance(messages, list):
             raise ContractError(
@@ -14470,11 +14492,8 @@ def _validate_testclient_case(
             expected_covers.add(TESTCLIENT_REQUIREMENTS["receive"])
         if asgi_app["receive_count"] == 0 and "content_generator_chunks_base64" in request:
             expected_covers.add(TESTCLIENT_REQUIREMENTS["request_body_lazy_read"])
-        if (
-            "content_generator_chunks_base64" in request
-            and asgi_app["receive_count"] == len(request["content_generator_chunks_base64"]) + 1
-        ):
-            expected_covers.add(TESTCLIENT_REQUIREMENTS["request_body_streaming"])
+        if "content_generator_chunks_base64" in request and asgi_app["receive_count"] == 1:
+            expected_covers.add(TESTCLIENT_REQUIREMENTS["request_body_generator_buffering"])
     elif is_sync_route:
         expected_covers.add(TESTCLIENT_REQUIREMENTS["response"])
         expected_covers.add(TESTCLIENT_REQUIREMENTS["sync_route_worker_thread"])
@@ -15976,6 +15995,16 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
         and app_actions[1].get("operation") == "raise"
     )
     app_error_cleanup_close_error_workflow = app_error_stream_closure_workflow and no_client_actions
+    app_entry_cleanup_error_precedence_workflow = (
+        isinstance(app_actions, list)
+        and len(app_actions) == 2
+        and all(isinstance(action, dict) for action in app_actions)
+        and app_actions[0].get("operation") == "send"
+        and isinstance(app_actions[0].get("message"), dict)
+        and app_actions[0]["message"].get("type") == "websocket.close"
+        and app_actions[1].get("operation") == "raise"
+        and no_client_actions
+    )
     post_accept_denial_workflow = (
         client_exception_capture_workflow
         and len(session_actions) == 1
@@ -16003,6 +16032,7 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
             and app_actions[0].get("operation") == "raise"
         )
         or app_error_stream_closure_workflow
+        or app_entry_cleanup_error_precedence_workflow
     )
     if no_client_actions and (accepted_flow_workflow or application_exception_workflow):
         denial_workflow = False
@@ -16124,6 +16154,8 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
                         "TestClient WebSocket app must accept before its declared failure"
                     )
                 raise_action_index = 1
+            elif app_entry_cleanup_error_precedence_workflow:
+                raise_action_index = 1
             else:
                 raise_action_index = 0
             raise_action = _exact(
@@ -16163,6 +16195,26 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
                     TESTCLIENT_WEBSOCKET_REQUIREMENTS["app_error_wins_cleanup_close_error"],
                 }
             )
+        if app_entry_cleanup_error_precedence_workflow:
+            close_action = _exact(
+                app_actions[0],
+                {"operation", "message"},
+                "TestClient WebSocket entry close action",
+            )
+            close_message = _exact(
+                close_action["message"],
+                {"type"} | (close_action["message"].keys() & {"code", "reason"}),
+                "TestClient WebSocket entry close message",
+            )
+            if close_action["operation"] != "send" or close_message["type"] != "websocket.close":
+                raise ContractError(
+                    "TestClient WebSocket entry cleanup case must send a close before failing"
+                )
+            if "code" in close_message and type(close_message["code"]) is not int:
+                raise ContractError("TestClient WebSocket close code must be an integer")
+            if "reason" in close_message and not isinstance(close_message["reason"], str):
+                raise ContractError("TestClient WebSocket close reason must be a string")
+            expected_covers.add(TESTCLIENT_WEBSOCKET_REQUIREMENTS["entry_cleanup_error_precedence"])
         if set(case["covers"]) != expected_covers:
             raise ContractError(
                 "TestClient WebSocket covers must match the application exception workflow"

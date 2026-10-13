@@ -960,8 +960,16 @@ impl PyWebSocketTestSession {
     fn __enter__(slf: Py<Self>, py: Python<'_>) -> PyResult<Py<Self>> {
         let result = slf.borrow_mut(py).start(py);
         if let Err(error) = result {
-            let _ = slf.borrow_mut(py).teardown(py);
-            return Err(error);
+            return match slf.borrow_mut(py).teardown(py) {
+                Ok(()) => Err(error),
+                Err(cleanup_error) => {
+                    // ExitStack lets the last failing cleanup callback replace
+                    // an error from session entry and preserves that earlier
+                    // error in the new exception's context chain.
+                    chain_exception_context(py, &cleanup_error, &error)?;
+                    Err(cleanup_error)
+                }
+            };
         }
         Ok(slf)
     }

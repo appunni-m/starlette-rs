@@ -2,14 +2,14 @@
   "schema": "migration-parity/parity-input@48",
   "cases": [
     {
-      "case_id": "starlette.testclient.TestClient.request-response.asgi2-streaming-receive-and-send-order",
+      "case_id": "starlette.testclient.TestClient.request-response.asgi2-generator-body-buffering-and-streamed-response",
       "surface": "starlette.testclient.TestClient",
       "operation": "request-response",
       "covers": [
         "starlette.testclient.TestClient.request-response.scope-projection",
         "starlette.testclient.TestClient.request-response.request-message",
         "starlette.testclient.TestClient.request-response.asgi2-callable",
-        "starlette.testclient.TestClient.request-response.request-body-streaming-chunks",
+        "starlette.testclient.TestClient.request-response.request-body-generator-buffering",
         "starlette.testclient.TestClient.request-response.response-and-debug"
       ],
       "target_profiles": [
@@ -47,7 +47,7 @@
           "method",
           "path"
         ],
-        "receive_count": 3,
+        "receive_count": 1,
         "messages": [
           {
             "type": "http.response.start",
@@ -79,7 +79,7 @@
       "covers": [
         "starlette.testclient.TestClient.request-response.scope-projection",
         "starlette.testclient.TestClient.request-response.request-message",
-        "starlette.testclient.TestClient.request-response.request-body-streaming-chunks",
+        "starlette.testclient.TestClient.request-response.request-body-generator-buffering",
         "starlette.testclient.TestClient.request-response.response-and-debug",
         "starlette.testclient.TestClient.request-response.asyncio-marked-asgi3-callable"
       ],
@@ -117,7 +117,7 @@
           "method",
           "path"
         ],
-        "receive_count": 2,
+        "receive_count": 1,
         "messages": [
           {
             "type": "http.response.start",

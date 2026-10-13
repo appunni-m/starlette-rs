@@ -7764,6 +7764,7 @@ def _run_websocket_route_case(case: dict[str, Any]) -> dict[str, Any]:
     if case["surface"] != WEBSOCKET_ROUTE_SURFACE or case["operation"] != WEBSOCKET_ROUTE_OPERATION:
         raise ValueError("workflow is outside the declared WebSocketRoute route-dispatch operation")
     from starlette.applications import Starlette
+    from starlette.exceptions import WebSocketException
     from starlette.middleware import Middleware
     from starlette.routing import WebSocketRoute
 
@@ -7777,6 +7778,8 @@ def _run_websocket_route_case(case: dict[str, Any]) -> dict[str, Any]:
                 await websocket.send_text(action["text"])
             elif action["action"] == "close":
                 await websocket.close(code=action["code"], reason=action["reason"])
+            elif action["action"] == "raise-websocket-exception":
+                raise WebSocketException(code=action["code"], reason=action["reason"])
             else:
                 raise ValueError(
                     f"unsupported WebSocketRoute endpoint action: {action['action']!r}"
@@ -7784,22 +7787,52 @@ def _run_websocket_route_case(case: dict[str, Any]) -> dict[str, Any]:
 
     middleware = []
     for middleware_spec in case["route"].get("middleware", []):
-        header = tuple(value.encode("latin-1") for value in middleware_spec["header"])
+        if middleware_spec["kind"] == "append-websocket-accept-header":
+            header = tuple(value.encode("latin-1") for value in middleware_spec["header"])
 
-        class AppendWebSocketAcceptHeaderMiddleware:
-            def __init__(self, app: Any, header_pair: tuple[bytes, bytes]) -> None:
-                self.app = app
-                self.header_pair = header_pair
+            class AppendWebSocketAcceptHeaderMiddleware:
+                def __init__(self, app: Any, header_pair: tuple[bytes, bytes]) -> None:
+                    self.app = app
+                    self.header_pair = header_pair
 
-            async def __call__(self, middleware_scope: Any, receive: Any, send: Any) -> None:
-                async def modified_send(message: dict[str, Any]) -> None:
-                    if message["type"] == "websocket.accept":
-                        message["headers"].append(self.header_pair)
-                    await send(message)
+                async def __call__(self, middleware_scope: Any, receive: Any, send: Any) -> None:
+                    async def modified_send(message: dict[str, Any]) -> None:
+                        if message["type"] == "websocket.accept":
+                            message["headers"].append(self.header_pair)
+                        await send(message)
 
-                await self.app(middleware_scope, receive, modified_send)
+                    await self.app(middleware_scope, receive, modified_send)
 
-        middleware.append(Middleware(AppendWebSocketAcceptHeaderMiddleware, header_pair=header))
+            middleware.append(Middleware(AppendWebSocketAcceptHeaderMiddleware, header_pair=header))
+        elif middleware_spec["kind"] == "catch-websocket-exception-with-close":
+            code = middleware_spec["code"]
+            reason = middleware_spec["reason"]
+
+            class CatchWebSocketExceptionMiddleware:
+                def __init__(self, app: Any, close_code: int, close_reason: str) -> None:
+                    self.app = app
+                    self.close_code = close_code
+                    self.close_reason = close_reason
+
+                async def __call__(self, middleware_scope: Any, receive: Any, send: Any) -> None:
+                    try:
+                        await self.app(middleware_scope, receive, send)
+                    except WebSocketException:
+                        await send(
+                            {
+                                "type": "websocket.close",
+                                "code": self.close_code,
+                                "reason": self.close_reason,
+                            }
+                        )
+
+            middleware.append(
+                Middleware(
+                    CatchWebSocketExceptionMiddleware,
+                    close_code=code,
+                    close_reason=reason,
+                )
+            )
 
     route = WebSocketRoute(case["route"]["path"], endpoint=endpoint, middleware=middleware)
     app = Starlette(routes=[route])

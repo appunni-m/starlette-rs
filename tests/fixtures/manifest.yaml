@@ -379,6 +379,7 @@
       "build/parity/inputs/parity/server-error-middleware.json",
       "build/parity/inputs/parity/websocket-protocol.json",
       "build/parity/inputs/parity/websocket-route-dispatch.json",
+      "build/parity/inputs/parity/websocket-route-middleware-exception-order.json",
       "build/parity/inputs/parity/websocket-docs-inputs.json",
       "build/parity/inputs/parity/websocket-endpoint-invalid-message-type.json",
       "build/parity/inputs/parity/http-route-call.json",
@@ -435,6 +436,7 @@
       "build/parity/inputs/parity/query-params.json",
       "build/parity/inputs/parity/comma-separated-strings.json",
       "build/parity/inputs/parity/file-response.json",
+      "build/parity/inputs/parity/file-response-mjs-media-type.json",
       "build/parity/inputs/parity/file-response-range-decimal-inputs.json",
       "build/parity/inputs/parity/file-response-if-range-last-modified.json",
       "build/parity/inputs/parity/file-response-signed-zero-range.json",
@@ -486,12 +488,13 @@
       "build/parity/inputs/parity/testclient-client-port-preservation.json",
       "build/parity/inputs/parity/testclient-server-port-preservation.json",
       "build/parity/inputs/parity/testclient-incomplete-response-return.json",
-      "build/parity/inputs/parity/testclient-streaming-request-body.json",
+      "build/parity/inputs/parity/testclient-generator-body-buffering.json",
       "build/parity/inputs/parity/testclient-template-debug-extension.json",
       "build/parity/inputs/parity/testclient-partial-endpoints.json",
       "build/parity/inputs/parity/testclient-partial-websocket-endpoints.json",
       "build/parity/inputs/parity/fault-contracts.json",
       "build/parity/inputs/parity/testclient-websocket.json",
+      "build/parity/inputs/parity/testclient-websocket-entry-cleanup-error.json",
       "build/parity/inputs/parity/testclient-websocket-denial-after-accept.json",
       "build/parity/inputs/parity/testclient-websocket-routing.json",
       "build/parity/inputs/parity/testclient-websocket-bytes.json",
@@ -17042,6 +17045,18 @@
               ]
             },
             {
+              "id": "starlette.responses.FileResponse.asgi-call.default-media-type",
+              "dimension": "boundary",
+              "description": "Infer the default media type from the input filename and compare the emitted content-type with the pinned Python mimetypes behavior. Upstream: starlette/responses.py:314-316; CPython 3.12 mimetypes.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.responses.FileResponse.asgi-call.background-task",
               "dimension": "boundary",
               "description": "Invoke a FileResponse with an input-defined async background task and compare the complete response, accumulated callback value, and send-before-callback execution order. Upstream: tests/test_responses.py::test_file_response; starlette/background.py::BackgroundTask.__call__.",
@@ -23338,6 +23353,17 @@
               "target_profiles": [
                 "python-package-cpython312"
               ]
+            },
+            {
+              "id": "starlette.routing.WebSocketRoute.route-dispatch.middleware-exception-order",
+              "dimension": "error_path",
+              "description": "Raise WebSocketException from a route endpoint behind middleware that would catch it, and observe Starlette's inner websocket_session exception handler close the socket before the middleware can replace the close. Pinned source: starlette/routing.py::websocket_session and WebSocketRoute.__init__; starlette/middleware/exceptions.py::ExceptionMiddleware.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
             }
           ],
           "parity": {
@@ -28793,9 +28819,9 @@
               ]
             },
             {
-              "id": "starlette.testclient.TestClient.request-response.request-body-streaming-chunks",
+              "id": "starlette.testclient.TestClient.request-response.request-body-generator-buffering",
               "dimension": "protocol_variant",
-              "description": "Consume an input generator-backed POST body through repeated TestClient receive calls: one http.request per yielded chunk with more_body true, followed by an empty terminal http.request. Compare the exact receive message sequence and which input chunks the generator yielded. Pinned source: starlette/testclient.py:293-325.",
+              "description": "Consume an input generator-backed POST body on the first TestClient receive. The pinned HTTPX2 Request.read() joins the request stream into one byte string, which Starlette forwards as a single http.request message; compare the complete body and input generator yields. Pinned sources: starlette/testclient.py:293-325 and HTTPX2 _models.py:482-492.",
               "lanes": [
                 "parity"
               ],
@@ -29328,6 +29354,17 @@
               "id": "starlette.testclient.TestClient.websocket-session.application-exception-propagation",
               "dimension": "error_path",
               "description": "When the input ASGI app raises before sending a WebSocket handshake, websocket_connect propagates the original application exception during session entry and closes the portal thread. Pinned source: tests/test_websockets.py::test_websocket_exception; starlette/testclient.py:102-125.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.websocket-session.entry-cleanup-error-precedence",
+              "dimension": "error_path",
+              "description": "When an input ASGI app sends websocket.close before acceptance and then raises, session-entry cleanup propagates the application error and chains the earlier WebSocketDisconnect in its exception context. Pinned source: starlette/testclient.py:102-125 and the pinned contextlib.ExitStack behavior.",
               "lanes": [
                 "parity"
               ],

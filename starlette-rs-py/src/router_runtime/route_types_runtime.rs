@@ -50,6 +50,7 @@ pub(super) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(host_url_path_for, module)?)?;
     module.add_function(wrap_pyfunction!(mount_url_path_for, module)?)?;
     module.add_function(wrap_pyfunction!(request_response, module)?)?;
+    module.add_function(wrap_pyfunction!(websocket_session, module)?)?;
     module.add_function(wrap_pyfunction!(router_lifespan, module)?)?;
     module.add_class::<PyDefaultLifespanRuntime>()?;
     module.add_class::<PySyncGeneratorLifespanFactory>()?;
@@ -2795,6 +2796,250 @@ fn request_response(py: Python<'_>, args: RequestResponseArgs) -> PyResult<Py<Py
             pending: None,
         },
     )
+}
+
+#[pyfunction]
+fn websocket_session(py: Python<'_>, args: WebSocketSessionArgs) -> PyResult<Py<PyAny>> {
+    into_sendable_python_awaitable(
+        py,
+        WebSocketSessionMachine {
+            endpoint: args.endpoint,
+            scope: args.scope,
+            receive: args.receive,
+            send: args.send,
+            websocket_type: args.websocket_type,
+            http_exception_type: args.http_exception_type,
+            run_in_threadpool: args.run_in_threadpool,
+            websocket: None,
+            sender: None,
+            response_started: Arc::new(AtomicBool::new(false)),
+            original_exception: None,
+            pending: None,
+        },
+    )
+}
+
+#[derive(FromPyObject)]
+#[pyo3(from_item_all)]
+struct WebSocketSessionArgs {
+    endpoint: Py<PyAny>,
+    scope: Py<PyAny>,
+    receive: Py<PyAny>,
+    send: Py<PyAny>,
+    websocket_type: Py<PyAny>,
+    http_exception_type: Py<PyAny>,
+    run_in_threadpool: Py<PyAny>,
+}
+
+#[derive(Clone, Copy)]
+enum WebSocketSessionPending {
+    Endpoint,
+    Handler,
+    Response,
+}
+
+/// Mirrors Starlette's `websocket_session` boundary around the endpoint.
+///
+/// This wrapper sits inside `WebSocketRoute` middleware, so it must apply the
+/// exception handlers stored by the outer `ExceptionMiddleware` before a
+/// route-local middleware can observe endpoint exceptions.
+struct WebSocketSessionMachine {
+    endpoint: Py<PyAny>,
+    scope: Py<PyAny>,
+    receive: Py<PyAny>,
+    send: Py<PyAny>,
+    websocket_type: Py<PyAny>,
+    http_exception_type: Py<PyAny>,
+    run_in_threadpool: Py<PyAny>,
+    websocket: Option<Py<PyAny>>,
+    sender: Option<Py<PyAny>>,
+    response_started: Arc<AtomicBool>,
+    original_exception: Option<Py<PyAny>>,
+    pending: Option<WebSocketSessionPending>,
+}
+
+impl AwaitableStateMachine for WebSocketSessionMachine {
+    fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.endpoint)?;
+        visit.call(&self.scope)?;
+        visit.call(&self.receive)?;
+        visit.call(&self.send)?;
+        visit.call(&self.websocket_type)?;
+        visit.call(&self.http_exception_type)?;
+        visit.call(&self.run_in_threadpool)?;
+        visit.call(&self.websocket)?;
+        visit.call(&self.sender)?;
+        visit.call(&self.original_exception)?;
+        Ok(())
+    }
+
+    fn finalize_on_drop(&self) -> bool {
+        true
+    }
+
+    fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
+        match input {
+            MachineResume::Start if self.pending.is_none() => self.start(py),
+            MachineResume::Start => Err(PyRuntimeError::new_err(
+                "WebSocket session already has an operation pending",
+            )),
+            MachineResume::Value(value) => match self.pending.take() {
+                Some(WebSocketSessionPending::Endpoint | WebSocketSessionPending::Response) => {
+                    Ok(MachineAction::Complete(py.None()))
+                }
+                Some(WebSocketSessionPending::Handler) if value.bind(py).is_none() => {
+                    Ok(MachineAction::Complete(py.None()))
+                }
+                Some(WebSocketSessionPending::Handler) => self.send_handler_response(py, value),
+                None => Err(PyRuntimeError::new_err(
+                    "WebSocket session resumed without a pending operation",
+                )),
+            },
+            MachineResume::Error(error) => match self.pending.take() {
+                Some(WebSocketSessionPending::Endpoint) => self.handle_exception(py, error),
+                Some(WebSocketSessionPending::Handler | WebSocketSessionPending::Response) => {
+                    Err(self.chain_to_original(py, error))
+                }
+                None => Err(error),
+            },
+            MachineResume::AsyncIterationComplete(error) => {
+                self.resume(py, MachineResume::Error(error))
+            }
+        }
+    }
+}
+
+impl WebSocketSessionMachine {
+    fn start(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
+        let websocket = self.websocket_type.bind(py).call1((
+            self.scope.bind(py),
+            self.receive.bind(py),
+            self.send.bind(py),
+        ))?;
+        self.websocket = Some(websocket.clone().unbind());
+        self.sender = Some(exception_send_proxy(
+            py,
+            self.send.clone_ref(py),
+            self.response_started.clone(),
+        )?);
+        let callback = match self.endpoint.bind(py).call1((websocket,)) {
+            Ok(callback) => callback,
+            Err(error) => return self.handle_exception(py, error),
+        };
+        self.pending = Some(WebSocketSessionPending::Endpoint);
+        Ok(MachineAction::Await(callback.unbind()))
+    }
+
+    fn handle_exception(&mut self, py: Python<'_>, error: PyErr) -> PyResult<MachineAction> {
+        if !error.is_instance_of::<PyException>(py) {
+            return Err(error);
+        }
+        let exception = error.value(py).clone().into_any().unbind();
+        self.original_exception = Some(exception.clone_ref(py));
+        let handler = self
+            .select_exception_handler(py, exception.bind(py))
+            .map_err(|handler_error| self.chain_to_original(py, handler_error))?;
+        let Some(handler) = handler else {
+            return Err(error);
+        };
+        if handler.bind(py).is_none() {
+            return Err(error);
+        }
+        if self.response_started.load(Ordering::Relaxed) {
+            let handled_error =
+                PyRuntimeError::new_err("Caught handled exception, but response already started.");
+            handled_error.set_cause(py, Some(error));
+            return Err(handled_error);
+        }
+
+        let websocket = self
+            .websocket
+            .as_ref()
+            .ok_or_else(|| PyRuntimeError::new_err("WebSocket session lost its connection"))?;
+        let is_async = crate::background::is_async_callable(py, handler.bind(py))
+            .map_err(|handler_error| self.chain_to_original(py, handler_error))?;
+        let callback = if is_async {
+            handler
+                .bind(py)
+                .call1((websocket.bind(py), exception.bind(py)))
+        } else {
+            self.run_in_threadpool.bind(py).call1((
+                handler.bind(py),
+                websocket.bind(py),
+                exception.bind(py),
+            ))
+        }
+        .map_err(|handler_error| self.chain_to_original(py, handler_error))?;
+        self.pending = Some(WebSocketSessionPending::Handler);
+        Ok(MachineAction::Await(callback.unbind()))
+    }
+
+    fn select_exception_handler(
+        &self,
+        py: Python<'_>,
+        exception: &Bound<'_, PyAny>,
+    ) -> PyResult<Option<Py<PyAny>>> {
+        let scope = self.scope.bind(py).cast::<PyDict>()?;
+        let Some(handlers) = scope.get_item("starlette.exception_handlers")? else {
+            return Ok(None);
+        };
+        let handlers = handlers.cast::<PyTuple>()?;
+        let exception_handlers_value = handlers.get_item(0)?;
+        let exception_handlers = exception_handlers_value.cast::<PyDict>()?;
+        let status_handlers_value = handlers.get_item(1)?;
+        let status_handlers = status_handlers_value.cast::<PyDict>()?;
+
+        if exception.is_instance(self.http_exception_type.bind(py))? {
+            let status_code = exception.getattr("status_code")?;
+            if let Some(handler) = status_handlers.get_item(status_code)? {
+                if !handler.is_none() {
+                    return Ok(Some(handler.unbind()));
+                }
+            }
+        }
+
+        for exception_class in exception
+            .get_type()
+            .getattr("__mro__")?
+            .cast::<PyTuple>()?
+            .iter()
+        {
+            if let Some(handler) = exception_handlers.get_item(&exception_class)? {
+                return Ok(Some(handler.unbind()));
+            }
+        }
+        Ok(None)
+    }
+
+    fn send_handler_response(
+        &mut self,
+        py: Python<'_>,
+        response: Py<PyAny>,
+    ) -> PyResult<MachineAction> {
+        let sender = self
+            .sender
+            .as_ref()
+            .ok_or_else(|| PyRuntimeError::new_err("WebSocket session lost its send callback"))?;
+        let callback = match response.bind(py).call1((
+            self.scope.bind(py),
+            self.receive.bind(py),
+            sender.bind(py),
+        )) {
+            Ok(callback) => callback,
+            Err(error) => return Err(self.chain_to_original(py, error)),
+        };
+        self.pending = Some(WebSocketSessionPending::Response);
+        Ok(MachineAction::Await(callback.unbind()))
+    }
+
+    fn chain_to_original(&self, py: Python<'_>, error: PyErr) -> PyErr {
+        if let Some(original) = self.original_exception.as_ref() {
+            if !error.value(py).is(original.bind(py)) {
+                error.set_context(py, Some(PyErr::from_value(original.bind(py).clone())));
+            }
+        }
+        error
+    }
 }
 
 #[derive(FromPyObject)]

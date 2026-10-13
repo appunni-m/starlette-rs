@@ -2,13 +2,13 @@
   "schema": "migration-parity/parity-input@48",
   "cases": [
     {
-      "case_id": "starlette.testclient.TestClient.request-response.streaming-request-body-chunks",
+      "case_id": "starlette.testclient.TestClient.request-response.generator-body-buffered-on-first-receive",
       "surface": "starlette.testclient.TestClient",
       "operation": "request-response",
       "covers": [
         "starlette.testclient.TestClient.request-response.scope-projection",
         "starlette.testclient.TestClient.request-response.request-message",
-        "starlette.testclient.TestClient.request-response.request-body-streaming-chunks",
+        "starlette.testclient.TestClient.request-response.request-body-generator-buffering",
         "starlette.testclient.TestClient.request-response.response-and-debug"
       ],
       "target_profiles": [
@@ -46,7 +46,7 @@
           "method",
           "path"
         ],
-        "receive_count": 3,
+        "receive_count": 1,
         "messages": [
           {
             "type": "http.response.start",

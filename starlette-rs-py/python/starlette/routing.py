@@ -106,7 +106,17 @@ def _websocket_endpoint(endpoint: Callable[..., Any]) -> Callable[..., Any]:
     async def app(
         scope: dict[str, Any], receive: Callable[..., Any], send: Callable[..., Any]
     ) -> None:
-        await endpoint(WebSocket(scope, receive, send))
+        await _core.websocket_session(
+            {
+                "endpoint": endpoint,
+                "scope": scope,
+                "receive": receive,
+                "send": send,
+                "websocket_type": WebSocket,
+                "http_exception_type": HTTPException,
+                "run_in_threadpool": run_in_threadpool,
+            }
+        )
 
     return app
 
