@@ -14234,6 +14234,25 @@ def _run_config_environ_actions(case: dict[str, Any], environ: Any) -> list[dict
     return results
 
 
+def _config_environ_mapping(case: dict[str, Any]) -> Any:
+    dispatch = case.get("mapping_length_dispatch")
+    values = dict(case["initial_environ"])
+    if dispatch is None:
+        return values
+    mapping_type = type(
+        "InputEnvironmentMapping",
+        (dict,),
+        {"__len__": lambda _self: dispatch["type_value"]},
+    )
+    mapping = mapping_type(values)
+
+    def instance_length() -> int:
+        return dispatch["instance_value"]
+
+    mapping.__len__ = instance_length
+    return mapping
+
+
 def _run_config_case(case: dict[str, Any]) -> dict[str, Any]:
     from starlette.config import Config, Environ
     from starlette.config import environ as module_environ
@@ -14351,7 +14370,7 @@ def _run_config_case(case: dict[str, Any]) -> dict[str, Any]:
                 os.environ.clear()
                 os.environ.update(original_environment)
         else:
-            environ = Environ(dict(case["initial_environ"]))
+            environ = Environ(_config_environ_mapping(case))
             results = _run_config_environ_actions(case, environ)
         value = {"action-results": results}
     return {

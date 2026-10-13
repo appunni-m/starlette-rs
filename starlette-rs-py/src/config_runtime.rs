@@ -98,7 +98,10 @@ impl PyEnviron {
     }
 
     fn __len__(&self, py: Python<'_>) -> PyResult<usize> {
-        self.environ.bind(py).call_method0("__len__")?.extract()
+        py.import("builtins")?
+            .getattr("len")?
+            .call1((self.environ.bind(py),))?
+            .extract()
     }
 
     #[getter]

@@ -21819,6 +21819,12 @@ def _validate_case_payload(
             and "mapping_source" in case
         ):
             expected_case_keys = expected_case_keys | {"mapping_source"}
+        if (
+            (case["surface"], case["operation"]) == ("starlette.config.Environ", "mapping-sequence")
+            and isinstance(case, dict)
+            and "mapping_length_dispatch" in case
+        ):
+            expected_case_keys = expected_case_keys | {"mapping_length_dispatch"}
         if is_wsgi_protocol and "callback_lifetime" in case:
             expected_case_keys = expected_case_keys | {"callback_lifetime"}
         if is_headers_consumer_sequence and "actions" in case:
@@ -29893,6 +29899,24 @@ def _validate_config_case(case: dict[str, Any]) -> None:
     )
     if mapping_source not in {"explicit", "os-environ", "module-global"}:
         raise ContractError("Environ mapping_source must be explicit or os-environ")
+    mapping_length_dispatch = case.get("mapping_length_dispatch")
+    if mapping_length_dispatch is not None:
+        if is_module_environ or mapping_source != "explicit":
+            raise ContractError("Environ mapping_length_dispatch requires an explicit mapping")
+        dispatch = _exact(
+            mapping_length_dispatch,
+            {"kind", "type_value", "instance_value"},
+            "Environ mapping_length_dispatch",
+        )
+        if dispatch["kind"] != "shadowed-instance-method":
+            raise ContractError("Environ mapping_length_dispatch kind is unsupported")
+        for key in ("type_value", "instance_value"):
+            value = dispatch[key]
+            if isinstance(value, bool) or not isinstance(value, int):
+                raise ContractError(f"Environ mapping_length_dispatch.{key} must be an integer")
+            _validate_nonnegative_integer(value, f"Environ mapping_length_dispatch.{key}")
+        if dispatch["type_value"] == dispatch["instance_value"]:
+            raise ContractError("Environ mapping_length_dispatch values must differ")
     actions = case["actions"]
     if not isinstance(actions, list) or not actions:
         raise ContractError("Environ actions must be a non-empty array")
@@ -29905,6 +29929,7 @@ def _validate_config_case(case: dict[str, Any]) -> None:
     read_keys: set[str] = set()
     present_keys = set(initial)
     process_comparisons: set[str] = set()
+    observes_length = False
     for index, raw in enumerate(actions):
         context = f"Environ actions[{index}]"
         if not isinstance(raw, dict) or not isinstance(raw.get("action"), str):
@@ -29979,6 +30004,7 @@ def _validate_config_case(case: dict[str, Any]) -> None:
                 raise ContractError(f"{context}.compare_to requires os-environ mapping_source")
             selected.add("starlette.config.Environ.iteration")
         elif action == "length":
+            observes_length = True
             item = _exact(
                 raw,
                 {"action", "compare_to"} if "compare_to" in raw else {"action"},
@@ -29993,6 +30019,10 @@ def _validate_config_case(case: dict[str, Any]) -> None:
             selected.add("starlette.config.Environ.length")
         else:
             raise ContractError(f"{context}.action is unsupported")
+    if mapping_length_dispatch is not None:
+        if not observes_length:
+            raise ContractError("Environ mapping_length_dispatch requires a length action")
+        selected.add("starlette.config.Environ.length-type-level-special-method-lookup")
     if mapping_source in {"os-environ", "module-global"} and process_comparisons != {
         "iterate",
         "length",

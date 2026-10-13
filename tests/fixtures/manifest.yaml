@@ -5699,6 +5699,18 @@
                 }
               },
               {
+                "id": "mapping_length_dispatch",
+                "style": "option",
+                "value_types": [
+                  "record",
+                  "null"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": null
+                }
+              },
+              {
                 "id": "actions",
                 "style": "option",
                 "value_types": [
@@ -5847,6 +5859,21 @@
               "id": "starlette.config.Environ.length",
               "dimension": "protocol_variant",
               "description": "Expose the underlying environment mapping length. Upstream: starlette/config.py:40-41.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
+              "id": "starlette.config.Environ.length-type-level-special-method-lookup",
+              "dimension": "protocol_variant",
+              "description": "Resolve the underlying mapping length using Python's type-level __len__ special-method protocol even when the instance exposes a shadowing __len__ attribute. Upstream: starlette/config.py:40-41.",
               "lanes": [
                 "parity"
               ],
