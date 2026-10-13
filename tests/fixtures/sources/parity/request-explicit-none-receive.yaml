@@ -1,0 +1,34 @@
+{
+  "schema": "migration-parity/parity-input@49",
+  "cases": [
+    {
+      "case_id": "starlette.requests.Request.body-stream-json.explicit-none-receive-call-error",
+      "surface": "starlette.requests.Request",
+      "operation": "body-stream-json",
+      "covers": [
+        "starlette.request.body.explicit-none-receive-call-error"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "http"
+      },
+      "receive": null,
+      "blocked_receive_calls": [],
+      "actions": [
+        {
+          "operation": "body"
+        }
+      ],
+      "observations": [
+        "request-consumption"
+      ]
+    }
+  ]
+}

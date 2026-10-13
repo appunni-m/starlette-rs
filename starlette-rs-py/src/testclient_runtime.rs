@@ -1512,11 +1512,7 @@ impl PyTestClientTransport {
                     .as_ref()
                     .map(|status_code| status_code.clone_ref(py)),
                 state.headers.clone(),
-                if state.response_complete {
-                    state.body.clone()
-                } else {
-                    Vec::new()
-                },
+                state.body.clone(),
                 state.debug_info.as_ref().map(|info| info.clone_ref(py)),
                 state.response_started,
             )

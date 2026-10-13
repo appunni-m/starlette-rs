@@ -6,8 +6,7 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use pyo3::class::gc::{PyTraverseError, PyVisit};
 
 use pyo3::exceptions::{
-    PyAssertionError, PyKeyError, PyOSError, PyRuntimeError, PyStopAsyncIteration, PyTypeError,
-    PyValueError,
+    PyAssertionError, PyOSError, PyRuntimeError, PyStopAsyncIteration, PyTypeError, PyValueError,
 };
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyDict, PyList, PyModule, PySet, PySetMethods, PyString};
@@ -79,14 +78,12 @@ impl PyWebSocketProtocol {
     }
     #[new]
     fn new(
-        scope: &Bound<'_, PyDict>,
+        scope: &Bound<'_, PyAny>,
         receive_callback: Py<PyAny>,
         send_callback: Py<PyAny>,
         disconnect_error: Py<PyAny>,
     ) -> PyResult<Self> {
-        let scope_type = scope
-            .get_item("type")?
-            .ok_or_else(|| PyKeyError::new_err("type"))?;
+        let scope_type = scope.get_item("type")?;
         if !scope_type.eq("websocket")? {
             return Err(PyAssertionError::new_err(()));
         }

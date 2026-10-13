@@ -720,6 +720,10 @@ impl CorsSendMessage {
         let proxy = self.proxy.borrow(py);
         let empty_headers = PyList::empty(py);
         let headers = message.call_method1("setdefault", ("headers", &empty_headers))?;
+        // MutableHeaders(scope=message) copies any response-header iterable to
+        // a list and stores it back before applying CORS mutations.
+        let headers = py.import("builtins")?.getattr("list")?.call1((&headers,))?;
+        message.set_item("headers", &headers)?;
         let config = proxy.middleware.borrow(py).config.clone();
         let simple_headers = lock_config(&config)?.simple_headers.clone_ref(py);
         let items = simple_headers.bind(py).call_method0("items")?;

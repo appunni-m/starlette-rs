@@ -359,6 +359,7 @@
       "build/parity/inputs/parity/request-client-address.json",
       "build/parity/inputs/parity/request-scope-interface.json",
       "build/parity/inputs/parity/request-consumption.json",
+      "build/parity/inputs/parity/request-explicit-none-receive.json",
       "build/parity/inputs/parity/request-stream-close-recovery.json",
       "build/parity/inputs/parity/request-body-receive-error-retry.json",
       "build/parity/inputs/parity/request-stream-disconnect-retry.json",
@@ -424,6 +425,7 @@
       "build/parity/inputs/parity/router-host-header-case-insensitive.json",
       "build/parity/inputs/parity/status-constants.json",
       "build/parity/inputs/parity/cors-middleware.json",
+      "build/parity/inputs/parity/cors-response-header-container.json",
       "build/parity/inputs/parity/middleware-docs-inputs.json",
       "build/parity/inputs/parity/host-middleware.json",
       "build/parity/inputs/parity/https-redirect-valid-host-ignores-server-port.json",
@@ -493,6 +495,7 @@
       "build/parity/inputs/parity/upload-file.json",
       "build/parity/inputs/parity/upload-file-rolled-write-error.json",
       "build/parity/inputs/parity/websocket-endpoint-dispatch.json",
+      "build/parity/inputs/parity/websocket-mutable-scope.json",
       "build/parity/inputs/parity/websocket-endpoint-sync-disconnect-hook-error.json",
       "build/parity/inputs/parity/websocket-endpoint-sync-stop-iteration.json",
       "build/parity/inputs/parity/websocket-endpoint-docs-inputs.json",
@@ -503,6 +506,7 @@
       "build/parity/inputs/parity/testclient-client-port-preservation.json",
       "build/parity/inputs/parity/testclient-server-port-preservation.json",
       "build/parity/inputs/parity/testclient-incomplete-response-return.json",
+      "build/parity/inputs/parity/testclient-partial-response-exception.json",
       "build/parity/inputs/parity/testclient-generator-body-buffering.json",
       "build/parity/inputs/parity/testclient-template-debug-extension.json",
       "build/parity/inputs/parity/testclient-partial-endpoints.json",
@@ -536,6 +540,7 @@
       "build/parity/inputs/parity/request-property-worker-lifetime.json",
       "build/parity/inputs/parity/public-value-lifetime.json",
       "build/parity/inputs/parity/response-consumers.json",
+      "build/parity/inputs/parity/response-streaming-subclass-callback.json",
       "build/parity/inputs/parity/response-call-override.json",
       "build/parity/inputs/parity/response-subclasses.json",
       "build/parity/inputs/parity/response-asgi-callbacks.json",
@@ -584,6 +589,7 @@
       "build/parity/inputs/parity/streaming-response-iterator-oserror-asgi24.json",
       "build/parity/inputs/parity/wsgi-build-environ-exact-root-path.json",
       "build/parity/inputs/parity/wsgi-sender-protocols.json",
+      "build/parity/inputs/parity/wsgi-empty-response-iterable.json",
       "build/parity/inputs/parity/asgi-http-exception-explicit-integer-status.json",
       "build/parity/inputs/parity/native-service-mounted-child.json",
       "build/parity/inputs/parity/native-service-host-routing.json",
@@ -9010,7 +9016,7 @@
             {
               "id": "starlette.endpoints.WebSocketEndpoint.dispatch.on-connect-error-skips-disconnect",
               "dimension": "error_path",
-              "description": "Propagate an exception from on_connect before consuming ASGI input or entering the on_disconnect finally block. Pinned source: starlette/endpoints.py:72-89.",
+              "description": "Propagate an exception during on_connect without entering the on_disconnect finally block, both for a hook error before receive and for the default accept path after it consumes an invalid initial ASGI event. Pinned source: starlette/websockets.py:35-45; starlette/endpoints.py:71-89.",
               "lanes": [
                 "parity"
               ],
@@ -11556,6 +11562,17 @@
               "id": "starlette.middleware.cors.CORSMiddleware.explicit-origin-match-reflects-and-varies",
               "dimension": "success_path",
               "description": "Reflect an explicitly allowed request Origin and add it to Vary for simple and preflight responses. Pinned source: tests/middleware/test_cors.py::test_cors_allow_specific_origin; starlette/middleware/cors.py:110-115,170-179.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.cors.CORSMiddleware.tuple-response-start-header-normalization",
+              "dimension": "boundary",
+              "description": "Normalize an input-defined tuple of response-start header pairs to a mutable list before CORS adds reflected Origin and merges repeated Vary headers. Pinned source: starlette/middleware/cors.py:156-179; starlette/datastructures.py:505-522.",
               "lanes": [
                 "parity"
               ],
@@ -15913,7 +15930,8 @@
                 "style": "option",
                 "value_types": [
                   "stream",
-                  "sequence"
+                  "sequence",
+                  "null"
                 ],
                 "omission": {
                   "kind": "required"
@@ -16173,6 +16191,21 @@
               "id": "starlette.request.body.receive-error-propagation",
               "dimension": "error_path",
               "description": "Propagate the original ValueError raised by the ASGI receive callback during Request.body() collection. Pinned source: starlette/requests.py:234-260.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
+              "id": "starlette.request.body.explicit-none-receive-call-error",
+              "dimension": "error_path",
+              "description": "Construct Request with receive=None explicitly and call body(); preserve the source Python TypeError from attempting to invoke the supplied None value instead of substituting the omitted-callback default. Pinned source: starlette/requests.py:214-260.",
               "lanes": [
                 "parity"
               ],
@@ -27408,6 +27441,17 @@
                   "kind": "literal",
                   "value": []
                 }
+              },
+              {
+                "id": "scope_container",
+                "style": "option",
+                "value_types": [
+                  "string"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": "dict"
+                }
               }
             ],
             "result": {
@@ -27481,6 +27525,17 @@
             }
           ],
           "requirements": [
+            {
+              "id": "starlette.websocket.api.scope.mutable-mapping",
+              "dimension": "boundary",
+              "description": "Construct WebSocket with an input-selected collections.UserDict scope, then accept using the public ASGI callbacks and compare results, messages, and protocol state. The pinned constructor accepts its Scope mapping contract through HTTPConnection and indexes scope['type']; starlette/websockets.py:26-33.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
             {
               "id": "starlette.websocket.api.accept.headers",
               "dimension": "protocol_variant",

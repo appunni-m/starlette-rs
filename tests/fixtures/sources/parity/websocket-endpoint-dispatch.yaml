@@ -1520,6 +1520,71 @@
       "observations": [
         "dispatch"
       ]
+    },
+    {
+      "case_id": "starlette.endpoints.WebSocketEndpoint.dispatch.invalid-initial-event-skips-disconnect",
+      "surface": "starlette.endpoints.WebSocketEndpoint",
+      "operation": "dispatch",
+      "covers": [
+        "starlette.endpoints.WebSocketEndpoint.dispatch.on-connect-error-skips-disconnect"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "endpoint": {
+        "encoding": null,
+        "on_connect": {
+          "kind": "default"
+        },
+        "on_receive": {
+          "kind": "no-op"
+        },
+        "on_disconnect": {
+          "kind": "record-and-close"
+        }
+      },
+      "sessions": [
+        {
+          "scope": {
+            "type": "websocket",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.5"
+            },
+            "http_version": "1.1",
+            "scheme": "ws",
+            "path": "/ws",
+            "raw_path_base64": "L3dz",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [
+              [
+                "aG9zdA==",
+                "ZXhhbXBsZS50ZXN0"
+              ]
+            ],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ],
+            "subprotocols": []
+          },
+          "incoming": [
+            {
+              "type": "websocket.receive",
+              "text": "not a connect event"
+            }
+          ]
+        }
+      ],
+      "observations": [
+        "dispatch"
+      ]
     }
   ]
 }

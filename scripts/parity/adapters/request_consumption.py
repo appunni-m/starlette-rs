@@ -55,6 +55,8 @@ def _value(
 
 
 async def _observe(case: dict[str, Any], request_type: Callable[..., Any]) -> dict[str, Any]:
+    explicit_none_receive = case["receive"] is None
+    receive_tape = [] if explicit_none_receive else case["receive"]
     incoming = [
         (
             ValueError(event["message"])
@@ -63,7 +65,7 @@ async def _observe(case: dict[str, Any], request_type: Callable[..., Any]) -> di
         )
         if event.get("kind") == "raise"
         else _decode_message(event)
-        for event in case["receive"]
+        for event in receive_tape
     ]
     gates = {index: asyncio.Event() for index in case["blocked_receive_calls"]}
     receive_trace: list[dict[str, Any]] = []
@@ -99,7 +101,7 @@ async def _observe(case: dict[str, Any], request_type: Callable[..., Any]) -> di
             (base64.b64decode(name, validate=True), base64.b64decode(value, validate=True))
             for name, value in scope.pop("headers_base64_pairs")
         ]
-    request = request_type(scope, receive)
+    request = request_type(scope, None if explicit_none_receive else receive)
     streams: dict[str, Any] = {}
     tasks: dict[str, asyncio.Task[Any]] = {}
     previous_values: dict[str, Any] = {}

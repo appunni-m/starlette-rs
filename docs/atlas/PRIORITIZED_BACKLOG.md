@@ -9,9 +9,10 @@ incomplete.
 ## Current parity snapshot
 
 Implementation remains the active phase for the full Starlette replacement.
-The working-tree `parity-input@48` contract indexes 2,165 cases across 217
-parity inputs, two benchmark inputs, 134 Starlette compatibility operations,
-7 native operations, and 1,145 parity requirements.
+The working-tree `parity-input@49` contract indexes 2,226 cases across 253
+parity inputs, two benchmark inputs, 135 Starlette compatibility operations,
+12 native operations, and 1,187 parity requirements (1,148 compatibility and
+39 native).
 The latest static inventory reports 999/999 API candidates dispositioned and
 843 source rows: 788 input mappings, 55 source-backed `not_applicable` rows,
 and zero fixture backlog. Fixed source denominators are 514 upstream test
@@ -19,14 +20,12 @@ functions and 24 documentation pages.
 
 The latest clean full parity run, `dc8c8ca6-f2b7-449b-9f53-45860e3cad4c`,
 passed 2,254/2,254 comparisons for the preceding 1,992-case, 140-input
-contract. It does not include the later TestClient missing-backend,
-WebSocket authorization, Router truthiness, BaseHTTPMiddleware iterator,
-response-subclass, version-applicability, StaticFiles path, response-protocol,
-close-code, TestClient exception, custom-regex, AuthenticationMiddleware
-iterable-result, nested Host/Mount reverse-lookup, and Request disconnect-retry
-updates. The matching full
-coverage and 74-workload benchmark receipts also belong to the preceding
-contract. Continue implementation across feature families, then run full
+contract. It predates the active @49 implementation batches, including the
+latest TestClient partial-response exception, StreamingResponse callback,
+empty WSGI iterable, WebSocketEndpoint invalid-initial-event, mutable
+WebSocket scope, explicit-None Request receive, and tuple CORS header inputs. The
+matching full coverage and 74-workload benchmark receipts also belong to the
+preceding contract. Continue implementation across feature families, then run full
 parity and grouped repairs, coverage, and benchmarks in that order. The
 full-replacement objective remains active and incomplete.
 

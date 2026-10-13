@@ -25,6 +25,7 @@ import tempfile
 import threading
 import warnings
 import weakref
+from collections import UserDict
 from collections.abc import AsyncIterator, Callable, Iterator
 from dataclasses import dataclass
 from html.parser import HTMLParser
@@ -3047,21 +3048,26 @@ def _materialize_asgi_sequence_app(app_spec: dict[str, Any]) -> Any:
                 raise ValueError(f"inner response message[{index}] must declare its ASGI type")
             message_type = spec["type"]
             if message_type == "http.response.start":
-                _strict_object(
-                    spec,
-                    {"type", "status", "headers_base64_pairs"},
-                    f"inner response message[{index}]",
+                header_keys = {"type", "status", "headers_base64_pairs"}
+                if "headers_representation" in spec:
+                    header_keys.add("headers_representation")
+                _strict_object(spec, header_keys, f"inner response message[{index}]")
+                raw_headers = [
+                    (
+                        _decode_b64(pair[0], "inner response header name"),
+                        _decode_b64(pair[1], "inner response header value"),
+                    )
+                    for pair in spec["headers_base64_pairs"]
+                ]
+                headers = (
+                    tuple(raw_headers)
+                    if spec.get("headers_representation", "list") == "tuple"
+                    else raw_headers
                 )
                 message = {
                     "type": message_type,
                     "status": spec["status"],
-                    "headers": [
-                        (
-                            _decode_b64(pair[0], "inner response header name"),
-                            _decode_b64(pair[1], "inner response header value"),
-                        )
-                        for pair in spec["headers_base64_pairs"]
-                    ],
+                    "headers": headers,
                 }
             elif message_type == "http.response.body":
                 expected_body_keys = {"type", "body_base64"}
@@ -7504,7 +7510,15 @@ def _run_websocket_convenience_case(case: dict[str, Any]) -> dict[str, Any]:
             "actions",
             "observations",
         }
-        | ({"constructor_thread", "iterator_thread"} & case.keys()),
+        | (
+            {
+                "constructor_thread",
+                "iterator_thread",
+                "receive_callback_actions",
+                "scope_container",
+            }
+            & case.keys()
+        ),
         "WebSocket convenience-sequence case",
     )
     if case["surface"] != WEBSOCKET_SURFACE or case["operation"] != WEBSOCKET_CONVENIENCE_OPERATION:
@@ -7551,7 +7565,13 @@ def _run_websocket_convenience_case(case: dict[str, Any]) -> dict[str, Any]:
             raise OSError(pending_send_error["message"])
 
     def construct() -> Any:
-        return WebSocket(_make_websocket_scope(case["scope"]), receive, send)
+        scope = _make_websocket_scope(case["scope"])
+        scope_container = case.get("scope_container", "dict")
+        if scope_container == "user-dict":
+            scope = UserDict(scope)
+        elif scope_container != "dict":
+            raise ValueError(f"unsupported WebSocket scope container: {scope_container!r}")
+        return WebSocket(scope, receive, send)
 
     if case.get("constructor_thread", "caller") == "worker":
         from concurrent.futures import ThreadPoolExecutor

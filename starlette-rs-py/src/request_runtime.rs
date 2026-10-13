@@ -523,13 +523,10 @@ impl PyRequestBody {
     #[new]
     #[pyo3(signature = (receive=None))]
     fn new(py: Python<'_>, receive: Option<Py<PyAny>>) -> PyResult<Self> {
-        let receive = match receive {
-            Some(receive) => receive,
-            None => py
-                .import("starlette_rs_py._core")?
-                .getattr("_empty_receive")?
-                .unbind(),
-        };
+        // The public Request facade supplies its default callback explicitly.
+        // Preserve an explicit None so Request.receive and the later callback
+        // invocation match upstream's behavior for that supplied value.
+        let receive = receive.unwrap_or_else(|| py.None());
         Ok(Self {
             shared: Py::new(
                 py,

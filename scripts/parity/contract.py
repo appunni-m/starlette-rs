@@ -1539,6 +1539,7 @@ REQUEST_CONSUMPTION_REQUIREMENTS = {
     "cached_disconnect_followup": "starlette.request.is-disconnected.cache-observed-disconnect",
     "body_disconnect_retry": "starlette.request.body-disconnect-retry",
     "body_receive_error": "starlette.request.body.receive-error-propagation",
+    "explicit_none_receive": "starlette.request.body.explicit-none-receive-call-error",
     "body_receive_error_retry": "starlette.request.body.retry-after-receive-error",
     "body_cancellation_retry": "starlette.request.body.retry-after-cancellation",
     "stream_receive_error": "starlette.request.stream.receive-error-propagation",
@@ -3646,6 +3647,16 @@ def _validate_websocket_endpoint_case_stimulus(case: dict[str, Any]) -> None:
                     _validate_websocket_message(message, message_context, incoming=True)
                 )
         if message_types[0] != "websocket.connect":
+            if (
+                message_types == ["websocket.receive"]
+                and on_connect["kind"] == "default"
+                and cancel_at is None
+                and encoding is None
+                and on_receive["kind"] == "no-op"
+                and on_disconnect["kind"] == "record-and-close"
+            ):
+                exercised_requirements.add(WEBSOCKET_ENDPOINT_REQUIREMENTS["connect_error"])
+                continue
             raise ContractError(f"{context}.incoming must begin with websocket.connect")
         if incoming[0]["subprotocols"] != session["scope"]["subprotocols"]:
             raise ContractError(
@@ -4165,6 +4176,8 @@ def _validate_websocket_convenience_case_stimulus(case: dict[str, Any]) -> None:
     if case["operation"] != WEBSOCKET_CONVENIENCE_OPERATION:
         raise ContractError("WebSocket cases must use a declared sequence operation")
     _validate_websocket_scope(case["scope"])
+    if case.get("scope_container", "dict") not in ("dict", "user-dict"):
+        raise ContractError("WebSocket scope_container must be dict or user-dict")
     incoming = case["incoming"]
     actions = case["actions"]
     if not isinstance(incoming, list) or not isinstance(actions, list) or not actions:
@@ -4215,6 +4228,8 @@ def _validate_websocket_convenience_case_stimulus(case: dict[str, Any]) -> None:
     application_state = "CONNECTING"
     application_close_attempted = False
     exercised: set[str] = set()
+    if case.get("scope_container", "dict") == "user-dict":
+        exercised.add("starlette.websocket.api.scope.mutable-mapping")
     for field in ("constructor_thread", "iterator_thread"):
         if field in case:
             if case[field] not in {"caller", "worker"} or case["target_profiles"] != [
@@ -20424,7 +20439,13 @@ def _validate_case_payload(
         expected_case_keys |= {"hooks", "processor_specs"} & case.keys()
     if (case["surface"], case["operation"]) == (WEBSOCKET_SURFACE, WEBSOCKET_CONVENIENCE_OPERATION):
         expected_case_keys = expected_case_keys | (
-            {"constructor_thread", "iterator_thread", "receive_callback_actions"} & case.keys()
+            {
+                "constructor_thread",
+                "iterator_thread",
+                "receive_callback_actions",
+                "scope_container",
+            }
+            & case.keys()
         )
     if is_streaming_response:
         expected_case_keys = expected_case_keys | {
@@ -26234,8 +26255,9 @@ def _validate_request_body_stream_json_case(case: dict[str, Any]) -> None:
         else []
     )
 
-    receive = case["receive"]
-    if not isinstance(receive, list) or not receive:
+    explicit_none_receive = case["receive"] is None
+    receive = [] if explicit_none_receive else case["receive"]
+    if not explicit_none_receive and (not isinstance(receive, list) or not receive):
         raise ContractError("Request body/stream/json receive tape must be non-empty")
     optional_receive_fields = False
     receive_error_indices: list[int] = []
@@ -26337,6 +26359,10 @@ def _validate_request_body_stream_json_case(case: dict[str, Any]) -> None:
             released_calls.add(receive_call)
         else:
             raise ContractError(f"{context}.operation is unsupported")
+    if explicit_none_receive and (action_operations != ["body"] or blocked_receive_calls):
+        raise ContractError(
+            "explicit None receive must be observed by one Request.body() call without gates"
+        )
     if started_tasks != awaited_tasks:
         raise ContractError("every started body task must be awaited exactly once")
     if released_calls != set(blocked_receive_calls):
@@ -26472,6 +26498,8 @@ def _validate_request_body_stream_json_case(case: dict[str, Any]) -> None:
             )
 
     expected_covers: set[str] = set()
+    if explicit_none_receive:
+        expected_covers.add(REQUEST_CONSUMPTION_REQUIREMENTS["explicit_none_receive"])
     if stream_close_recovery_probe:
         expected_covers.update(
             {
@@ -32756,11 +32784,10 @@ def _validate_asgi_middleware_app(value: Any) -> None:
         if message["type"] != "websocket.close" or not isinstance(message["code"], int):
             raise ContractError("ASGI middleware WebSocket close event is invalid")
         return
-    start = _exact(
-        messages[0],
-        {"type", "status", "headers_base64_pairs"},
-        "ASGI middleware HTTP response start",
-    )
+    start_keys = {"type", "status", "headers_base64_pairs"}
+    if isinstance(messages[0], dict) and "headers_representation" in messages[0]:
+        start_keys.add("headers_representation")
+    start = _exact(messages[0], start_keys, "ASGI middleware HTTP response start")
     if (
         start["type"] != "http.response.start"
         or not isinstance(start["status"], int)
@@ -32768,6 +32795,8 @@ def _validate_asgi_middleware_app(value: Any) -> None:
         or not 100 <= start["status"] <= 599
     ):
         raise ContractError("ASGI middleware app must begin with a valid response-start event")
+    if start.get("headers_representation", "list") not in {"list", "tuple"}:
+        raise ContractError("ASGI middleware response headers representation must be list or tuple")
     _gzip_header_pairs(start["headers_base64_pairs"], "ASGI middleware response headers")
     if len(messages) < 2:
         raise ContractError("ASGI middleware HTTP response must include a response body event")
@@ -33029,6 +33058,13 @@ def _asgi_middleware_semantic_coverage(case: dict[str, Any]) -> set[str]:
                 if value.strip()
             ]
             request_origin = cors_headers.get("origin")
+            if (
+                cors_scope.get("type") == "http"
+                and request_origin is not None
+                and not (cors_scope.get("method") == "OPTIONS" and request_method is not None)
+                and app_response_start.get("headers_representation") == "tuple"
+            ):
+                covered.add(suffix("tuple-response-start-header-normalization"))
             if (
                 request_origin is not None
                 and "*" not in constructor["allow_origins"]
