@@ -585,7 +585,7 @@ struct PyWebSocketTestSession {
     app_to_client_receive: Option<Py<PyAny>>,
     task: Option<Py<PyAny>>,
     failure_signal_token: Option<Py<PyAny>>,
-    accepted_subprotocol: Option<String>,
+    accepted_subprotocol: Option<Py<PyAny>>,
     extra_headers: Option<Py<PyAny>>,
     accepted: bool,
 }
@@ -698,8 +698,7 @@ impl PyWebSocketTestSession {
                 self.accepted_subprotocol = message
                     .get_item("subprotocol")?
                     .filter(|value| !value.is_none())
-                    .map(|value| value.extract::<String>())
-                    .transpose()?;
+                    .map(Bound::unbind);
                 self.extra_headers = message.get_item("headers")?.map(|value| value.unbind());
                 self.accepted = true;
                 Ok(())
@@ -926,6 +925,7 @@ impl PyWebSocketTestSession {
         visit.call(&self.app_to_client_receive)?;
         visit.call(&self.task)?;
         visit.call(&self.failure_signal_token)?;
+        visit.call(&self.accepted_subprotocol)?;
         visit.call(&self.extra_headers)?;
         Ok(())
     }
@@ -942,12 +942,15 @@ impl PyWebSocketTestSession {
         self.app_to_client_receive = None;
         self.task = None;
         self.failure_signal_token = None;
+        self.accepted_subprotocol = None;
         self.extra_headers = None;
     }
 
     #[getter]
-    fn accepted_subprotocol(&self) -> Option<String> {
-        self.accepted_subprotocol.clone()
+    fn accepted_subprotocol(&self, py: Python<'_>) -> Py<PyAny> {
+        self.accepted_subprotocol
+            .as_ref()
+            .map_or_else(|| py.None(), |subprotocol| subprotocol.clone_ref(py))
     }
 
     #[getter]

@@ -129,6 +129,45 @@ pub fn timestamp_unsign(
     now: u64,
     max_age: Option<i64>,
 ) -> Result<Vec<u8>, SessionSignatureError> {
+    let (payload, timestamp) = timestamp_unsign_with_timestamp(value, secret)?;
+
+    if let Some(max_age_seconds) = max_age {
+        if timestamp > now {
+            return Err(SessionSignatureError::FutureTimestamp {
+                seconds_ahead: timestamp - now,
+                timestamp,
+            });
+        }
+
+        let age_seconds = now - timestamp;
+        if i128::from(age_seconds) > i128::from(max_age_seconds) {
+            return Err(SessionSignatureError::Expired {
+                age_seconds,
+                max_age_seconds,
+                timestamp,
+            });
+        }
+    }
+
+    Ok(payload)
+}
+
+/// Verifies a timestamped value and returns its payload and authenticated timestamp.
+///
+/// Age policy is left to the caller so Python compatibility code can compare
+/// arbitrary-precision Python integers without narrowing them to a Rust integer.
+///
+/// # Errors
+///
+/// Returns [`SessionSignatureError::InvalidSignature`] when the authenticator
+/// is absent or invalid, [`SessionSignatureError::MissingTimestamp`] when no
+/// timestamp segment is present, [`SessionSignatureError::MalformedTimestamp`]
+/// for an invalid timestamp, and [`SessionSignatureError::InvalidKey`] if key
+/// construction fails.
+pub fn timestamp_unsign_with_timestamp(
+    value: &[u8],
+    secret: &str,
+) -> Result<(Vec<u8>, u64), SessionSignatureError> {
     let signature_separator = value
         .iter()
         .rposition(|byte| *byte == SEPARATOR)
@@ -152,26 +191,7 @@ pub fn timestamp_unsign(
     let encoded_timestamp = &signed_value[timestamp_separator + 1..];
     let timestamp =
         decode_timestamp(encoded_timestamp).ok_or(SessionSignatureError::MalformedTimestamp)?;
-
-    if let Some(max_age_seconds) = max_age {
-        if timestamp > now {
-            return Err(SessionSignatureError::FutureTimestamp {
-                seconds_ahead: timestamp - now,
-                timestamp,
-            });
-        }
-
-        let age_seconds = now - timestamp;
-        if i128::from(age_seconds) > i128::from(max_age_seconds) {
-            return Err(SessionSignatureError::Expired {
-                age_seconds,
-                max_age_seconds,
-                timestamp,
-            });
-        }
-    }
-
-    Ok(payload.to_vec())
+    Ok((payload.to_vec(), timestamp))
 }
 
 fn derive_key(secret: &str) -> [u8; 20] {

@@ -113,7 +113,9 @@ pub use route_table::{
 };
 pub use router_dispatch::{DispatchPlanError, HttpDispatchPlan, SupplementalRouteMatch};
 pub use server_error::{ServerErrorPlan, ServerErrorPolicy, ServerErrorState};
-pub use sessions::{SessionSignatureError, timestamp_sign, timestamp_unsign};
+pub use sessions::{
+    SessionSignatureError, timestamp_sign, timestamp_unsign, timestamp_unsign_with_timestamp,
+};
 pub use staticfiles::{
     StaticFile, StaticFiles, StaticFilesError, StaticFilesResponse, StaticFilesResponseFlow,
     StaticFilesResponseStep, is_not_modified_headers, not_modified_headers,

@@ -471,6 +471,7 @@
       "build/parity/inputs/parity/session-response-header-iterable.json",
       "build/parity/inputs/parity/session-future-timestamp.json",
       "build/parity/inputs/parity/session-expired-timestamp-out-of-range.json",
+      "build/parity/inputs/parity/session-middleware-arbitrary-max-age.json",
       "build/parity/inputs/parity/base-http-middleware.json",
       "build/parity/inputs/parity/base-http-return-closed-body-iterator.json",
       "build/parity/inputs/parity/base-http-lifecycle-short-circuit.json",
@@ -508,6 +509,7 @@
       "build/parity/inputs/parity/testclient-websocket-denial-after-accept.json",
       "build/parity/inputs/parity/testclient-websocket-server-port-preservation.json",
       "build/parity/inputs/parity/testclient-websocket-routing.json",
+      "build/parity/inputs/parity/testclient-websocket-subprotocol-value.json",
       "build/parity/inputs/parity/testclient-websocket-bytes.json",
       "build/parity/inputs/parity/testclient-websocket-public.json",
       "build/parity/inputs/parity/testclient-websocket-endpoint-path-params.json",
@@ -13955,6 +13957,17 @@
               "id": "starlette.middleware.sessions.SessionMiddleware.session-workflow.max-age-none",
               "dimension": "parameter",
               "description": "Issue a session cookie with max_age=None and observe session-cookie persistence attributes. Upstream: docs/middleware.md:129-160.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.sessions.SessionMiddleware.session-workflow.arbitrary-precision-max-age",
+              "dimension": "boundary",
+              "description": "Preserve an arbitrary-precision Python integer max_age through SessionMiddleware construction, Max-Age cookie formatting, and signed-cookie age comparison without narrowing to a Rust integer. Pinned source: starlette/middleware/sessions.py:31,43-54,72; itsdangerous 2.2.0 TimestampSigner.unsign.",
               "lanes": [
                 "parity"
               ],
@@ -29416,6 +29429,17 @@
               "id": "starlette.testclient.TestClient.websocket-session.accept-handshake",
               "dimension": "success_path",
               "description": "Send websocket.connect when the session context starts, accept the supplied app handshake, and expose its selected subprotocol through accepted_subprotocol. Pinned source: starlette/testclient.py:102-117,259-267,656-677; tests/test_testclient.py::test_websocket_blocking_receive.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.websocket-session.accepted-subprotocol-preserves-message-value",
+              "dimension": "boundary",
+              "description": "Preserve the websocket.accept message's subprotocol value on WebSocketTestSession.accepted_subprotocol without coercing it to str. Pinned source: starlette/testclient.py:102-117,259-267,656-677.",
               "lanes": [
                 "parity"
               ],

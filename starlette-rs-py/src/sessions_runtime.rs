@@ -8,11 +8,12 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use base64::Engine as _;
+use pyo3::basic::CompareOp;
 use pyo3::class::gc::{PyTraverseError, PyVisit};
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
-use pyo3::types::{PyBytes, PyDict, PyList, PyString, PyTuple};
-use starlette_rs::{SessionSignatureError, timestamp_sign, timestamp_unsign};
+use pyo3::types::{PyBytes, PyDict, PyInt, PyList, PyString, PyTuple};
+use starlette_rs::{SessionSignatureError, timestamp_sign, timestamp_unsign_with_timestamp};
 
 use crate::awaitable::{
     AwaitableStateMachine, MachineAction, MachineResume, into_sendable_python_awaitable,
@@ -198,7 +199,7 @@ pub(crate) struct PySessionMiddlewareRuntime {
     app: Py<PyAny>,
     secret_key: String,
     session_cookie: String,
-    max_age: Option<i64>,
+    max_age: Py<PyAny>,
     path: String,
     security_flags: String,
     clock_override: Option<u64>,
@@ -207,7 +208,7 @@ pub(crate) struct PySessionMiddlewareRuntime {
 #[pymethods]
 impl PySessionMiddlewareRuntime {
     #[new]
-    #[pyo3(signature = (app, secret_key, session_cookie="session", max_age=Some(1209600), path="/", same_site="lax", https_only=false, domain=None))]
+    #[pyo3(signature = (app, secret_key, session_cookie, max_age, path, same_site, https_only, domain))]
     // LINT EXCEPTION: Preserve Starlette SessionMiddleware's constructor options and defaults one-for-one.
     #[allow(clippy::too_many_arguments)]
     fn new(
@@ -215,7 +216,7 @@ impl PySessionMiddlewareRuntime {
         app: Py<PyAny>,
         secret_key: Py<PyAny>,
         session_cookie: &str,
-        max_age: Option<i64>,
+        max_age: Py<PyAny>,
         path: &str,
         same_site: &str,
         https_only: bool,
@@ -266,12 +267,12 @@ impl PySessionMiddlewareRuntime {
     }
 
     #[getter]
-    fn max_age(&self) -> Option<i64> {
-        self.max_age
+    fn max_age(&self, py: Python<'_>) -> Py<PyAny> {
+        self.max_age.clone_ref(py)
     }
 
     #[setter]
-    fn set_max_age(&mut self, max_age: Option<i64>) {
+    fn set_max_age(&mut self, max_age: Py<PyAny>) {
         self.max_age = max_age;
     }
 
@@ -320,11 +321,13 @@ impl PySessionMiddlewareRuntime {
     }
 
     fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
-        visit.call(&self.app)
+        visit.call(&self.app)?;
+        visit.call(&self.max_age)
     }
 
     fn __clear__(&mut self, py: Python<'_>) {
         self.app = py.None();
+        self.max_age = py.None();
     }
 }
 
@@ -397,32 +400,38 @@ impl SessionMiddlewareCall {
             let cookie_bytes = cookie_value
                 .call_method1("encode", ("utf-8",))?
                 .extract::<Vec<u8>>()?;
-            match timestamp_unsign(&cookie_bytes, &runtime.secret_key, now, runtime.max_age) {
-                Ok(payload) => {
-                    let encoded_json = py
-                        .import("base64")?
-                        .getattr("b64decode")?
-                        .call1((PyBytes::new(py, &payload),))?;
-                    let decoded = py
-                        .import("json")?
-                        .getattr("loads")?
-                        .call1((encoded_json,))?;
-                    (decoded.unbind(), false)
-                }
-                Err(SessionSignatureError::FutureTimestamp { timestamp, .. }) => {
-                    // itsdangerous 2.2.0's TimestampSigner converts a future
-                    // timestamp to datetime before raising SignatureExpired
-                    // (timed.py:106-111). That conversion can itself fail for
-                    // out-of-range values, escaping Starlette's BadSignature
-                    // handler. Keep this Python call at the boundary so the
-                    // interpreter/platform supplies the exact exception.
-                    timestamp_to_datetime(py, timestamp)?;
-                    (py.None(), true)
-                }
-                Err(SessionSignatureError::Expired { timestamp, .. }) => {
-                    // TimestampSigner converts expired timestamps while building SignatureExpired.
-                    timestamp_to_datetime(py, timestamp)?;
-                    (py.None(), true)
+            match timestamp_unsign_with_timestamp(&cookie_bytes, &runtime.secret_key) {
+                Ok((payload, timestamp)) => {
+                    let max_age = runtime.max_age.bind(py);
+                    let expired = if max_age.is_none() {
+                        false
+                    } else {
+                        let age = PyInt::new(py, now)
+                            .call_method1("__sub__", (PyInt::new(py, timestamp),))?;
+                        let exceeds_max_age =
+                            age.rich_compare(max_age, CompareOp::Gt)?.is_truthy()?;
+                        let is_future_timestamp = age
+                            .rich_compare(PyInt::new(py, 0), CompareOp::Lt)?
+                            .is_truthy()?;
+                        exceeds_max_age || is_future_timestamp
+                    };
+                    if expired {
+                        // itsdangerous converts the timestamp while building
+                        // SignatureExpired; datetime can reject out-of-range
+                        // authenticated timestamps before Starlette catches it.
+                        timestamp_to_datetime(py, timestamp)?;
+                        (py.None(), true)
+                    } else {
+                        let encoded_json = py
+                            .import("base64")?
+                            .getattr("b64decode")?
+                            .call1((PyBytes::new(py, &payload),))?;
+                        let decoded = py
+                            .import("json")?
+                            .getattr("loads")?
+                            .call1((encoded_json,))?;
+                        (decoded.unbind(), false)
+                    }
                 }
                 Err(_) => (py.None(), true),
             }
@@ -599,11 +608,13 @@ impl SessionSendCall {
                 "{}={}; path={}; ",
                 runtime.session_cookie, signed, runtime.path
             );
-            if runtime.max_age.is_some_and(|age| age != 0) {
-                value.push_str(&format!(
-                    "Max-Age={}; ",
-                    runtime.max_age.unwrap_or_default()
-                ));
+            if runtime.max_age.bind(py).is_truthy()? {
+                let max_age = py
+                    .import("builtins")?
+                    .getattr("str")?
+                    .call1((runtime.max_age.bind(py),))?
+                    .extract::<String>()?;
+                value.push_str(&format!("Max-Age={max_age}; "));
             }
             value.push_str(&runtime.security_flags);
             append_header(py, &headers, "set-cookie", &value)?;

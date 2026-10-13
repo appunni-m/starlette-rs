@@ -353,6 +353,7 @@ TESTCLIENT_WEBSOCKET_REQUIREMENTS = {
     "standalone_websocket_miss": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.standalone-websocket-route-miss",
     "partial_async_endpoint": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.routed-async-endpoint-partial",
     "handshake": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.accept-handshake",
+    "accepted_subprotocol_value": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.accepted-subprotocol-preserves-message-value",
     "extra_headers": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.extra-headers",
     "text_messages": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.text-message-exchange",
     "binary_messages": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.binary-message-exchange",
@@ -426,6 +427,7 @@ SESSION_REQUIREMENTS = {
     "max_age_expiry": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.max-age-expiry",
     "max_age_default": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.max-age-default",
     "max_age_none": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.max-age-none",
+    "max_age_arbitrary_precision": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.arbitrary-precision-max-age",
     "default_cookie_attributes": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.default-cookie-attributes",
     "custom_cookie_attributes": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.custom-cookie-attributes",
     "domain_secure_attributes": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.domain-secure-attributes",
@@ -10780,6 +10782,11 @@ def _validate_session_workflow_case(case: dict[str, Any]) -> None:
             raise ContractError("previous-set-cookie source must follow a non-empty session update")
 
     requirements = {SESSION_REQUIREMENTS["construct"]}
+    if (
+        type(constructor["max_age"]) is int
+        and not -(1 << 63) <= constructor["max_age"] <= (1 << 63) - 1
+    ):
+        requirements.add(SESSION_REQUIREMENTS["max_age_arbitrary_precision"])
     if isinstance(constructor["secret_key"], dict):
         requirements.add(SESSION_REQUIREMENTS["secret_key_wrapper"])
     action_kinds = {action["kind"] for action in actions}
@@ -15725,6 +15732,55 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
         or len(scope_fields) != len(set(scope_fields))
     ):
         raise ContractError("TestClient WebSocket scope_fields must be unique supported scope keys")
+
+    preserves_non_string_subprotocol = (
+        no_client_actions
+        and asgi_app["kind"] == "asgi3"
+        and isinstance(app_actions, list)
+        and len(app_actions) == 2
+        and all(isinstance(action, dict) for action in app_actions)
+        and [action.get("operation") for action in app_actions] == ["receive", "send"]
+        and isinstance(app_actions[1].get("message"), dict)
+        and app_actions[1]["message"].get("type") == "websocket.accept"
+        and "subprotocol" in app_actions[1]["message"]
+        and app_actions[1]["message"]["subprotocol"] is not None
+        and not isinstance(app_actions[1]["message"]["subprotocol"], str)
+    )
+    if preserves_non_string_subprotocol:
+        if "type" not in scope_fields:
+            raise ContractError("TestClient WebSocket handshake must observe scope type")
+        connect_action = _exact(
+            app_actions[0], {"operation"}, "TestClient WebSocket handshake connect action"
+        )
+        if connect_action["operation"] != "receive":
+            raise ContractError("TestClient WebSocket handshake must receive connect")
+        accept_action = _exact(
+            app_actions[1], {"operation", "message"}, "TestClient WebSocket handshake action"
+        )
+        accept_message = _exact(
+            accept_action["message"],
+            {"type", "subprotocol"},
+            "TestClient WebSocket accepted subprotocol message",
+        )
+        if accept_action["operation"] != "send" or accept_message["type"] != "websocket.accept":
+            raise ContractError("TestClient WebSocket handshake must send websocket.accept")
+        try:
+            json.dumps(accept_message["subprotocol"], allow_nan=False)
+        except (TypeError, ValueError) as exc:
+            raise ContractError(
+                "TestClient accepted subprotocol probe must be a finite JSON value"
+            ) from exc
+        expected_covers = {
+            TESTCLIENT_WEBSOCKET_REQUIREMENTS["scope"],
+            TESTCLIENT_WEBSOCKET_REQUIREMENTS["handshake"],
+            TESTCLIENT_WEBSOCKET_REQUIREMENTS["accepted_subprotocol_value"],
+            TESTCLIENT_WEBSOCKET_REQUIREMENTS["portal_cleanup"],
+        }
+        if set(case["covers"]) != expected_covers:
+            raise ContractError(
+                "TestClient accepted subprotocol covers must match the input-defined handshake"
+            )
+        return
 
     if is_starlette_websocket_authorization_route:
         _validate_testclient_websocket_authorization_route_case(

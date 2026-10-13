@@ -1,0 +1,57 @@
+{
+  "schema": "migration-parity/parity-input@48",
+  "cases": [
+    {
+      "case_id": "starlette.testclient.TestClient.websocket-session.accepted-subprotocol-preserved-as-input-value",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "websocket-session",
+      "covers": [
+        "starlette.testclient.TestClient.websocket-session.scope-projection",
+        "starlette.testclient.TestClient.websocket-session.accept-handshake",
+        "starlette.testclient.TestClient.websocket-session.accepted-subprotocol-preserves-message-value",
+        "starlette.testclient.TestClient.websocket-session.portal-cleanup"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "websocket-session"
+      ],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": [
+          "testclient",
+          50000
+        ],
+        "headers": []
+      },
+      "websocket": {
+        "url": "/ws",
+        "subprotocols": null,
+        "headers": [],
+        "actions": []
+      },
+      "asgi_app": {
+        "kind": "asgi3",
+        "scope_fields": [
+          "type"
+        ],
+        "actions": [
+          {
+            "operation": "receive"
+          },
+          {
+            "operation": "send",
+            "message": {
+              "type": "websocket.accept",
+              "subprotocol": 17
+            }
+          }
+        ]
+      }
+    }
+  ]
+}
