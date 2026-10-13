@@ -379,12 +379,15 @@ impl PyFileResponse {
     ) -> PyResult<Py<PyAny>> {
         let (path, status_code, stat_result) = call_time_fields;
         let path = path.bind(py);
-        let native_path = path_from_python(path)?;
         let display_path = path.str()?.to_str()?.to_owned();
         let stat_override = stat_metadata(py, stat_result)?;
-        let response =
-            self.inner
-                .with_call_time_fields(native_path, display_path, status_code, stat_override);
+        let metadata_path_required = stat_override.is_none();
+        let response = self.inner.with_call_time_fields(
+            PathBuf::new(),
+            display_path,
+            status_code,
+            stat_override,
+        );
         let scope_type = scope.get_item("type")?.extract::<String>()?;
         let method = if scope_type == "http" {
             scope.get_item("method")?.extract::<String>()?
@@ -418,6 +421,8 @@ impl PyFileResponse {
                 pathsend_extension,
                 background.is_some(),
                 scope_type == "websocket",
+                path.clone().unbind(),
+                metadata_path_required,
             ),
         )?;
         into_sendable_python_awaitable(
@@ -453,6 +458,12 @@ struct PyFileResponseCallDriver {
     state: Arc<Mutex<FileResponseCallDriverState>>,
 }
 
+#[derive(Clone, Copy)]
+enum FileResponsePathResolution {
+    Metadata,
+    Open,
+}
+
 struct FileResponseCallDriverState {
     response: NativeFileResponse,
     header_views: FileResponseHeaderViews,
@@ -462,6 +473,8 @@ struct FileResponseCallDriverState {
     pathsend_extension: bool,
     has_background: bool,
     websocket: bool,
+    call_time_path: Py<PyAny>,
+    metadata_path_required: bool,
     call: Option<FileResponseCall>,
     headers_refreshed: bool,
 }
@@ -492,6 +505,8 @@ impl PyFileResponseCallDriver {
         pathsend_extension: bool,
         has_background: bool,
         websocket: bool,
+        call_time_path: Py<PyAny>,
+        metadata_path_required: bool,
     ) -> Self {
         Self {
             state: Arc::new(Mutex::new(FileResponseCallDriverState {
@@ -503,6 +518,8 @@ impl PyFileResponseCallDriver {
                 pathsend_extension,
                 has_background,
                 websocket,
+                call_time_path,
+                metadata_path_required,
                 call: None,
                 headers_refreshed: false,
             })),
@@ -527,6 +544,30 @@ impl PyFileResponseCallDriver {
     }
 
     fn step(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        let path_resolution = self
+            .state
+            .lock()
+            .map_err(|_| PyRuntimeError::new_err("file response call state is poisoned"))?
+            .path_resolution();
+        if let Some(path_resolution) = path_resolution {
+            // Starlette supplies the retained path-like value separately to
+            // os.stat and anyio.open_file. Resolve it on the same AnyIO worker
+            // that runs this state-machine step so user __fspath__ code stays
+            // off the event-loop thread and its exceptions cross the boundary
+            // unchanged.
+            let path = self
+                .state
+                .lock()
+                .map_err(|_| PyRuntimeError::new_err("file response call state is poisoned"))?
+                .call_time_path
+                .clone_ref(py);
+            let resolved_path = path_from_python(path.bind(py))?;
+            self.state
+                .lock()
+                .map_err(|_| PyRuntimeError::new_err("file response call state is poisoned"))?
+                .resolve_path(path_resolution, resolved_path)?;
+        }
+
         let state = Arc::clone(&self.state);
         let result = py
             .detach(move || {
@@ -585,21 +626,59 @@ impl PyFileResponseCallDriver {
 }
 
 impl FileResponseCallDriverState {
+    fn path_resolution(&self) -> Option<FileResponsePathResolution> {
+        if self.call.is_none() {
+            return self
+                .metadata_path_required
+                .then_some(FileResponsePathResolution::Metadata);
+        }
+
+        self.call
+            .as_ref()
+            .is_some_and(FileResponseCall::needs_open_path_conversion)
+            .then_some(FileResponsePathResolution::Open)
+    }
+
+    fn resolve_path(
+        &mut self,
+        resolution: FileResponsePathResolution,
+        path: PathBuf,
+    ) -> PyResult<()> {
+        match resolution {
+            FileResponsePathResolution::Metadata if self.call.is_none() => {
+                self.response = self.response.with_call_path(path);
+                self.metadata_path_required = false;
+                Ok(())
+            }
+            FileResponsePathResolution::Open => {
+                let call = self.call.as_mut().ok_or_else(|| {
+                    PyRuntimeError::new_err("file response call was not prepared")
+                })?;
+                call.set_open_path(path);
+                Ok(())
+            }
+            FileResponsePathResolution::Metadata => Err(PyRuntimeError::new_err(
+                "file response metadata path was already prepared",
+            )),
+        }
+    }
+
     fn step(&mut self) -> Result<FileResponseWorkerStep, FileResponseWorkerError> {
         let refresh_headers = !self.headers_refreshed;
         if self.call.is_none() {
-            self.call = Some(
-                self.response
-                    .call_state_with_headers(
-                        self.header_views.clone(),
-                        &self.scope_type,
-                        &self.method,
-                        &self.request_headers,
-                        self.pathsend_extension,
-                        self.has_background,
-                    )
-                    .map_err(FileResponseWorkerError::Preparation)?,
-            );
+            let mut call = self
+                .response
+                .call_state_with_headers(
+                    self.header_views.clone(),
+                    &self.scope_type,
+                    &self.method,
+                    &self.request_headers,
+                    self.pathsend_extension,
+                    self.has_background,
+                )
+                .map_err(FileResponseWorkerError::Preparation)?;
+            call.defer_open_path_conversion();
+            self.call = Some(call);
         }
         self.headers_refreshed = true;
 
@@ -631,6 +710,26 @@ impl FileResponseCallDriverState {
 
 #[pymethods]
 impl PyFileResponseCallDriver {
+    fn __traverse__(
+        &self,
+        visit: pyo3::class::gc::PyVisit<'_>,
+    ) -> Result<(), pyo3::class::gc::PyTraverseError> {
+        let state = match self.state.lock() {
+            Ok(state) => state,
+            Err(poisoned) => poisoned.into_inner(),
+        };
+        visit.call(&state.call_time_path)?;
+        Ok(())
+    }
+
+    fn __clear__(&self, py: Python<'_>) {
+        let mut state = match self.state.lock() {
+            Ok(state) => state,
+            Err(poisoned) => poisoned.into_inner(),
+        };
+        state.call_time_path = py.None();
+    }
+
     fn _step(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         self.step(py)
     }

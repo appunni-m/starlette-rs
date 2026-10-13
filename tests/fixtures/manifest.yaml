@@ -461,6 +461,7 @@
       "build/parity/inputs/parity/query-params.json",
       "build/parity/inputs/parity/comma-separated-strings.json",
       "build/parity/inputs/parity/file-response.json",
+      "build/parity/inputs/parity/file-response-stateful-pathlike.json",
       "build/parity/inputs/parity/file-response-zero-chunk-size.json",
       "build/parity/inputs/parity/response-file-range-large-integer.json",
       "build/parity/inputs/parity/file-response-mjs-media-type.json",
@@ -623,6 +624,7 @@
       "build/parity/inputs/parity/native-websocket.json",
       "build/parity/inputs/parity/native-lifespan.json",
       "build/parity/inputs/parity/routing-base-route-subclass-matches.json",
+      "build/parity/inputs/parity/routing-instance-matches-override.json",
       "build/parity/inputs/parity/testclient-status-exceeds-u16.json",
       "build/parity/inputs/parity/request-form-rollover-lifecycle.json",
       "build/parity/inputs/parity/request-scope-identity.json",
@@ -18270,6 +18272,17 @@
               ]
             },
             {
+              "id": "starlette.responses.FileResponse.asgi-call.stateful-pathlike-stat-open",
+              "dimension": "boundary",
+              "description": "Retain an input-defined PathLike through FileResponse.__call__, then compare its separate os.stat and anyio.open_file __fspath__ results, call order, worker-thread context, response-start completion, and opened body. Pinned source: starlette/responses.py:344-399.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.responses.FileResponse.asgi-call.mutable-status-code",
               "dimension": "boundary",
               "description": "Assign an input-defined public FileResponse.status_code after construction and compare the emitted response-start status. Pinned source: starlette/responses.py:311-312,341,387-388.",
@@ -24422,6 +24435,17 @@
               "id": "starlette.routing.Router.route-dispatch.base-route-subclass-matches",
               "dimension": "boundary",
               "description": "Router calls an overridden BaseRoute.matches(scope) in route order, selects its FULL match ahead of later built-in matches, and merges the returned child scope before calling handle. Pinned source: starlette/routing.py::BaseRoute.matches and Router.app.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Router.route-dispatch.instance-matches-override",
+              "dimension": "boundary",
+              "description": "Router calls an instance-assigned matches(scope) override on a Route subclass in declaration order; a Match.NONE result falls through to a later same-path Route. Pinned source: starlette/routing.py:684-690.",
               "lanes": [
                 "parity"
               ],
@@ -31080,6 +31104,17 @@
               "id": "starlette.testclient.TestClient.websocket-session.application-close-reason",
               "dimension": "boundary",
               "description": "Forward an application WebSocket close reason to the client and compare the received WebSocketDisconnect reason. Pinned source: tests/test_websockets.py::test_websocket_close_reason; starlette/websockets.py:36-50.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.websocket-session.message-type-comparison-error-propagation",
+              "dimension": "error_path",
+              "description": "After accepting a WebSocket, send an input-defined str subclass as the close message type whose equality operation raises. Compare the original exception class and message from receive_text() and verify portal cleanup. Pinned source: starlette/testclient.py:115-125,150-153,189-199.",
               "lanes": [
                 "parity"
               ],

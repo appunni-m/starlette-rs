@@ -567,8 +567,24 @@ impl RouteTypes {
             return Ok(false);
         };
 
-        let declared_matcher = route.get_type().getattr("matches")?;
-        let built_in_matcher = base_route_type.bind(py).getattr("matches")?;
+        let route_type = route.get_type();
+        let base_route_type = base_route_type.bind(py);
+        if !route_type.is(base_route_type) {
+            // Python subclasses can add an instance dictionary even when the built-in route
+            // class uses slots, so preserve their dynamic `matches` dispatch.
+            return Ok(true);
+        }
+
+        if matches!(kind, RouteKind::Mount) {
+            // Mount instances are dict-backed and can shadow `matches` directly.
+            let instance_attributes = route.getattr("__dict__")?;
+            if instance_attributes.contains("matches")? {
+                return Ok(true);
+            }
+        }
+
+        let declared_matcher = route_type.getattr("matches")?;
+        let built_in_matcher = base_route_type.getattr("matches")?;
         Ok(!declared_matcher.is(&built_in_matcher))
     }
 

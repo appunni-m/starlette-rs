@@ -429,6 +429,7 @@ TESTCLIENT_WEBSOCKET_REQUIREMENTS = {
     "client_close": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.client-close-code-reason",
     "application_close_code": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.application-close-code",
     "application_close_reason": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.application-close-reason",
+    "message_type_comparison_error": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.message-type-comparison-error-propagation",
     "cancellation": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.close-triggered-cancellation",
     "context_exit_default_close": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.context-exit-default-close-after-client-close",
     "portal_cleanup": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.portal-cleanup",
@@ -1369,6 +1370,9 @@ RESPONSE_BACKGROUND_REQUIREMENTS = {
 }
 RESPONSE_BACKGROUND_CONTEXTVAR_REQUIREMENT = "starlette.responses.Response.consumer-construction.sync-background-contextvar-worker-propagation"
 FILE_RESPONSE_PATHSEND_REQUIREMENT = f"{FILE_RESPONSE_SURFACE}.{RESPONSE_OPERATION}.pathsend"
+FILE_RESPONSE_STATEFUL_PATHLIKE_REQUIREMENT = (
+    f"{FILE_RESPONSE_SURFACE}.{RESPONSE_OPERATION}.stateful-pathlike-stat-open"
+)
 FILE_RESPONSE_MULTIPART_SHORT_READ_REQUIREMENT = (
     f"{FILE_RESPONSE_SURFACE}.{RESPONSE_OPERATION}.multipart-short-read-loop"
 )
@@ -5566,8 +5570,24 @@ def _validate_http_route_input(
     *,
     allow_http_endpoint: bool = False,
     allow_default_methods: bool = False,
+    allow_instance_match_override: bool = False,
 ) -> dict[str, Any]:
-    route = _exact(route, {"kind", "path", "methods", "endpoint"}, context)
+    route_keys = {"kind", "path", "methods", "endpoint"}
+    if (
+        allow_instance_match_override
+        and isinstance(route, dict)
+        and ("instance_match_override" in route)
+    ):
+        route_keys.add("instance_match_override")
+    route = _exact(route, route_keys, context)
+    if "instance_match_override" in route:
+        override = _exact(
+            route["instance_match_override"],
+            {"kind"},
+            f"{context}.instance_match_override",
+        )
+        if override["kind"] != "none":
+            raise ContractError(f"{context}.instance_match_override.kind must be none")
     if (
         route["kind"] != "http-route"
         or not isinstance(route["path"], str)
@@ -5935,6 +5955,7 @@ def _validate_router_route_input(
         custom_convertors,
         allow_http_endpoint=True,
         allow_default_methods=allow_default_methods,
+        allow_instance_match_override=True,
     )
 
 
@@ -5986,6 +6007,8 @@ def _router_dispatch_route_selection(
                 return index, None, mount_was_attempted
             continue
         if kind == "http-route":
+            if route.get("instance_match_override", {}).get("kind") == "none":
+                continue
             methods = (
                 route_methods[index]
                 if route_methods is not None
@@ -6867,6 +6890,7 @@ def _validate_file_response_case_stimulus(case: dict[str, Any]) -> None:
             "content_disposition_type",
             "background_task",
             "stat_result",
+            "pathlike",
         )
         if key in case
     }
@@ -6876,7 +6900,16 @@ def _validate_file_response_case_stimulus(case: dict[str, Any]) -> None:
     _exact(case, case_keys, "FileResponse asgi-call case")
     if case["surface"] != FILE_RESPONSE_SURFACE or case["operation"] != RESPONSE_OPERATION:
         raise ContractError("case is outside the declared FileResponse asgi-call operation")
-    if case["observations"] != [RESPONSE_OPERATION]:
+    expected_observations = [RESPONSE_OPERATION]
+    if "pathlike" in case:
+        expected_observations.extend(
+            [
+                "pathlike-fspath-call-order",
+                "pathlike-fspath-thread-context",
+                "pathlike-open-after-start-send",
+            ]
+        )
+    if case["observations"] != expected_observations:
         raise ContractError("FileResponse observations must select asgi-call")
 
     background_task = case.get("background_task")
@@ -7022,6 +7055,90 @@ def _validate_file_response_case_stimulus(case: dict[str, Any]) -> None:
                 raise ContractError("FileResponse stat_result.mtime_seconds must be finite")
         else:
             file_contents = b""
+    pathlike_spec = case.get("pathlike")
+    if "pathlike" in case:
+        pathlike_spec = _exact(
+            pathlike_spec,
+            {
+                "fspath_results_relative_to_workspace",
+                "opened_file",
+                "record_fspath_call_order",
+                "record_is_event_loop_thread",
+                "record_send_start_completion_before_open",
+            },
+            "FileResponse PathLike input",
+        )
+        fspath_results = pathlike_spec["fspath_results_relative_to_workspace"]
+        if (
+            not isinstance(fspath_results, list)
+            or len(fspath_results) != 2
+            or any(not isinstance(item, str) or not item for item in fspath_results)
+        ):
+            raise ContractError(
+                "FileResponse PathLike results must supply metadata and open basenames"
+            )
+        opened_file = _exact(
+            pathlike_spec["opened_file"],
+            {"name", "contents_base64", "mtime_seconds"},
+            "FileResponse PathLike opened_file",
+        )
+        opened_name = _string(opened_file["name"], "FileResponse PathLike opened_file.name")
+        if (
+            not opened_name
+            or opened_name in {".", ".."}
+            or "/" in opened_name
+            or "\\" in opened_name
+            or Path(opened_name).name != opened_name
+            or opened_name == name
+            or fspath_results != [name, opened_name]
+        ):
+            raise ContractError(
+                "FileResponse PathLike results must select distinct metadata and open basenames"
+            )
+        try:
+            base64.b64decode(
+                _string(opened_file["contents_base64"], "FileResponse PathLike opened contents"),
+                validate=True,
+            )
+        except (ValueError, TypeError) as exc:
+            raise ContractError(
+                "FileResponse PathLike opened_file.contents_base64 must be valid base64"
+            ) from exc
+        opened_mtime = opened_file["mtime_seconds"]
+        if type(opened_mtime) not in {int, float} or not math.isfinite(opened_mtime):
+            raise ContractError("FileResponse PathLike opened_file.mtime_seconds must be finite")
+        for observation_flag in (
+            "record_fspath_call_order",
+            "record_is_event_loop_thread",
+            "record_send_start_completion_before_open",
+        ):
+            if pathlike_spec[observation_flag] is not True:
+                raise ContractError(
+                    f"FileResponse PathLike {observation_flag} must be enabled for this input"
+                )
+        if (
+            error_path_kind is not None
+            or call_sequence
+            or "stat_result" in case
+            or any(
+                key in case
+                for key in (
+                    "background_task",
+                    "call_time_field_assignments",
+                    "header_view_probe",
+                    "scheduling",
+                    "chunk_size",
+                    "max_ranges",
+                )
+            )
+            or case["filename"] is not None
+            or case["media_type"] is None
+            or case["target_profiles"] != ["python-package-cpython312"]
+            or case["covers"] != [FILE_RESPONSE_STATEFUL_PATHLIKE_REQUIREMENT]
+        ):
+            raise ContractError(
+                "FileResponse stateful PathLike input requires the isolated Python-package simple-file workflow"
+            )
     if background_task is not None and error_path_kind is not None:
         raise ContractError("FileResponse background task requires a regular file input")
 
@@ -7193,6 +7310,25 @@ def _validate_file_response_case_stimulus(case: dict[str, Any]) -> None:
         if scope_spec["method"].upper() != "GET" or b"range" in request_header_names:
             raise ContractError(
                 "FileResponse pathsend coverage requires a GET without a Range request header"
+            )
+    if pathlike_spec is not None:
+        try:
+            request_header_names = {
+                base64.b64decode(pair[0], validate=True).lower()
+                for pair in scope_spec["headers_base64_pairs"]
+            }
+        except (ValueError, TypeError) as exc:
+            raise ContractError(
+                "FileResponse PathLike request headers must be valid base64"
+            ) from exc
+        if (
+            scope_spec["method"].upper() != "GET"
+            or has_pathsend_extension
+            or b"range" in request_header_names
+            or send != {"kind": "capture-asgi-send"}
+        ):
+            raise ContractError(
+                "FileResponse PathLike input requires a simple GET body without Range or pathsend"
             )
     send_error = None
     if send != {"kind": "capture-asgi-send"}:
@@ -10169,6 +10305,14 @@ def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
     if first_full_route_index is not None:
         if routes[first_full_route_index]["kind"] == "base-route-subclass":
             derived.add("starlette.routing.Router.route-dispatch.base-route-subclass-matches")
+        if any(
+            route_index < first_full_route_index
+            and route.get("instance_match_override", {}).get("kind") == "none"
+            and _route_method_matches(route, method)
+            and _route_template_matches(route["path"], route_path, custom_convertors)
+            for route_index, route in enumerate(routes)
+        ):
+            derived.add("starlette.routing.Router.route-dispatch.instance-matches-override")
         derived.update(
             _router_http_endpoint_requirements(
                 routes[first_full_route_index].get("endpoint"), method
@@ -14188,7 +14332,12 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
         )
 
 
-def _validate_testclient_message_type_spec(value: Any, context: str) -> dict[str, Any]:
+def _validate_testclient_message_type_spec(
+    value: Any,
+    context: str,
+    *,
+    allowed_values: frozenset[str] | None = None,
+) -> dict[str, Any]:
     type_spec = _exact(
         value,
         {"kind", "value", "compare_to", "exception"},
@@ -14198,13 +14347,13 @@ def _validate_testclient_message_type_spec(value: Any, context: str) -> dict[str
         raise ContractError(f"{context}.type_spec.kind is unsupported")
     value_string = _string(type_spec["value"], f"{context}.type_spec.value")
     compare_to = _string(type_spec["compare_to"], f"{context}.type_spec.compare_to")
-    if value_string != compare_to or compare_to not in {
-        "http.response.start",
-        "http.response.debug",
-        "http.response.body",
-    }:
+    if allowed_values is None:
+        allowed_values = frozenset(
+            {"http.response.start", "http.response.debug", "http.response.body"}
+        )
+    if value_string != compare_to or compare_to not in allowed_values:
         raise ContractError(
-            f"{context}.type_spec must raise while comparing an ASGI response message type"
+            f"{context}.type_spec must raise while comparing an allowed ASGI message type"
         )
     exception = _exact(
         type_spec["exception"],
@@ -18289,16 +18438,30 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
         and all(isinstance(action, dict) for action in app_actions)
         and [action.get("operation") for action in app_actions] == ["receive", "send", "send"]
         and isinstance(app_actions[2].get("message"), dict)
-        and app_actions[2]["message"].get("type") == "websocket.close"
+        and (
+            app_actions[2]["message"].get("type") == "websocket.close"
+            or (
+                isinstance(app_actions[2]["message"].get("type_spec"), dict)
+                and app_actions[2]["message"]["type_spec"].get("compare_to") == "websocket.close"
+            )
+        )
     )
     if raw_application_close_workflow:
+        close_input = app_actions[2]["message"]
+        has_type_spec = "type_spec" in close_input
         if (
             settings["raise_server_exceptions"] is not True
             or not {"type", "path"} <= set(scope_fields)
-            or session_actions != [{"operation": "receive_text", "capture_disconnect": True}]
+            or session_actions
+            != [
+                {
+                    "operation": "receive_text",
+                    "capture_exception" if has_type_spec else "capture_disconnect": True,
+                }
+            ]
         ):
             raise ContractError(
-                "Raw TestClient application-close input must capture the accepted-session disconnect"
+                "Raw TestClient application-close input must capture the accepted-session outcome"
             )
         _exact(app_actions[0], {"operation"}, "Raw TestClient WebSocket connect action")
         accept_action = _exact(
@@ -18315,9 +18478,15 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
         raw_close = close_action["message"]
         close_message = _exact(
             raw_close,
-            {"type"} | (raw_close.keys() & {"code", "reason"}),
+            {"type_spec" if has_type_spec else "type"} | (raw_close.keys() & {"code", "reason"}),
             "Raw TestClient WebSocket close message",
         )
+        if has_type_spec:
+            _validate_testclient_message_type_spec(
+                close_message["type_spec"],
+                "Raw TestClient WebSocket close message",
+                allowed_values=frozenset({"websocket.close"}),
+            )
         if "code" in close_message and type(close_message["code"]) is not int:
             raise ContractError("Raw TestClient WebSocket close code must be an integer")
         if "reason" in close_message and not isinstance(close_message["reason"], str):
@@ -18325,10 +18494,13 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
         expected_covers = {
             TESTCLIENT_WEBSOCKET_REQUIREMENTS["scope"],
             TESTCLIENT_WEBSOCKET_REQUIREMENTS["handshake"],
-            TESTCLIENT_WEBSOCKET_REQUIREMENTS["application_close_code"],
-            TESTCLIENT_WEBSOCKET_REQUIREMENTS["application_close_reason"],
             TESTCLIENT_WEBSOCKET_REQUIREMENTS["portal_cleanup"],
         }
+        if has_type_spec:
+            expected_covers.add(TESTCLIENT_WEBSOCKET_REQUIREMENTS["message_type_comparison_error"])
+        else:
+            expected_covers.add(TESTCLIENT_WEBSOCKET_REQUIREMENTS["application_close_code"])
+            expected_covers.add(TESTCLIENT_WEBSOCKET_REQUIREMENTS["application_close_reason"])
         if set(case["covers"]) != expected_covers:
             raise ContractError(
                 "Raw TestClient application-close covers must match the captured fields"
@@ -21925,6 +22097,8 @@ def _validate_case_payload(
             )
             if key in case
         }
+    if is_file_response and isinstance(case, dict) and "pathlike" in case:
+        expected_case_keys = expected_case_keys | {"pathlike"}
     if is_run_until_first_complete and "external_cancel_after_event_id" in case:
         expected_case_keys = expected_case_keys | {"external_cancel_after_event_id"}
     if is_run_until_first_complete and "kwargs_container" in case:
@@ -36880,15 +37054,29 @@ def validate_input_document_v48(
 
 
 def _contains_testclient_message_type_spec(case: Any) -> bool:
-    if not isinstance(case, dict) or (case.get("surface"), case.get("operation")) != (
-        TESTCLIENT_SURFACE,
-        TESTCLIENT_OPERATION,
+    if (
+        not isinstance(case, dict)
+        or case.get("surface") != TESTCLIENT_SURFACE
+        or case.get("operation") not in {TESTCLIENT_OPERATION, TESTCLIENT_WEBSOCKET_OPERATION}
     ):
         return False
     app = case.get("asgi_app")
-    messages = app.get("messages") if isinstance(app, dict) else None
-    return isinstance(messages, list) and any(
-        isinstance(message, dict) and "type_spec" in message for message in messages
+    if not isinstance(app, dict):
+        return False
+    messages = app.get("messages", [])
+    if not isinstance(messages, list):
+        messages = []
+    actions = app.get("actions", [])
+    if not isinstance(actions, list):
+        actions = []
+    action_messages = [
+        action.get("message")
+        for action in actions
+        if isinstance(action, dict) and "message" in action
+    ]
+    return any(
+        isinstance(message, dict) and "type_spec" in message
+        for message in [*messages, *action_messages]
     )
 
 
@@ -36977,6 +37165,13 @@ def migrate_input_document_v51(document: Any) -> dict[str, Any]:
                 raise ContractError(
                     f"parity case {case_index} cannot use Response header item_kind in @51 input"
                 )
+        if (case.get("surface"), case.get("operation")) == (
+            FILE_RESPONSE_SURFACE,
+            RESPONSE_OPERATION,
+        ) and "pathlike" in case:
+            raise ContractError(
+                f"parity case {case_index} cannot use FileResponse PathLike probes in @51 input"
+            )
         if (case.get("surface"), case.get("operation")) == (
             STATIC_FILES_SURFACE,
             STATIC_FILES_LOOKUP_PATH_OPERATION,

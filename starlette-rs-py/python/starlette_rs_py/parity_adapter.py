@@ -7391,6 +7391,8 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
         case_keys.add("background_task")
     if "stat_result" in case:
         case_keys.add("stat_result")
+    if "pathlike" in case:
+        case_keys.add("pathlike")
     _exact_object(
         case,
         case_keys,
@@ -7398,7 +7400,17 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
     )
     if case["surface"] != FILE_RESPONSE_SURFACE or case["operation"] != RESPONSE_OPERATION:
         raise ValueError("workflow is outside the declared FileResponse ASGI-call operation")
-    if case["observations"] != [RESPONSE_OPERATION]:
+    pathlike_spec = case.get("pathlike")
+    expected_observations = [RESPONSE_OPERATION]
+    if pathlike_spec is not None:
+        expected_observations.extend(
+            [
+                "pathlike-fspath-call-order",
+                "pathlike-fspath-thread-context",
+                "pathlike-open-after-start-send",
+            ]
+        )
+    if case["observations"] != expected_observations:
         raise ValueError("FileResponse observations must select asgi-call")
 
     file_spec = case["file"]
@@ -7453,6 +7465,24 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
             or not math.isfinite(stat_result_spec["mtime_seconds"])
         ):
             raise ValueError("FileResponse stat_result size and mtime must be valid")
+    pathlike_spec = case.get("pathlike")
+    if pathlike_spec is not None:
+        pathlike_spec = _exact_object(
+            pathlike_spec,
+            {
+                "fspath_results_relative_to_workspace",
+                "opened_file",
+                "record_fspath_call_order",
+                "record_is_event_loop_thread",
+                "record_send_start_completion_before_open",
+            },
+            "FileResponse PathLike input",
+        )
+        if (
+            not isinstance(pathlike_spec["fspath_results_relative_to_workspace"], list)
+            or len(pathlike_spec["fspath_results_relative_to_workspace"]) != 2
+        ):
+            raise ValueError("FileResponse PathLike input must define metadata and open paths")
 
     if type(case["status_code"]) is not int:
         raise ValueError("FileResponse status_code must be an integer")
@@ -7595,24 +7625,32 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
             stat_result = None
         elif scheduling is None:
             path.write_bytes(contents)
-            stat_size = stat_result_spec["size"] if stat_result_spec is not None else len(contents)
-            stat_mtime = (
-                stat_result_spec["mtime_seconds"] if stat_result_spec is not None else mtime_seconds
-            )
-            stat_result = os.stat_result(
-                (
-                    stat.S_IFREG | 0o644,
-                    0,
-                    0,
-                    1,
-                    0,
-                    0,
-                    stat_size,
-                    stat_mtime,
-                    stat_mtime,
-                    stat_mtime,
+            if pathlike_spec is not None:
+                stat_result = None
+                os.utime(path, (mtime_seconds, mtime_seconds))
+            else:
+                stat_size = (
+                    stat_result_spec["size"] if stat_result_spec is not None else len(contents)
                 )
-            )
+                stat_mtime = (
+                    stat_result_spec["mtime_seconds"]
+                    if stat_result_spec is not None
+                    else mtime_seconds
+                )
+                stat_result = os.stat_result(
+                    (
+                        stat.S_IFREG | 0o644,
+                        0,
+                        0,
+                        1,
+                        0,
+                        0,
+                        stat_size,
+                        stat_mtime,
+                        stat_mtime,
+                        stat_mtime,
+                    )
+                )
         else:
             try:
                 os.mkfifo(path)
@@ -7644,6 +7682,39 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
                     mtime_seconds,
                 )
             )
+        pathlike_calls: list[dict[str, Any]] = []
+        pathlike_runtime_state: dict[str, int | bool | None] = {
+            "event_loop_thread_id": None,
+            "response_start_send_completed": False,
+        }
+        if pathlike_spec is not None:
+            opened_file = pathlike_spec["opened_file"]
+            opened_path = Path(directory) / opened_file["name"]
+            opened_path.write_bytes(_decode_base64(opened_file["contents_base64"], "opened_file"))
+            os.utime(
+                opened_path,
+                (opened_file["mtime_seconds"], opened_file["mtime_seconds"]),
+            )
+
+            class InputPathLike:
+                def __fspath__(self) -> str:
+                    results = pathlike_spec["fspath_results_relative_to_workspace"]
+                    call_index = len(pathlike_calls)
+                    result = results[min(call_index, len(results) - 1)]
+                    pathlike_calls.append(
+                        {
+                            "call_index": call_index,
+                            "result_relative_to_workspace": result,
+                            "is_event_loop_thread": threading.get_ident()
+                            == pathlike_runtime_state["event_loop_thread_id"],
+                            "response_start_send_completed": pathlike_runtime_state[
+                                "response_start_send_completed"
+                            ],
+                        }
+                    )
+                    return str(Path(directory) / result)
+
+            path = InputPathLike()
         field_assignments = dict(case.get("call_time_field_assignments", {}))
         for field, value in field_assignments.items():
             if field == "path":
@@ -7791,9 +7862,17 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
                 sent.append(message)
                 execution_trace.append(message["type"])
                 send_index += 1
+                if pathlike_spec is not None and message["type"] == "http.response.start":
+                    pathlike_runtime_state["response_start_send_completed"] = True
 
             try:
-                asyncio.run(response(scope, receive, send))
+
+                async def invoke_response() -> None:
+                    if pathlike_spec is not None:
+                        pathlike_runtime_state["event_loop_thread_id"] = threading.get_ident()
+                    await response(scope, receive, send)
+
+                asyncio.run(invoke_response())
             except Exception as exc:
                 if file_kind == "regular" and send_error_spec is None:
                     raise
@@ -7938,6 +8017,8 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
             observation["header_view_probe"] = header_view_probe_value
         if event_loop_scheduling is not None:
             observation["event_loop_scheduling"] = event_loop_scheduling
+        if pathlike_spec is not None:
+            observation["pathlike_fspath_calls"] = pathlike_calls
         if background_task_spec is not None:
             observation["background_task"] = {
                 "initial_value": "",

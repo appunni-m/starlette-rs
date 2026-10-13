@@ -691,18 +691,24 @@ impl PyWebSocketTestSession {
         let message = message.bind(py).cast::<PyDict>()?;
         let message_type = message
             .get_item("type")?
-            .ok_or_else(|| PyKeyError::new_err("type"))?
-            .extract::<String>()?;
-        match message_type.as_str() {
-            "websocket.close" => return Err(websocket_disconnect(py, message)?),
-            "websocket.http.response.start" => {
-                return Err(self.websocket_denial_response(py, message)?);
-            }
-            // Starlette's _raise_on_close only rejects these two messages. It
-            // preserves any other initial message and registers close(1000)
-            // for context cleanup, even if the ASGI app did not accept.
-            _ => {}
+            .ok_or_else(|| PyKeyError::new_err("type"))?;
+        // Match Starlette's ordered Python equality checks against the original
+        // value so str-subclass comparison exceptions cross the PyO3 boundary.
+        if message_type
+            .rich_compare("websocket.close", CompareOp::Eq)?
+            .is_truthy()?
+        {
+            return Err(websocket_disconnect(py, message)?);
         }
+        if message_type
+            .rich_compare("websocket.http.response.start", CompareOp::Eq)?
+            .is_truthy()?
+        {
+            return Err(self.websocket_denial_response(py, message)?);
+        }
+        // Starlette's _raise_on_close only rejects these two messages. It
+        // preserves any other initial message and registers close(1000)
+        // for context cleanup, even if the ASGI app did not accept.
         self.accepted_subprotocol = message
             .get_item("subprotocol")?
             .filter(|value| !value.is_none())
@@ -767,13 +773,22 @@ impl PyWebSocketTestSession {
     fn raise_on_close(&self, py: Python<'_>, message: &Bound<'_, PyDict>) -> PyResult<()> {
         let message_type = message
             .get_item("type")?
-            .ok_or_else(|| PyKeyError::new_err("type"))?
-            .extract::<String>()?;
-        match message_type.as_str() {
-            "websocket.close" => Err(websocket_disconnect(py, message)?),
-            "websocket.http.response.start" => Err(self.websocket_denial_response(py, message)?),
-            _ => Ok(()),
+            .ok_or_else(|| PyKeyError::new_err("type"))?;
+        // Keep Python's comparison order and let rich-comparison errors
+        // propagate with their original type and message.
+        if message_type
+            .rich_compare("websocket.close", CompareOp::Eq)?
+            .is_truthy()?
+        {
+            return Err(websocket_disconnect(py, message)?);
         }
+        if message_type
+            .rich_compare("websocket.http.response.start", CompareOp::Eq)?
+            .is_truthy()?
+        {
+            return Err(self.websocket_denial_response(py, message)?);
+        }
+        Ok(())
     }
 
     fn send_client_message(&self, py: Python<'_>, message: Py<PyAny>) -> PyResult<()> {

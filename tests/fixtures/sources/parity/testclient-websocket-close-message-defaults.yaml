@@ -129,6 +129,79 @@
           }
         ]
       }
+    },
+    {
+      "case_id": "starlette.testclient.TestClient.websocket-session.close-message-type-subclass-equality-error",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "websocket-session",
+      "covers": [
+        "starlette.testclient.TestClient.websocket-session.scope-projection",
+        "starlette.testclient.TestClient.websocket-session.accept-handshake",
+        "starlette.testclient.TestClient.websocket-session.message-type-comparison-error-propagation",
+        "starlette.testclient.TestClient.websocket-session.portal-cleanup"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "websocket-session"
+      ],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "headers": [],
+        "backend": "asyncio",
+        "backend_options": {}
+      },
+      "websocket": {
+        "url": "/",
+        "subprotocols": [],
+        "headers": [],
+        "actions": [
+          {
+            "operation": "receive_text",
+            "capture_exception": true
+          }
+        ]
+      },
+      "asgi_app": {
+        "kind": "asgi3",
+        "scope_fields": [
+          "type",
+          "path"
+        ],
+        "actions": [
+          {
+            "operation": "receive"
+          },
+          {
+            "operation": "send",
+            "message": {
+              "type": "websocket.accept"
+            }
+          },
+          {
+            "operation": "send",
+            "message": {
+              "type_spec": {
+                "kind": "str-subclass-equality-error",
+                "value": "websocket.close",
+                "compare_to": "websocket.close",
+                "exception": {
+                  "class": "LookupError",
+                  "message": "WebSocket ASGI message type comparison failed"
+                }
+              }
+            }
+          }
+        ]
+      }
     }
   ]
 }

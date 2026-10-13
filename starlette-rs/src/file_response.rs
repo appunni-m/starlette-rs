@@ -354,6 +354,7 @@ pub struct FileResponseCall {
     background: bool,
     file_size: u64,
     error_body: Option<Vec<u8>>,
+    defer_open_path_conversion: bool,
 }
 
 /// An error while preparing or streaming a file response.
@@ -567,6 +568,15 @@ impl FileResponse {
         response.display_path = display_path.into();
         response.status_code = status_code;
         response.stat_override = stat_override;
+        response
+    }
+
+    /// Replaces the call-local path after a Python path-like value has been
+    /// converted at the source-compatible filesystem boundary.
+    #[must_use]
+    pub fn with_call_path(&self, path: PathBuf) -> Self {
+        let mut response = self.clone();
+        response.path = path;
         response
     }
 
@@ -806,6 +816,7 @@ impl FileResponse {
             background,
             file_size: metadata.size,
             error_body: None,
+            defer_open_path_conversion: false,
         })
     }
 }
@@ -819,6 +830,52 @@ impl FileResponseCall {
     #[must_use]
     pub fn sends_raw_headers(&self) -> bool {
         matches!(self.mode, FileResponseMode::Simple) && self.error_body.is_none()
+    }
+
+    /// Defers conversion of the path used to open the file until the body
+    /// branch is ready to open it.
+    ///
+    /// Python's `FileResponse` retains a path-like object and passes it to
+    /// `os.stat` and `anyio.open_file` separately. Its `__fspath__` method can
+    /// therefore return a different path for metadata and for opening. A
+    /// compatibility bridge enables this mode after metadata planning, then
+    /// supplies the path immediately before the first open operation.
+    pub fn defer_open_path_conversion(&mut self) {
+        self.defer_open_path_conversion = true;
+    }
+
+    /// Whether the next body-producing step needs a separately converted
+    /// path before it can open the file.
+    #[must_use]
+    pub fn needs_open_path_conversion(&self) -> bool {
+        if !self.defer_open_path_conversion
+            || self.file.is_some()
+            || self.error_body.is_some()
+            || self.send_header_only
+            || self.send_pathsend
+        {
+            return false;
+        }
+
+        match &self.phase {
+            FileResponsePhase::SimpleBody
+            | FileResponsePhase::SingleRangeBody { .. }
+            | FileResponsePhase::MultipartBody { .. } => true,
+            FileResponsePhase::SelectBody => {
+                matches!(
+                    self.mode,
+                    FileResponseMode::Simple | FileResponseMode::SingleRange { .. }
+                )
+            }
+            _ => false,
+        }
+    }
+
+    /// Supplies the path returned by the compatibility boundary immediately
+    /// before the first body-file open.
+    pub fn set_open_path(&mut self, path: PathBuf) {
+        self.path = path;
+        self.defer_open_path_conversion = false;
     }
 
     fn prepared_error(
@@ -843,6 +900,7 @@ impl FileResponseCall {
             background: false,
             file_size: 0,
             error_body: Some(body),
+            defer_open_path_conversion: false,
         }
     }
 
