@@ -16122,13 +16122,20 @@ def _validate_testclient_case(
             )
             compare_to = type_spec["compare_to"]
             if compare_to == "http.response.start":
+                response_start_fields = {"type_spec", "status", "headers_base64_pairs"}
+                if "headers_pair_container" in message:
+                    response_start_fields.add("headers_pair_container")
                 message = _exact(
                     message,
-                    {"type_spec", "status", "headers_base64_pairs"},
+                    response_start_fields,
                     f"TestClient response message[{index}]",
                 )
                 if type(message["status"]) is not int:
                     raise ContractError("TestClient response status must be an integer")
+                if message.get("headers_pair_container", "tuple") not in {"tuple", "list"}:
+                    raise ContractError(
+                        "TestClient response header pair container must be tuple or list"
+                    )
                 validate_pairs(
                     message["headers_base64_pairs"], f"response message[{index}].headers"
                 )
@@ -16149,13 +16156,20 @@ def _validate_testclient_case(
                 validate_base64(message["body_base64"], f"response message[{index}].body")
             continue
         if message_type == "http.response.start":
+            response_start_fields = {"type", "status", "headers_base64_pairs"}
+            if "headers_pair_container" in message:
+                response_start_fields.add("headers_pair_container")
             message = _exact(
                 message,
-                {"type", "status", "headers_base64_pairs"},
+                response_start_fields,
                 f"TestClient response message[{index}]",
             )
             if type(message["status"]) is not int:
                 raise ContractError("TestClient response status must be an integer")
+            if message.get("headers_pair_container", "tuple") not in {"tuple", "list"}:
+                raise ContractError(
+                    "TestClient response header pair container must be tuple or list"
+                )
             validate_pairs(message["headers_base64_pairs"], f"response message[{index}].headers")
         elif message_type == "http.response.debug":
             message = _exact(
@@ -34398,6 +34412,7 @@ def _validate_wsgi_app(value: Any) -> None:
         "wsgi-environ-report",
         "wsgi-raise-before-start",
         "wsgi-exc-info-rethrow",
+        "wsgi-iterator-error",
     }:
         raise ContractError("WSGIMiddleware app must use a declared input-defined WSGI app kind")
     kind = value["kind"]
@@ -34413,6 +34428,7 @@ def _validate_wsgi_app(value: Any) -> None:
         },
         "wsgi-raise-before-start": {"kind", "message"},
         "wsgi-exc-info-rethrow": {"kind", "status", "headers", "body_base64", "message"},
+        "wsgi-iterator-error": {"kind", "status", "headers", "chunks_base64", "failure"},
     }[kind]
     _exact(value, fields, "WSGIMiddleware WSGI app input")
     if kind == "wsgi-raise-before-start":
@@ -34424,6 +34440,18 @@ def _validate_wsgi_app(value: Any) -> None:
             base64.b64decode(value["body_base64"], validate=True)
         except (ValueError, TypeError) as exc:
             raise ContractError("WSGIMiddleware exception response body is invalid base64") from exc
+    if kind == "wsgi-iterator-error":
+        failure = _exact(
+            value["failure"],
+            {"class", "message"},
+            "WSGIMiddleware iterator failure",
+        )
+        failure_class = _string(failure["class"], "WSGIMiddleware iterator error class")
+        if failure_class not in {"OSError", "RuntimeError", "ValueError"}:
+            raise ContractError(
+                "WSGIMiddleware iterator error class must be OSError, RuntimeError, or ValueError"
+            )
+        _string(failure["message"], "WSGIMiddleware iterator error message")
     if not isinstance(value["status"], str) or " " not in value["status"]:
         raise ContractError("WSGIMiddleware status must contain a code and reason phrase")
     headers = value["headers"]
@@ -34439,9 +34467,13 @@ def _validate_wsgi_app(value: Any) -> None:
                 raise ContractError(
                     "WSGIMiddleware response headers must be ASCII encodable"
                 ) from exc
-    if kind == "wsgi-response":
+    if kind in {"wsgi-response", "wsgi-iterator-error"}:
         chunks = value["chunks_base64"]
-        if not isinstance(chunks, list):
+        if not isinstance(chunks, list) or (kind == "wsgi-iterator-error" and not chunks):
+            if kind == "wsgi-iterator-error":
+                raise ContractError(
+                    "WSGIMiddleware iterator error must follow at least one response chunk"
+                )
             raise ContractError("WSGIMiddleware response chunks must be a base64 array")
         for chunk in chunks:
             try:
@@ -34583,6 +34615,7 @@ def _asgi_middleware_semantic_coverage(case: dict[str, Any]) -> set[str]:
                 covered.add(WSGI_REQUIREMENTS["worker-thread-boundary"])
         if kind in {
             "wsgi-response",
+            "wsgi-iterator-error",
             "wsgi-environ-report",
             "wsgi-echo-body",
             "wsgi-exc-info-rethrow",

@@ -3388,6 +3388,29 @@ def _materialize_wsgi_app(spec: dict[str, Any]) -> Any:
     caller_thread_id = threading.get_ident()
     kind = spec["kind"]
 
+    if kind == "wsgi-iterator-error":
+        failure_classes = {
+            "OSError": OSError,
+            "RuntimeError": RuntimeError,
+            "ValueError": ValueError,
+        }
+        failure_type = failure_classes.get(spec["failure"]["class"])
+        if failure_type is None:
+            raise ValueError(
+                f"unsupported input-defined WSGI iterator error class: {spec['failure']['class']!r}"
+            )
+
+        def iterator_failure_app(_environ: dict[str, Any], start_response: Any) -> Iterator[bytes]:
+            def chunks() -> Iterator[bytes]:
+                start_response(spec["status"], [tuple(pair) for pair in spec["headers"]])
+                for chunk in spec["chunks_base64"]:
+                    yield base64.b64decode(chunk, validate=True)
+                raise failure_type(spec["failure"]["message"])
+
+            return chunks()
+
+        return iterator_failure_app
+
     def app(environ: dict[str, Any], start_response: Any) -> list[bytes]:
         if kind == "wsgi-response":
             start_response(spec["status"], [tuple(pair) for pair in spec["headers"]])
@@ -10789,6 +10812,22 @@ def _run_static_files_lookup_path_case(case: dict[str, Any]) -> dict[str, Any]:
         or case["observations"] != expected_observations
     ):
         raise ValueError("workflow is outside the declared StaticFiles lookup-path operation")
+
+    if isinstance(case["lookup_path"], dict) and os.name != "posix":
+        return {
+            "case_id": case["case_id"],
+            "status": "skipped",
+            "observations": [
+                {
+                    "step_id": STATIC_FILES_LOOKUP_PATH_OPERATION,
+                    "status": "skipped",
+                    "reason": (
+                        "filesystem-byte lookup paths require POSIX "
+                        "filesystem surrogateescape support"
+                    ),
+                }
+            ],
+        }
 
     from starlette.staticfiles import StaticFiles
 

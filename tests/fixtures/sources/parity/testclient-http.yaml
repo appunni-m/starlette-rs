@@ -4335,6 +4335,66 @@
           "headers"
         ]
       }
+    },
+    {
+      "case_id": "starlette.testclient.TestClient.request-response.list-header-pair-iterable",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "request-response",
+      "covers": [
+        "starlette.testclient.TestClient.request-response.scope-projection",
+        "starlette.testclient.TestClient.request-response.request-message",
+        "starlette.testclient.TestClient.request-response.response-and-debug"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "request-response"
+      ],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": [
+          "testclient",
+          50000
+        ],
+        "headers": []
+      },
+      "request": {
+        "method": "GET",
+        "url": "/list-header-pair",
+        "headers_base64_pairs": [],
+        "body_base64": ""
+      },
+      "asgi_app": {
+        "kind": "asgi3",
+        "scope_fields": [
+          "type",
+          "method",
+          "path"
+        ],
+        "receive_count": 1,
+        "messages": [
+          {
+            "type": "http.response.start",
+            "status": 201,
+            "headers_pair_container": "list",
+            "headers_base64_pairs": [
+              [
+                "eC1saXN0LXBhaXI=",
+                "YWNjZXB0ZWQ="
+              ]
+            ]
+          },
+          {
+            "type": "http.response.body",
+            "body_base64": "b2s=",
+            "more_body": false
+          }
+        ]
+      }
     }
   ]
 }

@@ -7,7 +7,7 @@ use pyo3::class::gc::{PyTraverseError, PyVisit};
 use pyo3::create_exception;
 use pyo3::exceptions::{
     PyAssertionError, PyException, PyKeyError, PyModuleNotFoundError, PyRuntimeError,
-    PyStopIteration,
+    PyStopIteration, PyValueError,
 };
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyDict, PyInt, PyList, PyModule, PyString, PyTuple};
@@ -1877,15 +1877,22 @@ fn decode_response_headers(
     let headers = message.call_method1("get", ("headers", PyList::empty(py)))?;
     let mut pairs = Vec::new();
     for item in headers.try_iter()? {
-        let pair = item?.cast_into::<PyTuple>()?;
-        let name = pair
-            .get_item(0)?
-            .call_method0("decode")?
-            .extract::<String>()?;
-        let value = pair
-            .get_item(1)?
-            .call_method0("decode")?
-            .extract::<String>()?;
+        // The pinned list comprehension unpacks any two-item iterable here,
+        // rather than requiring each header pair to be a tuple.
+        let mut pair = item?.try_iter()?;
+        let name = pair.next().transpose()?.ok_or_else(|| {
+            PyValueError::new_err("not enough values to unpack (expected 2, got 0)")
+        })?;
+        let value = pair.next().transpose()?.ok_or_else(|| {
+            PyValueError::new_err("not enough values to unpack (expected 2, got 1)")
+        })?;
+        if pair.next().transpose()?.is_some() {
+            return Err(PyValueError::new_err(
+                "too many values to unpack (expected 2)",
+            ));
+        }
+        let name = name.call_method0("decode")?.extract::<String>()?;
+        let value = value.call_method0("decode")?.extract::<String>()?;
         pairs.push((name, value));
     }
     Ok(pairs)

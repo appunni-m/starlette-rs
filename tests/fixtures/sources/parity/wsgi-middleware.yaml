@@ -640,6 +640,109 @@
       "observations": [
         "dispatch"
       ]
+    },
+    {
+      "case_id": "starlette.middleware.wsgi.WSGIMiddleware.__call__.response-iterator-error-after-chunks",
+      "surface": "starlette.middleware.wsgi.WSGIMiddleware",
+      "operation": "__call__",
+      "covers": [
+        "starlette.middleware.wsgi.WSGIMiddleware.construct",
+        "starlette.middleware.wsgi.WSGIMiddleware.response-order"
+      ],
+      "execution_schedule": [
+        "dispatch"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "steps": [
+        {
+          "step_id": "middleware",
+          "surface": "starlette.middleware.wsgi.WSGIMiddleware",
+          "operation": "__init__",
+          "receiver": null,
+          "arguments": {
+            "app": {
+              "kind": "literal",
+              "value": {
+                "kind": "wsgi-iterator-error",
+                "status": "206 Partial Content",
+                "headers": [
+                  [
+                    "Content-Type",
+                    "application/octet-stream"
+                  ]
+                ],
+                "chunks_base64": [
+                  "Zmlyc3QtY2h1bms=",
+                  "c2Vjb25kLWNodW5r"
+                ],
+                "failure": {
+                  "class": "ValueError",
+                  "message": "response iterator failed after two chunks"
+                }
+              }
+            }
+          }
+        },
+        {
+          "step_id": "dispatch",
+          "surface": "starlette.middleware.wsgi.WSGIMiddleware",
+          "operation": "__call__",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "middleware"
+          },
+          "arguments": {
+            "scope": {
+              "kind": "literal",
+              "value": {
+                "type": "http",
+                "asgi": {
+                  "version": "3.0",
+                  "spec_version": "2.4"
+                },
+                "http_version": "1.1",
+                "method": "GET",
+                "scheme": "http",
+                "path": "/wsgi",
+                "raw_path_base64": "L3dzZ2k=",
+                "query_string_base64": "",
+                "root_path": "",
+                "headers_base64_pairs": [],
+                "client": [
+                  "127.0.0.1",
+                  12345
+                ],
+                "server": [
+                  "testserver",
+                  80
+                ]
+              }
+            },
+            "receive": {
+              "kind": "literal",
+              "value": [
+                {
+                  "type": "http.request",
+                  "body_base64": "",
+                  "more_body": false
+                }
+              ]
+            },
+            "send": {
+              "kind": "literal",
+              "value": {
+                "kind": "capture-asgi-send"
+              }
+            }
+          }
+        }
+      ],
+      "observations": [
+        "dispatch"
+      ]
     }
   ]
 }

@@ -23,6 +23,7 @@ def _message(value: dict[str, Any]) -> dict[str, Any]:
     message = dict(value)
     type_spec = message.pop("type_spec", None)
     body_kind = message.pop("body_kind", "bytes")
+    headers_pair_container = message.pop("headers_pair_container", "tuple")
     message.pop("headers_base64_pairs", None)
     message.pop("body_base64", None)
     message.pop("bytes_base64", None)
@@ -41,7 +42,13 @@ def _message(value: dict[str, Any]) -> dict[str, Any]:
 
         message["type"] = InputMessageType(type_spec["value"])
     if "headers_base64_pairs" in value:
-        message["headers"] = _decoded_pairs(value["headers_base64_pairs"])
+        headers = _decoded_pairs(value["headers_base64_pairs"])
+        if headers_pair_container == "tuple":
+            message["headers"] = headers
+        elif headers_pair_container == "list":
+            message["headers"] = [list(pair) for pair in headers]
+        else:
+            raise ValueError("unsupported input-defined ASGI header pair container")
     if "body_base64" in value:
         body = base64.b64decode(value["body_base64"])
         if body_kind == "bytes":

@@ -3648,6 +3648,29 @@ def _materialize_wsgi_app(spec: dict[str, Any]) -> Any:
     caller_thread_id = threading.get_ident()
     kind = spec["kind"]
 
+    if kind == "wsgi-iterator-error":
+        failure_classes = {
+            "OSError": OSError,
+            "RuntimeError": RuntimeError,
+            "ValueError": ValueError,
+        }
+        failure_type = failure_classes.get(spec["failure"]["class"])
+        if failure_type is None:
+            raise ValueError(
+                f"unsupported input-defined WSGI iterator error class: {spec['failure']['class']!r}"
+            )
+
+        def iterator_failure_app(_environ: dict[str, Any], start_response: Any) -> Iterator[bytes]:
+            def chunks() -> Iterator[bytes]:
+                start_response(spec["status"], [tuple(pair) for pair in spec["headers"]])
+                for chunk in spec["chunks_base64"]:
+                    yield base64.b64decode(chunk, validate=True)
+                raise failure_type(spec["failure"]["message"])
+
+            return chunks()
+
+        return iterator_failure_app
+
     def app(environ: dict[str, Any], start_response: Any) -> list[bytes]:
         if kind == "wsgi-response":
             start_response(spec["status"], [tuple(pair) for pair in spec["headers"]])
@@ -5598,12 +5621,23 @@ def _websocket_endpoint_receive_hook(spec: dict[str, Any], calls: list[dict[str,
     return on_receive
 
 
-def _websocket_endpoint_disconnect_hook(spec: dict[str, Any], calls: list[dict[str, Any]]) -> Any:
+def _websocket_endpoint_disconnect_hook(
+    spec: dict[str, Any], calls: list[dict[str, Any]], cancellation_ready: asyncio.Event
+) -> Any:
     if spec["kind"] == "raise-runtime-error-synchronously":
 
         def on_disconnect(_endpoint: Any, _websocket: Any, close_code: int) -> None:
             calls.append({"hook": "on_disconnect", "close_code": close_code})
             raise RuntimeError(spec["message"])
+
+        return on_disconnect
+
+    if spec["kind"] == "wait-for-cancellation":
+
+        async def on_disconnect(_endpoint: Any, _websocket: Any, close_code: int) -> None:
+            calls.append({"hook": "on_disconnect", "close_code": close_code})
+            cancellation_ready.set()
+            await asyncio.Future()
 
         return on_disconnect
 
@@ -5644,10 +5678,10 @@ async def _await_cancelled_websocket_endpoint(
     scope: dict[str, Any],
     receive: _WebSocketEndpointInputReceive,
     send: Any,
+    cancellation_ready: asyncio.Event,
 ) -> dict[str, Any] | None:
-    receive.waiting = asyncio.Event()
     task = asyncio.create_task(_await_websocket_endpoint(endpoint_type, scope, receive, send))
-    await receive.waiting.wait()
+    await cancellation_ready.wait()
     task.cancel()
     try:
         await task
@@ -5713,6 +5747,7 @@ def _run_websocket_endpoint_case(case: dict[str, Any]) -> dict[str, Any]:
         )
         hook_calls: list[dict[str, Any]] = []
         sent_messages: list[dict[str, Any]] = []
+        cancellation_ready = asyncio.Event()
         methods: dict[str, Any] = {
             "encoding": _websocket_endpoint_encoding(endpoint_spec["encoding"])
         }
@@ -5734,21 +5769,26 @@ def _run_websocket_endpoint_case(case: dict[str, Any]) -> dict[str, Any]:
             "record-and-close",
             "raise-runtime-error",
             "raise-runtime-error-synchronously",
+            "wait-for-cancellation",
         }:
             methods["on_disconnect"] = _websocket_endpoint_disconnect_hook(
-                endpoint_spec["on_disconnect"], hook_calls
+                endpoint_spec["on_disconnect"], hook_calls, cancellation_ready
             )
 
         endpoint_type = type("InputWebSocketEndpoint", (WebSocketEndpoint,), methods)
         receive = _WebSocketEndpointInputReceive(
             incoming, cancel_on_exhaustion=session_spec.get("cancel_at") == "receive"
         )
+        if session_spec.get("cancel_at") == "receive":
+            receive.waiting = cancellation_ready
         send = _WebSocketEndpointCaptureSend(sent_messages)
 
         try:
-            if session_spec.get("cancel_at") == "receive":
+            if session_spec.get("cancel_at") in {"receive", "disconnect"}:
                 error = asyncio.run(
-                    _await_cancelled_websocket_endpoint(endpoint_type, scope, receive, send)
+                    _await_cancelled_websocket_endpoint(
+                        endpoint_type, scope, receive, send, cancellation_ready
+                    )
                 )
             else:
                 error: dict[str, Any] | None = None
@@ -8580,6 +8620,22 @@ def _run_static_files_lookup_path_case(case: dict[str, Any]) -> dict[str, Any]:
     ):
         raise ValueError("workflow is outside the declared StaticFiles lookup-path operation")
 
+    if isinstance(case["lookup_path"], dict) and os.name != "posix":
+        return {
+            "case_id": case["case_id"],
+            "status": "skipped",
+            "observations": [
+                {
+                    "step_id": STATIC_FILES_LOOKUP_PATH_OPERATION,
+                    "status": "skipped",
+                    "reason": (
+                        "filesystem-byte lookup paths require POSIX "
+                        "filesystem surrogateescape support"
+                    ),
+                }
+            ],
+        }
+
     from starlette.staticfiles import StaticFiles
 
     with tempfile.TemporaryDirectory(
@@ -8621,12 +8677,33 @@ def _run_static_files_lookup_path_case(case: dict[str, Any]) -> dict[str, Any]:
                 case["directory_pathlike"]["fspath_results_relative_to_workspace"],
             )
             configured_directory = directory_pathlike
+        lookup_path_input = case["lookup_path"]
+        if isinstance(lookup_path_input, dict):
+            lookup_path_input = _exact_object(
+                lookup_path_input,
+                {"encoding", "data"},
+                "StaticFiles lookup-path encoded path",
+            )
+            if lookup_path_input["encoding"] != "filesystem-bytes-base64":
+                raise ValueError("StaticFiles lookup-path encoding must be filesystem-bytes-base64")
+            lookup_path = os.fsdecode(
+                _decode_base64(
+                    lookup_path_input["data"],
+                    "StaticFiles lookup-path encoded data",
+                )
+            )
+        elif isinstance(lookup_path_input, str):
+            lookup_path = lookup_path_input
+        else:
+            raise ValueError(
+                "StaticFiles lookup-path must be a string or tagged filesystem-byte value"
+            )
         application = StaticFiles(
             directory=configured_directory,
             check_dir=case["check_dir"],
             follow_symlink=case["follow_symlink"],
         )
-        full_path, stat_result = application.lookup_path(case["lookup_path"])
+        full_path, stat_result = application.lookup_path(lookup_path)
         if directory_pathlike is None:
             relative_root = root.absolute() if case["follow_symlink"] else root.resolve()
             resolved_path = (
