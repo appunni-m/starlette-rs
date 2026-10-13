@@ -9,10 +9,10 @@ incomplete.
 ## Current parity snapshot
 
 Implementation remains the active phase for the full Starlette replacement.
-The working-tree `parity-input@52` contract indexes 2,322 cases across 306
+The working-tree `parity-input@52` contract indexes 2,323 cases across 306
 parity inputs, two benchmark inputs, 138 Starlette compatibility operations,
-13 native operations, and 1,254 parity requirements (1,214 compatibility and
-40 native).
+13 native operations, and 1,255 parity requirements (1,214 compatibility and
+41 native).
 The latest static inventory reports 999/999 API candidates dispositioned and
 846 source rows: 791 input mappings, 55 source-backed `not_applicable` rows,
 and zero fixture backlog. The latest Response header-pair, StaticFiles direct and ASGI surrogateescape, and WebSocketEndpoint context comparisons remain unexecuted until the full parity phase. The newest Request.app input seeds a preexisting

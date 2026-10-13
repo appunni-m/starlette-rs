@@ -20641,14 +20641,14 @@ def _validate_native_lazy_stream_input(case: dict[str, Any]) -> None:
         item = _exact(item_value, {"kind", "value"}, context)
         if item["kind"] == "text":
             _string(item["value"], f"{context}.value")
-        elif item["kind"] == "base64":
+        elif item["kind"] == "base64-bytes":
             encoded = _string(item["value"], f"{context}.value")
             try:
                 base64.b64decode(encoded, validate=True)
             except (binascii.Error, ValueError) as exc:
                 raise ContractError(f"{context}.value must be valid base64") from exc
         else:
-            raise ContractError(f"{context}.kind must be text or base64")
+            raise ContractError(f"{context}.kind must be text or base64-bytes")
     terminal = source["terminal"]
     if not isinstance(terminal, dict) or terminal.get("kind") not in {"end", "error"}:
         raise ContractError("native streaming source.terminal must select end or error")
@@ -20660,8 +20660,10 @@ def _validate_native_lazy_stream_input(case: dict[str, Any]) -> None:
         _string(error["type"], "native streaming source error.type")
         _string(error["message"], "native streaming source error.message")
     markers = source["pull_markers"]
-    if not isinstance(markers, list) or len(markers) < len(items):
-        raise ContractError("native streaming source.pull_markers must cover every source item")
+    if not isinstance(markers, list) or len(markers) != len(items):
+        raise ContractError(
+            "native streaming source.pull_markers must have one marker per source item"
+        )
     for index, marker in enumerate(markers):
         _string(marker, f"native streaming source.pull_markers[{index}]")
     _string(source["finally_marker"], "native streaming source.finally_marker")

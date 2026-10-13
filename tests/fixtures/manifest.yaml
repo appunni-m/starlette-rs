@@ -35171,6 +35171,18 @@
               ]
             },
             {
+              "id": "starlette-rs.StreamingResponse.lazy-source-call.binary-chunk-preservation",
+              "dimension": "input_family",
+              "description": "Forward an input-defined binary stream chunk byte-for-byte through the live source and ASGI response body.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette-rs.StreamingResponse.lazy-source-call.background-order",
               "dimension": "protocol_variant",
               "description": "Run input-defined background values only after a successful final response send.",

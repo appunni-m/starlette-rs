@@ -231,6 +231,72 @@
         "workflow"
       ],
       "streaming": "async-generator"
+    },
+    {
+      "case_id": "starlette-rs.StreamingResponse.lazy-source-call.binary-chunk-preservation",
+      "surface": "starlette-rs.StreamingResponse",
+      "operation": "lazy-source-call",
+      "covers": [
+        "starlette-rs.StreamingResponse.lazy-source-call.binary-chunk-preservation"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "status_code": 200,
+      "header_pairs": [],
+      "media_type": "application/octet-stream",
+      "source": {
+        "items": [
+          {
+            "kind": "base64-bytes",
+            "value": "AAEC/w=="
+          }
+        ],
+        "terminal": {
+          "kind": "end"
+        },
+        "pull_markers": [
+          "binary-chunk-pulled"
+        ],
+        "finally_marker": "binary-source-finished"
+      },
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/stream-binary",
+        "raw_path_base64": "L3N0cmVhbS1iaW5hcnk=",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "background": {
+        "kind": "async-values-recorder",
+        "values": []
+      },
+      "observations": [
+        "workflow"
+      ],
+      "streaming": "async-generator"
     }
   ]
 }

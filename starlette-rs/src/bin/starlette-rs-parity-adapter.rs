@@ -2411,13 +2411,18 @@ fn run_native_streaming_source_case(case: &Value) -> Result<Value, String> {
             })
         })
         .collect::<Result<Vec<_>, _>>()?;
-    if items.len() != pull_markers.len() {
+    if items.len() != pull_markers.len() || pull_markers.iter().any(String::is_empty) {
         return Err(String::from(
-            "native streaming source pull_markers must match item count",
+            "native streaming source pull_markers must have one non-empty marker per item",
         ));
     }
-    let finally_marker =
-        string_field(source, "finally_marker", "native streaming source")?.to_owned();
+    let finally_marker = string_field(source, "finally_marker", "native streaming source")?;
+    if finally_marker.is_empty() {
+        return Err(String::from(
+            "native streaming source finally_marker must be non-empty",
+        ));
+    }
+    let finally_marker = finally_marker.to_owned();
     let terminal = exact_object(
         source
             .get("terminal")

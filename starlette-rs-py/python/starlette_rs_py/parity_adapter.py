@@ -4767,7 +4767,7 @@ def _run_native_lazy_source_case(case: dict[str, Any]) -> dict[str, Any]:
     if (
         case["surface"] != NATIVE_STREAM_SOURCE_SURFACE
         or case["operation"] != NATIVE_STREAM_SOURCE_OPERATION
-        or case["observations"] != ["asgi-call", "execution-trace", "source-poll-trace"]
+        or case["observations"] != ["workflow"]
         or case["streaming"] != "async-generator"
         or case["incoming"] != []
     ):
