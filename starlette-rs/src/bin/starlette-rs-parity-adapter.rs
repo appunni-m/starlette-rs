@@ -7960,6 +7960,21 @@ fn run_static_files_lookup_path_case(case: &Value) -> Result<Value, String> {
             "StaticFiles lookup-path requires at least one input file",
         ));
     }
+    let has_filesystem_byte_path = case.get("lookup_path").is_some_and(Value::is_object)
+        || file_inputs
+            .iter()
+            .any(|file_input| file_input.get("path").is_some_and(Value::is_object));
+    if has_filesystem_byte_path && !cfg!(unix) {
+        return Ok(json!({
+            "case_id": case_id,
+            "status": "skipped",
+            "observations": [{
+                "step_id": STATIC_FILES_LOOKUP_PATH_OPERATION,
+                "status": "skipped",
+                "reason": "filesystem-byte paths require POSIX filesystem surrogateescape support",
+            }],
+        }));
+    }
     let lookup_path = static_files_lookup_path_value(
         case.get("lookup_path")
             .ok_or_else(|| String::from("StaticFiles lookup-path path is missing"))?,
@@ -7996,10 +8011,8 @@ fn run_static_files_lookup_path_case(case: &Value) -> Result<Value, String> {
                 .path
                 .strip_prefix(&resolved_root)
                 .map_err(|error| format!("StaticFiles result escaped the root: {error}"))?
-                .components()
-                .map(|component| component.as_os_str().to_string_lossy().into_owned())
-                .collect::<Vec<_>>()
-                .join("/");
+                .to_path_buf();
+            let relative_path_bytes = static_files_relative_path_bytes(&relative_path);
             let mode_type_bits = file
                 .metadata
                 .stat_result()
@@ -8014,7 +8027,7 @@ fn run_static_files_lookup_path_case(case: &Value) -> Result<Value, String> {
                     }
                 });
             json!({
-                "resolved_path": relative_path,
+                "resolved_path": static_files_path_observation(&relative_path_bytes),
                 "stat_result_present": true,
                 "mode_type_bits": mode_type_bits,
                 "is_file": file.is_file,
@@ -9236,7 +9249,7 @@ fn create_static_files_lookup_path_input(
                     })?;
                 }
                 for file_input in file_inputs {
-                    write_static_asset(&root, file_input, "StaticFiles lookup-path file")?;
+                    write_static_lookup_asset(&root, file_input, "StaticFiles lookup-path file")?;
                 }
                 for file_input in outside_files {
                     write_static_asset(
@@ -9334,7 +9347,28 @@ fn write_static_asset(root: &Path, input: &Value, context: &str) -> Result<(), S
         context,
     )?;
     let relative_path = string_field(file_input, "path", context)?;
-    let relative = Path::new(relative_path);
+    write_static_asset_with_relative_path(root, file_input, context, Path::new(relative_path))
+}
+
+fn write_static_lookup_asset(root: &Path, input: &Value, context: &str) -> Result<(), String> {
+    let file_input = exact_object(
+        input,
+        &["path", "contents_base64", "mtime_seconds"],
+        context,
+    )?;
+    let path_value = file_input
+        .get("path")
+        .ok_or_else(|| format!("{context}.path is missing"))?;
+    let relative_path = static_files_lookup_path_value(path_value)?;
+    write_static_asset_with_relative_path(root, file_input, context, Path::new(&relative_path))
+}
+
+fn write_static_asset_with_relative_path(
+    root: &Path,
+    file_input: &Map<String, Value>,
+    context: &str,
+    relative: &Path,
+) -> Result<(), String> {
     if relative.as_os_str().is_empty()
         || relative.is_absolute()
         || relative
@@ -9371,6 +9405,36 @@ fn write_static_asset(root: &Path, input: &Value, context: &str) -> Result<(), S
             .set_modified(timestamp),
     )
     .map_err(|error| format!("cannot set StaticFiles asset time: {error}"))
+}
+
+fn static_files_relative_path_bytes(path: &Path) -> Vec<u8> {
+    let mut bytes = Vec::new();
+    for component in path.components() {
+        let std::path::Component::Normal(component) = component else {
+            continue;
+        };
+        if !bytes.is_empty() {
+            bytes.push(b'/');
+        }
+        #[cfg(unix)]
+        bytes.extend_from_slice(component.as_bytes());
+        #[cfg(not(unix))]
+        bytes.extend_from_slice(component.to_string_lossy().as_bytes());
+    }
+    if bytes.is_empty() {
+        bytes.push(b'.');
+    }
+    bytes
+}
+
+fn static_files_path_observation(path_bytes: &[u8]) -> Value {
+    match std::str::from_utf8(path_bytes) {
+        Ok(path) => json!(path),
+        Err(_) => json!({
+            "encoding": "filesystem-bytes-base64",
+            "data": encode_base64(path_bytes),
+        }),
+    }
 }
 
 fn system_time_from_unix_seconds(seconds: f64) -> Option<std::time::SystemTime> {

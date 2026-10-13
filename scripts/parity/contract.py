@@ -247,6 +247,9 @@ WEBSOCKET_ENDPOINT_REQUIREMENTS = {
     "default_bytes": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.decode-default-bytes",
     "callback_error": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.callback-error-propagation",
     "invalid_encoding": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.invalid-encoding",
+    "decode_stop_iteration_pep479": (
+        f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.decode-stop-iteration-pep479"
+    ),
     "cancellation": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.cancellation-finalization",
     "cancellation_disconnect_error": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.cancellation-finalizer-error-context",
     "cancellation_during_finalizer": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.cancellation-during-disconnect-finalizer",
@@ -756,6 +759,7 @@ TEMPLATING_PUBLIC_REQUIREMENTS = {
         "url-for",
         "url-for-function-name",
         "url-for-function-metadata",
+        "url-for-function-annotations",
         "directory-sequence",
         "client-debug-metadata",
     )
@@ -1165,6 +1169,7 @@ ROUTER_SEQUENCE_CASE_KEYS = (CASE_KEYS - {"execution_schedule", "scope", "incomi
 ROUTER_SEQUENCE_REQUIREMENTS = {
     "append_route": "starlette.routing.Router.route-dispatch.live-route-list-append",
     "mutate_methods": "starlette.routing.Router.route-dispatch.live-route-method-mutation",
+    "mutate_path": "starlette.routing.Router.route-dispatch.live-route-path-mutation-keeps-compiled-pattern",
     "mount_child_add_route": "starlette.routing.Router.route-dispatch.mount-child-router-live-route-add",
 }
 ROUTER_MOUNT_REQUIREMENTS = {
@@ -3613,21 +3618,36 @@ def _validate_websocket_endpoint_case_stimulus(case: dict[str, Any]) -> None:
         "WebSocketEndpoint endpoint input",
     )
     encoding = endpoint["encoding"]
+    encoding_kind = None
     if isinstance(encoding, dict):
-        encoding = _exact(
-            encoding,
-            {"kind", "value", "format_value"},
-            "WebSocketEndpoint formatted encoding",
-        )
-        if encoding["kind"] != "formatted-str-subclass":
-            raise ContractError(
-                "WebSocketEndpoint formatted encoding kind must be formatted-str-subclass"
+        encoding_kind = encoding.get("kind")
+        if encoding_kind == "formatted-str-subclass":
+            encoding = _exact(
+                encoding,
+                {"kind", "value", "format_value"},
+                "WebSocketEndpoint formatted encoding",
             )
-        _string(encoding["value"], "WebSocketEndpoint formatted encoding.value")
-        _string(encoding["format_value"], "WebSocketEndpoint formatted encoding.format_value")
-        if encoding["value"] in {"text", "bytes", "json"}:
-            raise ContractError("WebSocketEndpoint formatted encoding must select an invalid value")
-        encoding_supported = False
+            _string(encoding["value"], "WebSocketEndpoint formatted encoding.value")
+            _string(
+                encoding["format_value"],
+                "WebSocketEndpoint formatted encoding.format_value",
+            )
+            if encoding["value"] in {"text", "bytes", "json"}:
+                raise ContractError(
+                    "WebSocketEndpoint formatted encoding must select an invalid value"
+                )
+            encoding_supported = False
+        elif encoding_kind == "stop-iteration-str-subclass-equality":
+            encoding = _exact(
+                encoding,
+                {"kind", "value", "message"},
+                "WebSocketEndpoint StopIteration encoding",
+            )
+            _string(encoding["value"], "WebSocketEndpoint StopIteration encoding.value")
+            _string(encoding["message"], "WebSocketEndpoint StopIteration encoding.message")
+            encoding_supported = False
+        else:
+            raise ContractError("WebSocketEndpoint encoding record kind is unsupported")
     else:
         if encoding is not None and not isinstance(encoding, str):
             raise ContractError("WebSocketEndpoint encoding must be null or a string")
@@ -3870,6 +3890,21 @@ def _validate_websocket_endpoint_case_stimulus(case: dict[str, Any]) -> None:
             raise ContractError(
                 f"{context}.incoming must be connect/disconnect or connect/receive[/disconnect]"
             )
+
+        if encoding_kind == "stop-iteration-str-subclass-equality":
+            if (
+                message_types != ["websocket.connect", "websocket.receive"]
+                or on_receive["kind"] != "no-op"
+                or on_disconnect["kind"] != "record-and-close"
+            ):
+                raise ContractError(
+                    f"{context} StopIteration encoding equality requires a receive error "
+                    "and observed disconnect finalization"
+                )
+            exercised_requirements.add(
+                WEBSOCKET_ENDPOINT_REQUIREMENTS["decode_stop_iteration_pep479"]
+            )
+            continue
 
         if on_connect["kind"] == "accept":
             offered = session["scope"]["subprotocols"]
@@ -8298,11 +8333,23 @@ def _validate_static_files_lookup_path_case(
     if not isinstance(files, list):
         raise ContractError("StaticFiles lookup-path files must be an array")
     file_paths: set[str] = set()
+    filesystem_byte_file_paths: set[bytes] = set()
     for index, file_input in enumerate(files):
-        path, _ = _validate_static_asset_file(file_input, f"StaticFiles lookup-path.files[{index}]")
-        if path in file_paths:
-            raise ContractError("StaticFiles lookup-path file paths must be unique")
-        file_paths.add(path)
+        context = f"StaticFiles lookup-path.files[{index}]"
+        file_input = _exact(file_input, {"path", "contents_base64", "mtime_seconds"}, context)
+        if isinstance(file_input["path"], dict):
+            _validate_static_asset_payload(file_input, context)
+            path_bytes = _validate_static_filesystem_byte_filename(
+                file_input["path"], f"{context}.path"
+            )
+            if path_bytes in filesystem_byte_file_paths:
+                raise ContractError("StaticFiles lookup-path file paths must be unique")
+            filesystem_byte_file_paths.add(path_bytes)
+        else:
+            path, _ = _validate_static_asset_file(file_input, context)
+            if path in file_paths:
+                raise ContractError("StaticFiles lookup-path file paths must be unique")
+            file_paths.add(path)
 
     filesystem = _exact(
         case["filesystem"],
@@ -8485,25 +8532,12 @@ def _validate_static_files_lookup_path_case(
         )
         if encoded_path["encoding"] != "filesystem-bytes-base64":
             raise ContractError("StaticFiles lookup-path encoding must be filesystem-bytes-base64")
-        encoded_data = _string(encoded_path["data"], "StaticFiles lookup-path encoded data")
-        try:
-            path_bytes = base64.b64decode(encoded_data, validate=True)
-        except (binascii.Error, ValueError) as error:
-            raise ContractError("StaticFiles lookup-path data must be valid base64") from error
-        if (
-            not path_bytes
-            or b"\x00" in path_bytes
-            or b"/" in path_bytes
-            or b"\\" in path_bytes
-            or path_bytes in (b".", b"..")
-        ):
+        path_bytes = _validate_static_filesystem_byte_filename(
+            encoded_path, "StaticFiles lookup-path encoded path"
+        )
+        if filesystem_byte_file_paths and path_bytes not in filesystem_byte_file_paths:
             raise ContractError(
-                "StaticFiles filesystem-byte lookup paths must be a relative filename"
-            )
-        decoded_path = path_bytes.decode("utf-8", errors="surrogateescape")
-        if not any(0xDC80 <= ord(character) <= 0xDCFF for character in decoded_path):
-            raise ContractError(
-                "StaticFiles filesystem-byte lookup path must require surrogateescape"
+                "StaticFiles filesystem-byte lookup path must select a matching input file"
             )
         if pathlike_results is not None:
             raise ContractError(
@@ -8919,16 +8953,8 @@ def _validate_static_files_configuration_check_case(case: dict[str, Any]) -> Non
         )
 
 
-def _validate_static_asset_file(value: Any, context: str) -> tuple[str, float]:
+def _validate_static_asset_payload(value: Any, context: str) -> tuple[dict[str, Any], float]:
     file_input = _exact(value, {"path", "contents_base64", "mtime_seconds"}, context)
-    path = _string(file_input["path"], f"{context}.path")
-    if (
-        not path
-        or Path(path).is_absolute()
-        or any(part in {"", ".", ".."} for part in path.split("/"))
-        or "\\" in path
-    ):
-        raise ContractError(f"{context}.path must be a relative, normalized asset path")
     contents = _string(file_input["contents_base64"], f"{context}.contents_base64")
     try:
         base64.b64decode(contents, validate=True)
@@ -8937,7 +8963,43 @@ def _validate_static_asset_file(value: Any, context: str) -> tuple[str, float]:
     mtime = file_input["mtime_seconds"]
     if type(mtime) not in {int, float} or not math.isfinite(mtime):
         raise ContractError(f"{context}.mtime_seconds must be a finite number")
+    return file_input, float(mtime)
+
+
+def _validate_static_asset_file(value: Any, context: str) -> tuple[str, float]:
+    file_input, mtime = _validate_static_asset_payload(value, context)
+    path = _string(file_input["path"], f"{context}.path")
+    if (
+        not path
+        or Path(path).is_absolute()
+        or any(part in {"", ".", ".."} for part in path.split("/"))
+        or "\\" in path
+    ):
+        raise ContractError(f"{context}.path must be a relative, normalized asset path")
     return path, float(mtime)
+
+
+def _validate_static_filesystem_byte_filename(value: Any, context: str) -> bytes:
+    encoded_path = _exact(value, {"encoding", "data"}, context)
+    if encoded_path["encoding"] != "filesystem-bytes-base64":
+        raise ContractError(f"{context}.encoding must be filesystem-bytes-base64")
+    encoded_data = _string(encoded_path["data"], f"{context}.data")
+    try:
+        path_bytes = base64.b64decode(encoded_data, validate=True)
+    except (binascii.Error, ValueError) as error:
+        raise ContractError(f"{context}.data must be valid base64") from error
+    if (
+        not path_bytes
+        or b"\x00" in path_bytes
+        or b"/" in path_bytes
+        or b"\\" in path_bytes
+        or path_bytes in (b".", b"..")
+    ):
+        raise ContractError(f"{context} must be a relative filesystem filename")
+    decoded_path = path_bytes.decode("utf-8", errors="surrogateescape")
+    if not any(0xDC80 <= ord(character) <= 0xDCFF for character in decoded_path):
+        raise ContractError(f"{context} must require filesystem surrogateescape")
+    return path_bytes
 
 
 def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
@@ -10221,6 +10283,24 @@ def _validate_router_sequence_case_stimulus(case: dict[str, Any]) -> None:
                     derived.add(
                         "starlette.routing.Router.route-dispatch.live-route-method-mutation-case-sensitive"
                     )
+            elif operation == "route-path-set":
+                mutation = _exact(
+                    raw_mutation,
+                    {"operation", "route_index", "path"},
+                    mutation_context,
+                )
+                route_index = mutation["route_index"]
+                _string(mutation["path"], f"{mutation_context}.path")
+                if (
+                    type(route_index) is not int
+                    or route_index < 0
+                    or route_index >= len(routes)
+                    or routes[route_index]["kind"] != "http-route"
+                ):
+                    raise ContractError(
+                        f"{mutation_context} must set the path attribute of an existing HTTP Route"
+                    )
+                derived.add(ROUTER_SEQUENCE_REQUIREMENTS["mutate_path"])
             elif operation == "route-list-append":
                 mutation = _exact(raw_mutation, {"operation", "route"}, mutation_context)
                 route = _validate_http_route_input(
@@ -30550,6 +30630,8 @@ def _validate_templating_public_case(case: dict[str, Any]) -> None:
             coverage.add(TEMPLATING_PUBLIC_REQUIREMENTS["url-for-function-name"])
         if "url_for.__module__" in text or "url_for.__qualname__" in text:
             coverage.add(TEMPLATING_PUBLIC_REQUIREMENTS["url-for-function-metadata"])
+        if "url_for.__annotations__" in text:
+            coverage.add(TEMPLATING_PUBLIC_REQUIREMENTS["url-for-function-annotations"])
         return text
 
     if consumer["kind"] == "construction":

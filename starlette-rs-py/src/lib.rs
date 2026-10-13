@@ -83,6 +83,7 @@ type PyGzipBodyOutput = (Option<PyGzipResponseStart>, Vec<u8>);
 #[pyclass(name = "RouteTable")]
 struct PyRouteTable {
     inner: RouteTable,
+    compiled_path: Option<String>,
 }
 
 #[pyclass(name = "ExceptionHandlerTable")]
@@ -214,6 +215,7 @@ impl PyRouteTable {
     fn new() -> Self {
         Self {
             inner: RouteTable::new(),
+            compiled_path: None,
         }
     }
 
@@ -221,6 +223,14 @@ impl PyRouteTable {
         self.inner
             .add_route(path, methods)
             .map_err(|error| PyValueError::new_err(error.to_string()))
+    }
+
+    fn _set_compiled_path(&mut self, path: String) {
+        self.compiled_path = Some(path);
+    }
+
+    fn _compiled_path(&self) -> Option<String> {
+        self.compiled_path.clone()
     }
 
     fn match_route(&self, py: Python<'_>, path: &str, method: &str) -> PyResult<RouteDecision> {

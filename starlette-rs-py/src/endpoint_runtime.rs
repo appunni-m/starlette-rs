@@ -557,7 +557,7 @@ impl AwaitableStateMachine for WebSocketDecodeCall {
     }
 
     fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
-        match input {
+        let result = match input {
             MachineResume::Start if !self.pending => self.start(py),
             MachineResume::Value(_) if self.pending => {
                 self.pending = false;
@@ -584,6 +584,15 @@ impl AwaitableStateMachine for WebSocketDecodeCall {
             MachineResume::Start => Err(PyRuntimeError::new_err(
                 "WebSocket decode continuation has a pending operation",
             )),
+        };
+        match result {
+            // This continuation implements the body of Python's async
+            // WebSocketEndpoint.decode(). PEP 479 converts StopIteration
+            // escaping that coroutine into RuntimeError before dispatch sees it.
+            Err(error) if error.is_instance_of::<PyStopIteration>(py) => {
+                Err(coroutine_stop_iteration_error(py, error))
+            }
+            result => result,
         }
     }
 }

@@ -325,6 +325,14 @@ fn new_template_url_for<'py>(py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
     let url_for = Py::new(py, PyTemplateUrlFor)?.into_bound(py).into_any();
     // Starlette installs a nested Python function; preserve its observable
     // function metadata for templates that inspect the documented global.
+    // The source module uses postponed annotations, so its function exposes
+    // these exact strings through `url_for.__annotations__`.
+    let annotations = PyDict::new(py);
+    annotations.set_item("context", "dict[str, Any]")?;
+    annotations.set_item("name", "str")?;
+    annotations.set_item("path_params", "Any")?;
+    annotations.set_item("return", "URL")?;
+    url_for.setattr("__annotations__", annotations)?;
     url_for.setattr("__name__", "url_for")?;
     url_for.setattr("__module__", "starlette.templating")?;
     url_for.setattr(

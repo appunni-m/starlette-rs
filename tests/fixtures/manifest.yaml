@@ -406,6 +406,7 @@
       "build/parity/inputs/parity/router-mounted-child-live-add.json",
       "build/parity/inputs/parity/router-method-mutation-head.json",
       "build/parity/inputs/parity/router-method-mutation-lowercase.json",
+      "build/parity/inputs/parity/router-path-mutation-compiled-pattern.json",
       "build/parity/inputs/parity/router-class-based-endpoints.json",
       "build/parity/inputs/parity/route-middleware-dispatch.json",
       "build/parity/inputs/parity/route-local-middleware-semantics.json",
@@ -505,6 +506,7 @@
       "build/parity/inputs/parity/templating-runtime.json",
       "build/parity/inputs/parity/templating-docs-inputs.json",
       "build/parity/inputs/parity/templating-url-for-function-metadata.json",
+      "build/parity/inputs/parity/templating-url-for-function-annotations.json",
       "build/parity/inputs/parity/request-form-urlencoded.json",
       "build/parity/inputs/parity/request-form-large-part-size.json",
       "build/parity/inputs/parity/request-form-multipart.json",
@@ -514,6 +516,7 @@
       "build/parity/inputs/parity/upload-file.json",
       "build/parity/inputs/parity/upload-file-rolled-write-error.json",
       "build/parity/inputs/parity/websocket-endpoint-dispatch.json",
+      "build/parity/inputs/parity/websocket-endpoint-decode-stop-iteration.json",
       "build/parity/inputs/parity/websocket-endpoint-existing-disconnect-context.json",
       "build/parity/inputs/parity/websocket-endpoint-cancellation-during-finalizer.json",
       "build/parity/inputs/parity/websocket-mutable-scope.json",
@@ -9453,6 +9456,17 @@
               "id": "starlette.endpoints.WebSocketEndpoint.dispatch.invalid-asgi-message-type-finalization",
               "dimension": "error_path",
               "description": "When a receive callback yields an ASGI message with a non-string type, preserve the source RuntimeError formatting, set the close code to 1011, run the input-selected on_disconnect hook, and propagate the original error. Pinned source: starlette/websockets.py:35-58; starlette/endpoints.py:75-89.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.endpoints.WebSocketEndpoint.dispatch.decode-stop-iteration-pep479",
+              "dimension": "error_path",
+              "description": "When an input-defined str subclass raises StopIteration during WebSocketEndpoint.decode encoding comparison, preserve PEP 479 conversion to RuntimeError, set close code 1011, run on_disconnect, and propagate the converted exception. Pinned source: starlette/endpoints.py:70-89,91-117.",
               "lanes": [
                 "parity"
               ],
@@ -23444,11 +23458,12 @@
               "signature": "Select an ordered route from the public RouteTable API, then report the response associated with its selected insertion index.",
               "support": {
                 "status": "partial",
-                "reason": "The Rust target supports ordered built-in route selection, fixed response projection, live method mutation, and live route-list append. It does not invoke arbitrary Python endpoints, expose Python scope mutation or typed path_params, support Python-registered URL convertors, or dispatch Mount routes.",
+                "reason": "The Rust target supports ordered built-in route selection, fixed response projection, live method mutation, and live route-list append. Its RouteTable API has no mutable Python Route.path object; it also does not invoke arbitrary Python endpoints, expose Python scope mutation or typed path_params, support Python-registered URL convertors, or dispatch Mount routes.",
                 "missing_requirements": [
                   "starlette.routing.Router.route-dispatch.python-callable-endpoint",
                   "starlette.routing.Router.route-dispatch.custom-converter-override",
                   "starlette.routing.Router.route-dispatch.mount-child-router-live-route-add",
+                  "starlette.routing.Router.route-dispatch.live-route-path-mutation-keeps-compiled-pattern",
                   "starlette.routing.Router.route-dispatch.mount-route-dispatch",
                   "starlette.routing.Router.route-dispatch.mount-prefix-boundary-miss",
                   "starlette.routing.Router.route-dispatch.http-endpoint-asgi-class",
@@ -23867,6 +23882,17 @@
               ],
               "target_profiles": [
                 "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Router.route-dispatch.live-route-path-mutation-keeps-compiled-pattern",
+              "dimension": "boundary",
+              "description": "After Router dispatch compiles an HTTP Route's path, changing its public path attribute does not rebuild the compiled regex: the original path continues to match and the new path does not. Upstream: starlette/routing.py::Route.__init__, Route.matches, and Router.app.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
                 "python-package-cpython312"
               ]
             },
@@ -26399,7 +26425,8 @@
                 "id": "lookup_path",
                 "style": "positional",
                 "value_types": [
-                  "string"
+                  "string",
+                  "record"
                 ],
                 "omission": {
                   "kind": "required"
@@ -26446,6 +26473,7 @@
                   "path": "resolved_path",
                   "value_types": [
                     "string",
+                    "record",
                     "null"
                   ],
                   "comparison": {
@@ -26573,7 +26601,7 @@
             {
               "id": "starlette.staticfiles.StaticFiles.lookup-path.surrogateescape-path",
               "dimension": "boundary",
-              "description": "Preserve invalid UTF-8 filesystem path bytes supplied through Python surrogateescape at the StaticFiles.lookup_path boundary and return the ordinary no-hit result. Upstream: starlette/staticfiles.py:22,154-173.",
+              "description": "Create and match an input-defined filename containing invalid UTF-8 filesystem bytes, preserve the returned relative path bytes, and compare file metadata through StaticFiles.lookup_path. Adapters keep valid text paths as strings and encode surrogateescaped filesystem paths as base64 records for exact comparison. Upstream: starlette/staticfiles.py:22,154-173.",
               "lanes": [
                 "parity"
               ],
@@ -32391,6 +32419,17 @@
               "id": "starlette.templating.Jinja2Templates.template-public-workflow.url-for-function-metadata",
               "dimension": "boundary",
               "description": "Preserve the observable module and qualified name of the default url_for Jinja global when a public template inspects them. Pinned source: starlette/templating.py:101-115. The template expression is input-defined and rendered through Jinja2Templates.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.templating.Jinja2Templates.template-public-workflow.url-for-function-annotations",
+              "dimension": "boundary",
+              "description": "Expose the default url_for Jinja global's annotations through an input-defined template that inspects url_for.__annotations__. Pinned source: starlette/templating.py:94-104.",
               "lanes": [
                 "parity"
               ],

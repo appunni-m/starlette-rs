@@ -1924,6 +1924,7 @@ fn make_route_table(
         .transpose()?
         .unwrap_or_default();
     table.call_method1("add_route", (path, methods))?;
+    table.call_method1("_set_compiled_path", (path,))?;
     Ok(table.unbind())
 }
 

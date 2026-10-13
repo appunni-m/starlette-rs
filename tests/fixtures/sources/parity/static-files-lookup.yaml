@@ -635,7 +635,10 @@
       "directory": "public",
       "files": [
         {
-          "path": "matched-\udcff.txt",
+          "path": {
+            "encoding": "filesystem-bytes-base64",
+            "data": "bWF0Y2hlZC3/LnR4dA=="
+          },
           "contents_base64": "bWF0Y2hlZA==",
           "mtime_seconds": 1700000002.0
         }

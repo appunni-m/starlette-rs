@@ -438,9 +438,34 @@ impl RouteTypes {
                 .getattr("_uses_custom_convertors")?
                 .extract::<bool>()?
         };
-        let custom = matches!(kind, RouteKind::Custom)
+        let mut custom = matches!(kind, RouteKind::Custom)
             || uses_custom_convertors
             || self.uses_custom_matcher(py, &route, kind)?;
+        let path = if matches!(kind, RouteKind::Custom) {
+            None
+        } else {
+            Some(path_value.extract::<String>()?)
+        };
+        if matches!(
+            kind,
+            RouteKind::Http | RouteKind::WebSocket | RouteKind::Mount
+        ) {
+            let route_table = route.getattr("_route_table")?;
+            if !route_table.is_none() {
+                let compiled_path = route_table.call_method0("_compiled_path")?;
+                let compiled_path = compiled_path.extract::<Option<String>>()?;
+                if compiled_path
+                    .as_ref()
+                    .zip(path.as_ref())
+                    .is_some_and(|(compiled, current)| compiled != current)
+                {
+                    // Starlette matches the path compiled at construction time. If the public
+                    // `path` attribute changes, preserve that compiled behavior through the
+                    // route's matcher instead of rebuilding a native table from the new value.
+                    custom = true;
+                }
+            }
+        }
         let identity = route.as_ptr() as usize;
         let cached =
             cached.filter(|signature| signature.identity == identity && signature.kind == kind);
@@ -452,7 +477,7 @@ impl RouteTypes {
         let path = if path_matches || matches!(kind, RouteKind::Custom) {
             None
         } else {
-            Some(path_value.extract::<String>()?)
+            path
         };
         let mut methods = Vec::new();
         let mut method_values = Vec::new();

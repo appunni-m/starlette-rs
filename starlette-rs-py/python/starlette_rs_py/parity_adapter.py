@@ -5708,7 +5708,17 @@ async def _await_cancelled_websocket_endpoint(
 
 
 def _websocket_endpoint_encoding(value: Any) -> Any:
-    if not isinstance(value, dict) or value.get("kind") != "formatted-str-subclass":
+    if not isinstance(value, dict):
+        return value
+    if value.get("kind") == "stop-iteration-str-subclass-equality":
+        message = value["message"]
+
+        class InputStopIterationEncoding(str):
+            def __eq__(self, other: object) -> bool:
+                raise StopIteration(message)
+
+        return InputStopIterationEncoding(value["value"])
+    if value.get("kind") != "formatted-str-subclass":
         return value
     format_value = value["format_value"]
 
@@ -7121,6 +7131,8 @@ def _run_route_dispatch_case_impl(case: dict[str, Any]) -> dict[str, Any]:
                 for mutation in step["mutations"]:
                     if mutation["operation"] == "route-method-add":
                         app.routes[mutation["route_index"]].methods.add(mutation["method"])
+                    elif mutation["operation"] == "route-path-set":
+                        app.routes[mutation["route_index"]].path = mutation["path"]
                     elif mutation["operation"] == "route-list-append":
                         route = make_route(mutation["route"], len(app.routes))
                         app.routes.append(route)
@@ -8636,7 +8648,10 @@ def _run_static_files_lookup_path_case(case: dict[str, Any]) -> dict[str, Any]:
     ):
         raise ValueError("workflow is outside the declared StaticFiles lookup-path operation")
 
-    if isinstance(case["lookup_path"], dict) and os.name != "posix":
+    has_filesystem_byte_path = isinstance(case["lookup_path"], dict) or any(
+        isinstance(file_spec.get("path"), dict) for file_spec in case["files"]
+    )
+    if has_filesystem_byte_path and os.name != "posix":
         return {
             "case_id": case["case_id"],
             "status": "skipped",
@@ -8645,8 +8660,7 @@ def _run_static_files_lookup_path_case(case: dict[str, Any]) -> dict[str, Any]:
                     "step_id": STATIC_FILES_LOOKUP_PATH_OPERATION,
                     "status": "skipped",
                     "reason": (
-                        "filesystem-byte lookup paths require POSIX "
-                        "filesystem surrogateescape support"
+                        "filesystem-byte paths require POSIX filesystem surrogateescape support"
                     ),
                 }
             ],
@@ -8668,7 +8682,21 @@ def _run_static_files_lookup_path_case(case: dict[str, Any]) -> dict[str, Any]:
             root.parent.mkdir(parents=True, exist_ok=True)
             os.symlink(os.path.relpath(target_directory, root.parent), root)
         for file_spec in case["files"]:
-            path = root / file_spec["path"]
+            file_path = file_spec["path"]
+            if isinstance(file_path, dict):
+                file_path = _exact_object(
+                    file_path,
+                    {"encoding", "data"},
+                    "StaticFiles lookup-path file encoded path",
+                )
+                if file_path["encoding"] != "filesystem-bytes-base64":
+                    raise ValueError(
+                        "StaticFiles lookup-path file encoding must be filesystem-bytes-base64"
+                    )
+                file_path = os.fsdecode(
+                    _decode_base64(file_path["data"], "StaticFiles lookup-path file path data")
+                )
+            path = root / file_path
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(_decode_base64(file_spec["contents_base64"], "file.contents_base64"))
             os.utime(path, (file_spec["mtime_seconds"], file_spec["mtime_seconds"]))
@@ -8722,11 +8750,12 @@ def _run_static_files_lookup_path_case(case: dict[str, Any]) -> dict[str, Any]:
         full_path, stat_result = application.lookup_path(lookup_path)
         if directory_pathlike is None:
             relative_root = root.absolute() if case["follow_symlink"] else root.resolve()
-            resolved_path = (
+            relative_path = (
                 Path(full_path).relative_to(relative_root).as_posix() if full_path else None
             )
         else:
-            resolved_path = Path(full_path).relative_to(workspace).as_posix() if full_path else None
+            relative_path = Path(full_path).relative_to(workspace).as_posix() if full_path else None
+        resolved_path = _filesystem_path_observation(relative_path)
         mode_type_bits = stat.S_IFMT(stat_result.st_mode) if stat_result is not None else None
         is_file = stat.S_ISREG(stat_result.st_mode) if stat_result is not None else None
         is_directory = stat.S_ISDIR(stat_result.st_mode) if stat_result is not None else None
@@ -8759,6 +8788,19 @@ def _run_static_files_lookup_path_case(case: dict[str, Any]) -> dict[str, Any]:
         "status": "completed",
         "observations": observations,
     }
+
+
+def _filesystem_path_observation(path: str | None) -> Any:
+    if path is None:
+        return None
+    try:
+        path.encode("utf-8")
+    except UnicodeEncodeError:
+        return {
+            "encoding": "filesystem-bytes-base64",
+            "data": base64.b64encode(os.fsencode(path)).decode("ascii"),
+        }
+    return path
 
 
 def _run_static_files_async_boundary_case(case: dict[str, Any]) -> dict[str, Any]:
