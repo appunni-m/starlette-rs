@@ -532,17 +532,13 @@ impl CorsCall {
             let request_headers = self.direct_request_headers.take();
             return self.call_simple_response(py, request_origin, request_headers, None);
         }
-        let scope = self.scope.bind(py).cast::<PyDict>()?;
-        let scope_type = scope
-            .get_item("type")?
-            .ok_or_else(|| PyKeyError::new_err("type"))?;
+        let scope = self.scope.bind(py);
+        let scope_type = scope.get_item("type")?;
         if !scope_type.eq("http")? {
             return self.call_app(py, self.send.clone_ref(py));
         }
 
-        let source_headers = scope
-            .get_item("headers")?
-            .ok_or_else(|| PyKeyError::new_err("headers"))?;
+        let source_headers = scope.get_item("headers")?;
         let headers = py
             .import("builtins")?
             .getattr("list")?
@@ -552,9 +548,7 @@ impl CorsCall {
         let Some(origin) = origin else {
             return self.call_app(py, self.send.clone_ref(py));
         };
-        let method = scope
-            .get_item("method")?
-            .ok_or_else(|| PyKeyError::new_err("method"))?;
+        let method = scope.get_item("method")?;
         let requested_method = find_header_value(&headers, b"access-control-request-method")?;
         if method.eq("OPTIONS")? && requested_method.is_some() {
             let requested_method =

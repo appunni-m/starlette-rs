@@ -71,7 +71,7 @@ pub(crate) fn header_pairs(
 pub(crate) fn response_call(
     py: Python<'_>,
     call: ResponseCall,
-    scope: &Bound<'_, PyDict>,
+    scope: &Bound<'_, PyAny>,
     receive: Py<PyAny>,
     send: Py<PyAny>,
     background: Option<Py<PyAny>>,

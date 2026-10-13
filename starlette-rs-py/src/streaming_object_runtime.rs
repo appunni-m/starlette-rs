@@ -317,10 +317,7 @@ impl Call {
                 .call_method1("_wrap_websocket_denial_send", (self.send.bind(py),))?
                 .unbind();
             self.pending = CallPending::Stream;
-        } else if crate::runtime_calls::asgi_spec_at_least_24(
-            py,
-            self.scope.bind(py).cast::<PyDict>()?,
-        )? {
+        } else if crate::runtime_calls::asgi_spec_at_least_24(py, self.scope.bind(py))? {
             self.pending = CallPending::StreamWithDisconnect;
         } else {
             self.pending = CallPending::Concurrent;

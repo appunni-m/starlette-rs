@@ -142,7 +142,7 @@ impl CachedRequestState {
 
 fn cached_request_and_receive(
     py: Python<'_>,
-    scope: &Bound<'_, PyDict>,
+    scope: &Bound<'_, PyAny>,
     receive: Py<PyAny>,
 ) -> PyResult<(Py<PyAny>, Py<PyAny>)> {
     let request_type = cached_request_type(py)?;
@@ -515,11 +515,8 @@ impl AwaitableStateMachine for BaseHTTPCallMachine {
 
 impl BaseHTTPCallMachine {
     fn start(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
-        let scope = self.scope.bind(py).cast::<PyDict>()?;
-        let scope_type = scope
-            .get_item("type")?
-            .ok_or_else(|| PyKeyError::new_err("type"))?
-            .extract::<String>()?;
+        let scope = self.scope.bind(py);
+        let scope_type = scope.get_item("type")?.extract::<String>()?;
         if scope_type != "http" {
             let call = self
                 .app

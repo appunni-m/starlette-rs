@@ -187,21 +187,15 @@ impl AwaitableStateMachine for GzipMiddlewareCall {
 
 impl GzipMiddlewareCall {
     fn start(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
-        let scope = self.scope.bind(py).cast::<PyDict>()?;
-        let scope_type = scope
-            .get_item("type")?
-            .ok_or_else(|| PyKeyError::new_err("type"))?
-            .extract::<String>()?;
+        let scope = self.scope.bind(py);
+        let scope_type = scope.get_item("type")?.extract::<String>()?;
 
         let send = if scope_type == "http" || self.gzip_always {
             let config = self.config.bind(py);
             let responder = if self.gzip_always {
                 config.call_method0("gzip_responder")?.unbind()
             } else {
-                let request_headers = scope
-                    .get_item("headers")?
-                    .ok_or_else(|| PyKeyError::new_err("headers"))?
-                    .extract::<Vec<GzipHeader>>()?;
+                let request_headers = scope.get_item("headers")?.extract::<Vec<GzipHeader>>()?;
                 let request_headers = gzip_headers_to_python(py, &request_headers)?;
                 config
                     .call_method1("responder", (request_headers,))?

@@ -6,7 +6,7 @@
 
 use pyo3::class::gc::{PyTraverseError, PyVisit};
 use pyo3::exceptions::{
-    PyAssertionError, PyException, PyKeyError, PyNotImplementedError, PyRuntimeError, PyTypeError,
+    PyAssertionError, PyException, PyNotImplementedError, PyRuntimeError, PyTypeError,
 };
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList, PyModule, PyString, PyTuple};
@@ -762,11 +762,8 @@ impl AwaitableStateMachine for AuthenticationMiddlewareCall {
 
 impl AuthenticationMiddlewareCall {
     fn start(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
-        let scope = self.scope.bind(py).cast::<PyDict>()?;
-        let scope_type = scope
-            .get_item("type")?
-            .ok_or_else(|| PyKeyError::new_err("type"))?
-            .extract::<String>()?;
+        let scope = self.scope.bind(py);
+        let scope_type = scope.get_item("type")?.extract::<String>()?;
         let runtime = authentication_runtime_values(py, &self.runtime);
         if scope_type != "http" && scope_type != "websocket" {
             let application = runtime.app.bind(py).call1((
@@ -816,7 +813,7 @@ impl AuthenticationMiddlewareCall {
         } else {
             unpack_authentication_result(result.bind(py))?
         };
-        let scope = self.scope.bind(py).cast::<PyDict>()?;
+        let scope = self.scope.bind(py);
         scope.set_item("auth", credentials)?;
         scope.set_item("user", user)?;
         let application = runtime.app.bind(py).call1((
@@ -838,11 +835,8 @@ impl AuthenticationMiddlewareCall {
             .on_error
             .bind(py)
             .call1((connection.bind(py), error.value(py)))?;
-        let scope = self.scope.bind(py).cast::<PyDict>()?;
-        let scope_type = scope
-            .get_item("type")?
-            .ok_or_else(|| PyKeyError::new_err("type"))?
-            .extract::<String>()?;
+        let scope = self.scope.bind(py);
+        let scope_type = scope.get_item("type")?.extract::<String>()?;
         let operation = if scope_type == "websocket" {
             let close_message = PyDict::new(py);
             close_message.set_item("type", "websocket.close")?;

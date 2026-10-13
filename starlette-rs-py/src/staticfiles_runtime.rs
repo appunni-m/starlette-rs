@@ -7,7 +7,7 @@ use crate::awaitable::{
 };
 use pyo3::class::gc::{PyTraverseError, PyVisit};
 use pyo3::exceptions::{
-    PyAssertionError, PyKeyError, PyOSError, PyPermissionError, PyRuntimeError, PyValueError,
+    PyAssertionError, PyOSError, PyPermissionError, PyRuntimeError, PyValueError,
 };
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyDict, PyInt, PyList, PyModule, PyString, PyTuple};
@@ -190,16 +190,11 @@ impl PyStaticFiles {
         static_files_get_directories(py, directory, packages)
     }
 
-    fn get_path(&self, scope: &Bound<'_, PyDict>) -> PyResult<String> {
-        let path = scope
-            .get_item("path")?
-            .ok_or_else(|| PyValueError::new_err("ASGI scope is missing 'path'"))?
-            .extract::<String>()?;
+    fn get_path(&self, scope: &Bound<'_, PyAny>) -> PyResult<String> {
+        let path = scope.get_item("path")?.extract::<String>()?;
         let root_path = scope
-            .get_item("root_path")?
-            .map(|value| value.extract::<String>())
-            .transpose()?
-            .unwrap_or_default();
+            .call_method1("get", ("root_path", ""))?
+            .extract::<String>()?;
         Ok(NativeStaticFiles::get_path(&path, &root_path))
     }
 
@@ -239,7 +234,7 @@ impl PyStaticFiles {
         py: Python<'_>,
         full_path: &str,
         stat_result: &Bound<'_, PyAny>,
-        scope: &Bound<'_, PyDict>,
+        scope: &Bound<'_, PyAny>,
         is_not_modified: Py<PyAny>,
         status_code: u16,
     ) -> PyResult<Py<PyAny>> {
@@ -334,7 +329,7 @@ impl PyStaticFiles {
         slf: Py<Self>,
         py: Python<'_>,
         path: &str,
-        scope: &Bound<'_, PyDict>,
+        scope: &Bound<'_, PyAny>,
         lookup_path: Py<PyAny>,
         file_response: Py<PyAny>,
     ) -> PyResult<Py<PyAny>> {
@@ -360,7 +355,7 @@ impl PyStaticFiles {
     fn asgi_call(
         slf: Py<Self>,
         py: Python<'_>,
-        scope: &Bound<'_, PyDict>,
+        scope: &Bound<'_, PyAny>,
         receive: Py<PyAny>,
         send: Py<PyAny>,
         get_path: Py<PyAny>,
@@ -369,10 +364,7 @@ impl PyStaticFiles {
         file_response: Py<PyAny>,
         check_config: Py<PyAny>,
     ) -> PyResult<Py<PyAny>> {
-        let scope_type = scope
-            .get_item("type")?
-            .ok_or_else(|| PyKeyError::new_err("type"))?
-            .extract::<String>()?;
+        let scope_type = scope.get_item("type")?.extract::<String>()?;
         if scope_type != "http" {
             return Err(PyAssertionError::new_err(()));
         }
@@ -398,7 +390,7 @@ impl PyStaticFiles {
     fn prepare_response(
         py: Python<'_>,
         response: StaticFilesResponse,
-        scope: &Bound<'_, PyDict>,
+        scope: &Bound<'_, PyAny>,
         selected_stat_result: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<Py<PyAny>> {
         match response {
@@ -510,7 +502,7 @@ impl StaticFilesCallMachine {
     }
 
     fn begin_response_flow(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
-        let scope = self.scope.bind(py).cast::<PyDict>()?;
+        let scope = self.scope.bind(py);
         let path = match self.purpose {
             StaticFilesCallPurpose::Response => self.response_path.clone(),
             StaticFilesCallPurpose::Asgi => {
@@ -534,24 +526,13 @@ impl StaticFilesCallMachine {
                 return Ok(MachineAction::Await(awaitable.unbind()));
             }
         };
-        let scope_path = scope
-            .get_item("path")?
-            .ok_or_else(|| PyValueError::new_err("ASGI scope is missing 'path'"))?
-            .extract::<String>()?;
-        let method = scope
-            .get_item("method")?
-            .ok_or_else(|| PyValueError::new_err("ASGI HTTP scope is missing 'method'"))?
-            .extract::<String>()?;
-        let request_headers = scope
-            .get_item("headers")?
-            .map(|value| value.extract::<Vec<(Vec<u8>, Vec<u8>)>>())
-            .transpose()?
-            .unwrap_or_default();
+        let scope_path = scope.get_item("path")?.extract::<String>()?;
+        let method = scope.get_item("method")?.extract::<String>()?;
         let (flow, step) = {
             let owner = self.owner.borrow(py);
             owner
                 .inner
-                .start_response_flow(&path, &scope_path, &method, &request_headers)
+                .start_response_flow(&path, &scope_path, &method, &[])
                 .map_err(|error| static_files_http_error(py, error))?
         };
         self.flow = Some(flow);
@@ -570,7 +551,7 @@ impl StaticFilesCallMachine {
                 Ok(MachineAction::Await(awaitable))
             }
             StaticFilesResponseStep::SelectFileResponse { file, status_code } => {
-                let scope = self.scope.bind(py).cast::<PyDict>()?;
+                let scope = self.scope.bind(py);
                 let stat_result = match self.selected_stat_result.as_ref() {
                     Some(stat_result) => stat_result.clone_ref(py),
                     None => stat_result(py, &file.path, file.metadata.stat_result())?,
@@ -593,7 +574,7 @@ impl StaticFilesCallMachine {
                 self.complete_python_response(py, response.unbind())
             }
             StaticFilesResponseStep::Complete(response) => {
-                let scope = self.scope.bind(py).cast::<PyDict>()?;
+                let scope = self.scope.bind(py);
                 let response = PyStaticFiles::prepare_response(
                     py,
                     response,
@@ -615,7 +596,7 @@ impl StaticFilesCallMachine {
         match self.purpose {
             StaticFilesCallPurpose::Response => Ok(MachineAction::Complete(response)),
             StaticFilesCallPurpose::Asgi => {
-                let scope = self.scope.bind(py).cast::<PyDict>()?;
+                let scope = self.scope.bind(py);
                 let (receive, send) = self.response_callbacks.as_ref().ok_or_else(|| {
                     PyRuntimeError::new_err("StaticFiles ASGI callbacks are missing")
                 })?;
