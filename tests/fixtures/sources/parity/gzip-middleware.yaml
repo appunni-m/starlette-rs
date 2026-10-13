@@ -3950,6 +3950,7 @@
                 "messages": [
                   {
                     "type": "http.response.start",
+                    "message_mapping": "user-dict",
                     "status": 200,
                     "headers_base64_pairs": [
                       [
@@ -3964,6 +3965,7 @@
                   },
                   {
                     "type": "http.response.body",
+                    "message_mapping": "user-dict",
                     "body_base64": "aGVsbG8gZ3ppcA==",
                     "more_body": false
                   }

@@ -12944,11 +12944,21 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
     if returned == "call-next" and not routes and downstream is None:
         raise ContractError("call_next response requires a configured route or downstream ASGI app")
 
-    request_fields = {"scope", "receive", "receive_after_events", "send_checkpoints"}
+    request_fields = {
+        "scope",
+        "receive",
+        "receive_after_events",
+        "send_checkpoints",
+    }
     request_value = case["request"]
     if isinstance(request_value, dict) and "concurrent_calls" in request_value:
         request_fields.add("concurrent_calls")
+    if isinstance(request_value, dict) and "receive_message_mapping" in request_value:
+        request_fields.add("receive_message_mapping")
     request = _exact(request_value, request_fields, "BaseHTTPMiddleware request input")
+    receive_mapping = request.get("receive_message_mapping", "dict")
+    if not isinstance(receive_mapping, str) or receive_mapping not in {"dict", "user-dict"}:
+        raise ContractError("BaseHTTPMiddleware receive message mapping must be dict or user-dict")
     concurrent_calls = request.get("concurrent_calls", 1)
     if type(concurrent_calls) is not int or not 1 <= concurrent_calls <= 4:
         raise ContractError("BaseHTTPMiddleware concurrent_calls must be an integer from 1 to 4")
@@ -34849,11 +34859,10 @@ def _validate_gzip_constructor_stimulus(args: dict[str, Any]) -> None:
     messages = app["messages"]
     if not isinstance(messages, list) or len(messages) < 2:
         raise ContractError("inner ASGI response input must include response start and output")
-    start = _exact(
-        messages[0],
-        {"type", "status", "headers_base64_pairs"},
-        "inner ASGI response start",
-    )
+    start_keys = {"type", "status", "headers_base64_pairs"}
+    if isinstance(messages[0], dict) and "message_mapping" in messages[0]:
+        start_keys.add("message_mapping")
+    start = _exact(messages[0], start_keys, "inner ASGI response start")
     if (
         start["type"] != "http.response.start"
         or not isinstance(start["status"], int)
@@ -34861,6 +34870,9 @@ def _validate_gzip_constructor_stimulus(args: dict[str, Any]) -> None:
         or not 100 <= start["status"] <= 599
     ):
         raise ContractError("inner ASGI response must begin with a valid response-start event")
+    start_mapping = start.get("message_mapping", "dict")
+    if not isinstance(start_mapping, str) or start_mapping not in {"dict", "user-dict"}:
+        raise ContractError("inner ASGI response message mapping must be dict or user-dict")
     start_headers = _gzip_header_pairs(start["headers_base64_pairs"], "response start headers")
 
     output_messages = messages[1:]
@@ -34873,11 +34885,17 @@ def _validate_gzip_constructor_stimulus(args: dict[str, Any]) -> None:
         message_type = raw_message.get("type")
         output_types.append(message_type)
         if message_type == "http.response.body":
+            body_keys = {"type", "body_base64", "more_body"}
+            if "message_mapping" in raw_message:
+                body_keys.add("message_mapping")
             message = _exact(
                 raw_message,
-                {"type", "body_base64", "more_body"},
+                body_keys,
                 context,
             )
+            body_mapping = message.get("message_mapping", "dict")
+            if not isinstance(body_mapping, str) or body_mapping not in {"dict", "user-dict"}:
+                raise ContractError(f"{context}.message_mapping must be dict or user-dict")
             if not isinstance(message["more_body"], bool):
                 raise ContractError(f"{context}.more_body must be boolean")
             try:

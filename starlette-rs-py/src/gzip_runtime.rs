@@ -1,7 +1,7 @@
 //! Rust-owned ASGI message flow for GZip middleware.
 
 use pyo3::class::gc::{PyTraverseError, PyVisit};
-use pyo3::exceptions::{PyKeyError, PyLookupError, PyOverflowError, PyRuntimeError};
+use pyo3::exceptions::{PyLookupError, PyOverflowError, PyRuntimeError};
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyDict, PyList, PyModule, PyTuple};
 use starlette_rs::{DEFAULT_EXCLUDED_CONTENT_TYPES, GzipHeader};
@@ -341,24 +341,15 @@ impl AwaitableStateMachine for GzipSendMessage {
 impl GzipSendMessage {
     fn process_message(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
         let message_type = {
-            let message = self.message.bind(py).cast::<PyDict>()?;
-            message
-                .get_item("type")?
-                .ok_or_else(|| PyKeyError::new_err("type"))?
-                .extract::<String>()?
+            let message = self.message.bind(py);
+            message.get_item("type")?.extract::<String>()?
         };
 
         match message_type.as_str() {
             "http.response.start" => {
-                let message = self.message.bind(py).cast::<PyDict>()?;
-                let status = message
-                    .get_item("status")?
-                    .ok_or_else(|| PyKeyError::new_err("status"))?
-                    .extract::<u16>()?;
-                let headers = message
-                    .get_item("headers")?
-                    .ok_or_else(|| PyKeyError::new_err("headers"))?
-                    .extract::<Vec<GzipHeader>>()?;
+                let message = self.message.bind(py);
+                let status = message.get_item("status")?.extract::<u16>()?;
+                let headers = message.get_item("headers")?.extract::<Vec<GzipHeader>>()?;
                 let responder = self.responder(py);
                 self.state.borrow_mut(py).initial_message = self.message.clone_ref(py);
                 responder.bind(py).call_method1(
@@ -374,16 +365,11 @@ impl GzipSendMessage {
     }
 
     fn start_body(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
-        let message = self.message.bind(py).cast::<PyDict>()?;
-        let empty_body = PyBytes::new(py, &[]).into_any();
-        let body = message
-            .get_item("body")?
-            .unwrap_or_else(|| empty_body.clone());
+        let message = self.message.bind(py);
+        let body = message.call_method1("get", ("body", PyBytes::new(py, &[])))?;
         let more_body = message
-            .get_item("more_body")?
-            .map(|value| value.extract::<bool>())
-            .transpose()?
-            .unwrap_or(false);
+            .call_method1("get", ("more_body", false))?
+            .extract::<bool>()?;
         let body_length = body.len()?;
         let responder = self.responder(py);
         let offload = responder
@@ -459,7 +445,6 @@ impl GzipSendMessage {
         if output_bytes != input_bytes {
             self.message
                 .bind(py)
-                .cast::<PyDict>()?
                 .set_item("body", PyBytes::new(py, &output_bytes))?;
         }
         Ok(())
@@ -467,10 +452,8 @@ impl GzipSendMessage {
 
     fn replace_initial_headers(&self, py: Python<'_>, headers: &[GzipHeader]) -> PyResult<()> {
         let initial_message = self.initial_message(py);
-        let message = initial_message.bind(py).cast::<PyDict>()?;
-        let headers_object = message
-            .get_item("headers")?
-            .ok_or_else(|| PyKeyError::new_err("headers"))?;
+        let message = initial_message.bind(py);
+        let headers_object = message.get_item("headers")?;
         let headers_list = headers_object.cast::<PyList>()?;
         let replacement = gzip_headers_to_python(py, headers)?;
         headers_list.set_slice(0, headers_list.len(), &replacement)?;

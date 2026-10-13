@@ -342,11 +342,8 @@ impl CachedRequestReceiveMachine {
     }
 
     fn consumed_receive(&mut self, py: Python<'_>, message: Py<PyAny>) -> PyResult<MachineAction> {
-        let message_bound = message.bind(py).cast::<PyDict>()?;
-        let message_type = message_bound
-            .get_item("type")?
-            .ok_or_else(|| PyKeyError::new_err("type"))?
-            .extract::<String>()?;
+        let message_bound = message.bind(py);
+        let message_type = message_bound.get_item("type")?.extract::<String>()?;
         if message_type != "http.disconnect" {
             return Err(PyRuntimeError::new_err(format!(
                 "Unexpected message received: {message_type}"

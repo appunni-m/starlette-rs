@@ -3182,9 +3182,12 @@ def _materialize_gzip_middleware(arguments: dict[str, Any], *, responder: bool =
                 raise ValueError(f"inner response message[{index}] must declare its ASGI type")
             message_type = spec["type"]
             if message_type == "http.response.start":
+                start_keys = {"type", "status", "headers_base64_pairs"}
+                if "message_mapping" in spec:
+                    start_keys.add("message_mapping")
                 _exact_object(
                     spec,
-                    {"type", "status", "headers_base64_pairs"},
+                    start_keys,
                     f"inner response message[{index}]",
                 )
                 message = {
@@ -3199,9 +3202,12 @@ def _materialize_gzip_middleware(arguments: dict[str, Any], *, responder: bool =
                     ],
                 }
             elif message_type == "http.response.body":
+                body_keys = {"type", "body_base64", "more_body"}
+                if "message_mapping" in spec:
+                    body_keys.add("message_mapping")
                 _exact_object(
                     spec,
-                    {"type", "body_base64", "more_body"},
+                    body_keys,
                     f"inner response message[{index}]",
                 )
                 message = {
@@ -3218,6 +3224,11 @@ def _materialize_gzip_middleware(arguments: dict[str, Any], *, responder: bool =
                 message = {"type": message_type, "path": spec["path"]}
             else:
                 raise ValueError(f"unsupported inner response event: {message_type!r}")
+            message_mapping = spec.get("message_mapping", "dict")
+            if not isinstance(message_mapping, str) or message_mapping not in {"dict", "user-dict"}:
+                raise ValueError("GZipMiddleware response message mapping is unsupported")
+            if message_mapping == "user-dict":
+                message = UserDict(message)
             await send(message)
 
     constructor_arguments: dict[str, Any] = {
@@ -12910,10 +12921,20 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
             f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.return-replacement-response"
         )
 
-    request_fields = {"scope", "receive", "receive_after_events", "send_checkpoints"}
+    request_fields = {
+        "scope",
+        "receive",
+        "receive_after_events",
+        "send_checkpoints",
+    }
     if isinstance(case["request"], dict) and "concurrent_calls" in case["request"]:
         request_fields.add("concurrent_calls")
+    if isinstance(case["request"], dict) and "receive_message_mapping" in case["request"]:
+        request_fields.add("receive_message_mapping")
     request = _exact_object(case["request"], request_fields, "BaseHTTPMiddleware request")
+    receive_mapping = request.get("receive_message_mapping", "dict")
+    if not isinstance(receive_mapping, str) or receive_mapping not in {"dict", "user-dict"}:
+        raise ValueError("BaseHTTPMiddleware receive message mapping must be dict or user-dict")
     concurrent_calls = request.get("concurrent_calls", 1)
     if type(concurrent_calls) is not int or not 1 <= concurrent_calls <= 4:
         raise ValueError("BaseHTTPMiddleware concurrent_calls must be an integer from 1 to 4")
@@ -14475,6 +14496,8 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
 
     scope = _make_scope(scope_spec, case.get("scope_container", "dict"))
     incoming = [_make_message(spec) for spec in receive_specs]
+    if receive_mapping == "user-dict":
+        incoming = [UserDict(message) for message in incoming]
     sent: list[dict[str, Any]] = []
     request_receive_events: list[dict[str, Any]] = []
     receive_index = 0
