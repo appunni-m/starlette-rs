@@ -324,8 +324,13 @@ impl PyJinja2Templates {
 fn new_template_url_for<'py>(py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
     let url_for = Py::new(py, PyTemplateUrlFor)?.into_bound(py).into_any();
     // Starlette installs a nested Python function; preserve its observable
-    // function name for templates that inspect the documented global.
+    // function metadata for templates that inspect the documented global.
     url_for.setattr("__name__", "url_for")?;
+    url_for.setattr("__module__", "starlette.templating")?;
+    url_for.setattr(
+        "__qualname__",
+        "Jinja2Templates._setup_env_defaults.<locals>.url_for",
+    )?;
     Ok(url_for)
 }
 

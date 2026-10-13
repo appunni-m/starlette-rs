@@ -682,6 +682,7 @@ TEMPLATING_PUBLIC_REQUIREMENTS = {
         "base-http-middleware",
         "url-for",
         "url-for-function-name",
+        "url-for-function-metadata",
         "directory-sequence",
         "client-debug-metadata",
     )
@@ -27944,6 +27945,8 @@ def _validate_templating_public_case(case: dict[str, Any]) -> None:
             coverage.add(TEMPLATING_PUBLIC_REQUIREMENTS["default-autoescape"])
         if "url_for.__name__" in text:
             coverage.add(TEMPLATING_PUBLIC_REQUIREMENTS["url-for-function-name"])
+        if "url_for.__module__" in text or "url_for.__qualname__" in text:
+            coverage.add(TEMPLATING_PUBLIC_REQUIREMENTS["url-for-function-metadata"])
         return text
 
     if consumer["kind"] == "construction":

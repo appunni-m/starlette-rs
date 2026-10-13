@@ -481,6 +481,7 @@
       "build/parity/inputs/parity/base-http-contextvars.json",
       "build/parity/inputs/parity/templating-runtime.json",
       "build/parity/inputs/parity/templating-docs-inputs.json",
+      "build/parity/inputs/parity/templating-url-for-function-metadata.json",
       "build/parity/inputs/parity/request-form-urlencoded.json",
       "build/parity/inputs/parity/request-form-large-part-size.json",
       "build/parity/inputs/parity/request-form-multipart.json",
@@ -31278,6 +31279,17 @@
               "id": "starlette.templating.Jinja2Templates.template-public-workflow.url-for-function-name",
               "dimension": "boundary",
               "description": "Preserve the observable function name of the default url_for Jinja global when a public template inspects it. Pinned source: starlette/templating.py:101-115. The template expression is input-defined and rendered through Jinja2Templates.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.templating.Jinja2Templates.template-public-workflow.url-for-function-metadata",
+              "dimension": "boundary",
+              "description": "Preserve the observable module and qualified name of the default url_for Jinja global when a public template inspects them. Pinned source: starlette/templating.py:101-115. The template expression is input-defined and rendered through Jinja2Templates.",
               "lanes": [
                 "parity"
               ],
