@@ -931,6 +931,8 @@ impl RouterDispatchMachine {
         let method = required_scope_value(scope, "method")?.extract::<String>()?;
         let mut child_scopes = HashMap::new();
         let mut callback_error = None;
+        let ordered_route_scan =
+            !routes.custom_http_indexes.is_empty() || !routes.custom_websocket_indexes.is_empty();
 
         let plan = routes
             .http_table
@@ -948,6 +950,7 @@ impl RouterDispatchMachine {
                         candidate_path,
                         routes: &routes.routes,
                         route_indexes: &routes.custom_http_indexes,
+                        ordered_route_scan,
                         native_full_index,
                         child_scopes: &mut child_scopes,
                     },
@@ -965,20 +968,28 @@ impl RouterDispatchMachine {
             return Err(error);
         }
 
-        match &plan {
-            HttpDispatchPlan::Matched { route_index, .. } => {
-                validate_native_http_route_conversion_order(
-                    py,
-                    scope,
-                    routes,
-                    *route_index,
-                    false,
-                )?;
+        if !ordered_route_scan {
+            match &plan {
+                HttpDispatchPlan::Matched { route_index, .. } => {
+                    validate_native_http_route_conversion_order(
+                        py,
+                        scope,
+                        routes,
+                        *route_index,
+                        false,
+                    )?;
+                }
+                HttpDispatchPlan::MethodNotAllowed { route_index, .. } => {
+                    validate_native_http_route_conversion_order(
+                        py,
+                        scope,
+                        routes,
+                        *route_index,
+                        true,
+                    )?;
+                }
+                HttpDispatchPlan::NotFound | HttpDispatchPlan::Redirect { .. } => {}
             }
-            HttpDispatchPlan::MethodNotAllowed { route_index, .. } => {
-                validate_native_http_route_conversion_order(py, scope, routes, *route_index, true)?;
-            }
-            HttpDispatchPlan::NotFound | HttpDispatchPlan::Redirect { .. } => {}
         }
         Ok((plan, child_scopes))
     }
@@ -993,6 +1004,8 @@ impl RouterDispatchMachine {
         let root_path = optional_scope_string(scope, "root_path", "")?;
         let mut child_scopes = HashMap::new();
         let mut callback_error = None;
+        let ordered_route_scan =
+            !routes.custom_http_indexes.is_empty() || !routes.custom_websocket_indexes.is_empty();
 
         let plan = routes
             .websocket_table
@@ -1010,6 +1023,7 @@ impl RouterDispatchMachine {
                         candidate_path,
                         routes: &routes.routes,
                         route_indexes: &routes.custom_websocket_indexes,
+                        ordered_route_scan,
                         native_full_index,
                         child_scopes: &mut child_scopes,
                     },
@@ -1192,6 +1206,7 @@ struct SupplementalMatchArgs<'a, 'py> {
     candidate_path: &'a str,
     routes: &'a [Py<PyAny>],
     route_indexes: &'a [usize],
+    ordered_route_scan: bool,
     native_full_index: Option<usize>,
     child_scopes: &'a mut HashMap<usize, Py<PyAny>>,
 }
@@ -1206,6 +1221,7 @@ fn supplemental_matches(
         candidate_path,
         routes,
         route_indexes,
+        ordered_route_scan,
         native_full_index,
         child_scopes,
     } = args;
@@ -1217,10 +1233,13 @@ fn supplemental_matches(
         candidate_scope
     };
     let mut matches = Vec::new();
-
-    for &route_index in route_indexes {
+    // If this router has supplemental matchers, preserve Starlette's
+    // declaration-order calls to the Rust-backed matches() facades. In
+    // particular, an earlier converter error must precede a later custom
+    // matcher. Pure native routers keep the optimized table path.
+    let mut scan_route = |route_index: usize| -> PyResult<bool> {
         if native_full_index.is_some_and(|full_index| route_index > full_index) {
-            break;
+            return Ok(true);
         }
         let Some(route) = routes.get(route_index) else {
             return Err(PyRuntimeError::new_err(format!(
@@ -1237,7 +1256,7 @@ fn supplemental_matches(
             2 => {
                 child_scopes.insert(route_index, child_scope.unbind());
                 matches.push(SupplementalRouteMatch::Matched { route_index });
-                break;
+                Ok(true)
             }
             1 => {
                 child_scopes.insert(route_index, child_scope.unbind());
@@ -1245,8 +1264,23 @@ fn supplemental_matches(
                     route_index,
                     allowed_methods: Vec::new(),
                 });
+                Ok(false)
             }
-            _ => {}
+            _ => Ok(false),
+        }
+    };
+
+    if ordered_route_scan {
+        for (route_index, _) in routes.iter().enumerate() {
+            if scan_route(route_index)? {
+                break;
+            }
+        }
+    } else {
+        for &route_index in route_indexes {
+            if scan_route(route_index)? {
+                break;
+            }
         }
     }
 

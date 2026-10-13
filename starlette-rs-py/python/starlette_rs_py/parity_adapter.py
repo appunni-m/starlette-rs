@@ -6755,6 +6755,8 @@ def _run_route_dispatch_case_impl(case: dict[str, Any]) -> dict[str, Any]:
                 def matches(self, scope: Any) -> tuple[Match, dict[str, Any]]:
                     if scope["path"] != route_spec["match_scope_path"]:
                         return Match.NONE, {}
+                    if "match_error" in route_spec:
+                        raise RuntimeError(route_spec["match_error"])
                     path_params = dict(scope.get("path_params", {}))
                     path_params.update(route_spec["path_params"])
                     return Match.FULL, {"path_params": path_params}
@@ -7068,7 +7070,13 @@ def _run_route_dispatch_case_impl(case: dict[str, Any]) -> dict[str, Any]:
 
         if dispatch_input["send"] != {"kind": "capture-asgi-send"}:
             raise ValueError("send input must select the declared ASGI message collector")
-        await app(scope, receive, send)
+        dispatch_error = None
+        try:
+            await app(scope, receive, send)
+        except Exception as exc:
+            if case.get("observe_dispatch_error") is not True:
+                raise
+            dispatch_error = _dispatch_error(exc)
         events = [_canonical_message(message) for message in sent]
         response_start = next(
             (event for event in events if event["type"] == "http.response.start"), None
@@ -7121,6 +7129,9 @@ def _run_route_dispatch_case_impl(case: dict[str, Any]) -> dict[str, Any]:
             if len(route_indexes) > 1:
                 raise RuntimeError("Router dispatched more than one route endpoint")
             observation["route_index"] = route_indexes[0] if route_indexes else None
+        if dispatch_error is not None:
+            observation["dispatch_error.class"] = dispatch_error["class"]
+            observation["dispatch_error.message"] = dispatch_error["message"]
         return observation, scope
 
     if router_sequence:
@@ -16038,6 +16049,15 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         and (case.get("surface"), case.get("operation")) == REQUEST_FORM_OPERATION
     ):
         return _run_request_form_case(case)
+    if isinstance(case, dict) and (case.get("surface"), case.get("operation")) == (
+        "starlette.datastructures.FormData",
+        "close-lifecycle",
+    ):
+        from starlette.datastructures import FormData, UploadFile
+
+        from scripts.parity.adapters.formdata import run_formdata_close_case
+
+        return run_formdata_close_case(case, FormData, UploadFile)
     if isinstance(case, dict) and (case.get("surface"), case.get("operation")) == (
         "starlette.datastructures.FormData",
         "multidict-lookups",

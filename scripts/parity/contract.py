@@ -811,6 +811,7 @@ PYTHON_VERSION_MATRIX_OPERATIONS = {
     (EXCEPTION_VALUES_SURFACE, VALUE_FORMATTING_OPERATION),
     REQUEST_SCOPE_MAPPING_OPERATION,
     ("starlette.datastructures.FormData", "multidict-lookups"),
+    ("starlette.datastructures.FormData", "close-lifecycle"),
     UPLOAD_FILE_OPERATION,
     ("starlette.applications.Starlette", "__call__"),
 }
@@ -959,11 +960,21 @@ FORM_DATA_MULTIDICT_LOOKUPS_OPERATION = (
     "starlette.datastructures.FormData",
     "multidict-lookups",
 )
+FORM_DATA_CLOSE_OPERATION = (
+    "starlette.datastructures.FormData",
+    "close-lifecycle",
+)
 FORM_DATA_CONSTRUCTOR_REQUIREMENT = "starlette.datastructures.FormData.constructor-input-semantics"
+FORM_DATA_CLOSE_REQUIREMENT = "starlette.datastructures.FormData.close.dynamic-multi-items-order"
 FORM_DATA_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
     "constructor",
     "probe_keys",
     "equalities",
+}
+FORM_DATA_CLOSE_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
+    "files",
+    "constructor_entries",
+    "multi_items_override",
 }
 AUTHENTICATION_OPERATIONS = {
     ("starlette.authentication", "value-operations"),
@@ -1152,6 +1163,9 @@ ROUTER_HOST_PORT_REQUIREMENT = "starlette.routing.Router.route-dispatch.host-par
 ROUTER_HOST_IPV6_REQUIREMENT = "starlette.routing.Router.route-dispatch.host-ipv6-authority-match"
 ROUTER_CACHE_GC_REQUIREMENT = (
     "starlette.routing.Router.route-dispatch.cached-route-cycle-garbage-collection"
+)
+ROUTER_MIXED_MATCH_ORDER_REQUIREMENT = (
+    "starlette.routing.Router.route-dispatch.native-partial-converter-error-before-custom-match"
 )
 ROUTER_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
     "custom_convertors",
@@ -2547,6 +2561,12 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         and key == (ROUTER_SURFACE, ROUTER_OPERATION)
                         and observation["path"] == "garbage_collection"
                     )
+                    router_dispatch_error_probe = (
+                        condition["input_key"] == "observe_dispatch_error"
+                        and key == (ROUTER_SURFACE, ROUTER_OPERATION)
+                        and observation["path"]
+                        in {"dispatch_error.class", "dispatch_error.message"}
+                    )
                     testclient_lifespan_callback_trace = (
                         condition["input_key"] == "asgi_app.callback"
                         and key == TESTCLIENT_LIFESPAN_OPERATION_KEY
@@ -2720,6 +2740,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         and not file_response_scheduling_probe
                         and not router_scope_probe
                         and not router_cache_gc_probe
+                        and not router_dispatch_error_probe
                         and not testclient_lifespan_callback_trace
                         and not testclient_lifespan_runvar_context
                         and not testclient_lifespan_typing_contract
@@ -3268,6 +3289,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                                 REQUEST_BODY_STREAM_JSON_OPERATION,
                                 REQUEST_LIFETIME_OPERATION,
                                 FORM_DATA_MULTIDICT_LOOKUPS_OPERATION,
+                                FORM_DATA_CLOSE_OPERATION,
                                 EXCEPTION_MIDDLEWARE_TYPING_OPERATION,
                                 PUBLIC_API_INSPECTION_OPERATION,
                                 UPLOAD_FILE_OPERATION,
@@ -5765,7 +5787,8 @@ def _validate_router_route_input(
     ):
         route = _exact(
             route,
-            {"kind", "path", "match_scope_path", "path_params", "endpoint"},
+            {"kind", "path", "match_scope_path", "path_params", "endpoint"}
+            | ({"match_error"} if "match_error" in route else set()),
             context,
         )
         if route["kind"] != "base-route-subclass":
@@ -5774,6 +5797,8 @@ def _validate_router_route_input(
             value = _string(route[field], f"{context}.{field}")
             if not value.startswith("/"):
                 raise ContractError(f"{context}.{field} must be an absolute path")
+        if "match_error" in route:
+            _string(route["match_error"], f"{context}.match_error")
         path_params = route["path_params"]
         if not isinstance(path_params, dict) or any(
             not isinstance(name, str) or re.fullmatch(r"[a-zA-Z_][a-zA-Z0-9_]*", name) is None
@@ -9825,6 +9850,8 @@ def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
         _validate_router_sequence_case_stimulus(case)
         return
     optional_keys = {"observe_router_scope"} if "observe_router_scope" in case else set()
+    if "observe_dispatch_error" in case:
+        optional_keys.add("observe_dispatch_error")
     if "garbage_collection" in case:
         optional_keys.add("garbage_collection")
     if "max_body_size" in case:
@@ -9861,6 +9888,8 @@ def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
     )
     if "observe_router_scope" in case and case["observe_router_scope"] is not True:
         raise ContractError("Router observe_router_scope must be true when supplied")
+    if "observe_dispatch_error" in case and case["observe_dispatch_error"] is not True:
+        raise ContractError("Router observe_dispatch_error must be true when supplied")
     routes = [
         _validate_router_route_input(
             route,
@@ -9928,6 +9957,38 @@ def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
         )
     ]
     derived: set[str] = set()
+    if case.get("observe_dispatch_error") is True:
+        digit_limit = sys.get_int_max_str_digits()
+        ordered_converter_error = False
+        for index, route in enumerate(routes):
+            if route["kind"] != "http-route" or _route_method_matches(route, method):
+                continue
+            captures = _route_template_capture(route["path"], route_path, custom_convertors)
+            if captures is None:
+                continue
+            exceeds_digit_limit = digit_limit > 0 and any(
+                converter == "int"
+                and converter not in custom_convertors
+                and len(captures[name]) > digit_limit
+                for name, converter in _route_template_parameters(route["path"])
+            )
+            if not exceeds_digit_limit:
+                continue
+            if any(
+                later_route["kind"] == "base-route-subclass"
+                and later_route["match_scope_path"] == path
+                and "match_error" in later_route
+                for later_route in routes[index + 1 :]
+            ):
+                ordered_converter_error = True
+                break
+        if not ordered_converter_error:
+            raise ContractError(
+                "Router dispatch-error observation requires an earlier method-partial int route "
+                "that exceeds the Python conversion digit limit before a later raising "
+                "BaseRoute matcher"
+            )
+        derived.add(ROUTER_MIXED_MATCH_ORDER_REQUIREMENT)
     if "garbage_collection" in case:
         derived.add(ROUTER_CACHE_GC_REQUIREMENT)
     mount_requirements, selected_route = _router_mount_requirements(
@@ -21089,6 +21150,10 @@ def _validate_case_payload(
         isinstance(case, dict)
         and (case.get("surface"), case.get("operation")) == FORM_DATA_MULTIDICT_LOOKUPS_OPERATION
     )
+    is_formdata_close = (
+        isinstance(case, dict)
+        and (case.get("surface"), case.get("operation")) == FORM_DATA_CLOSE_OPERATION
+    )
     is_query_params = (
         isinstance(case, dict)
         and (case.get("surface"), case.get("operation")) == QUERY_PARAMS_OPERATION
@@ -21319,6 +21384,8 @@ def _validate_case_payload(
         }
     elif is_formdata:
         expected_case_keys = FORM_DATA_CASE_KEYS
+    elif is_formdata_close:
+        expected_case_keys = FORM_DATA_CLOSE_CASE_KEYS
     if (
         isinstance(case, dict)
         and case.get("surface") in ASGI_MIDDLEWARE_SURFACES
@@ -21334,6 +21401,8 @@ def _validate_case_payload(
         expected_case_keys = expected_case_keys | {"subclass_hooks"}
     if is_router and isinstance(case, dict) and "observe_router_scope" in case:
         expected_case_keys = expected_case_keys | {"observe_router_scope"}
+    if is_router and isinstance(case, dict) and "observe_dispatch_error" in case:
+        expected_case_keys = expected_case_keys | {"observe_dispatch_error"}
     if is_router and isinstance(case, dict) and "max_body_size" in case:
         expected_case_keys = expected_case_keys | {"max_body_size"}
     if is_response and isinstance(case, dict) and "render_override" in case:
@@ -21870,6 +21939,11 @@ def _validate_case_payload(
     elif is_formdata:
         if (case["surface"], case["operation"]) != FORM_DATA_MULTIDICT_LOOKUPS_OPERATION:
             raise ContractError("FormData cases must use the declared multidict-lookups operation")
+    elif is_formdata_close:
+        if (case["surface"], case["operation"]) != FORM_DATA_CLOSE_OPERATION:
+            raise ContractError(
+                "FormData.close cases must use the declared close-lifecycle operation"
+            )
     elif is_rust_owned_python:
         if (case["surface"], case["operation"]) not in RUST_OWNED_PYTHON_OPERATIONS:
             raise ContractError("configuration and schema cases must use declared operations")
@@ -21969,6 +22043,9 @@ def _validate_case_payload(
     elif is_formdata:
         if case["observations"] != ["multidict-lookups"]:
             raise ContractError("FormData cases must select multidict-lookups")
+    elif is_formdata_close:
+        if case["observations"] != ["close-lifecycle"]:
+            raise ContractError("FormData.close cases must select close-lifecycle")
     elif case["surface"] != "starlette.applications.Starlette" or case["operation"] not in {
         "__call__",
         "request-dispatch",
@@ -22036,6 +22113,8 @@ def _validate_case_payload(
         raise ContractError("UploadFile cases select all supported Python profiles")
     if is_formdata and selected_profiles != list(PYTHON_PROFILE_IDS):
         raise ContractError("FormData cases select all supported Python profiles")
+    if is_formdata_close and selected_profiles != list(PYTHON_PROFILE_IDS):
+        raise ContractError("FormData.close cases select all supported Python profiles")
     if is_threadpool and selected_profiles != list(PYTHON_PROFILE_IDS):
         raise ContractError("run_in_threadpool cases select all supported Python profiles")
     if is_run_until_first_complete and selected_profiles != ["python-package-cpython312"]:
@@ -22253,6 +22332,9 @@ def _validate_case_payload(
         return case
     if is_formdata:
         _validate_formdata_case(case)
+        return case
+    if is_formdata_close:
+        _validate_formdata_close_case(case)
         return case
     if is_authentication:
         _validate_authentication_case(case)
@@ -32878,6 +32960,71 @@ def _validate_formdata_case(case: dict[str, Any]) -> None:
 
     if case["covers"] != [FORM_DATA_CONSTRUCTOR_REQUIREMENT]:
         raise ContractError("FormData covers must select constructor-input-semantics")
+
+
+def _validate_formdata_close_case(case: dict[str, Any]) -> None:
+    if case["assets"] != [] or case["observations"] != ["close-lifecycle"]:
+        raise ContractError("FormData.close cases use no assets and select close-lifecycle")
+    if case["target_profiles"] != list(PYTHON_PROFILE_IDS):
+        raise ContractError("FormData.close parity selects all supported Python profiles")
+
+    files = case["files"]
+    if not isinstance(files, list) or not files:
+        raise ContractError("FormData.close files must be a non-empty array")
+    file_ids: set[str] = set()
+    for index, raw_file in enumerate(files):
+        context = f"FormData.close files[{index}]"
+        file_spec = _exact(raw_file, {"id", "filename", "body_base64", "size"}, context)
+        file_id = _string(file_spec["id"], f"{context}.id")
+        if file_id in file_ids:
+            raise ContractError("FormData.close file IDs must be unique")
+        file_ids.add(file_id)
+        _string(file_spec["filename"], f"{context}.filename")
+        body_base64 = _string(file_spec["body_base64"], f"{context}.body_base64")
+        try:
+            base64.b64decode(body_base64, validate=True)
+        except (ValueError, TypeError) as exc:
+            raise ContractError(f"{context}.body_base64 must be valid base64") from exc
+        if type(file_spec["size"]) is not int or file_spec["size"] < 0:
+            raise ContractError(f"{context}.size must be a non-negative integer")
+
+    def validate_entries(entries: Any, context: str) -> list[str]:
+        if not isinstance(entries, list) or not entries:
+            raise ContractError(f"{context} must be a non-empty array of key/value pairs")
+        referenced_files: list[str] = []
+        for index, raw_entry in enumerate(entries):
+            entry_context = f"{context}[{index}]"
+            if not isinstance(raw_entry, list) or len(raw_entry) != 2:
+                raise ContractError(f"{entry_context} must contain a key and value")
+            _validate_formdata_key(raw_entry[0], f"{entry_context}[0]", string_only=True)
+            value = raw_entry[1]
+            if isinstance(value, str):
+                continue
+            file_reference = _exact(value, {"kind", "id"}, f"{entry_context}[1]")
+            if file_reference["kind"] != "upload-file-ref":
+                raise ContractError(f"{entry_context}[1].kind must be upload-file-ref")
+            file_id = _string(file_reference["id"], f"{entry_context}[1].id")
+            if file_id not in file_ids:
+                raise ContractError(f"{entry_context}[1] references an unknown upload file")
+            referenced_files.append(file_id)
+        return referenced_files
+
+    constructor_files = validate_entries(
+        case["constructor_entries"], "FormData.close constructor_entries"
+    )
+    override_files = validate_entries(
+        case["multi_items_override"], "FormData.close multi_items_override"
+    )
+    if not constructor_files or not override_files:
+        raise ContractError(
+            "FormData.close constructor and multi_items override must each select an upload file"
+        )
+    if constructor_files == override_files:
+        raise ContractError(
+            "FormData.close override must change the input-defined upload selection or order"
+        )
+    if case["covers"] != [FORM_DATA_CLOSE_REQUIREMENT]:
+        raise ContractError("FormData.close covers must select dynamic-multi-items-order")
 
 
 def _validate_authentication_case(case: dict[str, Any]) -> None:

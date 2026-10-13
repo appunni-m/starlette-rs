@@ -1,0 +1,84 @@
+{
+  "schema": "migration-parity/parity-input@52",
+  "cases": [
+    {
+      "case_id": "starlette.datastructures.FormData.close-lifecycle.dynamic-multi-items-order",
+      "surface": "starlette.datastructures.FormData",
+      "operation": "close-lifecycle",
+      "covers": [
+        "starlette.datastructures.FormData.close.dynamic-multi-items-order"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "files": [
+        {
+          "id": "stored-first",
+          "filename": "first.txt",
+          "body_base64": "YQ==",
+          "size": 1
+        },
+        {
+          "id": "stored-omitted",
+          "filename": "omitted.txt",
+          "body_base64": "Yg==",
+          "size": 1
+        },
+        {
+          "id": "override-first",
+          "filename": "override.txt",
+          "body_base64": "Yw==",
+          "size": 1
+        }
+      ],
+      "constructor_entries": [
+        [
+          "stored-upload",
+          {
+            "kind": "upload-file-ref",
+            "id": "stored-first"
+          }
+        ],
+        [
+          "stored-but-not-selected",
+          {
+            "kind": "upload-file-ref",
+            "id": "stored-omitted"
+          }
+        ],
+        [
+          "stored-text",
+          "ignored"
+        ]
+      ],
+      "multi_items_override": [
+        [
+          "override-upload",
+          {
+            "kind": "upload-file-ref",
+            "id": "override-first"
+          }
+        ],
+        [
+          "override-text",
+          "ignored"
+        ],
+        [
+          "selected-stored-upload",
+          {
+            "kind": "upload-file-ref",
+            "id": "stored-first"
+          }
+        ]
+      ],
+      "observations": [
+        "close-lifecycle"
+      ]
+    }
+  ]
+}

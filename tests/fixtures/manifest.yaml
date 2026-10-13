@@ -512,6 +512,7 @@
       "build/parity/inputs/parity/request-form-multipart.json",
       "build/parity/inputs/parity/request-form-multipart-iso-8859-1.json",
       "build/parity/inputs/parity/formdata-constructor.json",
+      "build/parity/inputs/parity/formdata-close.json",
       "build/parity/inputs/parity/formdata-key-preservation.json",
       "build/parity/inputs/parity/upload-file.json",
       "build/parity/inputs/parity/upload-file-rolled-write-error.json",
@@ -557,6 +558,7 @@
       "build/parity/inputs/parity/testclient-lifespan-context.json",
       "build/parity/inputs/parity/application-routes.json",
       "build/parity/inputs/parity/router-converter-ordering.json",
+      "build/parity/inputs/parity/router-mixed-route-ordering.json",
       "build/parity/inputs/parity/application-subclass-builder.json",
       "build/parity/inputs/parity/concurrency.json",
       "build/parity/inputs/parity/concurrency-run-until-first-complete-zero-callbacks.json",
@@ -6059,6 +6061,136 @@
           "benchmark": {
             "applicability": "not_applicable",
             "reason": "FormData multidict lookups are outside the active benchmark workloads."
+          }
+        },
+        {
+          "id": "close-lifecycle",
+          "kind": "value_operation",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.datastructures.FormData.close and UploadFile.close",
+            "signature": "async FormData.close(self) -> None; close UploadFile values returned by self.multi_items()",
+            "parameters": [
+              {
+                "id": "files",
+                "style": "option",
+                "value_types": [
+                  "sequence"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "constructor_entries",
+                "style": "option",
+                "value_types": [
+                  "sequence"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "multi_items_override",
+                "style": "option",
+                "value_types": [
+                  "sequence"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "close-lifecycle",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [
+                  "class",
+                  "kind",
+                  "message",
+                  "stage",
+                  "code",
+                  "cause",
+                  "suppress_context"
+                ],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "The Rust-native public API does not expose the Python FormData interface.",
+                "blocker": "FormData is provided by the Python compatibility surface."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.datastructures.FormData.close",
+              "signature": "FormData.close() using dynamic multi_items() dispatch",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.datastructures.FormData.close.dynamic-multi-items-order",
+              "dimension": "runtime",
+              "description": "Invoke FormData.close on a subclass whose input-defined multi_items() override selects upload values in a supplied order; observe override invocation, sequential UploadFile.close calls, and final file states. Pinned source: starlette/datastructures.py:494-497.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython310",
+              "python-package-cpython311",
+              "python-package-cpython312",
+              "python-package-cpython313",
+              "python-package-cpython314"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This input-only FormData.close consumer comparison makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "FormData.close is outside the active benchmark workloads."
           }
         },
         {
@@ -23329,7 +23461,8 @@
                 {
                   "path": "response_status",
                   "value_types": [
-                    "integer"
+                    "integer",
+                    "null"
                   ],
                   "comparison": {
                     "kind": "exact"
@@ -23347,7 +23480,8 @@
                 {
                   "path": "response_bytes",
                   "value_types": [
-                    "record"
+                    "record",
+                    "null"
                   ],
                   "comparison": {
                     "kind": "exact"
@@ -23430,6 +23564,30 @@
                   },
                   "condition": {
                     "input_key": "garbage_collection"
+                  }
+                },
+                {
+                  "path": "dispatch_error.class",
+                  "value_types": [
+                    "string"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  },
+                  "condition": {
+                    "input_key": "observe_dispatch_error"
+                  }
+                },
+                {
+                  "path": "dispatch_error.message",
+                  "value_types": [
+                    "string"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  },
+                  "condition": {
+                    "input_key": "observe_dispatch_error"
                   }
                 }
               ],
@@ -24033,6 +24191,17 @@
               "id": "starlette.routing.Router.route-dispatch.base-route-subclass-matches",
               "dimension": "boundary",
               "description": "Router calls an overridden BaseRoute.matches(scope) in route order, selects its FULL match ahead of later built-in matches, and merges the returned child scope before calling handle. Pinned source: starlette/routing.py::BaseRoute.matches and Router.app.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Router.route-dispatch.native-partial-converter-error-before-custom-match",
+              "dimension": "error_path",
+              "description": "Router evaluates BaseRoute.matches(scope) in declaration order: converting a matching integer path capture on an earlier method-partial Route raises before a later custom BaseRoute matcher can raise. Pinned source: starlette/routing.py:242-257,686-703.",
               "lanes": [
                 "parity"
               ],

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import base64
 from io import BytesIO
 from typing import Any
@@ -153,6 +154,70 @@ def run_formdata_case(
                     "multidict-lookups": _constructor_snapshot(
                         case, form_data_type, upload_file_type
                     )
+                },
+            }
+        ],
+    }
+
+
+def run_formdata_close_case(
+    case: dict[str, Any],
+    form_data_type: type[Any],
+    upload_file_type: type[Any],
+) -> dict[str, Any]:
+    """Observe close dispatch through an input-defined FormData subclass."""
+    events: list[dict[str, str]] = []
+    file_labels: dict[int, str] = {}
+
+    class ObservedUploadFile(upload_file_type):
+        async def close(self) -> None:
+            events.append({"event": "upload-close", "file_id": file_labels[id(self)]})
+            await super().close()
+
+    files: dict[str, Any] = {}
+    for spec in case["files"]:
+        files[spec["id"]] = ObservedUploadFile(
+            filename=spec["filename"],
+            file=BytesIO(base64.b64decode(spec["body_base64"], validate=True)),
+            size=spec["size"],
+        )
+        file_labels[id(files[spec["id"]])] = spec["id"]
+
+    def entries(specs: list[list[Any]]) -> list[tuple[Any, Any]]:
+        result = []
+        for key, value in specs:
+            if isinstance(value, str):
+                resolved = value
+            else:
+                resolved = files[value["id"]]
+            result.append((key, resolved))
+        return result
+
+    constructor_entries = entries(case["constructor_entries"])
+    override_entries = [iter(pair) for pair in entries(case["multi_items_override"])]
+
+    class InputDefinedFormData(form_data_type):
+        def multi_items(self) -> list[Any]:
+            events.append({"event": "multi-items"})
+            return override_entries
+
+    form = InputDefinedFormData(constructor_entries)
+    asyncio.run(form.close())
+    return {
+        "case_id": case["case_id"],
+        "status": "completed",
+        "observations": [
+            {
+                "step_id": "close-lifecycle",
+                "status": "ok",
+                "value": {
+                    "close-lifecycle": {
+                        "events": events,
+                        "files": [
+                            {"file_id": spec["id"], "closed": files[spec["id"]].file.closed}
+                            for spec in case["files"]
+                        ],
+                    }
                 },
             }
         ],

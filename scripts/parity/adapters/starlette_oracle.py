@@ -8484,6 +8484,8 @@ def _run_route_dispatch_case(case: dict[str, Any]) -> dict[str, Any]:
             router_keys.add("garbage_collection")
         if "observe_router_scope" in case:
             router_keys.add("observe_router_scope")
+        if "observe_dispatch_error" in case:
+            router_keys.add("observe_dispatch_error")
         _strict_object(
             case,
             router_keys,
@@ -8860,6 +8862,8 @@ def _run_route_dispatch_case(case: dict[str, Any]) -> dict[str, Any]:
             def matches(self, scope: dict[str, Any]) -> tuple[Any, dict[str, Any]]:
                 if scope["path"] != route_spec["match_scope_path"]:
                     return Match.NONE, {}
+                if "match_error" in route_spec:
+                    raise RuntimeError(route_spec["match_error"])
                 return Match.FULL, {"path_params": route_spec["path_params"]}
 
             async def handle(self, scope: Any, receive: Any, send: Any) -> None:
@@ -8986,7 +8990,13 @@ def _run_route_dispatch_case(case: dict[str, Any]) -> dict[str, Any]:
             async def send(message: dict[str, Any]) -> None:
                 sent.append(message)
 
-            await application(scope, receive, send)
+            dispatch_error = None
+            try:
+                await application(scope, receive, send)
+            except Exception as exc:
+                if case.get("observe_dispatch_error") is not True:
+                    raise
+                dispatch_error = _dispatch_error(exc)
             declared_limits = [
                 int(base64.b64decode(value, validate=True))
                 for name, value in scope_spec["headers_base64_pairs"]
@@ -9048,6 +9058,9 @@ def _run_route_dispatch_case(case: dict[str, Any]) -> dict[str, Any]:
                 if len(route_indexes) > 1:
                     raise RuntimeError("Router dispatched more than one route endpoint")
                 selected["route_index"] = route_indexes[0] if route_indexes else None
+            if dispatch_error is not None:
+                selected["dispatch_error.class"] = dispatch_error["class"]
+                selected["dispatch_error.message"] = dispatch_error["message"]
             return selected, mount_scope
 
         if router_sequence:
@@ -15257,6 +15270,15 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         and (case.get("surface"), case.get("operation")) == REQUEST_FORM_OPERATION
     ):
         return _run_request_form_case(case)
+    if isinstance(case, dict) and (case.get("surface"), case.get("operation")) == (
+        "starlette.datastructures.FormData",
+        "close-lifecycle",
+    ):
+        from starlette.datastructures import FormData, UploadFile
+
+        from scripts.parity.adapters.formdata import run_formdata_close_case
+
+        return run_formdata_close_case(case, FormData, UploadFile)
     if isinstance(case, dict) and (case.get("surface"), case.get("operation")) == (
         "starlette.datastructures.FormData",
         "multidict-lookups",

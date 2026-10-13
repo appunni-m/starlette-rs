@@ -148,6 +148,10 @@
           "source_path": "starlette.datastructures.FormData.__init__, FormData.close, ImmutableMultiDict.getlist, keys, items, multi_items, and __getitem__"
         },
         {
+          "operation_id": "close-lifecycle",
+          "source_path": "starlette.datastructures.FormData.close and UploadFile.close"
+        },
+        {
           "operation_id": "ownership-graph",
           "source_path": "starlette.datastructures.FormData.__init__ and public value access"
         }

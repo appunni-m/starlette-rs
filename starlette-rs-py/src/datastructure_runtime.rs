@@ -8,7 +8,8 @@
 
 use pyo3::class::gc::{PyTraverseError, PyVisit};
 use pyo3::exceptions::{
-    PyAssertionError, PyAttributeError, PyKeyError, PyRuntimeError, PyValueError,
+    PyAssertionError, PyAttributeError, PyKeyError, PyRuntimeError, PyStopIteration, PyTypeError,
+    PyValueError,
 };
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyDict, PyInt, PyList, PyModule, PyString, PyTuple};
@@ -736,26 +737,34 @@ impl PyFormData {
         sorted.call1((left,))?.eq(sorted.call1((right,))?)
     }
 
-    fn _close(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        let files = self
-            .items
-            .iter()
-            .filter(|(_, value)| value.bind(py).is_instance_of::<PyUploadFile>())
-            .map(|(_, value)| value.clone_ref(py))
-            .collect();
-        crate::awaitable::into_sendable_python_awaitable(py, FormDataClose { files, index: 0 })
+    fn _close(slf: PyRef<'_, Self>, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        let iterable = slf.into_pyobject(py)?.call_method0("multi_items")?;
+        let iterator = iterable.try_iter()?.into_any().unbind();
+        crate::awaitable::into_sendable_python_awaitable(
+            py,
+            FormDataClose {
+                iterator,
+                current_key: None,
+                current_value: None,
+            },
+        )
     }
 }
 
 struct FormDataClose {
-    files: Vec<Py<PyAny>>,
-    index: usize,
+    iterator: Py<PyAny>,
+    current_key: Option<Py<PyAny>>,
+    current_value: Option<Py<PyAny>>,
 }
 
 impl crate::awaitable::AwaitableStateMachine for FormDataClose {
     fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
-        for file in &self.files {
-            visit.call(file)?;
+        visit.call(&self.iterator)?;
+        if let Some(key) = &self.current_key {
+            visit.call(key)?;
+        }
+        if let Some(value) = &self.current_value {
+            visit.call(value)?;
         }
         Ok(())
     }
@@ -767,10 +776,7 @@ impl crate::awaitable::AwaitableStateMachine for FormDataClose {
     ) -> PyResult<crate::awaitable::MachineAction> {
         match input {
             crate::awaitable::MachineResume::Start => self.next(py),
-            crate::awaitable::MachineResume::Value(_) => {
-                self.index += 1;
-                self.next(py)
-            }
+            crate::awaitable::MachineResume::Value(_) => self.next(py),
             crate::awaitable::MachineResume::AsyncIterationComplete(error)
             | crate::awaitable::MachineResume::Error(error) => Err(error),
         }
@@ -779,12 +785,81 @@ impl crate::awaitable::AwaitableStateMachine for FormDataClose {
 
 impl FormDataClose {
     fn next(&mut self, py: Python<'_>) -> PyResult<crate::awaitable::MachineAction> {
-        let Some(file) = self.files.get(self.index) else {
-            return Ok(crate::awaitable::MachineAction::Complete(py.None()));
-        };
-        Ok(crate::awaitable::MachineAction::Await(
-            file.bind(py).call_method0("close")?.unbind(),
-        ))
+        loop {
+            let pair = match self.iterator.bind(py).call_method0("__next__") {
+                Ok(pair) => pair,
+                Err(error) if error.is_instance_of::<PyStopIteration>(py) => {
+                    return Ok(crate::awaitable::MachineAction::Complete(py.None()));
+                }
+                Err(error) => return Err(error),
+            };
+            let (key, value) = unpack_formdata_pair(py, &pair)?;
+            self.current_key = Some(key);
+            self.current_value = Some(value);
+            match &self.current_value {
+                Some(value) if value.bind(py).is_instance_of::<PyUploadFile>() => {
+                    return Ok(crate::awaitable::MachineAction::Await(
+                        value.bind(py).call_method0("close")?.unbind(),
+                    ));
+                }
+                Some(_) => {}
+                None => {
+                    return Err(PyRuntimeError::new_err(
+                        "FormData.close lost its current iteration value",
+                    ));
+                }
+            }
+        }
+    }
+}
+
+fn unpack_formdata_pair(
+    py: Python<'_>,
+    pair: &Bound<'_, PyAny>,
+) -> PyResult<(Py<PyAny>, Py<PyAny>)> {
+    let pair_type = pair.get_type();
+    let iterator = match pair.try_iter() {
+        Ok(iterator) => iterator.into_any(),
+        Err(error)
+            if error.is_instance_of::<PyTypeError>(py)
+                && !pair_type.hasattr("__iter__")?
+                && !pair_type.hasattr("__getitem__")? =>
+        {
+            let type_name = pair_type.name()?.to_string();
+            return Err(PyTypeError::new_err(format!(
+                "cannot unpack non-iterable {type_name} object"
+            )));
+        }
+        Err(error) => return Err(error),
+    };
+
+    let mut values = Vec::with_capacity(2);
+    for _ in 0..2 {
+        match iterator.call_method0("__next__") {
+            Ok(value) => values.push(value.unbind()),
+            Err(error) if error.is_instance_of::<PyStopIteration>(py) => {
+                return Err(PyValueError::new_err(format!(
+                    "not enough values to unpack (expected 2, got {})",
+                    values.len()
+                )));
+            }
+            Err(error) => return Err(error),
+        }
+    }
+    match iterator.call_method0("__next__") {
+        Ok(_) => Err(PyValueError::new_err(
+            "too many values to unpack (expected 2)",
+        )),
+        Err(error) if error.is_instance_of::<PyStopIteration>(py) => {
+            let mut values = values.into_iter();
+            match (values.next(), values.next()) {
+                (Some(key), Some(value)) => Ok((key, value)),
+                _ => Err(PyRuntimeError::new_err(
+                    "FormData.close pair unpacking lost a value",
+                )),
+            }
+        }
+        Err(error) => Err(error),
     }
 }
 
