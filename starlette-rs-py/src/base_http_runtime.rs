@@ -791,7 +791,7 @@ impl CallNextMachine {
         let status_code = message_bound
             .get_item("status")?
             .ok_or_else(|| PyKeyError::new_err("status"))?
-            .extract::<u16>()?;
+            .unbind();
         let raw_headers = message_bound
             .get_item("headers")?
             .ok_or_else(|| PyKeyError::new_err("headers"))?
@@ -1214,7 +1214,9 @@ impl AwaitableStateMachine for SendNoErrorMachine {
 
 #[pyclass]
 pub(crate) struct PyBaseHTTPResponse {
-    status_code: u16,
+    // Keep the exact ASGI status object: upstream BaseHTTPMiddleware passes
+    // message["status"] through to its response without narrowing Python ints.
+    status_code: Py<PyAny>,
     headers: SharedHeaders,
     info: Option<Py<PyAny>>,
     receive_stream: Py<PyAny>,
@@ -1228,7 +1230,7 @@ pub(crate) struct PyBaseHTTPResponse {
 impl PyBaseHTTPResponse {
     fn new(
         py: Python<'_>,
-        status_code: u16,
+        status_code: Py<PyAny>,
         raw_headers: Vec<(Vec<u8>, Vec<u8>)>,
         info: Option<Py<PyAny>>,
         receive_stream: Py<PyAny>,
@@ -1252,23 +1254,25 @@ impl PyBaseHTTPResponse {
 #[pymethods]
 impl PyBaseHTTPResponse {
     fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.status_code)?;
         visit.call(&self.info)?;
         visit.call(&self.receive_stream)?;
         Ok(())
     }
 
     fn __clear__(&mut self, py: Python<'_>) {
+        self.status_code = py.None();
         self.info = None;
         self.receive_stream = py.None();
     }
 
     #[getter]
-    fn status_code(&self) -> u16 {
-        self.status_code
+    fn status_code(&self, py: Python<'_>) -> Py<PyAny> {
+        self.status_code.clone_ref(py)
     }
 
     #[setter]
-    fn set_status_code(&mut self, status_code: u16) {
+    fn set_status_code(&mut self, status_code: Py<PyAny>) {
         self.status_code = status_code;
     }
 
@@ -1323,7 +1327,7 @@ impl PyBaseHTTPResponse {
         into_sendable_python_awaitable(
             py,
             BaseHTTPResponseCallMachine {
-                status_code: self.status_code,
+                status_code: self.status_code.clone_ref(py),
                 headers: self.headers.clone_ref(py),
                 info: self.info.as_ref().map(|value| value.clone_ref(py)),
                 body_iterator,
@@ -1693,7 +1697,7 @@ enum ResponsePending {
 }
 
 struct BaseHTTPResponseCallMachine {
-    status_code: u16,
+    status_code: Py<PyAny>,
     headers: SharedHeaders,
     info: Option<Py<PyAny>>,
     body_iterator: Py<PyAny>,
@@ -1708,6 +1712,7 @@ struct BaseHTTPResponseCallMachine {
 
 impl AwaitableStateMachine for BaseHTTPResponseCallMachine {
     fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.status_code)?;
         visit.call(&self.info)?;
         visit.call(&self.body_iterator)?;
         visit.call(&self.iterator)?;
@@ -1845,7 +1850,7 @@ impl BaseHTTPResponseCallMachine {
     fn start_message(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let message = PyDict::new(py);
         message.set_item("type", "http.response.start")?;
-        message.set_item("status", self.status_code)?;
+        message.set_item("status", self.status_code.bind(py))?;
         message.set_item("headers", raw_headers_list(py, &self.headers)?)?;
         Ok(message.into_any().unbind())
     }

@@ -151,6 +151,14 @@ class Request(HTTPConnection[StateT]):
     def receive(self) -> Receive:
         return self._body_state.receive
 
+    @property
+    def _receive(self) -> Receive:
+        return self._body_state.receive
+
+    @_receive.setter
+    def _receive(self, receive: Receive) -> None:
+        self._body_state.set_receive(receive)
+
     def stream(self) -> AsyncGenerator[bytes, None]:
         """Return the Rust-owned ASGI request stream iterator."""
         return self._body_state.stream()

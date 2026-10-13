@@ -553,6 +553,11 @@ impl PyRequestBody {
             .ok_or_else(|| PyRuntimeError::new_err("Receive channel has not been made available"))
     }
 
+    fn set_receive(&self, py: Python<'_>, receive: Py<PyAny>) -> PyResult<()> {
+        borrow_runtime_mut(py, &self.shared)?.receive = Some(receive);
+        Ok(())
+    }
+
     /// Expose the shared body state needed by Rust-owned BaseHTTPMiddleware.
     /// The cache, stream completion, and disconnect flags must come from the same
     /// accumulator used by `Request.body()` and `Request.stream()`.

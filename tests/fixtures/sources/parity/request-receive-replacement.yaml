@@ -1,0 +1,59 @@
+{
+  "schema": "migration-parity/parity-input@49",
+  "cases": [
+    {
+      "case_id": "starlette.requests.Request.body-stream-json.replace-receive-between-stream-chunks",
+      "surface": "starlette.requests.Request",
+      "operation": "body-stream-json",
+      "covers": [
+        "starlette.request.receive-callback-replacement"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "http"
+      },
+      "receive": [
+        {
+          "type": "http.request",
+          "body_base64": "cHJlZml4",
+          "more_body": true
+        }
+      ],
+      "blocked_receive_calls": [],
+      "actions": [
+        {
+          "operation": "stream-next",
+          "stream_id": "replaceable"
+        },
+        {
+          "operation": "replace-receive",
+          "receive": [
+            {
+              "type": "http.request",
+              "body_base64": "c3VmZml4",
+              "more_body": false
+            }
+          ]
+        },
+        {
+          "operation": "stream-next",
+          "stream_id": "replaceable"
+        },
+        {
+          "operation": "stream-next",
+          "stream_id": "replaceable"
+        }
+      ],
+      "observations": [
+        "request-consumption"
+      ]
+    }
+  ]
+}

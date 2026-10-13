@@ -363,6 +363,7 @@
       "build/parity/inputs/parity/request-explicit-none-receive.json",
       "build/parity/inputs/parity/request-stream-close-recovery.json",
       "build/parity/inputs/parity/request-stream-aclose-before-first-advance.json",
+      "build/parity/inputs/parity/request-receive-replacement.json",
       "build/parity/inputs/parity/request-body-receive-error-retry.json",
       "build/parity/inputs/parity/request-stream-disconnect-retry.json",
       "build/parity/inputs/parity/request-custom-receive-event.json",
@@ -390,6 +391,7 @@
       "build/parity/inputs/parity/route-representations.json",
       "build/parity/inputs/parity/route-constructor-errors.json",
       "build/parity/inputs/parity/websocket-state-sequence.json",
+      "build/parity/inputs/parity/websocket-accept-send-oserror.json",
       "build/parity/inputs/parity/websocket-raw-state-assignment.json",
       "build/parity/inputs/parity/websocket-send-non-string-type.json",
       "build/parity/inputs/parity/websocket-receive-unhashable-type.json",
@@ -415,9 +417,11 @@
       "build/parity/inputs/parity/redirect-response.json",
       "build/parity/inputs/parity/responses-basic.json",
       "build/parity/inputs/parity/background-tasks.json",
+      "build/parity/inputs/parity/background-task-list-sync-cancellation-worker-error.json",
       "build/parity/inputs/parity/background-task-attribute-deletion.json",
       "build/parity/inputs/parity/background-task-sync-kwargs-mapping.json",
       "build/parity/inputs/parity/streaming-response.json",
+      "build/parity/inputs/parity/streaming-response-empty-sync-chunk.json",
       "build/parity/inputs/parity/streaming-response-lazy-iterator-start-send-failure.json",
       "build/parity/inputs/parity/streaming-response-final-send-disconnect.json",
       "build/parity/inputs/parity/streaming-response-backpressure.json",
@@ -465,6 +469,7 @@
       "build/parity/inputs/parity/authentication-required-routes.json",
       "build/parity/inputs/parity/authentication-required-websockets.json",
       "build/parity/inputs/parity/static-files.json",
+      "build/parity/inputs/parity/static-files-root-path-index-redirect.json",
       "build/parity/inputs/parity/static-files-symlink-asgi.json",
       "build/parity/inputs/parity/static-files-lookup.json",
       "build/parity/inputs/parity/static-files-async-boundary.json",
@@ -486,6 +491,7 @@
       "build/parity/inputs/parity/session-expired-timestamp-out-of-range.json",
       "build/parity/inputs/parity/session-middleware-arbitrary-max-age.json",
       "build/parity/inputs/parity/base-http-middleware.json",
+      "build/parity/inputs/parity/base-http-wide-status-pass-through.json",
       "build/parity/inputs/parity/base-http-return-closed-body-iterator.json",
       "build/parity/inputs/parity/base-http-lifecycle-short-circuit.json",
       "build/parity/inputs/parity/base-http-duplicate-response-headers.json",
@@ -10432,6 +10438,17 @@
               ]
             },
             {
+              "id": "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.downstream-status-integer-pass-through",
+              "dimension": "boundary",
+              "description": "Pass downstream ASGI status integer 65536 through call_next and return the original response; compare the public response object status and outgoing ASGI message. Pinned source: starlette/middleware/base.py:185; starlette/responses.py:163-167.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.return-replacement-response",
               "dimension": "protocol_variant",
               "description": "Await call_next(request) for a route miss, then return a replacement PlainTextResponse from dispatch. Upstream: tests/middleware/test_base.py:190-205.",
@@ -16709,6 +16726,21 @@
               ]
             },
             {
+              "id": "starlette.request.receive-callback-replacement",
+              "dimension": "boundary",
+              "description": "Replace the writable Request._receive callback after one partial Request.stream() chunk and observe the replacement callback's final body chunk and terminal empty chunk. Pinned source: starlette/requests.py:217-220,241-242.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
               "id": "starlette.request.send-push-promise.use-cached-headers-property",
               "dimension": "boundary",
               "description": "After Request.headers is materialized, replace Request.scope with an HTTP push extension and observe that send_push_promise copies the original cached header values. Pinned source: starlette/requests.py::HTTPConnection.headers and Request.send_push_promise.",
@@ -19889,6 +19921,17 @@
               ]
             },
             {
+              "id": "starlette.responses.Response.asgi-call.background-task-list-sync-cancellation-worker-error-stops",
+              "dimension": "error_path",
+              "description": "Cancel Response.__call__ while the first synchronous BackgroundTasks callback waits in an AnyIO worker, then release it to raise Exception; observe that the worker error propagates after cancellation and later tasks stay unstarted. Pinned source: starlette/background.py:26-36; starlette/concurrency.py:32-34; tests/test_background.py:68-86.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.responses.Response.asgi-call.background-sync-task",
               "dimension": "boundary",
               "description": "Attach one sync BackgroundTask with input-defined keyword arguments to Response; compare response-send and worker-thread task start/completion events. Upstream: tests/test_background.py::test_sync_task; starlette/background.py:12-23; starlette/concurrency.py:32-34.",
@@ -20590,6 +20633,18 @@
               "id": "starlette.responses.StreamingResponse.asgi-call.unknown-size-content",
               "dimension": "parameter_combination",
               "description": "Construct a finite StreamingResponse over iter([\"hello\", \"world\"]) without Content-Length or media_type. Upstream: starlette/responses.py::StreamingResponse.__call__; tests/test_responses.py::test_streaming_response_unknown_size.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.StreamingResponse.asgi-call.empty-sync-chunk-framing",
+              "dimension": "boundary",
+              "description": "Yield an empty synchronous text chunk before a non-empty chunk and preserve one ASGI body event per yielded chunk, including the empty value, followed by the terminal empty event. Pinned source: starlette/responses.py:248-255; tests/test_responses.py::test_sync_streaming_response covers sync iteration but not an empty chunk.",
               "lanes": [
                 "parity"
               ],
@@ -25698,6 +25753,18 @@
               ]
             },
             {
+              "id": "starlette.staticfiles.StaticFiles.asgi-call.root-path-prefix-html-index-redirect",
+              "dimension": "boundary",
+              "description": "Strip a nonempty scope.root_path prefix before resolving an HTML index redirect and preserve a nonempty query string in the redirect URL. Pinned source: starlette/_utils.py:96-110; starlette/staticfiles.py:101-107,134-145.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.staticfiles.StaticFiles.asgi-call.html-index-file",
               "dimension": "parameter_combination",
               "description": "Enable HTML mode, request a slash-terminated directory with an index file, and compare the selected response. Upstream: tests/test_staticfiles.py::test_staticfiles_html_normal.",
@@ -27590,6 +27657,18 @@
               "id": "starlette.websocket.state.send-oserror-disconnect",
               "dimension": "error_path",
               "description": "Inject OSError from a connected send callback and compare the projected send-error-handled outcome and final state enums; Python disconnect code, class, and context are excluded. Upstream: starlette/websockets.py::WebSocket.send at the pinned Starlette commit.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.websocket.state.accept-send-oserror-propagates",
+              "dimension": "error_path",
+              "description": "Raise OSError from the initial websocket.accept send callback and compare the unchanged exception class/message and CONNECTED client_state/application_state after the state transition. Pinned source: starlette/websockets.py:63-76.",
               "lanes": [
                 "parity"
               ],

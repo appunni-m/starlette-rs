@@ -422,6 +422,7 @@ BASE_HTTP_REQUIREMENTS = {
     "construct": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.construct-configured-middleware",
     "dispatch_short_circuit": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.dispatch-short-circuits-downstream-app",
     "header_mutation": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.await-call-next-header-mutation",
+    "downstream_status_integer_pass_through": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.downstream-status-integer-pass-through",
     "replacement_response": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.return-replacement-response",
     "body_cache_replay": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.body-cache-replay",
     "response_completion_unblocks_receive": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.response-completion-unblocks-downstream-receive",
@@ -1221,6 +1222,7 @@ FILE_RESPONSE_SURFACE = "starlette.responses.FileResponse"
 STATIC_FILES_SURFACE = "starlette.staticfiles.StaticFiles"
 STATIC_FILES_LOOKUP_PATH_OPERATION = "lookup-path"
 STATIC_FILES_OS_SPECIFIC_PATH_BEHAVIOR = "os-specific-path-normalization"
+STATIC_FILES_ROOT_PATH_PREFIX_INDEX_REDIRECT = "root-path-prefix-html-index-redirect"
 STATIC_FILES_EMPTY_IF_NONE_MATCH_FALLBACK = "empty-if-none-match-falls-through-to-if-modified-since"
 STATIC_FILES_LOOKUP_PATH_NULL_BYTE_REQUIREMENT = (
     f"{STATIC_FILES_SURFACE}.{STATIC_FILES_LOOKUP_PATH_OPERATION}.null-byte-error"
@@ -1261,6 +1263,9 @@ STREAMING_RESPONSE_BACKPRESSURE_REQUIREMENT = (
 STREAMING_RESPONSE_CALLER_CANCELLATION_REQUIREMENT = (
     f"{STREAMING_RESPONSE_SURFACE}.{STREAMING_RESPONSE_OPERATION}.caller-cancellation-during-send"
 )
+STREAMING_RESPONSE_EMPTY_SYNC_CHUNK_REQUIREMENT = (
+    f"{STREAMING_RESPONSE_SURFACE}.{STREAMING_RESPONSE_OPERATION}.empty-sync-chunk-framing"
+)
 STREAMING_RESPONSE_AWAIT_FACTORY_STOP_MODE = "async-iterator-await-factory-stop"
 RESPONSE_OPERATION = "asgi-call"
 RESPONSE_PARTITIONED_COOKIE_REQUIREMENT = (
@@ -1285,6 +1290,7 @@ RESPONSE_BACKGROUND_REQUIREMENTS = {
     "sync_task_cancel_scope_worker_error": "starlette.responses.Response.asgi-call.background-sync-task-cancel-scope-worker-error",
     "task_list_sync_cancellation": "starlette.responses.Response.asgi-call.background-task-list-sync-cancellation",
     "task_list_async_cancellation": "starlette.responses.Response.asgi-call.background-task-list-async-cancellation",
+    "task_list_sync_cancellation_worker_error": "starlette.responses.Response.asgi-call.background-task-list-sync-cancellation-worker-error-stops",
     "task_list_live_mutation": "starlette.responses.Response.asgi-call.background-task-live-list-mutation",
     "sync_noncallable_error": "starlette.responses.Response.asgi-call.background-sync-noncallable-error",
 }
@@ -1588,6 +1594,7 @@ REQUEST_CONSUMPTION_REQUIREMENTS = {
     "stream_disconnect_retry": "starlette.request.stream-disconnect-retry",
     "stream_close_recovery": "starlette.request.stream-close-recovers-remaining-body",
     "stream_close_unstarted": "starlette.request.stream-aclose-before-first-advance",
+    "receive_replacement": "starlette.request.receive-callback-replacement",
     "custom_receive_event": "starlette.request.stream-ignore-custom-receive-events",
     "custom_receive_event_between_chunks": (
         "starlette.request.stream-ignore-custom-receive-event-between-body-chunks"
@@ -3976,6 +3983,7 @@ def _validate_websocket_case_stimulus(case: dict[str, Any]) -> None:
     application_state = "CONNECTING"
     terminal_receive_count = 0
     send_oserror_action_valid = False
+    accept_send_oserror_action_valid = False
     send_non_string_type_action_valid = False
     send_unhashable_type_action_valid = False
     send_string_subclass_hash_error_observed = False
@@ -4089,12 +4097,20 @@ def _validate_websocket_case_stimulus(case: dict[str, Any]) -> None:
                     raise ContractError(f"{context}.send_error.kind must be os-error")
                 if not isinstance(send_error["message"], str):
                     raise ContractError(f"{context}.send_error.message must be a string")
-                if message_type != "websocket.send" or application_state != "CONNECTED":
+                if message_type == "websocket.send" and application_state == "CONNECTED":
+                    send_oserror_action_valid = True
+                    application_state = "DISCONNECTED"
+                elif (
+                    operation == WEBSOCKET_STATE_OPERATION
+                    and message_type == "websocket.accept"
+                    and application_state == "CONNECTING"
+                ):
+                    accept_send_oserror_action_valid = True
+                    application_state = "CONNECTED"
+                else:
                     raise ContractError(
-                        f"{context}.send_error requires websocket.send after accept while application_state is CONNECTED"
+                        f"{context}.send_error requires websocket.send while CONNECTED or websocket.accept while CONNECTING"
                     )
-                send_oserror_action_valid = True
-                application_state = "DISCONNECTED"
             elif application_state == "CONNECTING":
                 if message_type == "websocket.accept":
                     application_state = "CONNECTED"
@@ -4221,6 +4237,13 @@ def _validate_websocket_case_stimulus(case: dict[str, Any]) -> None:
         coverage.add(f"{requirement_prefix}.binary-exchange")
     if send_oserror_action_valid and incoming_types[:1] == ["websocket.connect"]:
         coverage.add(f"{requirement_prefix}.send-oserror-disconnect")
+    if (
+        operation == WEBSOCKET_STATE_OPERATION
+        and accept_send_oserror_action_valid
+        and incoming_types[:1] == ["websocket.connect"]
+        and action_signature[:2] == [("receive", None), ("send", "websocket.accept")]
+    ):
+        coverage.add("starlette.websocket.state.accept-send-oserror-propagates")
     if send_string_subclass_hash_error_observed:
         coverage.add(f"{requirement_prefix}.send-string-subclass-hash-error")
     if send_non_string_type_action_valid:
@@ -6362,21 +6385,35 @@ def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
                     )
                 if failures:
                     if (
-                        kind != "single-task"
-                        or len(tasks) != 1
-                        or tasks[0]["mode"] != "sync"
-                        or failures != [0]
-                        or tasks[0]["failure"]["kind"] != "Exception"
+                        background_control["kind"] == "cancel-after-task-start"
+                        and kind == "task-list"
+                        and len(tasks) >= 2
+                        and failures == [0]
+                        and tasks[0]["mode"] == "sync"
+                        and tasks[0]["failure"]["kind"] == "Exception"
                     ):
-                        raise ContractError(
-                            "Response cancellation with a worker error requires one synchronous callback that raises Exception"
+                        derived = [
+                            RESPONSE_BACKGROUND_REQUIREMENTS[
+                                "task_list_sync_cancellation_worker_error"
+                            ]
+                        ]
+                    else:
+                        if (
+                            kind != "single-task"
+                            or len(tasks) != 1
+                            or tasks[0]["mode"] != "sync"
+                            or failures != [0]
+                            or tasks[0]["failure"]["kind"] != "Exception"
+                        ):
+                            raise ContractError(
+                                "Response cancellation with a worker error requires one synchronous callback that raises Exception or a failing first callback in a BackgroundTasks list"
+                            )
+                        error_requirement = (
+                            "sync_task_cancel_scope_worker_error"
+                            if background_control["kind"] == "cancel-scope-after-task-start"
+                            else "sync_task_cancellation_worker_error"
                         )
-                    error_requirement = (
-                        "sync_task_cancel_scope_worker_error"
-                        if background_control["kind"] == "cancel-scope-after-task-start"
-                        else "sync_task_cancellation_worker_error"
-                    )
-                    derived = [RESPONSE_BACKGROUND_REQUIREMENTS[error_requirement]]
+                        derived = [RESPONSE_BACKGROUND_REQUIREMENTS[error_requirement]]
                 elif kind == "single-task" and len(tasks) == 1:
                     cancellation_requirement = (
                         "task_cancellation"
@@ -7546,6 +7583,8 @@ def _validate_static_files_case_stimulus(
         {"scope": dispatch_scope, "receive": case["incoming"], "send": case["send"]},
         request_dispatch=True,
         allow_headers=True,
+        allow_root_path=True,
+        allow_query=True,
     )
 
     path = scope["path"]
@@ -7561,11 +7600,19 @@ def _validate_static_files_case_stimulus(
             "StaticFiles requires configured assets or filesystem inputs unless the input path contains a NUL byte"
         )
     route_path = path
+    root_path_prefix_removed = False
     if root_path and path.startswith(root_path):
         if path == root_path:
             route_path = ""
         elif path[len(root_path) :].startswith("/"):
             route_path = path[len(root_path) :]
+            root_path_prefix_removed = True
+    query_string = base64.b64decode(scope["query_string_base64"], validate=True)
+    try:
+        query_string.decode("utf-8")
+        query_string_is_valid_nonempty = bool(query_string)
+    except UnicodeDecodeError:
+        query_string_is_valid_nonempty = False
     filesystem_lookup_requirement = None
     if case["filesystem"] is not None:
         if not isinstance(case["filesystem"], dict):
@@ -7735,6 +7782,15 @@ def _validate_static_files_case_stimulus(
             derived.add("secondary-lookup-error-propagation")
         else:
             derived.add("html-index-file" if path.endswith("/") else "html-index-redirect")
+            if (
+                subclass_hook_name is None
+                and root_path_prefix_removed
+                and set(case["target_profiles"])
+                == {"rust-native-local", "python-package-cpython312"}
+                and not path.endswith("/")
+                and query_string_is_valid_nonempty
+            ):
+                derived.add(STATIC_FILES_ROOT_PATH_PREFIX_INDEX_REDIRECT)
     if (
         method == "GET"
         and case["html"]
@@ -8712,7 +8768,14 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
                 raise ContractError(
                     "StreamingResponse chunks must be text, bytes, or memoryview input"
                 )
-            value = _string(chunk["value"], f"StreamingResponse content[{index}].value")
+            if chunk["kind"] == "text":
+                value = chunk["value"]
+                if not isinstance(value, str):
+                    raise ContractError(
+                        f"StreamingResponse content[{index}].value must be a string"
+                    )
+            else:
+                value = _string(chunk["value"], f"StreamingResponse content[{index}].value")
             if chunk["kind"] in {"base64-bytes", "memoryview-base64"}:
                 try:
                     base64.b64decode(value, validate=True)
@@ -8847,6 +8910,7 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
 
     stimulus = (tuple(chunks), tuple(tuple(pair) for pair in headers), media_type)
     allowed_sync = {
+        ((("text", ""), ("text", "tail")), (), None),
         ((("text", "hello"), ("text", "world")), (), None),
         ((("text", "hello"), ("text", "world")), (("content-length", "10"),), None),
         (
@@ -8950,6 +9014,16 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
             )
         ):
             raise ContractError("StreamingResponse chunks and headers are outside this input slice")
+        empty_sync_chunk_stimulus = ((("text", ""), ("text", "tail")), (), None)
+        if stimulus == empty_sync_chunk_stimulus:
+            if case["covers"] != [STREAMING_RESPONSE_EMPTY_SYNC_CHUNK_REQUIREMENT]:
+                raise ContractError(
+                    "empty synchronous StreamingResponse chunks must map the framing requirement"
+                )
+        elif STREAMING_RESPONSE_EMPTY_SYNC_CHUNK_REQUIREMENT in case["covers"]:
+            raise ContractError(
+                "the empty synchronous chunk requirement requires its matching input stimulus"
+            )
     elif case["streaming"] == "file-like":
         if (
             file_like_content is None
@@ -12361,6 +12435,7 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
         raise ContractError("only the call_next response can be mutated")
 
     downstream: dict[str, Any] | None = None
+    wide_status_probe = False
     if "downstream" in application:
         raw_downstream = application["downstream"]
         if not isinstance(raw_downstream, dict) or not isinstance(raw_downstream.get("kind"), str):
@@ -12410,12 +12485,13 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
                         response_started
                         or step_index != 0
                         or type(message["status"]) is not int
-                        or not 100 <= message["status"] <= 599
+                        or not (100 <= message["status"] <= 599 or message["status"] == 65536)
                         or not isinstance(message["headers_base64_pairs"], list)
                     ):
                         raise ContractError(
                             "downstream ASGI must begin with one valid response.start"
                         )
+                    wide_status_probe = message["status"] == 65536
                     for header_index, pair in enumerate(message["headers_base64_pairs"]):
                         if (
                             not isinstance(pair, list)
@@ -13465,6 +13541,47 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
         requirements.add(BASE_HTTP_REQUIREMENTS["outer_receive_transformation"])
     if context_manager_cleanup_spec is not None:
         requirements.add(BASE_HTTP_REQUIREMENTS["context_manager_cleanup"])
+    if wide_status_probe:
+        steps = downstream["steps"] if downstream is not None else []
+        request_body_events = [event for event in receive if event["type"] == "http.request"]
+        if (
+            downstream is None
+            or downstream["kind"] != "asgi-sequence"
+            or routes
+            or len(custom_layers) != 1
+            or len(middleware_layers) != 1
+            or actions
+            != [
+                {"kind": "await-call-next"},
+                {
+                    "kind": "observe-call-next-response-headers",
+                    "name": "x-status-probe",
+                },
+                {"kind": "return-call-next-response"},
+            ]
+            or await_action_kind != "await-call-next"
+            or returned != "call-next"
+            or len(steps) != 3
+            or steps[0]["message"].get("status") != 65536
+            or steps[1]["message"].get("type") != "http.response.body"
+            or steps[1]["message"].get("more_body") is not False
+            or steps[2] != {"kind": "receive"}
+            or scope["method"] != "GET"
+            or path != "/"
+            or len(request_body_events) != 1
+            or base64.b64decode(request_body_events[0]["body_base64"], validate=True)
+            or request_body_events[0]["more_body"]
+            or disconnect_events
+            or receive_after_events != "block"
+            or send_checkpoints
+            or outer_receive_transform is not None
+            or background_task_spec is not None
+            or context_manager_cleanup_spec is not None
+        ):
+            raise ContractError(
+                "wide downstream status requires one empty GET call_next pass-through to an ASGI sequence"
+            )
+        requirements.add(BASE_HTTP_REQUIREMENTS["downstream_status_integer_pass_through"])
     if set(case["covers"]) != requirements:
         raise ContractError(
             "BaseHTTPMiddleware covers must match the input middleware, request, and dispatch actions: "
@@ -26826,6 +26943,7 @@ def _validate_request_body_stream_json_case(case: dict[str, Any]) -> None:
     released_calls: set[int] = set()
     stream_ids: list[str] = []
     closed_stream_ids: list[str] = []
+    receive_replacement_tapes: list[list[dict[str, Any]]] = []
     action_operations: list[str] = []
     for index, action in enumerate(actions):
         context = f"Request body/stream/json action[{index}]"
@@ -26843,6 +26961,27 @@ def _validate_request_body_stream_json_case(case: dict[str, Any]) -> None:
         elif operation == "stream-close":
             _exact(action, {"operation", "stream_id"}, context)
             closed_stream_ids.append(_string(action["stream_id"], f"{context}.stream_id"))
+        elif operation == "replace-receive":
+            _exact(action, {"operation", "receive"}, context)
+            replacement_tape = action["receive"]
+            if not isinstance(replacement_tape, list) or not replacement_tape:
+                raise ContractError(f"{context}.receive must be a non-empty message tape")
+            for message_index, message in enumerate(replacement_tape):
+                message_context = f"{context}.receive[{message_index}]"
+                _exact(
+                    message,
+                    {"type", "body_base64", "more_body"},
+                    message_context,
+                )
+                if message["type"] != "http.request":
+                    raise ContractError(f"{message_context}.type must be http.request")
+                try:
+                    base64.b64decode(message["body_base64"], validate=True)
+                except (ValueError, TypeError, base64.binascii.Error) as exc:
+                    raise ContractError(f"{message_context}.body_base64 is invalid") from exc
+                if type(message["more_body"]) is not bool:
+                    raise ContractError(f"{message_context}.more_body must be boolean")
+            receive_replacement_tapes.append(replacement_tape)
         elif operation == "start-body":
             _exact(action, {"operation", "task_id"}, context)
             task_id = _string(action["task_id"], f"{context}.task_id")
@@ -26873,6 +27012,39 @@ def _validate_request_body_stream_json_case(case: dict[str, Any]) -> None:
         raise ContractError("every started body task must be awaited exactly once")
     if released_calls != set(blocked_receive_calls):
         raise ContractError("every blocked receive callback must be released exactly once")
+    receive_replacement_probe = "replace-receive" in action_operations
+    if receive_replacement_probe:
+        replacement_tape = (
+            receive_replacement_tapes[0] if len(receive_replacement_tapes) == 1 else []
+        )
+        initial_chunk = (
+            base64.b64decode(receive[0].get("body_base64", ""), validate=True)
+            if len(receive) == 1 and receive[0].get("type") == "http.request"
+            else b""
+        )
+        replacement_chunk = (
+            base64.b64decode(replacement_tape[0]["body_base64"], validate=True)
+            if len(replacement_tape) == 1
+            else b""
+        )
+        if (
+            action_operations != ["stream-next", "replace-receive", "stream-next", "stream-next"]
+            or len(stream_ids) != 3
+            or len(set(stream_ids)) != 1
+            or len(receive_replacement_tapes) != 1
+            or len(receive) != 1
+            or receive[0].get("type") != "http.request"
+            or receive[0].get("more_body") is not True
+            or not initial_chunk
+            or replacement_tape[0].get("more_body") is not False
+            or not replacement_chunk
+            or blocked_receive_calls
+            or scope_headers
+        ):
+            raise ContractError(
+                "Request receive replacement requires a partial stream chunk, one replacement "
+                "callback with a final chunk, then the stream's terminal empty chunk"
+            )
     if "is-disconnected" in action_operations and (
         action_operations not in (["body", "is-disconnected"], ["stream-next", "is-disconnected"])
         or receive != [{"type": "http.disconnect"}]
@@ -27036,6 +27208,8 @@ def _validate_request_body_stream_json_case(case: dict[str, Any]) -> None:
             )
 
     expected_covers: set[str] = set()
+    if receive_replacement_probe:
+        expected_covers.add(REQUEST_CONSUMPTION_REQUIREMENTS["receive_replacement"])
     if explicit_none_receive:
         expected_covers.add(REQUEST_CONSUMPTION_REQUIREMENTS["explicit_none_receive"])
     if stream_close_recovery_probe:

@@ -104,6 +104,9 @@ SESSION_MIDDLEWARE_SURFACE = "starlette.middleware.sessions.SessionMiddleware"
 SESSION_WORKFLOW_OPERATION = "session-workflow"
 BASE_HTTP_SURFACE = "starlette.middleware.base.BaseHTTPMiddleware"
 BASE_HTTP_WORKFLOW_OPERATION = "base-http-workflow"
+BASE_HTTP_STATUS_INTEGER_REQUIREMENT = (
+    f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.downstream-status-integer-pass-through"
+)
 BASE_HTTP_CONTEXTVARS_OPERATION = "contextvars-propagation"
 TESTCLIENT_SURFACE = "starlette.testclient.TestClient"
 TESTCLIENT_OPERATION = "request-response"
@@ -12405,6 +12408,7 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("call_next response requires a configured route or downstream ASGI app")
 
     downstream_spec = None
+    wide_status_probe = False
     if "downstream" in application:
         raw_downstream = application["downstream"]
         if not isinstance(raw_downstream, dict) or not isinstance(raw_downstream.get("kind"), str):
@@ -12451,10 +12455,11 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                         response_started
                         or step_index != 0
                         or type(message["status"]) is not int
-                        or not 100 <= message["status"] <= 599
+                        or not (100 <= message["status"] <= 599 or message["status"] == 65536)
                         or not isinstance(message["headers_base64_pairs"], list)
                     ):
                         raise ValueError("downstream ASGI must begin with one valid response.start")
+                    wide_status_probe = message["status"] == 65536
                     for header_index, pair in enumerate(message["headers_base64_pairs"]):
                         if not isinstance(pair, list) or len(pair) != 2:
                             raise ValueError(
@@ -13447,6 +13452,49 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
         required_covers.add(
             f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.async-context-manager-cleanup-completes"
         )
+    if wide_status_probe:
+        steps = downstream_spec["steps"] if downstream_spec is not None else []
+        request_body_events = [event for event in receive_specs if event["type"] == "http.request"]
+        if (
+            downstream_spec is None
+            or downstream_spec["kind"] != "asgi-sequence"
+            or route_spec is not None
+            or len(base_http_layers) != 1
+            or len(middleware_layers) != 1
+            or dispatch_actions
+            != [
+                {"kind": "await-call-next"},
+                {
+                    "kind": "observe-call-next-response-headers",
+                    "name": "x-status-probe",
+                },
+                {"kind": "return-call-next-response"},
+            ]
+            or await_action_kind != "await-call-next"
+            or returned != "call-next"
+            or len(steps) != 3
+            or steps[0]["message"].get("status") != 65536
+            or steps[1]["message"].get("type") != "http.response.body"
+            or steps[1]["message"].get("more_body") is not False
+            or steps[2] != {"kind": "receive"}
+            or scope_spec["method"] != "GET"
+            or path != "/"
+            or len(request_body_events) != 1
+            or _decode_base64(
+                request_body_events[0]["body_base64"], "BaseHTTPMiddleware request body"
+            )
+            or request_body_events[0]["more_body"]
+            or disconnect_event_indices
+            or receive_after_events != "block"
+            or send_checkpoints
+            or outer_receive_transform is not None
+            or background_task_spec is not None
+            or context_manager_cleanup_spec is not None
+        ):
+            raise ValueError(
+                "wide downstream status requires one empty GET call_next pass-through to an ASGI sequence"
+            )
+        required_covers.add(BASE_HTTP_STATUS_INTEGER_REQUIREMENT)
     if not isinstance(case["covers"], list) or set(case["covers"]) != required_covers:
         raise ValueError("BaseHTTPMiddleware covers differ from its input actions")
 

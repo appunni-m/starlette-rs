@@ -31,6 +31,19 @@ def _decode_message(spec: dict[str, Any]) -> dict[str, Any]:
     return message
 
 
+def _decode_receive_tape(receive_tape: list[dict[str, Any]]) -> list[Any]:
+    return [
+        (
+            ValueError(event["message"])
+            if event["exception_type"] == "ValueError"
+            else asyncio.CancelledError(event["message"])
+        )
+        if event.get("kind") == "raise"
+        else _decode_message(event)
+        for event in receive_tape
+    ]
+
+
 def _error(operation: str, exc: BaseException) -> dict[str, Any]:
     return {
         "operation": operation,
@@ -59,43 +72,41 @@ def _value(
 async def _observe(case: dict[str, Any], request_type: Callable[..., Any]) -> dict[str, Any]:
     explicit_none_receive = case["receive"] is None
     receive_tape = [] if explicit_none_receive else case["receive"]
-    incoming = [
-        (
-            ValueError(event["message"])
-            if event["exception_type"] == "ValueError"
-            else asyncio.CancelledError(event["message"])
-        )
-        if event.get("kind") == "raise"
-        else _decode_message(event)
-        for event in receive_tape
-    ]
     gates = {index: asyncio.Event() for index in case["blocked_receive_calls"]}
     receive_trace: list[dict[str, Any]] = []
     received = 0
 
-    async def receive() -> dict[str, Any]:
-        nonlocal received
-        call_index = received
-        received += 1
-        receive_trace.append({"event": "start", "call": call_index})
-        gate = gates.get(call_index)
-        if gate is not None:
-            await gate.wait()
-        message = incoming[call_index]
-        if isinstance(message, BaseException):
-            receive_trace.append(
-                {
-                    "event": "error",
-                    "call": call_index,
-                    "error": {
-                        "class": f"{type(message).__module__}.{type(message).__qualname__}",
-                        "message": str(message),
-                    },
-                }
-            )
-            raise message
-        receive_trace.append({"event": "return", "call": call_index, "message": _safe(message)})
-        return message
+    def make_receive(events: list[dict[str, Any]]) -> Callable[[], Any]:
+        incoming = _decode_receive_tape(events)
+        tape_position = 0
+
+        async def receive() -> dict[str, Any]:
+            nonlocal received, tape_position
+            call_index = received
+            message_index = tape_position
+            received += 1
+            tape_position += 1
+            receive_trace.append({"event": "start", "call": call_index})
+            gate = gates.get(call_index)
+            if gate is not None:
+                await gate.wait()
+            message = incoming[message_index]
+            if isinstance(message, BaseException):
+                receive_trace.append(
+                    {
+                        "event": "error",
+                        "call": call_index,
+                        "error": {
+                            "class": f"{type(message).__module__}.{type(message).__qualname__}",
+                            "message": str(message),
+                        },
+                    }
+                )
+                raise message
+            receive_trace.append({"event": "return", "call": call_index, "message": _safe(message)})
+            return message
+
+        return receive
 
     scope = dict(case["scope"])
     if "headers_base64_pairs" in scope:
@@ -103,7 +114,7 @@ async def _observe(case: dict[str, Any], request_type: Callable[..., Any]) -> di
             (base64.b64decode(name, validate=True), base64.b64decode(value, validate=True))
             for name, value in scope.pop("headers_base64_pairs")
         ]
-    request = request_type(scope, None if explicit_none_receive else receive)
+    request = request_type(scope, None if explicit_none_receive else make_receive(receive_tape))
     streams: dict[str, Any] = {}
     tasks: dict[str, asyncio.Task[Any]] = {}
     previous_values: dict[str, Any] = {}
@@ -157,6 +168,9 @@ async def _observe(case: dict[str, Any], request_type: Callable[..., Any]) -> di
                 observations.append(
                     _value(operation, value, previous_values) | {"stream_id": stream_id}
                 )
+        elif operation == "replace-receive":
+            request._receive = make_receive(action["receive"])
+            observations.append({"operation": operation, "status": "ok"})
         elif operation == "start-body":
             task_id = action["task_id"]
 
