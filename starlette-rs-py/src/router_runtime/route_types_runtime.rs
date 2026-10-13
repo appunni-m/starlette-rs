@@ -2155,11 +2155,14 @@ fn host_header_value(py: Python<'_>, scope: &Bound<'_, PyDict>) -> PyResult<Stri
         .ok_or_else(|| PyKeyError::new_err("headers"))?;
     let headers = py.import("builtins")?.getattr("list")?.call1((headers,))?;
     scope.set_item("headers", &headers)?;
-    let host_key = PyBytes::new(py, b"host");
     for entry in headers.try_iter()? {
         let entry = py.import("builtins")?.getattr("tuple")?.call1((entry?,))?;
         let (name, value): (Py<PyAny>, Py<PyAny>) = entry.extract()?;
-        if name.bind(py).eq(&host_key)? {
+        let is_host = name
+            .bind(py)
+            .cast::<PyBytes>()
+            .is_ok_and(|header_name| header_name.as_bytes().eq_ignore_ascii_case(b"host"));
+        if is_host {
             return value
                 .bind(py)
                 .call_method1("decode", ("latin-1",))?

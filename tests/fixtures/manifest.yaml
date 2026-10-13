@@ -420,6 +420,7 @@
       "build/parity/inputs/parity/exception-values.json",
       "build/parity/inputs/parity/host-routing.json",
       "build/parity/inputs/parity/host-routing-native-port.json",
+      "build/parity/inputs/parity/router-host-header-case-insensitive.json",
       "build/parity/inputs/parity/status-constants.json",
       "build/parity/inputs/parity/cors-middleware.json",
       "build/parity/inputs/parity/middleware-docs-inputs.json",
@@ -483,6 +484,7 @@
       "build/parity/inputs/parity/request-form-multipart.json",
       "build/parity/inputs/parity/request-form-multipart-iso-8859-1.json",
       "build/parity/inputs/parity/formdata-constructor.json",
+      "build/parity/inputs/parity/formdata-key-preservation.json",
       "build/parity/inputs/parity/upload-file.json",
       "build/parity/inputs/parity/upload-file-rolled-write-error.json",
       "build/parity/inputs/parity/websocket-endpoint-dispatch.json",
@@ -5784,7 +5786,7 @@
             {
               "id": "starlette.datastructures.FormData.constructor-input-semantics",
               "dimension": "input_family",
-              "description": "Construct FormData from repeated pairs and mappings, copy an existing FormData, and preserve its immutable multidict values, representation, and equality behavior. Pinned source: starlette/datastructures.py:253-319, 482-498; tests/test_datastructures.py::test_formdata; docs/requests.md:135-136.",
+              "description": "Construct FormData from repeated pairs and mappings, copy an existing FormData, and preserve its immutable multidict values, representation, equality behavior, and supplied key types without string coercion. Pinned source: starlette/datastructures.py:253-319, 482-498; tests/test_datastructures.py::test_formdata; docs/requests.md:135-136.",
               "lanes": [
                 "parity"
               ],
@@ -22869,6 +22871,17 @@
               "id": "starlette.routing.Router.route-dispatch.host-route-match",
               "dimension": "success_path",
               "description": "Select a Host route from its exact or parameterized Host header and dispatch its ASGI application. Upstream: starlette/routing.py:466-512.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Host.matches.header-name-case-insensitive",
+              "dimension": "protocol_variant",
+              "description": "Match a Host route when the ASGI header name uses mixed casing, following Starlette Headers' case-insensitive lookup in Host.matches. Pinned source: starlette/routing.py:478-489; starlette/datastructures.py:500-503,544-549.",
               "lanes": [
                 "parity"
               ],

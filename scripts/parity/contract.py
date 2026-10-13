@@ -8971,6 +8971,14 @@ def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
         ),
         "",
     )
+    raw_request_host_header_name = next(
+        (
+            base64.b64decode(pair[0], validate=True)
+            for pair in case["scope"]["headers_base64_pairs"]
+            if base64.b64decode(pair[0], validate=True).lower() == b"host"
+        ),
+        b"host",
+    )
     request_host = raw_request_host.split(":")[0]
     request_host_port = _host_header_port(raw_request_host)
     host_matched = [
@@ -9069,6 +9077,8 @@ def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
     )
     if selected_host_route_index is not None:
         derived.add("starlette.routing.Router.route-dispatch.host-route-match")
+        if raw_request_host_header_name != b"host":
+            derived.add("starlette.routing.Host.matches.header-name-case-insensitive")
         selected_host_route = routes[selected_host_route_index]
         if selected_host_route["host"].startswith("[") and raw_request_host.startswith("["):
             derived.add(ROUTER_HOST_IPV6_REQUIREMENT)
@@ -29936,14 +29946,36 @@ def _validate_formdata_value(value: Any, context: str) -> None:
         raise ContractError(f"{context}.size must be a non-negative integer")
 
 
-def _validate_formdata_entries(entries: Any, context: str) -> None:
+def _validate_formdata_key(value: Any, context: str, *, string_only: bool = False) -> None:
+    if string_only:
+        _string(value, context)
+    elif (
+        type(value) in (str, bool, int)
+        or value is None
+        or (type(value) is float and math.isfinite(value))
+    ):
+        return
+    else:
+        raise ContractError(f"{context} must be a JSON scalar that can be used as a mapping key")
+
+
+def _validate_formdata_entries(
+    entries: Any,
+    context: str,
+    *,
+    string_keys: bool = False,
+) -> None:
     if not isinstance(entries, list):
         raise ContractError(f"{context} must be an array of key/value pairs")
     for index, raw_entry in enumerate(entries):
         entry_context = f"{context}[{index}]"
         if not isinstance(raw_entry, list) or len(raw_entry) != 2:
             raise ContractError(f"{entry_context} must contain a key and value")
-        _string(raw_entry[0], f"{entry_context}[0]")
+        _validate_formdata_key(
+            raw_entry[0],
+            f"{entry_context}[0]",
+            string_only=string_keys,
+        )
         _validate_formdata_value(raw_entry[1], f"{entry_context}[1]")
 
 
@@ -29967,7 +29999,11 @@ def _validate_formdata_argument(spec: Any, context: str, *, allow_primary: bool)
                 f"{context}.args[{index}]",
                 allow_primary=True,
             )
-        _validate_formdata_entries(item["kwargs"], f"{context}.kwargs")
+        _validate_formdata_entries(
+            item["kwargs"],
+            f"{context}.kwargs",
+            string_keys=True,
+        )
         keyword_names = [entry[0] for entry in item["kwargs"]]
         if len(keyword_names) != len(set(keyword_names)):
             raise ContractError(f"{context}.kwargs keys must be unique")
@@ -29991,14 +30027,20 @@ def _validate_formdata_case(case: dict[str, Any]) -> None:
             f"FormData constructor args[{index}]",
             allow_primary=False,
         )
-    _validate_formdata_entries(constructor["kwargs"], "FormData constructor kwargs")
+    _validate_formdata_entries(
+        constructor["kwargs"],
+        "FormData constructor kwargs",
+        string_keys=True,
+    )
     keyword_names = [entry[0] for entry in constructor["kwargs"]]
     if len(keyword_names) != len(set(keyword_names)):
         raise ContractError("FormData constructor kwargs keys must be unique")
 
     probe_keys = case["probe_keys"]
-    if not isinstance(probe_keys, list) or any(not isinstance(key, str) for key in probe_keys):
-        raise ContractError("FormData probe_keys must contain strings")
+    if not isinstance(probe_keys, list):
+        raise ContractError("FormData probe_keys must be an array")
+    for index, key in enumerate(probe_keys):
+        _validate_formdata_key(key, f"FormData probe_keys[{index}]")
     equalities = case["equalities"]
     if not isinstance(equalities, list):
         raise ContractError("FormData equalities must be an array")

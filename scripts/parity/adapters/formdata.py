@@ -7,7 +7,7 @@ from io import BytesIO
 from typing import Any
 
 
-def _entries(entries: list[list[Any]], upload_file_type: type[Any]) -> list[tuple[str, Any]]:
+def _entries(entries: list[list[Any]], upload_file_type: type[Any]) -> list[tuple[Any, Any]]:
     return [(key, _value(value, upload_file_type)) for key, value in entries]
 
 

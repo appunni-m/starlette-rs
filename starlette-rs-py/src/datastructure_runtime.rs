@@ -571,25 +571,34 @@ fn python_item_reprs(py: Python<'_>, items: &[Py<PyAny>]) -> PyResult<Vec<Vec<u3
 /// Immutable ordered form fields backed by Rust's multi-dict semantics.
 #[pyclass(name = "FormData", subclass)]
 pub(crate) struct PyFormData {
-    items: Vec<(String, Py<PyAny>)>,
+    // Keep keys as Python objects; Starlette's constructor stores supplied
+    // keys without coercing them, despite the public string-key annotations.
+    items: Vec<(Py<PyAny>, Py<PyAny>)>,
+    mapping: Py<PyDict>,
 }
 
 #[pymethods]
 impl PyFormData {
     fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
-        for (_, value) in &self.items {
+        for (key, value) in &self.items {
+            visit.call(key)?;
             visit.call(value)?;
         }
-        Ok(())
+        visit.call(&self.mapping)
     }
 
-    fn __clear__(&mut self) {
+    fn __clear__(&mut self, py: Python<'_>) {
         self.items.clear();
+        self.mapping = PyDict::new(py).unbind();
     }
 
     #[new]
     #[pyo3(signature = (*args, **kwargs))]
-    fn new(args: &Bound<'_, PyTuple>, kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<Self> {
+    fn new(
+        py: Python<'_>,
+        args: &Bound<'_, PyTuple>,
+        kwargs: Option<&Bound<'_, PyDict>>,
+    ) -> PyResult<Self> {
         if args.len() > 1 {
             return Err(PyAssertionError::new_err("Too many arguments."));
         }
@@ -601,87 +610,104 @@ impl PyFormData {
         if let Some(kwargs) = kwargs {
             items.extend(form_data_from_mapping(kwargs)?);
         }
-        Ok(Self { items })
+        let mapping = PyDict::new(py);
+        for (key, value) in &items {
+            mapping.set_item(key.bind(py), value.bind(py))?;
+        }
+        Ok(Self {
+            items,
+            mapping: mapping.unbind(),
+        })
     }
 
     #[pyo3(signature = (key, default=None))]
-    fn get(&self, py: Python<'_>, key: &Bound<'_, PyAny>, default: Option<Py<PyAny>>) -> Py<PyAny> {
-        form_data_key(key)
-            .as_deref()
-            .and_then(|form_key| self.get_value(form_key))
-            .map(|value| value.clone_ref(py))
+    fn get(
+        &self,
+        py: Python<'_>,
+        key: &Bound<'_, PyAny>,
+        default: Option<Py<PyAny>>,
+    ) -> PyResult<Py<PyAny>> {
+        Ok(self
+            .mapping
+            .bind(py)
+            .get_item(key)?
+            .map(Bound::unbind)
             .or(default)
-            .unwrap_or_else(|| py.None())
+            .unwrap_or_else(|| py.None()))
     }
 
-    fn getlist(&self, py: Python<'_>, key: &Bound<'_, PyAny>) -> Vec<Py<PyAny>> {
-        let Some(key) = form_data_key(key) else {
-            return Vec::new();
-        };
+    fn getlist(&self, py: Python<'_>, key: &Bound<'_, PyAny>) -> PyResult<Vec<Py<PyAny>>> {
         self.items
             .iter()
-            .filter(|(item_key, _)| item_key == &key)
-            .map(|(_, value)| value.clone_ref(py))
+            .filter_map(|(item_key, value)| match item_key.bind(py).eq(key) {
+                Ok(true) => Some(Ok(value.clone_ref(py))),
+                Ok(false) => None,
+                Err(error) => Some(Err(error)),
+            })
             .collect()
     }
 
-    fn get_list(&self, py: Python<'_>, key: &Bound<'_, PyAny>) -> Vec<Py<PyAny>> {
+    fn get_list(&self, py: Python<'_>, key: &Bound<'_, PyAny>) -> PyResult<Vec<Py<PyAny>>> {
         self.getlist(py, key)
     }
 
-    fn multi_items(&self, py: Python<'_>) -> Vec<(String, Py<PyAny>)> {
+    fn multi_items(&self, py: Python<'_>) -> Vec<(Py<PyAny>, Py<PyAny>)> {
         self.items
             .iter()
-            .map(|(key, value)| (key.clone(), value.clone_ref(py)))
+            .map(|(key, value)| (key.clone_ref(py), value.clone_ref(py)))
             .collect()
     }
 
     fn keys(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        self.mapping_dict(py)?
+        self.mapping
+            .bind(py)
             .call_method0("keys")
             .map(Bound::unbind)
     }
 
     fn values(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        self.mapping_dict(py)?
+        self.mapping
+            .bind(py)
             .call_method0("values")
             .map(Bound::unbind)
     }
 
     fn items(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        self.mapping_dict(py)?
+        self.mapping
+            .bind(py)
             .call_method0("items")
             .map(Bound::unbind)
     }
 
-    fn len(&self, py: Python<'_>) -> PyResult<usize> {
-        self.mapping_dict(py).map(|mapping| mapping.len())
+    fn len(&self, py: Python<'_>) -> usize {
+        self.mapping.bind(py).len()
     }
 
-    fn is_empty(&self, py: Python<'_>) -> PyResult<bool> {
-        self.mapping_dict(py).map(|mapping| mapping.is_empty())
+    fn is_empty(&self, py: Python<'_>) -> bool {
+        self.mapping.bind(py).is_empty()
     }
 
-    fn __len__(&self, py: Python<'_>) -> PyResult<usize> {
+    fn __len__(&self, py: Python<'_>) -> usize {
         self.len(py)
     }
 
     fn __iter__(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        self.mapping_dict(py)?
+        self.mapping
+            .bind(py)
             .call_method0("keys")?
             .call_method0("__iter__")
             .map(Bound::unbind)
     }
 
-    fn __contains__(&self, key: &Bound<'_, PyAny>) -> bool {
-        form_data_key(key).is_some_and(|key| self.get_value(&key).is_some())
+    fn __contains__(&self, py: Python<'_>, key: &Bound<'_, PyAny>) -> PyResult<bool> {
+        self.mapping.bind(py).contains(key)
     }
 
     fn __getitem__(&self, py: Python<'_>, key: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
-        form_data_key(key)
-            .as_deref()
-            .and_then(|form_key| self.get_value(form_key))
-            .map(|value| value.clone_ref(py))
+        self.mapping
+            .bind(py)
+            .get_item(key)?
+            .map(Bound::unbind)
             .ok_or_else(|| PyKeyError::new_err(key.clone().unbind()))
     }
 
@@ -718,24 +744,6 @@ impl PyFormData {
             .map(|(_, value)| value.clone_ref(py))
             .collect();
         crate::awaitable::into_sendable_python_awaitable(py, FormDataClose { files, index: 0 })
-    }
-}
-
-impl PyFormData {
-    fn get_value(&self, key: &str) -> Option<&Py<PyAny>> {
-        self.items
-            .iter()
-            .rev()
-            .find(|(item_key, _)| item_key == key)
-            .map(|(_, value)| value)
-    }
-
-    fn mapping_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
-        let mapping = PyDict::new(py);
-        for (key, value) in &self.items {
-            mapping.set_item(key, value.bind(py))?;
-        }
-        Ok(mapping)
     }
 }
 
@@ -780,14 +788,7 @@ impl FormDataClose {
     }
 }
 
-fn form_data_key(value: &Bound<'_, PyAny>) -> Option<String> {
-    value
-        .is_instance_of::<PyString>()
-        .then(|| value.extract::<String>().ok())
-        .flatten()
-}
-
-fn form_data_from_python(value: &Bound<'_, PyAny>) -> PyResult<Vec<(String, Py<PyAny>)>> {
+fn form_data_from_python(value: &Bound<'_, PyAny>) -> PyResult<Vec<(Py<PyAny>, Py<PyAny>)>> {
     if !value.is_truthy()? {
         return Ok(Vec::new());
     }
@@ -800,14 +801,14 @@ fn form_data_from_python(value: &Bound<'_, PyAny>) -> PyResult<Vec<(String, Py<P
     form_data_from_iterable(value)
 }
 
-fn form_data_from_mapping(mapping: &Bound<'_, PyDict>) -> PyResult<Vec<(String, Py<PyAny>)>> {
+fn form_data_from_mapping(mapping: &Bound<'_, PyDict>) -> PyResult<Vec<(Py<PyAny>, Py<PyAny>)>> {
     mapping
         .iter()
-        .map(|(key, value)| Ok((key.extract::<String>()?, value.unbind())))
+        .map(|(key, value)| Ok((key.unbind(), value.unbind())))
         .collect()
 }
 
-fn form_data_from_iterable(values: &Bound<'_, PyAny>) -> PyResult<Vec<(String, Py<PyAny>)>> {
+fn form_data_from_iterable(values: &Bound<'_, PyAny>) -> PyResult<Vec<(Py<PyAny>, Py<PyAny>)>> {
     values
         .try_iter()?
         .map(|pair| {
@@ -824,7 +825,7 @@ fn form_data_from_iterable(values: &Bound<'_, PyAny>) -> PyResult<Vec<(String, P
                 return Err(PyValueError::new_err(message));
             }
             Ok((
-                pair_values[0].extract::<String>()?,
+                pair_values[0].clone().unbind(),
                 pair_values[1].clone().unbind(),
             ))
         })
