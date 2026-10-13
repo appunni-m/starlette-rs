@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@50",
+  "schema": "migration-parity/parity-input@51",
   "cases": [
     {
       "case_id": "starlette.staticfiles.StaticFiles.asgi-call.secondary-index-permission-error",
@@ -8,7 +8,9 @@
       "covers": [
         "starlette.staticfiles.StaticFiles.asgi-call.secondary-lookup-error-propagation"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
       "directory": "public",
       "path_limit_stress": null,
@@ -58,7 +60,9 @@
           "message": "input-defined permission failure during index lookup"
         }
       },
-      "observations": ["asgi-call"]
+      "observations": [
+        "asgi-call"
+      ]
     }
   ]
 }

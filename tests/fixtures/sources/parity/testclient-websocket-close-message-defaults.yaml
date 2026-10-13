@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@50",
+  "schema": "migration-parity/parity-input@51",
   "cases": [
     {
       "case_id": "starlette.testclient.TestClient.websocket-session.application-close-default-message-fields",
@@ -12,14 +12,21 @@
         "starlette.testclient.TestClient.websocket-session.accept-handshake",
         "starlette.testclient.TestClient.websocket-session.portal-cleanup"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
-      "observations": ["websocket-session"],
+      "observations": [
+        "websocket-session"
+      ],
       "testclient": {
         "base_url": "http://testserver",
         "raise_server_exceptions": true,
         "root_path": "",
-        "client": ["127.0.0.1", 12345],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
         "headers": [],
         "backend": "asyncio",
         "backend_options": {}
@@ -28,22 +35,34 @@
         "url": "/",
         "subprotocols": [],
         "headers": [],
-        "actions": [{"operation": "receive_text", "capture_disconnect": true}]
+        "actions": [
+          {
+            "operation": "receive_text",
+            "capture_disconnect": true
+          }
+        ]
       },
       "asgi_app": {
         "kind": "asgi3",
-        "scope_fields": ["type", "path"],
+        "scope_fields": [
+          "type",
+          "path"
+        ],
         "actions": [
           {
             "operation": "receive"
           },
           {
             "operation": "send",
-            "message": {"type": "websocket.accept"}
+            "message": {
+              "type": "websocket.accept"
+            }
           },
           {
             "operation": "send",
-            "message": {"type": "websocket.close"}
+            "message": {
+              "type": "websocket.close"
+            }
           }
         ]
       }
@@ -59,14 +78,21 @@
         "starlette.testclient.TestClient.websocket-session.client-close-code-reason",
         "starlette.testclient.TestClient.websocket-session.portal-cleanup"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
-      "observations": ["websocket-session"],
+      "observations": [
+        "websocket-session"
+      ],
       "testclient": {
         "base_url": "http://testserver",
         "raise_server_exceptions": true,
         "root_path": "",
-        "client": ["127.0.0.1", 12345],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
         "headers": [],
         "backend": "asyncio",
         "backend_options": {}
@@ -75,17 +101,30 @@
         "url": "/",
         "subprotocols": [],
         "headers": [],
-        "actions": [{"operation": "close", "code": 1001}]
+        "actions": [
+          {
+            "operation": "close",
+            "code": 1001
+          }
+        ]
       },
       "asgi_app": {
         "kind": "asgi3",
-        "scope_fields": ["type", "path"],
+        "scope_fields": [
+          "type",
+          "path"
+        ],
         "actions": [
           {
             "operation": "websocket_flow",
             "actions": [
-              {"operation": "accept"},
-              {"operation": "receive_text", "capture_disconnect": true}
+              {
+                "operation": "accept"
+              },
+              {
+                "operation": "receive_text",
+                "capture_disconnect": true
+              }
             ]
           }
         ]

@@ -214,6 +214,21 @@ impl MutableHeaders {
         self.inner.raw.push((name.to_vec(), value.to_vec()));
     }
 
+    /// Adds a value to the `vary` header, joining it to the first existing
+    /// value with `, ` and collapsing duplicate `vary` pairs in place.
+    pub fn add_vary_header(&mut self, value: &[u8]) {
+        let combined = match self.inner.get(b"vary") {
+            Some(existing) => {
+                let mut combined = existing.to_vec();
+                combined.extend_from_slice(b", ");
+                combined.extend_from_slice(value);
+                combined
+            }
+            None => value.to_vec(),
+        };
+        self.set(b"vary", &combined);
+    }
+
     /// Applies ordered replacements for the supplied raw header pairs.
     ///
     /// Each name must already be normalized by the caller.

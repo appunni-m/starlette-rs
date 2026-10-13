@@ -22,6 +22,7 @@ def _decoded_pairs(value: list[list[str]]) -> list[tuple[bytes, bytes]]:
 def _message(value: dict[str, Any]) -> dict[str, Any]:
     message = dict(value)
     type_spec = message.pop("type_spec", None)
+    body_kind = message.pop("body_kind", "bytes")
     message.pop("headers_base64_pairs", None)
     message.pop("body_base64", None)
     message.pop("bytes_base64", None)
@@ -42,7 +43,15 @@ def _message(value: dict[str, Any]) -> dict[str, Any]:
     if "headers_base64_pairs" in value:
         message["headers"] = _decoded_pairs(value["headers_base64_pairs"])
     if "body_base64" in value:
-        message["body"] = base64.b64decode(value["body_base64"])
+        body = base64.b64decode(value["body_base64"])
+        if body_kind == "bytes":
+            message["body"] = body
+        elif body_kind == "bytearray":
+            message["body"] = bytearray(body)
+        elif body_kind == "memoryview":
+            message["body"] = memoryview(body)
+        else:
+            raise ValueError("unsupported input-defined ASGI response body kind")
     if "bytes_base64" in value:
         message["bytes"] = base64.b64decode(value["bytes_base64"])
     return message
@@ -51,6 +60,10 @@ def _message(value: dict[str, Any]) -> dict[str, Any]:
 def _safe(value: Any) -> Any:
     if isinstance(value, bytes):
         return {"base64": base64.b64encode(value).decode("ascii")}
+    if isinstance(value, bytearray):
+        return {"bytearray_base64": base64.b64encode(value).decode("ascii")}
+    if isinstance(value, memoryview):
+        return {"memoryview_base64": base64.b64encode(value).decode("ascii")}
     if isinstance(value, dict):
         return {str(key): _safe(item) for key, item in value.items()}
     if isinstance(value, (tuple, list)):

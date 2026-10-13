@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@50",
+  "schema": "migration-parity/parity-input@51",
   "cases": [
     {
       "case_id": "starlette.staticfiles.StaticFiles.asgi-call.os-specific-path-normalization",
@@ -55,7 +55,9 @@
       "send": {
         "kind": "capture-asgi-send"
       },
-      "observations": ["asgi-call"]
+      "observations": [
+        "asgi-call"
+      ]
     }
   ]
 }

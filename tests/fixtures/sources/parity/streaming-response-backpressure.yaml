@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@50",
+  "schema": "migration-parity/parity-input@51",
   "cases": [
     {
       "case_id": "starlette.responses.StreamingResponse.asgi-call.send-backpressure",
@@ -15,8 +15,14 @@
       "content": {
         "kind": "chunks",
         "value": [
-          {"kind": "text", "value": "alpha"},
-          {"kind": "text", "value": "beta"}
+          {
+            "kind": "text",
+            "value": "alpha"
+          },
+          {
+            "kind": "text",
+            "value": "beta"
+          }
         ]
       },
       "status_code": 200,
@@ -24,7 +30,10 @@
       "media_type": null,
       "scope": {
         "type": "http",
-        "asgi": {"version": "3.0", "spec_version": "2.4"},
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
         "http_version": "1.1",
         "method": "GET",
         "scheme": "http",
@@ -33,8 +42,14 @@
         "query_string_base64": "",
         "root_path": "",
         "headers_base64_pairs": [],
-        "client": ["127.0.0.1", 12345],
-        "server": ["testserver", 80]
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
       },
       "incoming": [],
       "send": {
@@ -42,7 +57,9 @@
         "event_index": 1,
         "release_after_checkpoints": 1
       },
-      "observations": ["asgi-call"],
+      "observations": [
+        "asgi-call"
+      ],
       "streaming": "async-generator",
       "stream_lifecycle": {
         "kind": "finally-recorder",
@@ -63,8 +80,14 @@
       "content": {
         "kind": "chunks",
         "value": [
-          {"kind": "text", "value": "alpha"},
-          {"kind": "text", "value": "beta"}
+          {
+            "kind": "text",
+            "value": "alpha"
+          },
+          {
+            "kind": "text",
+            "value": "beta"
+          }
         ]
       },
       "status_code": 200,
@@ -72,7 +95,10 @@
       "media_type": null,
       "scope": {
         "type": "http",
-        "asgi": {"version": "3.0", "spec_version": "2.4"},
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
         "http_version": "1.1",
         "method": "GET",
         "scheme": "http",
@@ -81,19 +107,29 @@
         "query_string_base64": "",
         "root_path": "",
         "headers_base64_pairs": [],
-        "client": ["127.0.0.1", 12345],
-        "server": ["testserver", 80]
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
       },
       "incoming": [],
       "send": {
         "kind": "capture-asgi-send-with-caller-cancellation",
         "event_index": 1
       },
-      "observations": ["asgi-call"],
+      "observations": [
+        "asgi-call"
+      ],
       "streaming": "async-generator",
       "background": {
         "kind": "async-values-recorder",
-        "values": ["background-not-run"]
+        "values": [
+          "background-not-run"
+        ]
       },
       "stream_lifecycle": {
         "kind": "finally-recorder",

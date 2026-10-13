@@ -1,0 +1,55 @@
+{
+  "schema": "migration-parity/parity-input@51",
+  "cases": [
+    {
+      "case_id": "starlette.datastructures.MutableHeaders.consumer-sequence.add-vary-header",
+      "surface": "starlette.datastructures.MutableHeaders",
+      "operation": "consumer-sequence",
+      "covers": [
+        "starlette.datastructures.MutableHeaders.add-vary-header"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "instances": [
+        {
+          "instance_id": "existing-vary",
+          "constructor": {
+            "kind": "raw",
+            "headers_base64_pairs": [
+              ["dmFyeQ==", "QWNjZXB0LUVuY29kaW5n"],
+              ["eC10cmFjZQ==", "a2VwdA=="],
+              ["VkFSWQ==", "T3JpZ2lu"]
+            ]
+          }
+        },
+        {
+          "instance_id": "missing-vary",
+          "constructor": {
+            "kind": "raw",
+            "headers_base64_pairs": [
+              ["eC10cmFjZQ==", "a2VwdA=="]
+            ]
+          }
+        }
+      ],
+      "actions": [
+        {
+          "action_id": "append-to-existing-vary",
+          "receiver": "existing-vary",
+          "call": "add_vary_header",
+          "arguments": ["User-Agent"]
+        },
+        {
+          "action_id": "create-missing-vary",
+          "receiver": "missing-vary",
+          "call": "add_vary_header",
+          "arguments": ["Accept-Encoding"]
+        }
+      ],
+      "observations": ["raw-pairs"]
+    }
+  ]
+}

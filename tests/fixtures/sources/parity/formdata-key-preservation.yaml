@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@50",
+  "schema": "migration-parity/parity-input@51",
   "cases": [
     {
       "case_id": "starlette.datastructures.FormData.multidict-lookups.preserves-input-key-types",
@@ -20,25 +20,51 @@
         "args": [
           {
             "kind": "pairs",
-            "entries": [[1, "numeric-key"], ["label", "text-value"]]
+            "entries": [
+              [
+                1,
+                "numeric-key"
+              ],
+              [
+                "label",
+                "text-value"
+              ]
+            ]
           }
         ],
         "kwargs": []
       },
-      "probe_keys": [1, "1", "label", "missing"],
+      "probe_keys": [
+        1,
+        "1",
+        "label",
+        "missing"
+      ],
       "equalities": [
         {
           "left": {
             "kind": "pairs",
-            "entries": [["same", "value"]]
+            "entries": [
+              [
+                "same",
+                "value"
+              ]
+            ]
           },
           "right": {
             "kind": "pairs",
-            "entries": [["same", "value"]]
+            "entries": [
+              [
+                "same",
+                "value"
+              ]
+            ]
           }
         }
       ],
-      "observations": ["multidict-lookups"]
+      "observations": [
+        "multidict-lookups"
+      ]
     }
   ]
 }

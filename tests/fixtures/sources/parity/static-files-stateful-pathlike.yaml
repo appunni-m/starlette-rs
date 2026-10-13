@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@50",
+  "schema": "migration-parity/parity-input@51",
   "cases": [
     {
       "case_id": "starlette.staticfiles.StaticFiles.lookup-path.stateful-pathlike-root-resolution",
@@ -8,7 +8,9 @@
       "covers": [
         "starlette.staticfiles.StaticFiles.lookup-path.stateful-pathlike-root-resolution"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
       "directory": "configured",
       "directory_pathlike": {
@@ -21,7 +23,10 @@
       "files": [],
       "filesystem": {
         "root_symlink_target": null,
-        "directories": ["served", "different"],
+        "directories": [
+          "served",
+          "different"
+        ],
         "outside_files": [
           {
             "path": "served/asset.txt",
@@ -34,7 +39,10 @@
       "lookup_path": "asset.txt",
       "check_dir": true,
       "follow_symlink": false,
-      "observations": ["lookup-path", "directory-fspath-call-order"]
+      "observations": [
+        "lookup-path",
+        "directory-fspath-call-order"
+      ]
     }
   ]
 }

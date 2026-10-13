@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@50",
+  "schema": "migration-parity/parity-input@51",
   "cases": [
     {
       "case_id": "starlette.applications.Starlette.__call__.exception-handler.exception-class-mro-order",
@@ -10,8 +10,12 @@
         "starlette.asgi.exception-handler.exception-class",
         "starlette.asgi.exception-handler.async-callback"
       ],
-      "execution_schedule": ["dispatch"],
-      "target_profiles": ["python-package-cpython312"],
+      "execution_schedule": [
+        "dispatch"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
       "steps": [
         {
@@ -30,7 +34,9 @@
                 {
                   "kind": "http-route",
                   "path": "/exception-mro",
-                  "methods": ["POST"],
+                  "methods": [
+                    "POST"
+                  ],
                   "endpoint": {
                     "kind": "http-exception-after-body",
                     "exception_class": "BodyReuseException",
@@ -109,8 +115,14 @@
                 "query_string_base64": "",
                 "root_path": "",
                 "headers_base64_pairs": [],
-                "client": ["127.0.0.1", 12345],
-                "server": ["testserver", 80],
+                "client": [
+                  "127.0.0.1",
+                  12345
+                ],
+                "server": [
+                  "testserver",
+                  80
+                ],
                 "method": "POST",
                 "path": "/exception-mro",
                 "raw_path_base64": "L2V4Y2VwdGlvbi1tcm8="
@@ -135,7 +147,9 @@
           }
         }
       ],
-      "observations": ["dispatch"]
+      "observations": [
+        "dispatch"
+      ]
     }
   ]
 }

@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@50",
+  "schema": "migration-parity/parity-input@51",
   "cases": [
     {
       "case_id": "starlette.websockets.WebSocket.convenience-sequence.typed-text-custom-headers",
@@ -999,10 +999,13 @@
           "arguments": {
             "iterator": "iter_text",
             "control": "athrow",
-            "exception": {
-              "class": "RuntimeError",
-              "message": "consumer injected exception"
-            }
+            "throw_arguments": [
+              {
+                "kind": "exception-instance",
+                "name": "RuntimeError",
+                "message": "consumer injected exception"
+              }
+            ]
           }
         }
       ],
@@ -1573,7 +1576,7 @@
         },
         {
           "type": "websocket.receive",
-          "text": "{\"test\":\"数据\"}"
+          "text": "{\"test\":\"\u6570\u636e\"}"
         }
       ],
       "actions": [
@@ -1594,7 +1597,7 @@
           "method": "send_json",
           "arguments": {
             "data": {
-              "test": "数据"
+              "test": "\u6570\u636e"
             },
             "mode": "text"
           }

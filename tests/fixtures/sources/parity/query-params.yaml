@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@50",
+  "schema": "migration-parity/parity-input@51",
   "cases": [
     {
       "case_id": "starlette.datastructures.QueryParams.construction-and-mapping-sequence.unicode-query-string",
@@ -11,26 +11,58 @@
         "starlette.datastructures.QueryParams.query-string-and-repr",
         "starlette.datastructures.QueryParams.equality-order-insensitive"
       ],
-      "target_profiles": ["rust-native-local", "python-package-cpython312"],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
       "assets": [],
       "source": {
         "kind": "string",
-        "value": "tag=first&empty=&tag=last+value&space=caf%C3%A9&raw=café&flag"
+        "value": "tag=first&empty=&tag=last+value&space=caf%C3%A9&raw=caf\u00e9&flag"
       },
-      "probe_keys": ["tag", "empty", "space", "raw", "flag", "A", "c", "missing"],
+      "probe_keys": [
+        "tag",
+        "empty",
+        "space",
+        "raw",
+        "flag",
+        "A",
+        "c",
+        "missing"
+      ],
       "comparison": {
         "kind": "pairs",
         "items": [
-          ["raw", "café"],
-          ["flag", ""],
-          ["space", "café"],
-          ["tag", "first"],
-          ["empty", ""],
-          ["tag", "last value"]
+          [
+            "raw",
+            "caf\u00e9"
+          ],
+          [
+            "flag",
+            ""
+          ],
+          [
+            "space",
+            "caf\u00e9"
+          ],
+          [
+            "tag",
+            "first"
+          ],
+          [
+            "empty",
+            ""
+          ],
+          [
+            "tag",
+            "last value"
+          ]
         ],
         "kwargs": []
       },
-      "observations": ["snapshot"]
+      "observations": [
+        "snapshot"
+      ]
     },
     {
       "case_id": "starlette.datastructures.QueryParams.construction-and-mapping-sequence.latin1-bytes",
@@ -41,25 +73,51 @@
         "starlette.datastructures.QueryParams.immutable-multidict-lookup-and-iteration",
         "starlette.datastructures.QueryParams.query-string-and-repr"
       ],
-      "target_profiles": ["rust-native-local", "python-package-cpython312"],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
       "assets": [],
       "source": {
         "kind": "bytes",
         "value_base64": "bmFtZT1jYWbpJnRhZz1vbmUmdGFnPXR3byt3b3JkcyZibGFuayZlbXB0eT0="
       },
-      "probe_keys": ["name", "tag", "blank", "empty", "missing"],
+      "probe_keys": [
+        "name",
+        "tag",
+        "blank",
+        "empty",
+        "missing"
+      ],
       "comparison": {
         "kind": "pairs",
         "items": [
-          ["name", "café"],
-          ["tag", "one"],
-          ["tag", "two words"],
-          ["blank", ""],
-          ["empty", ""]
+          [
+            "name",
+            "caf\u00e9"
+          ],
+          [
+            "tag",
+            "one"
+          ],
+          [
+            "tag",
+            "two words"
+          ],
+          [
+            "blank",
+            ""
+          ],
+          [
+            "empty",
+            ""
+          ]
         ],
         "kwargs": []
       },
-      "observations": ["snapshot"]
+      "observations": [
+        "snapshot"
+      ]
     },
     {
       "case_id": "starlette.datastructures.QueryParams.construction-and-mapping-sequence.pairs-and-keywords",
@@ -71,20 +129,82 @@
         "starlette.datastructures.QueryParams.query-string-and-repr",
         "starlette.datastructures.QueryParams.equality-order-insensitive"
       ],
-      "target_profiles": ["rust-native-local", "python-package-cpython312"],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
       "assets": [],
       "source": {
         "kind": "pairs",
-        "items": [["tag", "first"], ["tag", "snow 雪"], ["empty", ""], [2, null]],
-        "kwargs": [["tag", "last"], ["extra", 3]]
+        "items": [
+          [
+            "tag",
+            "first"
+          ],
+          [
+            "tag",
+            "snow \u96ea"
+          ],
+          [
+            "empty",
+            ""
+          ],
+          [
+            2,
+            null
+          ]
+        ],
+        "kwargs": [
+          [
+            "tag",
+            "last"
+          ],
+          [
+            "extra",
+            3
+          ]
+        ]
       },
-      "probe_keys": ["tag", "empty", "2", "extra", "missing"],
+      "probe_keys": [
+        "tag",
+        "empty",
+        "2",
+        "extra",
+        "missing"
+      ],
       "comparison": {
         "kind": "pairs",
-        "items": [["extra", 3], [2, null], ["empty", ""], ["tag", "last"], ["tag", "first"], ["tag", "snow 雪"]],
+        "items": [
+          [
+            "extra",
+            3
+          ],
+          [
+            2,
+            null
+          ],
+          [
+            "empty",
+            ""
+          ],
+          [
+            "tag",
+            "last"
+          ],
+          [
+            "tag",
+            "first"
+          ],
+          [
+            "tag",
+            "snow \u96ea"
+          ]
+        ],
         "kwargs": []
       },
-      "observations": ["snapshot"]
+      "observations": [
+        "snapshot"
+      ]
     },
     {
       "case_id": "starlette.datastructures.QueryParams.construction-and-mapping-sequence.mapping-order-and-equality",
@@ -95,12 +215,45 @@
         "starlette.datastructures.QueryParams.immutable-multidict-lookup-and-iteration",
         "starlette.datastructures.QueryParams.equality-order-insensitive"
       ],
-      "target_profiles": ["rust-native-local", "python-package-cpython312"],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
       "assets": [],
-      "source": {"kind": "mapping", "items": [["b", "2"], ["a", "1"]]},
-      "probe_keys": ["a", "b", "missing"],
-      "comparison": {"kind": "mapping", "items": [["a", "1"], ["b", "2"]]},
-      "observations": ["snapshot"]
+      "source": {
+        "kind": "mapping",
+        "items": [
+          [
+            "b",
+            "2"
+          ],
+          [
+            "a",
+            "1"
+          ]
+        ]
+      },
+      "probe_keys": [
+        "a",
+        "b",
+        "missing"
+      ],
+      "comparison": {
+        "kind": "mapping",
+        "items": [
+          [
+            "a",
+            "1"
+          ],
+          [
+            "b",
+            "2"
+          ]
+        ]
+      },
+      "observations": [
+        "snapshot"
+      ]
     },
     {
       "case_id": "starlette.datastructures.QueryParams.construction-and-mapping-sequence.copy-existing",
@@ -112,12 +265,35 @@
         "starlette.datastructures.QueryParams.query-string-and-repr",
         "starlette.datastructures.QueryParams.equality-order-insensitive"
       ],
-      "target_profiles": ["rust-native-local", "python-package-cpython312"],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
       "assets": [],
-      "source": {"kind": "copy", "items": [["a", "123"], ["a", "456"]]},
-      "probe_keys": ["a", "missing"],
-      "comparison": {"kind": "string", "value": "a=123&a=456"},
-      "observations": ["snapshot"]
+      "source": {
+        "kind": "copy",
+        "items": [
+          [
+            "a",
+            "123"
+          ],
+          [
+            "a",
+            "456"
+          ]
+        ]
+      },
+      "probe_keys": [
+        "a",
+        "missing"
+      ],
+      "comparison": {
+        "kind": "string",
+        "value": "a=123&a=456"
+      },
+      "observations": [
+        "snapshot"
+      ]
     },
     {
       "case_id": "starlette.datastructures.QueryParams.construction-and-mapping-sequence.empty-input",
@@ -129,12 +305,24 @@
         "starlette.datastructures.QueryParams.query-string-and-repr",
         "starlette.datastructures.QueryParams.equality-order-insensitive"
       ],
-      "target_profiles": ["rust-native-local", "python-package-cpython312"],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
       "assets": [],
-      "source": {"kind": "empty"},
-      "probe_keys": ["missing"],
-      "comparison": {"kind": "mapping", "items": []},
-      "observations": ["snapshot"]
+      "source": {
+        "kind": "empty"
+      },
+      "probe_keys": [
+        "missing"
+      ],
+      "comparison": {
+        "kind": "mapping",
+        "items": []
+      },
+      "observations": [
+        "snapshot"
+      ]
     },
     {
       "case_id": "starlette.datastructures.QueryParams.construction-and-mapping-sequence.source-test-repeated-query",
@@ -146,16 +334,42 @@
         "starlette.datastructures.QueryParams.query-string-and-repr",
         "starlette.datastructures.QueryParams.equality-order-insensitive"
       ],
-      "target_profiles": ["rust-native-local", "python-package-cpython312"],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
       "assets": [],
-      "source": {"kind": "string", "value": "a=123&a=456&b=789"},
-      "probe_keys": ["a", "A", "c", "nope"],
+      "source": {
+        "kind": "string",
+        "value": "a=123&a=456&b=789"
+      },
+      "probe_keys": [
+        "a",
+        "A",
+        "c",
+        "nope"
+      ],
       "comparison": {
         "kind": "pairs",
-        "items": [["a", "123"], ["a", "456"], ["b", "789"]],
+        "items": [
+          [
+            "a",
+            "123"
+          ],
+          [
+            "a",
+            "456"
+          ],
+          [
+            "b",
+            "789"
+          ]
+        ],
         "kwargs": []
       },
-      "observations": ["snapshot"]
+      "observations": [
+        "snapshot"
+      ]
     },
     {
       "case_id": "starlette.datastructures.QueryParams.construction-and-mapping-sequence.source-test-mapping-equals-pairs",
@@ -165,16 +379,45 @@
         "starlette.datastructures.QueryParams.constructor-mapping-pairs-copy-and-keyword-merging",
         "starlette.datastructures.QueryParams.equality-order-insensitive"
       ],
-      "target_profiles": ["rust-native-local", "python-package-cpython312"],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
       "assets": [],
-      "source": {"kind": "mapping", "items": [["a", "123"], ["b", "456"]]},
-      "probe_keys": ["a", "b"],
+      "source": {
+        "kind": "mapping",
+        "items": [
+          [
+            "a",
+            "123"
+          ],
+          [
+            "b",
+            "456"
+          ]
+        ]
+      },
+      "probe_keys": [
+        "a",
+        "b"
+      ],
       "comparison": {
         "kind": "pairs",
-        "items": [["a", "123"], ["b", "456"]],
+        "items": [
+          [
+            "a",
+            "123"
+          ],
+          [
+            "b",
+            "456"
+          ]
+        ],
         "kwargs": []
       },
-      "observations": ["snapshot"]
+      "observations": [
+        "snapshot"
+      ]
     },
     {
       "case_id": "starlette.datastructures.QueryParams.construction-and-mapping-sequence.source-test-mapping-equals-query-string",
@@ -185,12 +428,35 @@
         "starlette.datastructures.QueryParams.constructor-mapping-pairs-copy-and-keyword-merging",
         "starlette.datastructures.QueryParams.equality-order-insensitive"
       ],
-      "target_profiles": ["rust-native-local", "python-package-cpython312"],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
       "assets": [],
-      "source": {"kind": "mapping", "items": [["a", "123"], ["b", "456"]]},
-      "probe_keys": ["a", "b"],
-      "comparison": {"kind": "string", "value": "a=123&b=456"},
-      "observations": ["snapshot"]
+      "source": {
+        "kind": "mapping",
+        "items": [
+          [
+            "a",
+            "123"
+          ],
+          [
+            "b",
+            "456"
+          ]
+        ]
+      },
+      "probe_keys": [
+        "a",
+        "b"
+      ],
+      "comparison": {
+        "kind": "string",
+        "value": "a=123&b=456"
+      },
+      "observations": [
+        "snapshot"
+      ]
     },
     {
       "case_id": "starlette.datastructures.QueryParams.construction-and-mapping-sequence.source-test-mapping-equality-order",
@@ -200,12 +466,44 @@
         "starlette.datastructures.QueryParams.constructor-mapping-pairs-copy-and-keyword-merging",
         "starlette.datastructures.QueryParams.equality-order-insensitive"
       ],
-      "target_profiles": ["rust-native-local", "python-package-cpython312"],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
       "assets": [],
-      "source": {"kind": "mapping", "items": [["a", "123"], ["b", "456"]]},
-      "probe_keys": ["a", "b"],
-      "comparison": {"kind": "mapping", "items": [["b", "456"], ["a", "123"]]},
-      "observations": ["snapshot"]
+      "source": {
+        "kind": "mapping",
+        "items": [
+          [
+            "a",
+            "123"
+          ],
+          [
+            "b",
+            "456"
+          ]
+        ]
+      },
+      "probe_keys": [
+        "a",
+        "b"
+      ],
+      "comparison": {
+        "kind": "mapping",
+        "items": [
+          [
+            "b",
+            "456"
+          ],
+          [
+            "a",
+            "123"
+          ]
+        ]
+      },
+      "observations": [
+        "snapshot"
+      ]
     },
     {
       "case_id": "starlette.datastructures.QueryParams.construction-and-mapping-sequence.source-test-pairs-equals-query-string",
@@ -216,12 +514,35 @@
         "starlette.datastructures.QueryParams.constructor-string-and-percent-decoding",
         "starlette.datastructures.QueryParams.equality-order-insensitive"
       ],
-      "target_profiles": ["rust-native-local", "python-package-cpython312"],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
       "assets": [],
-      "source": {"kind": "pairs", "items": [["a", "123"], ["a", "456"]], "kwargs": []},
-      "probe_keys": ["a"],
-      "comparison": {"kind": "string", "value": "a=123&a=456"},
-      "observations": ["snapshot"]
+      "source": {
+        "kind": "pairs",
+        "items": [
+          [
+            "a",
+            "123"
+          ],
+          [
+            "a",
+            "456"
+          ]
+        ],
+        "kwargs": []
+      },
+      "probe_keys": [
+        "a"
+      ],
+      "comparison": {
+        "kind": "string",
+        "value": "a=123&a=456"
+      },
+      "observations": [
+        "snapshot"
+      ]
     },
     {
       "case_id": "starlette.datastructures.QueryParams.construction-and-mapping-sequence.source-test-inequality-to-string",
@@ -231,12 +552,24 @@
         "starlette.datastructures.QueryParams.constructor-string-and-percent-decoding",
         "starlette.datastructures.QueryParams.equality-order-insensitive"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
-      "source": {"kind": "string", "value": "a=123&a=456&b=789"},
-      "probe_keys": ["a"],
-      "comparison": {"kind": "literal", "value": "invalid"},
-      "observations": ["snapshot"]
+      "source": {
+        "kind": "string",
+        "value": "a=123&a=456&b=789"
+      },
+      "probe_keys": [
+        "a"
+      ],
+      "comparison": {
+        "kind": "literal",
+        "value": "invalid"
+      },
+      "observations": [
+        "snapshot"
+      ]
     },
     {
       "case_id": "starlette.datastructures.QueryParams.construction-and-mapping-sequence.source-test-blank-values",
@@ -246,12 +579,25 @@
         "starlette.datastructures.QueryParams.constructor-string-and-percent-decoding",
         "starlette.datastructures.QueryParams.immutable-multidict-lookup-and-iteration"
       ],
-      "target_profiles": ["rust-native-local", "python-package-cpython312"],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
       "assets": [],
-      "source": {"kind": "string", "value": "a=123&abc&def&b=456"},
-      "probe_keys": ["a", "abc", "def", "b"],
+      "source": {
+        "kind": "string",
+        "value": "a=123&abc&def&b=456"
+      },
+      "probe_keys": [
+        "a",
+        "abc",
+        "def",
+        "b"
+      ],
       "comparison": null,
-      "observations": ["snapshot"]
+      "observations": [
+        "snapshot"
+      ]
     }
   ]
 }

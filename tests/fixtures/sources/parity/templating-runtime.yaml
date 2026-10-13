@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@50",
+  "schema": "migration-parity/parity-input@51",
   "cases": [
     {
       "case_id": "starlette.templating.Jinja2Templates.template-response.directory-autoescape-context-processors-url-for-debug",
@@ -12,9 +12,16 @@
         "starlette.templating._TemplateResponse.template-context-metadata",
         "starlette.templating._TemplateResponse.debug-extension"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
-      "template_directories": [{"id": "views", "path": "views"}],
+      "template_directories": [
+        {
+          "id": "views",
+          "path": "views"
+        }
+      ],
       "template_files": [
         {
           "directory_id": "views",
@@ -22,12 +29,20 @@
           "text": "<main>{{ markup }}</main><span>{{ display_name }}</span><a href=\"{{ url_for('item', item_id=9) }}\">item</a><strong>{{ processed_value }}</strong>"
         }
       ],
-      "routes": [{"path": "/items/{item_id:int}", "name": "item"}],
+      "routes": [
+        {
+          "path": "/items/{item_id:int}",
+          "name": "item"
+        }
+      ],
       "requests": [
         {
           "scope": {
             "type": "http",
-            "asgi": {"version": "3.0", "spec_version": "2.4"},
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.4"
+            },
             "http_version": "1.1",
             "scheme": "https",
             "path": "/render",
@@ -35,10 +50,18 @@
             "query_string_base64": "",
             "root_path": "",
             "headers_base64_pairs": [],
-            "client": ["template-client", 50001],
-            "server": ["template.example", 443],
+            "client": [
+              "template-client",
+              50001
+            ],
+            "server": [
+              "template.example",
+              443
+            ],
             "method": "GET",
-            "extensions": {"http.response.debug": {}}
+            "extensions": {
+              "http.response.debug": {}
+            }
           },
           "template_name": "item.html",
           "context": {
@@ -46,12 +69,20 @@
             "display_name": "Ada"
           },
           "status_code": 201,
-          "headers": {"x-template-source": "input-defined"},
+          "headers": {
+            "x-template-source": "input-defined"
+          },
           "media_type": null
         }
       ],
-      "processor_additions": [{"processed_value": "from processor"}],
-      "observations": ["template-response"]
+      "processor_additions": [
+        {
+          "processed_value": "from processor"
+        }
+      ],
+      "observations": [
+        "template-response"
+      ]
     },
     {
       "case_id": "starlette.templating.Jinja2Templates.template-response.directory-sequence-two-routes",
@@ -63,11 +94,19 @@
         "starlette.templating._TemplateResponse.template-context-metadata",
         "starlette.templating._TemplateResponse.debug-extension"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
       "template_directories": [
-        {"id": "a", "path": "a"},
-        {"id": "b", "path": "b"}
+        {
+          "id": "a",
+          "path": "a"
+        },
+        {
+          "id": "b",
+          "path": "b"
+        }
       ],
       "template_files": [
         {
@@ -82,14 +121,23 @@
         }
       ],
       "routes": [
-        {"path": "/a", "name": "page_a"},
-        {"path": "/b", "name": "page_b"}
+        {
+          "path": "/a",
+          "name": "page_a"
+        },
+        {
+          "path": "/b",
+          "name": "page_b"
+        }
       ],
       "requests": [
         {
           "scope": {
             "type": "http",
-            "asgi": {"version": "3.0", "spec_version": "2.4"},
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.4"
+            },
             "http_version": "1.1",
             "scheme": "http",
             "path": "/a",
@@ -97,10 +145,18 @@
             "query_string_base64": "",
             "root_path": "",
             "headers_base64_pairs": [],
-            "client": ["testclient", 50000],
-            "server": ["testserver", 80],
+            "client": [
+              "testclient",
+              50000
+            ],
+            "server": [
+              "testserver",
+              80
+            ],
             "method": "GET",
-            "extensions": {"http.response.debug": {}}
+            "extensions": {
+              "http.response.debug": {}
+            }
           },
           "template_name": "template_a.html",
           "context": {},
@@ -111,7 +167,10 @@
         {
           "scope": {
             "type": "http",
-            "asgi": {"version": "3.0", "spec_version": "2.4"},
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.4"
+            },
             "http_version": "1.1",
             "scheme": "http",
             "path": "/b",
@@ -119,10 +178,18 @@
             "query_string_base64": "",
             "root_path": "",
             "headers_base64_pairs": [],
-            "client": ["testclient", 50000],
-            "server": ["testserver", 80],
+            "client": [
+              "testclient",
+              50000
+            ],
+            "server": [
+              "testserver",
+              80
+            ],
             "method": "GET",
-            "extensions": {"http.response.debug": {}}
+            "extensions": {
+              "http.response.debug": {}
+            }
           },
           "template_name": "template_b.html",
           "context": {},
@@ -132,7 +199,9 @@
         }
       ],
       "processor_additions": [],
-      "observations": ["template-response"]
+      "observations": [
+        "template-response"
+      ]
     },
     {
       "case_id": "starlette.templating.Jinja2Templates.template-response.named-homepage-route",
@@ -143,9 +212,16 @@
         "starlette.templating._TemplateResponse.template-context-metadata",
         "starlette.templating._TemplateResponse.debug-extension"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
-      "template_directories": [{"id": "templates", "path": "templates"}],
+      "template_directories": [
+        {
+          "id": "templates",
+          "path": "templates"
+        }
+      ],
       "template_files": [
         {
           "directory_id": "templates",
@@ -153,12 +229,20 @@
           "text": "<html>Hello, <a href='{{ url_for('homepage') }}'>world</a></html>"
         }
       ],
-      "routes": [{"path": "/", "name": "homepage"}],
+      "routes": [
+        {
+          "path": "/",
+          "name": "homepage"
+        }
+      ],
       "requests": [
         {
           "scope": {
             "type": "http",
-            "asgi": {"version": "3.0", "spec_version": "2.4"},
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.4"
+            },
             "http_version": "1.1",
             "scheme": "http",
             "path": "/",
@@ -166,10 +250,18 @@
             "query_string_base64": "",
             "root_path": "",
             "headers_base64_pairs": [],
-            "client": ["testclient", 50000],
-            "server": ["testserver", 80],
+            "client": [
+              "testclient",
+              50000
+            ],
+            "server": [
+              "testserver",
+              80
+            ],
             "method": "GET",
-            "extensions": {"http.response.debug": {}}
+            "extensions": {
+              "http.response.debug": {}
+            }
           },
           "template_name": "index.html",
           "context": {},
@@ -179,7 +271,9 @@
         }
       ],
       "processor_additions": [],
-      "observations": ["template-response"]
+      "observations": [
+        "template-response"
+      ]
     }
   ]
 }

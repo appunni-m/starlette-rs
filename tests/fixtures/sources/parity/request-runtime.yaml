@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@50",
+  "schema": "migration-parity/parity-input@51",
   "cases": [
     {
       "case_id": "starlette.applications.Starlette.request-dispatch.missing-session-assertion",
@@ -1211,8 +1211,14 @@
         "query_string_base64": "",
         "root_path": "",
         "headers_base64_pairs": [
-          ["YWNjZXB0", "dGV4dC9jc3M="],
-          ["YXV0aG9yaXphdGlvbg==", "c2VjcmV0"]
+          [
+            "YWNjZXB0",
+            "dGV4dC9jc3M="
+          ],
+          [
+            "YXV0aG9yaXphdGlvbg==",
+            "c2VjcmV0"
+          ]
         ],
         "client": [
           "127.0.0.1",
@@ -1259,8 +1265,14 @@
         "query_string_base64": "",
         "root_path": "",
         "headers_base64_pairs": [
-          ["YWNjZXB0", "dGV4dC9jc3M="],
-          ["YXV0aG9yaXphdGlvbg==", "c2VjcmV0"]
+          [
+            "YWNjZXB0",
+            "dGV4dC9jc3M="
+          ],
+          [
+            "YXV0aG9yaXphdGlvbg==",
+            "c2VjcmV0"
+          ]
         ],
         "client": [
           "127.0.0.1",

@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@50",
+  "schema": "migration-parity/parity-input@51",
   "cases": [
     {
       "case_id": "starlette.middleware.wsgi.build-environ.header-pair-unpack-before-next",
@@ -8,7 +8,9 @@
       "covers": [
         "starlette.middleware.wsgi.build-environ.header-pair-unpacking"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
       "scope": {
         "type": "http",
@@ -19,7 +21,11 @@
         "headers_base64_pairs": [
           {
             "kind": "iterator-raises-after-values",
-            "values_base64": ["WC1UcmFjZQ==", "dmFsdWU=", "ZXh0cmE="],
+            "values_base64": [
+              "WC1UcmFjZQ==",
+              "dmFsdWU=",
+              "ZXh0cmE="
+            ],
             "failure": {
               "class": "RuntimeError",
               "message": "fourth header item requested"
@@ -29,9 +35,14 @@
       },
       "body_base64": "",
       "environ_probes": [
-        {"key": "REQUEST_METHOD", "kind": "value"}
+        {
+          "key": "REQUEST_METHOD",
+          "kind": "value"
+        }
       ],
-      "observations": ["environ-results"]
+      "observations": [
+        "environ-results"
+      ]
     }
   ]
 }

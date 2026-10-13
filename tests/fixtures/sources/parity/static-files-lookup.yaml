@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@50",
+  "schema": "migration-parity/parity-input@51",
   "cases": [
     {
       "case_id": "starlette.staticfiles.StaticFiles.lookup-path.file-metadata",
@@ -30,7 +30,9 @@
       "lookup_path": "asset.txt",
       "check_dir": true,
       "follow_symlink": false,
-      "observations": ["lookup-path"]
+      "observations": [
+        "lookup-path"
+      ]
     },
     {
       "case_id": "starlette.staticfiles.StaticFiles.lookup-path.directory-metadata",
@@ -61,7 +63,9 @@
       "lookup_path": "nested",
       "check_dir": true,
       "follow_symlink": false,
-      "observations": ["lookup-path"]
+      "observations": [
+        "lookup-path"
+      ]
     },
     {
       "case_id": "starlette.staticfiles.StaticFiles.lookup-path.absolute-path-rejected",
@@ -92,7 +96,9 @@
       "lookup_path": "/etc/passwd",
       "check_dir": true,
       "follow_symlink": false,
-      "observations": ["lookup-path"]
+      "observations": [
+        "lookup-path"
+      ]
     },
     {
       "case_id": "starlette.staticfiles.StaticFiles.lookup-path.windows-unc-absolute-path-rejected",
@@ -101,7 +107,10 @@
       "covers": [
         "starlette.staticfiles.StaticFiles.lookup-path.absolute-path-rejected"
       ],
-      "target_profiles": ["rust-native-local", "python-package-cpython312"],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
       "assets": [],
       "directory": "public",
       "files": [
@@ -120,7 +129,9 @@
       "lookup_path": "\\\\server\\share",
       "check_dir": true,
       "follow_symlink": false,
-      "observations": ["lookup-path"]
+      "observations": [
+        "lookup-path"
+      ]
     },
     {
       "case_id": "starlette.staticfiles.StaticFiles.lookup-path.parent-traversal-follow-symlink-disabled",
@@ -129,7 +140,10 @@
       "covers": [
         "starlette.staticfiles.StaticFiles.lookup-path.parent-traversal.follow-symlink-disabled"
       ],
-      "target_profiles": ["rust-native-local", "python-package-cpython312"],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
       "assets": [],
       "directory": "public",
       "files": [
@@ -154,7 +168,9 @@
       "lookup_path": "../private.txt",
       "check_dir": true,
       "follow_symlink": false,
-      "observations": ["lookup-path"]
+      "observations": [
+        "lookup-path"
+      ]
     },
     {
       "case_id": "starlette.staticfiles.StaticFiles.lookup-path.parent-traversal-follow-symlink-enabled",
@@ -163,7 +179,10 @@
       "covers": [
         "starlette.staticfiles.StaticFiles.lookup-path.parent-traversal.follow-symlink-enabled"
       ],
-      "target_profiles": ["rust-native-local", "python-package-cpython312"],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
       "assets": [],
       "directory": "public",
       "files": [
@@ -188,7 +207,9 @@
       "lookup_path": "../private.txt",
       "check_dir": true,
       "follow_symlink": true,
-      "observations": ["lookup-path"]
+      "observations": [
+        "lookup-path"
+      ]
     },
     {
       "case_id": "starlette.staticfiles.StaticFiles.lookup-path.external-file-link-follow-symlink-disabled",
@@ -197,7 +218,10 @@
       "covers": [
         "starlette.staticfiles.StaticFiles.lookup-path.external-file-link.follow-symlink-disabled"
       ],
-      "target_profiles": ["rust-native-local", "python-package-cpython312"],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
       "assets": [],
       "directory": "public",
       "files": [
@@ -218,13 +242,18 @@
           }
         ],
         "symlinks": [
-          {"path": "external.txt", "target": "../private.txt"}
+          {
+            "path": "external.txt",
+            "target": "../private.txt"
+          }
         ]
       },
       "lookup_path": "external.txt",
       "check_dir": true,
       "follow_symlink": false,
-      "observations": ["lookup-path"]
+      "observations": [
+        "lookup-path"
+      ]
     },
     {
       "case_id": "starlette.staticfiles.StaticFiles.lookup-path.external-file-link-follow-symlink-enabled",
@@ -233,7 +262,10 @@
       "covers": [
         "starlette.staticfiles.StaticFiles.lookup-path.external-file-link.follow-symlink-enabled"
       ],
-      "target_profiles": ["rust-native-local", "python-package-cpython312"],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
       "assets": [],
       "directory": "public",
       "files": [
@@ -254,13 +286,18 @@
           }
         ],
         "symlinks": [
-          {"path": "external.txt", "target": "../private.txt"}
+          {
+            "path": "external.txt",
+            "target": "../private.txt"
+          }
         ]
       },
       "lookup_path": "external.txt",
       "check_dir": true,
       "follow_symlink": true,
-      "observations": ["lookup-path"]
+      "observations": [
+        "lookup-path"
+      ]
     },
     {
       "case_id": "starlette.staticfiles.StaticFiles.lookup-path.external-directory-link-follow-symlink-disabled",
@@ -269,7 +306,10 @@
       "covers": [
         "starlette.staticfiles.StaticFiles.lookup-path.external-directory-link.follow-symlink-disabled"
       ],
-      "target_profiles": ["rust-native-local", "python-package-cpython312"],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
       "assets": [],
       "directory": "public",
       "files": [
@@ -281,7 +321,9 @@
       ],
       "filesystem": {
         "root_symlink_target": null,
-        "directories": ["outside-assets"],
+        "directories": [
+          "outside-assets"
+        ],
         "outside_files": [
           {
             "path": "outside-assets/page.txt",
@@ -290,13 +332,18 @@
           }
         ],
         "symlinks": [
-          {"path": "external-assets", "target": "../outside-assets"}
+          {
+            "path": "external-assets",
+            "target": "../outside-assets"
+          }
         ]
       },
       "lookup_path": "external-assets/page.txt",
       "check_dir": true,
       "follow_symlink": false,
-      "observations": ["lookup-path"]
+      "observations": [
+        "lookup-path"
+      ]
     },
     {
       "case_id": "starlette.staticfiles.StaticFiles.lookup-path.external-directory-link-follow-symlink-enabled",
@@ -305,7 +352,10 @@
       "covers": [
         "starlette.staticfiles.StaticFiles.lookup-path.external-directory-link.follow-symlink-enabled"
       ],
-      "target_profiles": ["rust-native-local", "python-package-cpython312"],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
       "assets": [],
       "directory": "public",
       "files": [
@@ -317,7 +367,9 @@
       ],
       "filesystem": {
         "root_symlink_target": null,
-        "directories": ["outside-assets"],
+        "directories": [
+          "outside-assets"
+        ],
         "outside_files": [
           {
             "path": "outside-assets/page.txt",
@@ -326,13 +378,18 @@
           }
         ],
         "symlinks": [
-          {"path": "external-assets", "target": "../outside-assets"}
+          {
+            "path": "external-assets",
+            "target": "../outside-assets"
+          }
         ]
       },
       "lookup_path": "external-assets/page.txt",
       "check_dir": true,
       "follow_symlink": true,
-      "observations": ["lookup-path"]
+      "observations": [
+        "lookup-path"
+      ]
     },
     {
       "case_id": "starlette.staticfiles.StaticFiles.lookup-path.internal-file-link-follow-symlink-disabled",
@@ -341,7 +398,10 @@
       "covers": [
         "starlette.staticfiles.StaticFiles.lookup-path.internal-file-link.follow-symlink-disabled"
       ],
-      "target_profiles": ["rust-native-local", "python-package-cpython312"],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
       "assets": [],
       "directory": "public",
       "files": [
@@ -356,13 +416,18 @@
         "directories": [],
         "outside_files": [],
         "symlinks": [
-          {"path": "internal-link.txt", "target": "asset.txt"}
+          {
+            "path": "internal-link.txt",
+            "target": "asset.txt"
+          }
         ]
       },
       "lookup_path": "internal-link.txt",
       "check_dir": true,
       "follow_symlink": false,
-      "observations": ["lookup-path"]
+      "observations": [
+        "lookup-path"
+      ]
     },
     {
       "case_id": "starlette.staticfiles.StaticFiles.lookup-path.internal-file-link-follow-symlink-enabled",
@@ -371,7 +436,10 @@
       "covers": [
         "starlette.staticfiles.StaticFiles.lookup-path.internal-file-link.follow-symlink-enabled"
       ],
-      "target_profiles": ["rust-native-local", "python-package-cpython312"],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
       "assets": [],
       "directory": "public",
       "files": [
@@ -386,13 +454,18 @@
         "directories": [],
         "outside_files": [],
         "symlinks": [
-          {"path": "internal-link.txt", "target": "asset.txt"}
+          {
+            "path": "internal-link.txt",
+            "target": "asset.txt"
+          }
         ]
       },
       "lookup_path": "internal-link.txt",
       "check_dir": true,
       "follow_symlink": true,
-      "observations": ["lookup-path"]
+      "observations": [
+        "lookup-path"
+      ]
     },
     {
       "case_id": "starlette.staticfiles.StaticFiles.lookup-path.internal-directory-link-follow-symlink-disabled",
@@ -401,7 +474,10 @@
       "covers": [
         "starlette.staticfiles.StaticFiles.lookup-path.internal-directory-link.follow-symlink-disabled"
       ],
-      "target_profiles": ["rust-native-local", "python-package-cpython312"],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
       "assets": [],
       "directory": "public",
       "files": [
@@ -416,13 +492,18 @@
         "directories": [],
         "outside_files": [],
         "symlinks": [
-          {"path": "internal-assets", "target": "assets"}
+          {
+            "path": "internal-assets",
+            "target": "assets"
+          }
         ]
       },
       "lookup_path": "internal-assets/page.txt",
       "check_dir": true,
       "follow_symlink": false,
-      "observations": ["lookup-path"]
+      "observations": [
+        "lookup-path"
+      ]
     },
     {
       "case_id": "starlette.staticfiles.StaticFiles.lookup-path.internal-directory-link-follow-symlink-enabled",
@@ -431,7 +512,10 @@
       "covers": [
         "starlette.staticfiles.StaticFiles.lookup-path.internal-directory-link.follow-symlink-enabled"
       ],
-      "target_profiles": ["rust-native-local", "python-package-cpython312"],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
       "assets": [],
       "directory": "public",
       "files": [
@@ -446,13 +530,18 @@
         "directories": [],
         "outside_files": [],
         "symlinks": [
-          {"path": "internal-assets", "target": "assets"}
+          {
+            "path": "internal-assets",
+            "target": "assets"
+          }
         ]
       },
       "lookup_path": "internal-assets/page.txt",
       "check_dir": true,
       "follow_symlink": true,
-      "observations": ["lookup-path"]
+      "observations": [
+        "lookup-path"
+      ]
     },
     {
       "case_id": "starlette.staticfiles.StaticFiles.lookup-path.configured-root-symlink-traversal",
@@ -461,7 +550,10 @@
       "covers": [
         "starlette.staticfiles.StaticFiles.lookup-path.configured-root-symlink-traversal"
       ],
-      "target_profiles": ["rust-native-local", "python-package-cpython312"],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
       "assets": [],
       "directory": "public",
       "files": [
@@ -473,7 +565,9 @@
       ],
       "filesystem": {
         "root_symlink_target": "real-public",
-        "directories": ["real-public"],
+        "directories": [
+          "real-public"
+        ],
         "outside_files": [
           {
             "path": "private.txt",
@@ -486,7 +580,9 @@
       "lookup_path": "../private.txt",
       "check_dir": true,
       "follow_symlink": true,
-      "observations": ["lookup-path"]
+      "observations": [
+        "lookup-path"
+      ]
     }
   ]
 }

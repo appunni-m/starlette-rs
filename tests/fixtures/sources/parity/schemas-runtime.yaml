@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@50",
+  "schema": "migration-parity/parity-input@51",
   "cases": [
     {
       "case_id": "starlette.schemas.SchemaGenerator.schema-generation.route-selection-prefixes-and-converters",
@@ -12,18 +12,32 @@
         "starlette.schemas.BaseSchemaGenerator.parse_docstring.mapping",
         "starlette.schemas.BaseSchemaGenerator.parse_docstring.delimited-section"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
       "base_schema": {
         "openapi": "3.0.0",
-        "info": {"title": "Schema parity", "version": "1.0"},
-        "paths": {"/base": {"get": {"description": "preserved base path"}}}
+        "info": {
+          "title": "Schema parity",
+          "version": "1.0"
+        },
+        "paths": {
+          "/base": {
+            "get": {
+              "description": "preserved base path"
+            }
+          }
+        }
       },
       "routes": [
         {
           "kind": "route",
           "path": "/users/{user_id:int}",
-          "methods": ["GET", "HEAD"],
+          "methods": [
+            "GET",
+            "HEAD"
+          ],
           "endpoint": {
             "kind": "function",
             "docstring": "Endpoint prose before the schema.\n\n---\nresponses:\n  200:\n    description: User detail\n"
@@ -32,7 +46,9 @@
         {
           "kind": "route",
           "path": "/head-only",
-          "methods": ["HEAD"],
+          "methods": [
+            "HEAD"
+          ],
           "endpoint": {
             "kind": "function",
             "docstring": "responses:\n  200:\n    description: Excluded HEAD operation\n"
@@ -41,7 +57,9 @@
         {
           "kind": "route",
           "path": "/hidden",
-          "methods": ["GET"],
+          "methods": [
+            "GET"
+          ],
           "include_in_schema": false,
           "endpoint": {
             "kind": "function",
@@ -62,7 +80,10 @@
         {
           "kind": "websocket-route",
           "path": "/socket",
-          "endpoint": {"kind": "function", "docstring": "responses:\n  200:\n    description: Not an HTTP route\n"}
+          "endpoint": {
+            "kind": "function",
+            "docstring": "responses:\n  200:\n    description: Not an HTTP route\n"
+          }
         },
         {
           "kind": "mount",
@@ -71,7 +92,9 @@
             {
               "kind": "route",
               "path": "/status",
-              "methods": ["GET"],
+              "methods": [
+                "GET"
+              ],
               "endpoint": {
                 "kind": "function",
                 "docstring": "responses:\n  200:\n    description: Mounted status\n"
@@ -90,7 +113,9 @@
                 {
                   "kind": "route",
                   "path": "/health",
-                  "methods": ["GET"],
+                  "methods": [
+                    "GET"
+                  ],
                   "endpoint": {
                     "kind": "function",
                     "docstring": "responses:\n  200:\n    description: Host mounted health\n"
@@ -101,7 +126,10 @@
           ]
         }
       ],
-      "observations": ["endpoints", "schema"]
+      "observations": [
+        "endpoints",
+        "schema"
+      ]
     },
     {
       "case_id": "starlette.schemas.BaseSchemaGenerator.schema-docstring-parsing.yaml-mapping-filter",
@@ -112,7 +140,9 @@
         "starlette.schemas.BaseSchemaGenerator.parse_docstring.delimited-section",
         "starlette.schemas.BaseSchemaGenerator.parse_docstring.non-mapping-filter"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
       "docstrings": [
         "A prose-only endpoint docstring.",
@@ -122,17 +152,29 @@
         "null\n",
         ""
       ],
-      "observations": ["parsed-docstrings", "exception"]
+      "observations": [
+        "parsed-docstrings",
+        "exception"
+      ]
     },
     {
       "case_id": "starlette.schemas.BaseSchemaGenerator.schema-docstring-parsing.malformed-yaml",
       "surface": "starlette.schemas.BaseSchemaGenerator",
       "operation": "schema-docstring-parsing",
-      "covers": ["starlette.schemas.BaseSchemaGenerator.parse_docstring.malformed-yaml"],
-      "target_profiles": ["python-package-cpython312"],
+      "covers": [
+        "starlette.schemas.BaseSchemaGenerator.parse_docstring.malformed-yaml"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
-      "docstrings": ["responses:\n  200: [unterminated\n"],
-      "observations": ["parsed-docstrings", "exception"]
+      "docstrings": [
+        "responses:\n  200: [unterminated\n"
+      ],
+      "observations": [
+        "parsed-docstrings",
+        "exception"
+      ]
     },
     {
       "case_id": "starlette.schemas.OpenAPIResponse.openapi-response-render.dictionary-render",
@@ -142,14 +184,32 @@
         "starlette.schemas.OpenAPIResponse.render",
         "starlette.schemas.BaseSchemaGenerator.OpenAPIResponse"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
       "content": {
         "openapi": "3.0.0",
-        "info": {"title": "Example API", "version": "1.0"},
-        "paths": {"/health": {"get": {"responses": {"200": {"description": "Healthy"}}}}}
+        "info": {
+          "title": "Example API",
+          "version": "1.0"
+        },
+        "paths": {
+          "/health": {
+            "get": {
+              "responses": {
+                "200": {
+                  "description": "Healthy"
+                }
+              }
+            }
+          }
+        }
       },
-      "observations": ["media-type", "rendered-bytes"]
+      "observations": [
+        "media-type",
+        "rendered-bytes"
+      ]
     },
     {
       "case_id": "starlette.schemas.SchemaGenerator.schema-generation.pinned-test-schema-generation",
@@ -162,22 +222,32 @@
         "starlette.schemas.BaseSchemaGenerator.parse_docstring.mapping",
         "starlette.schemas.BaseSchemaGenerator.parse_docstring.delimited-section"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
       "base_schema": {
         "openapi": "3.0.0",
-        "info": {"title": "Example API", "version": "1.0"}
+        "info": {
+          "title": "Example API",
+          "version": "1.0"
+        }
       },
       "routes": [
         {
           "kind": "websocket-route",
           "path": "/ws",
-          "endpoint": {"kind": "function", "docstring": "ws"}
+          "endpoint": {
+            "kind": "function",
+            "docstring": "ws"
+          }
         },
         {
           "kind": "route",
           "path": "/users/{id:int}",
-          "methods": ["GET"],
+          "methods": [
+            "GET"
+          ],
           "endpoint": {
             "kind": "function",
             "docstring": "\n    responses:\n        200:\n            description: A user.\n            examples:\n                {\"username\": \"tom\"}\n    "
@@ -186,7 +256,10 @@
         {
           "kind": "route",
           "path": "/users",
-          "methods": ["GET", "HEAD"],
+          "methods": [
+            "GET",
+            "HEAD"
+          ],
           "endpoint": {
             "kind": "function",
             "docstring": "\n    responses:\n      200:\n        description: A list of users.\n        examples:\n          [{\"username\": \"tom\"}, {\"username\": \"lucy\"}]\n    "
@@ -195,7 +268,9 @@
         {
           "kind": "route",
           "path": "/users",
-          "methods": ["POST"],
+          "methods": [
+            "POST"
+          ],
           "endpoint": {
             "kind": "function",
             "docstring": "\n    responses:\n      200:\n        description: A user.\n        examples:\n          {\"username\": \"tom\"}\n    "
@@ -231,14 +306,22 @@
         {
           "kind": "route",
           "path": "/no-docstring",
-          "endpoint": {"kind": "function", "docstring": null}
+          "endpoint": {
+            "kind": "function",
+            "docstring": null
+          }
         },
         {
           "kind": "route",
           "path": "/schema",
-          "methods": ["GET"],
+          "methods": [
+            "GET"
+          ],
           "include_in_schema": false,
-          "endpoint": {"kind": "function", "docstring": null}
+          "endpoint": {
+            "kind": "function",
+            "docstring": null
+          }
         },
         {
           "kind": "mount",
@@ -275,7 +358,10 @@
           ]
         }
       ],
-      "observations": ["endpoints", "schema"]
+      "observations": [
+        "endpoints",
+        "schema"
+      ]
     },
     {
       "case_id": "starlette.schemas.OpenAPIResponse.schema-endpoint-asgi-call.pinned-test-schema-endpoint",

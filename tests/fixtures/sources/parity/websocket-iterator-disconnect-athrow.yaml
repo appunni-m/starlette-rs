@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@50",
+  "schema": "migration-parity/parity-input@51",
   "cases": [
     {
       "case_id": "starlette.websockets.WebSocket.convenience-sequence.iterator-athrow-disconnect-after-yield",
@@ -75,10 +75,13 @@
           "arguments": {
             "iterator": "iter_text",
             "control": "athrow",
-            "exception": {
-              "class": "WebSocketDisconnect",
-              "message": "consumer supplied disconnect"
-            }
+            "throw_arguments": [
+              {
+                "kind": "exception-instance",
+                "name": "WebSocketDisconnect",
+                "message": "consumer supplied disconnect"
+              }
+            ]
           }
         }
       ],

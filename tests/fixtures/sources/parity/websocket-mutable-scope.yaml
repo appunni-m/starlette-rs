@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@50",
+  "schema": "migration-parity/parity-input@51",
   "cases": [
     {
       "case_id": "starlette.websockets.WebSocket.convenience-sequence.mutable-mapping-scope",
@@ -8,7 +8,9 @@
       "covers": [
         "starlette.websocket.api.scope.mutable-mapping"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
       "scope_container": "user-dict",
       "scope": {
@@ -24,16 +26,29 @@
         "query_string_base64": "",
         "root_path": "",
         "headers_base64_pairs": [
-          ["aG9zdA==", "ZXhhbXBsZS50ZXN0"]
+          [
+            "aG9zdA==",
+            "ZXhhbXBsZS50ZXN0"
+          ]
         ],
-        "client": ["127.0.0.1", 12345],
-        "server": ["testserver", 80],
-        "subprotocols": ["chat"]
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ],
+        "subprotocols": [
+          "chat"
+        ]
       },
       "incoming": [
         {
           "type": "websocket.connect",
-          "subprotocols": ["chat"]
+          "subprotocols": [
+            "chat"
+          ]
         }
       ],
       "actions": [
@@ -43,7 +58,9 @@
           "arguments": {}
         }
       ],
-      "observations": ["convenience-sequence"]
+      "observations": [
+        "convenience-sequence"
+      ]
     }
   ]
 }

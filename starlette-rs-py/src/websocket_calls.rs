@@ -9,11 +9,15 @@ use pyo3::exceptions::{
     PyAssertionError, PyOSError, PyRuntimeError, PyStopAsyncIteration, PyTypeError, PyValueError,
 };
 use pyo3::prelude::*;
-use pyo3::types::{PyAny, PyDict, PyList, PyModule, PySet, PySetMethods, PyString};
+use pyo3::types::{
+    PyAny, PyDict, PyDictMethods, PyList, PyModule, PySet, PySetMethods, PyString, PyTuple,
+    PyTupleMethods,
+};
 use starlette_rs::{WebSocketState, WebSocketStateMachine};
 
 use crate::awaitable::{
     AwaitableStateMachine, MachineAction, MachineResume, into_sendable_python_awaitable,
+    normalize_throw,
 };
 
 struct ProtocolState {
@@ -1227,7 +1231,37 @@ impl PyWebSocketIterator {
         )
     }
 
-    fn athrow(slf: Py<Self>, py: Python<'_>, exception: Py<PyAny>) -> PyResult<Py<PyAny>> {
+    #[pyo3(signature = (*arguments, **keywords))]
+    fn athrow(
+        slf: Py<Self>,
+        py: Python<'_>,
+        arguments: &Bound<'_, PyTuple>,
+        keywords: Option<&Bound<'_, PyDict>>,
+    ) -> PyResult<Py<PyAny>> {
+        if keywords.is_some_and(|keywords| !keywords.is_empty()) {
+            return Err(PyTypeError::new_err("athrow() takes no keyword arguments"));
+        }
+        let argument_count = arguments.len();
+        let arity_error = match argument_count {
+            0 => Some("athrow expected at least 1 argument, got 0".to_owned()),
+            1..=3 => None,
+            count => Some(format!("athrow expected at most 3 arguments, got {count}")),
+        };
+        let exception_type = if argument_count >= 1 {
+            Some(arguments.get_item(0)?.unbind())
+        } else {
+            None
+        };
+        let value = if argument_count >= 2 {
+            Some(arguments.get_item(1)?.unbind())
+        } else {
+            None
+        };
+        let traceback = if argument_count >= 3 {
+            Some(arguments.get_item(2)?.unbind())
+        } else {
+            None
+        };
         let borrowed = slf.borrow(py);
         let disconnect_error = borrowed.disconnect_error.clone_ref(py);
         let finished = borrowed.finished.clone();
@@ -1237,7 +1271,10 @@ impl PyWebSocketIterator {
         into_sendable_python_awaitable(
             py,
             WebSocketIteratorThrow {
-                exception,
+                exception_type,
+                value,
+                traceback,
+                arity_error,
                 disconnect_error,
                 finished,
                 running,
@@ -1276,7 +1313,10 @@ impl PyWebSocketIterator {
 }
 
 struct WebSocketIteratorThrow {
-    exception: Py<PyAny>,
+    exception_type: Option<Py<PyAny>>,
+    value: Option<Py<PyAny>>,
+    traceback: Option<Py<PyAny>>,
+    arity_error: Option<String>,
     disconnect_error: Py<PyAny>,
     finished: SharedFlag,
     running: SharedFlag,
@@ -1285,15 +1325,20 @@ struct WebSocketIteratorThrow {
 
 impl AwaitableStateMachine for WebSocketIteratorThrow {
     fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
-        visit.call(&self.exception)?;
+        visit.call(&self.exception_type)?;
+        visit.call(&self.value)?;
+        visit.call(&self.traceback)?;
         visit.call(&self.disconnect_error)
     }
     fn finalize_on_drop(&self) -> bool {
-        true
+        self.arity_error.is_none()
     }
     fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
         match input {
             MachineResume::Start => {
+                if let Some(message) = &self.arity_error {
+                    return Err(PyTypeError::new_err(message.clone()));
+                }
                 if self.running.get() {
                     return Err(PyRuntimeError::new_err(
                         "athrow(): asynchronous generator is already running",
@@ -1301,16 +1346,26 @@ impl AwaitableStateMachine for WebSocketIteratorThrow {
                 }
                 let was_finished = self.finished.replace(true);
                 self.running.set(false);
+                let Some(exception_type) = self.exception_type.as_ref() else {
+                    return Err(PyRuntimeError::new_err(
+                        "async iterator athrow exception type is unavailable",
+                    ));
+                };
+                let error = normalize_throw(
+                    py,
+                    exception_type.clone_ref(py),
+                    self.value.as_ref().map(|value| value.clone_ref(py)),
+                    self.traceback
+                        .as_ref()
+                        .map(|traceback| traceback.clone_ref(py)),
+                )?;
                 if !was_finished
                     && self.started.get()
-                    && self
-                        .exception
-                        .bind(py)
-                        .is_instance(self.disconnect_error.bind(py))?
+                    && error.is_instance(py, self.disconnect_error.bind(py))
                 {
                     Err(PyStopAsyncIteration::new_err(()))
                 } else {
-                    Err(PyErr::from_value(self.exception.bind(py).clone()))
+                    Err(error)
                 }
             }
             MachineResume::Value(_) => Ok(MachineAction::Complete(py.None())),

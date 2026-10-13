@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@50",
+  "schema": "migration-parity/parity-input@51",
   "cases": [
     {
       "case_id": "starlette.applications.Starlette.__call__.route-local-middleware.router-falsey-sequence",
@@ -35,7 +35,9 @@
                       {
                         "kind": "http-route",
                         "path": "/inside",
-                        "methods": ["GET"],
+                        "methods": [
+                          "GET"
+                        ],
                         "endpoint": {
                           "kind": "plain-response",
                           "content": "inside",
@@ -61,7 +63,9 @@
                 {
                   "kind": "http-route",
                   "path": "/outside",
-                  "methods": ["GET"],
+                  "methods": [
+                    "GET"
+                  ],
                   "endpoint": {
                     "kind": "plain-response",
                     "content": "outside",
@@ -113,8 +117,14 @@
                 "query_string_base64": "",
                 "root_path": "",
                 "headers_base64_pairs": [],
-                "client": ["127.0.0.1", 12345],
-                "server": ["testserver", 80]
+                "client": [
+                  "127.0.0.1",
+                  12345
+                ],
+                "server": [
+                  "testserver",
+                  80
+                ]
               }
             },
             "receive": {
@@ -160,8 +170,14 @@
                 "query_string_base64": "",
                 "root_path": "",
                 "headers_base64_pairs": [],
-                "client": ["127.0.0.1", 12345],
-                "server": ["testserver", 80]
+                "client": [
+                  "127.0.0.1",
+                  12345
+                ],
+                "server": [
+                  "testserver",
+                  80
+                ]
               }
             },
             "receive": {

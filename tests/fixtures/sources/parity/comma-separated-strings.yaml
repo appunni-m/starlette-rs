@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@50",
+  "schema": "migration-parity/parity-input@51",
   "cases": [
     {
       "case_id": "starlette.datastructures.CommaSeparatedStrings.consumer-sequence.test-csv",
@@ -113,7 +113,7 @@
       "inputs": [
         {
           "kind": "unicode-repr-string",
-          "value": "café, 雪, \u200b, \u0378, \udb40\udc01, line\nbreak"
+          "value": "caf\u00e9, \u96ea, \u200b, \u0378, \udb40\udc01, line\nbreak"
         }
       ],
       "index_probes": [

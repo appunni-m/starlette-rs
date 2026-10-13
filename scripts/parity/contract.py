@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import binascii
 import builtins
+import copy
 import ctypes
 import hashlib
 import json
@@ -40,8 +41,9 @@ INPUT_SCHEMA_V46 = "migration-parity/parity-input@46"
 INPUT_SCHEMA_V47 = "migration-parity/parity-input@47"
 INPUT_SCHEMA_V48 = "migration-parity/parity-input@48"
 INPUT_SCHEMA_V49 = "migration-parity/parity-input@49"
-PREVIOUS_INPUT_SCHEMA = INPUT_SCHEMA_V49
-INPUT_SCHEMA = "migration-parity/parity-input@50"
+INPUT_SCHEMA_V50 = "migration-parity/parity-input@50"
+PREVIOUS_INPUT_SCHEMA = INPUT_SCHEMA_V50
+INPUT_SCHEMA = "migration-parity/parity-input@51"
 BENCHMARK_INPUT_SCHEMA = "migration-parity/benchmark-input@1"
 RESULT_SCHEMA = "migration-parity/parity-result@8"
 BENCHMARK_RESULT_SCHEMA = "migration-parity/benchmark-result@1"
@@ -274,6 +276,9 @@ TESTCLIENT_REQUIREMENTS = {
     "request_body_lazy_read": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.request-body-read-on-receive",
     "request_body_generator_buffering": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.request-body-generator-buffering",
     "response": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.response-and-debug",
+    "response_body_buffer_protocol": (
+        f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.response-body-buffer-protocol"
+    ),
     "template_debug_extension": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.template-response-debug-extension",
     "follow_redirects_disabled": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.follow-redirects-disabled",
     "follow_redirects_enabled": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.follow-redirects-enabled",
@@ -818,7 +823,10 @@ HEADERS_OPERATIONS = {
     (HEADERS_SURFACE, HEADERS_CONSUMER_OPERATION),
     (MUTABLE_HEADERS_SURFACE, HEADERS_CONSUMER_OPERATION),
 }
-HEADERS_OBSERVATIONS = {"action-trace", "instance-snapshots", "scope-snapshots"}
+HEADERS_OBSERVATIONS = {"action-trace", "instance-snapshots", "scope-snapshots", "raw-pairs"}
+MUTABLE_HEADERS_VARY_REQUIREMENT = (
+    "starlette.datastructures.MutableHeaders.add-vary-header"
+)
 STATE_SURFACE = "starlette.datastructures.State"
 STATE_CONSUMER_OPERATION = "consumer-sequence"
 STATE_OPERATION_KEY = (STATE_SURFACE, STATE_CONSUMER_OPERATION)
@@ -870,6 +878,7 @@ HEADERS_ACTIONS = {
     "__or__",
     "__ior__",
     "append",
+    "add_vary_header",
     "raw-input-append",
     "raw-view-append",
 }
@@ -3140,6 +3149,13 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         # Exception formatting is separately widened by the
                         # explicit representative Python-version matrix above.
                         expected_parity_profiles = python_profile_ids
+                    elif operation_key in HEADERS_OPERATIONS:
+                        expected_parity_profiles = {
+                            profile
+                            for requirement in requirements
+                            if "parity" in requirement["lanes"]
+                            for profile in requirement["target_profiles"]
+                        }
                     elif operation_key == (RESPONSE_SURFACE, RESPONSE_OPERATION):
                         expected_parity_profiles = python_profile_ids | {"rust-native-local"}
                     else:
@@ -4335,6 +4351,105 @@ def _validate_websocket_case_stimulus(case: dict[str, Any]) -> None:
         )
 
 
+def _validate_websocket_athrow_arguments(arguments: Any, context: str) -> None:
+    if not isinstance(arguments, list) or len(arguments) > 4:
+        raise ContractError(f"{context} must contain at most four positional arguments")
+    if not arguments:
+        return
+
+    exception_names = {
+        "Exception",
+        "RuntimeError",
+        "ValueError",
+        "TypeError",
+        "LookupError",
+        "KeyError",
+        "WebSocketDisconnect",
+    }
+    first = arguments[0]
+    if not isinstance(first, dict):
+        raise ContractError(f"{context}[0] must select an exception class or instance")
+    first_kind = first.get("kind")
+    if first_kind == "exception-class":
+        first_argument = _exact(first, {"kind", "name"}, f"{context}[0]")
+        exception_name = _string(first_argument["name"], f"{context}[0].name")
+        if exception_name not in exception_names:
+            raise ContractError(f"{context}[0].name is outside the exception input vocabulary")
+    elif first_kind == "exception-instance":
+        first_argument = _exact(first, {"kind", "name", "message"}, f"{context}[0]")
+        exception_name = _string(first_argument["name"], f"{context}[0].name")
+        if exception_name not in exception_names:
+            raise ContractError(f"{context}[0].name is outside the exception input vocabulary")
+        _string(first_argument["message"], f"{context}[0].message")
+        if len(arguments) != 1 and len(arguments) <= 3:
+            raise ContractError(
+                f"{context} with multiple arguments must start with an exception class"
+            )
+    else:
+        raise ContractError(f"{context}[0].kind must be exception-class or exception-instance")
+
+    if len(arguments) >= 2:
+        second = arguments[1]
+        if not isinstance(second, dict):
+            raise ContractError(f"{context}[1] must select a value or exception instance")
+        second_kind = second.get("kind")
+        if second_kind == "value":
+            second_argument = _exact(second, {"kind", "value"}, f"{context}[1]")
+            _validate_threadpool_json(second_argument["value"], f"{context}[1].value")
+        elif second_kind == "exception-instance":
+            second_argument = _exact(second, {"kind", "name", "message"}, f"{context}[1]")
+            exception_name = _string(second_argument["name"], f"{context}[1].name")
+            if exception_name not in exception_names:
+                raise ContractError(f"{context}[1].name is outside the exception input vocabulary")
+            _string(second_argument["message"], f"{context}[1].message")
+        else:
+            raise ContractError(f"{context}[1].kind must be value or exception-instance")
+
+    if len(arguments) >= 3:
+        traceback = arguments[2]
+        if not isinstance(traceback, dict):
+            raise ContractError(f"{context}[2] must select a traceback representation")
+        traceback_argument = _exact(traceback, {"kind", "representation"}, f"{context}[2]")
+        if (
+            traceback_argument["kind"] != "traceback"
+            or traceback_argument["representation"] != "none"
+        ):
+            raise ContractError(f"{context}[2] only supports an explicit None traceback")
+
+    if len(arguments) == 4:
+        extra = arguments[3]
+        if not isinstance(extra, dict):
+            raise ContractError(f"{context}[3] must select an extra positional value")
+        extra_argument = _exact(extra, {"kind", "value"}, f"{context}[3]")
+        if extra_argument["kind"] != "value":
+            raise ContractError(f"{context}[3].kind must be value")
+        _validate_threadpool_json(extra_argument["value"], f"{context}[3].value")
+
+
+def _validate_websocket_athrow_keywords(arguments: Any, context: str) -> None:
+    if not isinstance(arguments, dict) or not arguments:
+        raise ContractError(f"{context} must contain one or more keyword arguments")
+    if any(name not in {"typ", "val", "tb"} for name in arguments):
+        raise ContractError(f"{context} keyword names must be typ, val, or tb")
+    for name, argument in arguments.items():
+        if name == "typ":
+            _validate_websocket_athrow_arguments([argument], f"{context}.typ")
+        elif name == "val":
+            _validate_websocket_athrow_arguments(
+                [{"kind": "exception-class", "name": "Exception"}, argument],
+                f"{context}.val",
+            )
+        else:
+            _validate_websocket_athrow_arguments(
+                [
+                    {"kind": "exception-class", "name": "Exception"},
+                    {"kind": "value", "value": None},
+                    argument,
+                ],
+                f"{context}.tb",
+            )
+
+
 def _validate_websocket_convenience_case_stimulus(case: dict[str, Any]) -> None:
     if case["operation"] != WEBSOCKET_CONVENIENCE_OPERATION:
         raise ContractError("WebSocket cases must use a declared sequence operation")
@@ -4735,7 +4850,8 @@ def _validate_websocket_convenience_case_stimulus(case: dict[str, Any]) -> None:
             expected = (
                 {"iterator", "control", "value"}
                 if control == "asend"
-                else {"iterator", "control", "exception"}
+                else {"iterator", "control", "throw_arguments"}
+                | ({"throw_keyword_arguments"} if "throw_keyword_arguments" in arguments else set())
                 if control == "athrow"
                 else {"iterator", "control"}
                 if control == "aclose"
@@ -4754,25 +4870,14 @@ def _validate_websocket_convenience_case_stimulus(case: dict[str, Any]) -> None:
                     payload = "bytes_base64" if arguments["iterator"] == "iter_bytes" else "text"
                     receive_input(context, payload)
             elif control == "athrow":
-                exception = _exact(
-                    arguments["exception"], {"class", "message"}, f"{context}.arguments.exception"
+                _validate_websocket_athrow_arguments(
+                    arguments["throw_arguments"], f"{context}.arguments.throw_arguments"
                 )
-                exception_class = _string(
-                    exception["class"], f"{context}.arguments.exception.class"
-                )
-                if exception_class not in {
-                    "Exception",
-                    "RuntimeError",
-                    "ValueError",
-                    "TypeError",
-                    "LookupError",
-                    "KeyError",
-                    "WebSocketDisconnect",
-                }:
-                    raise ContractError(
-                        f"{context}.arguments.exception.class is outside the exception input vocabulary"
+                if "throw_keyword_arguments" in arguments:
+                    _validate_websocket_athrow_keywords(
+                        arguments["throw_keyword_arguments"],
+                        f"{context}.arguments.throw_keyword_arguments",
                     )
-                _string(exception["message"], f"{context}.arguments.exception.message")
             exercised.add(f"starlette.websocket.api.iterator.{control}")
         else:
             raise ContractError(f"{context}.method is unsupported: {method!r}")
@@ -15500,14 +15605,35 @@ def _validate_testclient_case(
             )
         ):
             raise ContractError("TestClient ASGI response must start before its final body")
-        if (
-            sum(
-                isinstance(message, dict) and message.get("type") == "http.response.debug"
-                for message in messages
+    response_body_buffer_protocol = False
+    for index, raw_message in enumerate(messages):
+        if not isinstance(raw_message, dict) or "body_kind" not in raw_message:
+            continue
+        message_context = f"TestClient ASGI message[{index}]"
+        body_message = _exact(
+            raw_message,
+            {"type", "body_base64", "body_kind", "more_body"},
+            message_context,
+        )
+        if body_message["type"] != "http.response.body":
+            raise ContractError(f"{message_context}.body_kind requires an HTTP response body")
+        body_kind = _string(body_message["body_kind"], f"{message_context}.body_kind")
+        if body_kind not in {"bytearray", "memoryview"}:
+            raise ContractError(
+                f"{message_context}.body_kind must select bytearray or memoryview"
             )
-            > 1
-        ):
-            raise ContractError("TestClient ASGI response may contain one debug message")
+        validate_base64(body_message["body_base64"], f"{message_context}.body_base64")
+        if type(body_message["more_body"]) is not bool:
+            raise ContractError(f"{message_context}.more_body must be boolean")
+        response_body_buffer_protocol = True
+    if (
+        sum(
+            isinstance(message, dict) and message.get("type") == "http.response.debug"
+            for message in messages
+        )
+        > 1
+    ):
+        raise ContractError("TestClient ASGI response may contain one debug message")
     if backend_setup_failure and (
         asgi_app["kind"] not in {"asgi2", "asgi3", "asgi3-asyncio-marked"}
         or messages
@@ -15528,6 +15654,8 @@ def _validate_testclient_case(
     ):
         raise ContractError("TestClient file uploads require the multipart-form request consumer")
     expected_covers = {TESTCLIENT_REQUIREMENTS["scope"]}
+    if response_body_buffer_protocol:
+        expected_covers.add(TESTCLIENT_REQUIREMENTS["response_body_buffer_protocol"])
     if message_type_comparison_error:
         expected_covers.add(TESTCLIENT_REQUIREMENTS["exception_policy"])
     if backend_setup_failure:
@@ -15889,9 +16017,12 @@ def _validate_testclient_case(
             if not isinstance(message["info"], dict):
                 raise ContractError("TestClient response debug info must be a record")
         elif message_type == "http.response.body":
+            response_body_fields = {"type", "body_base64", "more_body"}
+            if "body_kind" in message:
+                response_body_fields.add("body_kind")
             message = _exact(
                 message,
-                {"type", "body_base64", "more_body"},
+                response_body_fields,
                 f"TestClient response message[{index}]",
             )
             validate_base64(message["body_base64"], f"response message[{index}].body")
@@ -31247,8 +31378,10 @@ def _validate_upload_file_case(case: dict[str, Any]) -> None:
 
 def _validate_headers_case(case: dict[str, Any]) -> None:
     mutable = case["surface"] == MUTABLE_HEADERS_SURFACE
-    if case["target_profiles"] != ["python-package-cpython312"]:
-        raise ContractError("Headers parity currently targets the Python package profile")
+    package_profile = ["python-package-cpython312"]
+    native_and_package_profiles = ["rust-native-local", "python-package-cpython312"]
+    if case["target_profiles"] not in (package_profile, native_and_package_profiles):
+        raise ContractError("Headers parity selects the Python package profile and optional native slice")
     if case["assets"] != []:
         raise ContractError("Headers cases do not use external assets")
     observations = case["observations"]
@@ -31296,6 +31429,7 @@ def _validate_headers_case(case: dict[str, Any]) -> None:
     actions = case.get("actions", [])
     if not isinstance(actions, list):
         raise ContractError("Headers actions must be an array")
+    uses_vary_header = False
     action_ids: set[str] = set()
     needs_case_insensitive_lookup = False
     equality_header_operand = False
@@ -31370,6 +31504,15 @@ def _validate_headers_case(case: dict[str, Any]) -> None:
             _validate_header_argument(value, instance_ids, f"{context}.arguments[{arg_index}]")
             for arg_index, value in enumerate(arguments)
         ]
+        if call == "add_vary_header":
+            if not mutable or len(arguments) != 1 or not isinstance(arguments[0], str):
+                raise ContractError(f"{context} requires MutableHeaders.add_vary_header(str)")
+            try:
+                arguments[0].encode("latin-1")
+            except UnicodeEncodeError as exc:
+                raise ContractError(f"{context}.arguments[0] must be Latin-1 encodable") from exc
+            uses_vary_header = True
+            exercised.add(MUTABLE_HEADERS_VARY_REQUIREMENT)
         if call in {"raw-input-append", "raw-view-append"}:
             if call == "raw-input-append" and not instance_raw_constructor[receiver]:
                 raise ContractError(f"{context} requires a raw-list constructor")
@@ -31526,6 +31669,23 @@ def _validate_headers_case(case: dict[str, Any]) -> None:
         and {"action-trace", "instance-snapshots"} <= set(observations)
     ):
         exercised.add("starlette.datastructures.Headers.mutablecopy-retains-pair-tuple-identities")
+    if "rust-native-local" in case["target_profiles"] and (
+        not mutable
+        or observations != ["raw-pairs"]
+        or not uses_vary_header
+        or any(
+            not isinstance(instance.get("constructor"), dict)
+            or instance["constructor"].get("kind") != "raw"
+            for instance in instances
+        )
+        or any(
+            not isinstance(action, dict) or action.get("call") != "add_vary_header"
+            for action in actions
+        )
+    ):
+        raise ContractError(
+            "Rust-native MutableHeaders cases are limited to raw pairs and add_vary_header"
+        )
     unexercised = set(case["covers"]) - exercised
     if unexercised:
         raise ContractError(
@@ -35697,9 +35857,65 @@ def validate_input_document_v49(
         raise ContractError("parity input must select at least one case")
     if any(_contains_testclient_message_type_spec(case) for case in document["cases"]):
         raise ContractError("parity-input@49 does not allow TestClient message type generators")
-    current_document = dict(document)
-    current_document["schema"] = INPUT_SCHEMA
-    return validate_input_document(current_document, manifest, public_modules=public_modules)
+    v50_document = dict(document)
+    v50_document["schema"] = INPUT_SCHEMA_V50
+    return validate_input_document_v50(v50_document, manifest, public_modules=public_modules)
+
+
+def migrate_input_document_v50(document: Any) -> dict[str, Any]:
+    """Convert @50 WebSocket iterator throw actions to positional arguments."""
+    _exact(document, {"schema", "cases"}, "parity input")
+    if document["schema"] != INPUT_SCHEMA_V50:
+        raise ContractError(f"unsupported @50 parity input schema: {document['schema']!r}")
+    if not isinstance(document["cases"], list) or not document["cases"]:
+        raise ContractError("parity input must select at least one case")
+
+    migrated = copy.deepcopy(document)
+    for case_index, case in enumerate(migrated["cases"]):
+        if not isinstance(case, dict) or (case.get("surface"), case.get("operation")) != (
+            WEBSOCKET_SURFACE,
+            WEBSOCKET_CONVENIENCE_OPERATION,
+        ):
+            continue
+        actions = case.get("actions")
+        if not isinstance(actions, list):
+            continue
+        for action_index, action in enumerate(actions):
+            if not isinstance(action, dict) or action.get("method") != "iterator-control":
+                continue
+            arguments = action.get("arguments")
+            if not isinstance(arguments, dict) or arguments.get("control") != "athrow":
+                continue
+            context = f"parity case {case_index} WebSocket athrow action {action_index}"
+            if "throw_arguments" in arguments:
+                raise ContractError(f"{context} cannot use @51 positional arguments in @50 input")
+            exception = _exact(
+                arguments.get("exception"),
+                {"class", "message"},
+                f"{context}.exception",
+            )
+            arguments["throw_arguments"] = [
+                {
+                    "kind": "exception-instance",
+                    "name": exception["class"],
+                    "message": exception["message"],
+                }
+            ]
+            del arguments["exception"]
+
+    migrated["schema"] = INPUT_SCHEMA
+    return migrated
+
+
+def validate_input_document_v50(
+    document: Any,
+    manifest: dict[str, Any],
+    *,
+    public_modules: frozenset[str] | None = None,
+) -> list[dict[str, Any]]:
+    """Validate @50 inputs after applying the deterministic @51 migration."""
+    migrated = migrate_input_document_v50(document)
+    return validate_input_document(migrated, manifest, public_modules=public_modules)
 
 
 def validate_previous_input_document(
@@ -35708,8 +35924,8 @@ def validate_previous_input_document(
     *,
     public_modules: frozenset[str] | None = None,
 ) -> list[dict[str, Any]]:
-    """Validate the previous @49 schema before migrating it to the active @50 contract."""
-    return validate_input_document_v49(document, manifest, public_modules=public_modules)
+    """Validate the previous @50 schema before migrating it to the active @51 contract."""
+    return validate_input_document_v50(document, manifest, public_modules=public_modules)
 
 
 def validate_previous_input_v45_document(

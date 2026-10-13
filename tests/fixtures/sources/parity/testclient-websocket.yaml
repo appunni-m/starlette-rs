@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@50",
+  "schema": "migration-parity/parity-input@51",
   "cases": [
     {
       "case_id": "starlette.testclient.TestClient.websocket-session.accepted-text-exchange",
@@ -425,33 +425,58 @@
         "starlette.testclient.TestClient.websocket-session.close-triggered-cancellation",
         "starlette.testclient.TestClient.websocket-session.portal-cleanup"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
-      "observations": ["websocket-session"],
+      "observations": [
+        "websocket-session"
+      ],
       "testclient": {
         "base_url": "http://testserver",
         "raise_server_exceptions": true,
         "root_path": "/tenant",
-        "client": ["192.0.2.11", 4312],
+        "client": [
+          "192.0.2.11",
+          4312
+        ],
         "headers": [],
         "backend": "trio",
         "backend_options": {}
       },
       "websocket": {
         "url": "/chat?room=blue",
-        "subprotocols": ["chat.v1"],
-        "headers": [["x-session", "input"]],
+        "subprotocols": [
+          "chat.v1"
+        ],
+        "headers": [
+          [
+            "x-session",
+            "input"
+          ]
+        ],
         "actions": []
       },
       "asgi_app": {
         "kind": "asgi3",
-        "scope_fields": ["type", "path", "root_path", "headers", "subprotocols"],
+        "scope_fields": [
+          "type",
+          "path",
+          "root_path",
+          "headers",
+          "subprotocols"
+        ],
         "actions": [
           {
             "operation": "websocket_flow",
             "actions": [
-              {"operation": "accept", "subprotocol": "chat.v1"},
-              {"operation": "wait_forever"}
+              {
+                "operation": "accept",
+                "subprotocol": "chat.v1"
+              },
+              {
+                "operation": "wait_forever"
+              }
             ]
           }
         ]
@@ -501,7 +526,7 @@
           {
             "operation": "send_json",
             "value": {
-              "message": "café",
+              "message": "caf\u00e9",
               "count": 3
             },
             "mode": "text"
@@ -536,7 +561,7 @@
               {
                 "operation": "send_json",
                 "value": {
-                  "reply": "olá",
+                  "reply": "ol\u00e1",
                   "count": 3
                 },
                 "mode": "text"
@@ -590,7 +615,7 @@
           {
             "operation": "send_json",
             "value": {
-              "message": "café",
+              "message": "caf\u00e9",
               "count": 3
             },
             "mode": "binary"
@@ -625,7 +650,7 @@
               {
                 "operation": "send_json",
                 "value": {
-                  "reply": "olá",
+                  "reply": "ol\u00e1",
                   "count": 3
                 },
                 "mode": "binary"
@@ -646,31 +671,52 @@
         "starlette.testclient.TestClient.websocket-session.context-cleanup",
         "starlette.testclient.TestClient.websocket-session.portal-cleanup"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
-      "observations": ["websocket-session"],
+      "observations": [
+        "websocket-session"
+      ],
       "testclient": {
         "base_url": "http://testserver",
         "raise_server_exceptions": true,
         "root_path": "",
-        "client": ["127.0.0.1", 12345],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
         "headers": []
       },
       "websocket": {
         "url": "/hello-world?foo=bar",
         "subprotocols": [],
         "headers": [],
-        "actions": [{"operation": "receive_bytes"}]
+        "actions": [
+          {
+            "operation": "receive_bytes"
+          }
+        ]
       },
       "asgi_app": {
         "kind": "asgi3",
-        "scope_fields": ["type", "path", "raw_path", "query_string"],
+        "scope_fields": [
+          "type",
+          "path",
+          "raw_path",
+          "query_string"
+        ],
         "actions": [
           {
             "operation": "websocket_flow",
             "actions": [
-              {"operation": "accept"},
-              {"operation": "send_scope_bytes", "field": "raw_path"}
+              {
+                "operation": "accept"
+              },
+              {
+                "operation": "send_scope_bytes",
+                "field": "raw_path"
+              }
             ]
           }
         ]
@@ -687,32 +733,55 @@
         "starlette.testclient.TestClient.websocket-session.context-cleanup",
         "starlette.testclient.TestClient.websocket-session.portal-cleanup"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
-      "observations": ["websocket-session"],
+      "observations": [
+        "websocket-session"
+      ],
       "testclient": {
         "base_url": "http://testserver",
         "raise_server_exceptions": true,
         "root_path": "",
-        "client": ["127.0.0.1", 12345],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
         "headers": []
       },
       "websocket": {
         "url": "/hello-world",
-        "params": {"foo": "bar"},
+        "params": {
+          "foo": "bar"
+        },
         "subprotocols": [],
         "headers": [],
-        "actions": [{"operation": "receive_bytes"}]
+        "actions": [
+          {
+            "operation": "receive_bytes"
+          }
+        ]
       },
       "asgi_app": {
         "kind": "asgi3",
-        "scope_fields": ["type", "path", "raw_path", "query_string"],
+        "scope_fields": [
+          "type",
+          "path",
+          "raw_path",
+          "query_string"
+        ],
         "actions": [
           {
             "operation": "websocket_flow",
             "actions": [
-              {"operation": "accept"},
-              {"operation": "send_scope_bytes", "field": "raw_path"}
+              {
+                "operation": "accept"
+              },
+              {
+                "operation": "send_scope_bytes",
+                "field": "raw_path"
+              }
             ]
           }
         ]
@@ -729,33 +798,56 @@
         "starlette.testclient.TestClient.websocket-session.portal-cleanup",
         "starlette.testclient.TestClient.websocket-session.receive-json-text-frame"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
-      "observations": ["websocket-session"],
+      "observations": [
+        "websocket-session"
+      ],
       "testclient": {
         "base_url": "http://testserver",
         "raise_server_exceptions": true,
         "root_path": "",
-        "client": ["127.0.0.1", 12345],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
         "headers": []
       },
       "websocket": {
         "url": "/?a=abc&b=456",
         "subprotocols": [],
         "headers": [],
-        "actions": [{"operation": "receive_json"}]
+        "actions": [
+          {
+            "operation": "receive_json"
+          }
+        ]
       },
       "asgi_app": {
         "kind": "asgi3",
-        "scope_fields": ["type", "path", "query_string"],
+        "scope_fields": [
+          "type",
+          "path",
+          "query_string"
+        ],
         "actions": [
           {
             "operation": "websocket_flow",
             "actions": [
-              {"operation": "observe_query_params"},
-              {"operation": "accept"},
-              {"operation": "send_query_params_json"},
-              {"operation": "close"}
+              {
+                "operation": "observe_query_params"
+              },
+              {
+                "operation": "accept"
+              },
+              {
+                "operation": "send_query_params_json"
+              },
+              {
+                "operation": "close"
+              }
             ]
           }
         ]
@@ -772,32 +864,60 @@
         "starlette.testclient.TestClient.websocket-session.portal-cleanup",
         "starlette.testclient.TestClient.websocket-session.receive-json-text-frame"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
-      "observations": ["websocket-session"],
+      "observations": [
+        "websocket-session"
+      ],
       "testclient": {
         "base_url": "http://testserver",
         "raise_server_exceptions": true,
         "root_path": "",
-        "client": ["127.0.0.1", 12345],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
         "headers": []
       },
       "websocket": {
         "url": "/123?a=abc",
         "subprotocols": [],
         "headers": [],
-        "actions": [{"operation": "receive_json"}]
+        "actions": [
+          {
+            "operation": "receive_json"
+          }
+        ]
       },
       "asgi_app": {
         "kind": "asgi3",
-        "scope_fields": ["type", "scheme", "server", "path", "query_string"],
+        "scope_fields": [
+          "type",
+          "scheme",
+          "server",
+          "path",
+          "query_string"
+        ],
         "actions": [
           {
             "operation": "websocket_flow",
             "actions": [
-              {"operation": "accept"},
-              {"operation": "send_url_json", "components": ["path", "port", "scheme"]},
-              {"operation": "close"}
+              {
+                "operation": "accept"
+              },
+              {
+                "operation": "send_url_json",
+                "components": [
+                  "path",
+                  "port",
+                  "scheme"
+                ]
+              },
+              {
+                "operation": "close"
+              }
             ]
           }
         ]
@@ -814,32 +934,60 @@
         "starlette.testclient.TestClient.websocket-session.portal-cleanup",
         "starlette.testclient.TestClient.websocket-session.receive-json-text-frame"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
-      "observations": ["websocket-session"],
+      "observations": [
+        "websocket-session"
+      ],
       "testclient": {
         "base_url": "http://testserver",
         "raise_server_exceptions": true,
         "root_path": "",
-        "client": ["127.0.0.1", 12345],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
         "headers": []
       },
       "websocket": {
         "url": "ws://example.com:123/123?a=abc",
         "subprotocols": [],
         "headers": [],
-        "actions": [{"operation": "receive_json"}]
+        "actions": [
+          {
+            "operation": "receive_json"
+          }
+        ]
       },
       "asgi_app": {
         "kind": "asgi3",
-        "scope_fields": ["type", "scheme", "server", "path", "query_string"],
+        "scope_fields": [
+          "type",
+          "scheme",
+          "server",
+          "path",
+          "query_string"
+        ],
         "actions": [
           {
             "operation": "websocket_flow",
             "actions": [
-              {"operation": "accept"},
-              {"operation": "send_url_json", "components": ["path", "port", "scheme"]},
-              {"operation": "close"}
+              {
+                "operation": "accept"
+              },
+              {
+                "operation": "send_url_json",
+                "components": [
+                  "path",
+                  "port",
+                  "scheme"
+                ]
+              },
+              {
+                "operation": "close"
+              }
             ]
           }
         ]
@@ -856,14 +1004,21 @@
         "starlette.testclient.TestClient.websocket-session.client-close-code-reason",
         "starlette.testclient.TestClient.websocket-session.portal-cleanup"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
-      "observations": ["websocket-session"],
+      "observations": [
+        "websocket-session"
+      ],
       "testclient": {
         "base_url": "http://testserver",
         "raise_server_exceptions": true,
         "root_path": "",
-        "client": ["127.0.0.1", 12345],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
         "headers": []
       },
       "websocket": {
@@ -871,18 +1026,30 @@
         "subprotocols": [],
         "headers": [],
         "actions": [
-          {"operation": "close", "code": 1001, "reason": "Going Away"}
+          {
+            "operation": "close",
+            "code": 1001,
+            "reason": "Going Away"
+          }
         ]
       },
       "asgi_app": {
         "kind": "asgi3",
-        "scope_fields": ["type", "path"],
+        "scope_fields": [
+          "type",
+          "path"
+        ],
         "actions": [
           {
             "operation": "websocket_flow",
             "actions": [
-              {"operation": "accept"},
-              {"operation": "receive_text", "capture_disconnect": true}
+              {
+                "operation": "accept"
+              },
+              {
+                "operation": "receive_text",
+                "capture_disconnect": true
+              }
             ]
           }
         ]
@@ -898,14 +1065,21 @@
         "starlette.testclient.TestClient.websocket-session.application-close-code",
         "starlette.testclient.TestClient.websocket-session.portal-cleanup"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
-      "observations": ["websocket-session"],
+      "observations": [
+        "websocket-session"
+      ],
       "testclient": {
         "base_url": "http://testserver",
         "raise_server_exceptions": true,
         "root_path": "",
-        "client": ["127.0.0.1", 12345],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
         "headers": []
       },
       "websocket": {
@@ -913,18 +1087,29 @@
         "subprotocols": [],
         "headers": [],
         "actions": [
-          {"operation": "receive_text", "capture_disconnect": true}
+          {
+            "operation": "receive_text",
+            "capture_disconnect": true
+          }
         ]
       },
       "asgi_app": {
         "kind": "asgi3",
-        "scope_fields": ["type", "path"],
+        "scope_fields": [
+          "type",
+          "path"
+        ],
         "actions": [
           {
             "operation": "websocket_flow",
             "actions": [
-              {"operation": "accept"},
-              {"operation": "close", "code": 1001}
+              {
+                "operation": "accept"
+              },
+              {
+                "operation": "close",
+                "code": 1001
+              }
             ]
           }
         ]
@@ -943,14 +1128,21 @@
         "starlette.testclient.TestClient.websocket-session.application-close-code",
         "starlette.testclient.TestClient.websocket-session.portal-cleanup"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
-      "observations": ["websocket-session"],
+      "observations": [
+        "websocket-session"
+      ],
       "testclient": {
         "base_url": "http://testserver",
         "raise_server_exceptions": true,
         "root_path": "",
-        "client": ["127.0.0.1", 12345],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
         "headers": []
       },
       "websocket": {
@@ -958,20 +1150,36 @@
         "subprotocols": [],
         "headers": [],
         "actions": [
-          {"operation": "close", "code": 70000},
-          {"operation": "receive_text", "capture_disconnect": true}
+          {
+            "operation": "close",
+            "code": 70000
+          },
+          {
+            "operation": "receive_text",
+            "capture_disconnect": true
+          }
         ]
       },
       "asgi_app": {
         "kind": "asgi3",
-        "scope_fields": ["type", "path"],
+        "scope_fields": [
+          "type",
+          "path"
+        ],
         "actions": [
           {
             "operation": "websocket_flow",
             "actions": [
-              {"operation": "accept"},
-              {"operation": "receive"},
-              {"operation": "close", "code": 70000}
+              {
+                "operation": "accept"
+              },
+              {
+                "operation": "receive"
+              },
+              {
+                "operation": "close",
+                "code": 70000
+              }
             ]
           }
         ]
@@ -988,14 +1196,21 @@
         "starlette.testclient.TestClient.websocket-session.application-close-reason",
         "starlette.testclient.TestClient.websocket-session.portal-cleanup"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
-      "observations": ["websocket-session"],
+      "observations": [
+        "websocket-session"
+      ],
       "testclient": {
         "base_url": "http://testserver",
         "raise_server_exceptions": true,
         "root_path": "",
-        "client": ["127.0.0.1", 12345],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
         "headers": []
       },
       "websocket": {
@@ -1003,18 +1218,30 @@
         "subprotocols": [],
         "headers": [],
         "actions": [
-          {"operation": "receive_text", "capture_disconnect": true}
+          {
+            "operation": "receive_text",
+            "capture_disconnect": true
+          }
         ]
       },
       "asgi_app": {
         "kind": "asgi3",
-        "scope_fields": ["type", "path"],
+        "scope_fields": [
+          "type",
+          "path"
+        ],
         "actions": [
           {
             "operation": "websocket_flow",
             "actions": [
-              {"operation": "accept"},
-              {"operation": "close", "code": 1001, "reason": "Going Away"}
+              {
+                "operation": "accept"
+              },
+              {
+                "operation": "close",
+                "code": 1001,
+                "reason": "Going Away"
+              }
             ]
           }
         ]
@@ -1030,14 +1257,21 @@
         "starlette.testclient.TestClient.websocket-session.extra-headers",
         "starlette.testclient.TestClient.websocket-session.portal-cleanup"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
-      "observations": ["websocket-session"],
+      "observations": [
+        "websocket-session"
+      ],
       "testclient": {
         "base_url": "http://testserver",
         "raise_server_exceptions": true,
         "root_path": "",
-        "client": ["127.0.0.1", 12345],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
         "headers": []
       },
       "websocket": {
@@ -1048,16 +1282,26 @@
       },
       "asgi_app": {
         "kind": "asgi3",
-        "scope_fields": ["type", "path"],
+        "scope_fields": [
+          "type",
+          "path"
+        ],
         "actions": [
           {
             "operation": "websocket_flow",
             "actions": [
               {
                 "operation": "accept",
-                "headers_base64_pairs": [["YWRkaXRpb25hbA==", "aGVhZGVy"]]
+                "headers_base64_pairs": [
+                  [
+                    "YWRkaXRpb25hbA==",
+                    "aGVhZGVy"
+                  ]
+                ]
               },
-              {"operation": "close"}
+              {
+                "operation": "close"
+              }
             ]
           }
         ]
@@ -1073,14 +1317,21 @@
         "starlette.testclient.TestClient.websocket-session.extra-headers",
         "starlette.testclient.TestClient.websocket-session.portal-cleanup"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
-      "observations": ["websocket-session"],
+      "observations": [
+        "websocket-session"
+      ],
       "testclient": {
         "base_url": "http://testserver",
         "raise_server_exceptions": true,
         "root_path": "",
-        "client": ["127.0.0.1", 12345],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
         "headers": []
       },
       "websocket": {
@@ -1091,13 +1342,20 @@
       },
       "asgi_app": {
         "kind": "asgi3",
-        "scope_fields": ["type", "path"],
+        "scope_fields": [
+          "type",
+          "path"
+        ],
         "actions": [
           {
             "operation": "websocket_flow",
             "actions": [
-              {"operation": "accept"},
-              {"operation": "close"}
+              {
+                "operation": "accept"
+              },
+              {
+                "operation": "close"
+              }
             ]
           }
         ]
@@ -1322,14 +1580,21 @@
         "starlette.testclient.TestClient.websocket-session.application-exception-propagation",
         "starlette.testclient.TestClient.websocket-session.portal-cleanup"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
-      "observations": ["websocket-session"],
+      "observations": [
+        "websocket-session"
+      ],
       "testclient": {
         "base_url": "http://testserver",
         "raise_server_exceptions": true,
         "root_path": "",
-        "client": ["127.0.0.1", 12345],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
         "headers": [],
         "backend": "asyncio",
         "backend_options": {}
@@ -1342,7 +1607,11 @@
       },
       "asgi_app": {
         "kind": "asgi3",
-        "scope_fields": ["type", "path", "query_string"],
+        "scope_fields": [
+          "type",
+          "path",
+          "query_string"
+        ],
         "actions": [
           {
             "operation": "raise",
@@ -1361,14 +1630,21 @@
         "starlette.testclient.TestClient.websocket-session.application-exception-propagation",
         "starlette.testclient.TestClient.websocket-session.portal-cleanup"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
-      "observations": ["websocket-session"],
+      "observations": [
+        "websocket-session"
+      ],
       "testclient": {
         "base_url": "http://testserver",
         "raise_server_exceptions": true,
         "root_path": "",
-        "client": ["127.0.0.1", 12345],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
         "headers": [],
         "backend": "trio",
         "backend_options": {}
@@ -1381,7 +1657,11 @@
       },
       "asgi_app": {
         "kind": "asgi3",
-        "scope_fields": ["type", "path", "query_string"],
+        "scope_fields": [
+          "type",
+          "path",
+          "query_string"
+        ],
         "actions": [
           {
             "operation": "raise",
@@ -1400,14 +1680,21 @@
         "starlette.testclient.TestClient.websocket-session.application-exception-propagation",
         "starlette.testclient.TestClient.websocket-session.portal-cleanup"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
-      "observations": ["websocket-session"],
+      "observations": [
+        "websocket-session"
+      ],
       "testclient": {
         "base_url": "http://testserver",
         "raise_server_exceptions": true,
         "root_path": "",
-        "client": ["testclient", 50000],
+        "client": [
+          "testclient",
+          50000
+        ],
         "headers": [],
         "backend": "asyncio",
         "backend_options": {}
@@ -1425,7 +1712,12 @@
           "class": "RuntimeError",
           "message": "Yikes"
         },
-        "scope_fields": ["type", "path", "root_path", "headers"]
+        "scope_fields": [
+          "type",
+          "path",
+          "root_path",
+          "headers"
+        ]
       }
     },
     {
@@ -1437,14 +1729,21 @@
         "starlette.testclient.TestClient.websocket-session.application-exception-propagation",
         "starlette.testclient.TestClient.websocket-session.portal-cleanup"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
-      "observations": ["websocket-session"],
+      "observations": [
+        "websocket-session"
+      ],
       "testclient": {
         "base_url": "http://testserver",
         "raise_server_exceptions": true,
         "root_path": "",
-        "client": ["testclient", 50000],
+        "client": [
+          "testclient",
+          50000
+        ],
         "headers": [],
         "backend": "trio",
         "backend_options": {}
@@ -1462,7 +1761,12 @@
           "class": "RuntimeError",
           "message": "Yikes"
         },
-        "scope_fields": ["type", "path", "root_path", "headers"]
+        "scope_fields": [
+          "type",
+          "path",
+          "root_path",
+          "headers"
+        ]
       }
     },
     {
@@ -1474,14 +1778,21 @@
         "starlette.testclient.TestClient.websocket-session.rejected-connection-disconnect",
         "starlette.testclient.TestClient.websocket-session.portal-cleanup"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
-      "observations": ["websocket-session"],
+      "observations": [
+        "websocket-session"
+      ],
       "testclient": {
         "base_url": "http://testserver",
         "raise_server_exceptions": true,
         "root_path": "",
-        "client": ["127.0.0.1", 12345],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
         "headers": [],
         "backend": "asyncio",
         "backend_options": {}
@@ -1494,13 +1805,21 @@
       },
       "asgi_app": {
         "kind": "asgi3",
-        "scope_fields": ["type", "path"],
+        "scope_fields": [
+          "type",
+          "path"
+        ],
         "actions": [
           {
             "operation": "websocket_flow",
             "actions": [
-              {"operation": "receive"},
-              {"operation": "close", "code": 1001}
+              {
+                "operation": "receive"
+              },
+              {
+                "operation": "close",
+                "code": 1001
+              }
             ]
           }
         ]
@@ -1515,14 +1834,21 @@
         "starlette.testclient.TestClient.websocket-session.rejected-connection-disconnect",
         "starlette.testclient.TestClient.websocket-session.portal-cleanup"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
-      "observations": ["websocket-session"],
+      "observations": [
+        "websocket-session"
+      ],
       "testclient": {
         "base_url": "http://testserver",
         "raise_server_exceptions": true,
         "root_path": "",
-        "client": ["127.0.0.1", 12345],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
         "headers": [],
         "backend": "trio",
         "backend_options": {}
@@ -1535,13 +1861,21 @@
       },
       "asgi_app": {
         "kind": "asgi3",
-        "scope_fields": ["type", "path"],
+        "scope_fields": [
+          "type",
+          "path"
+        ],
         "actions": [
           {
             "operation": "websocket_flow",
             "actions": [
-              {"operation": "receive"},
-              {"operation": "close", "code": 1001}
+              {
+                "operation": "receive"
+              },
+              {
+                "operation": "close",
+                "code": 1001
+              }
             ]
           }
         ]
@@ -1557,14 +1891,21 @@
         "starlette.testclient.TestClient.websocket-session.duplicate-disconnect-error-propagation",
         "starlette.testclient.TestClient.websocket-session.portal-cleanup"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
-      "observations": ["websocket-session"],
+      "observations": [
+        "websocket-session"
+      ],
       "testclient": {
         "base_url": "http://testserver",
         "raise_server_exceptions": true,
         "root_path": "",
-        "client": ["127.0.0.1", 12345],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
         "headers": [],
         "backend": "asyncio",
         "backend_options": {}
@@ -1573,18 +1914,31 @@
         "url": "/",
         "subprotocols": [],
         "headers": [],
-        "actions": [{"operation": "close"}]
+        "actions": [
+          {
+            "operation": "close"
+          }
+        ]
       },
       "asgi_app": {
         "kind": "asgi3",
-        "scope_fields": ["type", "path"],
+        "scope_fields": [
+          "type",
+          "path"
+        ],
         "actions": [
           {
             "operation": "websocket_flow",
             "actions": [
-              {"operation": "accept"},
-              {"operation": "receive"},
-              {"operation": "receive"}
+              {
+                "operation": "accept"
+              },
+              {
+                "operation": "receive"
+              },
+              {
+                "operation": "receive"
+              }
             ]
           }
         ]
@@ -1600,14 +1954,21 @@
         "starlette.testclient.TestClient.websocket-session.duplicate-disconnect-error-propagation",
         "starlette.testclient.TestClient.websocket-session.portal-cleanup"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
-      "observations": ["websocket-session"],
+      "observations": [
+        "websocket-session"
+      ],
       "testclient": {
         "base_url": "http://testserver",
         "raise_server_exceptions": true,
         "root_path": "",
-        "client": ["127.0.0.1", 12345],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
         "headers": [],
         "backend": "trio",
         "backend_options": {}
@@ -1616,18 +1977,31 @@
         "url": "/",
         "subprotocols": [],
         "headers": [],
-        "actions": [{"operation": "close"}]
+        "actions": [
+          {
+            "operation": "close"
+          }
+        ]
       },
       "asgi_app": {
         "kind": "asgi3",
-        "scope_fields": ["type", "path"],
+        "scope_fields": [
+          "type",
+          "path"
+        ],
         "actions": [
           {
             "operation": "websocket_flow",
             "actions": [
-              {"operation": "accept"},
-              {"operation": "receive"},
-              {"operation": "receive"}
+              {
+                "operation": "accept"
+              },
+              {
+                "operation": "receive"
+              },
+              {
+                "operation": "receive"
+              }
             ]
           }
         ]
@@ -1644,14 +2018,21 @@
         "starlette.testclient.TestClient.websocket-session.context-exit-default-close-after-client-close",
         "starlette.testclient.TestClient.websocket-session.portal-cleanup"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
-      "observations": ["websocket-session"],
+      "observations": [
+        "websocket-session"
+      ],
       "testclient": {
         "base_url": "http://testserver",
         "raise_server_exceptions": true,
         "root_path": "",
-        "client": ["127.0.0.1", 12345],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
         "headers": [],
         "backend": "asyncio",
         "backend_options": {}
@@ -1661,17 +2042,35 @@
         "subprotocols": [],
         "headers": [],
         "actions": [
-          {"operation": "close", "code": 1001, "reason": "client-close"}
+          {
+            "operation": "close",
+            "code": 1001,
+            "reason": "client-close"
+          }
         ]
       },
       "asgi_app": {
         "kind": "asgi3",
-        "scope_fields": ["type", "path"],
+        "scope_fields": [
+          "type",
+          "path"
+        ],
         "actions": [
-          {"operation": "receive"},
-          {"operation": "send", "message": {"type": "websocket.accept"}},
-          {"operation": "receive"},
-          {"operation": "receive"}
+          {
+            "operation": "receive"
+          },
+          {
+            "operation": "send",
+            "message": {
+              "type": "websocket.accept"
+            }
+          },
+          {
+            "operation": "receive"
+          },
+          {
+            "operation": "receive"
+          }
         ]
       }
     },
@@ -1685,31 +2084,50 @@
         "starlette.testclient.TestClient.websocket-session.portal-cleanup",
         "starlette.testclient.TestClient.websocket-session.extra-headers"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
-      "observations": ["websocket-session"],
+      "observations": [
+        "websocket-session"
+      ],
       "testclient": {
         "base_url": "http://testserver",
         "raise_server_exceptions": true,
         "root_path": "",
-        "client": ["127.0.0.1", 12345],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
         "headers": []
       },
       "websocket": {
         "url": "/",
-        "subprotocols": ["soap", "wamp"],
+        "subprotocols": [
+          "soap",
+          "wamp"
+        ],
         "headers": [],
         "actions": []
       },
       "asgi_app": {
         "kind": "asgi3",
-        "scope_fields": ["type", "path", "subprotocols"],
+        "scope_fields": [
+          "type",
+          "path",
+          "subprotocols"
+        ],
         "actions": [
           {
             "operation": "websocket_flow",
             "actions": [
-              {"operation": "accept", "subprotocol": "wamp"},
-              {"operation": "close"}
+              {
+                "operation": "accept",
+                "subprotocol": "wamp"
+              },
+              {
+                "operation": "close"
+              }
             ]
           }
         ]
@@ -1883,14 +2301,21 @@
         "starlette.testclient.TestClient.websocket-session.portal-cleanup",
         "starlette.testclient.TestClient.websocket-session.app-error-closes-client-stream"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
-      "observations": ["websocket-session"],
+      "observations": [
+        "websocket-session"
+      ],
       "testclient": {
         "base_url": "http://testserver",
         "raise_server_exceptions": true,
         "root_path": "",
-        "client": ["127.0.0.1", 12345],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
         "headers": []
       },
       "websocket": {
@@ -1906,11 +2331,17 @@
       },
       "asgi_app": {
         "kind": "asgi3",
-        "scope_fields": ["type", "path", "query_string"],
+        "scope_fields": [
+          "type",
+          "path",
+          "query_string"
+        ],
         "actions": [
           {
             "operation": "send",
-            "message": {"type": "websocket.accept"}
+            "message": {
+              "type": "websocket.accept"
+            }
           },
           {
             "operation": "raise",
@@ -1931,14 +2362,21 @@
         "starlette.testclient.TestClient.websocket-session.portal-cleanup",
         "starlette.testclient.TestClient.websocket-session.app-error-wins-cleanup-close-error"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
-      "observations": ["websocket-session"],
+      "observations": [
+        "websocket-session"
+      ],
       "testclient": {
         "base_url": "http://testserver",
         "raise_server_exceptions": true,
         "root_path": "",
-        "client": ["127.0.0.1", 12345],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
         "headers": []
       },
       "websocket": {
@@ -1949,11 +2387,17 @@
       },
       "asgi_app": {
         "kind": "asgi3",
-        "scope_fields": ["type", "path", "query_string"],
+        "scope_fields": [
+          "type",
+          "path",
+          "query_string"
+        ],
         "actions": [
           {
             "operation": "send",
-            "message": {"type": "websocket.accept"}
+            "message": {
+              "type": "websocket.accept"
+            }
           },
           {
             "operation": "raise",

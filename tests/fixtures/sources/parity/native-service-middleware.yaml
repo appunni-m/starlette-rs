@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@50",
+  "schema": "migration-parity/parity-input@51",
   "cases": [
     {
       "case_id": "starlette-rs.NativeApplication.service-tower-middleware.order-short-circuit-error-unread-body",
@@ -11,24 +11,37 @@
         "starlette-rs.NativeApplication.service-tower-middleware.error-propagation",
         "starlette-rs.NativeApplication.service-tower-middleware.unread-request-body"
       ],
-      "target_profiles": ["rust-native-local"],
+      "target_profiles": [
+        "rust-native-local"
+      ],
       "assets": [],
       "inputs": {
         "application": {
           "routes": [
             {
               "path": "/pass",
-              "methods": ["POST"],
+              "methods": [
+                "POST"
+              ],
               "endpoint": {
                 "request_body_action": "leave-unread",
                 "outcome": {
                   "kind": "response",
                   "status": 201,
-                  "headers": [["x-native-endpoint", "pass"]],
+                  "headers": [
+                    [
+                      "x-native-endpoint",
+                      "pass"
+                    ]
+                  ],
                   "body": {
                     "frames": [
-                      {"data_base64": "cGFzcw=="},
-                      {"end": true}
+                      {
+                        "data_base64": "cGFzcw=="
+                      },
+                      {
+                        "end": true
+                      }
                     ]
                   }
                 }
@@ -36,7 +49,9 @@
             },
             {
               "path": "/fail",
-              "methods": ["POST"],
+              "methods": [
+                "POST"
+              ],
               "endpoint": {
                 "request_body_action": "leave-unread",
                 "outcome": {
@@ -53,16 +68,29 @@
         "layers_outer_to_inner": [
           {
             "name": "outer",
-            "record": ["request", "response", "error"],
+            "record": [
+              "request",
+              "response",
+              "error"
+            ],
             "short_circuit": {
               "request_uri": "/short",
               "response": {
                 "status": 202,
-                "headers": [["x-native-layer", "outer-short-circuit"]],
+                "headers": [
+                  [
+                    "x-native-layer",
+                    "outer-short-circuit"
+                  ]
+                ],
                 "body": {
                   "frames": [
-                    {"data_base64": "c2hvcnQ="},
-                    {"end": true}
+                    {
+                      "data_base64": "c2hvcnQ="
+                    },
+                    {
+                      "end": true
+                    }
                   ]
                 }
               }
@@ -70,7 +98,11 @@
           },
           {
             "name": "inner",
-            "record": ["request", "response", "error"]
+            "record": [
+              "request",
+              "response",
+              "error"
+            ]
           }
         ],
         "calls": [
@@ -81,8 +113,12 @@
               "uri": "/pass",
               "body": {
                 "frames": [
-                  {"data_base64": "dW5yZWFkLXJlcXVlc3QtYm9keQ=="},
-                  {"end": true}
+                  {
+                    "data_base64": "dW5yZWFkLXJlcXVlc3QtYm9keQ=="
+                  },
+                  {
+                    "end": true
+                  }
                 ]
               }
             }
@@ -94,8 +130,12 @@
               "uri": "/short",
               "body": {
                 "frames": [
-                  {"data_base64": "dW5yZWFkLXJlcXVlc3QtYm9keQ=="},
-                  {"end": true}
+                  {
+                    "data_base64": "dW5yZWFkLXJlcXVlc3QtYm9keQ=="
+                  },
+                  {
+                    "end": true
+                  }
                 ]
               }
             }
@@ -107,8 +147,12 @@
               "uri": "/fail",
               "body": {
                 "frames": [
-                  {"data_base64": "dW5yZWFkLXJlcXVlc3QtYm9keQ=="},
-                  {"end": true}
+                  {
+                    "data_base64": "dW5yZWFkLXJlcXVlc3QtYm9keQ=="
+                  },
+                  {
+                    "end": true
+                  }
                 ]
               }
             }

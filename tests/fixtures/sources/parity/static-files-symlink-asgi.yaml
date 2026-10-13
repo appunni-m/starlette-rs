@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@50",
+  "schema": "migration-parity/parity-input@51",
   "cases": [
     {
       "case_id": "starlette.staticfiles.StaticFiles.asgi-call.follow-symlink-file-served",
@@ -40,7 +40,10 @@
       "follow_symlink": true,
       "scope": {
         "type": "http",
-        "asgi": {"version": "3.0", "spec_version": "2.4"},
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
         "http_version": "1.1",
         "method": "GET",
         "scheme": "http",
@@ -49,12 +52,22 @@
         "query_string_base64": "",
         "root_path": "",
         "headers_base64_pairs": [],
-        "client": ["127.0.0.1", 12345],
-        "server": ["testserver", 80]
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
       },
       "incoming": [],
-      "send": {"kind": "capture-asgi-send"},
-      "observations": ["asgi-call"]
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "asgi-call"
+      ]
     },
     {
       "case_id": "starlette.staticfiles.StaticFiles.asgi-call.follow-symlink-directory-served",
@@ -95,7 +108,10 @@
       "follow_symlink": true,
       "scope": {
         "type": "http",
-        "asgi": {"version": "3.0", "spec_version": "2.4"},
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
         "http_version": "1.1",
         "method": "GET",
         "scheme": "http",
@@ -104,12 +120,22 @@
         "query_string_base64": "",
         "root_path": "",
         "headers_base64_pairs": [],
-        "client": ["127.0.0.1", 12345],
-        "server": ["testserver", 80]
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
       },
       "incoming": [],
-      "send": {"kind": "capture-asgi-send"},
-      "observations": ["asgi-call"]
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "asgi-call"
+      ]
     },
     {
       "case_id": "starlette.staticfiles.StaticFiles.asgi-call.follow-symlink-file-rejected",
@@ -150,7 +176,10 @@
       "follow_symlink": false,
       "scope": {
         "type": "http",
-        "asgi": {"version": "3.0", "spec_version": "2.4"},
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
         "http_version": "1.1",
         "method": "GET",
         "scheme": "http",
@@ -159,12 +188,22 @@
         "query_string_base64": "",
         "root_path": "",
         "headers_base64_pairs": [],
-        "client": ["127.0.0.1", 12345],
-        "server": ["testserver", 80]
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
       },
       "incoming": [],
-      "send": {"kind": "capture-asgi-send"},
-      "observations": ["asgi-call"]
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "asgi-call"
+      ]
     },
     {
       "case_id": "starlette.staticfiles.StaticFiles.asgi-call.follow-symlink-directory-rejected",
@@ -205,7 +244,10 @@
       "follow_symlink": false,
       "scope": {
         "type": "http",
-        "asgi": {"version": "3.0", "spec_version": "2.4"},
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
         "http_version": "1.1",
         "method": "GET",
         "scheme": "http",
@@ -214,12 +256,22 @@
         "query_string_base64": "",
         "root_path": "",
         "headers_base64_pairs": [],
-        "client": ["127.0.0.1", 12345],
-        "server": ["testserver", 80]
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
       },
       "incoming": [],
-      "send": {"kind": "capture-asgi-send"},
-      "observations": ["asgi-call"]
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "asgi-call"
+      ]
     }
   ]
 }

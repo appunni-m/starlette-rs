@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@50",
+  "schema": "migration-parity/parity-input@51",
   "cases": [
     {
       "case_id": "starlette.responses.Response.consumer-construction.documented-call-override-debug-event",
@@ -44,8 +44,16 @@
         "extension": "http.response.debug",
         "info_attribute": "rows",
         "info_value": [
-          ["id", "username", "joined"],
-          ["42", "ada", "2026-10-13"]
+          [
+            "id",
+            "username",
+            "joined"
+          ],
+          [
+            "42",
+            "ada",
+            "2026-10-13"
+          ]
         ]
       }
     },
@@ -90,8 +98,16 @@
         "extension": "http.response.debug",
         "info_attribute": "rows",
         "info_value": [
-          ["id", "username", "joined"],
-          ["42", "ada", "2026-10-13"]
+          [
+            "id",
+            "username",
+            "joined"
+          ],
+          [
+            "42",
+            "ada",
+            "2026-10-13"
+          ]
         ]
       }
     }

@@ -20,7 +20,7 @@ _CASE_FIELDS = {
     "actions",
     "observations",
 }
-_OBSERVATION_SELECTORS = {"action-trace", "instance-snapshots", "scope-snapshots"}
+_OBSERVATION_SELECTORS = {"action-trace", "instance-snapshots", "scope-snapshots", "raw-pairs"}
 
 
 def _exact_object(value: Any, keys: set[str], context: str) -> dict[str, Any]:
@@ -175,6 +175,7 @@ def _call(receiver: Any, call: str, arguments: list[Any]) -> Any:
         "__or__",
         "__ior__",
         "append",
+        "add_vary_header",
     }:
         return getattr(receiver, call)(*arguments)
     raise ValueError(f"unsupported Headers action call: {call!r}")
@@ -361,11 +362,22 @@ def run_headers_case(case: dict[str, Any]) -> dict[str, Any]:
         "scope-snapshots": [
             _scope_snapshot(instance_id, scope) for instance_id, scope in scopes.items()
         ],
+        "raw-pairs": [
+            {"instance_id": instance_id, "headers_base64_pairs": _raw_snapshot(instance.raw)}
+            for instance_id, instance in instances.items()
+        ],
     }
     return {
         "case_id": case["case_id"],
         "status": "completed",
         "observations": [
-            {"step_id": selector, "status": "ok", "value": values} for selector in observations
+            {
+                "step_id": selector,
+                "status": "ok",
+                "value": {"raw-pairs": values["raw-pairs"]}
+                if selector == "raw-pairs"
+                else values,
+            }
+            for selector in observations
         ],
     }

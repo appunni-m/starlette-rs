@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@50",
+  "schema": "migration-parity/parity-input@51",
   "cases": [
     {
       "case_id": "starlette.templating.Jinja2Templates.template-public-workflow.docs-preconfigured-environment-custom-filter",
@@ -10,11 +10,18 @@
         "starlette.templating.Jinja2Templates.template-public-workflow.supplied-environment",
         "starlette.templating.Jinja2Templates.template-public-workflow.direct-render"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
-      "observations": ["template-public-workflow"],
+      "observations": [
+        "template-public-workflow"
+      ],
       "template_directories": [
-        {"id": "templates", "path": "templates"}
+        {
+          "id": "templates",
+          "path": "templates"
+        }
       ],
       "template_files": [
         {
@@ -26,10 +33,15 @@
       "constructor": {
         "directory": null,
         "environment": {
-          "directory_ids": ["templates"],
+          "directory_ids": [
+            "templates"
+          ],
           "autoescape": false,
           "filters": [
-            {"name": "greeting", "prefix": "Hello, "}
+            {
+              "name": "greeting",
+              "prefix": "Hello, "
+            }
           ]
         }
       },
@@ -39,7 +51,9 @@
         "renders": [
           {
             "name": "greeting.html",
-            "context": {"name": "Starlette"}
+            "context": {
+              "name": "Starlette"
+            }
           }
         ]
       }
@@ -52,11 +66,18 @@
         "starlette.templating.Jinja2Templates.template-public-workflow.construction",
         "starlette.templating.Jinja2Templates.template-public-workflow.context-processors"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
-      "observations": ["template-public-workflow"],
+      "observations": [
+        "template-public-workflow"
+      ],
       "template_directories": [
-        {"id": "templates", "path": "templates"}
+        {
+          "id": "templates",
+          "path": "templates"
+        }
       ],
       "template_files": [
         {
@@ -68,7 +89,9 @@
       "constructor": {
         "directory": {
           "kind": "string",
-          "directory_ids": ["templates"]
+          "directory_ids": [
+            "templates"
+          ]
         },
         "environment": null
       },
@@ -76,7 +99,9 @@
       "processor_specs": [
         {
           "kind": "async",
-          "additions": {"shared_value": "processor result"}
+          "additions": {
+            "shared_value": "processor result"
+          }
         }
       ],
       "consumer": {
@@ -92,7 +117,10 @@
         ],
         "middleware": [],
         "requests": [
-          {"method": "GET", "url": "/"}
+          {
+            "method": "GET",
+            "url": "/"
+          }
         ]
       }
     }

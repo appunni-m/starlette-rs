@@ -5845,6 +5845,32 @@ def _run_websocket_convenience_case(case: dict[str, Any]) -> dict[str, Any]:
                 return executor.submit(getattr(websocket, method)).result()
         return getattr(websocket, method)()
 
+    def decode_athrow_argument(argument: dict[str, Any]) -> Any:
+        kind = argument["kind"]
+        if kind == "exception-class":
+            exception_class_name = argument["name"]
+            return (
+                WebSocketDisconnect
+                if exception_class_name == "WebSocketDisconnect"
+                else getattr(builtins, exception_class_name)
+            )
+        if kind == "exception-instance":
+            exception_class_name = argument["name"]
+            exception_message = argument["message"]
+            exception_class = (
+                WebSocketDisconnect
+                if exception_class_name == "WebSocketDisconnect"
+                else getattr(builtins, exception_class_name)
+            )
+            return (
+                WebSocketDisconnect(reason=exception_message)
+                if exception_class_name == "WebSocketDisconnect"
+                else exception_class(exception_message)
+            )
+        if kind == "value":
+            return argument["value"]
+        return None
+
     async def run_actions() -> list[dict[str, Any]]:
         nonlocal file_response_directory, pending_send_error
         results: list[dict[str, Any]] = []
@@ -5908,19 +5934,17 @@ def _run_websocket_convenience_case(case: dict[str, Any]) -> dict[str, Any]:
                     if control == "asend":
                         value = await iterator.asend(arguments["value"])
                     elif control == "athrow":
-                        exception_class_name = arguments["exception"]["class"]
-                        exception_class = (
-                            WebSocketDisconnect
-                            if exception_class_name == "WebSocketDisconnect"
-                            else getattr(builtins, exception_class_name)
-                        )
-                        exception_message = arguments["exception"]["message"]
-                        exception = (
-                            WebSocketDisconnect(reason=exception_message)
-                            if exception_class_name == "WebSocketDisconnect"
-                            else exception_class(exception_message)
-                        )
-                        value = await iterator.athrow(exception)
+                        throw_arguments = [
+                            decode_athrow_argument(argument)
+                            for argument in arguments["throw_arguments"]
+                        ]
+                        throw_keywords = {
+                            name: decode_athrow_argument(argument)
+                            for name, argument in arguments.get(
+                                "throw_keyword_arguments", {}
+                            ).items()
+                        }
+                        value = await iterator.athrow(*throw_arguments, **throw_keywords)
                     else:
                         value = await iterator.aclose()
                 elif method == "send_denial_response":

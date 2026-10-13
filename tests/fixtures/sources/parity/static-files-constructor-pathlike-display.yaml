@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@50",
+  "schema": "migration-parity/parity-input@51",
   "cases": [
     {
       "case_id": "starlette.staticfiles.StaticFiles.configuration-check.constructor-pathlike-display",
@@ -8,7 +8,9 @@
       "covers": [
         "starlette.staticfiles.StaticFiles.configuration-check.constructor-pathlike-display"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
       "directory_path": "build/parity/static-files-config/pathlike-display-missing",
       "directory_pathlike": {
@@ -21,7 +23,9 @@
       "check_dir": true,
       "follow_symlink": false,
       "calls": [],
-      "observations": ["configuration-check"]
+      "observations": [
+        "configuration-check"
+      ]
     }
   ]
 }

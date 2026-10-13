@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@50",
+  "schema": "migration-parity/parity-input@51",
   "cases": [
     {
       "case_id": "starlette.websockets.WebSocket.convenience-sequence.typed-text-custom-headers.worker-owner",
@@ -1030,10 +1030,13 @@
           "arguments": {
             "iterator": "iter_text",
             "control": "athrow",
-            "exception": {
-              "class": "RuntimeError",
-              "message": "consumer injected exception"
-            }
+            "throw_arguments": [
+              {
+                "kind": "exception-instance",
+                "name": "RuntimeError",
+                "message": "consumer injected exception"
+              }
+            ]
           }
         }
       ],

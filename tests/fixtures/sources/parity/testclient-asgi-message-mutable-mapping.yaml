@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@50",
+  "schema": "migration-parity/parity-input@51",
   "cases": [
     {
       "case_id": "starlette.testclient.TestClient.request-response.asgi-message-mutable-mapping",
@@ -11,14 +11,21 @@
         "starlette.testclient.TestClient.request-response.response-and-debug",
         "starlette.testclient.TestClient.request-response.asgi-message-mutable-mapping"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
-      "observations": ["request-response"],
+      "observations": [
+        "request-response"
+      ],
       "testclient": {
         "base_url": "http://testserver",
         "raise_server_exceptions": true,
         "root_path": "",
-        "client": ["testclient", 50000],
+        "client": [
+          "testclient",
+          50000
+        ],
         "headers": []
       },
       "request": {
@@ -29,14 +36,23 @@
       },
       "asgi_app": {
         "kind": "asgi3",
-        "scope_fields": ["type", "method", "path"],
+        "scope_fields": [
+          "type",
+          "method",
+          "path"
+        ],
         "receive_count": 1,
         "message_mapping": "user-dict",
         "messages": [
           {
             "type": "http.response.start",
             "status": 200,
-            "headers_base64_pairs": [["Y29udGVudC10eXBl", "dGV4dC9wbGFpbg=="]]
+            "headers_base64_pairs": [
+              [
+                "Y29udGVudC10eXBl",
+                "dGV4dC9wbGFpbg=="
+              ]
+            ]
           },
           {
             "type": "http.response.body",

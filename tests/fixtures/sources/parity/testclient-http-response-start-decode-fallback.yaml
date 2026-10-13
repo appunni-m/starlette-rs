@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@50",
+  "schema": "migration-parity/parity-input@51",
   "cases": [
     {
       "case_id": "starlette.testclient.TestClient.request-response.invalid-response-header-falls-back-to-500",
@@ -11,14 +11,21 @@
         "starlette.testclient.TestClient.request-response.response-and-debug",
         "starlette.testclient.TestClient.request-response.exception-policy"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
-      "observations": ["request-response"],
+      "observations": [
+        "request-response"
+      ],
       "testclient": {
         "base_url": "http://testserver",
         "raise_server_exceptions": false,
         "root_path": "",
-        "client": ["testclient", 50000],
+        "client": [
+          "testclient",
+          50000
+        ],
         "headers": []
       },
       "request": {
@@ -49,7 +56,12 @@
           {
             "type": "http.response.start",
             "status": 202,
-            "headers_base64_pairs": [["eC1pbmZv", "//8="]]
+            "headers_base64_pairs": [
+              [
+                "eC1pbmZv",
+                "//8="
+              ]
+            ]
           },
           {
             "type": "http.response.body",

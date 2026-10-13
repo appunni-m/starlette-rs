@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@50",
+  "schema": "migration-parity/parity-input@51",
   "cases": [
     {
       "case_id": "starlette.responses.Response.consumer-construction.cookie-protocol-raw-value-control-before-attributes",
@@ -45,7 +45,7 @@
             },
             "value": {
               "kind": "literal",
-              "value": "line\u000abreak"
+              "value": "line\nbreak"
             },
             "max_age": {
               "kind": "text",

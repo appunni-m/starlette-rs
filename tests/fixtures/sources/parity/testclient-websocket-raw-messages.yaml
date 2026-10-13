@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@50",
+  "schema": "migration-parity/parity-input@51",
   "cases": [
     {
       "case_id": "starlette.testclient.TestClient.websocket-session.raw-message-exchange-and-close",
@@ -12,14 +12,21 @@
         "starlette.testclient.TestClient.websocket-session.raw-receive-message",
         "starlette.testclient.TestClient.websocket-session.portal-cleanup"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
-      "observations": ["websocket-session"],
+      "observations": [
+        "websocket-session"
+      ],
       "testclient": {
         "base_url": "http://testserver",
         "raise_server_exceptions": true,
         "root_path": "",
-        "client": ["127.0.0.1", 12345],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
         "headers": [],
         "backend": "asyncio",
         "backend_options": {}
@@ -35,47 +42,80 @@
               "type": "websocket.receive",
               "text": null,
               "bytes_base64": "AP8B",
-              "extra": {"sequence": 7, "flags": [true, null, "client"]}
+              "extra": {
+                "sequence": 7,
+                "flags": [
+                  true,
+                  null,
+                  "client"
+                ]
+              }
             }
           },
-          {"operation": "receive"},
-          {"operation": "receive"},
+          {
+            "operation": "receive"
+          },
+          {
+            "operation": "receive"
+          },
           {
             "operation": "send",
             "message": {
               "type": "websocket.disconnect",
-              "extra": {"client_done": true}
+              "extra": {
+                "client_done": true
+              }
             }
           }
         ]
       },
       "asgi_app": {
         "kind": "asgi3",
-        "scope_fields": ["type", "path"],
+        "scope_fields": [
+          "type",
+          "path"
+        ],
         "actions": [
-          {"operation": "receive"},
+          {
+            "operation": "receive"
+          },
           {
             "operation": "send",
-            "message": {"type": "websocket.accept"}
+            "message": {
+              "type": "websocket.accept"
+            }
           },
-          {"operation": "receive"},
+          {
+            "operation": "receive"
+          },
           {
             "operation": "send",
             "message": {
               "type": "websocket.send",
               "text": null,
               "bytes_base64": "/wIA",
-              "extra": {"sequence": 11, "flags": [false, null, "server"]}
+              "extra": {
+                "sequence": 11,
+                "flags": [
+                  false,
+                  null,
+                  "server"
+                ]
+              }
             }
           },
           {
             "operation": "send",
             "message": {
               "type": "websocket.close",
-              "extra": {"server_done": true}
+              "extra": {
+                "server_done": true
+              }
             }
           },
-          {"operation": "receive"}
+          {
+            "operation": "receive"
+          }
         ]
       }
     }

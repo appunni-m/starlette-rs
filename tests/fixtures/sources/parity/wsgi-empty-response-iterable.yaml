@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@50",
+  "schema": "migration-parity/parity-input@51",
   "cases": [
     {
       "case_id": "starlette.middleware.wsgi.WSGIMiddleware.__call__.empty-response-iterable-final-body",
@@ -9,8 +9,12 @@
         "starlette.middleware.wsgi.WSGIMiddleware.construct",
         "starlette.middleware.wsgi.WSGIMiddleware.response-order"
       ],
-      "execution_schedule": ["dispatch"],
-      "target_profiles": ["python-package-cpython312"],
+      "execution_schedule": [
+        "dispatch"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
       "steps": [
         {
@@ -55,8 +59,14 @@
                 "query_string_base64": "",
                 "root_path": "",
                 "headers_base64_pairs": [],
-                "client": ["127.0.0.1", 12345],
-                "server": ["testserver", 80]
+                "client": [
+                  "127.0.0.1",
+                  12345
+                ],
+                "server": [
+                  "testserver",
+                  80
+                ]
               }
             },
             "receive": {
@@ -78,7 +88,9 @@
           }
         }
       ],
-      "observations": ["dispatch"]
+      "observations": [
+        "dispatch"
+      ]
     }
   ]
 }

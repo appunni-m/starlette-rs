@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@50",
+  "schema": "migration-parity/parity-input@51",
   "cases": [
     {
       "case_id": "starlette-rs.NativeApplication.service-body-streaming.request-consumer-pull",
@@ -12,9 +12,7 @@
         "rust-native-local",
         "python-package-cpython312"
       ],
-      "assets": [
-
-      ],
+      "assets": [],
       "application": {
         "routes": [
           {
@@ -71,9 +69,7 @@
         "rust-native-local",
         "python-package-cpython312"
       ],
-      "assets": [
-
-      ],
+      "assets": [],
       "application": {
         "routes": [
           {
@@ -84,9 +80,7 @@
             "endpoint": {
               "request_body_action": "leave-unread",
               "response_body": {
-                "frames": [
-
-                ]
+                "frames": []
               }
             }
           }
@@ -125,9 +119,7 @@
         "rust-native-local",
         "python-package-cpython312"
       ],
-      "assets": [
-
-      ],
+      "assets": [],
       "application": {
         "routes": [
           {
@@ -190,9 +182,7 @@
         "rust-native-local",
         "python-package-cpython312"
       ],
-      "assets": [
-
-      ],
+      "assets": [],
       "application": {
         "routes": [
           {
@@ -203,9 +193,7 @@
             "endpoint": {
               "request_body_action": "read-all-and-propagate-error",
               "response_body": {
-                "frames": [
-
-                ]
+                "frames": []
               }
             }
           }
@@ -246,9 +234,7 @@
         "rust-native-local",
         "python-package-cpython312"
       ],
-      "assets": [
-
-      ],
+      "assets": [],
       "application": {
         "routes": [
           {
@@ -304,9 +290,7 @@
       "target_profiles": [
         "rust-native-local"
       ],
-      "assets": [
-
-      ],
+      "assets": [],
       "application": {
         "routes": [
           {
@@ -317,9 +301,7 @@
             "endpoint": {
               "request_body_action": "read-all",
               "response_body": {
-                "frames": [
-
-                ]
+                "frames": []
               }
             }
           }
@@ -356,9 +338,7 @@
       "target_profiles": [
         "rust-native-local"
       ],
-      "assets": [
-
-      ],
+      "assets": [],
       "application": {
         "routes": [
           {
@@ -411,9 +391,7 @@
       "target_profiles": [
         "rust-native-local"
       ],
-      "assets": [
-
-      ],
+      "assets": [],
       "application": {
         "routes": [
           {
@@ -424,9 +402,7 @@
             "endpoint": {
               "request_body_action": "read-all",
               "response_body": {
-                "frames": [
-
-                ]
+                "frames": []
               }
             }
           }
@@ -463,9 +439,7 @@
       "target_profiles": [
         "rust-native-local"
       ],
-      "assets": [
-
-      ],
+      "assets": [],
       "application": {
         "routes": [
           {
@@ -476,9 +450,7 @@
             "endpoint": {
               "request_body_action": "leave-unread",
               "response_body": {
-                "frames": [
-
-                ]
+                "frames": []
               }
             }
           }
@@ -515,9 +487,7 @@
       "target_profiles": [
         "rust-native-local"
       ],
-      "assets": [
-
-      ],
+      "assets": [],
       "application": {
         "routes": [
           {

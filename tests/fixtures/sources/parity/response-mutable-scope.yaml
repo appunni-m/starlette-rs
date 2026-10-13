@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@50",
+  "schema": "migration-parity/parity-input@51",
   "cases": [
     {
       "case_id": "starlette.responses.Response.consumer-construction.mutable-mapping-scope",
@@ -8,18 +8,30 @@
       "covers": [
         "starlette.responses.Response.consumer-construction.public-render-and-asgi"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
-      "observations": ["response-consumer"],
+      "observations": [
+        "response-consumer"
+      ],
       "construction": {
-        "content": {"kind": "text", "value": "response"},
+        "content": {
+          "kind": "text",
+          "value": "response"
+        },
         "omit_content": false,
         "kwargs": {},
         "class_attributes": {},
-        "render": {"kind": "default"}
+        "render": {
+          "kind": "default"
+        }
       },
       "post_init_attributes": {},
-      "scope": {"type": "http", "path": "/response"},
+      "scope": {
+        "type": "http",
+        "path": "/response"
+      },
       "scope_container": "user-dict",
       "send_failure": null,
       "background_label": null
@@ -31,15 +43,24 @@
       "covers": [
         "starlette.responses.StreamingResponse.consumer-construction.public-render-and-asgi"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
-      "observations": ["response-consumer"],
+      "observations": [
+        "response-consumer"
+      ],
       "construction": {
-        "content": {"kind": "text", "value": "stream"},
+        "content": {
+          "kind": "text",
+          "value": "stream"
+        },
         "omit_content": false,
         "kwargs": {},
         "class_attributes": {},
-        "render": {"kind": "default"}
+        "render": {
+          "kind": "default"
+        }
       },
       "post_init_attributes": {},
       "scope": {
@@ -47,7 +68,9 @@
         "path": "/stream",
         "method": "GET",
         "headers": [],
-        "asgi": {"spec_version": "2.4"}
+        "asgi": {
+          "spec_version": "2.4"
+        }
       },
       "scope_container": "user-dict",
       "send_failure": null,
@@ -61,9 +84,13 @@
         "starlette.responses.FileResponse.consumer-construction.public-render-and-asgi",
         "starlette.responses.FileResponse.consumer-construction.scope-header-list-writeback"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
-      "observations": ["response-consumer"],
+      "observations": [
+        "response-consumer"
+      ],
       "construction": {
         "content": {
           "kind": "file",
@@ -77,7 +104,9 @@
         "omit_content": false,
         "kwargs": {},
         "class_attributes": {},
-        "render": {"kind": "default"}
+        "render": {
+          "kind": "default"
+        }
       },
       "post_init_attributes": {},
       "scope": {
@@ -85,7 +114,9 @@
         "path": "/file",
         "method": "GET",
         "headers": [],
-        "asgi": {"spec_version": "2.4"}
+        "asgi": {
+          "spec_version": "2.4"
+        }
       },
       "scope_container": "user-dict",
       "scope_headers_container": "tuple",

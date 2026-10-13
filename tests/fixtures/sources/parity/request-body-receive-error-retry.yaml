@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@50",
+  "schema": "migration-parity/parity-input@51",
   "cases": [
     {
       "case_id": "starlette.requests.Request.body-stream-json.receive-error-retry",
@@ -41,7 +41,9 @@
           "operation": "body"
         }
       ],
-      "observations": ["request-consumption"]
+      "observations": [
+        "request-consumption"
+      ]
     },
     {
       "case_id": "starlette.requests.Request.body-stream-json.retry-after-partial-receive-cancellation",
@@ -92,7 +94,9 @@
           "operation": "body"
         }
       ],
-      "observations": ["request-consumption"]
+      "observations": [
+        "request-consumption"
+      ]
     }
   ]
 }

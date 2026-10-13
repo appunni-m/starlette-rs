@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@50",
+  "schema": "migration-parity/parity-input@51",
   "cases": [
     {
       "case_id": "starlette.testclient.TestClient.request-response.client-header-assignment",
@@ -11,13 +11,18 @@
         "starlette.testclient.TestClient.request-response.response-and-debug",
         "starlette.testclient.TestClient.request-response.scope-projection"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
       "testclient": {
         "base_url": "http://testserver",
         "raise_server_exceptions": true,
         "root_path": "",
-        "client": ["testclient", 50000],
+        "client": [
+          "testclient",
+          50000
+        ],
         "headers": []
       },
       "client_headers_assignment": {
@@ -35,7 +40,10 @@
           "method": "GET",
           "url": "/",
           "headers_base64_pairs": [
-            ["YXV0aG9yaXphdGlvbg==", "QmVhcmVyIGZyb20tcmVxdWVzdA=="]
+            [
+              "YXV0aG9yaXphdGlvbg==",
+              "QmVhcmVyIGZyb20tcmVxdWVzdA=="
+            ]
           ],
           "body_base64": "",
           "client_method": "get"
@@ -44,9 +52,16 @@
       "asgi_app": {
         "kind": "request-observer",
         "probe": "headers-mapping",
-        "scope_fields": ["type", "method", "path", "headers"]
+        "scope_fields": [
+          "type",
+          "method",
+          "path",
+          "headers"
+        ]
       },
-      "observations": ["request-response"]
+      "observations": [
+        "request-response"
+      ]
     },
     {
       "case_id": "starlette.testclient.TestClient.request-response.authentication-option",
@@ -57,13 +72,18 @@
         "starlette.testclient.TestClient.request-response.response-and-debug",
         "starlette.testclient.TestClient.request-response.authentication-option"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
       "testclient": {
         "base_url": "http://testserver",
         "raise_server_exceptions": true,
         "root_path": "",
-        "client": ["testclient", 50000],
+        "client": [
+          "testclient",
+          50000
+        ],
         "headers": []
       },
       "request": {
@@ -72,22 +92,35 @@
         "headers_base64_pairs": [],
         "body_base64": "",
         "client_method": "post",
-        "auth": ["docs-user", "docs-password"]
+        "auth": [
+          "docs-user",
+          "docs-password"
+        ]
       },
       "asgi_app": {
         "kind": "asgi3",
         "receive_count": 0,
-        "scope_fields": ["type", "method", "headers"],
+        "scope_fields": [
+          "type",
+          "method",
+          "headers"
+        ],
         "messages": [
           {
             "type": "http.response.start",
             "status": 200,
             "headers_base64_pairs": []
           },
-          {"type": "http.response.body", "body_base64": "b2s=", "more_body": false}
+          {
+            "type": "http.response.body",
+            "body_base64": "b2s=",
+            "more_body": false
+          }
         ]
       },
-      "observations": ["request-response"]
+      "observations": [
+        "request-response"
+      ]
     },
     {
       "case_id": "starlette.testclient.TestClient.request-response.multipart-file-upload",
@@ -98,13 +131,18 @@
         "starlette.testclient.TestClient.request-response.response-and-debug",
         "starlette.testclient.TestClient.request-response.multipart-file-upload"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
       "testclient": {
         "base_url": "http://testserver",
         "raise_server_exceptions": true,
         "root_path": "",
-        "client": ["testclient", 50000],
+        "client": [
+          "testclient",
+          50000
+        ],
         "headers": []
       },
       "request": {
@@ -131,9 +169,15 @@
       "asgi_app": {
         "kind": "request-observer",
         "probe": "multipart-form",
-        "scope_fields": ["type", "method", "path"]
+        "scope_fields": [
+          "type",
+          "method",
+          "path"
+        ]
       },
-      "observations": ["request-response"]
+      "observations": [
+        "request-response"
+      ]
     },
     {
       "case_id": "starlette.testclient.TestClient.lifespan-context.backend-loop-asyncio-default",
@@ -157,13 +201,18 @@
         "base_url": "http://testserver",
         "raise_server_exceptions": true,
         "root_path": "",
-        "client": ["testclient", 50000],
+        "client": [
+          "testclient",
+          50000
+        ],
         "headers": [],
         "backend": "asyncio",
         "backend_options": {}
       },
       "client_actions": [
-        {"operation": "enter"},
+        {
+          "operation": "enter"
+        },
         {
           "operation": "request",
           "request": {
@@ -173,14 +222,24 @@
             "body_base64": ""
           }
         },
-        {"operation": "exit"}
+        {
+          "operation": "exit"
+        }
       ],
       "asgi_app": {
         "kind": "starlette-lifespan-backend-probe",
-        "scope_fields": ["type", "path"],
-        "route": {"path": "/", "method": "GET"}
+        "scope_fields": [
+          "type",
+          "path"
+        ],
+        "route": {
+          "path": "/",
+          "method": "GET"
+        }
       },
-      "observations": ["lifespan-context"]
+      "observations": [
+        "lifespan-context"
+      ]
     },
     {
       "case_id": "starlette.testclient.TestClient.lifespan-context.backend-loop-asyncio-debug",
@@ -204,13 +263,20 @@
         "base_url": "http://testserver",
         "raise_server_exceptions": true,
         "root_path": "",
-        "client": ["testclient", 50000],
+        "client": [
+          "testclient",
+          50000
+        ],
         "headers": [],
         "backend": "asyncio",
-        "backend_options": {"debug": true}
+        "backend_options": {
+          "debug": true
+        }
       },
       "client_actions": [
-        {"operation": "enter"},
+        {
+          "operation": "enter"
+        },
         {
           "operation": "request",
           "request": {
@@ -220,14 +286,24 @@
             "body_base64": ""
           }
         },
-        {"operation": "exit"}
+        {
+          "operation": "exit"
+        }
       ],
       "asgi_app": {
         "kind": "starlette-lifespan-backend-probe",
-        "scope_fields": ["type", "path"],
-        "route": {"path": "/", "method": "GET"}
+        "scope_fields": [
+          "type",
+          "path"
+        ],
+        "route": {
+          "path": "/",
+          "method": "GET"
+        }
       },
-      "observations": ["lifespan-context"]
+      "observations": [
+        "lifespan-context"
+      ]
     },
     {
       "case_id": "starlette.testclient.TestClient.lifespan-context.backend-loop-trio",
@@ -251,13 +327,18 @@
         "base_url": "http://testserver",
         "raise_server_exceptions": true,
         "root_path": "",
-        "client": ["testclient", 50000],
+        "client": [
+          "testclient",
+          50000
+        ],
         "headers": [],
         "backend": "trio",
         "backend_options": {}
       },
       "client_actions": [
-        {"operation": "enter"},
+        {
+          "operation": "enter"
+        },
         {
           "operation": "request",
           "request": {
@@ -267,14 +348,24 @@
             "body_base64": ""
           }
         },
-        {"operation": "exit"}
+        {
+          "operation": "exit"
+        }
       ],
       "asgi_app": {
         "kind": "starlette-lifespan-backend-probe",
-        "scope_fields": ["type", "path"],
-        "route": {"path": "/", "method": "GET"}
+        "scope_fields": [
+          "type",
+          "path"
+        ],
+        "route": {
+          "path": "/",
+          "method": "GET"
+        }
       },
-      "observations": ["lifespan-context"]
+      "observations": [
+        "lifespan-context"
+      ]
     },
     {
       "case_id": "starlette.testclient.TestClient.lifespan-context.backend-loop-asyncio-uvloop-option",
@@ -298,13 +389,20 @@
         "base_url": "http://testserver",
         "raise_server_exceptions": true,
         "root_path": "",
-        "client": ["testclient", 50000],
+        "client": [
+          "testclient",
+          50000
+        ],
         "headers": [],
         "backend": "asyncio",
-        "backend_options": {"use_uvloop": true}
+        "backend_options": {
+          "use_uvloop": true
+        }
       },
       "client_actions": [
-        {"operation": "enter"},
+        {
+          "operation": "enter"
+        },
         {
           "operation": "request",
           "request": {
@@ -314,14 +412,24 @@
             "body_base64": ""
           }
         },
-        {"operation": "exit"}
+        {
+          "operation": "exit"
+        }
       ],
       "asgi_app": {
         "kind": "starlette-lifespan-backend-probe",
-        "scope_fields": ["type", "path"],
-        "route": {"path": "/", "method": "GET"}
+        "scope_fields": [
+          "type",
+          "path"
+        ],
+        "route": {
+          "path": "/",
+          "method": "GET"
+        }
       },
-      "observations": ["lifespan-context"]
+      "observations": [
+        "lifespan-context"
+      ]
     }
   ]
 }

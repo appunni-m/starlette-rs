@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@50",
+  "schema": "migration-parity/parity-input@51",
   "cases": [
     {
       "case_id": "starlette.concurrency.run_in_threadpool.arguments-result-worker-progress",
@@ -18,10 +18,15 @@
         "python-package-cpython314"
       ],
       "assets": [],
-      "observations": ["run_in_threadpool"],
+      "observations": [
+        "run_in_threadpool"
+      ],
       "call": {
         "call_id": "arguments-result",
-        "args": ["input-positional", 27],
+        "args": [
+          "input-positional",
+          27
+        ],
         "kwargs": {
           "label": "input-keyword",
           "enabled": true
@@ -30,10 +35,16 @@
           "kind": "return",
           "value": {
             "source": "callback-input",
-            "values": [3, "four"]
+            "values": [
+              3,
+              "four"
+            ]
           }
         },
-        "event_loop_checkpoints": ["loop-turn-a", "loop-turn-b"],
+        "event_loop_checkpoints": [
+          "loop-turn-a",
+          "loop-turn-b"
+        ],
         "start_timeout_ms": 5000,
         "release_timeout_ms": 5000
       }
@@ -55,10 +66,14 @@
         "python-package-cpython314"
       ],
       "assets": [],
-      "observations": ["run_in_threadpool"],
+      "observations": [
+        "run_in_threadpool"
+      ],
       "call": {
         "call_id": "exception-identity",
-        "args": ["raised-positional"],
+        "args": [
+          "raised-positional"
+        ],
         "kwargs": {
           "label": "raised-keyword"
         },
@@ -67,7 +82,10 @@
           "exception_type": "LookupError",
           "message": "input-defined worker failure"
         },
-        "event_loop_checkpoints": ["error-loop-turn-a", "error-loop-turn-b"],
+        "event_loop_checkpoints": [
+          "error-loop-turn-a",
+          "error-loop-turn-b"
+        ],
         "start_timeout_ms": 5000,
         "release_timeout_ms": 5000
       }
@@ -89,7 +107,9 @@
         "python-package-cpython314"
       ],
       "assets": [],
-      "observations": ["run_in_threadpool"],
+      "observations": [
+        "run_in_threadpool"
+      ],
       "call": {
         "call_id": "limiter-mixed-consumers",
         "args": [],
@@ -98,9 +118,18 @@
           "kind": "limiter-workload",
           "total_tokens": 2,
           "tasks": [
-            {"task_id": "starlette-worker-a", "consumer": "starlette"},
-            {"task_id": "anyio-worker-b", "consumer": "anyio"},
-            {"task_id": "starlette-worker-c", "consumer": "starlette"}
+            {
+              "task_id": "starlette-worker-a",
+              "consumer": "starlette"
+            },
+            {
+              "task_id": "anyio-worker-b",
+              "consumer": "anyio"
+            },
+            {
+              "task_id": "starlette-worker-c",
+              "consumer": "starlette"
+            }
           ],
           "queue_timeout_ms": 5000
         },
@@ -122,41 +151,70 @@
         "starlette.concurrency.iterate_in_threadpool.athrow-stop-iteration-pep479",
         "starlette.concurrency.iterate_in_threadpool.pre-start-throw-closes-iterator"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
-      "observations": ["iterate_in_threadpool"],
+      "observations": [
+        "iterate_in_threadpool"
+      ],
       "iterable": {
-        "items": [0, 1, 2]
+        "items": [
+          0,
+          1,
+          2
+        ]
       },
       "protocol": {
         "streams": [
           {
             "stream_id": "invalid-throw",
-            "items": [10, 11]
+            "items": [
+              10,
+              11
+            ]
           },
           {
             "stream_id": "stop-async-iteration",
-            "items": [20, 21]
+            "items": [
+              20,
+              21
+            ]
           },
           {
             "stream_id": "stop-iteration",
-            "items": [30, 31]
+            "items": [
+              30,
+              31
+            ]
           },
           {
             "stream_id": "throw-before-start-anext",
-            "items": [40, 41]
+            "items": [
+              40,
+              41
+            ]
           },
           {
             "stream_id": "throw-before-start-asend",
-            "items": [50, 51]
+            "items": [
+              50,
+              51
+            ]
           },
           {
             "stream_id": "throw-before-start-athrow",
-            "items": [60, 61]
+            "items": [
+              60,
+              61
+            ]
           },
           {
             "stream_id": "throw-before-start-aclose",
-            "items": [70, 71]
+            "items": [
+              70,
+              71
+            ]
           }
         ],
         "actions": [
@@ -212,8 +270,14 @@
             "awaitable_operation": "__anext__",
             "awaitable_arguments": [],
             "throw_arguments": [
-              {"kind": "exception-class", "name": "ValueError"},
-              {"kind": "value", "value": "anext-before-start"}
+              {
+                "kind": "exception-class",
+                "name": "ValueError"
+              },
+              {
+                "kind": "value",
+                "value": "anext-before-start"
+              }
             ]
           },
           {
@@ -224,10 +288,21 @@
             "stream_id": "throw-before-start-asend",
             "operation": "throw-before-start",
             "awaitable_operation": "asend",
-            "awaitable_arguments": [{"kind": "value", "value": null}],
+            "awaitable_arguments": [
+              {
+                "kind": "value",
+                "value": null
+              }
+            ],
             "throw_arguments": [
-              {"kind": "exception-class", "name": "ValueError"},
-              {"kind": "value", "value": "asend-before-start"}
+              {
+                "kind": "exception-class",
+                "name": "ValueError"
+              },
+              {
+                "kind": "value",
+                "value": "asend-before-start"
+              }
             ]
           },
           {
@@ -239,12 +314,24 @@
             "operation": "throw-before-start",
             "awaitable_operation": "athrow",
             "awaitable_arguments": [
-              {"kind": "exception-class", "name": "ValueError"},
-              {"kind": "value", "value": "generator-error"}
+              {
+                "kind": "exception-class",
+                "name": "ValueError"
+              },
+              {
+                "kind": "value",
+                "value": "generator-error"
+              }
             ],
             "throw_arguments": [
-              {"kind": "exception-class", "name": "ValueError"},
-              {"kind": "value", "value": "athrow-before-start"}
+              {
+                "kind": "exception-class",
+                "name": "ValueError"
+              },
+              {
+                "kind": "value",
+                "value": "athrow-before-start"
+              }
             ]
           },
           {
@@ -257,8 +344,14 @@
             "awaitable_operation": "aclose",
             "awaitable_arguments": [],
             "throw_arguments": [
-              {"kind": "exception-class", "name": "ValueError"},
-              {"kind": "value", "value": "aclose-before-start"}
+              {
+                "kind": "exception-class",
+                "name": "ValueError"
+              },
+              {
+                "kind": "value",
+                "value": "aclose-before-start"
+              }
             ]
           },
           {

@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@50",
+  "schema": "migration-parity/parity-input@51",
   "cases": [
     {
       "case_id": "starlette.responses.FileResponse.asgi-call.get",
@@ -444,7 +444,7 @@
       "status_code": 200,
       "header_pairs": [],
       "media_type": "text/plain",
-      "filename": "café.txt",
+      "filename": "caf\u00e9.txt",
       "scope": {
         "type": "http",
         "asgi": {
@@ -2407,14 +2407,14 @@
       ],
       "assets": [],
       "file": {
-        "name": "你好.txt",
+        "name": "\u4f60\u597d.txt",
         "contents_base64": "ZmlsZSBjb250ZW50",
         "mtime_seconds": 1700000000.0
       },
       "status_code": 200,
       "header_pairs": [],
       "media_type": null,
-      "filename": "你好.txt",
+      "filename": "\u4f60\u597d.txt",
       "scope": {
         "type": "http",
         "asgi": {

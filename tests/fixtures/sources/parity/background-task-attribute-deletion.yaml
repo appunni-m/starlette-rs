@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@50",
+  "schema": "migration-parity/parity-input@51",
   "cases": [
     {
       "case_id": "starlette.background.attribute-operations.BackgroundTask.mutable-attributes-delete-and-reassign",
@@ -8,39 +8,101 @@
       "covers": [
         "starlette.background.BackgroundTask.attribute-operations.mutable-attribute-deletion"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
-      "observations": ["background-task-attributes"],
+      "observations": [
+        "background-task-attributes"
+      ],
       "task": {
         "kind": "background-task",
-        "func": {"kind": "sync-noop", "value": "initial-function"},
-        "args": ["initial-positional"],
-        "kwargs": {"label": "initial-keyword"},
+        "func": {
+          "kind": "sync-noop",
+          "value": "initial-function"
+        },
+        "args": [
+          "initial-positional"
+        ],
+        "kwargs": {
+          "label": "initial-keyword"
+        },
         "actions": [
-          {"action": "delete", "attribute": "func"},
-          {"action": "read", "attribute": "func"},
+          {
+            "action": "delete",
+            "attribute": "func"
+          },
+          {
+            "action": "read",
+            "attribute": "func"
+          },
           {
             "action": "set",
             "attribute": "func",
-            "value": {"kind": "sync-noop", "value": "replacement-function"}
+            "value": {
+              "kind": "sync-noop",
+              "value": "replacement-function"
+            }
           },
-          {"action": "read", "attribute": "func"},
-          {"action": "delete", "attribute": "args"},
-          {"action": "read", "attribute": "args"},
-          {"action": "set", "attribute": "args", "value": ["replacement-positional"]},
-          {"action": "read", "attribute": "args"},
-          {"action": "delete", "attribute": "kwargs"},
-          {"action": "read", "attribute": "kwargs"},
+          {
+            "action": "read",
+            "attribute": "func"
+          },
+          {
+            "action": "delete",
+            "attribute": "args"
+          },
+          {
+            "action": "read",
+            "attribute": "args"
+          },
+          {
+            "action": "set",
+            "attribute": "args",
+            "value": [
+              "replacement-positional"
+            ]
+          },
+          {
+            "action": "read",
+            "attribute": "args"
+          },
+          {
+            "action": "delete",
+            "attribute": "kwargs"
+          },
+          {
+            "action": "read",
+            "attribute": "kwargs"
+          },
           {
             "action": "set",
             "attribute": "kwargs",
-            "value": {"label": "replacement-keyword"}
+            "value": {
+              "label": "replacement-keyword"
+            }
           },
-          {"action": "read", "attribute": "kwargs"},
-          {"action": "delete", "attribute": "is_async"},
-          {"action": "read", "attribute": "is_async"},
-          {"action": "set", "attribute": "is_async", "value": false},
-          {"action": "read", "attribute": "is_async"}
+          {
+            "action": "read",
+            "attribute": "kwargs"
+          },
+          {
+            "action": "delete",
+            "attribute": "is_async"
+          },
+          {
+            "action": "read",
+            "attribute": "is_async"
+          },
+          {
+            "action": "set",
+            "attribute": "is_async",
+            "value": false
+          },
+          {
+            "action": "read",
+            "attribute": "is_async"
+          }
         ]
       }
     },
@@ -51,27 +113,64 @@
       "covers": [
         "starlette.background.BackgroundTasks.attribute-operations.inherited-attribute-lookup-and-deletion"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
-      "observations": ["background-task-attributes"],
+      "observations": [
+        "background-task-attributes"
+      ],
       "task": {
         "kind": "background-tasks",
         "tasks": [],
         "actions": [
-          {"action": "read", "attribute": "func"},
+          {
+            "action": "read",
+            "attribute": "func"
+          },
           {
             "action": "set",
             "attribute": "func",
-            "value": {"kind": "sync-noop", "value": "inherited-function"}
+            "value": {
+              "kind": "sync-noop",
+              "value": "inherited-function"
+            }
           },
-          {"action": "read", "attribute": "func"},
-          {"action": "delete", "attribute": "func"},
-          {"action": "read", "attribute": "func"},
-          {"action": "read", "attribute": "args"},
-          {"action": "set", "attribute": "args", "value": ["inherited-positional"]},
-          {"action": "read", "attribute": "args"},
-          {"action": "delete", "attribute": "args"},
-          {"action": "read", "attribute": "args"}
+          {
+            "action": "read",
+            "attribute": "func"
+          },
+          {
+            "action": "delete",
+            "attribute": "func"
+          },
+          {
+            "action": "read",
+            "attribute": "func"
+          },
+          {
+            "action": "read",
+            "attribute": "args"
+          },
+          {
+            "action": "set",
+            "attribute": "args",
+            "value": [
+              "inherited-positional"
+            ]
+          },
+          {
+            "action": "read",
+            "attribute": "args"
+          },
+          {
+            "action": "delete",
+            "attribute": "args"
+          },
+          {
+            "action": "read",
+            "attribute": "args"
+          }
         ]
       }
     }

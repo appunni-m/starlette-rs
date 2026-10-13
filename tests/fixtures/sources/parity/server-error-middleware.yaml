@@ -1,33 +1,51 @@
 {
-  "schema": "migration-parity/parity-input@50",
+  "schema": "migration-parity/parity-input@51",
   "cases": [
     {
       "case_id": "starlette.middleware.errors.ServerErrorMiddleware.__init__.direct-construction",
       "surface": "starlette.middleware.errors.ServerErrorMiddleware",
       "operation": "__init__",
-      "covers": ["starlette.middleware.errors.ServerErrorMiddleware.construct"],
-      "target_profiles": ["python-package-cpython312"],
+      "covers": [
+        "starlette.middleware.errors.ServerErrorMiddleware.construct"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
       "constructor": {
         "app": {
           "kind": "asgi-response-sequence",
           "label": "constructed-app",
           "messages": [
-            {"type": "http.response.start", "status": 204, "headers_base64_pairs": []},
-            {"type": "http.response.body", "body_base64": "", "more_body": false}
+            {
+              "type": "http.response.start",
+              "status": 204,
+              "headers_base64_pairs": []
+            },
+            {
+              "type": "http.response.body",
+              "body_base64": "",
+              "more_body": false
+            }
           ]
         },
         "handler": null,
         "debug": false
       },
-      "observations": ["construct"]
+      "observations": [
+        "construct"
+      ]
     },
     {
       "case_id": "starlette.middleware.errors.ServerErrorMiddleware.__call__.direct-custom-handler",
       "surface": "starlette.middleware.errors.ServerErrorMiddleware",
       "operation": "__call__",
-      "covers": ["starlette.middleware.errors.ServerErrorMiddleware.direct-call"],
-      "target_profiles": ["python-package-cpython312"],
+      "covers": [
+        "starlette.middleware.errors.ServerErrorMiddleware.direct-call"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
       "constructor": {
         "app": {
@@ -40,7 +58,9 @@
           "callable_kind": "sync",
           "label": "test-handler-error-500",
           "status_code": 500,
-          "content": {"detail": "Server Error"}
+          "content": {
+            "detail": "Server Error"
+          }
         },
         "debug": false
       },
@@ -48,7 +68,10 @@
       "dispatch": {
         "scope": {
           "type": "http",
-          "asgi": {"version": "3.0", "spec_version": "2.4"},
+          "asgi": {
+            "version": "3.0",
+            "spec_version": "2.4"
+          },
           "http_version": "1.1",
           "method": "GET",
           "scheme": "http",
@@ -57,20 +80,40 @@
           "query_string_base64": "",
           "root_path": "",
           "headers_base64_pairs": [],
-          "client": ["127.0.0.1", 12345],
-          "server": ["testserver", 80]
+          "client": [
+            "127.0.0.1",
+            12345
+          ],
+          "server": [
+            "testserver",
+            80
+          ]
         },
-        "receive": [{"type": "http.request", "body_base64": "", "more_body": false}],
-        "send": {"kind": "capture-asgi-send"}
+        "receive": [
+          {
+            "type": "http.request",
+            "body_base64": "",
+            "more_body": false
+          }
+        ],
+        "send": {
+          "kind": "capture-asgi-send"
+        }
       },
-      "observations": ["dispatch"]
+      "observations": [
+        "dispatch"
+      ]
     },
     {
       "case_id": "starlette.middleware.errors.ServerErrorMiddleware.__call__.direct-default-response",
       "surface": "starlette.middleware.errors.ServerErrorMiddleware",
       "operation": "__call__",
-      "covers": ["starlette.middleware.errors.ServerErrorMiddleware.default-response"],
-      "target_profiles": ["python-package-cpython312"],
+      "covers": [
+        "starlette.middleware.errors.ServerErrorMiddleware.default-response"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
       "constructor": {
         "app": {
@@ -85,7 +128,10 @@
       "dispatch": {
         "scope": {
           "type": "http",
-          "asgi": {"version": "3.0", "spec_version": "2.4"},
+          "asgi": {
+            "version": "3.0",
+            "spec_version": "2.4"
+          },
           "http_version": "1.1",
           "method": "GET",
           "scheme": "http",
@@ -94,20 +140,40 @@
           "query_string_base64": "",
           "root_path": "",
           "headers_base64_pairs": [],
-          "client": ["127.0.0.1", 12345],
-          "server": ["testserver", 80]
+          "client": [
+            "127.0.0.1",
+            12345
+          ],
+          "server": [
+            "testserver",
+            80
+          ]
         },
-        "receive": [{"type": "http.request", "body_base64": "", "more_body": false}],
-        "send": {"kind": "capture-asgi-send"}
+        "receive": [
+          {
+            "type": "http.request",
+            "body_base64": "",
+            "more_body": false
+          }
+        ],
+        "send": {
+          "kind": "capture-asgi-send"
+        }
       },
-      "observations": ["dispatch"]
+      "observations": [
+        "dispatch"
+      ]
     },
     {
       "case_id": "starlette.middleware.errors.ServerErrorMiddleware.__call__.debug-html",
       "surface": "starlette.middleware.errors.ServerErrorMiddleware",
       "operation": "__call__",
-      "covers": ["starlette.middleware.errors.ServerErrorMiddleware.debug-html"],
-      "target_profiles": ["python-package-cpython312"],
+      "covers": [
+        "starlette.middleware.errors.ServerErrorMiddleware.debug-html"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
       "constructor": {
         "app": {
@@ -122,7 +188,10 @@
       "dispatch": {
         "scope": {
           "type": "http",
-          "asgi": {"version": "3.0", "spec_version": "2.4"},
+          "asgi": {
+            "version": "3.0",
+            "spec_version": "2.4"
+          },
           "http_version": "1.1",
           "method": "GET",
           "scheme": "http",
@@ -130,29 +199,61 @@
           "raw_path_base64": "Lw==",
           "query_string_base64": "",
           "root_path": "",
-          "headers_base64_pairs": [["YWNjZXB0", "dGV4dC9odG1sLCAqLyo="]],
-          "client": ["127.0.0.1", 12345],
-          "server": ["testserver", 80]
+          "headers_base64_pairs": [
+            [
+              "YWNjZXB0",
+              "dGV4dC9odG1sLCAqLyo="
+            ]
+          ],
+          "client": [
+            "127.0.0.1",
+            12345
+          ],
+          "server": [
+            "testserver",
+            80
+          ]
         },
-        "receive": [{"type": "http.request", "body_base64": "", "more_body": false}],
-        "send": {"kind": "capture-asgi-send"}
+        "receive": [
+          {
+            "type": "http.request",
+            "body_base64": "",
+            "more_body": false
+          }
+        ],
+        "send": {
+          "kind": "capture-asgi-send"
+        }
       },
-      "observations": ["dispatch"]
+      "observations": [
+        "dispatch"
+      ]
     },
     {
       "case_id": "starlette.middleware.errors.ServerErrorMiddleware.__call__.debug-after-response-sent",
       "surface": "starlette.middleware.errors.ServerErrorMiddleware",
       "operation": "__call__",
-      "covers": ["starlette.middleware.errors.ServerErrorMiddleware.debug-after-response-sent"],
-      "target_profiles": ["python-package-cpython312"],
+      "covers": [
+        "starlette.middleware.errors.ServerErrorMiddleware.debug-after-response-sent"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
       "constructor": {
         "app": {
           "kind": "asgi-response-sequence-then-raise",
           "label": "debug-after-response-app",
           "messages": [
-            {"type": "http.response.start", "status": 204, "headers_base64_pairs": []},
-            {"type": "http.response.body", "body_base64": ""}
+            {
+              "type": "http.response.start",
+              "status": 204,
+              "headers_base64_pairs": []
+            },
+            {
+              "type": "http.response.body",
+              "body_base64": ""
+            }
           ],
           "message": "Something went wrong"
         },
@@ -163,7 +264,10 @@
       "dispatch": {
         "scope": {
           "type": "http",
-          "asgi": {"version": "3.0", "spec_version": "2.4"},
+          "asgi": {
+            "version": "3.0",
+            "spec_version": "2.4"
+          },
           "http_version": "1.1",
           "method": "GET",
           "scheme": "http",
@@ -172,20 +276,40 @@
           "query_string_base64": "",
           "root_path": "",
           "headers_base64_pairs": [],
-          "client": ["127.0.0.1", 12345],
-          "server": ["testserver", 80]
+          "client": [
+            "127.0.0.1",
+            12345
+          ],
+          "server": [
+            "testserver",
+            80
+          ]
         },
-        "receive": [{"type": "http.request", "body_base64": "", "more_body": false}],
-        "send": {"kind": "capture-asgi-send"}
+        "receive": [
+          {
+            "type": "http.request",
+            "body_base64": "",
+            "more_body": false
+          }
+        ],
+        "send": {
+          "kind": "capture-asgi-send"
+        }
       },
-      "observations": ["dispatch"]
+      "observations": [
+        "dispatch"
+      ]
     },
     {
       "case_id": "starlette.middleware.errors.ServerErrorMiddleware.__call__.non-http-passthrough",
       "surface": "starlette.middleware.errors.ServerErrorMiddleware",
       "operation": "__call__",
-      "covers": ["starlette.middleware.errors.ServerErrorMiddleware.non-http-passthrough"],
-      "target_profiles": ["python-package-cpython312"],
+      "covers": [
+        "starlette.middleware.errors.ServerErrorMiddleware.non-http-passthrough"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
       "constructor": {
         "app": {
@@ -200,7 +324,10 @@
       "dispatch": {
         "scope": {
           "type": "websocket",
-          "asgi": {"version": "3.0", "spec_version": "2.4"},
+          "asgi": {
+            "version": "3.0",
+            "spec_version": "2.4"
+          },
           "http_version": "1.1",
           "scheme": "ws",
           "path": "/",
@@ -208,29 +335,55 @@
           "query_string_base64": "",
           "root_path": "",
           "headers_base64_pairs": [],
-          "client": ["127.0.0.1", 12345],
-          "server": ["testserver", 80],
+          "client": [
+            "127.0.0.1",
+            12345
+          ],
+          "server": [
+            "testserver",
+            80
+          ],
           "subprotocols": []
         },
-        "receive": [{"type": "websocket.connect"}],
-        "send": {"kind": "capture-asgi-send"}
+        "receive": [
+          {
+            "type": "websocket.connect"
+          }
+        ],
+        "send": {
+          "kind": "capture-asgi-send"
+        }
       },
-      "observations": ["dispatch"]
+      "observations": [
+        "dispatch"
+      ]
     },
     {
       "case_id": "starlette.middleware.errors.ServerErrorMiddleware.__call__.mutable-app",
       "surface": "starlette.middleware.errors.ServerErrorMiddleware",
       "operation": "__call__",
-      "covers": ["starlette.middleware.errors.ServerErrorMiddleware.mutable-app"],
-      "target_profiles": ["python-package-cpython312"],
+      "covers": [
+        "starlette.middleware.errors.ServerErrorMiddleware.mutable-app"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
       "constructor": {
         "app": {
           "kind": "asgi-response-sequence",
           "label": "original-app",
           "messages": [
-            {"type": "http.response.start", "status": 202, "headers_base64_pairs": []},
-            {"type": "http.response.body", "body_base64": "b3JpZ2luYWwgYXBw", "more_body": false}
+            {
+              "type": "http.response.start",
+              "status": 202,
+              "headers_base64_pairs": []
+            },
+            {
+              "type": "http.response.body",
+              "body_base64": "b3JpZ2luYWwgYXBw",
+              "more_body": false
+            }
           ]
         },
         "handler": {
@@ -238,7 +391,9 @@
           "callable_kind": "sync",
           "label": "replacement-app-handler",
           "status_code": 500,
-          "content": {"detail": "replacement app selected"}
+          "content": {
+            "detail": "replacement app selected"
+          }
         },
         "debug": false
       },
@@ -255,7 +410,10 @@
       "dispatch": {
         "scope": {
           "type": "http",
-          "asgi": {"version": "3.0", "spec_version": "2.4"},
+          "asgi": {
+            "version": "3.0",
+            "spec_version": "2.4"
+          },
           "http_version": "1.1",
           "method": "GET",
           "scheme": "http",
@@ -264,20 +422,40 @@
           "query_string_base64": "",
           "root_path": "",
           "headers_base64_pairs": [],
-          "client": ["127.0.0.1", 12345],
-          "server": ["testserver", 80]
+          "client": [
+            "127.0.0.1",
+            12345
+          ],
+          "server": [
+            "testserver",
+            80
+          ]
         },
-        "receive": [{"type": "http.request", "body_base64": "", "more_body": false}],
-        "send": {"kind": "capture-asgi-send"}
+        "receive": [
+          {
+            "type": "http.request",
+            "body_base64": "",
+            "more_body": false
+          }
+        ],
+        "send": {
+          "kind": "capture-asgi-send"
+        }
       },
-      "observations": ["dispatch"]
+      "observations": [
+        "dispatch"
+      ]
     },
     {
       "case_id": "starlette.middleware.errors.ServerErrorMiddleware.__call__.mutable-handler",
       "surface": "starlette.middleware.errors.ServerErrorMiddleware",
       "operation": "__call__",
-      "covers": ["starlette.middleware.errors.ServerErrorMiddleware.mutable-handler"],
-      "target_profiles": ["python-package-cpython312"],
+      "covers": [
+        "starlette.middleware.errors.ServerErrorMiddleware.mutable-handler"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
       "constructor": {
         "app": {
@@ -296,14 +474,19 @@
             "callable_kind": "async",
             "label": "replacement-handler",
             "status_code": 500,
-            "content": {"detail": "replacement handler selected"}
+            "content": {
+              "detail": "replacement handler selected"
+            }
           }
         }
       ],
       "dispatch": {
         "scope": {
           "type": "http",
-          "asgi": {"version": "3.0", "spec_version": "2.4"},
+          "asgi": {
+            "version": "3.0",
+            "spec_version": "2.4"
+          },
           "http_version": "1.1",
           "method": "GET",
           "scheme": "http",
@@ -312,20 +495,40 @@
           "query_string_base64": "",
           "root_path": "",
           "headers_base64_pairs": [],
-          "client": ["127.0.0.1", 12345],
-          "server": ["testserver", 80]
+          "client": [
+            "127.0.0.1",
+            12345
+          ],
+          "server": [
+            "testserver",
+            80
+          ]
         },
-        "receive": [{"type": "http.request", "body_base64": "", "more_body": false}],
-        "send": {"kind": "capture-asgi-send"}
+        "receive": [
+          {
+            "type": "http.request",
+            "body_base64": "",
+            "more_body": false
+          }
+        ],
+        "send": {
+          "kind": "capture-asgi-send"
+        }
       },
-      "observations": ["dispatch"]
+      "observations": [
+        "dispatch"
+      ]
     },
     {
       "case_id": "starlette.middleware.errors.ServerErrorMiddleware.__call__.mutable-debug",
       "surface": "starlette.middleware.errors.ServerErrorMiddleware",
       "operation": "__call__",
-      "covers": ["starlette.middleware.errors.ServerErrorMiddleware.mutable-debug"],
-      "target_profiles": ["python-package-cpython312"],
+      "covers": [
+        "starlette.middleware.errors.ServerErrorMiddleware.mutable-debug"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
       "constructor": {
         "app": {
@@ -338,15 +541,25 @@
           "callable_kind": "sync",
           "label": "configured-handler-not-selected",
           "status_code": 500,
-          "content": {"detail": "debug must take precedence"}
+          "content": {
+            "detail": "debug must take precedence"
+          }
         },
         "debug": false
       },
-      "assignments": [{"field": "debug", "value": true}],
+      "assignments": [
+        {
+          "field": "debug",
+          "value": true
+        }
+      ],
       "dispatch": {
         "scope": {
           "type": "http",
-          "asgi": {"version": "3.0", "spec_version": "2.4"},
+          "asgi": {
+            "version": "3.0",
+            "spec_version": "2.4"
+          },
           "http_version": "1.1",
           "method": "GET",
           "scheme": "http",
@@ -354,14 +567,35 @@
           "raw_path_base64": "Lw==",
           "query_string_base64": "",
           "root_path": "",
-          "headers_base64_pairs": [["YWNjZXB0", "dGV4dC9wbGFpbg=="]],
-          "client": ["127.0.0.1", 12345],
-          "server": ["testserver", 80]
+          "headers_base64_pairs": [
+            [
+              "YWNjZXB0",
+              "dGV4dC9wbGFpbg=="
+            ]
+          ],
+          "client": [
+            "127.0.0.1",
+            12345
+          ],
+          "server": [
+            "testserver",
+            80
+          ]
         },
-        "receive": [{"type": "http.request", "body_base64": "", "more_body": false}],
-        "send": {"kind": "capture-asgi-send"}
+        "receive": [
+          {
+            "type": "http.request",
+            "body_base64": "",
+            "more_body": false
+          }
+        ],
+        "send": {
+          "kind": "capture-asgi-send"
+        }
       },
-      "observations": ["dispatch"]
+      "observations": [
+        "dispatch"
+      ]
     }
   ]
 }

@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@50",
+  "schema": "migration-parity/parity-input@51",
   "cases": [
     {
       "case_id": "starlette.datastructures.FormData.multidict-lookups.constructor-and-equality",
@@ -21,8 +21,14 @@
           {
             "kind": "pairs",
             "entries": [
-              ["a", "123"],
-              ["a", "456"],
+              [
+                "a",
+                "123"
+              ],
+              [
+                "a",
+                "456"
+              ],
               [
                 "b",
                 {
@@ -37,7 +43,12 @@
         ],
         "kwargs": []
       },
-      "probe_keys": ["a", "A", "c", "b"],
+      "probe_keys": [
+        "a",
+        "A",
+        "c",
+        "b"
+      ],
       "equalities": [
         {
           "left": {
@@ -60,8 +71,14 @@
               {
                 "kind": "mapping",
                 "entries": [
-                  ["a", "123"],
-                  ["b", "789"]
+                  [
+                    "a",
+                    "123"
+                  ],
+                  [
+                    "b",
+                    "789"
+                  ]
                 ]
               }
             ],
@@ -73,8 +90,14 @@
               {
                 "kind": "pairs",
                 "entries": [
-                  ["a", "123"],
-                  ["b", "789"]
+                  [
+                    "a",
+                    "123"
+                  ],
+                  [
+                    "b",
+                    "789"
+                  ]
                 ]
               }
             ],
@@ -88,8 +111,14 @@
               {
                 "kind": "mapping",
                 "entries": [
-                  ["a", "123"],
-                  ["b", "789"]
+                  [
+                    "a",
+                    "123"
+                  ],
+                  [
+                    "b",
+                    "789"
+                  ]
                 ]
               }
             ],
@@ -98,13 +127,21 @@
           "right": {
             "kind": "mapping",
             "entries": [
-              ["a", "123"],
-              ["b", "789"]
+              [
+                "a",
+                "123"
+              ],
+              [
+                "b",
+                "789"
+              ]
             ]
           }
         }
       ],
-      "observations": ["multidict-lookups"]
+      "observations": [
+        "multidict-lookups"
+      ]
     },
     {
       "case_id": "starlette.datastructures.FormData.multidict-lookups.constructor-too-many-positional",
@@ -126,13 +163,19 @@
           {
             "kind": "mapping",
             "entries": [
-              ["a", "123"]
+              [
+                "a",
+                "123"
+              ]
             ]
           },
           {
             "kind": "pairs",
             "entries": [
-              ["b", "456"]
+              [
+                "b",
+                "456"
+              ]
             ]
           }
         ],
@@ -140,7 +183,9 @@
       },
       "probe_keys": [],
       "equalities": [],
-      "observations": ["multidict-lookups"]
+      "observations": [
+        "multidict-lookups"
+      ]
     }
   ]
 }

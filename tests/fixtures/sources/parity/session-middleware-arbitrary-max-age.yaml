@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@50",
+  "schema": "migration-parity/parity-input@51",
   "cases": [
     {
       "case_id": "starlette.middleware.sessions.SessionMiddleware.session-workflow.arbitrary-precision-max-age",
@@ -12,7 +12,9 @@
         "starlette.middleware.sessions.SessionMiddleware.session-workflow.set-cookie-only-on-modification",
         "starlette.middleware.sessions.SessionMiddleware.session-workflow.arbitrary-precision-max-age"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
       "constructor": {
         "secret_key": "session-parity-secret",
@@ -29,7 +31,10 @@
           "request_id": "large-max-age-cookie",
           "scope": {
             "type": "http",
-            "asgi": {"version": "3.0", "spec_version": "2.4"},
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.4"
+            },
             "http_version": "1.1",
             "method": "GET",
             "scheme": "http",
@@ -38,20 +43,38 @@
             "query_string_base64": "",
             "root_path": "",
             "headers_base64_pairs": [],
-            "client": ["127.0.0.1", 12345],
-            "server": ["testserver", 80]
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ]
           },
           "receive": [
-            {"type": "http.request", "body_base64": "", "more_body": false}
+            {
+              "type": "http.request",
+              "body_base64": "",
+              "more_body": false
+            }
           ],
           "cookie_source": null,
-          "action": {"kind": "update", "values": {"user": "Ada"}}
+          "action": {
+            "kind": "update",
+            "values": {
+              "user": "Ada"
+            }
+          }
         },
         {
           "request_id": "large-max-age-cookie-round-trip",
           "scope": {
             "type": "http",
-            "asgi": {"version": "3.0", "spec_version": "2.4"},
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.4"
+            },
             "http_version": "1.1",
             "method": "GET",
             "scheme": "http",
@@ -60,20 +83,34 @@
             "query_string_base64": "",
             "root_path": "",
             "headers_base64_pairs": [],
-            "client": ["127.0.0.1", 12345],
-            "server": ["testserver", 80]
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ]
           },
           "receive": [
-            {"type": "http.request", "body_base64": "", "more_body": false}
+            {
+              "type": "http.request",
+              "body_base64": "",
+              "more_body": false
+            }
           ],
           "cookie_source": {
             "kind": "previous-set-cookie",
             "request_id": "large-max-age-cookie"
           },
-          "action": {"kind": "view"}
+          "action": {
+            "kind": "view"
+          }
         }
       ],
-      "observations": ["session-workflow"]
+      "observations": [
+        "session-workflow"
+      ]
     }
   ]
 }

@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@50",
+  "schema": "migration-parity/parity-input@51",
   "cases": [
     {
       "case_id": "starlette.templating.Jinja2Templates.template-public-workflow.url-for-function-name",
@@ -10,11 +10,18 @@
         "starlette.templating.Jinja2Templates.template-public-workflow.direct-render",
         "starlette.templating.Jinja2Templates.template-public-workflow.url-for-function-name"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
-      "observations": ["template-public-workflow"],
+      "observations": [
+        "template-public-workflow"
+      ],
       "template_directories": [
-        {"id": "templates", "path": "templates"}
+        {
+          "id": "templates",
+          "path": "templates"
+        }
       ],
       "template_files": [
         {
@@ -26,7 +33,9 @@
       "constructor": {
         "directory": {
           "kind": "string",
-          "directory_ids": ["templates"]
+          "directory_ids": [
+            "templates"
+          ]
         },
         "environment": null
       },

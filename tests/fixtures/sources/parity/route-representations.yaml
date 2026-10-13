@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@50",
+  "schema": "migration-parity/parity-input@51",
   "cases": [
     {
       "case_id": "starlette.routing.Route.__init__.pinned-callable-shapes",
@@ -13,13 +13,19 @@
         "starlette.routing.Route.endpoint-name.object",
         "starlette.routing.Route.endpoint-name.lambda"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
       "path": "/",
       "methods": null,
       "name": null,
       "endpoints": [
-        {"kind": "function", "name": "func_homepage", "async": false},
+        {
+          "kind": "function",
+          "name": "func_homepage",
+          "async": false
+        },
         {
           "kind": "bound-method",
           "class_name": "Endpoint",
@@ -38,61 +44,101 @@
           "method_name": "my_staticmethod",
           "async": true
         },
-        {"kind": "object", "class_name": "Endpoint"},
-        {"kind": "lambda"}
+        {
+          "kind": "object",
+          "class_name": "Endpoint"
+        },
+        {
+          "kind": "lambda"
+        }
       ],
-      "observations": ["constructor_results"]
+      "observations": [
+        "constructor_results"
+      ]
     },
     {
       "case_id": "starlette.routing.Route.value-formatting.inferred-methods",
       "surface": "starlette.routing.Route",
       "operation": "value-formatting",
-      "covers": ["starlette.routing.Route.__repr__.with-inferred-methods"],
-      "target_profiles": ["python-package-cpython312"],
+      "covers": [
+        "starlette.routing.Route.__repr__.with-inferred-methods"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
       "route": {
         "path": "/welcome",
-        "endpoint": {"kind": "function", "name": "homepage", "async": false},
+        "endpoint": {
+          "kind": "function",
+          "name": "homepage",
+          "async": false
+        },
         "methods": null,
         "name": null
       },
-      "observations": ["representation"]
+      "observations": [
+        "representation"
+      ]
     },
     {
       "case_id": "starlette.routing.Route.value-formatting.class-endpoint-without-methods",
       "surface": "starlette.routing.Route",
       "operation": "value-formatting",
-      "covers": ["starlette.routing.Route.__repr__.class-endpoint-no-methods"],
-      "target_profiles": ["python-package-cpython312"],
+      "covers": [
+        "starlette.routing.Route.__repr__.class-endpoint-no-methods"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
       "route": {
         "path": "/welcome",
-        "endpoint": {"kind": "object", "class_name": "Endpoint"},
+        "endpoint": {
+          "kind": "object",
+          "class_name": "Endpoint"
+        },
         "methods": null,
         "name": null
       },
-      "observations": ["representation"]
+      "observations": [
+        "representation"
+      ]
     },
     {
       "case_id": "starlette.routing.WebSocketRoute.value-formatting.function-endpoint",
       "surface": "starlette.routing.WebSocketRoute",
       "operation": "value-formatting",
-      "covers": ["starlette.routing.WebSocketRoute.__repr__.function-endpoint"],
-      "target_profiles": ["python-package-cpython312"],
+      "covers": [
+        "starlette.routing.WebSocketRoute.__repr__.function-endpoint"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
       "route": {
         "path": "/ws",
-        "endpoint": {"kind": "function", "name": "websocket_endpoint", "async": true},
+        "endpoint": {
+          "kind": "function",
+          "name": "websocket_endpoint",
+          "async": true
+        },
         "name": null
       },
-      "observations": ["representation"]
+      "observations": [
+        "representation"
+      ]
     },
     {
       "case_id": "starlette.routing.Mount.value-formatting.unnamed",
       "surface": "starlette.routing.Mount",
       "operation": "value-formatting",
-      "covers": ["starlette.routing.Mount.__repr__.unnamed"],
-      "target_profiles": ["python-package-cpython312"],
+      "covers": [
+        "starlette.routing.Mount.__repr__.unnamed"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
       "mount": {
         "path": "/app",
@@ -100,20 +146,30 @@
         "routes": [
           {
             "path": "/",
-            "endpoint": {"kind": "function", "name": "homepage", "async": false},
+            "endpoint": {
+              "kind": "function",
+              "name": "homepage",
+              "async": false
+            },
             "methods": null,
             "name": null
           }
         ]
       },
-      "observations": ["representation"]
+      "observations": [
+        "representation"
+      ]
     },
     {
       "case_id": "starlette.routing.Mount.value-formatting.named",
       "surface": "starlette.routing.Mount",
       "operation": "value-formatting",
-      "covers": ["starlette.routing.Mount.__repr__.named"],
-      "target_profiles": ["python-package-cpython312"],
+      "covers": [
+        "starlette.routing.Mount.__repr__.named"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
       "mount": {
         "path": "/app",
@@ -121,20 +177,30 @@
         "routes": [
           {
             "path": "/",
-            "endpoint": {"kind": "function", "name": "homepage", "async": false},
+            "endpoint": {
+              "kind": "function",
+              "name": "homepage",
+              "async": false
+            },
             "methods": null,
             "name": null
           }
         ]
       },
-      "observations": ["representation"]
+      "observations": [
+        "representation"
+      ]
     },
     {
       "case_id": "starlette.routing.Host.value-formatting.unnamed",
       "surface": "starlette.routing.Host",
       "operation": "value-formatting",
-      "covers": ["starlette.routing.Host.__repr__.unnamed"],
-      "target_profiles": ["python-package-cpython312"],
+      "covers": [
+        "starlette.routing.Host.__repr__.unnamed"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
       "host": {
         "host": "example.com",
@@ -142,20 +208,30 @@
         "routes": [
           {
             "path": "/",
-            "endpoint": {"kind": "function", "name": "homepage", "async": false},
+            "endpoint": {
+              "kind": "function",
+              "name": "homepage",
+              "async": false
+            },
             "methods": null,
             "name": null
           }
         ]
       },
-      "observations": ["representation"]
+      "observations": [
+        "representation"
+      ]
     },
     {
       "case_id": "starlette.routing.Host.value-formatting.named",
       "surface": "starlette.routing.Host",
       "operation": "value-formatting",
-      "covers": ["starlette.routing.Host.__repr__.named"],
-      "target_profiles": ["python-package-cpython312"],
+      "covers": [
+        "starlette.routing.Host.__repr__.named"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
       "host": {
         "host": "example.com",
@@ -163,13 +239,19 @@
         "routes": [
           {
             "path": "/",
-            "endpoint": {"kind": "function", "name": "homepage", "async": false},
+            "endpoint": {
+              "kind": "function",
+              "name": "homepage",
+              "async": false
+            },
             "methods": null,
             "name": null
           }
         ]
       },
-      "observations": ["representation"]
+      "observations": [
+        "representation"
+      ]
     }
   ]
 }

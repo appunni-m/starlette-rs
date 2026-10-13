@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@50",
+  "schema": "migration-parity/parity-input@51",
   "cases": [
     {
       "case_id": "starlette.routing.Route.__init__.duplicate-parameter-names",
@@ -9,23 +9,35 @@
         "starlette.routing.Route.__init__.duplicate-parameter-name-single",
         "starlette.routing.Route.__init__.duplicate-parameter-name-multiple"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
       "attempts": [
         {
           "path": "/{id}/{id}",
-          "endpoint": {"kind": "function", "name": "user", "async": false},
+          "endpoint": {
+            "kind": "function",
+            "name": "user",
+            "async": false
+          },
           "methods": null,
           "name": null
         },
         {
           "path": "/{id}/{name}/{id}/{name}",
-          "endpoint": {"kind": "function", "name": "user", "async": false},
+          "endpoint": {
+            "kind": "function",
+            "name": "user",
+            "async": false
+          },
           "methods": null,
           "name": null
         }
       ],
-      "observations": ["constructor_results"]
+      "observations": [
+        "constructor_results"
+      ]
     }
   ]
 }

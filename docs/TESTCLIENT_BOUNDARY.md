@@ -9,7 +9,9 @@ bounded HTTP request/response, lifespan, and WebSocket-session slices of the doc
 The active slice compares ASGI2 and ASGI3 calls, HTTP scope projection,
 request-body delivery and lazy body-read timing, response headers/body, debug
 response extensions, the warning emitted when a request supplies a timeout,
-and application exception policy. Exception inputs compare default
+and application exception policy. Its HTTP response-body adapter also accepts
+buffer-protocol inputs such as `bytearray` and `memoryview`, matching the
+pinned transport's `BytesIO.write` call (`testclient.py:338-341`). Exception inputs compare default
 propagation, the synthesized 500 response when no response has started,
 preservation of a completed response when the app raises afterward, and
 preservation of the raised exception identity with explicit cause, implicit
@@ -53,6 +55,13 @@ The implementation boundary is:
   merging, app state, and construction of the HTTPX response through its public
   types. Rust calls the
   supplied ASGI callable through the existing PyO3 awaitable boundary.
+- For non-`bytes` response bodies, Rust delegates buffer extraction to
+  `io.BytesIO.write`. The pinned transport uses that same operation, whose
+  accepted buffer formats and `TypeError`/`BufferError` behavior are part of
+  CPython's buffer protocol. Rust still selects the ASGI message branch and
+  owns body accumulation and response completion; the input-only
+  `testclient-response-buffer-protocol.yaml` case compares `bytearray` and
+  `memoryview` values against the pinned source and installed package.
 - Rust owns WebSocket URL-to-scope projection, handshake and accepted
   subprotocol state, the client/app message streams, text/byte/JSON frame
   operations, and context-exit disconnect and task cleanup. Rust invokes

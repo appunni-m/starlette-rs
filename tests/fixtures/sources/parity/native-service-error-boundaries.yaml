@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@50",
+  "schema": "migration-parity/parity-input@51",
   "cases": [
     {
       "case_id": "starlette-rs.NativeApplication.service-body-streaming.error-phase-boundaries.endpoint-before-response",
@@ -17,10 +17,14 @@
         "routes": [
           {
             "path": "/upload",
-            "methods": ["POST"],
+            "methods": [
+              "POST"
+            ],
             "endpoint": {
               "request_body_action": "read-all-and-propagate-error",
-              "response_body": {"frames": []}
+              "response_body": {
+                "frames": []
+              }
             }
           }
         ]
@@ -30,13 +34,24 @@
         "uri": "/upload",
         "body": {
           "frames": [
-            {"data_base64": "cHJlZml4"},
-            {"error": {"kind": "probe-body-error", "message": "endpoint source marker"}}
+            {
+              "data_base64": "cHJlZml4"
+            },
+            {
+              "error": {
+                "kind": "probe-body-error",
+                "message": "endpoint source marker"
+              }
+            }
           ]
         }
       },
-      "drive": {"service_future": "resolve"},
-      "observations": ["workflow"]
+      "drive": {
+        "service_future": "resolve"
+      },
+      "observations": [
+        "workflow"
+      ]
     },
     {
       "case_id": "starlette-rs.NativeApplication.service-body-streaming.error-phase-boundaries.response-after-start",
@@ -54,13 +69,22 @@
         "routes": [
           {
             "path": "/download",
-            "methods": ["GET"],
+            "methods": [
+              "GET"
+            ],
             "endpoint": {
               "request_body_action": "leave-unread",
               "response_body": {
                 "frames": [
-                  {"data_base64": "cHJlZml4"},
-                  {"error": {"kind": "probe-body-error", "message": "response source marker"}}
+                  {
+                    "data_base64": "cHJlZml4"
+                  },
+                  {
+                    "error": {
+                      "kind": "probe-body-error",
+                      "message": "response source marker"
+                    }
+                  }
                 ]
               }
             }
@@ -70,13 +94,21 @@
       "request": {
         "method": "GET",
         "uri": "/download",
-        "body": {"frames": [{"end": true}]}
+        "body": {
+          "frames": [
+            {
+              "end": true
+            }
+          ]
+        }
       },
       "drive": {
         "service_future": "resolve",
         "response_body": "read-to-error"
       },
-      "observations": ["workflow"]
+      "observations": [
+        "workflow"
+      ]
     }
   ]
 }

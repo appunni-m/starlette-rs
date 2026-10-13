@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@50",
+  "schema": "migration-parity/parity-input@51",
   "cases": [
     {
       "case_id": "starlette.datastructures.UploadFile.file-operations.spooled-file-rollover",
@@ -115,15 +115,51 @@
             "watchdog_release_delay_ms": 500
           },
           "actions": [
-            {"action_id": "read-empty", "call": "read", "size": -1},
-            {"action_id": "write-first", "call": "write", "data_base64": "ZGF0YQ=="},
-            {"action_id": "read-after-first-write", "call": "read", "size": -1},
-            {"action_id": "seek-before-first-read", "call": "seek", "offset": 0},
-            {"action_id": "read-first-write", "call": "read", "size": -1},
-            {"action_id": "write-second", "call": "write", "data_base64": "IG1vcmU="},
-            {"action_id": "read-after-second-write", "call": "read", "size": -1},
-            {"action_id": "seek-before-final-read", "call": "seek", "offset": 0},
-            {"action_id": "read-complete", "call": "read", "size": -1},
+            {
+              "action_id": "read-empty",
+              "call": "read",
+              "size": -1
+            },
+            {
+              "action_id": "write-first",
+              "call": "write",
+              "data_base64": "ZGF0YQ=="
+            },
+            {
+              "action_id": "read-after-first-write",
+              "call": "read",
+              "size": -1
+            },
+            {
+              "action_id": "seek-before-first-read",
+              "call": "seek",
+              "offset": 0
+            },
+            {
+              "action_id": "read-first-write",
+              "call": "read",
+              "size": -1
+            },
+            {
+              "action_id": "write-second",
+              "call": "write",
+              "data_base64": "IG1vcmU="
+            },
+            {
+              "action_id": "read-after-second-write",
+              "call": "read",
+              "size": -1
+            },
+            {
+              "action_id": "seek-before-final-read",
+              "call": "seek",
+              "offset": 0
+            },
+            {
+              "action_id": "read-complete",
+              "call": "read",
+              "size": -1
+            },
             {
               "action_id": "read-failure",
               "call": "read",
@@ -133,7 +169,10 @@
                 "message": "input-defined upload read failure"
               }
             },
-            {"action_id": "close", "call": "close"}
+            {
+              "action_id": "close",
+              "call": "close"
+            }
           ]
         },
         {
@@ -146,15 +185,51 @@
             "watchdog_release_delay_ms": 500
           },
           "actions": [
-            {"action_id": "read-empty", "call": "read", "size": -1},
-            {"action_id": "write-first", "call": "write", "data_base64": "ZGF0YQ=="},
-            {"action_id": "read-after-first-write", "call": "read", "size": -1},
-            {"action_id": "seek-before-first-read", "call": "seek", "offset": 0},
-            {"action_id": "read-first-write", "call": "read", "size": -1},
-            {"action_id": "write-second", "call": "write", "data_base64": "IG1vcmU="},
-            {"action_id": "read-after-second-write", "call": "read", "size": -1},
-            {"action_id": "seek-before-final-read", "call": "seek", "offset": 0},
-            {"action_id": "read-complete", "call": "read", "size": -1},
+            {
+              "action_id": "read-empty",
+              "call": "read",
+              "size": -1
+            },
+            {
+              "action_id": "write-first",
+              "call": "write",
+              "data_base64": "ZGF0YQ=="
+            },
+            {
+              "action_id": "read-after-first-write",
+              "call": "read",
+              "size": -1
+            },
+            {
+              "action_id": "seek-before-first-read",
+              "call": "seek",
+              "offset": 0
+            },
+            {
+              "action_id": "read-first-write",
+              "call": "read",
+              "size": -1
+            },
+            {
+              "action_id": "write-second",
+              "call": "write",
+              "data_base64": "IG1vcmU="
+            },
+            {
+              "action_id": "read-after-second-write",
+              "call": "read",
+              "size": -1
+            },
+            {
+              "action_id": "seek-before-final-read",
+              "call": "seek",
+              "offset": 0
+            },
+            {
+              "action_id": "read-complete",
+              "call": "read",
+              "size": -1
+            },
             {
               "action_id": "read-failure",
               "call": "read",
@@ -164,7 +239,10 @@
                 "message": "input-defined upload read failure"
               }
             },
-            {"action_id": "close", "call": "close"}
+            {
+              "action_id": "close",
+              "call": "close"
+            }
           ]
         }
       ]

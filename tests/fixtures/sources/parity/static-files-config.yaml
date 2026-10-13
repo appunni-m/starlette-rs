@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@50",
+  "schema": "migration-parity/parity-input@51",
   "cases": [
     {
       "case_id": "starlette.staticfiles.StaticFiles.configuration-check.constructor-missing-directory",
@@ -8,7 +8,9 @@
       "covers": [
         "starlette.staticfiles.StaticFiles.configuration-check.constructor-missing-directory"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
       "directory_path": "build/parity/static-files-config/constructor-missing",
       "directory_kind": "missing",
@@ -18,7 +20,9 @@
       "check_dir": true,
       "follow_symlink": false,
       "calls": [],
-      "observations": ["configuration-check"]
+      "observations": [
+        "configuration-check"
+      ]
     },
     {
       "case_id": "starlette.staticfiles.StaticFiles.configuration-check.constructor-not-directory",
@@ -27,7 +31,9 @@
       "covers": [
         "starlette.staticfiles.StaticFiles.configuration-check.constructor-not-directory"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
       "directory_path": "build/parity/static-files-config/constructor-file-root",
       "directory_kind": "file",
@@ -37,7 +43,9 @@
       "check_dir": true,
       "follow_symlink": false,
       "calls": [],
-      "observations": ["configuration-check"]
+      "observations": [
+        "configuration-check"
+      ]
     },
     {
       "case_id": "starlette.staticfiles.StaticFiles.configuration-check.lazy-missing-directory",
@@ -46,7 +54,9 @@
       "covers": [
         "starlette.staticfiles.StaticFiles.configuration-check.lazy-missing-directory"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
       "directory_path": "build/parity/static-files-config/no_such_directory",
       "directory_kind": "missing",
@@ -59,7 +69,10 @@
         {
           "scope": {
             "type": "http",
-            "asgi": {"version": "3.0", "spec_version": "2.4"},
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.4"
+            },
             "http_version": "1.1",
             "method": "GET",
             "scheme": "http",
@@ -68,14 +81,24 @@
             "query_string_base64": "",
             "root_path": "",
             "headers_base64_pairs": [],
-            "client": ["127.0.0.1", 12345],
-            "server": ["testserver", 80]
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ]
           },
           "incoming": [],
-          "send": {"kind": "capture-asgi-send"}
+          "send": {
+            "kind": "capture-asgi-send"
+          }
         }
       ],
-      "observations": ["configuration-check"]
+      "observations": [
+        "configuration-check"
+      ]
     },
     {
       "case_id": "starlette.staticfiles.StaticFiles.configuration-check.lazy-missing-pathlike-display",
@@ -84,7 +107,9 @@
       "covers": [
         "starlette.staticfiles.StaticFiles.configuration-check.lazy-missing-directory"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
       "directory_path": "build/parity/static-files-config/lazy-pathlike-missing",
       "directory_pathlike": {
@@ -100,7 +125,10 @@
         {
           "scope": {
             "type": "http",
-            "asgi": {"version": "3.0", "spec_version": "2.4"},
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.4"
+            },
             "http_version": "1.1",
             "method": "GET",
             "scheme": "http",
@@ -109,14 +137,24 @@
             "query_string_base64": "",
             "root_path": "",
             "headers_base64_pairs": [],
-            "client": ["127.0.0.1", 12345],
-            "server": ["testserver", 80]
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ]
           },
           "incoming": [],
-          "send": {"kind": "capture-asgi-send"}
+          "send": {
+            "kind": "capture-asgi-send"
+          }
         }
       ],
-      "observations": ["configuration-check"]
+      "observations": [
+        "configuration-check"
+      ]
     },
     {
       "case_id": "starlette.staticfiles.StaticFiles.configuration-check.lazy-not-directory",
@@ -125,7 +163,9 @@
       "covers": [
         "starlette.staticfiles.StaticFiles.configuration-check.lazy-not-directory"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
       "directory_path": "build/parity/static-files-config/lazy-file-root",
       "directory_kind": "file",
@@ -138,7 +178,10 @@
         {
           "scope": {
             "type": "http",
-            "asgi": {"version": "3.0", "spec_version": "2.4"},
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.4"
+            },
             "http_version": "1.1",
             "method": "GET",
             "scheme": "http",
@@ -147,14 +190,24 @@
             "query_string_base64": "",
             "root_path": "",
             "headers_base64_pairs": [],
-            "client": ["127.0.0.1", 12345],
-            "server": ["testserver", 80]
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ]
           },
           "incoming": [],
-          "send": {"kind": "capture-asgi-send"}
+          "send": {
+            "kind": "capture-asgi-send"
+          }
         }
       ],
-      "observations": ["configuration-check"]
+      "observations": [
+        "configuration-check"
+      ]
     },
     {
       "case_id": "starlette.staticfiles.StaticFiles.configuration-check.lazy-not-directory-pathlike-display",
@@ -163,7 +216,9 @@
       "covers": [
         "starlette.staticfiles.StaticFiles.configuration-check.lazy-not-directory"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
       "directory_path": "build/parity/static-files-config/lazy-pathlike-file-root",
       "directory_pathlike": {
@@ -179,7 +234,10 @@
         {
           "scope": {
             "type": "http",
-            "asgi": {"version": "3.0", "spec_version": "2.4"},
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.4"
+            },
             "http_version": "1.1",
             "method": "GET",
             "scheme": "http",
@@ -188,14 +246,24 @@
             "query_string_base64": "",
             "root_path": "",
             "headers_base64_pairs": [],
-            "client": ["127.0.0.1", 12345],
-            "server": ["testserver", 80]
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ]
           },
           "incoming": [],
-          "send": {"kind": "capture-asgi-send"}
+          "send": {
+            "kind": "capture-asgi-send"
+          }
         }
       ],
-      "observations": ["configuration-check"]
+      "observations": [
+        "configuration-check"
+      ]
     },
     {
       "case_id": "starlette.staticfiles.StaticFiles.configuration-check.repeated-call-state-and-asgi-events",
@@ -204,7 +272,9 @@
       "covers": [
         "starlette.staticfiles.StaticFiles.configuration-check.repeated-call-state-and-asgi-events"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
       "directory_path": "build/parity/static-files-config/repeated-root",
       "directory_kind": "directory",
@@ -217,7 +287,10 @@
         {
           "scope": {
             "type": "http",
-            "asgi": {"version": "3.0", "spec_version": "2.4"},
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.4"
+            },
             "http_version": "1.1",
             "method": "GET",
             "scheme": "http",
@@ -226,16 +299,27 @@
             "query_string_base64": "",
             "root_path": "",
             "headers_base64_pairs": [],
-            "client": ["127.0.0.1", 12345],
-            "server": ["testserver", 80]
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ]
           },
           "incoming": [],
-          "send": {"kind": "capture-asgi-send"}
+          "send": {
+            "kind": "capture-asgi-send"
+          }
         },
         {
           "scope": {
             "type": "http",
-            "asgi": {"version": "3.0", "spec_version": "2.4"},
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.4"
+            },
             "http_version": "1.1",
             "method": "GET",
             "scheme": "http",
@@ -244,14 +328,24 @@
             "query_string_base64": "",
             "root_path": "",
             "headers_base64_pairs": [],
-            "client": ["127.0.0.1", 12345],
-            "server": ["testserver", 80]
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ]
           },
           "incoming": [],
-          "send": {"kind": "capture-asgi-send"}
+          "send": {
+            "kind": "capture-asgi-send"
+          }
         }
       ],
-      "observations": ["configuration-check"]
+      "observations": [
+        "configuration-check"
+      ]
     }
   ]
 }

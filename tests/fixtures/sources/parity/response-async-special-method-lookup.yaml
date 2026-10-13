@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@50",
+  "schema": "migration-parity/parity-input@51",
   "cases": [
     {
       "case_id": "starlette.responses.StreamingResponse.consumer-construction.async-iteration-special-method-lookup",
@@ -10,24 +10,38 @@
         "starlette.responses.StreamingResponse.consumer-construction.user-call-protocols",
         "starlette.responses.StreamingResponse.consumer-construction.async-iteration-special-method-lookup"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
-      "observations": ["response-consumer"],
+      "observations": [
+        "response-consumer"
+      ],
       "construction": {
         "content": {
           "kind": "async-iterator",
           "value": {
-            "chunks": [{"kind": "text", "value": "class-level iteration"}],
+            "chunks": [
+              {
+                "kind": "text",
+                "value": "class-level iteration"
+              }
+            ],
             "completion": "awaited",
             "checkpoint": false,
             "failure": null,
-            "instance_special_method_shadows": ["__aiter__", "__anext__"]
+            "instance_special_method_shadows": [
+              "__aiter__",
+              "__anext__"
+            ]
           }
         },
         "omit_content": false,
         "kwargs": {},
         "class_attributes": {},
-        "render": {"kind": "default"}
+        "render": {
+          "kind": "default"
+        }
       },
       "post_init_attributes": {},
       "scope": {
@@ -35,7 +49,9 @@
         "path": "/async-iteration-special-methods",
         "method": "GET",
         "headers": [],
-        "asgi": {"spec_version": "2.4"}
+        "asgi": {
+          "spec_version": "2.4"
+        }
       },
       "send_failure": null,
       "background_label": null

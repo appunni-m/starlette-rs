@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@50",
+  "schema": "migration-parity/parity-input@51",
   "cases": [
     {
       "case_id": "starlette.testclient.TestClient.lifespan-context.normal-managed-cycle",
@@ -1277,23 +1277,34 @@
         "python-package-cpython314"
       ],
       "assets": [],
-      "observations": ["lifespan-context"],
+      "observations": [
+        "lifespan-context"
+      ],
       "testclient": {
         "base_url": "http://testserver",
         "raise_server_exceptions": true,
         "root_path": "",
-        "client": ["testclient", 50000],
+        "client": [
+          "testclient",
+          50000
+        ],
         "headers": [],
         "backend": "asyncio",
         "backend_options": {}
       },
       "client_actions": [
-        {"operation": "enter"},
-        {"operation": "exit"}
+        {
+          "operation": "enter"
+        },
+        {
+          "operation": "exit"
+        }
       ],
       "asgi_app": {
         "kind": "starlette-router-lifespan",
-        "scope_fields": ["type"],
+        "scope_fields": [
+          "type"
+        ],
         "scope_mutations": [],
         "callback": {
           "entry_effect": "lifespan-entered",
@@ -1319,20 +1330,31 @@
         "python-package-cpython314"
       ],
       "assets": [],
-      "observations": ["lifespan-context"],
+      "observations": [
+        "lifespan-context"
+      ],
       "testclient": {
         "base_url": "http://testserver",
         "raise_server_exceptions": true,
         "root_path": "",
-        "client": ["testclient", 50000],
+        "client": [
+          "testclient",
+          50000
+        ],
         "headers": [],
         "backend": "asyncio",
         "backend_options": {}
       },
-      "client_actions": [{"operation": "enter"}],
+      "client_actions": [
+        {
+          "operation": "enter"
+        }
+      ],
       "asgi_app": {
         "kind": "starlette-router-lifespan",
-        "scope_fields": ["type"],
+        "scope_fields": [
+          "type"
+        ],
         "scope_mutations": [],
         "callback": {
           "entry_error": {
@@ -1363,26 +1385,24 @@
         "python-package-cpython314"
       ],
       "assets": [],
-      "observations": ["lifespan-context"],
+      "observations": [
+        "lifespan-context"
+      ],
       "testclient": {
         "base_url": "http://testserver",
         "raise_server_exceptions": true,
         "root_path": "",
-        "client": ["testclient", 50000],
+        "client": [
+          "testclient",
+          50000
+        ],
         "headers": [],
         "backend": "asyncio",
         "backend_options": {}
       },
       "client_actions": [
-        {"operation": "enter"},
         {
-          "operation": "request",
-          "request": {
-            "method": "GET",
-            "url": "/",
-            "headers_base64_pairs": [],
-            "body_base64": ""
-          }
+          "operation": "enter"
         },
         {
           "operation": "request",
@@ -1393,13 +1413,33 @@
             "body_base64": ""
           }
         },
-        {"operation": "exit"}
+        {
+          "operation": "request",
+          "request": {
+            "method": "GET",
+            "url": "/",
+            "headers_base64_pairs": [],
+            "body_base64": ""
+          }
+        },
+        {
+          "operation": "exit"
+        }
       ],
       "asgi_app": {
         "kind": "starlette-router-state",
-        "scope_fields": ["type", "state"],
-        "loop_relations": ["active_lifespan", "previous_http_request"],
-        "lifespan_state": {"count": 0, "items": []},
+        "scope_fields": [
+          "type",
+          "state"
+        ],
+        "loop_relations": [
+          "active_lifespan",
+          "previous_http_request"
+        ],
+        "lifespan_state": {
+          "count": 0,
+          "items": []
+        },
         "routes": [
           {
             "transport": "http",
@@ -1410,33 +1450,53 @@
                 "operation": "read",
                 "name": "count_before",
                 "source": "request",
-                "path": ["count"],
+                "path": [
+                  "count"
+                ],
                 "access": "item"
               },
               {
                 "operation": "read",
                 "name": "items_before",
                 "source": "request",
-                "path": ["items"],
+                "path": [
+                  "items"
+                ],
                 "access": "item"
               },
               {
                 "operation": "identity",
                 "name": "request_items_are_lifespan_items",
-                "left": {"source": "request", "path": ["items"], "access": "item"},
-                "right": {"source": "lifespan", "path": ["items"], "access": "item"}
+                "left": {
+                  "source": "request",
+                  "path": [
+                    "items"
+                  ],
+                  "access": "item"
+                },
+                "right": {
+                  "source": "lifespan",
+                  "path": [
+                    "items"
+                  ],
+                  "access": "item"
+                }
               },
               {
                 "operation": "set",
                 "target": "request",
-                "path": ["count"],
+                "path": [
+                  "count"
+                ],
                 "access": "item",
                 "value": 1
               },
               {
                 "operation": "append",
                 "target": "request",
-                "path": ["items"],
+                "path": [
+                  "items"
+                ],
                 "access": "item",
                 "value": 1
               },
@@ -1444,14 +1504,18 @@
                 "operation": "read",
                 "name": "count_after",
                 "source": "request",
-                "path": ["count"],
+                "path": [
+                  "count"
+                ],
                 "access": "item"
               },
               {
                 "operation": "read",
                 "name": "items_after",
                 "source": "request",
-                "path": ["items"],
+                "path": [
+                  "items"
+                ],
                 "access": "item"
               }
             ]
@@ -1464,13 +1528,17 @@
               "name": "request_count",
               "connection": "Request",
               "type_parameter": "LifespanState",
-              "path": ["count"]
+              "path": [
+                "count"
+              ]
             },
             {
               "name": "request_items",
               "connection": "Request",
               "type_parameter": "LifespanState",
-              "path": ["items"]
+              "path": [
+                "items"
+              ]
             },
             {
               "name": "default_request_state",

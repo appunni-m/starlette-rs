@@ -1,17 +1,24 @@
 {
-  "schema": "migration-parity/parity-input@50",
+  "schema": "migration-parity/parity-input@51",
   "cases": [
     {
       "surface": "starlette.testclient.TestClient",
       "operation": "request-response",
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
-      "observations": ["request-response"],
+      "observations": [
+        "request-response"
+      ],
       "testclient": {
         "base_url": "http://testserver",
         "raise_server_exceptions": false,
         "root_path": "",
-        "client": ["testclient", 50000],
+        "client": [
+          "testclient",
+          50000
+        ],
         "headers": []
       },
       "request": {
@@ -50,7 +57,10 @@
             "type": "http.response.start",
             "status": 206,
             "headers_base64_pairs": [
-              ["Y29udGVudC10eXBl", "dGV4dC9wbGFpbg=="]
+              [
+                "Y29udGVudC10eXBl",
+                "dGV4dC9wbGFpbg=="
+              ]
             ]
           },
           {

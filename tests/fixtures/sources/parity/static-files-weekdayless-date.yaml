@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@50",
+  "schema": "migration-parity/parity-input@51",
   "cases": [
     {
       "case_id": "starlette.staticfiles.StaticFiles.asgi-call.if-modified-since-weekdayless-date",
@@ -8,7 +8,10 @@
       "covers": [
         "starlette.staticfiles.StaticFiles.asgi-call.conditional-date-match"
       ],
-      "target_profiles": ["rust-native-local", "python-package-cpython312"],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
       "assets": [],
       "directory": "public",
       "path_limit_stress": null,
@@ -27,7 +30,10 @@
       "follow_symlink": false,
       "scope": {
         "type": "http",
-        "asgi": {"version": "3.0", "spec_version": "2.4"},
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
         "http_version": "1.1",
         "method": "GET",
         "scheme": "http",
@@ -41,12 +47,22 @@
             "MTQgTm92IDIwMjMgMjI6MTM6MjAgR01U"
           ]
         ],
-        "client": ["127.0.0.1", 12345],
-        "server": ["testserver", 80]
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
       },
       "incoming": [],
-      "send": {"kind": "capture-asgi-send"},
-      "observations": ["asgi-call"]
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "asgi-call"
+      ]
     }
   ]
 }

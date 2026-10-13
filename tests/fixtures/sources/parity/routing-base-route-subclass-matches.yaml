@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@50",
+  "schema": "migration-parity/parity-input@51",
   "cases": [
     {
       "case_id": "starlette.routing.Router.route-dispatch.base-route-subclass-matches",
@@ -8,7 +8,9 @@
       "covers": [
         "starlette.routing.Router.route-dispatch.base-route-subclass-matches"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
       "custom_convertors": [],
       "redirect_slashes": true,
@@ -31,7 +33,9 @@
         {
           "kind": "http-route",
           "path": "/requested-path",
-          "methods": ["GET"],
+          "methods": [
+            "GET"
+          ],
           "endpoint": {
             "kind": "plain-text-response",
             "content": "built-in-route",
@@ -68,7 +72,9 @@
       "send": {
         "kind": "capture-asgi-send"
       },
-      "observations": ["route-dispatch"],
+      "observations": [
+        "route-dispatch"
+      ],
       "observe_router_scope": true
     }
   ]

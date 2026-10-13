@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@50",
+  "schema": "migration-parity/parity-input@51",
   "cases": [
     {
       "case_id": "starlette.datastructures.URL.query-parameter-operations.order-and-escaping",
@@ -22,16 +22,38 @@
       "actions": [
         {
           "method": "include_query_params",
-          "kwargs": {"tag": "fresh value", "added": "café /+"}
+          "kwargs": {
+            "tag": "fresh value",
+            "added": "caf\u00e9 /+"
+          }
         },
-        {"method": "remove_query_params", "args": ["space"]},
-        {"method": "remove_query_params", "args": [["tag", "empty", "missing"]]},
+        {
+          "method": "remove_query_params",
+          "args": [
+            "space"
+          ]
+        },
+        {
+          "method": "remove_query_params",
+          "args": [
+            [
+              "tag",
+              "empty",
+              "missing"
+            ]
+          ]
+        },
         {
           "method": "replace_query_params",
-          "kwargs": {"new key": "snow 雪", "symbol": "a&b=c"}
+          "kwargs": {
+            "new key": "snow \u96ea",
+            "symbol": "a&b=c"
+          }
         }
       ],
-      "observations": ["action-results"]
+      "observations": [
+        "action-results"
+      ]
     },
     {
       "case_id": "starlette.datastructures.URL.query-parameter-operations.test-url-query-params",
@@ -52,17 +74,50 @@
       "assets": [],
       "url": "https://example.org/path/?page=3",
       "actions": [
-        {"method": "include_query_params", "kwargs": {"page": 4}},
-        {"method": "include_query_params", "kwargs": {"search": "testing"}},
-        {"method": "replace_query_params", "kwargs": {"order": "name"}},
-        {"method": "remove_query_params", "args": ["order"]},
         {
           "method": "include_query_params",
-          "kwargs": {"page": 4, "search": "testing"}
+          "kwargs": {
+            "page": 4
+          }
         },
-        {"method": "remove_query_params", "args": [["page", "search"]]}
+        {
+          "method": "include_query_params",
+          "kwargs": {
+            "search": "testing"
+          }
+        },
+        {
+          "method": "replace_query_params",
+          "kwargs": {
+            "order": "name"
+          }
+        },
+        {
+          "method": "remove_query_params",
+          "args": [
+            "order"
+          ]
+        },
+        {
+          "method": "include_query_params",
+          "kwargs": {
+            "page": 4,
+            "search": "testing"
+          }
+        },
+        {
+          "method": "remove_query_params",
+          "args": [
+            [
+              "page",
+              "search"
+            ]
+          ]
+        }
       ],
-      "observations": ["action-results"]
+      "observations": [
+        "action-results"
+      ]
     }
   ]
 }

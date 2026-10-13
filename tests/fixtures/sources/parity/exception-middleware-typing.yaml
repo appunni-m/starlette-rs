@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@50",
+  "schema": "migration-parity/parity-input@51",
   "cases": [
     {
       "case_id": "starlette.middleware.exceptions.ExceptionMiddleware.__init__.catch-all-handler-annotations",
@@ -8,7 +8,9 @@
       "covers": [
         "starlette.middleware.exceptions.ExceptionMiddleware.__init__.constructor-handler-typing"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
       "typing_contract": {
         "application_kind": "asgi3-noop",
@@ -52,9 +54,13 @@
             "handler_name": "invalid_response_handler"
           }
         ],
-        "reveals": ["constructor"]
+        "reveals": [
+          "constructor"
+        ]
       },
-      "observations": ["typing_contract"]
+      "observations": [
+        "typing_contract"
+      ]
     }
   ]
 }

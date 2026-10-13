@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@50",
+  "schema": "migration-parity/parity-input@51",
   "cases": [
     {
       "case_id": "starlette.responses.StreamingResponse.asgi-call.client-disconnect-final-send-oserror",
@@ -15,15 +15,42 @@
       "content": {
         "kind": "chunks",
         "value": [
-          {"kind": "text", "value": "1"},
-          {"kind": "text", "value": ", "},
-          {"kind": "text", "value": "2"},
-          {"kind": "text", "value": ", "},
-          {"kind": "text", "value": "3"},
-          {"kind": "text", "value": ", "},
-          {"kind": "text", "value": "4"},
-          {"kind": "text", "value": ", "},
-          {"kind": "text", "value": "5"}
+          {
+            "kind": "text",
+            "value": "1"
+          },
+          {
+            "kind": "text",
+            "value": ", "
+          },
+          {
+            "kind": "text",
+            "value": "2"
+          },
+          {
+            "kind": "text",
+            "value": ", "
+          },
+          {
+            "kind": "text",
+            "value": "3"
+          },
+          {
+            "kind": "text",
+            "value": ", "
+          },
+          {
+            "kind": "text",
+            "value": "4"
+          },
+          {
+            "kind": "text",
+            "value": ", "
+          },
+          {
+            "kind": "text",
+            "value": "5"
+          }
         ]
       },
       "status_code": 200,
@@ -31,7 +58,9 @@
       "media_type": "text/plain",
       "background": {
         "kind": "async-values-recorder",
-        "values": ["background-must-not-run"]
+        "values": [
+          "background-must-not-run"
+        ]
       },
       "scope": {
         "type": "http",
@@ -47,8 +76,14 @@
         "query_string_base64": "",
         "root_path": "",
         "headers_base64_pairs": [],
-        "client": ["127.0.0.1", 12345],
-        "server": ["testserver", 80]
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
       },
       "incoming": [],
       "send": {
@@ -56,7 +91,9 @@
         "event_index": 10,
         "message": "terminal response send failed"
       },
-      "observations": ["asgi-call"],
+      "observations": [
+        "asgi-call"
+      ],
       "streaming": "async-generator"
     }
   ]

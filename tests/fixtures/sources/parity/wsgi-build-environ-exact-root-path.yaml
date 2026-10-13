@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@50",
+  "schema": "migration-parity/parity-input@51",
   "cases": [
     {
       "case_id": "starlette.middleware.wsgi.build-environ.path-equals-root-path",
@@ -8,7 +8,9 @@
       "covers": [
         "starlette.middleware.wsgi.build-environ.root-path-stripping"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
       "scope": {
         "type": "http",
@@ -21,10 +23,18 @@
       },
       "body_base64": "",
       "environ_probes": [
-        {"key": "SCRIPT_NAME", "kind": "value"},
-        {"key": "PATH_INFO", "kind": "value"}
+        {
+          "key": "SCRIPT_NAME",
+          "kind": "value"
+        },
+        {
+          "key": "PATH_INFO",
+          "kind": "value"
+        }
       ],
-      "observations": ["environ-results"]
+      "observations": [
+        "environ-results"
+      ]
     }
   ]
 }

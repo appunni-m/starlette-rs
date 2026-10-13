@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@50",
+  "schema": "migration-parity/parity-input@51",
   "cases": [
     {
       "case_id": "starlette.middleware.httpsredirect.HTTPSRedirectMiddleware.__call__.http-default-port",
@@ -1194,7 +1194,9 @@
       "constructor_probes": [
         {
           "probe_id": "default-allowed-hosts",
-          "attributes": ["allowed_hosts"]
+          "attributes": [
+            "allowed_hosts"
+          ]
         }
       ],
       "execution_schedule": [

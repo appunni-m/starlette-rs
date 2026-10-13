@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@50",
+  "schema": "migration-parity/parity-input@51",
   "cases": [
     {
       "case_id": "starlette.testclient.TestClient.lifespan-context.reentrant-context-entry",
@@ -18,36 +18,62 @@
         "python-package-cpython314"
       ],
       "assets": [],
-      "observations": ["lifespan-context"],
+      "observations": [
+        "lifespan-context"
+      ],
       "testclient": {
         "base_url": "http://testserver",
         "raise_server_exceptions": true,
         "root_path": "",
-        "client": ["testclient", 50000],
+        "client": [
+          "testclient",
+          50000
+        ],
         "headers": [],
         "backend": "asyncio",
         "backend_options": {}
       },
       "client_actions": [
-        {"operation": "enter"},
-        {"operation": "enter"},
-        {"operation": "exit"},
-        {"operation": "exit"}
+        {
+          "operation": "enter"
+        },
+        {
+          "operation": "enter"
+        },
+        {
+          "operation": "exit"
+        },
+        {
+          "operation": "exit"
+        }
       ],
       "asgi_app": {
         "kind": "asgi3",
-        "scope_fields": ["type"],
-        "loop_relations": ["active_lifespan", "previous_http_request"],
+        "scope_fields": [
+          "type"
+        ],
+        "loop_relations": [
+          "active_lifespan",
+          "previous_http_request"
+        ],
         "lifespan_actions": [
-          {"operation": "receive"},
           {
-            "operation": "send",
-            "message": {"type": "lifespan.startup.complete"}
+            "operation": "receive"
           },
-          {"operation": "receive"},
           {
             "operation": "send",
-            "message": {"type": "lifespan.shutdown.complete"}
+            "message": {
+              "type": "lifespan.startup.complete"
+            }
+          },
+          {
+            "operation": "receive"
+          },
+          {
+            "operation": "send",
+            "message": {
+              "type": "lifespan.shutdown.complete"
+            }
           }
         ],
         "http": {

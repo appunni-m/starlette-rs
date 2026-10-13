@@ -1814,14 +1814,32 @@ fn apply_send_message(
                     ));
                 }
                 let body = message.call_method1("get", ("body", PyBytes::new(py, b"")))?;
-                if state.method != "HEAD" {
-                    state
-                        .body
-                        .extend_from_slice(body.cast::<PyBytes>()?.as_bytes());
-                }
                 let more_body = message
                     .call_method1("get", ("more_body", false))?
                     .is_truthy()?;
+                let method = state.method.clone();
+                drop(state);
+
+                let body = if method != "HEAD" {
+                    response_body_bytes(py, &body)?
+                } else {
+                    Vec::new()
+                };
+
+                let mut state = lock_state(shared)?;
+                if !state.response_started {
+                    return Err(PyAssertionError::new_err(
+                        "Received \"http.response.body\" without \"http.response.start\".",
+                    ));
+                }
+                if state.response_complete {
+                    return Err(PyAssertionError::new_err(
+                        "Received \"http.response.body\" after response completed.",
+                    ));
+                }
+                if method != "HEAD" {
+                    state.body.extend_from_slice(&body);
+                }
                 if !more_body {
                     state.response_complete = true;
                     set_complete_event = state
@@ -1841,6 +1859,15 @@ fn apply_send_message(
         event.bind(py).call_method0("set")?;
     }
     Ok(())
+}
+
+fn response_body_bytes(py: Python<'_>, body: &Bound<'_, PyAny>) -> PyResult<Vec<u8>> {
+    // The pinned transport writes into io.BytesIO, which accepts Python's full
+    // buffer protocol and owns the corresponding TypeError/BufferError surface.
+    let stream = py.import("io")?.getattr("BytesIO")?.call0()?;
+    stream.call_method1("write", (body,))?;
+    let value = stream.call_method0("getvalue")?;
+    Ok(value.cast::<PyBytes>()?.as_bytes().to_vec())
 }
 
 fn decode_response_headers(

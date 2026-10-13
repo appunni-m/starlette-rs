@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@50",
+  "schema": "migration-parity/parity-input@51",
   "cases": [
     {
       "case_id": "starlette.testclient.TestClient.websocket-session.denial-body-app-error-context",
@@ -10,14 +10,21 @@
         "starlette.testclient.TestClient.websocket-session.denial-body-app-error-context",
         "starlette.testclient.TestClient.websocket-session.portal-cleanup"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
-      "observations": ["websocket-session"],
+      "observations": [
+        "websocket-session"
+      ],
       "testclient": {
         "base_url": "http://testserver",
         "raise_server_exceptions": true,
         "root_path": "",
-        "client": ["testclient", 50000],
+        "client": [
+          "testclient",
+          50000
+        ],
         "headers": [],
         "backend": "asyncio",
         "backend_options": {}
@@ -30,9 +37,14 @@
       },
       "asgi_app": {
         "kind": "asgi3",
-        "scope_fields": ["type", "path"],
+        "scope_fields": [
+          "type",
+          "path"
+        ],
         "actions": [
-          {"operation": "receive"},
+          {
+            "operation": "receive"
+          },
           {
             "operation": "send",
             "message": {

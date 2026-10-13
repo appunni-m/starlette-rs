@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@50",
+  "schema": "migration-parity/parity-input@51",
   "cases": [
     {
       "case_id": "starlette.responses.Response.asgi-call.background-kwargs-duplicate-key-error",
@@ -8,15 +8,23 @@
       "covers": [
         "starlette.responses.Response.asgi-call.background-kwargs-mapping-duplicate-key-error"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
-      "content": {"kind": "text", "value": "task initiated"},
+      "content": {
+        "kind": "text",
+        "value": "task initiated"
+      },
       "status_code": 200,
       "header_pairs": [],
       "media_type": "text/plain",
       "scope": {
         "type": "http",
-        "asgi": {"version": "3.0", "spec_version": "2.4"},
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
         "http_version": "1.1",
         "method": "GET",
         "scheme": "http",
@@ -25,12 +33,22 @@
         "query_string_base64": "",
         "root_path": "",
         "headers_base64_pairs": [],
-        "client": ["127.0.0.1", 12345],
-        "server": ["testserver", 80]
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
       },
       "incoming": [],
-      "send": {"kind": "capture-asgi-send"},
-      "observations": ["asgi-call"],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "asgi-call"
+      ],
       "background": {
         "kind": "single-task",
         "tasks": [
@@ -40,9 +58,25 @@
             "kwargs": {},
             "kwargs_mapping": {
               "kind": "ordered-key-mapping",
-              "items": [[1, "first"], ["label", "middle"], [true, "second"]]
+              "items": [
+                [
+                  1,
+                  "first"
+                ],
+                [
+                  "label",
+                  "middle"
+                ],
+                [
+                  true,
+                  "second"
+                ]
+              ]
             },
-            "callable": {"kind": "builtin", "name": "dict"},
+            "callable": {
+              "kind": "builtin",
+              "name": "dict"
+            },
             "failure": null
           }
         ]

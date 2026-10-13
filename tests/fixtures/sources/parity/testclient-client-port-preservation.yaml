@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@50",
+  "schema": "migration-parity/parity-input@51",
   "cases": [
     {
       "case_id": "starlette.testclient.TestClient.request-response.client-port-preserved-above-u16",
@@ -10,14 +10,21 @@
         "starlette.testclient.TestClient.request-response.request-message",
         "starlette.testclient.TestClient.request-response.response-and-debug"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
-      "observations": ["request-response"],
+      "observations": [
+        "request-response"
+      ],
       "testclient": {
         "base_url": "http://testserver",
         "raise_server_exceptions": true,
         "root_path": "",
-        "client": ["192.0.2.12", 65536],
+        "client": [
+          "192.0.2.12",
+          65536
+        ],
         "headers": []
       },
       "request": {
@@ -28,7 +35,10 @@
       },
       "asgi_app": {
         "kind": "asgi3",
-        "scope_fields": ["type", "client"],
+        "scope_fields": [
+          "type",
+          "client"
+        ],
         "receive_count": 1,
         "messages": [
           {

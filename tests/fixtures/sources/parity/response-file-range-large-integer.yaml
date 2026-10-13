@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@50",
+  "schema": "migration-parity/parity-input@51",
   "cases": [
     {
       "case_id": "starlette.responses.FileResponse.consumer-construction.large-range-end",
@@ -9,9 +9,13 @@
         "starlette.responses.FileResponse.consumer-construction.public-render-and-asgi",
         "starlette.responses.FileResponse.consumer-construction.user-call-protocols"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
-      "observations": ["response-consumer"],
+      "observations": [
+        "response-consumer"
+      ],
       "construction": {
         "content": {
           "kind": "file",
@@ -25,15 +29,24 @@
         "omit_content": false,
         "kwargs": {},
         "class_attributes": {},
-        "render": {"kind": "default"}
+        "render": {
+          "kind": "default"
+        }
       },
       "post_init_attributes": {},
       "scope": {
         "type": "http",
         "path": "/variants",
         "method": "HEAD",
-        "headers": [["cmFuZ2U=", "Ynl0ZXM9MS00"]],
-        "asgi": {"spec_version": "2.4"}
+        "headers": [
+          [
+            "cmFuZ2U=",
+            "Ynl0ZXM9MS00"
+          ]
+        ],
+        "asgi": {
+          "spec_version": "2.4"
+        }
       },
       "send_failure": null,
       "background_label": null,
@@ -43,7 +56,12 @@
         "file_hooks": {
           "_parse_range_header": {
             "delegate": false,
-            "ranges": [[1, 18446744073709551616]]
+            "ranges": [
+              [
+                1,
+                18446744073709551616
+              ]
+            ]
           }
         }
       }

@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@50",
+  "schema": "migration-parity/parity-input@51",
   "cases": [
     {
       "case_id": "starlette.concurrency.run_until_first_complete.zero-callbacks-deprecation-warning",
@@ -9,9 +9,13 @@
         "starlette.concurrency.run_until_first_complete.zero-callbacks",
         "starlette.concurrency.run_until_first_complete.deprecation-warning"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
-      "observations": ["run_until_first_complete"],
+      "observations": [
+        "run_until_first_complete"
+      ],
       "events": [],
       "tasks": []
     }

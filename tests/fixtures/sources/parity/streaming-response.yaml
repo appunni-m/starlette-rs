@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@50",
+  "schema": "migration-parity/parity-input@51",
   "cases": [
     {
       "case_id": "starlette.responses.StreamingResponse.asgi-call.unknown-size-content",
@@ -764,19 +764,29 @@
       "covers": [
         "starlette.responses.StreamingResponse.asgi-call.client-disconnect-start-send-oserror"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
       "content": {
         "kind": "repeating-chunks",
         "checkpoint": "yield-to-event-loop",
-        "value": [{"kind": "base64-bytes", "value": "Y2h1bms="}]
+        "value": [
+          {
+            "kind": "base64-bytes",
+            "value": "Y2h1bms="
+          }
+        ]
       },
       "status_code": 200,
       "header_pairs": [],
       "media_type": null,
       "scope": {
         "type": "http",
-        "asgi": {"version": "3.0", "spec_version": "2.4"},
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
         "http_version": "1.1",
         "method": "GET",
         "scheme": "http",
@@ -785,17 +795,27 @@
         "query_string_base64": "",
         "root_path": "",
         "headers_base64_pairs": [],
-        "client": ["127.0.0.1", 12345],
-        "server": ["testserver", 80]
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
       },
       "incoming": [],
-      "receive_behavior": {"kind": "raise-not-implemented"},
+      "receive_behavior": {
+        "kind": "raise-not-implemented"
+      },
       "send": {
         "kind": "capture-asgi-send-until-oserror",
         "event_index": 0,
         "message": ""
       },
-      "observations": ["asgi-call"],
+      "observations": [
+        "asgi-call"
+      ],
       "streaming": "async-generator",
       "stream_lifecycle": {
         "kind": "cancellation-and-finally-recorder",

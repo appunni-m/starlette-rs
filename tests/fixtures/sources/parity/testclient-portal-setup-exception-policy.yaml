@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@50",
+  "schema": "migration-parity/parity-input@51",
   "cases": [
     {
       "case_id": "starlette.testclient.TestClient.request-response.backend-setup-error-suppressed-to-empty-500",
@@ -10,14 +10,21 @@
         "starlette.testclient.TestClient.request-response.backend-setup-exception-policy",
         "starlette.testclient.TestClient.request-response.response-and-debug"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
-      "observations": ["request-response"],
+      "observations": [
+        "request-response"
+      ],
       "testclient": {
         "base_url": "http://testserver",
         "raise_server_exceptions": false,
         "root_path": "",
-        "client": ["testclient", 50000],
+        "client": [
+          "testclient",
+          50000
+        ],
         "headers": [],
         "backend": "no-such-anyio-backend"
       },
@@ -29,7 +36,9 @@
       },
       "asgi_app": {
         "kind": "asgi3",
-        "scope_fields": ["type"],
+        "scope_fields": [
+          "type"
+        ],
         "receive_count": 0,
         "messages": []
       }
@@ -42,14 +51,21 @@
         "starlette.testclient.TestClient.request-response.scope-projection",
         "starlette.testclient.TestClient.request-response.backend-setup-exception-policy"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
-      "observations": ["request-response"],
+      "observations": [
+        "request-response"
+      ],
       "testclient": {
         "base_url": "http://testserver",
         "raise_server_exceptions": true,
         "root_path": "",
-        "client": ["testclient", 50000],
+        "client": [
+          "testclient",
+          50000
+        ],
         "headers": [],
         "backend": "no-such-anyio-backend"
       },
@@ -61,7 +77,9 @@
       },
       "asgi_app": {
         "kind": "asgi3",
-        "scope_fields": ["type"],
+        "scope_fields": [
+          "type"
+        ],
         "receive_count": 0,
         "messages": []
       }

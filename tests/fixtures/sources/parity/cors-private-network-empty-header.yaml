@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@50",
+  "schema": "migration-parity/parity-input@51",
   "cases": [
     {
       "case_id": "starlette.middleware.cors.CORSMiddleware.__call__.private-network-empty-value-denial",
@@ -9,8 +9,12 @@
         "starlette.middleware.cors.CORSMiddleware.construct",
         "starlette.middleware.cors.CORSMiddleware.private-network-empty-header-denial"
       ],
-      "execution_schedule": ["dispatch"],
-      "target_profiles": ["python-package-cpython312"],
+      "execution_schedule": [
+        "dispatch"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
       "assets": [],
       "steps": [
         {
@@ -37,27 +41,61 @@
                 ]
               }
             },
-            "allow_origins": {"kind": "literal", "value": ["*"]},
-            "allow_methods": {"kind": "literal", "value": ["*"]},
-            "allow_headers": {"kind": "literal", "value": []},
-            "allow_credentials": {"kind": "literal", "value": false},
-            "allow_origin_regex": {"kind": "literal", "value": null},
-            "allow_private_network": {"kind": "literal", "value": false},
-            "expose_headers": {"kind": "literal", "value": []},
-            "max_age": {"kind": "literal", "value": 600}
+            "allow_origins": {
+              "kind": "literal",
+              "value": [
+                "*"
+              ]
+            },
+            "allow_methods": {
+              "kind": "literal",
+              "value": [
+                "*"
+              ]
+            },
+            "allow_headers": {
+              "kind": "literal",
+              "value": []
+            },
+            "allow_credentials": {
+              "kind": "literal",
+              "value": false
+            },
+            "allow_origin_regex": {
+              "kind": "literal",
+              "value": null
+            },
+            "allow_private_network": {
+              "kind": "literal",
+              "value": false
+            },
+            "expose_headers": {
+              "kind": "literal",
+              "value": []
+            },
+            "max_age": {
+              "kind": "literal",
+              "value": 600
+            }
           }
         },
         {
           "step_id": "dispatch",
           "surface": "starlette.middleware.cors.CORSMiddleware",
           "operation": "__call__",
-          "receiver": {"kind": "binding", "step_id": "middleware"},
+          "receiver": {
+            "kind": "binding",
+            "step_id": "middleware"
+          },
           "arguments": {
             "scope": {
               "kind": "literal",
               "value": {
                 "type": "http",
-                "asgi": {"version": "3.0", "spec_version": "2.4"},
+                "asgi": {
+                  "version": "3.0",
+                  "spec_version": "2.4"
+                },
                 "http_version": "1.1",
                 "method": "OPTIONS",
                 "scheme": "http",
@@ -66,25 +104,51 @@
                 "query_string_base64": "",
                 "root_path": "",
                 "headers_base64_pairs": [
-                  ["b3JpZ2lu", "aHR0cHM6Ly9leGFtcGxlLm9yZw=="],
-                  ["YWNjZXNzLWNvbnRyb2wtcmVxdWVzdC1tZXRob2Q=", "R0VU"],
-                  ["YWNjZXNzLWNvbnRyb2wtcmVxdWVzdC1wcml2YXRlLW5ldHdvcms=", ""]
+                  [
+                    "b3JpZ2lu",
+                    "aHR0cHM6Ly9leGFtcGxlLm9yZw=="
+                  ],
+                  [
+                    "YWNjZXNzLWNvbnRyb2wtcmVxdWVzdC1tZXRob2Q=",
+                    "R0VU"
+                  ],
+                  [
+                    "YWNjZXNzLWNvbnRyb2wtcmVxdWVzdC1wcml2YXRlLW5ldHdvcms=",
+                    ""
+                  ]
                 ],
-                "client": ["127.0.0.1", 12345],
-                "server": ["testserver", 80]
+                "client": [
+                  "127.0.0.1",
+                  12345
+                ],
+                "server": [
+                  "testserver",
+                  80
+                ]
               }
             },
             "receive": {
               "kind": "literal",
               "value": [
-                {"type": "http.request", "body_base64": "", "more_body": false}
+                {
+                  "type": "http.request",
+                  "body_base64": "",
+                  "more_body": false
+                }
               ]
             },
-            "send": {"kind": "literal", "value": {"kind": "capture-asgi-send"}}
+            "send": {
+              "kind": "literal",
+              "value": {
+                "kind": "capture-asgi-send"
+              }
+            }
           }
         }
       ],
-      "observations": ["dispatch"]
+      "observations": [
+        "dispatch"
+      ]
     }
   ]
 }

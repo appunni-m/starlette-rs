@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@50",
+  "schema": "migration-parity/parity-input@51",
   "cases": [
     {
       "case_id": "starlette.routing.Router.route-dispatch.nested-mount-unicode-scope-composition",
@@ -54,7 +54,7 @@
         "http_version": "1.1",
         "method": "GET",
         "scheme": "http",
-        "path": "/deploy/tenants/Ångström/regions/008/items/0007",
+        "path": "/deploy/tenants/\u00c5ngstr\u00f6m/regions/008/items/0007",
         "raw_path_base64": "L2RlcGxveS90ZW5hbnRzLyVDMyU4NW5nc3RyJUMzJUI2bS9yZWdpb25zLzAwOC9pdGVtcy8wMDA3",
         "query_string_base64": "dmlldz1mdWxs",
         "root_path": "/deploy",
