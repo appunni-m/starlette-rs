@@ -28,6 +28,7 @@ mod multi_dict;
 mod multipart;
 mod named_route;
 mod named_route_table;
+mod named_router;
 mod native_lifespan;
 mod native_service;
 mod native_websocket;
@@ -75,6 +76,7 @@ pub use multipart::{
 };
 pub use named_route::NamedRoute;
 pub use named_route_table::{NamedRouteError, NamedRouteTable, RouteUrlPath};
+pub use named_router::{NamedHost, NamedMount, NamedRouter, NamedRouterError, NamedRouterRoute};
 pub use native_lifespan::{
     ActiveNativeLifespan, NativeLifespan, NativeLifespanBuilder, NativeLifespanError,
     NativeLifespanHookError, NativeLifespanHookFailure, NativeLifespanState,

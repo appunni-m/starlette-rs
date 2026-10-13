@@ -13,9 +13,9 @@ implementation closes, run the complete source/package and Rust-native parity
 matrix, repair mismatches across families, measure coverage from that full
 matrix, reconcile the source atlas, then run all correctness-gated benchmarks.
 
-The working-tree contract currently declares 2,177 input cases across 228
+The working-tree contract currently declares 2,185 input cases across 229
 parity inputs and two benchmark inputs, 135 Starlette compatibility
-operations, 7 Rust-native operations, and 1,151 parity requirements (1,128
+operations, 7 Rust-native operations, and 1,154 parity requirements (1,131
 compatibility and 23 native). The generated atlas has 843 source rows: 788
 input mappings, 55 source-backed `not_applicable` dispositions, and zero
 fixture-backlog rows. These counts describe inventory and evidence coverage;
@@ -32,6 +32,11 @@ The additional Jinja2 template input now inspects `url_for.__module__` and
 `url_for.__qualname__`; the Rust-backed callable preserves both attributes.
 This comparison is also deferred to the full parity phase.
 A new HTTPSRedirect input verifies that a syntactically valid Host header takes precedence over an out-of-range `scope.server` port; it also remains deferred.
+The latest implementation batch adds eight unexecuted cases: CPython cookie
+raw-value validation before optional attributes, two lazy StaticFiles
+PathLike error-display cases, and five nested Rust-native reverse-routing
+inputs covering Host/Mount composition, unresolved prefixes, Mount `path`
+forwarding, route-name fallback, and Python-package prefix-formatting errors.
 Recent
 source-confirmed fixes also cover StaticFiles internal-comment date parsing,
 lifespan exception-type identity, and the SessionMiddleware, StaticFiles,
@@ -44,7 +49,7 @@ booleans, integers, and floats by type.
 
 | Phase | State | Evidence |
 | --- | --- | --- |
-| Implementation | In progress. | The current input contract has 2,177 cases across 228 parity inputs, with 135 Starlette compatibility operations, 7 Rust-native operations, and 1,151 parity requirements; it claims zero parity passes. The generated source inventory has 843 rows / 788 input mappings / 55 reasoned `not_applicable` / zero backlog. The latest four implementation batches cover mutable `BackgroundTask` attributes, arbitrary-size `FileResponse` range endpoints and empty-filename MIME inference, TestClient WebSocket server ports above `u16` and non-string accepted subprotocols, arbitrary-precision `SessionMiddleware.max_age`, FormData key preservation, case-insensitive Host header names, and an unpadded StaticFiles conditional date, with ten authored input-only cases across nine files. A fifth batch adds one Jinja2 `url_for` callable-metadata input. A sixth adds an HTTPSRedirect valid-Host case with an out-of-range server port. All twelve inputs remain unexecuted. `make source-inventory-check`, `make lint check build rustdoc-check`, and `python3 scripts/check_docs.py` pass. Earlier implementation changes and their unexecuted input cases are recorded below. Full parity, coverage, and benchmark phases remain deferred. The aggregate `make docs-check` benchmark-evidence step must be refreshed after the planned full parity and coverage phases during benchmarking. |
+| Implementation | In progress. | The current input contract has 2,185 cases across 229 parity inputs, with 135 Starlette compatibility operations, 7 Rust-native operations, and 1,154 parity requirements; it claims zero parity passes. The generated source inventory has 843 rows / 788 input mappings / 55 reasoned `not_applicable` / zero backlog. The latest four implementation batches cover mutable `BackgroundTask` attributes, arbitrary-size `FileResponse` range endpoints and empty-filename MIME inference, TestClient WebSocket server ports above `u16` and non-string accepted subprotocols, arbitrary-precision `SessionMiddleware.max_age`, FormData key preservation, case-insensitive Host header names, and an unpadded StaticFiles conditional date, with ten authored input-only cases across nine files. A fifth batch adds one Jinja2 `url_for` callable-metadata input. A sixth adds an HTTPSRedirect valid-Host case with an out-of-range server port. The latest batch adds eight cases for cookie validation order, lazy StaticFiles PathLike error display, and nested native reverse routing. All twenty additions remain unexecuted. `make source-inventory-check`, `make lint check build rustdoc-check`, and `python3 scripts/check_docs.py` pass. Earlier implementation changes and their unexecuted input cases are recorded below. Full parity, coverage, and benchmark phases remain deferred. The aggregate `make docs-check` benchmark-evidence step must be refreshed after the planned full parity and coverage phases during benchmarking. |
 | Full parity and grouped repairs | Deferred until implementation closes. | The latest clean run, `dc8c8ca6-f2b7-449b-9f53-45860e3cad4c`, passed 2,254/2,254 comparisons for the preceding 1,992-case, 140-parity-input contract. Later optional-backend, WebSocket authorization, Router truthiness, BaseHTTPMiddleware iterator, StaticFiles path, response-protocol, close-code, TestClient exception, raw TestClient no-response return, custom-regex, Request stream retry, WebSocketEndpoint error-finalization, BaseHTTPMiddleware dispatch short-circuiting, StreamingResponse terminal-send failure, TestClient generator-body buffering, invalid initial WebSocket.accept events, Last-Modified If-Range matching, exception-class MRO precedence, Request receive-error retry, Request body retry after partial receive cancellation, empty root Mount dispatch, lazy StreamingResponse iterator acquisition after a failed response-start send, AsyncIterable descriptor failure after response-start, normal-return incomplete TestClient response, asyncio-marked TestClient ASGI3, WebSocketEndpoint hook-failure/context, bracketed IPv6 Host, StaticFiles `get_response` override, TestClient accepted-session error stream closure and completed-response exception propagation, StreamingResponse gated-send backpressure, WebSocket non-string send-type, BackgroundTask `kwargs` mapping expansion, and synchronous WebSocketEndpoint `on_disconnect` failure cases are not included. The stateful StaticFiles PathLike, UploadFile write-error, BackgroundTasks live-list mutation, and StreamingResponse caller-cancellation comparisons are also outside that run. |
 | Full coverage and source reconciliation | Deferred until the full parity phase. | The latest measured run, `fd5b3b63-9ddc-44bd-bf38-35ecbc260dbe`, covered 19,909/28,139 Rust lines (70.7%) for the preceding contract. |
 | All benchmarks | Deferred until coverage. | The latest run, `13ea2d04-7f31-4c12-93cd-855df93df8b0`, measured 74/74 source/package workloads for the preceding contract: six Router and 68 GZip workloads. |
@@ -57,7 +62,7 @@ from the generated [`coverage matrix`](atlas/coverage-matrix.csv) and
 [`fixture backlog`](atlas/fixture-backlog.csv). Coverage is a measurement, not
 a parity score. The full-replacement goal remains active.
 
-`python3 scripts/check_docs.py` passes its 25-file link check. The aggregate
+`python3 scripts/check_docs.py` passes its 26-file link check. The aggregate
 `make docs-check` still needs a benchmark receipt bound to the current manifest;
 refresh it only during the planned full benchmark phase.
 
@@ -111,9 +116,9 @@ also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
 The active parity contract is `parity-input@48`: the working tree currently
-indexes 2,177 input cases across 228 parity files, two benchmark files, 135
-Starlette compatibility operations, 7 Rust-native operations, and 1,151
-parity requirements (1,128 compatibility and 23 native). The latest clean full parity,
+indexes 2,185 input cases across 229 parity files, two benchmark files, 135
+Starlette compatibility operations, 7 Rust-native operations, and 1,154
+parity requirements (1,131 compatibility and 23 native). The latest clean full parity,
 coverage, and benchmark receipts belong to the preceding 1,992-case, 140-file
 contract. The generated source-row,
 mapping, `not_applicable`, and backlog totals live in
@@ -443,11 +448,20 @@ Rust-native profile. The public `NamedRouteTable` preserves route order, skips
 name and exact-parameter-set mismatches, and returns the first matching flat
 HTTP route with `http` protocol metadata. Source, package, and Rust return the
 same `/objects/7` URLPath for first-success lookup and the same `NoMatchFound`
-message for a complete miss. Native support is limited to direct HTTP routes,
-built-in converters, and converter-formatted string inputs. Native formatting
-failures remain typed Rust errors rather than Python exception objects. Nested
-Mount/Host routes, WebSocket routes, and Python custom converters remain
-unsupported.
+message for a complete miss in that earlier run. At that checkpoint, native
+support was limited to direct HTTP routes, built-in converters, and
+converter-formatted string inputs. Native formatting failures remained typed
+Rust errors rather than Python exception objects.
+
+The active `parity-input@48` contract extends the native subset through
+recursive named HTTP and WebSocket routes, Mounts, and Hosts. Input-only cases
+cover full Host→Mount lookup, partial Mount/Host prefixes that preserve
+unresolved placeholders, a Mount forwarding its `path` parameter to a child
+Route, and route-name miss fallback. A separate Python-package case distinguishes
+a matching Mount-prefix formatting error from a name miss; it remains outside
+the native profile while native Python-error mapping is incomplete. These
+comparisons are authored but have not run. Native support remains partial for
+Python custom converters and Python exception class/message compatibility.
 
 ### Completed bounded goal: run HTTP inside an active lifespan
 

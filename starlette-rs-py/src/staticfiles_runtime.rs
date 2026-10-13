@@ -292,12 +292,31 @@ impl PyStaticFiles {
             .as_ref()
             .filter(|directory| !directory.bind(py).is_instance_of::<PyString>());
         let check = if let Some(directory) = dynamic_directory {
-            let directory = path_from_python(py, directory.bind(py))?;
-            py.detach(move || NativeStaticFiles::check_config_path(&directory))
+            let directory_path = path_from_python(py, directory.bind(py))?;
+            py.detach(move || NativeStaticFiles::check_config_path(&directory_path))
         } else {
             py.detach(move || inner.check_config())
         };
-        check.map_err(static_files_error)
+        match check {
+            Ok(()) => Ok(()),
+            Err(StaticFilesError::DirectoryConfiguration(message)) => match dynamic_directory {
+                Some(directory) => {
+                    // Starlette formats lazy configuration errors with str(directory),
+                    // while the filesystem check itself uses os.fspath(directory).
+                    let display = directory.bind(py).str()?.extract::<String>()?;
+                    let message = if message.ends_with(" does not exist.") {
+                        format!("StaticFiles directory '{display}' does not exist.")
+                    } else {
+                        format!("StaticFiles path '{display}' is not a directory.")
+                    };
+                    Err(PyRuntimeError::new_err(message))
+                }
+                None => Err(static_files_error(
+                    StaticFilesError::DirectoryConfiguration(message),
+                )),
+            },
+            Err(error) => Err(static_files_error(error)),
+        }
     }
 
     fn check_config(slf: Py<Self>, py: Python<'_>) -> PyResult<Py<PyAny>> {

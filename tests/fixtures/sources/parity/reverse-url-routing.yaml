@@ -1906,6 +1906,254 @@
       "observations": [
         "reverse-url"
       ]
+    },
+    {
+      "case_id": "starlette.routing.Router.url_path_for.nested-host-mount-websocket-full-parameters",
+      "surface": "starlette.routing.Router",
+      "operation": "url_path_for",
+      "covers": [
+        "starlette.routing.Router.url_path_for.mount-lookup-success",
+        "starlette.routing.Router.url_path_for.host-mount-nested-lookup"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "route_graph": {
+        "kind": "router",
+        "routes": [
+          {
+            "kind": "host-route",
+            "host": "{subdomain}.example.test",
+            "name": "tenant",
+            "routes": [
+              {
+                "kind": "mount",
+                "path": "/{version:int}/api",
+                "name": "api",
+                "routes": [
+                  {
+                    "kind": "websocket-route",
+                    "path": "/ws/{room:str}",
+                    "name": "live",
+                    "observer": null
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "lookup": {
+        "name": "tenant:api:live",
+        "path_params": {
+          "subdomain": "acme",
+          "version": "2",
+          "room": "blue"
+        }
+      },
+      "request_scope": null,
+      "custom_convertors": [],
+      "observations": [
+        "reverse-url"
+      ]
+    },
+    {
+      "case_id": "starlette.routing.Router.url_path_for.nested-mount-host-websocket-partial-prefixes",
+      "surface": "starlette.routing.Router",
+      "operation": "url_path_for",
+      "covers": [
+        "starlette.routing.Router.url_path_for.mount-lookup-success",
+        "starlette.routing.Router.url_path_for.host-mount-nested-lookup",
+        "starlette.routing.Router.url_path_for.partial-mount-host-prefix-parameters"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "route_graph": {
+        "kind": "router",
+        "routes": [
+          {
+            "kind": "mount",
+            "path": "/{version:int}/api",
+            "name": "api",
+            "routes": [
+              {
+                "kind": "host-route",
+                "host": "{subdomain}.example.test",
+                "name": "tenant",
+                "routes": [
+                  {
+                    "kind": "websocket-route",
+                    "path": "/ws/{room:str}",
+                    "name": "live",
+                    "observer": null
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "lookup": {
+        "name": "api:tenant:live",
+        "path_params": {
+          "room": "blue"
+        }
+      },
+      "request_scope": null,
+      "custom_convertors": [],
+      "observations": [
+        "reverse-url"
+      ]
+    },
+    {
+      "case_id": "starlette.routing.Router.url_path_for.mount-path-parameter-forwarded-to-child",
+      "surface": "starlette.routing.Router",
+      "operation": "url_path_for",
+      "covers": [
+        "starlette.routing.Router.url_path_for.mount-lookup-success",
+        "starlette.routing.Router.url_path_for.mount-path-parameter-forwarding"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "route_graph": {
+        "kind": "router",
+        "routes": [
+          {
+            "kind": "mount",
+            "path": "/{version:int}/static",
+            "name": "static",
+            "routes": [
+              {
+                "kind": "http-route",
+                "path": "/{path:path}",
+                "name": "asset",
+                "methods": [
+                  "GET"
+                ],
+                "observer": null
+              }
+            ]
+          }
+        ]
+      },
+      "lookup": {
+        "name": "static:asset",
+        "path_params": {
+          "version": "3",
+          "path": "css/base.css"
+        }
+      },
+      "request_scope": null,
+      "custom_convertors": [],
+      "observations": [
+        "reverse-url"
+      ]
+    },
+    {
+      "case_id": "starlette.routing.Router.url_path_for.prefix-formatting-failure-does-not-fall-through",
+      "surface": "starlette.routing.Router",
+      "operation": "url_path_for",
+      "covers": [
+        "starlette.routing.Router.url_path_for.prefix-formatting-error-stops-fallback"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "route_graph": {
+        "kind": "router",
+        "routes": [
+          {
+            "kind": "mount",
+            "path": "/{version:int}/api",
+            "name": "api",
+            "routes": [
+              {
+                "kind": "http-route",
+                "path": "/item/{item_id:int}",
+                "name": "item",
+                "methods": [
+                  "GET"
+                ],
+                "observer": null
+              }
+            ]
+          },
+          {
+            "kind": "http-route",
+            "path": "/fallback/{version:str}/{item_id:int}",
+            "name": "api:item",
+            "methods": [
+              "GET"
+            ],
+            "observer": null
+          }
+        ]
+      },
+      "lookup": {
+        "name": "api:item",
+        "path_params": {
+          "version": "not-an-integer",
+          "item_id": "7"
+        }
+      },
+      "request_scope": null,
+      "custom_convertors": [],
+      "observations": [
+        "reverse-url"
+      ]
+    },
+    {
+      "case_id": "starlette.routing.Router.url_path_for.route-name-miss-falls-through",
+      "surface": "starlette.routing.Router",
+      "operation": "url_path_for",
+      "covers": [
+        "starlette.routing.Router.url_path_for.first-success"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "route_graph": {
+        "kind": "router",
+        "routes": [
+          {
+            "kind": "host-route",
+            "host": "{subdomain}.example.test",
+            "name": "other",
+            "routes": []
+          },
+          {
+            "kind": "http-route",
+            "path": "/item/{item_id:int}",
+            "name": "target",
+            "methods": [
+              "GET"
+            ],
+            "observer": null
+          }
+        ]
+      },
+      "lookup": {
+        "name": "target",
+        "path_params": {
+          "item_id": "7"
+        }
+      },
+      "request_scope": null,
+      "custom_convertors": [],
+      "observations": [
+        "reverse-url"
+      ]
     }
   ]
 }

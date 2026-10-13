@@ -22,14 +22,15 @@ pub struct NamedRouteTable {
     names: Vec<String>,
 }
 
-/// The path and metadata returned by [`NamedRouteTable::url_path_for`].
+/// A formatted path with Starlette-style protocol and host metadata.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RouteUrlPath {
     /// The formatted route path, without percent-encoding.
     pub path: String,
-    /// The route protocol, always `"http"` for this table.
+    /// The route protocol; direct HTTP routes use `"http"`, WebSocket routes
+    /// use `"websocket"`, and direct Mount/Host names leave it empty.
     pub protocol: String,
-    /// The associated host, always empty for a direct HTTP route.
+    /// The associated Host pattern, or an empty string when no Host applies.
     pub host: String,
 }
 
@@ -40,13 +41,13 @@ impl RouteUrlPath {
         &self.path
     }
 
-    /// Returns the route protocol, which is `"http"`.
+    /// Returns the route protocol metadata.
     #[must_use]
     pub fn protocol(&self) -> &str {
         &self.protocol
     }
 
-    /// Returns the associated host, which is empty for direct HTTP routes.
+    /// Returns the formatted Host pattern or an empty string.
     #[must_use]
     pub fn host(&self) -> &str {
         &self.host

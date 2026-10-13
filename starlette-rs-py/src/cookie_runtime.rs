@@ -105,6 +105,9 @@ pub(crate) fn header_from_arguments<'py>(
     if !legal_token(&string_codepoints(&key)?) {
         return Err(cookie_error(py, format!("Illegal key {}", key.repr()?))?);
     }
+    // Starlette quotes the value before Morsel.set checks both the raw and
+    // quoted forms, and it does so before processing any optional attributes.
+    validate_morsel_cookie_values(py, &key, value.as_any(), &coded)?;
     // SimpleCookie quotes control characters in cookie values through
     // `_Translator`. Keep the original value and its translated representation
     // observable while key and attribute validation remain separate.
@@ -365,6 +368,29 @@ fn cookie_error(py: Python<'_>, message: String) -> PyResult<PyErr> {
             .getattr("CookieError")?
             .call1((message,))?,
     ))
+}
+
+fn validate_morsel_cookie_values(
+    py: Python<'_>,
+    key: &Bound<'_, PyAny>,
+    value: &Bound<'_, PyAny>,
+    coded_value: &Bound<'_, PyAny>,
+) -> PyResult<()> {
+    for candidate in [key, value, coded_value] {
+        let rendered = candidate.str()?;
+        if has_control(&python_string_to_codepoints(rendered.as_any())?) {
+            let arguments = PyTuple::new(py, [key.clone(), value.clone(), coded_value.clone()])?;
+            let message =
+                PyString::new(py, "Control characters are not allowed in cookies %r %r %r")
+                    .call_method1("__mod__", (arguments,))?;
+            let error = py
+                .import("http.cookies")?
+                .getattr("CookieError")?
+                .call1((message,))?;
+            return Err(PyErr::from_value(error));
+        }
+    }
+    Ok(())
 }
 
 fn quote_value<'py>(py: Python<'py>, value: &Bound<'py, PyString>) -> PyResult<Bound<'py, PyAny>> {

@@ -542,6 +542,7 @@
       "build/parity/inputs/parity/response-attributes.json",
       "build/parity/inputs/parity/response-cookie-protocols.json",
       "build/parity/inputs/parity/response-cookie-control-value.json",
+      "build/parity/inputs/parity/response-cookie-raw-control-order.json",
       "build/parity/inputs/parity/response-cookie-ownership.json",
       "build/parity/inputs/parity/response-variants.json",
       "build/parity/inputs/parity/templating-protocols.json",
@@ -23240,13 +23241,13 @@
           "targets": [
             {
               "target_id": "rust-native",
-              "path": "starlette_rs::NamedRouteTable::url_path_for",
-              "signature": "url_path_for(&self, name: &str, path_params: &[(String, String)]) -> Result<RouteUrlPath, NamedRouteError>",
+              "path": "starlette_rs::NamedRouter::url_path_for",
+              "signature": "url_path_for(&self, name: &str, path_params: &[(String, String)]) -> Result<RouteUrlPath, NamedRouterError>",
               "support": {
                 "status": "partial",
-                "reason": "Rust-native NamedRouteTable supports ordered reverse lookup for flat, directly named HTTP routes using built-in converters and converter-formatted string parameters. Nested Mount or Host routes, WebSocket routes, Python custom converters, and Python exception mapping for converter failures are unsupported.",
+                "reason": "Rust-native NamedRouter supports ordered reverse lookup across nested built-in HTTP and WebSocket routes, Mounts, and Hosts, including partial Mount and Host prefixes. Parameter values are preformatted strings. Python custom converters and full Python exception-class/message compatibility remain unsupported.",
                 "missing_requirements": [
-                  "starlette.routing.Router.url_path_for.outside-flat-built-in-http-scope",
+                  "starlette.routing.Router.url_path_for.outside-rust-native-built-in-route-subset",
                   "starlette.routing.Router.url_path_for.native-error-mapping"
                 ]
               }
@@ -23264,7 +23265,7 @@
             {
               "id": "starlette.routing.Router.url_path_for.first-success",
               "dimension": "success_path",
-              "description": "For flat direct HTTP routes using built-in converters, Router skips earlier NoMatchFound results and returns the first later matching route.",
+              "description": "Router skips earlier route-name or parameter-set NoMatchFound results across the supported built-in route graph and returns the first later successful URLPath.",
               "lanes": [
                 "parity"
               ],
@@ -23276,7 +23277,7 @@
             {
               "id": "starlette.routing.Router.url_path_for.mismatch",
               "dimension": "error_path",
-              "description": "For a flat direct HTTP route using built-in converters, Router raises NoMatchFound when the route rejects the requested name or parameter set.",
+              "description": "Router raises NoMatchFound when no route in the supported built-in route graph accepts the requested name and path-parameter set.",
               "lanes": [
                 "parity"
               ],
@@ -23299,18 +23300,55 @@
             {
               "id": "starlette.routing.Router.url_path_for.mount-lookup-success",
               "dimension": "success_path",
-              "description": "Router.url_path_for resolves a named Mount directly and resolves named child routes through a Mount path, preserving both mount and child parameters. Upstream: tests/test_routing.py::test_reverse_mount_urls; starlette/routing.py:363-452.",
+              "description": "Router.url_path_for resolves named child routes through nested Mount paths, formats Mount parameters, forwards unmatched child parameters, and preserves the selected route protocol. Upstream: tests/test_routing.py::test_reverse_mount_urls; starlette/routing.py:363-452.",
               "lanes": [
                 "parity"
               ],
               "target_profiles": [
+                "rust-native-local",
                 "python-package-cpython312"
               ]
             },
             {
               "id": "starlette.routing.Router.url_path_for.host-mount-nested-lookup",
               "dimension": "success_path",
-              "description": "Router.url_path_for resolves a named child Route through a named Mount nested under a named Host, consuming the host and child path parameters. Pinned source: docs/routing.md:240-254; starlette/routing.py:363-452,493-511.",
+              "description": "Router.url_path_for resolves named child HTTP or WebSocket routes through nested Host and Mount prefixes, formats supplied parameters, and retains Host metadata unless an outer Mount drops it. Pinned source: docs/routing.md:240-254; starlette/routing.py:363-452,493-511.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Router.url_path_for.partial-mount-host-prefix-parameters",
+              "dimension": "success_path",
+              "description": "When a named route is nested under Mount or Host prefixes, missing prefix parameters remain as placeholders while supplied child-route parameters are consumed by the child.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Router.url_path_for.mount-path-parameter-forwarding",
+              "dimension": "success_path",
+              "description": "A Mount forwards an unmatched path parameter to its named child Route, which formats the path converter value after the Mount prefix.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Router.url_path_for.prefix-formatting-error-stops-fallback",
+              "dimension": "error_path",
+              "description": "When a matching Mount prefix parameter fails its converter, Router propagates that formatting error instead of falling through to a later route that could accept the supplied name and parameters.",
               "lanes": [
                 "parity"
               ],

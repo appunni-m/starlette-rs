@@ -1,19 +1,21 @@
-//! Reverse URL formatting for one named HTTP route.
+//! Reverse URL formatting for one named HTTP or WebSocket route.
 
 use crate::{NamedRouteError, RouteError, RouteTable, RouteUrlPath};
 
-/// A Rust-native, reverse-only view of one named HTTP path pattern.
+/// A Rust-native, reverse-only view of one named path pattern.
 ///
 /// This type formats a route path without constructing an endpoint or
 /// dispatching requests. Parameter values are supplied as strings already
 /// formatted by the corresponding built-in converter. The supported path
 /// syntax and built-in converters are the same as [`RouteTable`]. Values are
 /// not percent-encoded. Python-registered converters and Python object
-/// conversion are outside this Rust-native API.
+/// conversion are outside this Rust-native API. [`Self::new`] creates an HTTP
+/// route, while [`Self::new_websocket`] creates a WebSocket route.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct NamedRoute {
     route: RouteTable,
     name: String,
+    protocol: String,
 }
 
 impl NamedRoute {
@@ -36,6 +38,30 @@ impl NamedRoute {
         Ok(Self {
             route,
             name: name.into(),
+            protocol: String::from("http"),
+        })
+    }
+
+    /// Creates a reverse-only WebSocket route with an explicit name.
+    ///
+    /// The route shares the built-in path converter and parameter contract of
+    /// [`Self::new`], and successful URL paths carry the `websocket` protocol.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RouteError`] when the path is invalid or uses an unsupported
+    /// converter.
+    pub fn new_websocket<P, N>(path: P, name: N) -> Result<Self, RouteError>
+    where
+        P: Into<String>,
+        N: Into<String>,
+    {
+        let mut route = RouteTable::new();
+        route.add_route(path, std::iter::empty::<&str>())?;
+        Ok(Self {
+            route,
+            name: name.into(),
+            protocol: String::from("websocket"),
         })
     }
 
@@ -63,7 +89,7 @@ impl NamedRoute {
         match self.route.build_path(0, path_params) {
             Ok(path) => Ok(RouteUrlPath {
                 path,
-                protocol: String::from("http"),
+                protocol: self.protocol.clone(),
                 host: String::new(),
             }),
             Err(RouteError::PathParameterNamesMismatch { .. }) => Err(no_match(name, path_params)),

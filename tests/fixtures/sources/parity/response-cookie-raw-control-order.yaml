@@ -1,0 +1,73 @@
+{
+  "schema": "migration-parity/parity-input@48",
+  "cases": [
+    {
+      "case_id": "starlette.responses.Response.consumer-construction.cookie-protocol-raw-value-control-before-attributes",
+      "surface": "starlette.responses.Response",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.Response.consumer-construction.public-render-and-asgi",
+        "starlette.responses.Response.consumer-construction.cookie-argument-protocols"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "body"
+        },
+        "omit_content": false,
+        "kwargs": {},
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/cookie-protocol"
+      },
+      "send_failure": null,
+      "background_label": null,
+      "cookie_protocol": [
+        {
+          "operation": "set_cookie",
+          "arguments": {
+            "key": {
+              "kind": "literal",
+              "value": "session"
+            },
+            "value": {
+              "kind": "literal",
+              "value": "line\u000abreak"
+            },
+            "max_age": {
+              "kind": "text",
+              "value": "attribute",
+              "label": "max_age",
+              "str_text": "probe-text",
+              "str_self": true,
+              "truth": true,
+              "lower": "lax",
+              "eq_empty": false,
+              "failure": null,
+              "reentry": null,
+              "translation": null,
+              "owned_result": null,
+              "table_callback": null,
+              "hash_result": null
+            }
+          },
+          "clock_unix_seconds": 1700000000,
+          "observe_raw_reads": false
+        }
+      ]
+    }
+  ]
+}

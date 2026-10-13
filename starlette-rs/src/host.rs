@@ -126,6 +126,30 @@ impl HostPattern {
             .to_owned())
     }
 
+    /// Formats supplied host parameters and leaves unspecified parameters as
+    /// placeholders, matching Starlette's partial `replace_params` behavior.
+    pub(crate) fn format_host_partial(
+        &self,
+        path_params: &[(String, String)],
+    ) -> Result<(String, Vec<(String, String)>), HostPatternError> {
+        let (path, remaining) = self
+            .format_routes
+            .build_path_partial(0, path_params)
+            .map_err(HostPatternError::HostFormatting)?;
+        Ok((
+            path.strip_prefix('/')
+                .map_or(path.as_str(), |host| host)
+                .to_owned(),
+            remaining,
+        ))
+    }
+
+    pub(crate) fn format_parameter_names(&self) -> Result<Vec<String>, HostPatternError> {
+        self.format_routes
+            .path_parameter_names(0)
+            .map_err(HostPatternError::RouteRegistration)
+    }
+
     /// Builds the direct-name Host reverse-lookup result from a supplied path
     /// and Host parameters.
     ///

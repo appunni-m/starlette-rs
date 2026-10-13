@@ -50,11 +50,12 @@ use starlette_rs::{
     FileResponse as NativeFileResponse, FileResponseCallInput, FileResponseCallStep,
     FileResponseError, FileResponseEvent, FileResponseOptions, GzipConfig, GzipHeader,
     GzipResponseStart, HostPattern, HttpScope, LifespanAction, LifespanState, Mount as NativeMount,
-    MountChild, MountScope, MultiDict as NativeMultiDict, NamedRoute as NativeNamedRoute,
-    NamedRouteError, NamedRouteTable, NativeApplicationError, NativeLifespan, NativeLifespanError,
-    NativeLifespanState, NativeRoute, NativeWebSocketAcceptance, NativeWebSocketClose,
-    NativeWebSocketDriver, NativeWebSocketError, NativeWebSocketEvent, NativeWebSocketHandshake,
-    NativeWebSocketMessage, NativeWebSocketPeerClose, NativeWebSocketRoute, NativeWebSocketRouter,
+    MountChild, MountScope, MultiDict as NativeMultiDict, NamedHost, NamedMount,
+    NamedRoute as NativeNamedRoute, NamedRouteError, NamedRouter, NamedRouterError,
+    NativeApplicationError, NativeLifespan, NativeLifespanError, NativeLifespanState, NativeRoute,
+    NativeWebSocketAcceptance, NativeWebSocketClose, NativeWebSocketDriver, NativeWebSocketError,
+    NativeWebSocketEvent, NativeWebSocketHandshake, NativeWebSocketMessage,
+    NativeWebSocketPeerClose, NativeWebSocketRoute, NativeWebSocketRouter,
     NativeWebSocketTransportError, PathConverter, PathParameterCapture, QueryParams,
     RequestBodyAccumulator, RequestHeaders, Response, ResponseEvent, RouteTable,
     Starlette as NativeApplication, StaticFiles as NativeStaticFiles, StaticFilesError,
@@ -4177,6 +4178,104 @@ fn run_route_reverse_url_case(case: &Value) -> Result<Value, String> {
     }))
 }
 
+fn append_native_named_route(
+    router: &mut NamedRouter,
+    node: &Value,
+    context: &str,
+) -> Result<(), String> {
+    let kind = node
+        .get("kind")
+        .and_then(Value::as_str)
+        .ok_or_else(|| format!("{context}.kind must be a string"))?;
+    match kind {
+        "router" => {
+            let object = exact_object(node, &["kind", "routes"], context)?;
+            let routes = object
+                .get("routes")
+                .and_then(Value::as_array)
+                .ok_or_else(|| format!("{context}.routes must be an array"))?;
+            for (index, route) in routes.iter().enumerate() {
+                append_native_named_route(router, route, &format!("{context}.routes[{index}]"))?;
+            }
+        }
+        "http-route" => {
+            let route = exact_object(
+                node,
+                &["kind", "path", "name", "methods", "observer"],
+                context,
+            )?;
+            if route.get("observer") != Some(&Value::Null) {
+                return Err(format!("{context}.observer must be null"));
+            }
+            let path = string_field(route, "path", context)?;
+            let name = string_field(route, "name", context)?;
+            let route = NativeNamedRoute::new(path, name).map_err(|error| error.to_string())?;
+            router.add_entry(route);
+        }
+        "websocket-route" => {
+            let route = exact_object(node, &["kind", "path", "name", "observer"], context)?;
+            if route.get("observer") != Some(&Value::Null) {
+                return Err(format!("{context}.observer must be null"));
+            }
+            let path = string_field(route, "path", context)?;
+            let name = string_field(route, "name", context)?;
+            let route =
+                NativeNamedRoute::new_websocket(path, name).map_err(|error| error.to_string())?;
+            router.add_entry(route);
+        }
+        "mount" => {
+            let mount = exact_object(node, &["kind", "path", "name", "routes"], context)?;
+            let path = string_field(mount, "path", context)?;
+            let name = optional_string_field(mount, "name", context)?;
+            let children = mount
+                .get("routes")
+                .and_then(Value::as_array)
+                .ok_or_else(|| format!("{context}.routes must be an array"))?;
+            let child_router = native_named_router_from_routes(children, context)?;
+            let mount =
+                NamedMount::new(path, name, child_router).map_err(|error| error.to_string())?;
+            router.add_mount(mount);
+        }
+        "host-route" => {
+            let host = exact_object(node, &["kind", "host", "name", "routes"], context)?;
+            let pattern = string_field(host, "host", context)?;
+            let name = optional_string_field(host, "name", context)?;
+            let children = host
+                .get("routes")
+                .and_then(Value::as_array)
+                .ok_or_else(|| format!("{context}.routes must be an array"))?;
+            let child_router = native_named_router_from_routes(children, context)?;
+            let host =
+                NamedHost::new(pattern, name, child_router).map_err(|error| error.to_string())?;
+            router.add_host(host);
+        }
+        _ => return Err(format!("{context}.kind is unsupported by NamedRouter")),
+    }
+    Ok(())
+}
+
+fn native_named_router_from_routes(routes: &[Value], context: &str) -> Result<NamedRouter, String> {
+    let mut router = NamedRouter::new();
+    for (index, route) in routes.iter().enumerate() {
+        append_native_named_route(&mut router, route, &format!("{context}.routes[{index}]"))?;
+    }
+    Ok(router)
+}
+
+fn native_named_router_from_graph(graph: &Value) -> Result<NamedRouter, String> {
+    let route_graph = exact_object(graph, &["kind", "routes"], "Router URLPath route graph")?;
+    if string_field(route_graph, "kind", "Router URLPath route graph")? != "router" {
+        return Err(String::from(
+            "Rust-native Router URLPath requires a Router route graph",
+        ));
+    }
+    let routes = route_graph
+        .get("routes")
+        .and_then(Value::as_array)
+        .ok_or_else(|| String::from("Router URLPath route graph.routes must be an array"))?;
+    native_named_router_from_routes(routes, "Router URLPath route graph")
+}
+
 fn run_router_reverse_url_case(case: &Value) -> Result<Value, String> {
     let case = exact_object(
         case,
@@ -4204,45 +4303,14 @@ fn run_router_reverse_url_case(case: &Value) -> Result<Value, String> {
         || case.get("custom_convertors") != Some(&json!([]))
     {
         return Err(String::from(
-            "Rust-native Router URLPath requires the declared flat-route reverse-lookup input",
+            "Rust-native Router URLPath requires a built-in reverse-lookup input",
         ));
     }
 
-    let route_graph = exact_object(
+    let named_router = native_named_router_from_graph(
         case.get("route_graph")
             .ok_or_else(|| String::from("Router URLPath route graph is missing"))?,
-        &["kind", "routes"],
-        "Router URLPath route graph",
     )?;
-    if string_field(route_graph, "kind", "Router URLPath route graph")? != "router" {
-        return Err(String::from(
-            "Rust-native Router URLPath requires a Router route graph",
-        ));
-    }
-    let routes = route_graph
-        .get("routes")
-        .and_then(Value::as_array)
-        .ok_or_else(|| String::from("Router URLPath route graph.routes must be an array"))?;
-    let mut named_routes = NamedRouteTable::new();
-    for (index, route) in routes.iter().enumerate() {
-        let route = exact_object(
-            route,
-            &["kind", "path", "name", "methods", "observer"],
-            "Router URLPath child route",
-        )?;
-        if string_field(route, "kind", "Router URLPath child route")? != "http-route"
-            || route.get("observer") != Some(&Value::Null)
-        {
-            return Err(format!(
-                "Rust-native Router URLPath supports only direct HTTP routes without observers; route {index} is outside that contract"
-            ));
-        }
-        let path = string_field(route, "path", "Router URLPath child route")?;
-        let name = string_field(route, "name", "Router URLPath child route")?;
-        named_routes
-            .add_route(path, name)
-            .map_err(|error| error.to_string())?;
-    }
 
     let lookup = exact_object(
         case.get("lookup")
@@ -4270,21 +4338,27 @@ fn run_router_reverse_url_case(case: &Value) -> Result<Value, String> {
         })
         .collect::<Result<Vec<_>, String>>()?;
 
-    let observed = match named_routes.url_path_for(name, &path_params) {
+    let observed = match named_router.url_path_for(name, &path_params) {
         Ok(url_path) => json!({
             "path": url_path.path,
             "protocol": url_path.protocol,
             "host": url_path.host,
         }),
-        Err(error @ NamedRouteError::NoMatchFound { .. }) => json!({
+        Err(error @ NamedRouterError::NoMatchFound { .. }) => json!({
             "error": {
                 "class": "NoMatchFound",
                 "message": error.to_string(),
             },
         }),
-        Err(NamedRouteError::RouteFormatting(error)) => json!({
+        Err(NamedRouterError::RouteFormatting(error)) => json!({
             "error": {
                 "class": "RouteFormattingError",
+                "message": error.to_string(),
+            },
+        }),
+        Err(NamedRouterError::HostFormatting(error)) => json!({
+            "error": {
+                "class": "HostFormattingError",
                 "message": error.to_string(),
             },
         }),

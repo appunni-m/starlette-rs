@@ -436,6 +436,26 @@ impl RouteTable {
         Ok(path)
     }
 
+    /// Returns the path parameter names for one registered route in pattern order.
+    pub(crate) fn path_parameter_names(
+        &self,
+        route_index: usize,
+    ) -> Result<Vec<String>, RouteError> {
+        let route = self
+            .routes
+            .get(route_index)
+            .ok_or(RouteError::RouteIndexOutOfBounds(route_index))?;
+        Ok(route
+            .path_segments
+            .iter()
+            .flatten()
+            .filter_map(|segment| match segment {
+                PathSegment::Parameter { name, .. } => Some(name.clone()),
+                PathSegment::Static(_) => None,
+            })
+            .collect())
+    }
+
     /// Replaces supplied route parameters and returns values not used by the
     /// pattern, matching the partial substitution used by Starlette `Mount`.
     ///

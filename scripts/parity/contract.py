@@ -1037,9 +1037,15 @@ ROUTER_OPERATION = "route-dispatch"
 ROUTER_URL_PATH_FOR_OPERATION = "url_path_for"
 ROUTER_URL_PATH_FOR_OPERATION_KEY = (ROUTER_SURFACE, ROUTER_URL_PATH_FOR_OPERATION)
 ROUTER_URL_PATH_FOR_NATIVE_GAP = (
-    "starlette.routing.Router.url_path_for.outside-flat-built-in-http-scope"
+    "starlette.routing.Router.url_path_for.outside-rust-native-built-in-route-subset"
 )
 ROUTER_URL_PATH_FOR_ERROR_MAPPING_GAP = "starlette.routing.Router.url_path_for.native-error-mapping"
+ROUTER_URL_PATH_FOR_PARTIAL_PREFIX_REQUIREMENT = (
+    "starlette.routing.Router.url_path_for.partial-mount-host-prefix-parameters"
+)
+ROUTER_URL_PATH_FOR_PREFIX_ERROR_REQUIREMENT = (
+    "starlette.routing.Router.url_path_for.prefix-formatting-error-stops-fallback"
+)
 ROUTER_HTTP_ENDPOINT_REQUIREMENTS = {
     "class_route": "starlette.routing.Router.route-dispatch.http-endpoint-asgi-class",
     "async_handler": "starlette.routing.Router.route-dispatch.http-endpoint-async-handler",
@@ -9985,19 +9991,103 @@ def _reverse_node_depth(node: dict[str, Any], kind: str) -> int:
     )
 
 
+def _reverse_candidate_prefix_parameter_paths(
+    node: dict[str, Any],
+    candidates: set[int],
+    custom: dict[str, dict[str, Any]],
+    inherited: tuple[tuple[str, str], ...] = (),
+) -> list[tuple[tuple[str, str], ...]]:
+    if id(node) in candidates:
+        return [inherited]
+    kind = node["kind"]
+    if kind in {"http-route", "websocket-route"}:
+        return []
+    prefix = list(inherited)
+    if kind == "mount":
+        prefix.extend(_validate_reverse_path(node["path"], custom, "Mount.path"))
+    elif kind == "host-route":
+        prefix.extend(_validate_reverse_path("/" + node["host"], custom, "Host.host"))
+    return [
+        path
+        for child in node.get("routes", [])
+        for path in _reverse_candidate_prefix_parameter_paths(
+            child, candidates, custom, tuple(prefix)
+        )
+    ]
+
+
+def _validate_native_reverse_parameter_value(name: str, converter: str, value: str) -> None:
+    if converter == "str" and (not value or "/" in value):
+        raise ContractError(
+            "Rust-native Router string-converter inputs must be non-empty and slash-free"
+        )
+    if converter == "int" and re.fullmatch(r"[0-9]+", value) is None:
+        raise ContractError(
+            "Rust-native Router integer-converter inputs must be non-negative ASCII decimal strings"
+        )
+    if converter == "float" and re.fullmatch(r"(?:-0|[0-9]+(?:\.[0-9]+)?)", value) is None:
+        raise ContractError(
+            "Rust-native Router float-converter inputs must use finite non-negative decimal strings"
+        )
+    if converter == "uuid":
+        raise ContractError(
+            f"Rust-native Router UUID parameter {name!r} requires a typed UUID input"
+        )
+
+
 def _validate_native_router_url_path_for_case(
     graph: dict[str, Any],
     lookup: dict[str, Any],
     custom: dict[str, dict[str, Any]],
 ) -> None:
-    routes = graph["routes"]
-    if custom or any(
-        route["kind"] != "http-route" or route["name"] is None or route["observer"] is not None
-        for route in routes
-    ):
+    if custom:
+        raise ContractError("Rust-native Router URL cases do not support custom converters")
+
+    def validate_native_node(node: dict[str, Any], context: str) -> None:
+        kind = node["kind"]
+        if kind == "router":
+            _exact(node, {"kind", "routes"}, context)
+            for index, child in enumerate(node["routes"]):
+                validate_native_node(child, f"{context}.routes[{index}]")
+            return
+        if kind == "mount":
+            if "app" in node or "middleware" in node:
+                raise ContractError(
+                    f"{context} uses a Mount app or middleware outside the Rust-native named-route subset"
+                )
+            _exact(node, {"kind", "path", "name", "routes"}, context)
+            for index, child in enumerate(node["routes"]):
+                validate_native_node(child, f"{context}.routes[{index}]")
+            return
+        if kind == "host-route":
+            if "app" in node:
+                raise ContractError(
+                    f"{context} uses a Host app outside the Rust-native named-route subset"
+                )
+            _exact(node, {"kind", "host", "name", "routes"}, context)
+            for index, child in enumerate(node["routes"]):
+                validate_native_node(child, f"{context}.routes[{index}]")
+            return
+        if kind in {"http-route", "websocket-route"}:
+            expected = (
+                {"kind", "path", "name", "methods", "observer"}
+                if kind == "http-route"
+                else {"kind", "path", "name", "observer"}
+            )
+            _exact(node, expected, context)
+            _validate_reverse_path(node["path"], custom, f"{context}.path")
+            if node["name"] is None or node["observer"] is not None:
+                raise ContractError(
+                    f"{context} must be named and cannot have a Python endpoint observer"
+                )
+            return
         raise ContractError(
-            "Rust-native Router URL cases require named direct HTTP routes without observers or custom converters"
+            f"{context}.kind is outside the Rust-native Router built-in route subset"
         )
+
+    if graph["kind"] != "router":
+        raise ContractError("Rust-native Router URL cases require a Router route graph")
+    validate_native_node(graph, "Rust-native Router route_graph")
 
     path_params = lookup["path_params"]
     if any(type(value) is not str for value in path_params.values()):
@@ -10011,23 +10101,35 @@ def _validate_native_router_url_path_for_case(
 
     first_index = min(index for index, _route in candidates)
     first_route = next(route for index, route in candidates if index == first_index)
-    parameters = _validate_reverse_path(
-        first_route["path"], custom, "Rust-native Router selected route path"
-    )
+    if first_route["kind"] in {"http-route", "websocket-route"}:
+        parameters = _validate_reverse_path(
+            first_route["path"], custom, "Rust-native Router selected route path"
+        )
+    elif first_route["kind"] == "mount":
+        parameters = [
+            *_validate_reverse_path(
+                first_route["path"], custom, "Rust-native Router selected Mount path"
+            ),
+            ("path", "path"),
+        ]
+    elif first_route["kind"] == "host-route":
+        parameters = [
+            *_validate_reverse_path(
+                "/" + first_route["host"], custom, "Rust-native Router selected Host pattern"
+            ),
+            ("path", "path"),
+        ]
+    else:
+        raise ContractError("Rust-native Router selected an unsupported reverse-route candidate")
+
+    prefix_paths = _reverse_candidate_prefix_parameter_paths(graph, {id(first_route)}, custom)
     for name, converter in parameters:
-        value = path_params[name]
-        if converter == "str" and (not value or "/" in value):
-            raise ContractError(
-                "Rust-native Router string-converter inputs must be non-empty and slash-free"
-            )
-        if converter == "int" and re.fullmatch(r"[0-9]+", value) is None:
-            raise ContractError(
-                "Rust-native Router integer-converter inputs must be non-negative ASCII decimal strings"
-            )
-        if converter == "float" and re.fullmatch(r"(?:-0|[0-9]+(?:\.[0-9]+)?)", value) is None:
-            raise ContractError(
-                "Rust-native Router float-converter inputs must use finite non-negative decimal strings"
-            )
+        if name in path_params:
+            _validate_native_reverse_parameter_value(name, converter, path_params[name])
+    for prefix in prefix_paths:
+        for name, converter in prefix:
+            if name in path_params:
+                _validate_native_reverse_parameter_value(name, converter, path_params[name])
 
 
 def _reverse_input_requirements(case: dict[str, Any]) -> set[str]:
@@ -10095,24 +10197,55 @@ def _reverse_input_requirements(case: dict[str, Any]) -> set[str]:
     elif surface == "starlette.routing.Router":
         if found:
             first_candidate = min(index for index, _route in candidates)
-            if first_candidate > 0:
-                derived.add(rid("first-success"))
-            candidate_ids = {id(route) for _index, route in candidates}
-            if any(_reverse_candidate_mount_paths(graph, candidate_ids)):
-                derived.add(rid("mount-lookup-success"))
-            if any(_reverse_candidate_host_mount_paths(graph, candidate_ids)):
-                derived.add(rid("host-mount-nested-lookup"))
             first_route = next(route for index, route in candidates if index == first_candidate)
-            parameters = dict(
-                _validate_reverse_path(first_route["path"], custom, "Router selected route path")
+            prefix_paths = _reverse_candidate_prefix_parameter_paths(
+                graph, {id(first_route)}, custom
             )
-            if any(
-                converter == "str"
-                and isinstance(params.get(name), str)
-                and (not params[name] or "/" in params[name])
-                for name, converter in parameters.items()
-            ):
-                derived.add(rid("converter-error-propagation"))
+            prefix_formatting_error = any(
+                name in params
+                and not _reverse_parameter_value_fits_builtin_converter(params[name], converter)
+                for prefix in prefix_paths
+                for name, converter in prefix
+            )
+            if prefix_formatting_error:
+                derived.add(rid("prefix-formatting-error-stops-fallback"))
+            else:
+                if first_candidate > 0:
+                    derived.add(rid("first-success"))
+                candidate_ids = {id(route) for _index, route in candidates}
+                if any(_reverse_candidate_mount_paths(graph, candidate_ids)):
+                    derived.add(rid("mount-lookup-success"))
+                if any(_reverse_candidate_host_mount_paths(graph, candidate_ids)):
+                    derived.add(rid("host-mount-nested-lookup"))
+                if any(
+                    name not in params for prefix in prefix_paths for name, _converter in prefix
+                ):
+                    derived.add(rid("partial-mount-host-prefix-parameters"))
+                if (
+                    first_route["kind"] in {"http-route", "websocket-route"}
+                    and any(_reverse_candidate_mount_paths(graph, {id(first_route)}))
+                    and dict(
+                        _validate_reverse_path(
+                            first_route["path"], custom, "Router selected route path"
+                        )
+                    ).get("path")
+                    == "path"
+                    and "path" in params
+                ):
+                    derived.add(rid("mount-path-parameter-forwarding"))
+                if first_route["kind"] in {"http-route", "websocket-route"}:
+                    parameters = dict(
+                        _validate_reverse_path(
+                            first_route["path"], custom, "Router selected route path"
+                        )
+                    )
+                    if any(
+                        converter == "str"
+                        and isinstance(params.get(name), str)
+                        and (not params[name] or "/" in params[name])
+                        for name, converter in parameters.items()
+                    ):
+                        derived.add(rid("converter-error-propagation"))
         else:
             derived.add(rid("mismatch"))
     elif surface == "starlette.routing.Mount":
@@ -10207,6 +10340,20 @@ def _reverse_candidate_host_mount_paths(
     for route in node.get("routes", []):
         paths.extend(_reverse_candidate_host_mount_paths(route, candidates, has_host, has_mount))
     return paths
+
+
+def _reverse_parameter_value_fits_builtin_converter(value: Any, converter: str) -> bool:
+    if type(value) is not str:
+        return False
+    if converter == "str":
+        return bool(value) and "/" not in value
+    if converter == "int":
+        return re.fullmatch(r"[0-9]+", value) is not None
+    if converter == "float":
+        return re.fullmatch(r"(?:-0|[0-9]+(?:\.[0-9]+)?)", value) is not None
+    if converter == "path":
+        return True
+    return False
 
 
 def _validate_reverse_url_case_stimulus(case: dict[str, Any]) -> None:
