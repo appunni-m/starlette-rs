@@ -7268,6 +7268,7 @@ def _validate_static_files_case_stimulus(
     conditional_match = False
     conditional_numeric_timezone = False
     conditional_named_timezone = False
+    conditional_full_month = False
     conditional_trailing_rfc_comment = False
     request_headers: dict[str, str] = {}
     if method == "GET" and normalized_path in selected_files and not os_specific_path_normalization:
@@ -7287,6 +7288,13 @@ def _validate_static_files_case_stimulus(
             if name == "if-modified-since":
                 conditional_numeric_timezone = bool(re.search(r"[+-][0-9]{4}$", value.strip()))
                 conditional_trailing_rfc_comment = value.rstrip().endswith(")") and "(" in value
+                conditional_full_month = bool(
+                    re.search(
+                        r"\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\b",
+                        value,
+                        re.IGNORECASE,
+                    )
+                )
                 timezone_token = value.strip().rsplit(" ", 1)[-1]
                 conditional_named_timezone = (
                     timezone_token.isascii()
@@ -7353,6 +7361,8 @@ def _validate_static_files_case_stimulus(
                     if conditional_named_timezone
                     else "if-modified-since-numeric-timezone"
                     if conditional_numeric_timezone
+                    else "if-modified-since-full-month"
+                    if conditional_full_month
                     else "conditional-date-match"
                 )
             elif selected_files[normalized_path][1]:

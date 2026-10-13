@@ -1125,7 +1125,7 @@ fn parse_range_header(
     let (units, requested) = header
         .split_once('=')
         .ok_or(RangeParseError::Malformed("Malformed range header."))?;
-    if !units.trim().eq_ignore_ascii_case("bytes") {
+    if !python_strip(units).eq_ignore_ascii_case("bytes") {
         return Err(RangeParseError::Malformed("Only support bytes range"));
     }
     if requested.bytes().filter(|byte| *byte == b',').count() + 1 > max_ranges {
@@ -1134,15 +1134,15 @@ fn parse_range_header(
 
     let mut ranges = Vec::new();
     for part in requested.split(',') {
-        let part = part.trim();
+        let part = python_strip(part);
         if part.is_empty() || part == "-" {
             continue;
         }
         let Some((start_text, end_text)) = part.split_once('-') else {
             continue;
         };
-        let start_text = start_text.trim();
-        let end_text = end_text.trim();
+        let start_text = python_strip(start_text);
+        let end_text = python_strip(end_text);
         let start = if start_text.is_empty() {
             let Some(suffix) = parse_decimal(end_text) else {
                 continue;
@@ -1207,6 +1207,13 @@ fn parse_range_header(
         merged.push((start, end));
     }
     Ok(merged)
+}
+
+fn python_strip(value: &str) -> &str {
+    // CPython's str.strip includes these separators; Rust's Unicode whitespace predicate does not.
+    value.trim_matches(|character: char| {
+        character.is_whitespace() || matches!(character, '\u{001c}'..='\u{001f}')
+    })
 }
 
 #[derive(Clone, Copy)]

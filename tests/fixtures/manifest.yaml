@@ -440,6 +440,7 @@
       "build/parity/inputs/parity/file-response-range-decimal-inputs.json",
       "build/parity/inputs/parity/file-response-if-range-last-modified.json",
       "build/parity/inputs/parity/file-response-signed-zero-range.json",
+      "build/parity/inputs/parity/file-response-range-python-strip-c0-separators.json",
       "build/parity/inputs/parity/lifespan-generators.json",
       "build/parity/inputs/parity/lifespan-native-failure-transitions.json",
       "build/parity/inputs/parity/authentication-runtime.json",
@@ -542,6 +543,7 @@
       "build/parity/inputs/parity/static-files-named-timezone.json",
       "build/parity/inputs/parity/static-files-omitted-timezone.json",
       "build/parity/inputs/parity/static-files-weekdayless-date.json",
+      "build/parity/inputs/parity/static-files-if-modified-since-full-month.json",
       "build/parity/inputs/parity/static-files-if-modified-since-rfc-comment.json",
       "build/parity/inputs/parity/testclient-reentrant-lifespan-entry.json",
       "build/parity/inputs/parity/native-service-streaming.json",
@@ -17279,6 +17281,18 @@
               ]
             },
             {
+              "id": "starlette.responses.FileResponse.asgi-call.range-python-strip-c0-separators",
+              "dimension": "boundary",
+              "description": "Parse a byte-range value surrounded by C0 separators U+001C–U+001F using CPython str.strip() behavior and compare the live 206 response. Pinned source: starlette/responses.py::FileResponse._parse_ranges and _parse_range_header.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.responses.FileResponse.asgi-call.unicode-filename",
               "dimension": "parameter_combination",
               "description": "Serve the deterministic file with a Unicode download filename and observe its encoded Content-Disposition header. Upstream: starlette/responses.py::FileResponse.__init__; tests/test_responses.py::test_file_response_with_chinese_filename.",
@@ -25150,6 +25164,18 @@
               "id": "starlette.staticfiles.StaticFiles.asgi-call.if-modified-since-trailing-rfc-comment",
               "dimension": "boundary",
               "description": "Supply an If-Modified-Since date with a trailing RFC-style comment and compare the conditional response for an input-defined asset. Pinned Starlette uses email.utils.parsedate, which accepts this comment form. Source: starlette/staticfiles.py::StaticFiles.is_not_modified at the authority commit.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.staticfiles.StaticFiles.asgi-call.if-modified-since-full-month",
+              "dimension": "boundary",
+              "description": "Compare If-Modified-Since parsing for an input date with a full English month name; pinned Starlette delegates to email.utils.parsedate, which accepts full and mixed-case month names. Source: starlette/staticfiles.py:7,215-219 and CPython email._parseaddr.py.",
               "lanes": [
                 "parity"
               ],

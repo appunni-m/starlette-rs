@@ -603,6 +603,8 @@ fn parse_http_date_ignoring_weekday(value: &str) -> Option<SystemTime> {
     let value = strip_trailing_email_comments(value.trim());
     let normalized_timezone = normalize_email_timezone(value);
     let value = normalized_timezone.as_deref().unwrap_or(value);
+    let normalized_month = normalize_email_month(value);
+    let value = normalized_month.as_deref().unwrap_or(value);
     if let Ok(timestamp) = httpdate::parse_http_date(value) {
         return Some(timestamp);
     }
@@ -644,6 +646,63 @@ fn parse_http_date_ignoring_weekday(value: &str) -> Option<SystemTime> {
         httpdate::parse_http_date(&normalized)
             .ok()
             .or_else(|| httpdate::parse_http_date(&format!("{normalized} GMT")).ok())
+    })
+}
+
+/// Normalizes Python email-date month tokens to the abbreviated form accepted
+/// by `httpdate`. `email.utils.parsedate` accepts full and mixed-case English
+/// month names in `If-Modified-Since` values.
+fn normalize_email_month(value: &str) -> Option<String> {
+    let mut normalized = String::with_capacity(value.len());
+    let mut changed = false;
+    let mut token_start = None;
+
+    for (index, character) in value.char_indices() {
+        if character.is_ascii_alphabetic() {
+            token_start.get_or_insert(index);
+        } else {
+            if let Some(start) = token_start.take() {
+                changed |= push_email_month(&mut normalized, &value[start..index]);
+            }
+            normalized.push(character);
+        }
+    }
+    if let Some(start) = token_start {
+        changed |= push_email_month(&mut normalized, &value[start..]);
+    }
+
+    changed.then_some(normalized)
+}
+
+fn push_email_month(normalized: &mut String, token: &str) -> bool {
+    if let Some(abbreviation) = email_month_abbreviation(token) {
+        normalized.push_str(abbreviation);
+        true
+    } else {
+        normalized.push_str(token);
+        false
+    }
+}
+
+fn email_month_abbreviation(value: &str) -> Option<&'static str> {
+    const MONTHS: [(&str, &str); 12] = [
+        ("January", "Jan"),
+        ("February", "Feb"),
+        ("March", "Mar"),
+        ("April", "Apr"),
+        ("May", "May"),
+        ("June", "Jun"),
+        ("July", "Jul"),
+        ("August", "Aug"),
+        ("September", "Sep"),
+        ("October", "Oct"),
+        ("November", "Nov"),
+        ("December", "Dec"),
+    ];
+
+    MONTHS.iter().find_map(|(full, abbreviated)| {
+        (value.eq_ignore_ascii_case(full) || value.eq_ignore_ascii_case(abbreviated))
+            .then_some(*abbreviated)
     })
 }
 
