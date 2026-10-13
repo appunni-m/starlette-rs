@@ -20640,9 +20640,12 @@ def _validate_native_lazy_stream_input(case: dict[str, Any]) -> None:
         context = f"native streaming source.items[{index}]"
         item = _exact(item_value, {"kind", "value"}, context)
         if item["kind"] == "text":
-            _string(item["value"], f"{context}.value")
+            if not isinstance(item["value"], str):
+                raise ContractError(f"{context}.value must be a string")
         elif item["kind"] == "base64-bytes":
-            encoded = _string(item["value"], f"{context}.value")
+            encoded = item["value"]
+            if not isinstance(encoded, str):
+                raise ContractError(f"{context}.value must be a string")
             try:
                 base64.b64decode(encoded, validate=True)
             except (binascii.Error, ValueError) as exc:
