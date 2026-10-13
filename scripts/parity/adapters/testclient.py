@@ -104,7 +104,12 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
         for message in app_input["messages"]:
             message = _message(message)
             asgi_events.append(_safe(message))
-            await send(message)
+            outgoing_message = message
+            if app_input.get("message_mapping") == "user-dict":
+                from collections import UserDict
+
+                outgoing_message = UserDict(message)
+            await send(outgoing_message)
         if "exception" in app_input:
             exception_type = getattr(builtins, app_input["exception"]["class"])
             raised_exception = exception_type(app_input["exception"]["message"])

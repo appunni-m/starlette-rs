@@ -5413,6 +5413,16 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                         )
                 elif kind == "set-call-next-response-header":
                     response.headers[action["name"]] = action["value"]
+                elif kind == "set-call-next-response-body-iterator":
+                    chunks = [
+                        base64.b64decode(chunk, validate=True) for chunk in action["chunks_base64"]
+                    ]
+
+                    async def replacement_body_iterator(input_chunks: list[bytes] = chunks):
+                        for chunk in input_chunks:
+                            yield chunk
+
+                    response.body_iterator = replacement_body_iterator()
                 elif kind == "set-call-next-response-header-from-request-state":
                     response.headers[action["name"]] = getattr(request.state, action["state_name"])
                 elif kind == "append-middleware-event":

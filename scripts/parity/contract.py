@@ -279,6 +279,7 @@ TESTCLIENT_REQUIREMENTS = {
     "asgi3_asyncio_marker": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.asyncio-marked-asgi3-callable",
     "timeout_warning": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.timeout-deprecation-warning",
     "exception_policy": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.exception-policy",
+    "message_mapping": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.asgi-message-mutable-mapping",
     "non_string_message_exception": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.non-string-asgi-message-before-exception",
     "no_response_return": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.normal-return-without-response",
     "incomplete_response_exception": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.exception-after-incomplete-response",
@@ -447,6 +448,7 @@ BASE_HTTP_REQUIREMENTS = {
     "stacked_disconnect_background_lifecycle": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.stacked-client-disconnect-background-lifecycle",
     "response_header_get_missing": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.call-next-response-headers-mapping-get",
     "return_call_next_response_with_closed_body_iterator": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.return-call-next-response-with-closed-body-iterator",
+    "body_iterator_replacement": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.call-next-response-body-iterator-replacement",
 }
 SESSION_REQUIREMENTS = {
     "construct": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.construct",
@@ -1563,6 +1565,7 @@ REQUEST_CONSUMPTION_REQUIREMENTS = {
     "body_stream_cancellation_retry": "starlette.request.body.retry-after-stream-cancellation",
     "stream_disconnect_retry": "starlette.request.stream-disconnect-retry",
     "stream_close_recovery": "starlette.request.stream-close-recovers-remaining-body",
+    "custom_receive_event": "starlette.request.stream-ignore-custom-receive-events",
 }
 SYNC_REQUEST_RUNTIME_REQUIREMENTS = {
     "receive": "starlette.request.receive-worker-access",
@@ -11855,6 +11858,7 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
     saw_header_mutation = False
     saw_disconnect_check = False
     saw_response_body_read = False
+    saw_response_body_iterator_replacement = False
     saw_response_iterator_overlap = False
     saw_response_header_observation = False
     response_header_observation_name: str | None = None
@@ -11901,6 +11905,36 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
                     "call_next response body read requires one awaited response and must precede return"
                 )
             saw_response_body_read = True
+        elif kind == "set-call-next-response-body-iterator":
+            action = _exact(raw_action, {"kind", "chunks_base64"}, context)
+            chunks = action["chunks_base64"]
+            if (
+                not awaited
+                or returned is not None
+                or saw_response_body_iterator_replacement
+                or not isinstance(chunks, list)
+                or not chunks
+            ):
+                raise ContractError(
+                    "call_next response body iterator replacement requires one awaited response and a non-empty chunk sequence"
+                )
+            decoded_chunks = []
+            for chunk_index, chunk in enumerate(chunks):
+                if not isinstance(chunk, str):
+                    raise ContractError(
+                        f"{context}.chunks_base64[{chunk_index}] must be a base64 string"
+                    )
+                try:
+                    decoded_chunks.append(base64.b64decode(chunk, validate=True))
+                except (ValueError, TypeError) as exc:
+                    raise ContractError(
+                        f"{context}.chunks_base64[{chunk_index}] must be base64"
+                    ) from exc
+            if not any(decoded_chunks):
+                raise ContractError(
+                    "call_next response body iterator replacement requires a non-empty body chunk"
+                )
+            saw_response_body_iterator_replacement = True
         elif kind == "overlap-call-next-response-body-reads":
             action = _exact(raw_action, {"kind", "timeout_ms"}, context)
             if (
@@ -12570,6 +12604,29 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
         raise ContractError("middleware lifecycle stack requires one initial http.disconnect event")
 
     requirements = {BASE_HTTP_REQUIREMENTS["construct"]}
+    if saw_response_body_iterator_replacement:
+        if (
+            returned != "call-next"
+            or route_kind != "plain-text-response"
+            or route_methods != ["GET"]
+            or scope["method"] != "GET"
+            or downstream is not None
+            or len(actions) != 3
+            or [action["kind"] for action in actions]
+            != [
+                "await-call-next",
+                "set-call-next-response-body-iterator",
+                "return-call-next-response",
+            ]
+            or receive != [{"type": "http.request", "body_base64": "", "more_body": False}]
+            or receive_after_events != "disconnect"
+            or disconnect_events
+            or send_checkpoints
+        ):
+            raise ContractError(
+                "body iterator replacement requires a returned GET route response, one empty request event, and no downstream ASGI or send checkpoints"
+            )
+        requirements.add(BASE_HTTP_REQUIREMENTS["body_iterator_replacement"])
     if (
         saw_response_header_observation
         and route_kind == "plain-text-response"
@@ -14792,6 +14849,8 @@ def _validate_testclient_case(
         asgi_app_keys = {"kind", "scope_fields", "receive_count", "messages"}
         if isinstance(raw_asgi_app, dict) and "exception" in raw_asgi_app:
             asgi_app_keys.add("exception")
+        if isinstance(raw_asgi_app, dict) and "message_mapping" in raw_asgi_app:
+            asgi_app_keys.add("message_mapping")
         asgi_app = _exact(raw_asgi_app, asgi_app_keys, "TestClient ASGI app")
         if asgi_app["kind"] not in {"asgi2", "asgi3", "asgi3-asyncio-marked"}:
             raise ContractError(
@@ -14805,6 +14864,8 @@ def _validate_testclient_case(
             )
         messages = asgi_app["messages"]
         exception_spec = asgi_app.get("exception")
+        if "message_mapping" in asgi_app and asgi_app["message_mapping"] != "user-dict":
+            raise ContractError("TestClient ASGI message_mapping must be user-dict")
     scope_fields = asgi_app["scope_fields"]
     allowed_scope_fields = {
         "type",
@@ -14910,6 +14971,8 @@ def _validate_testclient_case(
     ):
         raise ContractError("TestClient file uploads require the multipart-form request consumer")
     expected_covers = {TESTCLIENT_REQUIREMENTS["scope"]}
+    if asgi_app.get("message_mapping") == "user-dict":
+        expected_covers.add(TESTCLIENT_REQUIREMENTS["message_mapping"])
     if any("auth" in item for item in observed_requests):
         expected_covers.add(TESTCLIENT_REQUIREMENTS["authentication_option"])
     if any("files" in item for item in observed_requests):
@@ -26385,11 +26448,8 @@ def _validate_request_body_stream_json_case(case: dict[str, Any]) -> None:
                     f"{context}.exception_type must be ValueError or CancelledError"
                 )
             continue
-        if not isinstance(raw_message, dict) or raw_message.get("type") not in {
-            "http.request",
-            "http.disconnect",
-        }:
-            raise ContractError(f"{context} must be an HTTP request or disconnect message")
+        if not isinstance(raw_message, dict) or not isinstance(raw_message.get("type"), str):
+            raise ContractError(f"{context} must have a string message type")
         if raw_message["type"] == "http.request":
             allowed = {"type", "body_base64", "more_body"}
             if set(raw_message) - allowed:
@@ -26406,8 +26466,13 @@ def _validate_request_body_stream_json_case(case: dict[str, Any]) -> None:
                     raise ContractError(f"{context}.more_body must be boolean")
             else:
                 optional_receive_fields = True
-        elif set(raw_message) != {"type"}:
+        elif raw_message["type"] == "http.disconnect" and set(raw_message) != {"type"}:
             raise ContractError(f"{context} disconnect message has unsupported fields")
+        elif raw_message["type"] not in {"http.request", "http.disconnect"}:
+            _exact(raw_message, {"type", "body_value"}, context)
+            if "body_value" not in raw_message:
+                raise ContractError(f"{context} custom event must declare its body_value")
+            _validate_threadpool_json(raw_message["body_value"], f"{context}.body_value")
 
     blocked_receive_calls = case["blocked_receive_calls"]
     if (
@@ -26649,6 +26714,32 @@ def _validate_request_body_stream_json_case(case: dict[str, Any]) -> None:
     stream_positions = [
         index for index, operation in enumerate(action_operations) if operation == "stream-next"
     ]
+    custom_receive_indices = [
+        index
+        for index, message in enumerate(receive)
+        if isinstance(message, dict)
+        and message.get("kind") != "raise"
+        and message.get("type") not in {"http.request", "http.disconnect"}
+    ]
+    if custom_receive_indices:
+        first_request_index = next(
+            (
+                index
+                for index, message in enumerate(receive)
+                if message.get("type") == "http.request"
+            ),
+            None,
+        )
+        if (
+            first_request_index is None
+            or any(index > first_request_index for index in custom_receive_indices)
+            or (not body_positions and not stream_positions)
+            or blocked_receive_calls
+        ):
+            raise ContractError(
+                "custom receive events must precede an http.request consumed by body() or stream()"
+            )
+        expected_covers.add(REQUEST_CONSUMPTION_REQUIREMENTS["custom_receive_event"])
     if optional_receive_fields:
         expected_covers.add(REQUEST_CONSUMPTION_REQUIREMENTS["optional_receive_fields"])
     if len(direct_body_positions) > 1 and not receive_error_probe:

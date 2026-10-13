@@ -1318,6 +1318,7 @@ impl PyBaseHTTPResponse {
         _receive: Py<PyAny>,
         send: Py<PyAny>,
         background: Py<PyAny>,
+        body_iterator: Py<PyAny>,
     ) -> PyResult<Py<PyAny>> {
         into_sendable_python_awaitable(
             py,
@@ -1325,9 +1326,9 @@ impl PyBaseHTTPResponse {
                 status_code: self.status_code,
                 headers: self.headers.clone_ref(py),
                 info: self.info.as_ref().map(|value| value.clone_ref(py)),
-                receive_stream: self.receive_stream.clone_ref(py),
-                body_iterator_finished: self.body_iterator_finished.clone(),
-                body_iterator_pending: self.body_iterator_pending.clone(),
+                body_iterator,
+                iterator: None,
+                should_close_body: true,
                 send,
                 background: if background.bind(py).is_none() {
                     None
@@ -1685,9 +1686,9 @@ enum ResponsePending {
     SendDebug,
     SendStart,
     ReceiveBody,
-    SendChunk { more_body: bool },
+    SendChunk,
+    SendMessage,
     SendFinal,
-    SendPathsend,
     RunBackground,
 }
 
@@ -1695,9 +1696,9 @@ struct BaseHTTPResponseCallMachine {
     status_code: u16,
     headers: SharedHeaders,
     info: Option<Py<PyAny>>,
-    receive_stream: Py<PyAny>,
-    body_iterator_finished: Arc<AtomicBool>,
-    body_iterator_pending: Arc<AtomicBool>,
+    body_iterator: Py<PyAny>,
+    iterator: Option<Py<PyAny>>,
+    should_close_body: bool,
     send: Py<PyAny>,
     background: Option<Py<PyAny>>,
     phase: ResponsePhase,
@@ -1708,7 +1709,8 @@ struct BaseHTTPResponseCallMachine {
 impl AwaitableStateMachine for BaseHTTPResponseCallMachine {
     fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
         visit.call(&self.info)?;
-        visit.call(&self.receive_stream)?;
+        visit.call(&self.body_iterator)?;
+        visit.call(&self.iterator)?;
         visit.call(&self.send)?;
         visit.call(&self.background)?;
         visit.call(&self.headers)?;
@@ -1732,26 +1734,12 @@ impl AwaitableStateMachine for BaseHTTPResponseCallMachine {
                     self.phase = ResponsePhase::ReceiveBody;
                     self.next_action(py)
                 }
-                Some(ResponsePending::ReceiveBody) => {
-                    self.body_iterator_pending.store(false, Ordering::SeqCst);
-                    let result = self.process_body_message(py, value);
-                    if result.is_err() {
-                        self.body_iterator_finished.store(true, Ordering::SeqCst);
-                    }
-                    result
+                Some(ResponsePending::ReceiveBody) => self.process_body_chunk(py, value),
+                Some(ResponsePending::SendChunk | ResponsePending::SendMessage) => {
+                    self.phase = ResponsePhase::ReceiveBody;
+                    self.next_action(py)
                 }
-                Some(ResponsePending::SendChunk { more_body }) => {
-                    if more_body {
-                        self.phase = ResponsePhase::ReceiveBody;
-                        self.next_action(py)
-                    } else {
-                        self.phase = ResponsePhase::FinishBody;
-                        self.next_action(py)
-                    }
-                }
-                Some(ResponsePending::SendFinal) | Some(ResponsePending::SendPathsend) => {
-                    self.finish_response(py)
-                }
+                Some(ResponsePending::SendFinal) => self.finish_response(py),
                 Some(ResponsePending::RunBackground) => {
                     self.phase = ResponsePhase::Complete;
                     self.next_action(py)
@@ -1760,21 +1748,21 @@ impl AwaitableStateMachine for BaseHTTPResponseCallMachine {
                     "BaseHTTP response resumed without a pending operation",
                 )),
             },
-            MachineResume::AsyncIterationComplete(error) | MachineResume::Error(error) => {
-                match self.pending.take() {
-                    Some(ResponsePending::ReceiveBody) => {
-                        self.body_iterator_pending.store(false, Ordering::SeqCst);
-                        self.body_iterator_finished.store(true, Ordering::SeqCst);
-                        if is_end_of_stream(py, &error)? {
-                            self.phase = ResponsePhase::FinishBody;
-                            self.next_action(py)
-                        } else {
-                            Err(error)
-                        }
+            MachineResume::Error(error) => match self.pending.take() {
+                Some(ResponsePending::ReceiveBody) => Err(error),
+                Some(_) | None => Err(error),
+            },
+            MachineResume::AsyncIterationComplete(error) => match self.pending.take() {
+                Some(ResponsePending::ReceiveBody) => {
+                    if self.should_close_body {
+                        self.phase = ResponsePhase::FinishBody;
+                        self.next_action(py)
+                    } else {
+                        self.finish_response(py)
                     }
-                    Some(_) | None => Err(error),
                 }
-            }
+                Some(_) | None => Err(error),
+            },
         }
     }
 }
@@ -1809,23 +1797,25 @@ impl BaseHTTPResponseCallMachine {
                 self.send_message(py, message, ResponsePending::SendStart)
             }
             ResponsePhase::ReceiveBody => {
-                if self.body_iterator_finished.load(Ordering::SeqCst) {
-                    self.phase = ResponsePhase::FinishBody;
-                    return self.next_action(py);
-                }
-                if self.body_iterator_pending.swap(true, Ordering::SeqCst) {
-                    return Err(PyRuntimeError::new_err(
-                        "anext(): asynchronous generator is already running",
-                    ));
-                }
-                let awaitable = match self.receive_stream.bind(py).call_method0("receive") {
-                    Ok(awaitable) => awaitable,
-                    Err(error) => {
-                        self.body_iterator_pending.store(false, Ordering::SeqCst);
-                        self.body_iterator_finished.store(true, Ordering::SeqCst);
-                        return Err(error);
+                let iterator = match self.iterator.as_ref() {
+                    Some(iterator) => iterator.bind(py).clone(),
+                    None => {
+                        let iterator = py
+                            .import("builtins")?
+                            .getattr("aiter")?
+                            .call1((self.body_iterator.bind(py),))?;
+                        self.iterator = Some(iterator.unbind());
+                        self.iterator
+                            .as_ref()
+                            .map(|iterator| iterator.bind(py).clone())
+                            .ok_or_else(|| {
+                                PyRuntimeError::new_err(
+                                    "BaseHTTP response body iterator was not initialized",
+                                )
+                            })?
                     }
                 };
+                let awaitable = iterator.call_method0("__anext__")?;
                 self.pending = Some(ResponsePending::ReceiveBody);
                 Ok(MachineAction::Await(awaitable.unbind()))
             }
@@ -1840,58 +1830,16 @@ impl BaseHTTPResponseCallMachine {
         }
     }
 
-    fn process_body_message(
-        &mut self,
-        py: Python<'_>,
-        message: Py<PyAny>,
-    ) -> PyResult<MachineAction> {
-        let message = message.bind(py).cast::<PyDict>()?;
-        let message_type = message
-            .get_item("type")?
-            .ok_or_else(|| PyKeyError::new_err("type"))?
-            .extract::<String>()?;
-        if message_type == "http.response.pathsend" {
-            self.body_iterator_finished.store(true, Ordering::SeqCst);
-            return self.send_message(
-                py,
-                message.clone().into_any().unbind(),
-                ResponsePending::SendPathsend,
-            );
+    fn process_body_chunk(&mut self, py: Python<'_>, chunk: Py<PyAny>) -> PyResult<MachineAction> {
+        if chunk.bind(py).cast::<PyDict>().is_ok() {
+            self.should_close_body = false;
+            return self.send_message(py, chunk, ResponsePending::SendMessage);
         }
-        if message_type != "http.response.body" {
-            return Err(PyAssertionError::new_err(format!(
-                "Unexpected message: {}",
-                message.repr()?.extract::<String>()?
-            )));
-        }
-        let body = message
-            .get_item("body")?
-            .unwrap_or_else(|| PyBytes::new(py, b"").into_any());
-        let more_body = message
-            .get_item("more_body")?
-            .map(|value| value.extract::<bool>())
-            .transpose()?
-            .unwrap_or(false);
-        if !more_body {
-            self.body_iterator_finished.store(true, Ordering::SeqCst);
-        }
-        if body.is_truthy()? {
-            let output = PyDict::new(py);
-            output.set_item("type", "http.response.body")?;
-            output.set_item("body", body)?;
-            output.set_item("more_body", true)?;
-            return self.send_message(
-                py,
-                output.into_any().unbind(),
-                ResponsePending::SendChunk { more_body },
-            );
-        }
-        if more_body {
-            self.phase = ResponsePhase::ReceiveBody;
-            return self.next_action(py);
-        }
-        self.phase = ResponsePhase::FinishBody;
-        self.next_action(py)
+        let output = PyDict::new(py);
+        output.set_item("type", "http.response.body")?;
+        output.set_item("body", chunk)?;
+        output.set_item("more_body", true)?;
+        self.send_message(py, output.into_any().unbind(), ResponsePending::SendChunk)
     }
 
     fn start_message(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {

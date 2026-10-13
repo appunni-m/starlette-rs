@@ -363,6 +363,7 @@
       "build/parity/inputs/parity/request-stream-close-recovery.json",
       "build/parity/inputs/parity/request-body-receive-error-retry.json",
       "build/parity/inputs/parity/request-stream-disconnect-retry.json",
+      "build/parity/inputs/parity/request-custom-receive-event.json",
       "build/parity/inputs/parity/gzip-middleware.json",
       "build/parity/inputs/parity/gzip-python-bigint-threshold.json",
       "build/parity/inputs/parity/gzip-python-bigint-compresslevel.json",
@@ -503,6 +504,7 @@
       "build/parity/inputs/parity/http-endpoint-dispatch.json",
       "build/parity/inputs/parity/testclient-asgi-callable-protocol.json",
       "build/parity/inputs/parity/testclient-http.json",
+      "build/parity/inputs/parity/testclient-asgi-message-mutable-mapping.json",
       "build/parity/inputs/parity/testclient-http-response-start-decode-fallback.json",
       "build/parity/inputs/parity/testclient-client-port-preservation.json",
       "build/parity/inputs/parity/testclient-server-port-preservation.json",
@@ -10633,6 +10635,17 @@
               "target_profiles": [
                 "python-package-cpython312"
               ]
+            },
+            {
+              "id": "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.call-next-response-body-iterator-replacement",
+              "dimension": "protocol_variant",
+              "description": "After call_next returns, replace the response's body_iterator with an input-defined async iterator and return that same response. Compare the yielded chunks, including an empty chunk, and terminal ASGI body behavior from the live source and target. Pinned source: starlette/middleware/base.py:220-244.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
             }
           ],
           "parity": {
@@ -16136,6 +16149,21 @@
               "id": "starlette.request.receive-optional-body-fields",
               "dimension": "boundary",
               "description": "Omit ASGI http.request body and/or more_body fields and preserve Starlette defaults while collecting the body. Pinned source: starlette/requests.py::Request.stream; tests/test_requests.py::test_request_rcv.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
+              "id": "starlette.request.stream-ignore-custom-receive-events",
+              "dimension": "boundary",
+              "description": "Ignore an input-defined application message before the following http.request and do not interpret its custom body payload as request bytes. Pinned source: starlette/requests.py:234-252; the ASGI base specification permits application-defined high-level message types between applications.",
               "lanes": [
                 "parity"
               ],
@@ -28842,6 +28870,17 @@
               "id": "starlette.testclient.TestClient.request-response.response-and-debug",
               "dimension": "success_path",
               "description": "Translate input ASGI response-start, debug, and body messages into the public HTTPX response URL, status, reason phrase, ordered headers, body, and response extensions, including standard and unknown numeric status phrases and suppression of an ASGI response body on a HEAD request. Pinned source: starlette/testclient.py:327-367; tests/test_testclient.py::test_debug_info_in_response_extensions; tests/test_responses.py::test_response_phrase; tests/test_responses.py::test_head_method.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.request-response.asgi-message-mutable-mapping",
+              "dimension": "boundary",
+              "description": "Accept input ASGI HTTP response messages through the MutableMapping interface, including a UserDict message with response-start and response-body fields. Pinned source: starlette/types.py:13; starlette/testclient.py:327-347.",
               "lanes": [
                 "parity"
               ],

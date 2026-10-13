@@ -1006,7 +1006,7 @@ impl AwaitableStateMachine for BodyMachine {
                     ));
                 }
                 self.pending_receive = false;
-                let (message_type, body, more_body) = match request_message(py, message) {
+                let message = match request_message(py, message) {
                     Ok(message) => message,
                     Err(error) => {
                         self.abort_collection(py);
@@ -1016,14 +1016,14 @@ impl AwaitableStateMachine for BodyMachine {
                 };
                 let progress = {
                     let mut runtime = borrow_runtime_mut(py, &self.shared)?;
-                    if message_type == "http.disconnect" {
+                    if message.kind == RequestMessageKind::Disconnect {
                         runtime.request_disconnected = true;
                     }
                     self.stream.accept_pending(
                         &mut runtime.accumulator,
-                        &message_type,
-                        &body,
-                        more_body,
+                        message.kind.as_runtime_type(),
+                        &message.body,
+                        message.more_body,
                     )
                 };
                 match progress {
@@ -1164,7 +1164,7 @@ impl AwaitableStateMachine for StreamMachine {
                     ));
                 }
                 self.pending_receive = false;
-                let (message_type, body, more_body) = match request_message(py, message) {
+                let message = match request_message(py, message) {
                     Ok(message) => message,
                     Err(error) => {
                         self.fail_stream();
@@ -1174,11 +1174,16 @@ impl AwaitableStateMachine for StreamMachine {
                 };
                 let progress = {
                     let mut runtime = borrow_runtime_mut(py, &self.shared)?;
-                    if message_type == "http.disconnect" {
+                    if message.kind == RequestMessageKind::Disconnect {
                         runtime.request_disconnected = true;
                     }
                     let mut state = borrow_stream_mut(&self.state)?;
-                    state.accept_pending(&mut runtime.accumulator, &message_type, &body, more_body)
+                    state.accept_pending(
+                        &mut runtime.accumulator,
+                        message.kind.as_runtime_type(),
+                        &message.body,
+                        message.more_body,
+                    )
                 };
                 match progress {
                     Ok(progress) => self.deliver(py, progress),
@@ -1563,17 +1568,17 @@ impl FormMachine {
             MachineResume::Value(message) => {
                 if self.pending_receive {
                     self.pending_receive = false;
-                    let (message_type, body, more_body) = request_message(py, message)?;
+                    let message = request_message(py, message)?;
                     let progress = {
                         let mut runtime = borrow_runtime_mut(py, &self.shared)?;
-                        if message_type == "http.disconnect" {
+                        if message.kind == RequestMessageKind::Disconnect {
                             runtime.request_disconnected = true;
                         }
                         self.stream.accept_pending(
                             &mut runtime.accumulator,
-                            &message_type,
-                            &body,
-                            more_body,
+                            message.kind.as_runtime_type(),
+                            &message.body,
+                            message.more_body,
                         )
                     }
                     .map_err(|error| request_body_error(py, error))?;
@@ -2232,20 +2237,65 @@ impl AwaitableStateMachine for JsonMachine {
     }
 }
 
-fn request_message(py: Python<'_>, message: Py<PyAny>) -> PyResult<(String, Vec<u8>, bool)> {
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum RequestMessageKind {
+    Request,
+    Disconnect,
+    Other,
+}
+
+impl RequestMessageKind {
+    fn as_runtime_type(self) -> &'static str {
+        match self {
+            Self::Request => "http.request",
+            Self::Disconnect => "http.disconnect",
+            Self::Other => "",
+        }
+    }
+}
+
+struct ParsedRequestMessage {
+    kind: RequestMessageKind,
+    body: Vec<u8>,
+    more_body: bool,
+}
+
+fn request_message(py: Python<'_>, message: Py<PyAny>) -> PyResult<ParsedRequestMessage> {
     let message = message.bind(py);
-    let message_type = message.get_item("type")?.extract::<String>()?;
-    let empty = PyBytes::new(py, b"");
-    let body = message.call_method1("get", ("body", empty))?;
-    let body = if body.is_truthy()? {
-        body.extract::<Vec<u8>>()?
-    } else {
-        Vec::new()
-    };
-    let more_body = message
-        .call_method1("get", ("more_body", false))?
-        .is_truthy()?;
-    Ok((message_type, body, more_body))
+    let message_type = message.get_item("type")?;
+    // Match Request.stream()'s branch order: only http.request reads body and
+    // more_body. Disconnect and application-defined messages ignore all other
+    // fields, which lets middleware pass high-level ASGI events through.
+    if message_type.eq("http.request")? {
+        let empty = PyBytes::new(py, b"");
+        let body = message.call_method1("get", ("body", empty))?;
+        let body = if body.is_truthy()? {
+            body.extract::<Vec<u8>>()?
+        } else {
+            Vec::new()
+        };
+        let more_body = message
+            .call_method1("get", ("more_body", false))?
+            .is_truthy()?;
+        return Ok(ParsedRequestMessage {
+            kind: RequestMessageKind::Request,
+            body,
+            more_body,
+        });
+    }
+    if message_type.eq("http.disconnect")? {
+        return Ok(ParsedRequestMessage {
+            kind: RequestMessageKind::Disconnect,
+            body: Vec::new(),
+            more_body: false,
+        });
+    }
+
+    Ok(ParsedRequestMessage {
+        kind: RequestMessageKind::Other,
+        body: Vec::new(),
+        more_body: false,
+    })
 }
 
 fn complete_cached_body(

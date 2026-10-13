@@ -1752,10 +1752,7 @@ fn apply_send_message(
     shared: &SharedResponseState,
     message: &Bound<'_, PyAny>,
 ) -> PyResult<()> {
-    let message = message.cast::<PyDict>()?;
-    let message_type = message
-        .get_item("type")?
-        .ok_or_else(|| PyKeyError::new_err("type"))?;
+    let message_type = message.get_item("type")?;
     // Starlette's transport compares the ASGI type against known string names
     // and ignores anything that matches none of them, including non-strings.
     if !message_type.is_instance_of::<PyString>() {
@@ -1772,10 +1769,7 @@ fn apply_send_message(
                         "Received multiple \"http.response.start\" messages.",
                     ));
                 }
-                let status_code = message
-                    .get_item("status")?
-                    .ok_or_else(|| PyKeyError::new_err("status"))?
-                    .unbind();
+                let status_code = message.get_item("status")?.unbind();
                 let headers = decode_response_headers(py, message)?;
                 state.status_code = Some(status_code);
                 state.headers = headers;
@@ -1792,18 +1786,15 @@ fn apply_send_message(
                         "Received \"http.response.body\" after response completed.",
                     ));
                 }
-                if let Some(body) = message.get_item("body")? {
-                    if state.method != "HEAD" {
-                        state
-                            .body
-                            .extend_from_slice(body.cast::<PyBytes>()?.as_bytes());
-                    }
+                let body = message.call_method1("get", ("body", PyBytes::new(py, b"")))?;
+                if state.method != "HEAD" {
+                    state
+                        .body
+                        .extend_from_slice(body.cast::<PyBytes>()?.as_bytes());
                 }
                 let more_body = message
-                    .get_item("more_body")?
-                    .map(|value| value.extract::<bool>())
-                    .transpose()?
-                    .unwrap_or(false);
+                    .call_method1("get", ("more_body", false))?
+                    .extract::<bool>()?;
                 if !more_body {
                     state.response_complete = true;
                     set_complete_event = state
@@ -1813,9 +1804,7 @@ fn apply_send_message(
                 }
             }
             "http.response.debug" => {
-                let info = message
-                    .get_item("info")?
-                    .ok_or_else(|| PyKeyError::new_err("info"))?;
+                let info = message.get_item("info")?;
                 state.debug_info = Some(info.unbind());
             }
             _ => {}
@@ -1828,13 +1817,10 @@ fn apply_send_message(
 }
 
 fn decode_response_headers(
-    _py: Python<'_>,
+    py: Python<'_>,
     message: &Bound<'_, PyAny>,
 ) -> PyResult<Vec<(String, String)>> {
-    let message = message.cast::<PyDict>()?;
-    let Some(headers) = message.get_item("headers")? else {
-        return Ok(Vec::new());
-    };
+    let headers = message.call_method1("get", ("headers", PyList::empty(py)))?;
     let mut pairs = Vec::new();
     for item in headers.try_iter()? {
         let pair = item?.cast_into::<PyTuple>()?;

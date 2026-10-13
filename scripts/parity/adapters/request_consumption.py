@@ -22,7 +22,9 @@ def _safe(value: Any) -> Any:
 
 def _decode_message(spec: dict[str, Any]) -> dict[str, Any]:
     message = {"type": spec["type"]}
-    if "body_base64" in spec:
+    if "body_value" in spec:
+        message["body"] = spec["body_value"]
+    elif "body_base64" in spec:
         message["body"] = base64.b64decode(spec["body_base64"], validate=True)
     if "more_body" in spec:
         message["more_body"] = spec["more_body"]

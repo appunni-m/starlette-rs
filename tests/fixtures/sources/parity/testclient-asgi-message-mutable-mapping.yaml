@@ -1,0 +1,50 @@
+{
+  "schema": "migration-parity/parity-input@49",
+  "cases": [
+    {
+      "case_id": "starlette.testclient.TestClient.request-response.asgi-message-mutable-mapping",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "request-response",
+      "covers": [
+        "starlette.testclient.TestClient.request-response.scope-projection",
+        "starlette.testclient.TestClient.request-response.request-message",
+        "starlette.testclient.TestClient.request-response.response-and-debug",
+        "starlette.testclient.TestClient.request-response.asgi-message-mutable-mapping"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "observations": ["request-response"],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": ["testclient", 50000],
+        "headers": []
+      },
+      "request": {
+        "method": "GET",
+        "url": "/mapping",
+        "headers_base64_pairs": [],
+        "body_base64": ""
+      },
+      "asgi_app": {
+        "kind": "asgi3",
+        "scope_fields": ["type", "method", "path"],
+        "receive_count": 1,
+        "message_mapping": "user-dict",
+        "messages": [
+          {
+            "type": "http.response.start",
+            "status": 200,
+            "headers_base64_pairs": [["Y29udGVudC10eXBl", "dGV4dC9wbGFpbg=="]]
+          },
+          {
+            "type": "http.response.body",
+            "body_base64": "bWFwcGluZyBvaw==",
+            "more_body": false
+          }
+        ]
+      }
+    }
+  ]
+}
