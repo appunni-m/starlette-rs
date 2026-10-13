@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@49",
+  "schema": "migration-parity/parity-input@50",
   "cases": [
     {
       "case_id": "starlette.requests.Request.body-stream-json.stream-retry-after-partial-receive-cancellation",

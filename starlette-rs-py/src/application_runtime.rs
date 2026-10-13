@@ -475,7 +475,8 @@ impl PyExceptionMiddlewareRuntime {
         // Keep the original Python values and source evaluation order: status
         // membership may run user hashing, and rendering owns detail/header
         // conversion. An explicit HTTPException status is not limited to u16.
-        let bodyless = PySet::new(py, [204, 304])?.contains(exception.getattr("status_code")?)?;
+        let status_code_for_membership = exception.getattr("status_code")?;
+        let bodyless = PySet::new(py, [204, 304])?.contains(status_code_for_membership)?;
         let kwargs = PyDict::new(py);
         if bodyless {
             kwargs.set_item("status_code", exception.getattr("status_code")?)?;

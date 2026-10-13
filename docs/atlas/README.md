@@ -25,7 +25,7 @@ with no conventional Python or Rust unit-test suite.
 ## Current implementation status
 
 Implementation remains active for the full Starlette 1.6.0 replacement. The
-working-tree `parity-input@49` contract indexes 2,266 cases across 284
+working-tree `parity-input@50` contract indexes 2,271 cases across 286
 parity input files and two benchmark files, with 136 Starlette compatibility
 operations, 12 native operations, and 1,219 parity requirements (1,180 compatibility and 39 native). The latest
 static source-inventory check passed: all 999 API candidates are dispositioned,
@@ -38,7 +38,7 @@ TestClient `httpx` fallback, Request stream closure before first advancement,
 WebSocketEndpoint disconnect-hook context preservation, duplicate-key
 BackgroundTask kwargs expansion, TestClient falsey `more_body` truthiness,
 WebSocket unhashable JSON modes and falsey close reasons, and FileResponse
-zero-size chunk behavior. The newest four cases cover empty synchronous StreamingResponse chunks, BaseHTTPMiddleware status 65536 pass-through, StaticFiles root_path/query redirect behavior, and initial WebSocket accept-send OSError propagation. All six new comparisons remain unexecuted.
+zero-size chunk behavior. The newest six input files cover empty synchronous StreamingResponse chunks, BaseHTTPMiddleware status 65536 pass-through, StaticFiles root_path/query redirect behavior, initial WebSocket accept-send OSError propagation, HTTPException default-handler conversion order, and TestClient message-type comparison errors. All eleven comparisons remain unexecuted.
 
 StaticFiles, response-protocol, TestClient exception/close-code, WebSocket
 close-code, custom-regex, AuthenticationMiddleware iterable-result, nested

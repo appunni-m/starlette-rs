@@ -248,7 +248,7 @@
   ],
   "interfaces": {
     "parity": {
-      "input_schema": "migration-parity/parity-input@49",
+      "input_schema": "migration-parity/parity-input@50",
       "result_schema": "migration-parity/parity-result@8",
       "command_id": "parity"
     },
@@ -518,6 +518,7 @@
       "build/parity/inputs/parity/testclient-asgi-callable-protocol.json",
       "build/parity/inputs/parity/testclient-http.json",
       "build/parity/inputs/parity/testclient-asgi-message-mutable-mapping.json",
+      "build/parity/inputs/parity/testclient-asgi-message-type-comparison-error.json",
       "build/parity/inputs/parity/testclient-http-response-start-decode-fallback.json",
       "build/parity/inputs/parity/testclient-response-more-body-truthiness.json",
       "build/parity/inputs/parity/testclient-client-port-preservation.json",
@@ -619,6 +620,7 @@
       "build/parity/inputs/parity/wsgi-empty-response-iterable.json",
       "build/parity/inputs/parity/asgi-http-exception-explicit-integer-status.json",
       "build/parity/inputs/parity/asgi-http-exception-value-errors.json",
+      "build/parity/inputs/parity/http-exception-default-handler-values.json",
       "build/parity/inputs/parity/file-response-multipart-short-read-loop.json",
       "build/parity/inputs/parity/middleware-special-handler-equality.json",
       "build/parity/inputs/parity/router-url-path-none-parameter.json",
@@ -2207,6 +2209,28 @@
               "id": "starlette.asgi.http-exception.non-string-header-key-error",
               "dimension": "error_path",
               "description": "Pass an input-defined non-string exception header key into default response construction without adapter-side string narrowing. Pinned source: starlette/middleware/exceptions.py:65-69; starlette/responses.py:55-62.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.asgi.http-exception.non-string-header-value-error",
+              "dimension": "error_path",
+              "description": "Pass an input-defined non-string exception header value through default HTTPException handling and preserve response-header conversion failure after detail rendering. Pinned source: starlette/middleware/exceptions.py:65-69; starlette/responses.py:55-62.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.asgi.http-exception.detail-render-before-header-value-error",
+              "dimension": "boundary",
+              "description": "When both HTTPException detail and header value are non-strings, default response construction renders the detail before converting supplied headers, so the detail error is observed first. Pinned source: starlette/middleware/exceptions.py:65-69; starlette/responses.py:21-24,33-37,55-62.",
               "lanes": [
                 "parity"
               ],

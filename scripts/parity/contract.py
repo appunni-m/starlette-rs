@@ -39,8 +39,9 @@ INPUT_SCHEMA_V45 = "migration-parity/parity-input@45"
 INPUT_SCHEMA_V46 = "migration-parity/parity-input@46"
 INPUT_SCHEMA_V47 = "migration-parity/parity-input@47"
 INPUT_SCHEMA_V48 = "migration-parity/parity-input@48"
-PREVIOUS_INPUT_SCHEMA = INPUT_SCHEMA_V48
-INPUT_SCHEMA = "migration-parity/parity-input@49"
+INPUT_SCHEMA_V49 = "migration-parity/parity-input@49"
+PREVIOUS_INPUT_SCHEMA = INPUT_SCHEMA_V49
+INPUT_SCHEMA = "migration-parity/parity-input@50"
 BENCHMARK_INPUT_SCHEMA = "migration-parity/benchmark-input@1"
 RESULT_SCHEMA = "migration-parity/parity-result@8"
 BENCHMARK_RESULT_SCHEMA = "migration-parity/benchmark-result@1"
@@ -13589,6 +13590,37 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
         )
 
 
+def _validate_testclient_message_type_spec(value: Any, context: str) -> dict[str, Any]:
+    type_spec = _exact(
+        value,
+        {"kind", "value", "compare_to", "exception"},
+        f"{context}.type_spec",
+    )
+    if type_spec["kind"] != "str-subclass-equality-error":
+        raise ContractError(f"{context}.type_spec.kind is unsupported")
+    value_string = _string(type_spec["value"], f"{context}.type_spec.value")
+    compare_to = _string(type_spec["compare_to"], f"{context}.type_spec.compare_to")
+    if value_string != compare_to or compare_to not in {
+        "http.response.start",
+        "http.response.debug",
+        "http.response.body",
+    }:
+        raise ContractError(
+            f"{context}.type_spec must raise while comparing an ASGI response message type"
+        )
+    exception = _exact(
+        type_spec["exception"],
+        {"class", "message"},
+        f"{context}.type_spec.exception",
+    )
+    exception_class = _string(exception["class"], f"{context}.type_spec.exception.class")
+    exception_type = getattr(builtins, exception_class, None)
+    if not isinstance(exception_type, type) or not issubclass(exception_type, Exception):
+        raise ContractError(f"{context}.type_spec.exception.class must name a built-in Exception")
+    _string(exception["message"], f"{context}.type_spec.exception.message")
+    return type_spec
+
+
 def _validate_testclient_case(
     case: dict[str, Any], *, fault_case_spec: dict[str, Any] | None = None
 ) -> None:
@@ -15291,6 +15323,19 @@ def _validate_testclient_case(
         exception_spec = asgi_app.get("exception")
         if "message_mapping" in asgi_app and asgi_app["message_mapping"] != "user-dict":
             raise ContractError("TestClient ASGI message_mapping must be user-dict")
+    has_message_type_spec = isinstance(messages, list) and any(
+        isinstance(message, dict) and "type_spec" in message for message in messages
+    )
+    message_type_comparison_error = bool(
+        isinstance(messages, list)
+        and len(messages) == 1
+        and isinstance(messages[0], dict)
+        and "type_spec" in messages[0]
+    )
+    if has_message_type_spec and not message_type_comparison_error:
+        raise ContractError(
+            "TestClient message type comparison errors must occur on the first and only send"
+        )
     scope_fields = asgi_app["scope_fields"]
     allowed_scope_fields = {
         "type",
@@ -15354,7 +15399,12 @@ def _validate_testclient_case(
                 and exception_spec is not None
                 and settings["raise_server_exceptions"] is False
             )
-        if messages and not ignored_non_string_type_prefix and len(messages) < 2:
+        if (
+            messages
+            and not ignored_non_string_type_prefix
+            and not message_type_comparison_error
+            and len(messages) < 2
+        ):
             raise ContractError(
                 "TestClient ASGI messages must be empty or contain a complete response"
             )
@@ -15367,14 +15417,20 @@ def _validate_testclient_case(
         if (
             messages
             and not ignored_non_string_type_prefix
+            and not message_type_comparison_error
             and (
                 not isinstance(messages[0], dict)
                 or messages[0].get("type") != "http.response.start"
             )
         ):
             raise ContractError("TestClient ASGI response must start before its final body")
-        if messages and (
-            not isinstance(messages[-1], dict) or messages[-1].get("type") != "http.response.body"
+        if (
+            messages
+            and not message_type_comparison_error
+            and (
+                not isinstance(messages[-1], dict)
+                or messages[-1].get("type") != "http.response.body"
+            )
         ):
             raise ContractError("TestClient ASGI response must start before its final body")
         if (
@@ -15405,6 +15461,8 @@ def _validate_testclient_case(
     ):
         raise ContractError("TestClient file uploads require the multipart-form request consumer")
     expected_covers = {TESTCLIENT_REQUIREMENTS["scope"]}
+    if message_type_comparison_error:
+        expected_covers.add(TESTCLIENT_REQUIREMENTS["exception_policy"])
     if backend_setup_failure:
         expected_covers.add(TESTCLIENT_REQUIREMENTS["backend_setup_exception_policy"])
     if asgi_app.get("message_mapping") == "user-dict":
@@ -15713,6 +15771,38 @@ def _validate_testclient_case(
                 {"type"},
                 f"TestClient ignored ASGI message[{index}]",
             )
+            continue
+        if isinstance(message, dict) and "type_spec" in message:
+            type_spec = _validate_testclient_message_type_spec(
+                message["type_spec"], f"TestClient response message[{index}]"
+            )
+            compare_to = type_spec["compare_to"]
+            if compare_to == "http.response.start":
+                message = _exact(
+                    message,
+                    {"type_spec", "status", "headers_base64_pairs"},
+                    f"TestClient response message[{index}]",
+                )
+                if type(message["status"]) is not int:
+                    raise ContractError("TestClient response status must be an integer")
+                validate_pairs(
+                    message["headers_base64_pairs"], f"response message[{index}].headers"
+                )
+            elif compare_to == "http.response.debug":
+                message = _exact(
+                    message,
+                    {"type_spec", "info"},
+                    f"TestClient response message[{index}]",
+                )
+                if not isinstance(message["info"], dict):
+                    raise ContractError("TestClient response debug info must be a record")
+            else:
+                message = _exact(
+                    message,
+                    {"type_spec", "body_base64", "more_body"},
+                    f"TestClient response message[{index}]",
+                )
+                validate_base64(message["body_base64"], f"response message[{index}].body")
             continue
         if message_type == "http.response.start":
             message = _exact(
@@ -35089,7 +35179,7 @@ def _semantic_coverage(case: dict[str, Any]) -> set[str]:
                     coverage.add("starlette.asgi.http-exception.default-406-detail")
                 elif status_code == 406 and isinstance(detail, str):
                     coverage.add("starlette.asgi.http-exception.explicit-detail")
-                elif status_code == 204 and detail is None:
+                elif status_code == 204:
                     coverage.add("starlette.asgi.http-exception.no-content-204")
                 elif status_code == 304 and detail is None:
                     coverage.add("starlette.asgi.http-exception.not-modified-304")
@@ -35097,8 +35187,24 @@ def _semantic_coverage(case: dict[str, Any]) -> set[str]:
                     coverage.add("starlette.asgi.http-exception.headers-200")
                 elif (status_code < 100 or status_code > 599) and isinstance(detail, str):
                     coverage.add("starlette.asgi.http-exception.explicit-status-python-integer")
-                elif 100 <= status_code <= 599 and type(detail) is int and not headers:
+                elif 100 <= status_code <= 599 and type(detail) is int:
                     coverage.add("starlette.asgi.http-exception.non-string-detail-error")
+                    if any(
+                        isinstance(header_name, str) and not isinstance(header_value, str)
+                        for header_name, header_value in headers
+                    ):
+                        coverage.add(
+                            "starlette.asgi.http-exception.detail-render-before-header-value-error"
+                        )
+                elif (
+                    100 <= status_code <= 599
+                    and isinstance(detail, str)
+                    and any(
+                        isinstance(header_name, str) and not isinstance(header_value, str)
+                        for header_name, header_value in headers
+                    )
+                ):
+                    coverage.add("starlette.asgi.http-exception.non-string-header-value-error")
                 elif (
                     100 <= status_code <= 599
                     and isinstance(detail, str)
@@ -35403,12 +35509,44 @@ def validate_input_document_v48(
     *,
     public_modules: frozenset[str] | None = None,
 ) -> list[dict[str, Any]]:
-    """Validate an @48 document before migrating it to the active @49 contract."""
+    """Validate an @48 document before migrating it to the @49 contract."""
     _exact(document, {"schema", "cases"}, "parity input")
     if document["schema"] != INPUT_SCHEMA_V48:
         raise ContractError(f"unsupported @48 parity input schema: {document['schema']!r}")
     if not isinstance(document["cases"], list) or not document["cases"]:
         raise ContractError("parity input must select at least one case")
+    v49_document = dict(document)
+    v49_document["schema"] = INPUT_SCHEMA_V49
+    return validate_input_document_v49(v49_document, manifest, public_modules=public_modules)
+
+
+def _contains_testclient_message_type_spec(case: Any) -> bool:
+    if not isinstance(case, dict) or (case.get("surface"), case.get("operation")) != (
+        TESTCLIENT_SURFACE,
+        TESTCLIENT_OPERATION,
+    ):
+        return False
+    app = case.get("asgi_app")
+    messages = app.get("messages") if isinstance(app, dict) else None
+    return isinstance(messages, list) and any(
+        isinstance(message, dict) and "type_spec" in message for message in messages
+    )
+
+
+def validate_input_document_v49(
+    document: Any,
+    manifest: dict[str, Any],
+    *,
+    public_modules: frozenset[str] | None = None,
+) -> list[dict[str, Any]]:
+    """Validate @49 inputs using their pre-@50 TestClient acceptance rules."""
+    _exact(document, {"schema", "cases"}, "parity input")
+    if document["schema"] != INPUT_SCHEMA_V49:
+        raise ContractError(f"unsupported @49 parity input schema: {document['schema']!r}")
+    if not isinstance(document["cases"], list) or not document["cases"]:
+        raise ContractError("parity input must select at least one case")
+    if any(_contains_testclient_message_type_spec(case) for case in document["cases"]):
+        raise ContractError("parity-input@49 does not allow TestClient message type generators")
     current_document = dict(document)
     current_document["schema"] = INPUT_SCHEMA
     return validate_input_document(current_document, manifest, public_modules=public_modules)
@@ -35420,8 +35558,8 @@ def validate_previous_input_document(
     *,
     public_modules: frozenset[str] | None = None,
 ) -> list[dict[str, Any]]:
-    """Validate the previous @48 schema before migrating it to the active @49 contract."""
-    return validate_input_document_v48(document, manifest, public_modules=public_modules)
+    """Validate the previous @49 schema before migrating it to the active @50 contract."""
+    return validate_input_document_v49(document, manifest, public_modules=public_modules)
 
 
 def validate_previous_input_v45_document(

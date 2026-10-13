@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@49",
+  "schema": "migration-parity/parity-input@50",
   "cases": [
     {
       "case_id": "starlette.responses.FileResponse.asgi-call.range-decimal-underscores",

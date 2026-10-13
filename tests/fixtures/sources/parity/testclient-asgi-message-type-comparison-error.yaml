@@ -1,0 +1,97 @@
+{
+  "schema": "migration-parity/parity-input@50",
+  "cases": [
+    {
+      "case_id": "starlette.testclient.TestClient.request-response.asgi-message-type-comparison-error-propagates",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "request-response",
+      "covers": [
+        "starlette.testclient.TestClient.request-response.scope-projection",
+        "starlette.testclient.TestClient.request-response.exception-policy",
+        "starlette.testclient.TestClient.request-response.response-and-debug"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "observations": ["request-response"],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": ["testclient", 50000],
+        "headers": []
+      },
+      "request": {
+        "method": "GET",
+        "url": "/message-type",
+        "headers_base64_pairs": [],
+        "body_base64": ""
+      },
+      "asgi_app": {
+        "kind": "asgi3",
+        "scope_fields": ["type", "method", "path"],
+        "receive_count": 0,
+        "messages": [
+          {
+            "type_spec": {
+              "kind": "str-subclass-equality-error",
+              "value": "http.response.start",
+              "compare_to": "http.response.start",
+              "exception": {
+                "class": "RuntimeError",
+                "message": "ASGI message type comparison failed"
+              }
+            },
+            "status": 206,
+            "headers_base64_pairs": []
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.testclient.TestClient.request-response.asgi-message-type-comparison-error-suppressed",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "request-response",
+      "covers": [
+        "starlette.testclient.TestClient.request-response.scope-projection",
+        "starlette.testclient.TestClient.request-response.exception-policy",
+        "starlette.testclient.TestClient.request-response.response-and-debug"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "observations": ["request-response"],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": false,
+        "root_path": "",
+        "client": ["testclient", 50000],
+        "headers": []
+      },
+      "request": {
+        "method": "GET",
+        "url": "/message-type",
+        "headers_base64_pairs": [],
+        "body_base64": ""
+      },
+      "asgi_app": {
+        "kind": "asgi3",
+        "scope_fields": ["type", "method", "path"],
+        "receive_count": 0,
+        "messages": [
+          {
+            "type_spec": {
+              "kind": "str-subclass-equality-error",
+              "value": "http.response.start",
+              "compare_to": "http.response.start",
+              "exception": {
+                "class": "RuntimeError",
+                "message": "ASGI message type comparison failed"
+              }
+            },
+            "status": 206,
+            "headers_base64_pairs": []
+          }
+        ]
+      }
+    }
+  ]
+}

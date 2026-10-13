@@ -1759,16 +1759,31 @@ fn apply_send_message(
     message: &Bound<'_, PyAny>,
 ) -> PyResult<()> {
     let message_type = message.get_item("type")?;
-    // Starlette's transport compares the ASGI type against known string names
-    // and ignores anything that matches none of them, including non-strings.
-    if !message_type.is_instance_of::<PyString>() {
+    // Match Starlette's ordered Python equality checks. Besides accepting
+    // non-string values that compare equal, this preserves rich-comparison
+    // exceptions raised by valid str subclasses at the ASGI boundary.
+    let message_type = if message_type
+        .rich_compare("http.response.start", CompareOp::Eq)?
+        .is_truthy()?
+    {
+        "http.response.start"
+    } else if message_type
+        .rich_compare("http.response.body", CompareOp::Eq)?
+        .is_truthy()?
+    {
+        "http.response.body"
+    } else if message_type
+        .rich_compare("http.response.debug", CompareOp::Eq)?
+        .is_truthy()?
+    {
+        "http.response.debug"
+    } else {
         return Ok(());
-    }
-    let message_type = message_type.extract::<String>()?;
+    };
     let mut set_complete_event: Option<Py<PyAny>> = None;
     {
         let mut state = lock_state(shared)?;
-        match message_type.as_str() {
+        match message_type {
             "http.response.start" => {
                 if state.response_started {
                     return Err(PyAssertionError::new_err(

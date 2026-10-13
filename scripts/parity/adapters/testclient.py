@@ -21,9 +21,24 @@ def _decoded_pairs(value: list[list[str]]) -> list[tuple[bytes, bytes]]:
 
 def _message(value: dict[str, Any]) -> dict[str, Any]:
     message = dict(value)
+    type_spec = message.pop("type_spec", None)
     message.pop("headers_base64_pairs", None)
     message.pop("body_base64", None)
     message.pop("bytes_base64", None)
+    if type_spec is not None:
+        if type_spec["kind"] != "str-subclass-equality-error":
+            raise ValueError("unsupported input-defined ASGI message type")
+        compare_to = type_spec["compare_to"]
+        exception_type = getattr(builtins, type_spec["exception"]["class"])
+        exception_message = type_spec["exception"]["message"]
+
+        class InputMessageType(str):
+            def __eq__(self, other: object) -> Any:
+                if other == compare_to:
+                    raise exception_type(exception_message)
+                return super().__eq__(other)
+
+        message["type"] = InputMessageType(type_spec["value"])
     if "headers_base64_pairs" in value:
         message["headers"] = _decoded_pairs(value["headers_base64_pairs"])
     if "body_base64" in value:
