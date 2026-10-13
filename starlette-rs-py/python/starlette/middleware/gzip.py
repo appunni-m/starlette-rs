@@ -8,7 +8,7 @@ from typing import Any
 import anyio.lowlevel
 from starlette_rs_py import _core
 
-from starlette.types import ASGIApp
+from starlette.types import ASGIApp, Scope
 
 DEFAULT_EXCLUDED_CONTENT_TYPES: tuple[str, ...] = _core.GZIP_DEFAULT_EXCLUDED_CONTENT_TYPES
 
@@ -53,7 +53,7 @@ class GZipMiddleware:
 
     async def __call__(
         self,
-        scope: dict[str, Any],
+        scope: Scope,
         receive: Callable[..., Any],
         send: Callable[..., Any],
     ) -> None:

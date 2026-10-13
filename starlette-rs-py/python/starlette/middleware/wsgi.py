@@ -8,6 +8,7 @@ from typing import Any
 from starlette_rs_py import _core
 
 from starlette.exceptions import StarletteDeprecationWarning
+from starlette.types import Scope
 
 _core._warn_wsgi_deprecated(StarletteDeprecationWarning)
 
@@ -25,7 +26,7 @@ class WSGIMiddleware:
 
     async def __call__(
         self,
-        scope: dict[str, Any],
+        scope: Scope,
         receive: Callable[..., Any],
         send: Callable[..., Any],
     ) -> None:

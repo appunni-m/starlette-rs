@@ -429,6 +429,8 @@ BASE_HTTP_CONTEXTVARS_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) 
 }
 BASE_HTTP_REQUIREMENTS = {
     "construct": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.construct-configured-middleware",
+    "mutable_scope_mapping": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.mutable-scope-mapping",
+    "scope_type_lookup_error": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.scope-type-lookup-error-propagation",
     "dispatch_short_circuit": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.dispatch-short-circuits-downstream-app",
     "header_mutation": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.await-call-next-header-mutation",
     "downstream_status_integer_pass_through": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.downstream-status-integer-pass-through",
@@ -1753,10 +1755,21 @@ WSGI_REQUIREMENTS = {
     "exc-info-rethrow": f"{WSGI_SURFACE}.exc-info-rethrow",
 }
 BODY_LIMIT_SURFACE = "starlette.middleware.body_limit.RequestBodyLimitMiddleware"
+MUTABLE_SCOPE_CONTAINER_OPERATIONS = frozenset(
+    {
+        (GZIP_SURFACE, "__call__"),
+        (CORS_SURFACE, "__call__"),
+        (BODY_LIMIT_SURFACE, "__call__"),
+        (STATIC_FILES_SURFACE, RESPONSE_OPERATION),
+        ("starlette.middleware.authentication.AuthenticationMiddleware", "dispatch"),
+        BASE_HTTP_WORKFLOW_OPERATION_KEY,
+    }
+)
 BODY_LIMIT_REQUIREMENT_CONSTRUCTION = (
     "starlette.middleware.body_limit.RequestBodyLimitMiddleware.construct"
 )
 BODY_LIMIT_REQUIREMENTS = {
+    "mutable-scope-mapping": "starlette.middleware.body_limit.RequestBodyLimitMiddleware.mutable-scope-mapping",
     "content-length-precheck": "starlette.middleware.body_limit.RequestBodyLimitMiddleware.content-length-precheck",
     "content-length-replacement": "starlette.middleware.body_limit.RequestBodyLimitMiddleware.content-length-replacement",
     "exact-limit-success": "starlette.middleware.body_limit.RequestBodyLimitMiddleware.exact-limit-success",
@@ -1772,6 +1785,7 @@ BODY_LIMIT_REQUIREMENTS = {
 }
 GZIP_REQUIREMENT_CONSTRUCTION = "starlette.middleware.gzip.GZipMiddleware.construct"
 GZIP_REQUIREMENTS = {
+    "mutable-scope-mapping": "starlette.middleware.gzip.GZipMiddleware.mutable-scope-mapping",
     "gzip-final-response": "starlette.middleware.gzip.GZipMiddleware.gzip-final-response",
     "compresslevel-c-int-overflow-deferred": "starlette.middleware.gzip.GZipMiddleware.compresslevel-c-int-overflow-deferred",
     "identity-client": "starlette.middleware.gzip.GZipMiddleware.identity-client",
@@ -1789,6 +1803,16 @@ GZIP_REQUIREMENTS = {
     "thread-minimum-size": "starlette.middleware.gzip.GZipMiddleware.thread-minimum-size",
     "pathsend": "starlette.middleware.gzip.GZipMiddleware.pathsend",
     "case-insensitive-header-names": "starlette.middleware.gzip.GZipMiddleware.case-insensitive-header-names",
+}
+MUTABLE_SCOPE_REQUIREMENTS = {
+    GZIP_SURFACE: GZIP_REQUIREMENTS["mutable-scope-mapping"],
+    CORS_SURFACE: f"{CORS_SURFACE}.mutable-scope-mapping",
+    BODY_LIMIT_SURFACE: BODY_LIMIT_REQUIREMENTS["mutable-scope-mapping"],
+    STATIC_FILES_SURFACE: f"{STATIC_FILES_SURFACE}.{RESPONSE_OPERATION}.mutable-scope-mapping",
+    "starlette.middleware.authentication.AuthenticationMiddleware": (
+        "starlette.middleware.authentication.AuthenticationMiddleware.dispatch.mutable-scope-mapping"
+    ),
+    BASE_HTTP_SURFACE: BASE_HTTP_REQUIREMENTS["mutable_scope_mapping"],
 }
 # Synchronized with the pinned Starlette 1.6.0 source at
 # starlette/middleware/gzip.py:13-27. These values classify authored inputs;
@@ -7274,9 +7298,12 @@ def _validate_static_files_case_stimulus(
     case: dict[str, Any], *, validate_covers: bool = True, allow_empty_files: bool = False
 ) -> set[str]:
     if "calls" in case:
+        sequence_case_keys = STATIC_FILES_ASGI_CALL_SEQUENCE_CASE_KEYS | (
+            {"scope_container", "scope_observation"} & case.keys()
+        )
         _exact(
             case,
-            STATIC_FILES_ASGI_CALL_SEQUENCE_CASE_KEYS,
+            sequence_case_keys,
             "StaticFiles asgi-call sequence case",
         )
         calls = case["calls"]
@@ -7483,14 +7510,18 @@ def _validate_static_files_case_stimulus(
                 derived_covers.add(
                     f"{STATIC_FILES_SURFACE}.asgi-call.deleted-file-conditional-html-fallback"
                 )
+        if case.get("scope_container") == "user-dict":
+            derived_covers.add(MUTABLE_SCOPE_REQUIREMENTS[STATIC_FILES_SURFACE])
         if validate_covers and set(case["covers"]) != derived_covers:
             raise ContractError(
                 "StaticFiles call-sequence covers must match its input-derived request behaviors"
             )
         return derived_covers
 
-    case_keys = STATIC_FILES_ASGI_CALL_CASE_KEYS | (
-        {"subclass_hooks"} if "subclass_hooks" in case else set()
+    case_keys = (
+        STATIC_FILES_ASGI_CALL_CASE_KEYS
+        | ({"subclass_hooks"} if "subclass_hooks" in case else set())
+        | ({"scope_container", "scope_observation"} & case.keys())
     )
     _exact(case, case_keys, "StaticFiles asgi-call case")
     if case["surface"] != STATIC_FILES_SURFACE or case["operation"] != RESPONSE_OPERATION:
@@ -8094,6 +8125,8 @@ def _validate_static_files_case_stimulus(
     if not derived:
         raise ContractError("StaticFiles input must select a declared live response behavior")
     expected_covers = {f"{STATIC_FILES_SURFACE}.asgi-call.{item}" for item in derived}
+    if case.get("scope_container") == "user-dict":
+        expected_covers.add(MUTABLE_SCOPE_REQUIREMENTS[STATIC_FILES_SURFACE])
     if validate_covers and set(case["covers"]) != expected_covers:
         raise ContractError(
             "StaticFiles case claims requirements not selected by its configured files and request"
@@ -13153,6 +13186,14 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
         raise ContractError("middleware lifecycle stack requires one initial http.disconnect event")
 
     requirements = {BASE_HTTP_REQUIREMENTS["construct"]}
+    if case.get("scope_container") == "user-dict":
+        requirements.add(MUTABLE_SCOPE_REQUIREMENTS[BASE_HTTP_SURFACE])
+    elif (
+        isinstance(case.get("scope_container"), dict)
+        and case["scope_container"].get("kind") == "user-dict-fault"
+    ):
+        requirements.add(BASE_HTTP_REQUIREMENTS["mutable_scope_mapping"])
+        requirements.add(BASE_HTTP_REQUIREMENTS["scope_type_lookup_error"])
     if saw_response_body_iterator_replacement:
         if (
             returned != "call-next"
@@ -21411,6 +21452,15 @@ def _validate_case_payload(
         expected_case_keys = expected_case_keys | {"kwargs_container"}
     if is_application_subclass_builder:
         expected_case_keys = expected_case_keys | {"application_subclass"}
+    is_mutable_scope_case = (
+        isinstance(case, dict)
+        and (case.get("surface"), case.get("operation")) in MUTABLE_SCOPE_CONTAINER_OPERATIONS
+        and ("scope_container" in case or "scope_observation" in case)
+    )
+    if is_mutable_scope_case:
+        expected_case_keys = expected_case_keys | (
+            {"scope_container", "scope_observation"} & case.keys()
+        )
     is_starlette_scope_mapping = (
         isinstance(case, dict)
         and case.get("surface") == "starlette.applications.Starlette"
@@ -21422,6 +21472,70 @@ def _validate_case_payload(
     _exact(case, expected_case_keys, "case")
     if is_application_subclass_builder:
         _validate_application_subclass_builder_case(case, manifest)
+    if is_mutable_scope_case:
+        if "scope_container" not in case:
+            raise ContractError("mutable ASGI scope observation requires scope_container")
+        scope_container = case["scope_container"]
+        fault_container = isinstance(scope_container, dict)
+        if fault_container:
+            if (case["surface"], case["operation"]) != (
+                BASE_HTTP_SURFACE,
+                BASE_HTTP_WORKFLOW_OPERATION,
+            ):
+                raise ContractError("input-defined scope lookup faults are limited to BaseHTTP")
+            scope_container = _exact(
+                scope_container,
+                {"kind", "fault"},
+                "ASGI scope_container fault descriptor",
+            )
+            if scope_container["kind"] != "user-dict-fault":
+                raise ContractError("ASGI scope fault container kind is unsupported")
+            fault = _exact(
+                scope_container["fault"],
+                {"method", "key", "exception"},
+                "ASGI scope lookup fault",
+            )
+            if fault["method"] != "__getitem__":
+                raise ContractError("ASGI scope lookup fault must select __getitem__")
+            _string(fault["key"], "ASGI scope lookup fault key")
+            exception = _exact(
+                fault["exception"],
+                {"class", "message"},
+                "ASGI scope lookup exception",
+            )
+            if exception["class"] not in {
+                "KeyError",
+                "RuntimeError",
+                "TypeError",
+                "ValueError",
+            }:
+                raise ContractError("ASGI scope lookup exception class is unsupported")
+            _string(exception["message"], "ASGI scope lookup exception message")
+        elif scope_container not in {"dict", "user-dict"}:
+            raise ContractError("ASGI scope_container must be dict or user-dict fault input")
+        container_kind = scope_container["kind"] if fault_container else scope_container
+        if container_kind in {"user-dict", "user-dict-fault"} and case["target_profiles"] != [
+            "python-package-cpython312"
+        ]:
+            raise ContractError("mutable ASGI scope mappings require the Python-package profile")
+        if container_kind in {"user-dict", "user-dict-fault"}:
+            if "scope_observation" not in case:
+                raise ContractError("mutable UserDict scope input requires scope_observation")
+            selector = _exact(
+                case["scope_observation"],
+                {"keys"},
+                "ASGI scope observation selector",
+            )
+            keys = selector["keys"]
+            if (
+                not isinstance(keys, list)
+                or not keys
+                or any(not isinstance(key, str) for key in keys)
+                or len(set(keys)) != len(keys)
+            ):
+                raise ContractError("ASGI scope observation keys must be unique non-empty strings")
+        elif "scope_observation" in case:
+            raise ContractError("ASGI scope observation requires a UserDict scope container")
     if is_starlette_scope_mapping:
         if case["scope_container"] not in {"dict", "user-dict"}:
             raise ContractError("Starlette scope_container must be dict or user-dict")
@@ -32887,6 +33001,11 @@ def _validate_authentication_case(case: dict[str, Any]) -> None:
                     "starlette.middleware.authentication.AuthenticationMiddleware.non-http-bypass"
                 )
 
+    if (
+        operation == ("starlette.middleware.authentication.AuthenticationMiddleware", "dispatch")
+        and case.get("scope_container") == "user-dict"
+    ):
+        exercised.add(MUTABLE_SCOPE_REQUIREMENTS[case["surface"]])
     if set(case["covers"]) != exercised:
         raise ContractError(
             "authentication case coverage must match the behaviors selected by its inputs"
@@ -33860,6 +33979,8 @@ def _body_limit_semantic_coverage(case: dict[str, Any]) -> set[str]:
     app_actions = constructor_args["app"]["actions"]
     scope = dispatch_args["scope"]
     coverage = {BODY_LIMIT_REQUIREMENT_CONSTRUCTION, BODY_LIMIT_REQUIREMENTS["scope-restoration"]}
+    if case.get("scope_container") == "user-dict":
+        coverage.add(MUTABLE_SCOPE_REQUIREMENTS[BODY_LIMIT_SURFACE])
     if scope["type"] != "http":
         coverage.add(BODY_LIMIT_REQUIREMENTS["non-http-pass-through"])
         return coverage
@@ -34286,6 +34407,8 @@ def _asgi_middleware_semantic_coverage(case: dict[str, Any]) -> set[str]:
         return f"{surface}.{value}"
 
     covered = {suffix("construct")}
+    if case.get("scope_container") == "user-dict":
+        covered.add(MUTABLE_SCOPE_REQUIREMENTS[surface])
 
     if surface == WSGI_SURFACE:
         app = constructor["app"]
@@ -34821,6 +34944,8 @@ def _gzip_semantic_coverage(case: dict[str, Any]) -> set[str]:
     for dispatch_step in steps[1:]:
         single_dispatch_case = {**case, "steps": [steps[0], dispatch_step]}
         covered.update(_gzip_single_dispatch_semantic_coverage(single_dispatch_case))
+    if case.get("scope_container") == "user-dict":
+        covered.add(MUTABLE_SCOPE_REQUIREMENTS[GZIP_SURFACE])
     return covered
 
 

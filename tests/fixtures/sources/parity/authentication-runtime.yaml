@@ -664,6 +664,108 @@
       "observations": [
         "scenarios"
       ]
+    },
+    {
+      "case_id": "starlette.middleware.authentication.AuthenticationMiddleware.dispatch.user-dict-scope-mutation",
+      "surface": "starlette.middleware.authentication.AuthenticationMiddleware",
+      "operation": "dispatch",
+      "covers": [
+        "starlette.middleware.authentication.AuthenticationMiddleware.unauthenticated-default",
+        "starlette.middleware.authentication.AuthenticationMiddleware.scope-user-install",
+        "starlette.middleware.authentication.AuthenticationMiddleware.http-error-handler",
+        "starlette.middleware.authentication.AuthenticationMiddleware.websocket-error-close",
+        "starlette.middleware.authentication.AuthenticationMiddleware.non-http-bypass",
+        "starlette.middleware.authentication.AuthenticationMiddleware.dispatch.mutable-scope-mapping"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scenarios": [
+        {
+          "scope_type": "http",
+          "backend": {
+            "outcome": "none"
+          },
+          "error_handler": "default"
+        },
+        {
+          "scope_type": "http",
+          "backend": {
+            "outcome": {
+              "credentials": [
+                "authenticated"
+              ],
+              "user": "alice"
+            }
+          },
+          "error_handler": "default",
+          "application_response": {
+            "kind": "auth-user-json",
+            "status_code": 200,
+            "authenticated_field": "authenticated",
+            "display_name_field": "user"
+          }
+        },
+        {
+          "scope_type": "http",
+          "backend": {
+            "error": {
+              "type": "AuthenticationError",
+              "message": "bad credentials"
+            }
+          },
+          "error_handler": "default"
+        },
+        {
+          "scope_type": "http",
+          "backend": {
+            "error": {
+              "type": "AuthenticationError",
+              "message": "Invalid basic auth credentials"
+            }
+          },
+          "error_handler": "custom-response",
+          "error_response": {
+            "kind": "json-error",
+            "status_code": 401,
+            "error_field": "error"
+          }
+        },
+        {
+          "scope_type": "websocket",
+          "backend": {
+            "error": {
+              "type": "AuthenticationError",
+              "message": "bad credentials"
+            }
+          },
+          "error_handler": "custom-response",
+          "error_response": {
+            "kind": "plain-text-error",
+            "status_code": 401,
+            "prefix": "handled:"
+          }
+        },
+        {
+          "scope_type": "lifespan",
+          "backend": {
+            "outcome": "must-not-run"
+          },
+          "error_handler": "default"
+        }
+      ],
+      "observations": [
+        "scenarios"
+      ],
+      "scope_container": "user-dict",
+      "scope_observation": {
+        "keys": [
+          "type",
+          "auth",
+          "user"
+        ]
+      }
     }
   ]
 }

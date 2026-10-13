@@ -17,6 +17,8 @@ from urllib.parse import SplitResult
 
 from starlette_rs_py import _core
 
+from starlette.types import Scope
+
 Secret = _core.Secret
 
 _KeyType = TypeVar("_KeyType")
@@ -278,7 +280,7 @@ class URL:
     def __init__(
         self,
         url: str = "",
-        scope: dict[str, Any] | None = None,
+        scope: Scope | None = None,
         **components: Any,
     ) -> None:
         self._url = _core._url_init(url, scope, components)

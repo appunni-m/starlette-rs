@@ -6,6 +6,8 @@ import os
 
 from starlette_rs_py import _core
 
+from starlette.types import Scope
+
 PathLike = str | os.PathLike[str]
 
 
@@ -105,7 +107,7 @@ class StaticFiles:
     async def check_config(self) -> None:
         await self._inner.check_config()
 
-    async def __call__(self, scope: dict[str, object], receive: object, send: object) -> None:
+    async def __call__(self, scope: Scope, receive: object, send: object) -> None:
         await self._inner.asgi_call(
             scope,
             receive,

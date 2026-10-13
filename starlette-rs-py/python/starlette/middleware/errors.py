@@ -9,6 +9,7 @@ from starlette_rs_py import _core
 
 from starlette.requests import Request
 from starlette.responses import Response
+from starlette.types import Scope
 
 
 class ServerErrorMiddleware:
@@ -50,7 +51,7 @@ class ServerErrorMiddleware:
 
     async def __call__(
         self,
-        scope: dict[str, Any],
+        scope: Scope,
         receive: Callable[..., Any],
         send: Callable[..., Any],
     ) -> None:

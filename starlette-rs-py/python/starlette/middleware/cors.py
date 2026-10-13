@@ -7,6 +7,8 @@ from typing import Any
 
 from starlette_rs_py import _core
 
+from starlette.types import Scope
+
 ALL_METHODS = _core.CORS_ALL_METHODS
 SAFELISTED_HEADERS = _core.CORS_SAFELISTED_HEADERS
 
@@ -160,7 +162,7 @@ class CORSMiddleware:
 
     async def __call__(
         self,
-        scope: dict[str, Any],
+        scope: Scope,
         receive: Callable[..., Any],
         send: Callable[..., Any],
     ) -> None:

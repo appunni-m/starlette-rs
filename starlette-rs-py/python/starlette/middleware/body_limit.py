@@ -8,6 +8,7 @@ from typing import Any
 from starlette_rs_py import _core
 
 from starlette.exceptions import HTTPException
+from starlette.types import Scope
 
 MAX_BODY_SIZE_SCOPE_KEY = _core.MAX_BODY_SIZE_SCOPE_KEY
 _BODY_LIMIT_RESPONDER_SCOPE_KEY = _core.BODY_LIMIT_RESPONDER_SCOPE_KEY
@@ -35,7 +36,7 @@ class RequestBodyLimitMiddleware:
 
     async def __call__(
         self,
-        scope: dict[str, Any],
+        scope: Scope,
         receive: Callable[..., Any],
         send: Callable[..., Any],
     ) -> None:

@@ -865,15 +865,86 @@ def _decode_b64(value: str, context: str) -> bytes:
         raise ValueError(f"invalid base64 at {context}") from exc
 
 
-def _scope_container(scope: dict[str, Any], container: str) -> dict[str, Any] | UserDict:
+class _ObservedScopeUserDict(UserDict):
+    def __init__(self, scope: dict[str, Any], fault: dict[str, Any] | None = None) -> None:
+        self.parity_operations: list[dict[str, Any]] = []
+        self.parity_fault = fault
+        super().__init__(scope)
+        self.parity_operations.clear()
+
+    def __getitem__(self, key: Any) -> Any:
+        self.parity_operations.append({"operation": "getitem", "key": _json_safe(key)})
+        fault = self.parity_fault
+        if fault is not None and key == fault["key"]:
+            exception_type = getattr(builtins, fault["exception"]["class"])
+            raise exception_type(fault["exception"]["message"])
+        return super().__getitem__(key)
+
+    def __setitem__(self, key: Any, value: Any) -> None:
+        self.parity_operations.append({"operation": "setitem", "key": _json_safe(key)})
+        super().__setitem__(key, value)
+
+    def __delitem__(self, key: Any) -> None:
+        self.parity_operations.append({"operation": "delitem", "key": _json_safe(key)})
+        super().__delitem__(key)
+
+    def __contains__(self, key: object) -> bool:
+        self.parity_operations.append({"operation": "contains", "key": _json_safe(key)})
+        return key in self.data
+
+    def get(self, key: Any, default: Any = None) -> Any:
+        self.parity_operations.append({"operation": "get", "key": _json_safe(key)})
+        try:
+            return self[key]
+        except KeyError:
+            return default
+
+
+def _scope_container(
+    scope: dict[str, Any], container: str | dict[str, Any]
+) -> dict[str, Any] | UserDict:
     if container == "user-dict":
-        return UserDict(scope)
+        return _ObservedScopeUserDict(scope)
+    if isinstance(container, dict) and container.get("kind") == "user-dict-fault":
+        fault = container["fault"]
+        if fault["method"] != "__getitem__":
+            raise ValueError("ASGI scope lookup fault must select __getitem__")
+        return _ObservedScopeUserDict(scope, fault)
     if container == "dict":
         return scope
     raise ValueError(f"unsupported ASGI scope container: {container!r}")
 
 
-def _make_scope(spec: dict[str, Any], container: str = "dict") -> dict[str, Any] | UserDict:
+def _scope_observation(
+    scope: dict[str, Any] | UserDict, selector: dict[str, Any]
+) -> dict[str, Any]:
+    data = scope.data if isinstance(scope, UserDict) else scope
+    selected = {
+        key: {
+            "present": key in data,
+            "value": _scope_observation_value(data[key]) if key in data else None,
+        }
+        for key in selector["keys"]
+    }
+    operations = getattr(scope, "parity_operations", [])
+    return {"selected_keys": selected, "mapping_operations": list(operations)}
+
+
+def _scope_observation_value(value: Any) -> Any:
+    if value is None or isinstance(value, (bool, int, float, str, bytes, dict, list, tuple)):
+        if isinstance(value, bytes):
+            return {"encoding": "base64", "data": base64.b64encode(value).decode("ascii")}
+        if isinstance(value, dict):
+            return {str(key): _scope_observation_value(item) for key, item in value.items()}
+        if isinstance(value, (list, tuple)):
+            return [_scope_observation_value(item) for item in value]
+        return value
+    return {"type": f"{type(value).__module__}.{type(value).__qualname__}"}
+
+
+def _make_scope(
+    spec: dict[str, Any], container: str | dict[str, Any] = "dict"
+) -> dict[str, Any] | UserDict:
     if spec["type"] == "lifespan":
         scope = {"type": "lifespan", "asgi": dict(spec["asgi"])}
         if "state" in spec:
@@ -2866,7 +2937,8 @@ async def _invoke(
     capture_dispatch_error: bool = False,
     capture_dispatch_error_as_observation: bool = False,
     cancel_after_endpoint_entry: bool = False,
-    scope_container: str = "dict",
+    scope_container: str | dict[str, Any] = "dict",
+    scope_observation: dict[str, Any] | None = None,
 ) -> dict[str, Any] | _CapturedDispatchError:
     scope = _make_scope(step_args["scope"], scope_container)
     incoming = [_message(item) for item in step_args["receive"]]
@@ -3008,6 +3080,9 @@ async def _invoke(
     finally:
         for state, token in reversed(context_tokens):
             state["context_var"].reset(token)
+    scope_observation_result = (
+        _scope_observation(scope, scope_observation) if scope_observation is not None else None
+    )
     events = [_canonical_message(message) for message in sent]
     start = next((event for event in events if event["type"] == "http.response.start"), None)
     if start is None and scope["type"] == "websocket":
@@ -3079,6 +3154,8 @@ async def _invoke(
             "asgi_events",
         )
         result = {key: result[key] for key in request_result_keys}
+        if scope_observation_result is not None:
+            result["scope_observation"] = scope_observation_result
         if captured_exception is not None:
             return _CapturedDispatchError(
                 error=_dispatch_error(captured_exception),
@@ -3087,6 +3164,8 @@ async def _invoke(
     else:
         result["deprecation_warnings"] = list(getattr(app, "_parity_lifespan_warnings", []))
         result["sync_endpoint_observations"] = _observed_sync_endpoint(sync_endpoint_states or [])
+        if scope_observation_result is not None:
+            result["scope_observation"] = scope_observation_result
         if captured_exception is not None and capture_dispatch_error_as_observation:
             return _CapturedDispatchError(
                 error=_dispatch_error(captured_exception),
@@ -3242,8 +3321,19 @@ def _run_gzip_case(case: dict[str, Any]) -> dict[str, Any]:
                 {"scope", "receive", "send"},
                 "GZip dispatch",
             )
-            value = await _invoke(middleware, dispatch_arguments, [], [], None, False)
+            value = await _invoke(
+                middleware,
+                dispatch_arguments,
+                [],
+                [],
+                None,
+                False,
+                scope_container=case.get("scope_container", "dict"),
+                scope_observation=case.get("scope_observation"),
+            )
             selected = {key: value[key] for key in ("asgi_events", "response_bytes")}
+            if "scope_observation" in value:
+                selected["scope_observation"] = value["scope_observation"]
             observations.append(
                 {"step_id": dispatch_step["step_id"], "status": "ok", "value": selected}
             )
@@ -3617,8 +3707,19 @@ def _run_protocol_middleware_case(case: dict[str, Any]) -> dict[str, Any]:
                 {"scope", "receive", "send"},
                 f"{case['surface']} dispatch",
             )
-            value = await _invoke(middleware, dispatch_arguments, [], [], None, False)
+            value = await _invoke(
+                middleware,
+                dispatch_arguments,
+                [],
+                [],
+                None,
+                False,
+                scope_container=case.get("scope_container", "dict"),
+                scope_observation=case.get("scope_observation"),
+            )
             selected = {key: value[key] for key in ("asgi_events", "response_bytes")}
+            if "scope_observation" in value:
+                selected["scope_observation"] = value["scope_observation"]
             if constructor_probe_observations:
                 selected["constructor_probes"] = constructor_probe_observations
             if case["surface"] == CORS_SURFACE:
@@ -3636,19 +3737,24 @@ def _run_protocol_middleware_case(case: dict[str, Any]) -> dict[str, Any]:
 
 
 def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
+    case_fields = {
+        "case_id",
+        "surface",
+        "operation",
+        "covers",
+        "target_profiles",
+        "assets",
+        "application",
+        "request",
+        "observations",
+    }
+    if "scope_container" in case:
+        case_fields.add("scope_container")
+    if "scope_observation" in case:
+        case_fields.add("scope_observation")
     _strict_object(
         case,
-        {
-            "case_id",
-            "surface",
-            "operation",
-            "covers",
-            "target_profiles",
-            "assets",
-            "application",
-            "request",
-            "observations",
-        },
+        case_fields,
         "BaseHTTPMiddleware base-http-workflow case",
     )
     if case["surface"] != BASE_HTTP_SURFACE or case["operation"] != BASE_HTTP_WORKFLOW_OPERATION:
@@ -5949,7 +6055,7 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
             ],
         )
 
-    scope = _make_scope(scope_spec)
+    scope = _make_scope(scope_spec, case.get("scope_container", "dict"))
     incoming = [_message(spec) for spec in receive_specs]
     sent: list[dict[str, Any]] = []
     request_receive_events: list[dict[str, Any]] = []
@@ -6032,6 +6138,11 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
     finally:
         if file_response_temporary_directory is not None:
             file_response_temporary_directory.cleanup()
+    scope_observation_result = (
+        _scope_observation(scope, case["scope_observation"])
+        if "scope_observation" in case
+        else None
+    )
     if downstream_stream_guard_fired:
         raise TimeoutError(
             "input-defined BaseHTTPMiddleware streaming guard expired before http.disconnect"
@@ -6081,6 +6192,8 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
         "middleware_response_background_states": middleware_response_background_states,
         "endpoint_body_events": endpoint_body_events,
     }
+    if scope_observation_result is not None:
+        value["scope_observation"] = scope_observation_result
     if background_task_case:
         value.update(
             {
@@ -6812,6 +6925,7 @@ def _run_body_limit_case(case: dict[str, Any]) -> dict[str, Any]:
     scope = _make_scope(scope_spec)
     if prior_scope_limit is not _MISSING:
         scope[MAX_BODY_SIZE_SCOPE_KEY] = prior_scope_limit
+    scope = _scope_container(scope, case.get("scope_container", "dict"))
     incoming = [_message(message) for message in dispatch_arguments["receive"]]
     received = 0
     sent: list[dict[str, Any]] = []
@@ -6835,6 +6949,11 @@ def _run_body_limit_case(case: dict[str, Any]) -> dict[str, Any]:
         return None
 
     captured_error = asyncio.run(dispatch())
+    scope_observation_result = (
+        _scope_observation(scope, case["scope_observation"])
+        if "scope_observation" in case
+        else None
+    )
 
     events = [_canonical_message(message) for message in sent]
     response_start = next(
@@ -6859,6 +6978,8 @@ def _run_body_limit_case(case: dict[str, Any]) -> dict[str, Any]:
         },
         "dispatch_error": captured_error,
     }
+    if scope_observation_result is not None:
+        value["scope_observation"] = scope_observation_result
     return {
         "case_id": case["case_id"],
         "status": "completed",
@@ -9962,6 +10083,10 @@ def _run_static_files_case(case: dict[str, Any]) -> dict[str, Any]:
         "follow_symlink",
         "observations",
     }
+    if "scope_container" in case:
+        expected_fields.add("scope_container")
+    if "scope_observation" in case:
+        expected_fields.add("scope_observation")
     if "subclass_hooks" in case:
         expected_fields.add("subclass_hooks")
     if request_sequence:
@@ -10226,7 +10351,7 @@ def _run_static_files_case(case: dict[str, Any]) -> dict[str, Any]:
             if request_sequence:
 
                 async def observe_call(call: dict[str, Any]) -> dict[str, Any]:
-                    scope = _make_scope(call["scope"])
+                    scope = _make_scope(call["scope"], case.get("scope_container", "dict"))
                     sent: list[dict[str, Any]] = []
 
                     async def receive() -> dict[str, Any]:
@@ -10243,6 +10368,11 @@ def _run_static_files_case(case: dict[str, Any]) -> dict[str, Any]:
                         if not isinstance(exc, HTTPException):
                             raise
                         captured_error = exc
+                    scope_observation_result = (
+                        _scope_observation(scope, case["scope_observation"])
+                        if "scope_observation" in case
+                        else None
+                    )
                     events = [_canonical_message(message) for message in sent]
                     response_start = next(
                         (message for message in sent if message["type"] == "http.response.start"),
@@ -10273,6 +10403,8 @@ def _run_static_files_case(case: dict[str, Any]) -> dict[str, Any]:
                         "asgi_event_order": [event["type"] for event in events],
                         "asgi_events": events,
                     }
+                    if scope_observation_result is not None:
+                        observation["scope_observation"] = scope_observation_result
                     if captured_error is None:
                         return {"status": "ok", "value": observation}
                     error = _dispatch_error(captured_error)
@@ -10301,7 +10433,7 @@ def _run_static_files_case(case: dict[str, Any]) -> dict[str, Any]:
                         }
                     ],
                 }
-            scope = _make_scope(case["scope"])
+            scope = _make_scope(case["scope"], case.get("scope_container", "dict"))
             sent: list[dict[str, Any]] = []
 
             async def receive() -> dict[str, Any]:
@@ -10327,6 +10459,11 @@ def _run_static_files_case(case: dict[str, Any]) -> dict[str, Any]:
             finally:
                 if permission_original_mode is not None:
                     root.chmod(permission_original_mode)
+            scope_observation_result = (
+                _scope_observation(scope, case["scope_observation"])
+                if "scope_observation" in case
+                else None
+            )
         finally:
             sys.path.remove(str(package_source_root))
         events = [_canonical_message(message) for message in sent]
@@ -10351,6 +10488,8 @@ def _run_static_files_case(case: dict[str, Any]) -> dict[str, Any]:
             "asgi_event_order": [event["type"] for event in events],
             "asgi_events": events,
         }
+        if scope_observation_result is not None:
+            observation["scope_observation"] = scope_observation_result
         if subclass_hooks is not None:
             observation["subclass_hook_calls"] = subclass_hook_calls
     observation_item = {
@@ -13064,8 +13203,7 @@ def _make_auth_endpoint(mode: str, parameter_name: str, calls: list[Any], result
 
 
 def _run_authentication_case(case: dict[str, Any]) -> dict[str, Any]:
-    _strict_object(
-        case,
+    case_fields = (
         {
             "case_id",
             "surface",
@@ -13097,7 +13235,23 @@ def _run_authentication_case(case: dict[str, Any]) -> dict[str, Any]:
             "assets",
             "observations",
             "scenarios",
-        },
+        }
+    )
+    if (
+        case["operation"] == "dispatch"
+        and case["surface"] == "starlette.middleware.authentication.AuthenticationMiddleware"
+        and "scope_container" in case
+    ):
+        case_fields = case_fields | {"scope_container"}
+    if (
+        case["operation"] == "dispatch"
+        and case["surface"] == "starlette.middleware.authentication.AuthenticationMiddleware"
+        and "scope_observation" in case
+    ):
+        case_fields = case_fields | {"scope_observation"}
+    _strict_object(
+        case,
+        case_fields,
         "authentication parity case",
     )
     from starlette.authentication import (
@@ -13418,6 +13572,7 @@ def _run_authentication_case(case: dict[str, Any]) -> dict[str, Any]:
                 scope["subprotocols"] = []
             else:
                 scope["state"] = {}
+            scope = _scope_container(scope, case.get("scope_container", "dict"))
 
             async def receive() -> dict[str, Any]:
                 return {"type": "http.request", "body": b"", "more_body": False}
@@ -13436,23 +13591,29 @@ def _run_authentication_case(case: dict[str, Any]) -> dict[str, Any]:
                 middleware_outcome = {"outcome": "error", "error": _error_snapshot(exc)}
             else:
                 middleware_outcome = {"outcome": "completed"}
-            results.append(
-                {
-                    "backend_calls": calls,
-                    "app_calls": app_calls,
-                    "scope_auth_scopes": list(scope["auth"].scopes) if "auth" in scope else None,
-                    "scope_user": (
-                        {
-                            "is_authenticated": scope["user"].is_authenticated,
-                            "display_name": scope["user"].display_name,
-                        }
-                        if "user" in scope
-                        else None
-                    ),
-                    "sent": sent,
-                    "middleware_outcome": middleware_outcome,
-                }
+            scope_observation_result = (
+                _scope_observation(scope, case["scope_observation"])
+                if "scope_observation" in case
+                else None
             )
+            scenario_result = {
+                "backend_calls": calls,
+                "app_calls": app_calls,
+                "scope_auth_scopes": list(scope["auth"].scopes) if "auth" in scope else None,
+                "scope_user": (
+                    {
+                        "is_authenticated": scope["user"].is_authenticated,
+                        "display_name": scope["user"].display_name,
+                    }
+                    if "user" in scope
+                    else None
+                ),
+                "sent": sent,
+                "middleware_outcome": middleware_outcome,
+            }
+            if scope_observation_result is not None:
+                scenario_result["scope_observation"] = scope_observation_result
+            results.append(scenario_result)
         observed = {"scenarios": results}
 
     return {

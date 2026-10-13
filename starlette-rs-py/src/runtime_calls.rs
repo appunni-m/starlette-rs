@@ -462,7 +462,7 @@ impl PyStreamingResponse {
     fn asgi_call(
         &self,
         py: Python<'_>,
-        scope: &Bound<'_, PyDict>,
+        scope: &Bound<'_, PyAny>,
         receive: Py<PyAny>,
         send: Py<PyAny>,
         background: Option<Py<PyAny>>,

@@ -8,6 +8,7 @@ from typing import Any, Literal
 from starlette_rs_py import _core
 
 from starlette.datastructures import Secret
+from starlette.types import Scope
 
 _core._sessions_dependency()
 
@@ -138,7 +139,7 @@ class SessionMiddleware:
 
     async def __call__(
         self,
-        scope: dict[str, Any],
+        scope: Scope,
         receive: Callable[..., Any],
         send: Callable[..., Any],
     ) -> None:

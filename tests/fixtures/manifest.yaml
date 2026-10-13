@@ -10094,6 +10094,17 @@
               "target_profiles": [
                 "python-package-cpython312"
               ]
+            },
+            {
+              "id": "starlette.middleware.authentication.AuthenticationMiddleware.dispatch.mutable-scope-mapping",
+              "dimension": "boundary",
+              "description": "Pass an input-defined collections.UserDict to AuthenticationMiddleware.dispatch and compare the same mapping\u2019s access trace and selected final auth/user keys with the live downstream response. Pinned source: starlette/types.py::Scope; starlette/middleware/authentication.py:29-32,45-48.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
             }
           ],
           "parity": {
@@ -10849,6 +10860,28 @@
               "target_profiles": [
                 "python-package-cpython312"
               ]
+            },
+            {
+              "id": "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.mutable-scope-mapping",
+              "dimension": "boundary",
+              "description": "Pass an input-defined collections.UserDict through the configured BaseHTTPMiddleware workflow and compare operations and selected final keys on the original mapping, including the application scope assignment when present, with live response and exception observations. Pinned source: starlette/types.py::Scope; starlette/applications.py::Starlette.__call__; starlette/middleware/base.py:101-104,112-130.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.scope-type-lookup-error-propagation",
+              "dimension": "error_path",
+              "description": "Raise the input-selected built-in exception from UserDict.__getitem__(\"type\") when BaseHTTPMiddleware checks the ASGI scope type; compare the live exception class/message and the original mapping state after Starlette\u2019s prior app assignment. Pinned source: starlette/applications.py::Starlette.__call__; starlette/middleware/base.py:101-104.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
             }
           ],
           "parity": {
@@ -11420,6 +11453,17 @@
               "target_profiles": [
                 "python-package-cpython312"
               ]
+            },
+            {
+              "id": "starlette.middleware.body_limit.RequestBodyLimitMiddleware.mutable-scope-mapping",
+              "dimension": "boundary",
+              "description": "Pass an input-defined collections.UserDict through RequestBodyLimitMiddleware.__call__ and compare the original mapping\u2019s operation trace and selected keys after the middleware restores its temporary body-limit entries, alongside the exact response events. Pinned source: starlette/types.py::Scope; starlette/middleware/body_limit.py:37-42,69-98.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
             }
           ],
           "parity": {
@@ -11959,6 +12003,17 @@
               "id": "starlette.middleware.cors.CORSMiddleware.regex-origin-reflection",
               "dimension": "boundary",
               "description": "Reflect an origin that fully matches allow_origin_regex while omitting CORS permission headers for non-matching origins.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.cors.CORSMiddleware.mutable-scope-mapping",
+              "dimension": "boundary",
+              "description": "Pass an input-defined collections.UserDict through CORSMiddleware.__call__ and compare its live mapping-operation trace and selected final scope keys together with the exact response events. The CORS header write-back applies to the outgoing response-start message, not the input ASGI scope. Pinned source: starlette/types.py::Scope; starlette/middleware/cors.py:78-84,160-166.",
               "lanes": [
                 "parity"
               ],
@@ -12606,6 +12661,17 @@
               ],
               "target_profiles": [
                 "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.gzip.GZipMiddleware.mutable-scope-mapping",
+              "dimension": "boundary",
+              "description": "Pass an input-defined collections.UserDict through GZipMiddleware.__call__ and compare its live mapping-operation trace and selected final scope keys together with the exact emitted ASGI response events. Scope is declared as a mutable mapping. Pinned source: starlette/types.py::Scope; starlette/middleware/gzip.py:60-65.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
                 "python-package-cpython312"
               ]
             }
@@ -26190,6 +26256,17 @@
               ],
               "target_profiles": [
                 "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.staticfiles.StaticFiles.asgi-call.mutable-scope-mapping",
+              "dimension": "boundary",
+              "description": "Pass an input-defined collections.UserDict to StaticFiles and compare operations on the original scope and selected final keys with the live file response status, headers, body, and ASGI events. StaticFiles reads request headers through Headers(scope=scope); it does not write response headers back to the input scope. Pinned source: starlette/types.py::Scope; starlette/staticfiles.py:87,182.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
                 "python-package-cpython312"
               ]
             }

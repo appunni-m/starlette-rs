@@ -526,7 +526,7 @@ class Router:
         )
 
     async def __call__(
-        self, scope: dict[str, Any], receive: Callable[..., Any], send: Callable[..., Any]
+        self, scope: Scope, receive: Callable[..., Any], send: Callable[..., Any]
     ) -> None:
         await self.middleware_stack(scope, receive, send)
 
