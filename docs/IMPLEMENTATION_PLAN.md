@@ -13,9 +13,9 @@ implementation closes, run the complete source/package and Rust-native parity
 matrix, repair mismatches across families, measure coverage from that full
 matrix, reconcile the source atlas, then run all correctness-gated benchmarks.
 
-The working-tree contract currently declares 2,257 input cases across 275
+The working-tree contract currently declares 2,260 input cases across 278
 parity inputs and two benchmark inputs, 136 Starlette compatibility
-operations, 12 Rust-native operations, and 1,212 parity requirements (1,173
+operations, 12 Rust-native operations, and 1,213 parity requirements (1,174
 compatibility and 39 native). The generated atlas has 843 source rows: 788
 input mappings, 55 source-backed `not_applicable` dispositions, and zero
 fixture-backlog rows. These counts describe inventory and evidence coverage;
@@ -103,7 +103,7 @@ boundary. Both comparisons remain deferred to the full parity phase.
 
 | Phase | State | Evidence |
 | --- | --- | --- |
-| Implementation | In progress. | `make contract-check` validates 2,257 cases across 275 parity inputs, 136 compatibility operations, 12 native operations, and 1,212 requirements (1,173 compatibility / 39 native), with zero parity passes claimed. `make source-inventory-check` passes with 999 API candidates dispositioned and 843 atlas rows (788 mappings / 55 reasoned not_applicable / zero backlog). The latest 12-case batch adds source-backed HTTPException, middleware equality, FileResponse short-read, Mount `path=None`, Request receive-event, TestClient portal-setup, StaticFiles validator, WebSocket raw-state, StreamingResponse iterator-lookup, and CORS private-network inputs. Rust now preserves the matching source behavior for special-handler equality, FileResponse short reads, Mount argument forwarding, TestClient setup-error policy, WebSocket raw state, and StreamingResponse async special-method lookup; Request, StaticFiles, and CORS audits found the existing Rust behavior already matched. Integrated lint, check, build, rustdoc, docs-link, and whitespace gates pass. The newest four inputs cover the deprecated TestClient httpx fallback, Request.stream closure before first advancement, WebSocketEndpoint disconnect-hook context preservation, and duplicate-key synchronous BackgroundTask kwargs expansion; the three Rust paths now preserve source behavior, and all four comparisons remain unexecuted. Full parity, coverage, and benchmarks remain deferred until implementation closes; `make docs-check` benchmark evidence must be refreshed during the benchmark phase. |
+| Implementation | In progress. | `make contract-check` validates 2,260 cases across 278 parity inputs, 136 compatibility operations, 12 native operations, and 1,213 requirements (1,174 compatibility / 39 native), with zero parity passes claimed. `make source-inventory-check` passes with 999 API candidates dispositioned and 843 atlas rows (788 mappings / 55 reasoned not_applicable / zero backlog). The latest 12-case batch adds source-backed HTTPException, middleware equality, FileResponse short-read, Mount `path=None`, Request receive-event, TestClient portal-setup, StaticFiles validator, WebSocket raw-state, StreamingResponse iterator-lookup, and CORS private-network inputs. Rust now preserves the matching source behavior for special-handler equality, FileResponse short reads, Mount argument forwarding, TestClient setup-error policy, WebSocket raw state, and StreamingResponse async special-method lookup; Request, StaticFiles, and CORS audits found the existing Rust behavior already matched. Integrated lint, check, build, rustdoc, docs-link, and whitespace gates pass. The newest four inputs cover the deprecated TestClient httpx fallback, Request.stream closure before first advancement, WebSocketEndpoint disconnect-hook context preservation, and duplicate-key synchronous BackgroundTask kwargs expansion; the three Rust paths now preserve source behavior, and all four comparisons remain unexecuted. The latest three cases add TestClient falsey `more_body` truthiness, WebSocket unhashable JSON modes and falsey close reasons, and FileResponse zero-size chunk behavior; the FileResponse core now preserves zero and all three comparisons remain unexecuted. Full parity, coverage, and benchmarks remain deferred until implementation closes; `make docs-check` benchmark evidence must be refreshed during the benchmark phase. |
 | Full parity and grouped repairs | Deferred until implementation closes. | The latest clean run, `dc8c8ca6-f2b7-449b-9f53-45860e3cad4c`, passed 2,254/2,254 comparisons for the preceding 1,992-case, 140-parity-input contract. Later optional-backend, WebSocket authorization, Router truthiness, BaseHTTPMiddleware iterator, StaticFiles path, response-protocol, close-code, TestClient exception, raw TestClient no-response return, custom-regex, Request stream retry, WebSocketEndpoint error-finalization, BaseHTTPMiddleware dispatch short-circuiting, StreamingResponse terminal-send failure, TestClient generator-body buffering, invalid initial WebSocket.accept events, Last-Modified If-Range matching, exception-class MRO precedence, Request receive-error retry, Request body retry after partial receive cancellation, empty root Mount dispatch, lazy StreamingResponse iterator acquisition after a failed response-start send, AsyncIterable descriptor failure after response-start, normal-return incomplete TestClient response, asyncio-marked TestClient ASGI3, WebSocketEndpoint hook-failure/context, bracketed IPv6 Host, StaticFiles `get_response` override, TestClient accepted-session error stream closure and completed-response exception propagation, StreamingResponse gated-send backpressure, WebSocket non-string send-type, BackgroundTask `kwargs` mapping expansion, synchronous WebSocketEndpoint `on_disconnect` failure, multipart rollover lifecycle, supplied-Morsel validation, and missing WebSocket disconnect-code cases are not included. The seven new TestClient partial-response, StreamingResponse callback, empty WSGI iterable, invalid initial WebSocketEndpoint, mutable WebSocket scope, explicit-None Request receive, and tuple CORS response-header cases are also outside that run. The current seven response, TestClient denial-body, WebSocket iterator-exhaustion, and BackgroundTask argument-order cases are likewise unexecuted. The Request custom-receive event, BaseHTTPMiddleware body-iterator replacement, TestClient MutableMapping send-message, WSGI header-unpack-order, AnyIO CancelScope worker-error, Config cast-error context, State missing-attribute formatting, and URL replacement formatting cases are also outside that run. The stateful StaticFiles PathLike, UploadFile write-error, BackgroundTasks live-list mutation, StreamingResponse caller-cancellation comparisons, and latest 12-case boundary batch remain unexecuted. The four newest TestClient fallback, Request stream-close-before-start, WebSocket context-preservation, and BackgroundTask duplicate-key comparisons are also unexecuted. |
 | Full coverage and source reconciliation | Deferred until the full parity phase. | The latest measured run, `fd5b3b63-9ddc-44bd-bf38-35ecbc260dbe`, covered 19,909/28,139 Rust lines (70.7%) for the preceding contract. |
 | All benchmarks | Deferred until coverage. | The latest run, `13ea2d04-7f31-4c12-93cd-855df93df8b0`, measured 74/74 source/package workloads for the preceding contract: six Router and 68 GZip workloads. |
@@ -170,9 +170,9 @@ also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
 The active parity contract is `parity-input@49`: the working tree currently
-indexes 2,257 input cases across 275 parity files, two benchmark files, 136
-Starlette compatibility operations, 12 Rust-native operations, and 1,212
-parity requirements (1,173 compatibility and 39 native). The latest clean full parity,
+indexes 2,260 input cases across 278 parity files, two benchmark files, 136
+Starlette compatibility operations, 12 Rust-native operations, and 1,213
+parity requirements (1,174 compatibility and 39 native). The latest clean full parity,
 coverage, and benchmark receipts belong to the preceding 1,992-case, 140-file
 contract. The generated source-row,
 mapping, `not_applicable`, and backlog totals live in
@@ -285,11 +285,11 @@ policy, lookup, method selection, HTML index/fallback selection, redirects, and
 conditional 304 handling. The Python `starlette.staticfiles` module is a thin
 constructor and forwarding facade; package discovery calls Python's
 `importlib.util.find_spec` at the PyO3 boundary so custom importers and package
-origins remain visible. Forty-four input-only cases are authored across
-five StaticFiles inputs. Fifteen `lookup_path` cases run on both target
-profiles and all 30 comparisons pass, including Unix and UNC-style absolute
-path rejection. Across the StaticFiles slice, all 75 selected profile
-comparisons pass: 37 Rust-native and 38 Python-package
+origins remain visible. At an earlier bounded-run checkpoint, 44 input-only
+cases were authored across five StaticFiles inputs. Fifteen `lookup_path`
+cases ran on both target profiles and all 30 comparisons passed, including
+Unix and UNC-style absolute-path rejection. Across that StaticFiles slice, all
+75 selected profile comparisons passed: 37 Rust-native and 38 Python-package
 comparisons.
 The path-limit inputs verify that an overlong first root maps to the
 source-compatible 404 before a later root can serve its matching asset, under
@@ -303,9 +303,12 @@ which calls and awaits that Python callback on the caller's loop; the default
 path selection and response dispatch remain Rust-owned. This callback boundary
 is required because Python subclasses can replace `get_response`. An
 input-only comparison checks the supplied callback arguments and returned
-response and remains unexecuted. Other constructor error boundaries, broader custom PathLike sequences, and the
-rest of the upstream StaticFiles behaviors still need review; full parity remains
-deferred.
+response and remains unexecuted. The active contract now contains 83
+StaticFiles cases across 21 input files. A source audit of all metadata-listed
+StaticFiles methods and the 36 upstream `tests/test_staticfiles.py` functions
+found those behaviors mapped to existing inputs and no distinct ordinary-input
+gap to implement. The current complete parity matrix remains unexecuted, so the
+audit does not establish runtime parity.
 
 ## 1. Completed bounded goal: lifespan state and cancellation
 
@@ -903,7 +906,9 @@ case, additional denial-response and streaming workflows, file-denial behavior,
 and concurrency cancellation remain follow-on work requiring their own
 input-only workflows and live comparisons. Each fixture contains only
 operation stimulus and observation selectors; expected values remain in live
-result artifacts.
+result artifacts. A new unexecuted convenience input exercises unhashable JSON
+modes and a falsey non-string close reason; source review found the Rust path
+already matches those Python operations.
 
 ## Completed bounded goal: ExceptionMiddleware handler typing
 

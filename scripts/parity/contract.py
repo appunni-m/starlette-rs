@@ -1293,6 +1293,9 @@ FILE_RESPONSE_PATHSEND_REQUIREMENT = f"{FILE_RESPONSE_SURFACE}.{RESPONSE_OPERATI
 FILE_RESPONSE_MULTIPART_SHORT_READ_REQUIREMENT = (
     f"{FILE_RESPONSE_SURFACE}.{RESPONSE_OPERATION}.multipart-short-read-loop"
 )
+FILE_RESPONSE_ZERO_CHUNK_SIZE_REQUIREMENT = (
+    f"{FILE_RESPONSE_SURFACE}.{RESPONSE_OPERATION}.zero-chunk-size-send-loop"
+)
 MOUNT_NONE_PATH_FORWARDING_REQUIREMENT = (
     "starlette.routing.Mount.url_path_for.none-path-is-not-forwarded"
 )
@@ -4468,8 +4471,7 @@ def _validate_websocket_convenience_case_stimulus(case: dict[str, Any]) -> None:
                         f"{context}.arguments has fields unsupported by receive_json"
                     )
                 mode = arguments.get("mode", "text")
-                mode = _string(mode, f"{context}.arguments.mode")
-                invalid_mode = mode not in {"text", "binary"}
+                invalid_mode = not isinstance(mode, str) or mode not in {"text", "binary"}
                 if invalid_mode:
                     exercised.add(WEBSOCKET_INVALID_JSON_MODE_REQUIREMENTS["receive"])
                 else:
@@ -4543,8 +4545,7 @@ def _validate_websocket_convenience_case_stimulus(case: dict[str, Any]) -> None:
                 if set(arguments) not in ({"data"}, {"data", "mode"}):
                     raise ContractError(f"{context}.arguments must contain data and optional mode")
                 mode = arguments.get("mode", "text")
-                mode = _string(mode, f"{context}.arguments.mode")
-                if mode not in {"text", "binary"}:
+                if not isinstance(mode, str) or mode not in {"text", "binary"}:
                     exercised.add(WEBSOCKET_INVALID_JSON_MODE_REQUIREMENTS["send"])
                 else:
                     exercised.add(f"starlette.websocket.api.send.json.{mode}")
@@ -4552,11 +4553,8 @@ def _validate_websocket_convenience_case_stimulus(case: dict[str, Any]) -> None:
                 if set(arguments) - {"code", "reason"}:
                     raise ContractError(f"{context}.arguments has fields unsupported by close")
                 code = arguments.get("code", 1000)
-                reason = arguments.get("reason")
                 if not isinstance(code, int) or isinstance(code, bool):
                     raise ContractError(f"{context}.arguments.code must be an integer")
-                if reason is not None and not isinstance(reason, str):
-                    raise ContractError(f"{context}.arguments.reason must be a string or null")
             if method == "close":
                 if application_state == "CONNECTED":
                     exercised.add("starlette.websocket.api.close.framing")
@@ -6697,9 +6695,9 @@ def _validate_file_response_case_stimulus(case: dict[str, Any]) -> None:
     elif has_inline_requirement:
         raise ContractError("FileResponse inline disposition requirement must select inline")
     if "chunk_size" in case and (
-        type(case["chunk_size"]) is not int or not 1 <= case["chunk_size"] <= 1_048_576
+        type(case["chunk_size"]) is not int or not 0 <= case["chunk_size"] <= 1_048_576
     ):
-        raise ContractError("FileResponse.chunk_size must be an integer from 1 to 1048576")
+        raise ContractError("FileResponse.chunk_size must be an integer from 0 to 1048576")
     if "max_ranges" in case and (
         type(case["max_ranges"]) is not int or not 0 <= case["max_ranges"] <= 1_000
     ):
@@ -6839,7 +6837,35 @@ def _validate_file_response_case_stimulus(case: dict[str, Any]) -> None:
         _string(send_error["message"], "FileResponse bounded failing send message")
     if incoming != []:
         raise ContractError("FileResponse asgi-call requires an empty receive stream")
-    has_short_read_inputs = "stat_result" in case or send_error is not None
+    if FILE_RESPONSE_ZERO_CHUNK_SIZE_REQUIREMENT in case["covers"]:
+        if (
+            case["covers"] != [FILE_RESPONSE_ZERO_CHUNK_SIZE_REQUIREMENT]
+            or case["target_profiles"]
+            != ["rust-native-local", "python-package-cpython312"]
+            or case.get("chunk_size") != 0
+            or send_error is None
+            or error_path_kind is not None
+            or scope_spec["method"].upper() != "GET"
+            or has_pathsend_extension
+        ):
+            raise ContractError(
+                "FileResponse zero-chunk-size coverage requires a direct GET, zero chunk size, "
+                "both targets, and a bounded failing send"
+            )
+        try:
+            request_header_names = {
+                base64.b64decode(pair[0], validate=True).lower()
+                for pair in scope_spec["headers_base64_pairs"]
+            }
+        except (ValueError, TypeError) as exc:
+            raise ContractError(
+                "FileResponse zero-chunk-size request header names must be valid base64"
+            ) from exc
+        if b"range" in request_header_names:
+            raise ContractError(
+                "FileResponse zero-chunk-size coverage requires a simple non-range response"
+            )
+    has_short_read_inputs = "stat_result" in case
     if has_short_read_inputs:
         if (
             "stat_result" not in case
@@ -15486,7 +15512,7 @@ def _validate_testclient_case(
             and bool(messages)
             and isinstance(messages[-1], dict)
             and messages[-1].get("type") == "http.response.body"
-            and messages[-1].get("more_body") is True
+            and bool(messages[-1].get("more_body", False))
         )
     if incomplete_response:
         expected_covers.add(TESTCLIENT_REQUIREMENTS["incomplete_response_exception"])
@@ -15504,7 +15530,7 @@ def _validate_testclient_case(
         and messages
         and isinstance(messages[-1], dict)
         and messages[-1].get("type") == "http.response.body"
-        and messages[-1].get("more_body") is True
+        and bool(messages[-1].get("more_body", False))
     ):
         expected_covers.add(TESTCLIENT_REQUIREMENTS["incomplete_response_return"])
     if messages or not settings["raise_server_exceptions"]:
@@ -15588,8 +15614,9 @@ def _validate_testclient_case(
                 f"TestClient response message[{index}]",
             )
             validate_base64(message["body_base64"], f"response message[{index}].body")
-            if type(message["more_body"]) is not bool:
-                raise ContractError("TestClient response body message more_body must be boolean")
+            # The pinned TestClient truth-tests `more_body` directly. Preserve
+            # input JSON values such as 0 and [] so that this public boundary
+            # can be compared without normalizing them to bool first.
             later_body_exists = any(
                 isinstance(later, dict) and later.get("type") == "http.response.body"
                 for later in messages[index + 1 :]

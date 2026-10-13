@@ -1800,7 +1800,7 @@ fn apply_send_message(
                 }
                 let more_body = message
                     .call_method1("get", ("more_body", false))?
-                    .extract::<bool>()?;
+                    .is_truthy()?;
                 if !more_body {
                     state.response_complete = true;
                     set_complete_event = state

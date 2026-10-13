@@ -484,7 +484,10 @@ impl FileResponse {
             headers: raw_headers,
             stat_override: options.stat_override,
             stat_headers_prepared: false,
-            chunk_size: options.chunk_size.max(1),
+            // Starlette reads the configured size verbatim. In particular,
+            // zero produces repeated empty body events until the ASGI send
+            // callback ends the call.
+            chunk_size: options.chunk_size,
             max_ranges: options.max_ranges,
         })
     }
@@ -542,7 +545,7 @@ impl FileResponse {
     /// Applies the values exposed by Starlette's mutable `FileResponse`
     /// streaming and range attributes to later response calls.
     pub fn set_streaming_options(&mut self, chunk_size: usize, max_ranges: usize) {
-        self.chunk_size = chunk_size.max(1);
+        self.chunk_size = chunk_size;
         self.max_ranges = max_ranges;
     }
 
