@@ -915,7 +915,6 @@
                 "reason": "The installed package implements only the declared route, response, cookie, and successful lifespan slice.",
                 "missing_requirements": [
                   "starlette.compatibility.full-public-surface",
-                  "starlette.asgi.scope-mutation",
                   "starlette.asgi.streaming",
                   "starlette.asgi.boundary-cancellation"
                 ]
@@ -1197,7 +1196,6 @@
                 "reason": "The package implements the declared direct ASGI route, error, lifespan, and authentication integration workflows; remaining behavior is listed in missing requirements.",
                 "missing_requirements": [
                   "starlette.compatibility.full-public-surface",
-                  "starlette.asgi.scope-mutation",
                   "starlette.asgi.streaming",
                   "starlette.asgi.boundary-cancellation"
                 ]
@@ -2371,6 +2369,15 @@
                   }
                 },
                 {
+                  "path": "scope_mapping_observation",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                },
+                {
                   "path": "response_status",
                   "value_types": [
                     "integer",
@@ -2757,6 +2764,17 @@
               ],
               "target_profiles": [
                 "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.asgi.scope-mutation",
+              "dimension": "boundary",
+              "description": "Dispatch a routed request with a mutable mapping ASGI scope, preserve the caller's mapping object, and expose Starlette's in-place app, router, and route-scope mutations through that original mapping. Upstream: starlette/types.py::Scope; starlette/applications.py::Starlette.__call__; starlette/routing.py::Router.app and Route.matches.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
                 "python-package-cpython312"
               ]
             },

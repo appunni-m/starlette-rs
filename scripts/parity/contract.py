@@ -21411,9 +21411,26 @@ def _validate_case_payload(
         expected_case_keys = expected_case_keys | {"kwargs_container"}
     if is_application_subclass_builder:
         expected_case_keys = expected_case_keys | {"application_subclass"}
+    is_starlette_scope_mapping = (
+        isinstance(case, dict)
+        and case.get("surface") == "starlette.applications.Starlette"
+        and case.get("operation") in {"__call__", "request-dispatch"}
+        and "scope_container" in case
+    )
+    if is_starlette_scope_mapping:
+        expected_case_keys = expected_case_keys | {"scope_container"}
     _exact(case, expected_case_keys, "case")
     if is_application_subclass_builder:
         _validate_application_subclass_builder_case(case, manifest)
+    if is_starlette_scope_mapping:
+        if case["scope_container"] not in {"dict", "user-dict"}:
+            raise ContractError("Starlette scope_container must be dict or user-dict")
+        if case["scope_container"] == "user-dict" and case["target_profiles"] != [
+            "python-package-cpython312"
+        ]:
+            raise ContractError(
+                "mutable Starlette scope mappings require the Python-package profile"
+            )
     if is_run_until_first_complete and "kwargs_container" in case:
         if _string(case["kwargs_container"], "run_until_first_complete kwargs_container") not in {
             "dict",
@@ -35564,6 +35581,12 @@ def _semantic_coverage(case: dict[str, Any]) -> set[str]:
     if not method_matches:
         coverage.add("starlette.routing.items-wrong-method-405")
         return coverage
+    if (
+        case["surface"] == "starlette.applications.Starlette"
+        and case["operation"] == "request-dispatch"
+        and case.get("scope_container") == "user-dict"
+    ):
+        coverage.add("starlette.asgi.scope-mutation")
 
     path_parameters = dict(_route_template_parameters(route["path"]))
     path_parameter = endpoint.get("path_parameter")

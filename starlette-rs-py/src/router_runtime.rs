@@ -5,7 +5,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
 use pyo3::class::gc::{PyTraverseError, PyVisit};
-use pyo3::exceptions::{PyAssertionError, PyKeyError, PyRuntimeError, PyTypeError, PyValueError};
+use pyo3::exceptions::{PyAssertionError, PyRuntimeError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyString, PyTuple};
 use starlette_rs::{DispatchPlanError, HttpDispatchPlan, RouteTable, SupplementalRouteMatch};
@@ -739,18 +739,18 @@ impl AwaitableStateMachine for RouterDispatchMachine {
 
 impl RouterDispatchMachine {
     fn start_dispatch(&mut self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        let scope_dict = self.scope.bind(py).cast::<PyDict>()?;
-        let scope_type = required_scope_value(scope_dict, "type")?.extract::<String>()?;
+        let scope = self.scope.bind(py);
+        let scope_type = required_scope_value(scope, "type")?.extract::<String>()?;
         if !matches!(scope_type.as_str(), "http" | "websocket" | "lifespan") {
             return Err(PyAssertionError::new_err(()));
         }
-        scope_dict.call_method1("setdefault", ("router", self.router.clone_ref(py)))?;
+        scope.call_method1("setdefault", ("router", self.router.clone_ref(py)))?;
         if scope_type == "lifespan" {
             self.pending = Some(RouterPending::Callback);
             return self
                 .router
                 .bind(py)
-                .call_method1("lifespan", (scope_dict, &self.receive, &self.send))
+                .call_method1("lifespan", (scope, &self.receive, &self.send))
                 .map(Bound::unbind);
         }
 
@@ -760,9 +760,9 @@ impl RouterDispatchMachine {
                 .routes_for(py, self.routes_source.bind(py), &cache.cached)?
         };
         let (plan, custom_child_scopes) = if scope_type == "http" {
-            self.http_plan(py, scope_dict, &routes)?
+            self.http_plan(py, scope, &routes)?
         } else {
-            self.websocket_plan(py, scope_dict, &routes)?
+            self.websocket_plan(py, scope, &routes)?
         };
 
         match plan {
@@ -786,11 +786,11 @@ impl RouterDispatchMachine {
                         py,
                         routes.kinds[route_index],
                         route.bind(py),
-                        scope_dict,
+                        scope,
                         &path_params,
                     )?,
                 };
-                scope_dict.call_method1("update", (child_scope,))?;
+                scope.call_method1("update", (child_scope,))?;
                 let (route_send, response_started) = if self.exception_handler.is_some() {
                     let response_started = Arc::new(AtomicBool::new(false));
                     let tracker = Py::new(
@@ -814,7 +814,7 @@ impl RouterDispatchMachine {
                     .map(Bound::unbind)
             }
             HttpDispatchPlan::Redirect { path } => {
-                let redirect_scope = scope_dict.copy()?;
+                let redirect_scope = crate::scope_mapping::mapping_copy(scope)?;
                 redirect_scope.set_item("path", path)?;
                 let url_kwargs = PyDict::new(py);
                 url_kwargs.set_item("scope", &redirect_scope)?;
@@ -898,7 +898,7 @@ impl RouterDispatchMachine {
     fn http_plan(
         &self,
         py: Python<'_>,
-        scope: &Bound<'_, PyDict>,
+        scope: &Bound<'_, PyAny>,
         routes: &RouterRoutes,
     ) -> PyResult<(HttpDispatchPlan, HashMap<usize, Py<PyAny>>)> {
         let path = required_scope_value(scope, "path")?.extract::<String>()?;
@@ -961,7 +961,7 @@ impl RouterDispatchMachine {
     fn websocket_plan(
         &self,
         py: Python<'_>,
-        scope: &Bound<'_, PyDict>,
+        scope: &Bound<'_, PyAny>,
         routes: &RouterRoutes,
     ) -> PyResult<(HttpDispatchPlan, HashMap<usize, Py<PyAny>>)> {
         let path = required_scope_value(scope, "path")?.extract::<String>()?;
@@ -1007,7 +1007,7 @@ impl RouterDispatchMachine {
 
 fn validate_native_http_route_conversion_order(
     py: Python<'_>,
-    scope: &Bound<'_, PyDict>,
+    scope: &Bound<'_, PyAny>,
     routes: &RouterRoutes,
     selected_route_index: usize,
     scan_after_partial: bool,
@@ -1077,10 +1077,10 @@ impl AwaitableStateMachine for NotFoundMachine {
     fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
         match input {
             MachineResume::Start if !self.pending => {
-                let scope = self.scope.bind(py).cast::<PyDict>()?;
+                let scope = self.scope.bind(py);
                 let callback = not_found_callback(
                     py,
-                    scope.as_any(),
+                    scope,
                     self.receive.bind(py),
                     self.send.bind(py),
                     self.http_exception_type.bind(py),
@@ -1115,13 +1115,12 @@ fn not_found_callback(
     plain_text_response_type: &Bound<'_, PyAny>,
     websocket_close_type: &Bound<'_, PyAny>,
 ) -> PyResult<Py<PyAny>> {
-    let scope_dict = scope.cast::<PyDict>()?;
-    let scope_type = required_scope_value(scope_dict, "type")?.extract::<String>()?;
+    let scope_type = required_scope_value(scope, "type")?.extract::<String>()?;
     let callback = if scope_type == "websocket" {
         websocket_close_type
             .call0()?
             .call1((scope, receive, send))?
-    } else if scope_dict.get_item("app")?.is_some() {
+    } else if crate::scope_mapping::optional_item(scope, "app")?.is_some() {
         return Err(PyErr::from_value(http_exception_type.call1((404,))?));
     } else {
         let kwargs = PyDict::new(py);
@@ -1163,7 +1162,7 @@ impl PyResponseStartTracker {
 
 struct SupplementalMatchArgs<'a, 'py> {
     py: Python<'py>,
-    scope: &'a Bound<'py, PyDict>,
+    scope: &'a Bound<'py, PyAny>,
     current_path: &'a str,
     candidate_path: &'a str,
     routes: &'a [Py<PyAny>],
@@ -1188,7 +1187,7 @@ fn supplemental_matches(
     let candidate_scope = if candidate_path == current_path {
         scope.clone().into_any()
     } else {
-        let candidate_scope = scope.copy()?.into_any();
+        let candidate_scope = crate::scope_mapping::mapping_copy(scope)?.into_any();
         candidate_scope.set_item("path", candidate_path)?;
         candidate_scope
     };
@@ -1233,7 +1232,7 @@ fn native_child_scope(
     py: Python<'_>,
     kind: RouteKind,
     route: &Bound<'_, PyAny>,
-    scope: &Bound<'_, PyDict>,
+    scope: &Bound<'_, PyAny>,
     raw_path_params: &[(String, String)],
 ) -> PyResult<Py<PyAny>> {
     let (path_params, mount_remainder) = if matches!(kind, RouteKind::Mount) {
@@ -1273,8 +1272,7 @@ fn native_child_scope(
                 .take(route_character_count.saturating_sub(remaining_characters))
                 .collect::<String>();
             let root_path = optional_scope_string(scope, "root_path", "")?;
-            let app_root_path = scope
-                .get_item("app_root_path")?
+            let app_root_path = crate::scope_mapping::optional_item(scope, "app_root_path")?
                 .unwrap_or_else(|| PyString::new(py, &root_path).into_any());
             child_scope.set_item("path_params", path_params.bind(py))?;
             child_scope.set_item("app_root_path", app_root_path)?;
@@ -1299,11 +1297,11 @@ fn native_child_scope(
 fn converted_path_params(
     py: Python<'_>,
     route: &Bound<'_, PyAny>,
-    scope: &Bound<'_, PyDict>,
+    scope: &Bound<'_, PyAny>,
     raw_path_params: &[(String, String)],
 ) -> PyResult<Py<PyDict>> {
     let path_params = PyDict::new(py);
-    if let Some(existing) = scope.get_item("path_params")? {
+    if let Some(existing) = crate::scope_mapping::optional_item(scope, "path_params")? {
         path_params.call_method1("update", (existing,))?;
     }
     let convertors = route.getattr("param_convertors")?;
@@ -1315,7 +1313,7 @@ fn converted_path_params(
     Ok(path_params.unbind())
 }
 
-fn scope_route_path(scope: &Bound<'_, PyDict>) -> PyResult<String> {
+fn scope_route_path(scope: &Bound<'_, PyAny>) -> PyResult<String> {
     let path = required_scope_value(scope, "path")?.extract::<String>()?;
     let root_path = optional_scope_string(scope, "root_path", "")?;
     if root_path.is_empty() || !path.starts_with(&root_path) {
@@ -1333,18 +1331,16 @@ fn scope_route_path(scope: &Bound<'_, PyDict>) -> PyResult<String> {
 }
 
 fn required_scope_value<'py>(
-    scope: &Bound<'py, PyDict>,
+    scope: &Bound<'py, PyAny>,
     name: &'static str,
 ) -> PyResult<Bound<'py, PyAny>> {
-    scope
-        .get_item(name)?
-        .ok_or_else(|| PyKeyError::new_err(name))
+    scope.get_item(name)
 }
 
-fn optional_scope_string(scope: &Bound<'_, PyDict>, name: &str, default: &str) -> PyResult<String> {
+fn optional_scope_string(scope: &Bound<'_, PyAny>, name: &str, default: &str) -> PyResult<String> {
     scope
-        .get_item(name)?
-        .map_or_else(|| Ok(default.to_owned()), |value| value.extract::<String>())
+        .call_method1("get", (name, default))?
+        .extract::<String>()
 }
 
 fn dispatch_plan_error(error: DispatchPlanError) -> PyErr {

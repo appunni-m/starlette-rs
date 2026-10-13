@@ -322,7 +322,7 @@ impl StarletteCall {
     fn start(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
         let runtime = self.runtime.borrow(py);
         let app = runtime.app.bind(py);
-        let scope = self.scope.bind(py).cast::<PyDict>()?;
+        let scope = self.scope.bind(py);
         scope.set_item("app", app)?;
         let mut stack = app.getattr("middleware_stack")?;
         if stack.is_none() {
@@ -712,11 +712,8 @@ impl AwaitableStateMachine for ExceptionMiddlewareCall {
 
 impl ExceptionMiddlewareCall {
     fn start(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
-        let scope = self.scope.bind(py).cast::<PyDict>()?;
-        let scope_type = scope
-            .get_item("type")?
-            .ok_or_else(|| pyo3::exceptions::PyKeyError::new_err("type"))?
-            .extract::<String>()?;
+        let scope = self.scope.bind(py);
+        let scope_type = scope.get_item("type")?.extract::<String>()?;
         if !matches!(scope_type.as_str(), "http" | "websocket") {
             self.pending = Some(ExceptionPending::PassThrough);
             let awaitable = self
@@ -737,7 +734,7 @@ impl ExceptionMiddlewareCall {
             )?,
         )?;
         let connection = if scope_type == "http" {
-            match scope.get_item("starlette._exception_request")? {
+            match crate::scope_mapping::optional_item(scope, "starlette._exception_request")? {
                 Some(request) => {
                     scope.del_item("starlette._exception_request")?;
                     request
@@ -785,8 +782,10 @@ impl ExceptionMiddlewareCall {
             return Err(handled_error);
         }
 
-        let scope = self.scope.bind(py).cast::<PyDict>()?;
-        if let Some(request) = scope.get_item("starlette._exception_request")? {
+        let scope = self.scope.bind(py);
+        if let Some(request) =
+            crate::scope_mapping::optional_item(scope, "starlette._exception_request")?
+        {
             self.connection = Some(request.unbind());
             scope.del_item("starlette._exception_request")?;
         }

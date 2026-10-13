@@ -865,16 +865,24 @@ def _decode_b64(value: str, context: str) -> bytes:
         raise ValueError(f"invalid base64 at {context}") from exc
 
 
-def _make_scope(spec: dict[str, Any]) -> dict[str, Any]:
+def _scope_container(scope: dict[str, Any], container: str) -> dict[str, Any] | UserDict:
+    if container == "user-dict":
+        return UserDict(scope)
+    if container == "dict":
+        return scope
+    raise ValueError(f"unsupported ASGI scope container: {container!r}")
+
+
+def _make_scope(spec: dict[str, Any], container: str = "dict") -> dict[str, Any] | UserDict:
     if spec["type"] == "lifespan":
         scope = {"type": "lifespan", "asgi": dict(spec["asgi"])}
         if "state" in spec:
             scope["state"] = dict(spec["state"])
-        return scope
+        return _scope_container(scope, container)
     if set(spec) == {"type"}:
-        return dict(spec)
+        return _scope_container(dict(spec), container)
     if set(spec) == {"type", "version", "method", "path"}:
-        return dict(spec)
+        return _scope_container(dict(spec), container)
     scope = {
         "type": spec["type"],
         "asgi": dict(spec["asgi"]),
@@ -903,7 +911,7 @@ def _make_scope(spec: dict[str, Any]) -> dict[str, Any]:
         scope["app_root_path"] = spec["app_root_path"]
     if "path_params" in spec:
         scope["path_params"] = dict(spec["path_params"])
-    return scope
+    return _scope_container(scope, container)
 
 
 def _message(spec: dict[str, Any]) -> dict[str, Any]:
@@ -2858,8 +2866,9 @@ async def _invoke(
     capture_dispatch_error: bool = False,
     capture_dispatch_error_as_observation: bool = False,
     cancel_after_endpoint_entry: bool = False,
+    scope_container: str = "dict",
 ) -> dict[str, Any] | _CapturedDispatchError:
-    scope = _make_scope(step_args["scope"])
+    scope = _make_scope(step_args["scope"], scope_container)
     incoming = [_message(item) for item in step_args["receive"]]
     received = 0
     sent: list[dict[str, Any]] = []
@@ -3036,6 +3045,12 @@ async def _invoke(
         "server_error_observation": _server_error_observation(app, start, body, captured_exception),
     }
     if request_dispatch:
+        result["scope_mapping_observation"] = {
+            "type": f"{type(scope).__module__}.{type(scope).__qualname__}",
+            "app_is_application": scope.get("app") is app,
+            "router_is_application_router": scope.get("router") is app.router,
+            "marker": _json_safe(scope.get("path")),
+        }
         if len(request_observations) > 1:
             raise RuntimeError("request observer endpoint ran more than once")
         result.update(
@@ -3052,19 +3067,18 @@ async def _invoke(
                 },
             }
         )
-        result = {
-            key: result[key]
-            for key in (
-                "request_observations",
-                "sync_endpoint_observations",
-                "async_endpoint_observations",
-                "route_scope",
-                "response_status",
-                "ordered_repeated_headers",
-                "asgi_event_order",
-                "asgi_events",
-            )
-        }
+        request_result_keys = (
+            "request_observations",
+            "sync_endpoint_observations",
+            "async_endpoint_observations",
+            "route_scope",
+            "scope_mapping_observation",
+            "response_status",
+            "ordered_repeated_headers",
+            "asgi_event_order",
+            "asgi_events",
+        )
+        result = {key: result[key] for key in request_result_keys}
         if captured_exception is not None:
             return _CapturedDispatchError(
                 error=_dispatch_error(captured_exception),
@@ -15161,6 +15175,12 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         and "application_subclass" in case
     ):
         case_fields.add("application_subclass")
+    if (
+        case.get("surface") == "starlette.applications.Starlette"
+        and case.get("operation") in {"__call__", "request-dispatch"}
+        and "scope_container" in case
+    ):
+        case_fields.add("scope_container")
     _strict_object(case, case_fields, "parity case")
     if case["surface"] == WSGI_SURFACE:
         if case["operation"] != "__call__":
@@ -15328,6 +15348,7 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
                 cancel_after_endpoint_entry=(
                     case["execution_schedule"] == ["dispatch", "cancel-server-task"]
                 ),
+                scope_container=case.get("scope_container", "dict"),
             )
             results.append(_workflow_observation(step["step_id"], value))
         return results

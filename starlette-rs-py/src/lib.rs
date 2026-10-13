@@ -34,6 +34,7 @@ mod response_headers_runtime;
 mod router_runtime;
 mod runtime_calls;
 mod schemas_runtime;
+mod scope_mapping;
 mod server_error_runtime;
 mod sessions_runtime;
 mod staticfiles_runtime;

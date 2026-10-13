@@ -30,6 +30,7 @@ import sys
 import tempfile
 import threading
 import warnings
+from collections import UserDict
 from collections.abc import AsyncIterator, Callable, Iterator, Mapping
 from dataclasses import dataclass
 from html.parser import HTMLParser
@@ -855,16 +856,24 @@ def _decode_base64(value: str, context: str) -> bytes:
         raise ValueError(f"invalid base64 at {context}") from exc
 
 
-def _make_scope(spec: dict[str, Any]) -> dict[str, Any]:
+def _scope_container(scope: dict[str, Any], container: str) -> dict[str, Any] | UserDict:
+    if container == "user-dict":
+        return UserDict(scope)
+    if container == "dict":
+        return scope
+    raise ValueError(f"unsupported ASGI scope container: {container!r}")
+
+
+def _make_scope(spec: dict[str, Any], container: str = "dict") -> dict[str, Any] | UserDict:
     if spec["type"] == "lifespan":
         scope = {"type": "lifespan", "asgi": dict(spec["asgi"])}
         if "state" in spec:
             scope["state"] = dict(spec["state"])
-        return scope
+        return _scope_container(scope, container)
     if set(spec) == {"type"}:
-        return dict(spec)
+        return _scope_container(dict(spec), container)
     if set(spec) == {"type", "version", "method", "path"}:
-        return dict(spec)
+        return _scope_container(dict(spec), container)
     scope = {
         "type": spec["type"],
         "asgi": dict(spec["asgi"]),
@@ -893,7 +902,7 @@ def _make_scope(spec: dict[str, Any]) -> dict[str, Any]:
         scope["app_root_path"] = spec["app_root_path"]
     if "path_params" in spec:
         scope["path_params"] = dict(spec["path_params"])
-    return scope
+    return _scope_container(scope, container)
 
 
 def _make_message(spec: dict[str, Any]) -> dict[str, Any]:
@@ -2834,8 +2843,9 @@ async def _invoke(
     capture_dispatch_error: bool = False,
     capture_dispatch_error_as_observation: bool = False,
     cancel_after_endpoint_entry: bool = False,
+    scope_container: str = "dict",
 ) -> dict[str, Any] | _CapturedDispatchError:
-    scope = _make_scope(step_arguments["scope"])
+    scope = _make_scope(step_arguments["scope"], scope_container)
     incoming = [_make_message(item) for item in step_arguments["receive"]]
     received = 0
     sent: list[dict[str, Any]] = []
@@ -3025,6 +3035,12 @@ async def _invoke(
                 "endpoint_is_route_endpoint": scope.get("endpoint") is route_endpoint,
                 "path_params_present": "path_params" in scope,
                 "path_params": _json_safe(scope.get("path_params")),
+            },
+            "scope_mapping_observation": {
+                "type": f"{type(scope).__module__}.{type(scope).__qualname__}",
+                "app_is_application": scope.get("app") is app,
+                "router_is_application_router": scope.get("router") is app.router,
+                "marker": _json_safe(scope.get("path")),
             },
             "response_status": result["response_status"],
             "ordered_repeated_headers": result["ordered_repeated_headers"],
@@ -16136,6 +16152,7 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
                     schedule == ["dispatch", "cancel-server-task"]
                     and step["operation"] == "request-dispatch"
                 ),
+                scope_container=case.get("scope_container", "dict"),
             )
             results.append(_workflow_observation(step["step_id"], value))
         return results

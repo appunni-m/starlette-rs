@@ -792,9 +792,8 @@ impl RouterLifespanMachine {
     }
 
     fn enter_context(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
-        let scope = self.scope.bind(py).cast::<PyDict>()?;
-        let app = scope
-            .get_item("app")?
+        let scope = self.scope.bind(py);
+        let app = crate::scope_mapping::optional_item(scope, "app")?
             .unwrap_or_else(|| py.None().into_bound(py));
         let context_manager = match self.lifespan_context.bind(py).call1((app,)) {
             Ok(context_manager) => context_manager,
@@ -818,12 +817,13 @@ impl RouterLifespanMachine {
     fn entered(&mut self, py: Python<'_>, maybe_state: Py<PyAny>) -> PyResult<MachineAction> {
         if !maybe_state.bind(py).is_none() {
             let state_update = (|| -> PyResult<()> {
-                let scope = self.scope.bind(py).cast::<PyDict>()?;
-                let state = scope.get_item("state")?.ok_or_else(|| {
-                    PyRuntimeError::new_err(
-                        "The server does not support \"state\" in the lifespan scope.",
-                    )
-                })?;
+                let scope = self.scope.bind(py);
+                let state =
+                    crate::scope_mapping::optional_item(scope, "state")?.ok_or_else(|| {
+                        PyRuntimeError::new_err(
+                            "The server does not support \"state\" in the lifespan scope.",
+                        )
+                    })?;
                 state.call_method1("update", (maybe_state.bind(py),))?;
                 Ok(())
             })();
@@ -2076,7 +2076,7 @@ fn apply_route_middleware(
 }
 
 #[pyfunction]
-fn route_path(scope: &Bound<'_, PyDict>) -> PyResult<String> {
+fn route_path(scope: &Bound<'_, PyAny>) -> PyResult<String> {
     let path = required_string(scope, "path")?;
     let root_path = optional_string(scope, "root_path", "")?;
     Ok(route_path_from_parts(&path, &root_path).to_owned())
@@ -2086,7 +2086,7 @@ fn route_path(scope: &Bound<'_, PyDict>) -> PyResult<String> {
 fn route_matches(
     py: Python<'_>,
     route: &Bound<'_, PyAny>,
-    scope: &Bound<'_, PyDict>,
+    scope: &Bound<'_, PyAny>,
     match_type: &Bound<'_, PyAny>,
     route_kind: &str,
     _builtin_convertors: &Bound<'_, PyDict>,
@@ -2135,7 +2135,7 @@ fn route_matches(
 pub(super) fn host_child_scope(
     py: Python<'_>,
     route: &Bound<'_, PyAny>,
-    scope: &Bound<'_, PyDict>,
+    scope: &Bound<'_, PyAny>,
 ) -> PyResult<Py<PyAny>> {
     host_route_child_scope(py, route, scope)?
         .map(|scope| scope.into_any())
@@ -2145,7 +2145,7 @@ pub(super) fn host_child_scope(
 fn host_route_child_scope(
     py: Python<'_>,
     route: &Bound<'_, PyAny>,
-    scope: &Bound<'_, PyDict>,
+    scope: &Bound<'_, PyAny>,
 ) -> PyResult<Option<Py<PyDict>>> {
     let host = host_header_value(py, scope)?;
     let hostname = host.split(':').next().unwrap_or_default();
@@ -2160,10 +2160,8 @@ fn host_route_child_scope(
     Ok(Some(child_scope.unbind()))
 }
 
-fn host_header_value(py: Python<'_>, scope: &Bound<'_, PyDict>) -> PyResult<String> {
-    let headers = scope
-        .get_item("headers")?
-        .ok_or_else(|| PyKeyError::new_err("headers"))?;
+fn host_header_value(py: Python<'_>, scope: &Bound<'_, PyAny>) -> PyResult<String> {
+    let headers = scope.get_item("headers")?;
     let headers = py.import("builtins")?.getattr("list")?.call1((headers,))?;
     scope.set_item("headers", &headers)?;
     for entry in headers.try_iter()? {
@@ -2227,7 +2225,7 @@ fn convert_capture_dict<'py>(
     Ok(converted.unbind())
 }
 
-fn http_match_name(route: &Bound<'_, PyAny>, scope: &Bound<'_, PyDict>) -> PyResult<&'static str> {
+fn http_match_name(route: &Bound<'_, PyAny>, scope: &Bound<'_, PyAny>) -> PyResult<&'static str> {
     let methods = route.getattr("methods")?;
     if methods.is_none() || !methods.is_truthy()? {
         return Ok("FULL");
@@ -2243,7 +2241,7 @@ fn http_match_name(route: &Bound<'_, PyAny>, scope: &Bound<'_, PyDict>) -> PyRes
 fn mount_match_result(
     py: Python<'_>,
     route: &Bound<'_, PyAny>,
-    scope: &Bound<'_, PyDict>,
+    scope: &Bound<'_, PyAny>,
     match_type: &Bound<'_, PyAny>,
     route_path: &str,
     converted: Py<PyDict>,
@@ -2264,8 +2262,7 @@ fn mount_match_result(
         .map_or(route_path, |(byte_index, _)| &route_path[..byte_index]);
     let path_params = merged_path_params(py, scope, params)?;
     let root_path = optional_string(scope, "root_path", "")?;
-    let app_root_path = scope
-        .get_item("app_root_path")?
+    let app_root_path = crate::scope_mapping::optional_item(scope, "app_root_path")?
         .unwrap_or_else(|| PyString::new(py, &root_path).into_any());
     let child_scope = PyDict::new(py);
     child_scope.set_item("path_params", path_params.bind(py))?;
@@ -2277,18 +2274,18 @@ fn mount_match_result(
 
 fn merged_path_params(
     py: Python<'_>,
-    scope: &Bound<'_, PyDict>,
+    scope: &Bound<'_, PyAny>,
     matched_params: &Bound<'_, PyDict>,
 ) -> PyResult<Py<PyDict>> {
     let path_params = PyDict::new(py);
-    if let Some(existing) = scope.get_item("path_params")? {
+    if let Some(existing) = crate::scope_mapping::optional_item(scope, "path_params")? {
         path_params.call_method1("update", (existing,))?;
     }
     path_params.call_method1("update", (matched_params,))?;
     Ok(path_params.unbind())
 }
 
-fn route_path_from_scope(scope: &Bound<'_, PyDict>) -> PyResult<String> {
+fn route_path_from_scope(scope: &Bound<'_, PyAny>) -> PyResult<String> {
     let path = required_string(scope, "path")?;
     let root_path = optional_string(scope, "root_path", "")?;
     Ok(route_path_from_parts(&path, &root_path).to_owned())
@@ -2309,17 +2306,14 @@ fn route_path_from_parts<'a>(path: &'a str, root_path: &str) -> &'a str {
     }
 }
 
-fn required_string(scope: &Bound<'_, PyDict>, name: &'static str) -> PyResult<String> {
-    scope
-        .get_item(name)?
-        .ok_or_else(|| PyKeyError::new_err(name))?
-        .extract::<String>()
+fn required_string(scope: &Bound<'_, PyAny>, name: &'static str) -> PyResult<String> {
+    scope.get_item(name)?.extract::<String>()
 }
 
-fn optional_string(scope: &Bound<'_, PyDict>, name: &str, default: &str) -> PyResult<String> {
+fn optional_string(scope: &Bound<'_, PyAny>, name: &str, default: &str) -> PyResult<String> {
     scope
-        .get_item(name)?
-        .map_or_else(|| Ok(default.to_owned()), |value| value.extract::<String>())
+        .call_method1("get", (name, default))?
+        .extract::<String>()
 }
 
 fn dict_keys_as_strings(dict: &Bound<'_, PyDict>) -> PyResult<Vec<String>> {
@@ -2381,7 +2375,7 @@ fn route_handle(py: Python<'_>, args: RouteHandleArgs) -> PyResult<Py<PyAny>> {
 #[pyo3(from_item_all)]
 struct RouteHandleArgs {
     route: Py<PyAny>,
-    scope: Py<PyDict>,
+    scope: Py<PyAny>,
     receive: Py<PyAny>,
     send: Py<PyAny>,
     route_kind: String,
@@ -2466,8 +2460,7 @@ impl BaseRouteCallMachine {
         let route_match = route_match.cast::<PyTuple>()?;
         let match_kind = route_match.get_item(0)?.getattr("value")?.extract::<u8>()?;
         if match_kind == 0 {
-            let scope_dict = scope.cast::<PyDict>()?;
-            let scope_type = required_string(scope_dict, "type")?;
+            let scope_type = required_string(scope, "type")?;
             let callback = if scope_type == "http" {
                 let kwargs = PyDict::new(py);
                 kwargs.set_item("status_code", 404)?;
@@ -2997,8 +2990,10 @@ impl WebSocketSessionMachine {
         py: Python<'_>,
         exception: &Bound<'_, PyAny>,
     ) -> PyResult<Option<Py<PyAny>>> {
-        let scope = self.scope.bind(py).cast::<PyDict>()?;
-        let Some(handlers) = scope.get_item("starlette.exception_handlers")? else {
+        let scope = self.scope.bind(py);
+        let Some(handlers) =
+            crate::scope_mapping::optional_item(scope, "starlette.exception_handlers")?
+        else {
             return Ok(None);
         };
         let handlers = handlers.cast::<PyTuple>()?;
@@ -3273,8 +3268,10 @@ impl RequestResponseMachine {
         py: Python<'_>,
         exception: &Bound<'_, PyAny>,
     ) -> PyResult<Option<Py<PyAny>>> {
-        let scope = self.scope.bind(py).cast::<PyDict>()?;
-        let Some(handlers) = scope.get_item("starlette.exception_handlers")? else {
+        let scope = self.scope.bind(py);
+        let Some(handlers) =
+            crate::scope_mapping::optional_item(scope, "starlette.exception_handlers")?
+        else {
             return Ok(None);
         };
         let handlers = handlers.cast::<PyTuple>()?;
@@ -3306,7 +3303,7 @@ impl RequestResponseMachine {
     }
 
     fn preserve_request_and_raise(&self, py: Python<'_>, error: PyErr) -> PyResult<MachineAction> {
-        let scope = self.scope.bind(py).cast::<PyDict>()?;
+        let scope = self.scope.bind(py);
         let request = self
             .request
             .as_ref()
