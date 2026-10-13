@@ -101,6 +101,16 @@ STARLETTE_SUBCLASS_BUILDER_REQUIREMENT = (
 STARLETTE_MIDDLEWARE_ITERATOR_REQUIREMENT = (
     "starlette.applications.Starlette.__call__.middleware-config-subclass-iteration"
 )
+STARLETTE_USER_MIDDLEWARE_ITERABLE_REQUIREMENT = (
+    "starlette.applications.Starlette.build_middleware_stack.user-middleware-iterable"
+)
+STARLETTE_SUBCLASS_USER_MIDDLEWARE_KIND = "build-middleware-stack-set-user-middleware-tuple"
+REQUEST_PUSH_PROMISE_HEADER_ORDER_REQUIREMENT = (
+    "starlette.request.send-push-promise.header-iteration-order"
+)
+REQUEST_PUSH_PROMISE_COPIED_HEADERS = frozenset(
+    {b"accept", b"accept-encoding", b"accept-language", b"cache-control", b"user-agent"}
+)
 
 TOP_KEYS = {
     "schema",
@@ -19966,8 +19976,6 @@ def _validate_application_subclass_builder_case(
     case: dict[str, Any],
     manifest: dict[str, Any],
 ) -> None:
-    if case["covers"] != [STARLETTE_SUBCLASS_BUILDER_REQUIREMENT]:
-        raise ContractError("Starlette subclass-builder case must cover its dedicated requirement")
     if (
         case["target_profiles"] != ["python-package-cpython312"]
         or case["assets"] != []
@@ -20004,25 +20012,40 @@ def _validate_application_subclass_builder_case(
     if scope.get("method") not in methods:
         raise ContractError("Starlette subclass-builder dispatch method must reach its HTTP route")
 
-    specification = _exact(
-        case["application_subclass"],
-        {"kind", "response_header_base64"},
-        "Starlette application subclass input",
-    )
-    if specification["kind"] != "build-middleware-stack-delegate-and-append-header":
+    raw_specification = case["application_subclass"]
+    if not isinstance(raw_specification, dict) or not isinstance(
+        raw_specification.get("kind"), str
+    ):
         raise ContractError("Starlette application subclass hook kind is unsupported")
-    header_pairs = _validate_header_pairs(
-        [specification["response_header_base64"]],
-        "Starlette application subclass response header",
-    )
-    name, value = header_pairs[0]
-    token_characters = (
-        b"!#$%&'*+-.^_`|~0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
-    )
-    if not name or any(character not in token_characters for character in name):
-        raise ContractError("Starlette application subclass response header name must be a token")
-    if not value or b"\r" in value or b"\n" in value:
-        raise ContractError("Starlette application subclass response header value is invalid")
+    kind = raw_specification["kind"]
+    if kind == "build-middleware-stack-delegate-and-append-header":
+        specification = _exact(
+            raw_specification,
+            {"kind", "response_header_base64"},
+            "Starlette application subclass input",
+        )
+        header_pairs = _validate_header_pairs(
+            [specification["response_header_base64"]],
+            "Starlette application subclass response header",
+        )
+        name, value = header_pairs[0]
+        token_characters = (
+            b"!#$%&'*+-.^_`|~0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+        )
+        if not name or any(character not in token_characters for character in name):
+            raise ContractError(
+                "Starlette application subclass response header name must be a token"
+            )
+        if not value or b"\r" in value or b"\n" in value:
+            raise ContractError("Starlette application subclass response header value is invalid")
+        expected_requirement = STARLETTE_SUBCLASS_BUILDER_REQUIREMENT
+    elif kind == STARLETTE_SUBCLASS_USER_MIDDLEWARE_KIND:
+        _exact(raw_specification, {"kind"}, "Starlette application subclass input")
+        expected_requirement = STARLETTE_USER_MIDDLEWARE_ITERABLE_REQUIREMENT
+    else:
+        raise ContractError("Starlette application subclass hook kind is unsupported")
+    if case["covers"] != [expected_requirement]:
+        raise ContractError("Starlette subclass-builder case must cover its input-defined behavior")
 
     requirement = next(
         (
@@ -20030,7 +20053,7 @@ def _validate_application_subclass_builder_case(
             for surface in _all_manifest_surfaces(manifest)
             for operation in surface["operations"]
             for item in operation["requirements"]
-            if item["id"] == STARLETTE_SUBCLASS_BUILDER_REQUIREMENT
+            if item["id"] == expected_requirement
         ),
         None,
     )
@@ -22794,6 +22817,13 @@ def _validate_case_payload(
                 case["surface"] == "starlette.applications.Starlette"
                 and case["operation"] == "__call__"
             ),
+            allow_user_middleware_iterable=(
+                case["surface"] == "starlette.applications.Starlette"
+                and case["operation"] == "__call__"
+                and isinstance(case.get("application_subclass"), dict)
+                and case["application_subclass"].get("kind")
+                == STARLETTE_SUBCLASS_USER_MIDDLEWARE_KIND
+            ),
         )
     server_error_case = not is_protocol_middleware and _is_server_error_stimulus(app_args)
     body_reuse = False
@@ -25524,6 +25554,7 @@ def _validate_application_stimulus(
     allow_lifespan_variants: bool = False,
     allow_observable_constructor_inputs: bool = False,
     allow_middleware_iterator_subclass: bool = False,
+    allow_user_middleware_iterable: bool = False,
 ) -> None:
     if set(args) != {
         "debug",
@@ -25615,6 +25646,25 @@ def _validate_application_stimulus(
             )
         _string(iterated["name"], "Middleware iterator yielded header name")
         _string(iterated["value"], "Middleware iterator yielded header value")
+        normalized_args = dict(args)
+        normalized_args["middleware"] = []
+        _validate_application_stimulus(
+            normalized_args,
+            request_dispatch,
+            allow_lifespan_variants=allow_lifespan_variants,
+        )
+        return
+    if allow_user_middleware_iterable:
+        middleware = args["middleware"]
+        if not isinstance(middleware, list) or len(middleware) != 1:
+            raise ContractError("user_middleware iterable case must declare one middleware")
+        middleware_spec = _validate_route_middleware_spec(
+            middleware[0], "user_middleware iterable middleware"
+        )
+        if middleware_spec["kind"] != "append-response-header":
+            raise ContractError(
+                "user_middleware iterable case must preserve its response-header middleware"
+            )
         normalized_args = dict(args)
         normalized_args["middleware"] = []
         _validate_application_stimulus(
@@ -27847,12 +27897,22 @@ def _validate_send_push_promise_case(case: dict[str, Any]) -> None:
     if "http.response.push" in extensions and extensions["http.response.push"] != {}:
         raise ContractError("HTTP response push extension configuration must be empty")
     if "http.response.push" not in extensions:
-        expected = "starlette.request.send-push-promise.without-extension"
+        expected = ["starlette.request.send-push-promise.without-extension"]
     elif callback["kind"] == "default":
-        expected = "starlette.request.send-push-promise.missing-send"
+        expected = ["starlette.request.send-push-promise.missing-send"]
     else:
-        expected = "starlette.request.send-push-promise.extension-event"
-    if case["covers"] != [expected]:
+        expected = ["starlette.request.send-push-promise.extension-event"]
+        header_pairs = _validate_header_pairs(
+            scope["headers_base64_pairs"], "Request.send_push_promise headers"
+        )
+        copied_name_counts: dict[bytes, int] = {}
+        for name, _value in header_pairs:
+            normalized_name = name.lower()
+            if normalized_name in REQUEST_PUSH_PROMISE_COPIED_HEADERS:
+                copied_name_counts[normalized_name] = copied_name_counts.get(normalized_name, 0) + 1
+        if len(copied_name_counts) > 1 and any(count > 1 for count in copied_name_counts.values()):
+            expected.append(REQUEST_PUSH_PROMISE_HEADER_ORDER_REQUIREMENT)
+    if case["covers"] != expected:
         raise ContractError("push-promise case must cover the behavior selected by its inputs")
 
 
@@ -31958,18 +32018,23 @@ def _validate_upload_file_case(case: dict[str, Any]) -> None:
     shared_thread_probe: dict[str, int] | None = None
     for index, scenario_value in enumerate(scenarios):
         context = f"UploadFile scenarios[{index}]"
+        scenario_fields = {
+            "scenario_id",
+            "max_size",
+            "filename",
+            "initial_size",
+            "actions",
+            "thread_probe",
+        }
+        if isinstance(scenario_value, dict) and "in_memory_override" in scenario_value:
+            scenario_fields.add("in_memory_override")
         scenario = _exact(
             scenario_value,
-            {
-                "scenario_id",
-                "max_size",
-                "filename",
-                "initial_size",
-                "actions",
-                "thread_probe",
-            },
+            scenario_fields,
             context,
         )
+        if "in_memory_override" in scenario and type(scenario["in_memory_override"]) is not bool:
+            raise ContractError(f"{context}.in_memory_override must be a boolean")
         scenario_id = _string(scenario["scenario_id"], f"{context}.scenario_id")
         if not scenario_id or scenario_id in scenario_ids:
             raise ContractError(f"{context}.scenario_id must be non-empty and unique")
@@ -36084,7 +36149,10 @@ def _semantic_coverage(case: dict[str, Any]) -> set[str]:
         and method_matches
         and scope.get("type") == "http"
     ):
-        coverage.add(STARLETTE_SUBCLASS_BUILDER_REQUIREMENT)
+        if case["application_subclass"].get("kind") == STARLETTE_SUBCLASS_USER_MIDDLEWARE_KIND:
+            coverage.add(STARLETTE_USER_MIDDLEWARE_ITERABLE_REQUIREMENT)
+        else:
+            coverage.add(STARLETTE_SUBCLASS_BUILDER_REQUIREMENT)
     if endpoint["kind"] == "authentication-login-next-redirect":
         if (
             case["operation"] == "__call__"

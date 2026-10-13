@@ -1,0 +1,61 @@
+{
+  "schema": "migration-parity/parity-input@52",
+  "cases": [
+    {
+      "case_id": "starlette.requests.Request.send-push-promise.header-iteration-order",
+      "surface": "starlette.requests.Request",
+      "operation": "send-push-promise",
+      "covers": [
+        "starlette.request.send-push-promise.extension-event",
+        "starlette.request.send-push-promise.header-iteration-order"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          ["dXNlci1hZ2VudA==", "dWEtZmlyc3Q="],
+          ["YWNjZXB0", "YWNjLWZpcnN0"],
+          ["eC1pZ25vcmU=", "aWdub3Jl"],
+          ["dXNlci1hZ2VudA==", "dWEtc2Vjb25k"],
+          ["Y2FjaGUtY29udHJvbA==", "bm8tY2FjaGU="],
+          ["YWNjZXB0LWVuY29kaW5n", "Z3ppcA=="],
+          ["YWNjZXB0", "YWNjLXNlY29uZA=="],
+          ["YWNjZXB0LWxhbmd1YWdl", "ZW4tVVM="],
+          ["Y2FjaGUtY29udHJvbA==", "bm8tc3RvcmU="]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ],
+        "extensions": {
+          "http.response.push": {}
+        }
+      },
+      "path": "/asset.css",
+      "send_callback": {
+        "kind": "capture"
+      },
+      "observations": [
+        "send-push-promise"
+      ]
+    }
+  ]
+}

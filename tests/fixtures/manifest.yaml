@@ -358,6 +358,7 @@
       "build/parity/inputs/parity/request-stream-receive-cancellation-retry.json",
       "build/parity/inputs/parity/request-client-address.json",
       "build/parity/inputs/parity/request-scope-interface.json",
+      "build/parity/inputs/parity/request-push-promise-header-order.json",
       "build/parity/inputs/parity/request-constructor-stateful-scope-type.json",
       "build/parity/inputs/parity/request-consumption.json",
       "build/parity/inputs/parity/request-custom-receive-event-interleaved.json",
@@ -1252,6 +1253,17 @@
               "id": "starlette.applications.Starlette.__call__.middleware-config-subclass-iteration",
               "dimension": "boundary",
               "description": "Construct a public Middleware subclass whose __iter__ yields a different middleware factory, then dispatch through Starlette.__call__; middleware stack construction must honor Python special-method dispatch and expand the yielded constructor values. Pinned source: starlette/applications.py::Starlette.build_middleware_stack and starlette/middleware/__init__.py::Middleware.__iter__.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.applications.Starlette.build_middleware_stack.user-middleware-iterable",
+              "dimension": "boundary",
+              "description": "Set Starlette.user_middleware to an input-defined tuple before the first ASGI dispatch and preserve Starlette's iterable expansion while constructing the middleware stack. Pinned source: starlette/applications.py:75-87.",
               "lanes": [
                 "parity"
               ],
@@ -16042,6 +16054,17 @@
               "id": "starlette.request.send-push-promise.missing-send",
               "dimension": "error_path",
               "description": "With push enabled and the default send callback, preserve the exact missing-send RuntimeError. Upstream: starlette/requests.py::empty_send and Request.send_push_promise.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.request.send-push-promise.header-iteration-order",
+              "dimension": "input_family",
+              "description": "With the push extension enabled, compare the order of copied header names when multiple designated names and repeated values are supplied. Pinned source: starlette/requests.py::SERVER_PUSH_HEADERS_TO_COPY and Request.send_push_promise.",
               "lanes": [
                 "parity"
               ],

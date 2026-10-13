@@ -8,10 +8,23 @@ from typing import Any
 
 def materialize_starlette_subclass(base_type: type[Any], specification: Any) -> type[Any]:
     """Build the input-defined subclass used to exercise Starlette extension hooks."""
-    if not isinstance(specification, dict) or set(specification) != {
-        "kind",
-        "response_header_base64",
-    }:
+    if not isinstance(specification, dict) or not isinstance(specification.get("kind"), str):
+        raise ValueError("application_subclass must define its kind")
+    if specification["kind"] == "build-middleware-stack-set-user-middleware-tuple":
+        if set(specification) != {"kind"}:
+            raise ValueError("tuple user_middleware subclass input has unexpected fields")
+
+        def build_middleware_stack(self: Any) -> Any:
+            self.user_middleware = tuple(self.user_middleware)
+            return super(type(self), self).build_middleware_stack()
+
+        return type(
+            "IterableMiddlewareStarletteSubclass",
+            (base_type,),
+            {"build_middleware_stack": build_middleware_stack},
+        )
+
+    if set(specification) != {"kind", "response_header_base64"}:
         raise ValueError("application_subclass must define its kind and response header")
     if specification["kind"] != "build-middleware-stack-delegate-and-append-header":
         raise ValueError("application_subclass.kind is unsupported")

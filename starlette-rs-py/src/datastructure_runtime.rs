@@ -1106,55 +1106,79 @@ impl PyUploadFile {
     }
 
     #[getter]
-    fn _in_memory(&self, py: Python<'_>) -> PyResult<bool> {
-        let file = upload_state(py, &self.shared)?.file.clone_ref(py);
-        upload_file_is_in_memory(py, file.bind(py))
+    fn _in_memory(slf: PyRef<'_, Self>, py: Python<'_>) -> PyResult<bool> {
+        let upload_file = slf.into_pyobject(py)?.into_any();
+        let file = upload_file.getattr("file")?;
+        upload_file_is_in_memory(py, &file)
     }
 
-    fn _will_roll(&self, py: Python<'_>, size_to_add: &Bound<'_, PyAny>) -> PyResult<bool> {
-        let file = upload_state(py, &self.shared)?.file.clone_ref(py);
-        let max_mem_size = upload_state(py, &self.shared)?.max_mem_size.clone_ref(py);
-        upload_file_will_roll(py, file.bind(py), max_mem_size.bind(py), size_to_add)
+    fn _will_roll(
+        slf: PyRef<'_, Self>,
+        py: Python<'_>,
+        size_to_add: &Bound<'_, PyAny>,
+    ) -> PyResult<bool> {
+        let upload_file = slf.into_pyobject(py)?.into_any();
+        upload_file_will_roll(&upload_file, size_to_add)
     }
 
-    fn _write(&self, py: Python<'_>, data: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+    fn _write(
+        slf: PyRef<'_, Self>,
+        py: Python<'_>,
+        data: &Bound<'_, PyAny>,
+    ) -> PyResult<Py<PyAny>> {
+        let shared = slf.shared.clone_ref(py);
+        let upload_file = slf.into_pyobject(py)?.into_any().unbind();
         into_sendable_python_awaitable(
             py,
             UploadFileMachine {
-                shared: self.shared.clone_ref(py),
+                shared,
+                upload_file,
                 operation: UploadFileOperation::Write(data.clone().unbind()),
                 pending: false,
             },
         )
     }
 
-    fn _read(&self, py: Python<'_>, size: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+    fn _read(slf: PyRef<'_, Self>, py: Python<'_>, size: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+        let shared = slf.shared.clone_ref(py);
+        let upload_file = slf.into_pyobject(py)?.into_any().unbind();
         into_sendable_python_awaitable(
             py,
             UploadFileMachine {
-                shared: self.shared.clone_ref(py),
+                shared,
+                upload_file,
                 operation: UploadFileOperation::Read(size.clone().unbind()),
                 pending: false,
             },
         )
     }
 
-    fn _seek(&self, py: Python<'_>, offset: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+    fn _seek(
+        slf: PyRef<'_, Self>,
+        py: Python<'_>,
+        offset: &Bound<'_, PyAny>,
+    ) -> PyResult<Py<PyAny>> {
+        let shared = slf.shared.clone_ref(py);
+        let upload_file = slf.into_pyobject(py)?.into_any().unbind();
         into_sendable_python_awaitable(
             py,
             UploadFileMachine {
-                shared: self.shared.clone_ref(py),
+                shared,
+                upload_file,
                 operation: UploadFileOperation::Seek(offset.clone().unbind()),
                 pending: false,
             },
         )
     }
 
-    fn _close(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+    fn _close(slf: PyRef<'_, Self>, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        let shared = slf.shared.clone_ref(py);
+        let upload_file = slf.into_pyobject(py)?.into_any().unbind();
         into_sendable_python_awaitable(
             py,
             UploadFileMachine {
-                shared: self.shared.clone_ref(py),
+                shared,
+                upload_file,
                 operation: UploadFileOperation::Close,
                 pending: false,
             },
@@ -1192,17 +1216,17 @@ fn upload_file_is_in_memory(py: Python<'_>, file: &Bound<'_, PyAny>) -> PyResult
 }
 
 fn upload_file_will_roll(
-    py: Python<'_>,
-    file: &Bound<'_, PyAny>,
-    max_mem_size: &Bound<'_, PyAny>,
+    upload_file: &Bound<'_, PyAny>,
     size_to_add: &Bound<'_, PyAny>,
 ) -> PyResult<bool> {
-    if !upload_file_is_in_memory(py, file)? {
+    if !upload_file.getattr("_in_memory")?.is_truthy()? {
         return Ok(true);
     }
+    let file = upload_file.getattr("file")?;
     let future_size = file.call_method0("tell")?.add(size_to_add)?;
+    let max_mem_size = upload_file.getattr("_max_mem_size")?;
     if max_mem_size.is_truthy()? {
-        future_size.gt(max_mem_size)
+        future_size.gt(&max_mem_size)
     } else {
         Ok(false)
     }
@@ -1217,6 +1241,7 @@ enum UploadFileOperation {
 
 struct UploadFileMachine {
     shared: SharedUploadFile,
+    upload_file: Py<PyAny>,
     operation: UploadFileOperation,
     pending: bool,
 }
@@ -1224,6 +1249,7 @@ struct UploadFileMachine {
 impl crate::awaitable::AwaitableStateMachine for UploadFileMachine {
     fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
         visit.call(&self.shared)?;
+        visit.call(&self.upload_file)?;
         match &self.operation {
             UploadFileOperation::Write(value)
             | UploadFileOperation::Read(value)
@@ -1280,19 +1306,19 @@ impl UploadFileMachine {
                         std::mem::replace(&mut upload_state_mut(py, &self.shared)?.size, updated);
                     drop(previous);
                 }
-                // Python size arithmetic can replace the public backing file.
-                // Read policy fields only after that callback has completed.
-                let file = upload_state(py, &self.shared)?.file.clone_ref(py);
-                let max_mem_size = upload_state(py, &self.shared)?.max_mem_size.clone_ref(py);
                 let size_to_add = PyInt::new(py, data_length);
-                upload_file_will_roll(py, file.bind(py), max_mem_size.bind(py), &size_to_add)?
+                self.upload_file
+                    .bind(py)
+                    .call_method1("_will_roll", (&size_to_add,))?
+                    .is_truthy()?
             }
             UploadFileOperation::Read(_)
             | UploadFileOperation::Seek(_)
-            | UploadFileOperation::Close => {
-                let file = upload_state(py, &self.shared)?.file.clone_ref(py);
-                !upload_file_is_in_memory(py, file.bind(py))?
-            }
+            | UploadFileOperation::Close => !self
+                .upload_file
+                .bind(py)
+                .getattr("_in_memory")?
+                .is_truthy()?,
         };
         let (method, arguments): (&str, Vec<Py<PyAny>>) = match &self.operation {
             UploadFileOperation::Write(data) => ("write", vec![data.clone_ref(py)]),
@@ -1300,9 +1326,8 @@ impl UploadFileMachine {
             UploadFileOperation::Seek(offset) => ("seek", vec![offset.clone_ref(py)]),
             UploadFileOperation::Close => ("close", Vec::new()),
         };
-        // Policy callbacks can also replace the file before source I/O lookup.
-        let file = upload_state(py, &self.shared)?.file.clone_ref(py);
-        let callable = file.bind(py).getattr(method)?;
+        // Source methods look up `self.file` only after choosing the I/O policy.
+        let callable = self.upload_file.bind(py).getattr("file")?.getattr(method)?;
         let result = if worker_required {
             let runner = py
                 .import("starlette.concurrency")?

@@ -12,8 +12,8 @@ use pyo3::exceptions::{
 };
 use pyo3::prelude::*;
 use pyo3::types::{
-    PyBool, PyBytes, PyDict, PyInt, PyIterator, PyList, PyModule, PyString, PyTraceback, PyTuple,
-    PyType,
+    PyBool, PyBytes, PyDict, PyInt, PyIterator, PyList, PyModule, PySet, PyString, PyTraceback,
+    PyTuple, PyType,
 };
 use starlette_rs::{
     FormData as NativeFormData, FormDataParseError, MultipartFormEvent, MultipartFormParseError,
@@ -456,8 +456,9 @@ impl SendPushPromiseMachine {
             .extract::<Vec<(Vec<u8>, Vec<u8>)>>()?;
         drop(connection);
 
-        // Upstream stores these names in a set, so their cross-process order
-        // is not a public guarantee. Use a stable order for Rust observations.
+        // Upstream iterates this Python set to build an ordered ASGI header
+        // list. Reconstruct it in the source literal's insertion sequence and
+        // let CPython preserve its process-specific set iteration order.
         const COPIED_HEADER_NAMES: [&str; 5] = [
             "accept",
             "accept-encoding",
@@ -465,8 +466,10 @@ impl SendPushPromiseMachine {
             "cache-control",
             "user-agent",
         ];
+        let copied_header_names = PySet::new(py, COPIED_HEADER_NAMES)?;
         let copied_headers = PyList::empty(py);
-        for name in COPIED_HEADER_NAMES {
+        for name in copied_header_names.iter() {
+            let name = name.extract::<String>()?;
             for (header_name, value) in &raw_headers {
                 if header_name.eq_ignore_ascii_case(name.as_bytes()) {
                     let pair = PyTuple::new(

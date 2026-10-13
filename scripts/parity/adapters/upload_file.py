@@ -170,9 +170,27 @@ async def _run_upload_file_constructor_probe(
     }
 
 
+def _scenario_upload_file_type(
+    upload_file_type: type[Any], scenario: dict[str, Any]
+) -> tuple[type[Any], list[dict[str, bool]] | None]:
+    if "in_memory_override" not in scenario:
+        return upload_file_type, None
+
+    in_memory_override = scenario["in_memory_override"]
+    accesses: list[dict[str, bool]] = []
+
+    class InputPolicyUploadFile(upload_file_type):
+        @property
+        def _in_memory(self) -> bool:
+            accesses.append({"value": in_memory_override})
+            return in_memory_override
+
+    return InputPolicyUploadFile, accesses
+
+
 def run_upload_file_case(
     case: dict[str, Any],
-    upload_file_type: Callable[..., Any],
+    upload_file_type: type[Any],
 ) -> dict[str, Any]:
     """Run declared file operations and observe rolled-file scheduling."""
 
@@ -182,7 +200,10 @@ def run_upload_file_case(
         for scenario in case["scenarios"]:
             probe_settings = scenario.get("thread_probe")
             stream = _ThreadObservedSpooledTemporaryFile(max_size=scenario["max_size"])
-            upload_file = upload_file_type(
+            scenario_upload_file_type, policy_accesses = _scenario_upload_file_type(
+                upload_file_type, scenario
+            )
+            upload_file = scenario_upload_file_type(
                 filename=scenario["filename"],
                 file=stream,
                 size=scenario["initial_size"],
@@ -237,12 +258,13 @@ def run_upload_file_case(
                 if probe is not None:
                     action_observation["thread_probe"] = probe.observation()
                 action_observations.append(action_observation)
-            scenario_observations.append(
-                {
-                    "scenario_id": scenario["scenario_id"],
-                    "actions": action_observations,
-                }
-            )
+            scenario_observation: dict[str, Any] = {
+                "scenario_id": scenario["scenario_id"],
+                "actions": action_observations,
+            }
+            if policy_accesses is not None:
+                scenario_observation["in_memory_policy_accesses"] = policy_accesses
+            scenario_observations.append(scenario_observation)
         constructor_observations = []
         for probe in case["constructor_probes"]:
             constructor_observations.append(
