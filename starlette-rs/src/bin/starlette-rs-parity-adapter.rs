@@ -103,6 +103,7 @@ const NATIVE_WEBSOCKET_SURFACE: &str = "starlette-rs.NativeWebSocket";
 const NATIVE_WEBSOCKET_OPERATION: &str = "native-session-sequence";
 const NATIVE_SERVICE_MIDDLEWARE_OPERATION: &str = "service-tower-middleware";
 const NATIVE_SERVICE_MOUNTED_CHILD_OPERATION: &str = "service-mounted-child";
+const NATIVE_SERVICE_CUSTOM_CONVERTER_OPERATION: &str = "service-custom-converter-dispatch";
 const NATIVE_SERVICE_HOST_ROUTING_OPERATION: &str = "service-host-routing";
 const NATIVE_STREAMING_RESPONSE_SOURCE_OPERATION: &str = "lazy-source-call";
 const NATIVE_ROUTE_TABLE_CUSTOM_CONVERTER_OPERATION: &str = "custom-converter-match";
@@ -492,6 +493,12 @@ fn run_case(case: &Value) -> Result<Value, String> {
         }
         (Some("starlette-rs.NativeApplication"), Some(NATIVE_SERVICE_MOUNTED_CHILD_OPERATION)) => {
             return run_native_mounted_child_case(case);
+        }
+        (
+            Some("starlette-rs.NativeApplication"),
+            Some(NATIVE_SERVICE_CUSTOM_CONVERTER_OPERATION),
+        ) => {
+            return run_native_service_custom_converter_case(case);
         }
         (
             Some("starlette-rs.NativeHostApplication"),
@@ -1944,6 +1951,85 @@ fn custom_converter_case_error(
     values.insert(String::from("error"), Value::String(error));
     values.insert(String::from("match"), Value::Null);
     native_observation_result(case_id, case, values, "native custom converter match")
+}
+
+fn run_native_service_custom_converter_case(case: &Value) -> Result<Value, String> {
+    let case = exact_object(
+        case,
+        &[
+            "case_id",
+            "surface",
+            "operation",
+            "covers",
+            "target_profiles",
+            "assets",
+            "converters",
+            "application",
+            "request",
+            "observations",
+        ],
+        "native service custom converter case",
+    )?;
+    let case_id = string_field(case, "case_id", "native service custom converter case")?;
+    if string_field(case, "surface", "native service custom converter case")?
+        != "starlette-rs.NativeApplication"
+        || string_field(case, "operation", "native service custom converter case")?
+            != NATIVE_SERVICE_CUSTOM_CONVERTER_OPERATION
+    {
+        return Err(String::from(
+            "case is outside the native service custom-converter operation",
+        ));
+    }
+
+    let registry = custom_converter_registry_from_input(
+        case.get("converters").ok_or_else(|| {
+            String::from("native service custom converter case misses converters")
+        })?,
+        "native service custom converters",
+    )?;
+    let application_input = exact_object(
+        case.get("application").ok_or_else(|| {
+            String::from("native service custom converter case misses application")
+        })?,
+        &["routes"],
+        "native service custom converter application",
+    )?;
+    let route_values = application_input
+        .get("routes")
+        .and_then(Value::as_array)
+        .filter(|routes| !routes.is_empty())
+        .ok_or_else(|| {
+            String::from("native service custom converter application routes must be non-empty")
+        })?;
+    let observation = Arc::new(Mutex::new(None));
+    let routes = route_values
+        .iter()
+        .enumerate()
+        .map(|(index, route)| {
+            native_route_from_input(
+                route,
+                Arc::clone(&observation),
+                &format!("native service custom converter route[{index}]"),
+            )
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    let mut application = NativeServiceApplication::with_custom_converters(routes, registry)
+        .map_err(|error| error.to_string())?;
+    let request = native_service_request_from_input(
+        case.get("request")
+            .ok_or_else(|| String::from("native service custom converter case misses request"))?,
+        false,
+    )?;
+    let response = block_on(tower_service::Service::call(&mut application, request))
+        .map_err(|error| error.to_string())?;
+    native_service_response_observation(
+        case_id,
+        case,
+        Some(response),
+        None,
+        &observation,
+        "native service custom converter",
+    )
 }
 
 fn run_native_custom_converter_match_case(case: &Value) -> Result<Value, String> {

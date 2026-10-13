@@ -197,6 +197,7 @@ NATIVE_SERVICE_SURFACE = "starlette-rs.NativeApplication"
 NATIVE_SERVICE_OPERATION = "service-body-streaming"
 NATIVE_SERVICE_MIDDLEWARE_OPERATION = "service-tower-middleware"
 NATIVE_MOUNTED_CHILD_OPERATION = "service-mounted-child"
+NATIVE_SERVICE_CUSTOM_CONVERTER_OPERATION = "service-custom-converter-dispatch"
 NATIVE_HOST_SERVICE_SURFACE = "starlette-rs.NativeHostApplication"
 NATIVE_HOST_SERVICE_OPERATION = "service-host-routing"
 NATIVE_STREAMING_RESPONSE_SURFACE = "starlette-rs.StreamingResponse"
@@ -20125,6 +20126,11 @@ def _validate_native_api_case(
     operation_key = (case.get("surface"), case.get("operation"))
     input_fields = {
         (NATIVE_SERVICE_SURFACE, NATIVE_SERVICE_OPERATION): {"application", "request", "drive"},
+        (NATIVE_SERVICE_SURFACE, NATIVE_SERVICE_CUSTOM_CONVERTER_OPERATION): {
+            "converters",
+            "application",
+            "request",
+        },
         (NATIVE_SERVICE_SURFACE, NATIVE_MOUNTED_CHILD_OPERATION): {
             "application",
             "request",
@@ -20190,6 +20196,7 @@ def _validate_native_api_case(
     ):
         raise ContractError("native API cases must select declared profiles in manifest order")
     rust_only_operation = operation_key in {
+        (NATIVE_SERVICE_SURFACE, NATIVE_SERVICE_CUSTOM_CONVERTER_OPERATION),
         (NATIVE_LIFESPAN_SURFACE, "start"),
         (NATIVE_LIFESPAN_SURFACE, "shutdown"),
         (NATIVE_LIFESPAN_SURFACE, "active-shutdown"),
@@ -20237,6 +20244,8 @@ def _validate_native_api_case(
 
     if operation_key == (NATIVE_SERVICE_SURFACE, NATIVE_SERVICE_OPERATION):
         _validate_native_service_input(case)
+    elif operation_key == (NATIVE_SERVICE_SURFACE, NATIVE_SERVICE_CUSTOM_CONVERTER_OPERATION):
+        _validate_native_service_custom_converter_input(case)
     elif operation_key == (NATIVE_SERVICE_SURFACE, NATIVE_MOUNTED_CHILD_OPERATION):
         _validate_native_mounted_child_input(case)
     elif operation_key == (NATIVE_HOST_SERVICE_SURFACE, NATIVE_HOST_SERVICE_OPERATION):
@@ -20288,6 +20297,34 @@ def _validate_native_service_input(case: dict[str, Any]) -> None:
         if "service_future" not in drive or set(drive) - {"service_future", "response_body"}:
             raise ContractError("native service drive has unsupported fields")
         _string(drive["service_future"], "native service drive.service_future")
+
+
+def _validate_native_service_custom_converter_input(case: dict[str, Any]) -> None:
+    _validate_native_custom_converters(case["converters"])
+    application = _exact(
+        case["application"], {"routes"}, "native service custom-converter application"
+    )
+    routes = application["routes"]
+    if not isinstance(routes, list) or not routes:
+        raise ContractError("native service custom-converter routes must be non-empty")
+    for index, route_value in enumerate(routes):
+        context = f"native service custom-converter routes[{index}]"
+        route = _exact(route_value, {"path", "methods", "endpoint"}, context)
+        _string(route["path"], f"{context}.path")
+        methods = route["methods"]
+        if (
+            not isinstance(methods, list)
+            or not methods
+            or any(not isinstance(method, str) or not method for method in methods)
+        ):
+            raise ContractError(f"{context}.methods must be a non-empty string array")
+        endpoint = _exact(route["endpoint"], {"action"}, f"{context}.endpoint")
+        if endpoint["action"] != "echo-path-params":
+            raise ContractError(f"{context}.endpoint.action must be echo-path-params")
+    request = _exact(case["request"], {"method", "uri", "body"}, "native custom-converter request")
+    _string(request["method"], "native custom-converter request.method")
+    _string(request["uri"], "native custom-converter request.uri")
+    _validate_native_body_source(request["body"], "native custom-converter request.body")
 
 
 def _validate_native_service_drive(value: Any, context: str) -> None:

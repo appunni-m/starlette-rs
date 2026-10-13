@@ -70,6 +70,7 @@ NATIVE_SERVICE_SURFACE = "starlette-rs.NativeApplication"
 NATIVE_SERVICE_OPERATION = "service-body-streaming"
 NATIVE_SERVICE_MIDDLEWARE_OPERATION = "service-tower-middleware"
 NATIVE_SERVICE_MOUNTED_CHILD_OPERATION = "service-mounted-child"
+NATIVE_SERVICE_CUSTOM_CONVERTER_OPERATION = "service-custom-converter-dispatch"
 NATIVE_HOST_APPLICATION_SURFACE = "starlette-rs.NativeHostApplication"
 NATIVE_HOST_ROUTING_OPERATION = "service-host-routing"
 NATIVE_STREAMING_RESPONSE_SURFACE = "starlette-rs.StreamingResponse"
@@ -15052,6 +15053,11 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
     ):
         return _run_native_mounted_child_case(case)
     if (case.get("surface"), case.get("operation")) == (
+        NATIVE_SERVICE_SURFACE,
+        NATIVE_SERVICE_CUSTOM_CONVERTER_OPERATION,
+    ):
+        return _run_native_service_custom_converter_case(case)
+    if (case.get("surface"), case.get("operation")) == (
         NATIVE_HOST_APPLICATION_SURFACE,
         NATIVE_HOST_ROUTING_OPERATION,
     ):
@@ -16855,6 +16861,91 @@ def _run_native_service_asgi_case(case: dict[str, Any]) -> dict[str, Any]:
         "service-error": service_error,
     }
     return _native_workflow_result(case, record)
+
+
+def _run_native_service_custom_converter_case(case: dict[str, Any]) -> dict[str, Any]:
+    _validate_native_workflow_case(
+        case,
+        surface=NATIVE_SERVICE_SURFACE,
+        operation=NATIVE_SERVICE_CUSTOM_CONVERTER_OPERATION,
+        fields={"converters", "application", "request", "observations"},
+        context="NativeApplication custom-converter workflow",
+    )
+    application_spec = _strict_object(
+        case["application"], {"routes"}, "NativeApplication custom-converter application"
+    )
+    routes_spec = application_spec["routes"]
+    if not isinstance(routes_spec, list) or not routes_spec:
+        raise ValueError("NativeApplication custom-converter routes must be non-empty")
+    request_spec = _strict_object(
+        case["request"], {"method", "uri", "body"}, "native custom-converter request"
+    )
+    request_body = _strict_object(
+        request_spec["body"], {"frames"}, "native custom-converter request body"
+    )
+    request_frames = _native_probe_frames(
+        request_body["frames"], "native custom-converter request body frames"
+    )
+
+    from starlette.applications import Starlette
+    from starlette.responses import JSONResponse
+    from starlette.routing import Route
+
+    registry, old_values = _register_native_input_convertors(case["converters"])
+    try:
+        routes = []
+        for index, route_value in enumerate(routes_spec):
+            context = f"NativeApplication custom-converter routes[{index}]"
+            route_spec = _strict_object(route_value, {"path", "methods", "endpoint"}, context)
+            endpoint_spec = _strict_object(
+                route_spec["endpoint"], {"action"}, f"{context}.endpoint"
+            )
+            if endpoint_spec["action"] != "echo-path-params":
+                raise ValueError(f"{context}.endpoint.action is unsupported")
+
+            async def endpoint(request: Any) -> Any:
+                return JSONResponse(_native_scope_path_parameters(request.scope))
+
+            routes.append(Route(route_spec["path"], endpoint, methods=route_spec["methods"]))
+
+        app = Starlette(routes=routes)
+        scope = _native_http_scope(request_spec["method"], request_spec["uri"])
+        sent: list[dict[str, Any]] = []
+        request_frame_index = 0
+        service_error: str | None = None
+
+        async def receive() -> dict[str, Any]:
+            nonlocal request_frame_index
+            if request_frame_index >= len(request_frames):
+                return {"type": "http.request", "body": b"", "more_body": False}
+            frame = request_frames[request_frame_index]
+            request_frame_index += 1
+            if frame["kind"] == "pending":
+                await asyncio.Future()
+            if frame["kind"] == "error":
+                raise RuntimeError(frame["message"])
+            if frame["kind"] == "end":
+                return {"type": "http.request", "body": b"", "more_body": False}
+            return {
+                "type": "http.request",
+                "body": frame["data"],
+                "more_body": request_frame_index < len(request_frames),
+            }
+
+        async def send(message: dict[str, Any]) -> None:
+            sent.append(message)
+
+        async def invoke() -> None:
+            nonlocal service_error
+            try:
+                await app(scope, receive, send)
+            except Exception as exc:
+                service_error = str(exc)
+
+        asyncio.run(invoke())
+        return _native_service_workflow_result(case, scope, sent, service_error)
+    finally:
+        _restore_native_input_convertors(registry, old_values)
 
 
 def _run_native_service_middleware_asgi_case(case: dict[str, Any]) -> dict[str, Any]:

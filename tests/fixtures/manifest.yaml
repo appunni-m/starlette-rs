@@ -645,7 +645,8 @@
       "build/parity/inputs/parity/native-service-mounted-child.json",
       "build/parity/inputs/parity/native-service-host-routing.json",
       "build/parity/inputs/parity/native-streaming-response-source.json",
-      "build/parity/inputs/parity/route-table-custom-converters.json"
+      "build/parity/inputs/parity/route-table-custom-converters.json",
+      "build/parity/inputs/parity/native-service-custom-converters.json"
     ],
     "coverage": [],
     "benchmark": [
@@ -33936,6 +33937,100 @@
           "benchmark": {
             "applicability": "not_applicable",
             "reason": "This API-contract slice does not declare a benchmark workload."
+          }
+        },
+        {
+          "id": "service-custom-converter-dispatch",
+          "kind": "protocol_operation",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.routing.Router.__call__",
+            "signature": "Register the input-defined URL convertors, construct a Starlette route, dispatch one request, and observe the converted path capture in the endpoint response.",
+            "parameters": [
+              {
+                "id": "input_case",
+                "style": "keyword",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "workflow",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": "starlette_rs::NativeApplication::with_custom_converters",
+              "signature": "Construct the Tower service with an input-defined CustomPathConverterRegistry and dispatch a NativeRoute.",
+              "support": {
+                "status": "supported"
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "out_of_scope",
+                "reason": "NativeApplication is a Rust-native Tower service contract and has no corresponding starlette.* package target.",
+                "authority": "AGENTS.md project binding rules: keep Rust-native APIs distinct from the compatibility surface."
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette-rs.NativeApplication.service-custom-converter-dispatch.converted-capture",
+              "dimension": "protocol_variant",
+              "description": "Apply a registered input-defined converter when compiling NativeRoute patterns and pass its converted string capture to the endpoint-visible path parameters.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "rust-native-local"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This API-contract slice makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "This input-only API-contract slice does not declare a benchmark workload."
           }
         },
         {

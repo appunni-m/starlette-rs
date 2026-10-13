@@ -27,8 +27,8 @@ mod host_service;
 pub use host_service::{NativeHostApplication, NativeHostRoute};
 
 use crate::{
-    DetailedRouteMatch, Mount, MountError, MountScope, PathParameterCapture, Response,
-    ResponseError, RouteError, RouteTable,
+    CustomPathConverterRegistry, DetailedRouteMatch, Mount, MountError, MountScope,
+    PathParameterCapture, Response, ResponseError, RouteError, RouteTable,
 };
 
 /// A boxed source error carried by native HTTP bodies and endpoint failures.
@@ -421,7 +421,28 @@ impl NativeApplication {
     where
         C: Into<NativeApplicationChild>,
     {
-        let mut table = RouteTable::new();
+        Self::with_children_and_custom_converters(children, CustomPathConverterRegistry::new())
+    }
+
+    /// Builds the application from ordered routes and mounted child apps using
+    /// the supplied custom path converters for route patterns.
+    ///
+    /// Register each converter before constructing the application. Routes
+    /// retain the converter instance used when the application compiles their
+    /// patterns. Mounted child applications keep their own converter registry.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`NativeApplicationError::RouteRegistration`] if any route or
+    /// Mount pattern cannot be represented by the shared route table.
+    pub fn with_children_and_custom_converters<C>(
+        children: impl IntoIterator<Item = C>,
+        custom_converters: CustomPathConverterRegistry,
+    ) -> Result<Self, NativeApplicationError>
+    where
+        C: Into<NativeApplicationChild>,
+    {
+        let mut table = RouteTable::with_custom_converters(custom_converters);
         let mut entries = Vec::new();
         for child in children {
             match child.into() {
@@ -446,6 +467,25 @@ impl NativeApplication {
             routes: table,
             children: entries,
         })
+    }
+
+    /// Builds the application from native routes using custom path converters.
+    ///
+    /// This is the route-only convenience form of
+    /// [`Self::with_children_and_custom_converters`].
+    ///
+    /// # Errors
+    ///
+    /// Returns [`NativeApplicationError::RouteRegistration`] if any route
+    /// pattern cannot be represented by the shared route table.
+    pub fn with_custom_converters(
+        routes: impl IntoIterator<Item = NativeRoute>,
+        custom_converters: CustomPathConverterRegistry,
+    ) -> Result<Self, NativeApplicationError> {
+        Self::with_children_and_custom_converters(
+            routes.into_iter().map(NativeApplicationChild::Route),
+            custom_converters,
+        )
     }
 
     /// Wraps this application in a Tower middleware layer.

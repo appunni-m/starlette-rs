@@ -1,0 +1,52 @@
+{
+  "schema": "migration-parity/parity-input@52",
+  "cases": [
+    {
+      "case_id": "starlette-rs.NativeApplication.service-custom-converter-dispatch.converted-capture",
+      "surface": "starlette-rs.NativeApplication",
+      "operation": "service-custom-converter-dispatch",
+      "covers": [
+        "starlette-rs.NativeApplication.service-custom-converter-dispatch.converted-capture"
+      ],
+      "target_profiles": [
+        "rust-native-local"
+      ],
+      "assets": [],
+      "converters": [
+        {
+          "name": "slug",
+          "regex": "[A-Za-z]+(?:-[A-Za-z]+)*",
+          "convert": "lowercase",
+          "to_string": "lowercase"
+        }
+      ],
+      "application": {
+        "routes": [
+          {
+            "path": "/users/{slug:slug}",
+            "methods": [
+              "GET"
+            ],
+            "endpoint": {
+              "action": "echo-path-params"
+            }
+          }
+        ]
+      },
+      "request": {
+        "method": "GET",
+        "uri": "/users/MiXeD-Slug",
+        "body": {
+          "frames": [
+            {
+              "end": true
+            }
+          ]
+        }
+      },
+      "observations": [
+        "workflow"
+      ]
+    }
+  ]
+}
