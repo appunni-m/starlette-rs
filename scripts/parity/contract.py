@@ -557,6 +557,12 @@ REQUEST_HEADER_CACHE_SEQUENCE_CASE_KEYS = (CASE_KEYS - {"steps", "execution_sche
 }
 REQUEST_SCOPE_MAPPING_REQUIREMENT = "starlette.requests.Request.scope-mapping.minimal-http-scope"
 REQUEST_SCOPE_IDENTITY_REQUIREMENT = "starlette.requests.Request.scope-mapping.object-identity"
+REQUEST_SCOPE_INSTANCE_ITER_REQUIREMENT = (
+    "starlette.requests.Request.scope-mapping.instance-iter-override"
+)
+CONFIG_SECRET_DEFAULT_OBJECT_REQUIREMENT = (
+    "starlette.config.Config.secret-cast-preserves-default-object"
+)
 REQUEST_CONSTRUCTOR_REQUIREMENT = "starlette.requests.Request.constructor.scope-type-validation"
 REQUEST_CONSTRUCTOR_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {"scope"}
 WEBSOCKET_SCOPE_MAPPING_OPERATION = ("starlette.websockets.WebSocket", "scope-mapping")
@@ -1729,6 +1735,9 @@ CORS_PRIVATE_NETWORK_DENIAL_REQUIREMENT = (
 )
 CORS_PRIVATE_NETWORK_EMPTY_HEADER_DENIAL_REQUIREMENT = (
     "starlette.middleware.cors.CORSMiddleware.private-network-empty-header-denial"
+)
+CORS_METHOD_LOOKUP_REQUIREMENT = (
+    "starlette.middleware.cors.CORSMiddleware.method-lookup-before-header-and-origin-check"
 )
 HTTPS_REDIRECT_SURFACE = "starlette.middleware.httpsredirect.HTTPSRedirectMiddleware"
 TRUSTED_HOST_SURFACE = "starlette.middleware.trustedhost.TrustedHostMiddleware"
@@ -21249,6 +21258,8 @@ def _validate_case_payload(
         expected_case_keys = expected_case_keys | {"max_body_size"}
     if is_response and isinstance(case, dict) and "render_override" in case:
         expected_case_keys = expected_case_keys | {"render_override"}
+    if is_request_scope_mapping and isinstance(case, dict) and "scope_mapping" in case:
+        expected_case_keys = expected_case_keys | {"scope_mapping"}
     if (
         isinstance(case, dict)
         and "cookie_actions" in case
@@ -26681,9 +26692,9 @@ def _validate_dispatch_stimulus(
         elif args["send"] != {"kind": "capture-asgi-send"}:
             raise ContractError("send input must contain the fixed ASGI capture selector")
     elif scope.get("type") == "http" and allow_minimal_http_scope and scope == {"type": "http"}:
-        if not allow_pre_asgi24_disconnect or args["receive"] != []:
+        if args["receive"] != []:
             raise ContractError(
-                "minimal HTTP scope is limited to pre-ASGI-2.4 disconnect workflows"
+                "minimal HTTP scope is limited to cases that fail before receiving messages"
             )
     elif scope.get("type") == "http":
         scope_fields = {
@@ -27269,13 +27280,48 @@ def _validate_request_scope_mapping_case(case: dict[str, Any]) -> None:
     if case["scope"] != expected_scope:
         raise ContractError("Request scope-mapping input must preserve the pinned minimal scope")
     requirements = set(case["covers"])
-    if REQUEST_SCOPE_MAPPING_REQUIREMENT not in requirements or not requirements <= {
+    allowed_requirements = {
         REQUEST_SCOPE_MAPPING_REQUIREMENT,
         REQUEST_SCOPE_IDENTITY_REQUIREMENT,
-    }:
+        REQUEST_SCOPE_INSTANCE_ITER_REQUIREMENT,
+    }
+    if (
+        REQUEST_SCOPE_MAPPING_REQUIREMENT not in requirements
+        or not requirements <= allowed_requirements
+    ):
         raise ContractError(
             "Request scope-mapping case must cover its declared mapping requirements"
         )
+    if "scope_mapping" in case:
+        mapping_spec = _exact(
+            case["scope_mapping"],
+            {"container", "instance_iter_keys"},
+            "Request scope-mapping container",
+        )
+        if mapping_spec["container"] != "collections.UserDict":
+            raise ContractError("Request scope-mapping container must be collections.UserDict")
+        instance_iter_keys = mapping_spec["instance_iter_keys"]
+        if not isinstance(instance_iter_keys, list) or not all(
+            isinstance(key, str) and key for key in instance_iter_keys
+        ):
+            raise ContractError(
+                "Request scope mapping instance_iter_keys must be non-empty strings"
+            )
+        if len(instance_iter_keys) != len(case["scope"]) or set(instance_iter_keys) != set(
+            case["scope"]
+        ):
+            raise ContractError("Request scope mapping instance_iter_keys must permute scope keys")
+        if instance_iter_keys == list(case["scope"]):
+            raise ContractError("Request scope mapping override must differ from mapping iteration")
+        if requirements != {
+            REQUEST_SCOPE_MAPPING_REQUIREMENT,
+            REQUEST_SCOPE_INSTANCE_ITER_REQUIREMENT,
+        }:
+            raise ContractError(
+                "Request scope mapping override must cover its iterator requirement"
+            )
+    elif REQUEST_SCOPE_INSTANCE_ITER_REQUIREMENT in requirements:
+        raise ContractError("Request iterator override coverage requires a custom scope mapping")
 
 
 def _validate_request_constructor_case(case: dict[str, Any]) -> None:
@@ -29242,7 +29288,7 @@ def _validate_config_case(case: dict[str, Any]) -> None:
                     "port",
                     "is_secure",
                 },
-                "Secret": {"repr", "truthiness"},
+                "Secret": {"repr", "truthiness", "str"},
             }
             if (
                 inspect
@@ -29276,6 +29322,14 @@ def _validate_config_case(case: dict[str, Any]) -> None:
             raw_value = environ.get(prefixed, file_values.get(prefixed))
             cast_value = raw_value if raw_value is not None else lookup.get("default")
             cast_error = False
+            if (
+                public_class == "Secret"
+                and raw_value is None
+                and has_default
+                and lookup["default"] is not None
+                and not isinstance(lookup["default"], str)
+            ):
+                selected.add(CONFIG_SECRET_DEFAULT_OBJECT_REQUIREMENT)
             if cast_operation == "bool" and isinstance(cast_value, str):
                 selected.add("starlette.config.Config.bool-cast")
                 if cast_value.lower() not in {"true", "1", "false", "0"}:
@@ -34513,6 +34567,7 @@ def _validate_asgi_middleware_dispatch(surface: str, args: dict[str, Any]) -> No
             allow_query=True,
             allow_host=True,
             allow_out_of_range_server_port=surface == HTTPS_REDIRECT_SURFACE,
+            allow_minimal_http_scope=surface == CORS_SURFACE,
         )
         return
     if not isinstance(scope, dict) or scope.get("type") != "websocket":
@@ -34656,6 +34711,8 @@ def _asgi_middleware_semantic_coverage(case: dict[str, Any]) -> set[str]:
             for name, _value in app_response_start.get("headers_base64_pairs", [])
         }
         for cors_scope in cors_dispatch_scopes:
+            if cors_scope == {"type": "http"}:
+                covered.add(CORS_METHOD_LOOKUP_REQUIREMENT)
             cors_headers = decoded_headers(cors_scope)
             request_method = cors_headers.get("access-control-request-method")
             request_headers = [
@@ -34907,6 +34964,8 @@ def _asgi_middleware_semantic_coverage(case: dict[str, Any]) -> set[str]:
                 covered.add(suffix("allow-all-except-credentials"))
         if scope["type"] != "http":
             covered.add(suffix("non-http-passthrough"))
+            return covered
+        if "method" not in scope:
             return covered
         origin = headers.get("origin")
         if origin is None:

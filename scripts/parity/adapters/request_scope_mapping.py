@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import operator
+from collections import UserDict
 from collections.abc import Callable
 from typing import Any
 
@@ -30,12 +31,25 @@ def _probe(action: Callable[[], Any]) -> dict[str, Any]:
         }
 
 
+def _scope_from_case(case: dict[str, Any]) -> Any:
+    scope = case["scope"]
+    mapping_spec = case.get("scope_mapping")
+    if mapping_spec is None:
+        return scope
+    if mapping_spec["container"] != "collections.UserDict":
+        raise ValueError("unsupported Request scope mapping container")
+    mapped_scope = UserDict(scope)
+    instance_iter_keys = tuple(mapping_spec["instance_iter_keys"])
+    mapped_scope.__iter__ = lambda: iter(instance_iter_keys)
+    return mapped_scope
+
+
 def run_request_scope_mapping_case(
     case: dict[str, Any],
     request_type: type[Any],
 ) -> dict[str, Any]:
     """Observe the mapping API using the exact scope supplied by the case."""
-    request = request_type(case["scope"])
+    request = request_type(_scope_from_case(case))
     peer = request_type(dict(case["scope"]))
     value = {
         "keyed_method": _safe(request["method"]),

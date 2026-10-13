@@ -3074,6 +3074,7 @@ async def _invoke(
         and scope["type"] not in {"lifespan", "websocket"}
         and async_endpoint_observations is None
         and sync_cancellation_state is None
+        and not (captured_exception is not None and capture_dispatch_error_as_observation)
     ):
         raise RuntimeError("target completed without an http.response.start event")
     body_chunks = []
@@ -3556,9 +3557,24 @@ def _run_protocol_middleware_case(case: dict[str, Any]) -> dict[str, Any]:
                 [],
                 None,
                 False,
+                capture_dispatch_error=case["surface"] == CORS_SURFACE,
+                capture_dispatch_error_as_observation=case["surface"] == CORS_SURFACE,
                 scope_container=case.get("scope_container", "dict"),
                 scope_observation=case.get("scope_observation"),
             )
+            if isinstance(value, _CapturedDispatchError):
+                partial_value = dict(value.partial_value)
+                if constructor_probe_observations:
+                    partial_value["constructor_probes"] = constructor_probe_observations
+                if case["surface"] == CORS_SURFACE:
+                    partial_value["downstream_call_trace"] = downstream_call_trace[trace_start:]
+                observations.append(
+                    _workflow_observation(
+                        dispatch_step["step_id"],
+                        _CapturedDispatchError(value.error, partial_value),
+                    )
+                )
+                continue
             selected = {key: value[key] for key in ("asgi_events", "response_bytes")}
             if "scope_observation" in value:
                 selected["scope_observation"] = value["scope_observation"]
@@ -11699,13 +11715,19 @@ def _config_cast(cast_spec: Any) -> Any:
 def _config_value_inspections(value: Any, selectors: list[str]) -> dict[str, Any]:
     inspections = {}
     for selector in selectors:
-        if selector == "repr":
-            inspected = repr(value)
-        elif selector == "truthiness":
-            inspected = bool(value)
+        try:
+            if selector == "repr":
+                inspected = repr(value)
+            elif selector == "truthiness":
+                inspected = bool(value)
+            elif selector == "str":
+                inspected = str(value)
+            else:
+                inspected = getattr(value, selector)
+        except Exception as exc:
+            inspections[selector] = {"error": _error_snapshot(exc)}
         else:
-            inspected = getattr(value, selector)
-        inspections[selector] = _json_safe(inspected)
+            inspections[selector] = _json_safe(inspected)
     return inspections
 
 
@@ -11792,11 +11814,11 @@ def _run_config_case(case: dict[str, Any]) -> dict[str, Any]:
                             "error": _config_error_snapshot(exc, lookup.get("inspect", [])),
                         }
                     else:
-                        result = {
-                            "key": lookup["key"],
-                            "outcome": "value",
-                            "value": _json_safe(value),
-                        }
+                        result = {"key": lookup["key"], "outcome": "value"}
+                        try:
+                            result["value"] = _json_safe(value)
+                        except Exception as exc:
+                            result["value_serialization_error"] = _error_snapshot(exc)
                         if "inspect" in lookup:
                             result["inspections"] = _config_value_inspections(
                                 value, lookup["inspect"]

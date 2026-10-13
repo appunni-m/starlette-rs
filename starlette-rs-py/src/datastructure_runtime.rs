@@ -1254,18 +1254,26 @@ impl UploadFileMachine {
 /// Redacted string value accepted by configuration and session middleware.
 #[pyclass(name = "Secret", subclass)]
 pub(crate) struct PySecret {
-    value: String,
+    value: Py<PyAny>,
 }
 
 #[pymethods]
 impl PySecret {
+    fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.value)
+    }
+
+    fn __clear__(&mut self, py: Python<'_>) {
+        self.value = py.None();
+    }
+
     #[new]
-    fn new(value: String) -> Self {
+    fn new(value: Py<PyAny>) -> Self {
         Self { value }
     }
 
-    fn __str__(&self) -> String {
-        self.value.clone()
+    fn __str__(&self, py: Python<'_>) -> Py<PyAny> {
+        self.value.clone_ref(py)
     }
 
     fn __repr__(slf: PyRef<'_, Self>) -> PyResult<String> {
@@ -1275,8 +1283,8 @@ impl PySecret {
         Ok(format!("{class_name}('**********')"))
     }
 
-    fn __bool__(&self) -> bool {
-        !self.value.is_empty()
+    fn __bool__(&self, py: Python<'_>) -> PyResult<bool> {
+        self.value.bind(py).is_truthy()
     }
 }
 

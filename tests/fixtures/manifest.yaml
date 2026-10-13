@@ -438,6 +438,7 @@
       "build/parity/inputs/parity/status-constants.json",
       "build/parity/inputs/parity/cors-middleware.json",
       "build/parity/inputs/parity/cors-private-network-empty-header.json",
+      "build/parity/inputs/parity/cors-method-lookup-order.json",
       "build/parity/inputs/parity/cors-response-header-container.json",
       "build/parity/inputs/parity/middleware-docs-inputs.json",
       "build/parity/inputs/parity/host-middleware.json",
@@ -5442,6 +5443,21 @@
               "id": "starlette.config.Config.cast-secret-class",
               "dimension": "boundary",
               "description": "Call the public Secret class supplied as Config's cast and preserve its string value, redacted representation, and truthiness. Upstream: starlette/config.py:123-126; tests/test_config.py::test_config.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
+              "id": "starlette.config.Config.secret-cast-preserves-default-object",
+              "dimension": "boundary",
+              "description": "Apply Secret as a Config cast to a non-null non-string default, preserving the object for truthiness and the source Secret __str__ TypeError contract. Pinned source: starlette/config.py:107-108; starlette/datastructures.py:207-222.",
               "lanes": [
                 "parity"
               ],
@@ -12032,6 +12048,17 @@
               "target_profiles": [
                 "python-package-cpython312"
               ]
+            },
+            {
+              "id": "starlette.middleware.cors.CORSMiddleware.method-lookup-before-header-and-origin-check",
+              "dimension": "error_path",
+              "description": "Read the HTTP method from the ASGI scope before constructing request headers or checking for Origin, preserving the source KeyError when method is absent. Pinned source: starlette/middleware/cors.py:78-85.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
             }
           ],
           "parity": {
@@ -17048,6 +17075,21 @@
               "id": "starlette.requests.Request.scope-mapping.object-identity",
               "dimension": "boundary",
               "description": "Observe object-identity equality and hashing for Request instances over equal scope values, including self comparison, distinct-instance comparison, and set membership. Pinned source: starlette/requests.py::HTTPConnection explicitly assigns object.__eq__ and object.__hash__.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
+              "id": "starlette.requests.Request.scope-mapping.instance-iter-override",
+              "dimension": "boundary",
+              "description": "Resolve Request scope iteration through Python's mapping type special method even when the supplied UserDict has an instance-level __iter__ override. Pinned source: starlette/requests.py::HTTPConnection.__iter__ returns iter(self.scope); this input distinguishes Python's special-method lookup from an instance attribute lookup.",
               "lanes": [
                 "parity"
               ],

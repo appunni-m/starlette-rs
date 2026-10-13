@@ -589,6 +589,48 @@
       "observations": [
         "action-results"
       ]
+    },
+    {
+      "case_id": "starlette.config.Config.value-resolution.non-string-secret-default",
+      "surface": "starlette.config.Config",
+      "operation": "value-resolution",
+      "covers": [
+        "starlette.config.Config.cast-secret-class",
+        "starlette.config.Config.default-values",
+        "starlette.config.Config.custom-cast-callback-boundary",
+        "starlette.config.Config.secret-cast-preserves-default-object"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "config": {
+        "env_prefix": "",
+        "environ": {},
+        "env_file_lines": []
+      },
+      "lookups": [
+        {
+          "key": "SECRET_FROM_DEFAULT",
+          "cast": {
+            "kind": "starlette-public-class",
+            "symbol": "starlette.datastructures.Secret"
+          },
+          "default": [],
+          "inspect": [
+            "repr",
+            "truthiness",
+            "str"
+          ]
+        }
+      ],
+      "observations": [
+        "lookup-results"
+      ]
     }
   ]
 }

@@ -538,6 +538,9 @@ impl CorsCall {
             return self.call_app(py, self.send.clone_ref(py));
         }
 
+        // Starlette reads the request method before constructing Headers from
+        // the scope, so preserve that lookup order for mapping-backed scopes.
+        let method = scope.get_item("method")?;
         let source_headers = scope.get_item("headers")?;
         let headers = py
             .import("builtins")?
@@ -548,7 +551,6 @@ impl CorsCall {
         let Some(origin) = origin else {
             return self.call_app(py, self.send.clone_ref(py));
         };
-        let method = scope.get_item("method")?;
         let requested_method = find_header_value(&headers, b"access-control-request-method")?;
         if method.eq("OPTIONS")? && requested_method.is_some() {
             let requested_method =

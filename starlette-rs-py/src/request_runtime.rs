@@ -12,7 +12,8 @@ use pyo3::exceptions::{
 };
 use pyo3::prelude::*;
 use pyo3::types::{
-    PyBool, PyBytes, PyDict, PyInt, PyList, PyModule, PyString, PyTraceback, PyTuple, PyType,
+    PyBool, PyBytes, PyDict, PyInt, PyIterator, PyList, PyModule, PyString, PyTraceback, PyTuple,
+    PyType,
 };
 use starlette_rs::{
     FormData as NativeFormData, FormDataParseError, MultipartFormEvent, MultipartFormParseError,
@@ -160,10 +161,8 @@ impl PyHTTPConnection {
     }
 
     fn __iter__(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        self.scope
-            .bind(py)
-            .call_method0("__iter__")
-            .map(Bound::unbind)
+        // Match `iter(scope)`, which resolves __iter__ on the mapping's type.
+        PyIterator::from_object(self.scope.bind(py)).map(|iterator| iterator.into_any().unbind())
     }
 
     fn __len__(&self, py: Python<'_>) -> PyResult<usize> {

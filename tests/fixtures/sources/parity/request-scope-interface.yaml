@@ -26,6 +26,39 @@
       ]
     },
     {
+      "case_id": "starlette.requests.Request.scope-mapping.instance-iter-override",
+      "surface": "starlette.requests.Request",
+      "operation": "scope-mapping",
+      "covers": [
+        "starlette.requests.Request.scope-mapping.minimal-http-scope",
+        "starlette.requests.Request.scope-mapping.instance-iter-override"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "http",
+        "method": "GET",
+        "path": "/abc/"
+      },
+      "scope_mapping": {
+        "container": "collections.UserDict",
+        "instance_iter_keys": [
+          "path",
+          "type",
+          "method"
+        ]
+      },
+      "observations": [
+        "scope-mapping"
+      ]
+    },
+    {
       "case_id": "starlette.requests.Request.constructor-contract.rejects-websocket-scope",
       "surface": "starlette.requests.Request",
       "operation": "constructor-contract",
