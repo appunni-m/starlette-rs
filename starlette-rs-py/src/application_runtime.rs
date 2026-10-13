@@ -423,7 +423,6 @@ impl StarletteCall {
 #[derive(FromPyObject)]
 #[pyo3(from_item_all)]
 struct ExceptionMiddlewareArgs {
-    app: Py<PyAny>,
     handlers: Py<PyAny>,
     http_exception_type: Py<PyAny>,
     websocket_exception_type: Py<PyAny>,
@@ -440,7 +439,6 @@ struct ExceptionMiddlewareArgs {
 /// the GIL and routing metadata is Rust-owned.
 #[pyclass(name = "ExceptionMiddlewareRuntime")]
 pub(crate) struct PyExceptionMiddlewareRuntime {
-    app: Py<PyAny>,
     exception_handlers: Py<PyDict>,
     status_handlers: Py<PyDict>,
     http_exception_type: Py<PyAny>,
@@ -456,7 +454,6 @@ impl PyExceptionMiddlewareRuntime {
     #[new]
     fn new(py: Python<'_>, args: ExceptionMiddlewareArgs) -> PyResult<Self> {
         let ExceptionMiddlewareArgs {
-            app,
             handlers,
             http_exception_type,
             websocket_exception_type,
@@ -466,7 +463,6 @@ impl PyExceptionMiddlewareRuntime {
             plain_text_response_type,
         } = args;
         let mut runtime = Self {
-            app,
             exception_handlers: PyDict::new(py).unbind(),
             status_handlers: PyDict::new(py).unbind(),
             http_exception_type,
@@ -504,6 +500,7 @@ impl PyExceptionMiddlewareRuntime {
     fn __call__(
         slf: Py<Self>,
         py: Python<'_>,
+        middleware: Py<PyAny>,
         scope: Py<PyAny>,
         receive: Py<PyAny>,
         send: Py<PyAny>,
@@ -512,7 +509,7 @@ impl PyExceptionMiddlewareRuntime {
         into_sendable_python_awaitable(
             py,
             ExceptionMiddlewareCall {
-                app: runtime.app.clone_ref(py),
+                middleware,
                 exception_handlers: runtime.exception_handlers.clone_ref(py),
                 status_handlers: runtime.status_handlers.clone_ref(py),
                 http_exception_type: runtime.http_exception_type.clone_ref(py),
@@ -599,7 +596,6 @@ impl PyExceptionMiddlewareRuntime {
     }
 
     fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
-        visit.call(&self.app)?;
         visit.call(&self.exception_handlers)?;
         visit.call(&self.status_handlers)?;
         visit.call(&self.http_exception_type)?;
@@ -611,7 +607,6 @@ impl PyExceptionMiddlewareRuntime {
     }
 
     fn __clear__(&mut self, py: Python<'_>) {
-        self.app = py.None();
         self.exception_handlers.bind(py).clear();
         self.status_handlers.bind(py).clear();
         self.http_exception_type = py.None();
@@ -748,7 +743,7 @@ enum ExceptionPending {
 }
 
 struct ExceptionMiddlewareCall {
-    app: Py<PyAny>,
+    middleware: Py<PyAny>,
     exception_handlers: Py<PyDict>,
     status_handlers: Py<PyDict>,
     http_exception_type: Py<PyAny>,
@@ -765,6 +760,21 @@ struct ExceptionMiddlewareCall {
 }
 
 impl AwaitableStateMachine for ExceptionMiddlewareCall {
+    fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.middleware)?;
+        visit.call(&self.exception_handlers)?;
+        visit.call(&self.status_handlers)?;
+        visit.call(&self.http_exception_type)?;
+        visit.call(&self.request_type)?;
+        visit.call(&self.websocket_type)?;
+        visit.call(&self.scope)?;
+        visit.call(&self.receive)?;
+        visit.call(&self.send)?;
+        visit.call(&self.sender)?;
+        visit.call(&self.connection)?;
+        visit.call(&self.original_exception)
+    }
+
     fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
         match input {
             MachineResume::Start if self.pending.is_none() => self.start(py),
@@ -799,10 +809,8 @@ impl ExceptionMiddlewareCall {
         let scope_type = scope.get_item("type")?.extract::<String>()?;
         if !matches!(scope_type.as_str(), "http" | "websocket") {
             self.pending = Some(ExceptionPending::PassThrough);
-            let awaitable = self
-                .app
-                .bind(py)
-                .call1((scope, &self.receive, &self.send))?;
+            let app = self.middleware.bind(py).getattr("app")?;
+            let awaitable = app.call1((scope, &self.receive, &self.send))?;
             return Ok(MachineAction::Await(awaitable.unbind()));
         }
 
@@ -837,7 +845,8 @@ impl ExceptionMiddlewareCall {
             exception_send_proxy(py, self.send.clone_ref(py), self.response_started.clone())?;
         self.sender = Some(sender.clone_ref(py));
         self.pending = Some(ExceptionPending::App);
-        match self.app.bind(py).call1((scope, &self.receive, sender)) {
+        let app = self.middleware.bind(py).getattr("app")?;
+        match app.call1((scope, &self.receive, sender)) {
             Ok(awaitable) => Ok(MachineAction::Await(awaitable.unbind())),
             Err(error) => match self.pending.take() {
                 Some(ExceptionPending::App) => self.handle_application_error(py, error),

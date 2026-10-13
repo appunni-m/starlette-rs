@@ -128,7 +128,11 @@ impl PyHTTPConnection {
             return Err(PyAssertionError::new_err(""));
         }
         let matches_expected_type = match expected_type {
-            Some(expected_type) => scope_type.eq(expected_type)?,
+            // Request first runs HTTPConnection's allowed-scope assertion,
+            // then performs its own `scope["type"] == "http"` assertion.
+            // Re-read the mapping here so stateful ASGI scope mappings observe
+            // the same lookup and comparison order as the pinned source.
+            Some(expected_type) => scope.bind(py).get_item("type")?.eq(expected_type)?,
             None => true,
         };
         if !matches_expected_type {

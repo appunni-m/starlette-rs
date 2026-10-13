@@ -31,6 +31,24 @@ def _probe(action: Callable[[], Any]) -> dict[str, Any]:
         }
 
 
+class _TypeReadUserDict(UserDict):
+    """Supply the input-selected value sequence for Request's scope type lookup."""
+
+    def __init__(self, initialdata: dict[str, Any], type_reads: list[str]) -> None:
+        super().__init__(initialdata)
+        self._type_reads = list(type_reads)
+        self.type_read_trace: list[str] = []
+
+    def __getitem__(self, key: Any) -> Any:
+        if key == "type":
+            if not self._type_reads:
+                raise KeyError(key)
+            value = self._type_reads.pop(0)
+            self.type_read_trace.append(value)
+            return value
+        return super().__getitem__(key)
+
+
 def _scope_from_case(case: dict[str, Any]) -> Any:
     scope = case["scope"]
     mapping_spec = case.get("scope_mapping")
@@ -38,6 +56,8 @@ def _scope_from_case(case: dict[str, Any]) -> Any:
         return scope
     if mapping_spec["container"] != "collections.UserDict":
         raise ValueError("unsupported Request scope mapping container")
+    if "type_reads" in mapping_spec:
+        return _TypeReadUserDict(scope, mapping_spec["type_reads"])
     mapped_scope = UserDict(scope)
     instance_iter_keys = tuple(mapping_spec["instance_iter_keys"])
     mapped_scope.__iter__ = lambda: iter(instance_iter_keys)
@@ -83,8 +103,9 @@ def run_request_constructor_case(
     request_type: type[Any],
 ) -> dict[str, Any]:
     """Compare Request construction for the scope supplied by one parity input."""
+    scope = _scope_from_case(case)
     try:
-        request_type(case["scope"])
+        request_type(scope)
     except Exception as error:
         error_type = type(error)
         result = {
@@ -94,6 +115,9 @@ def run_request_constructor_case(
         }
     else:
         result = {"outcome": "constructed"}
+
+    if isinstance(scope, _TypeReadUserDict):
+        result["scope_type_reads"] = _safe(scope.type_read_trace)
 
     return {
         "case_id": case["case_id"],

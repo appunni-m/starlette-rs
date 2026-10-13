@@ -27,7 +27,6 @@ class ExceptionMiddleware:
         self.debug = debug
         self._runtime = _core.ExceptionMiddlewareRuntime(
             {
-                "app": app,
                 "handlers": handlers,
                 "http_exception_type": HTTPException,
                 "websocket_exception_type": WebSocketException,
@@ -51,7 +50,7 @@ class ExceptionMiddleware:
         receive: Receive,
         send: Send,
     ) -> None:
-        await self._runtime(scope, receive, send)
+        await self._runtime(self, scope, receive, send)
 
     async def http_exception(self, request: Request, exception: Exception) -> Response:
         return self._runtime.http_exception(request, exception)

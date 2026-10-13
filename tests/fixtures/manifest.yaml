@@ -358,6 +358,7 @@
       "build/parity/inputs/parity/request-stream-receive-cancellation-retry.json",
       "build/parity/inputs/parity/request-client-address.json",
       "build/parity/inputs/parity/request-scope-interface.json",
+      "build/parity/inputs/parity/request-constructor-stateful-scope-type.json",
       "build/parity/inputs/parity/request-consumption.json",
       "build/parity/inputs/parity/request-custom-receive-event-interleaved.json",
       "build/parity/inputs/parity/request-explicit-none-receive.json",
@@ -407,6 +408,7 @@
       "build/parity/inputs/parity/router-method-mutation-head.json",
       "build/parity/inputs/parity/router-method-mutation-lowercase.json",
       "build/parity/inputs/parity/router-path-mutation-compiled-pattern.json",
+      "build/parity/inputs/parity/router-default-mutation.json",
       "build/parity/inputs/parity/router-class-based-endpoints.json",
       "build/parity/inputs/parity/route-middleware-dispatch.json",
       "build/parity/inputs/parity/route-local-middleware-semantics.json",
@@ -563,6 +565,7 @@
       "build/parity/inputs/parity/concurrency.json",
       "build/parity/inputs/parity/concurrency-run-until-first-complete-zero-callbacks.json",
       "build/parity/inputs/parity/websocket-scope-interface.json",
+      "build/parity/inputs/parity/exception-middleware-live-app.json",
       "build/parity/inputs/parity/exception-middleware-typing.json",
       "build/parity/inputs/parity/testclient-redirect-policy.json",
       "build/parity/inputs/parity/templating-public.json",
@@ -12364,6 +12367,157 @@
             "applicability": "not_applicable",
             "reason": "Static consumer type checking has no runtime benchmark boundary."
           }
+        },
+        {
+          "id": "__call__",
+          "kind": "protocol_operation",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.middleware.exceptions.ExceptionMiddleware.__call__",
+            "signature": "async __call__(scope, receive, send) -> None",
+            "parameters": [
+              {
+                "id": "self",
+                "style": "receiver",
+                "value_types": [
+                  "handle"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "scope",
+                "style": "positional",
+                "value_types": [
+                  "mapping"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "receive",
+                "style": "positional",
+                "value_types": [
+                  "sequence"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "send",
+                "style": "positional",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "protocol",
+              "observations": [
+                {
+                  "path": "asgi_events",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "selected_app_calls",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "propagated_error",
+                  "value_types": [
+                    "record",
+                    "null"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [
+                  "class",
+                  "kind",
+                  "message",
+                  "stage",
+                  "code",
+                  "cause",
+                  "suppress_context"
+                ],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "out_of_scope",
+                "reason": "This operation is the Python starlette.* compatibility middleware, outside the native Rust consumer API.",
+                "authority": "AGENTS.md: keep the documented starlette.* Python compatibility surface and keep Rust-native APIs distinct from that surface."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.middleware.exceptions.ExceptionMiddleware.__call__",
+              "signature": "async __call__(scope, receive, send) -> None",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.middleware.exceptions.ExceptionMiddleware.__call__.live-app-replacement",
+              "dimension": "boundary",
+              "description": "After constructing ExceptionMiddleware with one input-defined ASGI callable, replace its public app field and observe the callable selected by the subsequent __call__. Pinned source: starlette/middleware/exceptions.py::ExceptionMiddleware.__call__ reads self.app at dispatch time.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This input-only middleware comparison makes no coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "This boundary comparison declares no benchmark workload."
+          }
         }
       ]
     },
@@ -24047,6 +24201,17 @@
               "id": "starlette.routing.Router.route-dispatch.live-route-path-mutation-keeps-compiled-pattern",
               "dimension": "boundary",
               "description": "After Router dispatch compiles an HTTP Route's path, changing its public path attribute does not rebuild the compiled regex: the original path continues to match and the new path does not. Upstream: starlette/routing.py::Route.__init__, Route.matches, and Router.app.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Router.route-dispatch.live-router-default-mutation",
+              "dimension": "boundary",
+              "description": "After an unmatched dispatch, assigning Router.default to an input-selected existing Route.app makes the next miss invoke that current ASGI callable. Upstream: starlette/routing.py::Router.app and Router.default.",
               "lanes": [
                 "parity"
               ],

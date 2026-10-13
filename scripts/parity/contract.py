@@ -911,8 +911,15 @@ EXCEPTION_MIDDLEWARE_TYPING_OPERATION = (
     "starlette.middleware.exceptions.ExceptionMiddleware",
     "__init__",
 )
+EXCEPTION_MIDDLEWARE_LIVE_APP_OPERATION = (
+    "starlette.middleware.exceptions.ExceptionMiddleware",
+    "__call__",
+)
 EXCEPTION_MIDDLEWARE_TYPING_REQUIREMENT = (
     "starlette.middleware.exceptions.ExceptionMiddleware.__init__.constructor-handler-typing"
+)
+EXCEPTION_MIDDLEWARE_LIVE_APP_REQUIREMENT = (
+    "starlette.middleware.exceptions.ExceptionMiddleware.__call__.live-app-replacement"
 )
 MULTIDICT_REQUIREMENTS = {
     "constructor": "starlette.datastructures.MultiDict.constructor-input-forms",
@@ -1182,6 +1189,7 @@ ROUTER_SEQUENCE_CASE_KEYS = (CASE_KEYS - {"execution_schedule", "scope", "incomi
 }
 ROUTER_SEQUENCE_REQUIREMENTS = {
     "append_route": "starlette.routing.Router.route-dispatch.live-route-list-append",
+    "mutate_default": "starlette.routing.Router.route-dispatch.live-router-default-mutation",
     "mutate_methods": "starlette.routing.Router.route-dispatch.live-route-method-mutation",
     "mutate_path": "starlette.routing.Router.route-dispatch.live-route-path-mutation-keeps-compiled-pattern",
     "mount_child_add_route": "starlette.routing.Router.route-dispatch.mount-child-router-live-route-add",
@@ -3291,6 +3299,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                                 FORM_DATA_MULTIDICT_LOOKUPS_OPERATION,
                                 FORM_DATA_CLOSE_OPERATION,
                                 EXCEPTION_MIDDLEWARE_TYPING_OPERATION,
+                                EXCEPTION_MIDDLEWARE_LIVE_APP_OPERATION,
                                 PUBLIC_API_INSPECTION_OPERATION,
                                 UPLOAD_FILE_OPERATION,
                                 STATUS_OPERATION,
@@ -10362,6 +10371,24 @@ def _validate_router_sequence_case_stimulus(case: dict[str, Any]) -> None:
                         f"{mutation_context} must set the path attribute of an existing HTTP Route"
                     )
                 derived.add(ROUTER_SEQUENCE_REQUIREMENTS["mutate_path"])
+            elif operation == "router-default-set":
+                mutation = _exact(
+                    raw_mutation,
+                    {"operation", "route_index"},
+                    mutation_context,
+                )
+                route_index = mutation["route_index"]
+                if (
+                    type(route_index) is not int
+                    or route_index < 0
+                    or route_index >= len(routes)
+                    or routes[route_index]["kind"] != "http-route"
+                    or step_index == 0
+                ):
+                    raise ContractError(
+                        f"{mutation_context} must select an existing HTTP Route after dispatch begins"
+                    )
+                derived.add(ROUTER_SEQUENCE_REQUIREMENTS["mutate_default"])
             elif operation == "route-list-append":
                 mutation = _exact(raw_mutation, {"operation", "route"}, mutation_context)
                 route = _validate_http_route_input(
@@ -21025,6 +21052,11 @@ def _validate_case_payload(
         return _validate_exception_middleware_typing_case(case, manifest)
     if isinstance(case, dict) and case.get("surface") == SERVER_ERROR_MIDDLEWARE_SURFACE:
         return _validate_server_error_middleware_case(case, manifest)
+    if (
+        isinstance(case, dict)
+        and (case.get("surface"), case.get("operation")) == EXCEPTION_MIDDLEWARE_LIVE_APP_OPERATION
+    ):
+        return _validate_exception_middleware_case(case, manifest)
     is_threadpool = (
         isinstance(case, dict)
         and (case.get("surface"), case.get("operation")) == THREADPOOL_OPERATION_KEY
@@ -21408,6 +21440,8 @@ def _validate_case_payload(
     if is_response and isinstance(case, dict) and "render_override" in case:
         expected_case_keys = expected_case_keys | {"render_override"}
     if is_request_scope_mapping and isinstance(case, dict) and "scope_mapping" in case:
+        expected_case_keys = expected_case_keys | {"scope_mapping"}
+    if is_request_constructor and isinstance(case, dict) and "scope_mapping" in case:
         expected_case_keys = expected_case_keys | {"scope_mapping"}
     if (
         isinstance(case, dict)
@@ -24103,6 +24137,91 @@ def _validate_server_error_middleware_case(
         raise ContractError(
             "ServerErrorMiddleware covers must match its declared constructor/call-time inputs: "
             f"expected={sorted(exercised)}, actual={sorted(covers)}"
+        )
+    return case
+
+
+def _validate_exception_middleware_case(
+    case: dict[str, Any], manifest: dict[str, Any]
+) -> dict[str, Any]:
+    surface_id = "starlette.middleware.exceptions.ExceptionMiddleware"
+    _exact(
+        case,
+        (CASE_KEYS - {"steps", "execution_schedule"}) | {"constructor", "assignments", "dispatch"},
+        "ExceptionMiddleware live-app case",
+    )
+    _string(case["case_id"], "ExceptionMiddleware case.case_id")
+    if not case["case_id"].startswith(f"{surface_id}.__call__."):
+        raise ContractError("ExceptionMiddleware case ID must identify its public __call__")
+    if case["assets"] != [] or case["target_profiles"] != ["python-package-cpython312"]:
+        raise ContractError(
+            "direct ExceptionMiddleware inputs select only the package profile and no assets"
+        )
+    if case["observations"] != ["dispatch"]:
+        raise ContractError("ExceptionMiddleware call cases must select dispatch")
+
+    operation = next(
+        (
+            item
+            for surface in _all_manifest_surfaces(manifest)
+            if surface["id"] == surface_id
+            for item in surface["operations"]
+            if item["id"] == "__call__"
+        ),
+        None,
+    )
+    if operation is None:
+        raise ContractError("ExceptionMiddleware input refers to an undeclared __call__ operation")
+    declared_requirements = {item["id"]: item for item in operation["requirements"]}
+
+    constructor = _exact(
+        case["constructor"],
+        {"app", "handlers", "debug"},
+        "ExceptionMiddleware constructor input",
+    )
+    _validate_server_error_middleware_app(constructor["app"], "ExceptionMiddleware constructor app")
+    if constructor["handlers"] is not None or constructor["debug"] is not False:
+        raise ContractError(
+            "ExceptionMiddleware live-app input uses no handlers and debug disabled"
+        )
+
+    assignments = case["assignments"]
+    if not isinstance(assignments, list) or len(assignments) != 1:
+        raise ContractError("ExceptionMiddleware live-app input requires one app assignment")
+    assignment = _exact(
+        assignments[0],
+        {"field", "value"},
+        "ExceptionMiddleware app assignment",
+    )
+    if assignment["field"] != "app":
+        raise ContractError("ExceptionMiddleware live-app input must assign app")
+    _validate_server_error_middleware_app(
+        assignment["value"], "ExceptionMiddleware replacement app"
+    )
+    if assignment["value"] == constructor["app"]:
+        raise ContractError("ExceptionMiddleware app replacement must change the input callable")
+
+    dispatch = _exact(
+        case["dispatch"],
+        {"scope", "receive", "send"},
+        "ExceptionMiddleware dispatch input",
+    )
+    _validate_asgi_middleware_dispatch(surface_id, dispatch)
+    if dispatch["scope"]["type"] != "http":
+        raise ContractError("ExceptionMiddleware live-app input must dispatch an HTTP scope")
+
+    if case["covers"] != [EXCEPTION_MIDDLEWARE_LIVE_APP_REQUIREMENT]:
+        raise ContractError(
+            "ExceptionMiddleware live-app case must cover its canonical requirement"
+        )
+    requirement = declared_requirements.get(EXCEPTION_MIDDLEWARE_LIVE_APP_REQUIREMENT)
+    if (
+        requirement is None
+        or "parity" not in requirement["lanes"]
+        or "python-package-cpython312" not in requirement["target_profiles"]
+    ):
+        raise ContractError(
+            "ExceptionMiddleware live-app requirement is not declared for the package profile"
         )
     return case
 
@@ -27495,8 +27614,33 @@ def _validate_request_constructor_case(case: dict[str, Any]) -> None:
         raise ContractError("Request constructor case ID must bind to the constructor interface")
     scope = _exact(case["scope"], {"type"}, "Request constructor scope")
     scope_type = _string(scope["type"], "Request constructor scope.type")
-    if scope_type not in {"websocket", "lifespan"}:
-        raise ContractError("Request constructor cases require a non-HTTP scope type")
+    if "scope_mapping" not in case:
+        if scope_type not in {"websocket", "lifespan"}:
+            raise ContractError("Request constructor cases require a non-HTTP scope type")
+    else:
+        mapping_spec = _exact(
+            case["scope_mapping"],
+            {"container", "type_reads"},
+            "Request constructor scope mapping",
+        )
+        if mapping_spec["container"] != "collections.UserDict":
+            raise ContractError("Request constructor scope mapping must use collections.UserDict")
+        type_reads = mapping_spec["type_reads"]
+        if (
+            scope_type not in {"http", "websocket"}
+            or not isinstance(type_reads, list)
+            or len(type_reads) != 2
+            or any(
+                not isinstance(value, str) or value not in {"http", "websocket"}
+                for value in type_reads
+            )
+            or type_reads[0] != scope_type
+            or type_reads[0] == type_reads[1]
+        ):
+            raise ContractError(
+                "Request constructor type_reads must select two distinct HTTP connection types "
+                "in lookup order, beginning with scope.type"
+            )
     if case["covers"] != [REQUEST_CONSTRUCTOR_REQUIREMENT]:
         raise ContractError("Request constructor case must cover its canonical requirement")
 

@@ -129,6 +129,7 @@ CORS_SURFACE = "starlette.middleware.cors.CORSMiddleware"
 HTTPS_REDIRECT_SURFACE = "starlette.middleware.httpsredirect.HTTPSRedirectMiddleware"
 TRUSTED_HOST_SURFACE = "starlette.middleware.trustedhost.TrustedHostMiddleware"
 SERVER_ERROR_MIDDLEWARE_SURFACE = "starlette.middleware.errors.ServerErrorMiddleware"
+EXCEPTION_MIDDLEWARE_SURFACE = "starlette.middleware.exceptions.ExceptionMiddleware"
 SESSION_MIDDLEWARE_SURFACE = "starlette.middleware.sessions.SessionMiddleware"
 SESSION_WORKFLOW_OPERATION = "session-workflow"
 BASE_HTTP_SURFACE = "starlette.middleware.base.BaseHTTPMiddleware"
@@ -3704,6 +3705,61 @@ def _run_server_error_middleware_case(case: dict[str, Any]) -> dict[str, Any]:
         "server_error_observation": _server_error_observation(
             middleware, start, body, captured_exception
         ),
+    }
+    return {
+        "case_id": case["case_id"],
+        "status": "completed",
+        "observations": [{"step_id": "dispatch", "status": "ok", "value": value}],
+    }
+
+
+def _run_exception_middleware_case(case: dict[str, Any]) -> dict[str, Any]:
+    from starlette.middleware.exceptions import ExceptionMiddleware
+
+    constructor = case["constructor"]
+    app_calls: list[str] = []
+    app_exceptions: list[BaseException] = []
+    app = _materialize_server_error_middleware_app(constructor["app"], app_calls, app_exceptions)
+    middleware = ExceptionMiddleware(
+        app,
+        handlers=constructor["handlers"],
+        debug=constructor["debug"],
+    )
+    for assignment in case["assignments"]:
+        if assignment["field"] == "app":
+            middleware.app = _materialize_server_error_middleware_app(
+                assignment["value"], app_calls, app_exceptions
+            )
+
+    dispatch = case["dispatch"]
+    scope = _make_scope(dispatch["scope"])
+    incoming = [_message(message) for message in dispatch["receive"]]
+    received = 0
+    sent: list[dict[str, Any]] = []
+
+    async def receive() -> dict[str, Any]:
+        nonlocal received
+        if received < len(incoming):
+            message = incoming[received]
+            received += 1
+            return message
+        return {"type": "http.disconnect"}
+
+    async def send(message: dict[str, Any]) -> None:
+        sent.append(message)
+
+    if dispatch["send"] != {"kind": "capture-asgi-send"}:
+        raise ValueError("ExceptionMiddleware send input must select the ASGI event collector")
+    captured_exception: BaseException | None = None
+    try:
+        asyncio.run(middleware(scope, receive, send))
+    except Exception as exc:
+        captured_exception = exc
+
+    value = {
+        "asgi_events": [_canonical_message(message) for message in sent],
+        "selected_app_calls": list(app_calls),
+        "propagated_error": _dispatch_error(captured_exception) if captured_exception else None,
     }
     return {
         "case_id": case["case_id"],
@@ -9091,6 +9147,8 @@ def _run_route_dispatch_case(case: dict[str, Any]) -> dict[str, Any]:
                             ),
                             methods=route_spec["methods"],
                         )
+                    elif mutation["operation"] == "router-default-set":
+                        application.default = application.routes[mutation["route_index"]].app
                     else:
                         raise ValueError("unsupported Router route mutation")
                 selected, _mount_scope = await dispatch(step["scope"], step["incoming"])
@@ -15552,6 +15610,12 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         return _run_protocol_middleware_case(case)
     if isinstance(case, dict) and case.get("surface") == SERVER_ERROR_MIDDLEWARE_SURFACE:
         return _run_server_error_middleware_case(case)
+    if (
+        isinstance(case, dict)
+        and case.get("surface") == EXCEPTION_MIDDLEWARE_SURFACE
+        and case.get("operation") == "__call__"
+    ):
+        return _run_exception_middleware_case(case)
     case_fields = {
         "case_id",
         "surface",

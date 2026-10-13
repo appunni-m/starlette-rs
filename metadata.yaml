@@ -382,6 +382,10 @@
         {
           "operation_id": "__init__",
           "source_path": "starlette.middleware.exceptions.ExceptionMiddleware.__init__"
+        },
+        {
+          "operation_id": "__call__",
+          "source_path": "starlette.middleware.exceptions.ExceptionMiddleware.__call__"
         }
       ]
     },

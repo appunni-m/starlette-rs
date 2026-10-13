@@ -484,7 +484,6 @@ class Router:
         "routes",
         "redirect_slashes",
         "default",
-        "_default",
         "_runtime",
         "lifespan_context",
         "middleware_stack",
@@ -501,7 +500,6 @@ class Router:
         max_body_size: int | None = None,
     ) -> None:
         self.redirect_slashes = redirect_slashes
-        self._default = default
         (
             self.routes,
             self.default,
@@ -540,7 +538,7 @@ class Router:
                 "scope": scope,
                 "receive": receive,
                 "send": send,
-                "default": self._default,
+                "default": self.default,
                 "redirect_slashes": self.redirect_slashes,
                 "url_type": URL,
                 "redirect_response_type": RedirectResponse,
