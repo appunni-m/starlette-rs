@@ -258,11 +258,22 @@ async def _input_repeating_async_generator(
 
 
 async def _record_background_values(
-    values: list[str], execution_trace: list[dict[str, Any]]
+    values: list[str],
+    execution_trace: list[dict[str, Any]],
+    failure: dict[str, str] | None = None,
 ) -> None:
     execution_trace.append({"event": "background-start"})
     for value in values:
         execution_trace.append({"event": "background-value", "value": value})
+    if failure is not None:
+        execution_trace.append(
+            {
+                "event": "background-error",
+                "class": failure["kind"],
+                "message": failure["message"],
+            }
+        )
+        raise OSError(failure["message"])
     execution_trace.append({"event": "background-complete"})
 
 
@@ -10990,6 +11001,7 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
                 raise ValueError("StreamingResponse failing send input is invalid")
 
     background_values: list[str] | None = None
+    background_failure: dict[str, str] | None = None
     background_tasks_spec: dict[str, Any] | None = None
     background_control: dict[str, str] | None = None
     if "background_control" in case:
@@ -11010,12 +11022,19 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
             raise ValueError("Response background input must be an object")
         if case["background"].get("kind") == "async-values-recorder":
             background_spec = _strict_object(
-                case["background"], {"kind", "values"}, "Response background"
+                case["background"], {"kind", "values", "failure"}, "Response background"
             )
             values = background_spec["values"]
             if not isinstance(values, list) or any(not isinstance(value, str) for value in values):
                 raise ValueError("Response background values must be an array of strings")
             background_values = values
+            if "failure" in background_spec:
+                failure = _strict_object(
+                    background_spec["failure"], {"kind", "message"}, "Response background failure"
+                )
+                if failure["kind"] != "OSError" or not isinstance(failure["message"], str):
+                    raise ValueError("Response background failure input is unsupported")
+                background_failure = failure
         else:
             background_tasks_spec = _strict_object(
                 case["background"], {"kind", "tasks"}, "Response background tasks"
@@ -11183,7 +11202,7 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
         if execution_trace is None:
             raise RuntimeError("background execution requires an execution trace")
         response_arguments["background"] = BackgroundTask(
-            _record_background_values, background_values, execution_trace
+            _record_background_values, background_values, execution_trace, background_failure
         )
     if background_tasks_spec is not None:
         if background_execution_trace is None:
@@ -11489,7 +11508,7 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
             raise
         captured_error = exc
     except Exception as exc:
-        if send_error_spec is None and background_tasks_spec is None:
+        if send_error_spec is None and background_failure is None and background_tasks_spec is None:
             raise
         captured_error = exc
     events = [_canonical_message(message) for message in sent]

@@ -1,0 +1,50 @@
+{
+  "schema": "migration-parity/parity-input@50",
+  "cases": [
+    {
+      "case_id": "starlette.testclient.TestClient.websocket-session.unknown-initial-message-cleanup",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "websocket-session",
+      "covers": [
+        "starlette.testclient.TestClient.websocket-session.scope-projection",
+        "starlette.testclient.TestClient.websocket-session.non-close-initial-message-session-entry",
+        "starlette.testclient.TestClient.websocket-session.context-cleanup",
+        "starlette.testclient.TestClient.websocket-session.portal-cleanup"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "observations": ["websocket-session"],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": ["127.0.0.1", 12345],
+        "headers": [],
+        "backend": "asyncio",
+        "backend_options": {}
+      },
+      "websocket": {
+        "url": "/unknown-initial-message",
+        "subprotocols": [],
+        "headers": [],
+        "actions": []
+      },
+      "asgi_app": {
+        "kind": "asgi3",
+        "scope_fields": ["type", "path"],
+        "actions": [
+          {"operation": "receive"},
+          {
+            "operation": "send",
+            "message": {
+              "type": "websocket.unknown",
+              "subprotocol": "opaque-initial-metadata",
+              "headers": []
+            }
+          },
+          {"operation": "receive"}
+        ]
+      }
+    }
+  ]
+}

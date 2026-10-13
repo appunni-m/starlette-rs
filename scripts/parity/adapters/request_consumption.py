@@ -8,6 +8,10 @@ from collections.abc import Callable
 from typing import Any
 
 
+class RequestBodyChunk(bytes):
+    """Model a valid bytes subclass supplied by an ASGI receive callback."""
+
+
 def _safe(value: Any) -> Any:
     if value is None or isinstance(value, (bool, int, float, str)):
         return value
@@ -22,7 +26,9 @@ def _safe(value: Any) -> Any:
 
 def _decode_message(spec: dict[str, Any]) -> dict[str, Any]:
     message = {"type": spec["type"]}
-    if "body_value" in spec:
+    if spec.get("body_type") == "bytes-subclass":
+        message["body"] = RequestBodyChunk(base64.b64decode(spec["body_base64"], validate=True))
+    elif "body_value" in spec:
         message["body"] = spec["body_value"]
     elif "body_base64" in spec:
         message["body"] = base64.b64decode(spec["body_base64"], validate=True)
@@ -74,6 +80,7 @@ async def _observe(case: dict[str, Any], request_type: Callable[..., Any]) -> di
     receive_tape = [] if explicit_none_receive else case["receive"]
     gates = {index: asyncio.Event() for index in case["blocked_receive_calls"]}
     receive_trace: list[dict[str, Any]] = []
+    receive_body_objects: list[Any] = []
     received = 0
 
     def make_receive(events: list[dict[str, Any]]) -> Callable[[], Any]:
@@ -103,6 +110,9 @@ async def _observe(case: dict[str, Any], request_type: Callable[..., Any]) -> di
                     }
                 )
                 raise message
+            if isinstance(message, dict) and message.get("type") == "http.request":
+                if "body" in message:
+                    receive_body_objects.append(message["body"])
             receive_trace.append({"event": "return", "call": call_index, "message": _safe(message)})
             return message
 
@@ -154,7 +164,14 @@ async def _observe(case: dict[str, Any], request_type: Callable[..., Any]) -> di
                 observations.append(_error(operation, exc) | {"stream_id": stream_id})
             else:
                 observations.append(
-                    _value(operation, value, previous_values) | {"stream_id": stream_id}
+                    _value(operation, value, previous_values)
+                    | {
+                        "stream_id": stream_id,
+                        "value_type": f"{type(value).__module__}.{type(value).__qualname__}",
+                        "same_object_as_receive_body": any(
+                            value is body_object for body_object in receive_body_objects
+                        ),
+                    }
                 )
         elif operation == "stream-close":
             stream_id = action["stream_id"]

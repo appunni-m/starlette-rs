@@ -346,11 +346,14 @@ impl Call {
     }
 
     fn background(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
+        // Starlette's ASGI 2.4 OSError handler wraps only stream_response;
+        // background callbacks run after that handler and must keep their
+        // original exception type.
+        self.pending = CallPending::Background;
         let response = self.response.bind(py);
         if response.getattr("background")?.is_none() {
             return Ok(MachineAction::Complete(py.None()));
         }
-        self.pending = CallPending::Background;
         Ok(MachineAction::Await(
             response.getattr("background")?.call0()?.unbind(),
         ))

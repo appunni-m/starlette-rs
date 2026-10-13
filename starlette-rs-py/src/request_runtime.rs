@@ -1177,21 +1177,27 @@ impl AwaitableStateMachine for StreamMachine {
                         return Err(error);
                     }
                 };
+                let ParsedRequestMessage {
+                    kind,
+                    body,
+                    body_object,
+                    more_body,
+                } = message;
                 let progress = {
                     let mut runtime = borrow_runtime_mut(py, &self.shared)?;
-                    if message.kind == RequestMessageKind::Disconnect {
+                    if kind == RequestMessageKind::Disconnect {
                         runtime.request_disconnected = true;
                     }
                     let mut state = borrow_stream_mut(&self.state)?;
                     state.accept_pending(
                         &mut runtime.accumulator,
-                        message.kind.as_runtime_type(),
-                        &message.body,
-                        message.more_body,
+                        kind.as_runtime_type(),
+                        &body,
+                        more_body,
                     )
                 };
                 match progress {
-                    Ok(progress) => self.deliver(py, progress),
+                    Ok(progress) => self.deliver(py, progress, body_object),
                     Err(error) => {
                         self.fail_stream();
                         self.finish(false);
@@ -1308,20 +1314,23 @@ impl StreamMachine {
                 return Err(request_body_error(py, error));
             }
         };
-        self.deliver(py, progress)
+        self.deliver(py, progress, None)
     }
 
     fn deliver(
         &mut self,
         py: Python<'_>,
         progress: RequestStreamProgress,
+        body_object: Option<Py<PyAny>>,
     ) -> PyResult<MachineAction> {
         match progress {
             RequestStreamProgress::Receive => self.await_receive(py),
             RequestStreamProgress::Chunk(body) => {
-                let is_terminal_chunk =
-                    body.is_empty() && borrow_runtime(py, &self.shared)?.accumulator.is_consumed();
-                let body = PyBytes::new(py, &body).unbind().into_any();
+                let is_terminal_chunk = body_object.is_none()
+                    && body.is_empty()
+                    && borrow_runtime(py, &self.shared)?.accumulator.is_consumed();
+                let body =
+                    body_object.unwrap_or_else(|| PyBytes::new(py, &body).unbind().into_any());
                 if is_terminal_chunk {
                     self.yield_terminal();
                 } else {
@@ -2265,6 +2274,7 @@ impl RequestMessageKind {
 struct ParsedRequestMessage {
     kind: RequestMessageKind,
     body: Vec<u8>,
+    body_object: Option<Py<PyAny>>,
     more_body: bool,
 }
 
@@ -2277,10 +2287,10 @@ fn request_message(py: Python<'_>, message: Py<PyAny>) -> PyResult<ParsedRequest
     if message_type.eq("http.request")? {
         let empty = PyBytes::new(py, b"");
         let body = message.call_method1("get", ("body", empty))?;
-        let body = if body.is_truthy()? {
-            body.extract::<Vec<u8>>()?
+        let (body, body_object) = if body.is_truthy()? {
+            (body.extract::<Vec<u8>>()?, Some(body.unbind()))
         } else {
-            Vec::new()
+            (Vec::new(), None)
         };
         let more_body = message
             .call_method1("get", ("more_body", false))?
@@ -2288,6 +2298,7 @@ fn request_message(py: Python<'_>, message: Py<PyAny>) -> PyResult<ParsedRequest
         return Ok(ParsedRequestMessage {
             kind: RequestMessageKind::Request,
             body,
+            body_object,
             more_body,
         });
     }
@@ -2295,6 +2306,7 @@ fn request_message(py: Python<'_>, message: Py<PyAny>) -> PyResult<ParsedRequest
         return Ok(ParsedRequestMessage {
             kind: RequestMessageKind::Disconnect,
             body: Vec::new(),
+            body_object: None,
             more_body: false,
         });
     }
@@ -2302,6 +2314,7 @@ fn request_message(py: Python<'_>, message: Py<PyAny>) -> PyResult<ParsedRequest
     Ok(ParsedRequestMessage {
         kind: RequestMessageKind::Other,
         body: Vec::new(),
+        body_object: None,
         more_body: false,
     })
 }

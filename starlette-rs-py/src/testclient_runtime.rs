@@ -587,7 +587,7 @@ struct PyWebSocketTestSession {
     failure_signal_token: Option<Py<PyAny>>,
     accepted_subprotocol: Option<Py<PyAny>>,
     extra_headers: Option<Py<PyAny>>,
-    accepted: bool,
+    close_callback_registered: bool,
 }
 
 impl PyWebSocketTestSession {
@@ -616,7 +616,7 @@ impl PyWebSocketTestSession {
             failure_signal_token: None,
             accepted_subprotocol: None,
             extra_headers: None,
-            accepted: false,
+            close_callback_registered: false,
         }
     }
 
@@ -626,7 +626,7 @@ impl PyWebSocketTestSession {
                 "WebSocketTestSession is already entered",
             ));
         }
-        self.accepted = false;
+        self.close_callback_registered = false;
         self.extra_headers = None;
 
         if let Some(portal) = self.shared_portal.as_ref() {
@@ -694,21 +694,22 @@ impl PyWebSocketTestSession {
             .ok_or_else(|| PyKeyError::new_err("type"))?
             .extract::<String>()?;
         match message_type.as_str() {
-            "websocket.accept" => {
-                self.accepted_subprotocol = message
-                    .get_item("subprotocol")?
-                    .filter(|value| !value.is_none())
-                    .map(Bound::unbind);
-                self.extra_headers = message.get_item("headers")?.map(|value| value.unbind());
-                self.accepted = true;
-                Ok(())
+            "websocket.close" => return Err(websocket_disconnect(py, message)?),
+            "websocket.http.response.start" => {
+                return Err(self.websocket_denial_response(py, message)?);
             }
-            "websocket.close" => Err(websocket_disconnect(py, message)?),
-            "websocket.http.response.start" => Err(self.websocket_denial_response(py, message)?),
-            _ => Err(PyRuntimeError::new_err(format!(
-                "expected a WebSocket accept message, got {message_type:?}"
-            ))),
+            // Starlette's _raise_on_close only rejects these two messages. It
+            // preserves any other initial message and registers close(1000)
+            // for context cleanup, even if the ASGI app did not accept.
+            _ => {}
         }
+        self.accepted_subprotocol = message
+            .get_item("subprotocol")?
+            .filter(|value| !value.is_none())
+            .map(Bound::unbind);
+        self.extra_headers = message.get_item("headers")?.map(|value| value.unbind());
+        self.close_callback_registered = true;
+        Ok(())
     }
 
     fn websocket_denial_response(
@@ -852,7 +853,7 @@ impl PyWebSocketTestSession {
 
     fn teardown(&mut self, py: Python<'_>) -> PyResult<()> {
         let mut task_error = None;
-        if self.portal.is_some() && self.accepted {
+        if self.portal.is_some() && self.close_callback_registered {
             if let Err(error) = self.close_inner(py, &PyInt::new(py, 1000).into_any(), None) {
                 task_error = Some(error);
             }

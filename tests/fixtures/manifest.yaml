@@ -363,6 +363,7 @@
       "build/parity/inputs/parity/request-explicit-none-receive.json",
       "build/parity/inputs/parity/request-stream-close-recovery.json",
       "build/parity/inputs/parity/request-stream-aclose-before-first-advance.json",
+      "build/parity/inputs/parity/request-stream-body-object.json",
       "build/parity/inputs/parity/request-receive-replacement.json",
       "build/parity/inputs/parity/request-body-receive-error-retry.json",
       "build/parity/inputs/parity/request-stream-disconnect-retry.json",
@@ -539,6 +540,7 @@
       "build/parity/inputs/parity/testclient-websocket-server-port-preservation.json",
       "build/parity/inputs/parity/testclient-websocket-routing.json",
       "build/parity/inputs/parity/testclient-websocket-subprotocol-value.json",
+      "build/parity/inputs/parity/testclient-websocket-unknown-initial-message.json",
       "build/parity/inputs/parity/testclient-websocket-bytes.json",
       "build/parity/inputs/parity/testclient-websocket-public.json",
       "build/parity/inputs/parity/testclient-websocket-endpoint-path-params.json",
@@ -16220,6 +16222,21 @@
               ]
             },
             {
+              "id": "starlette.request.stream-yields-original-body-object",
+              "dimension": "boundary",
+              "description": "When a non-empty ASGI request body is a bytes subclass, yield the original object through Request.stream() without converting its public type or identity. Pinned source: starlette/requests.py:234-252.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
               "id": "starlette.request.body-stream-cache-replay",
               "dimension": "runtime",
               "description": "Call Request.body() before Request.stream() and observe the cached body chunk, terminal empty chunk, and iterator exhaustion. Pinned source: starlette/requests.py::Request.body and Request.stream; tests/test_requests.py::test_request_body_then_stream; docs/requests.md.",
@@ -21116,6 +21133,17 @@
               "id": "starlette.responses.StreamingResponse.asgi-call.client-disconnect-final-send-oserror",
               "dimension": "error_path",
               "description": "Run a finite async generator under ASGI 2.4 and raise OSError on the terminal empty-body send after all chunks have been yielded. Compare the propagated ClientDisconnect, partial ASGI event tape, completed generator trace, and skipped background callback. Pinned source: starlette/responses.py::StreamingResponse.stream_response and __call__; starlette/background.py::BackgroundTask.__call__.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.StreamingResponse.asgi-call.background-oserror-propagation",
+              "dimension": "error_path",
+              "description": "Under ASGI 2.4, let the finite async stream and response sends complete, then raise an input-defined OSError from the background callback. Compare the original OSError and completed stream/send/background trace. Pinned source: starlette/responses.py:257-283.",
               "lanes": [
                 "parity"
               ],
@@ -30306,6 +30334,17 @@
               "id": "starlette.testclient.TestClient.websocket-session.context-cleanup",
               "dimension": "mode",
               "description": "Exiting the synchronous WebSocket session context delivers the default websocket.disconnect code 1000 to the app and completes session cleanup. Pinned source: starlette/testclient.py:117-125, 169-171; tests/test_testclient.py::test_websocket_not_block_on_close.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.websocket-session.non-close-initial-message-session-entry",
+              "dimension": "protocol_variant",
+              "description": "For an input ASGI app whose initial WebSocket message is neither websocket.close nor websocket.http.response.start, preserve its optional handshake metadata, enter the synchronous session, and register the default disconnect cleanup. Pinned source: starlette/testclient.py:115-127,150-163.",
               "lanes": [
                 "parity"
               ],

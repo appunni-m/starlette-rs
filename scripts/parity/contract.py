@@ -386,6 +386,7 @@ TESTCLIENT_WEBSOCKET_REQUIREMENTS = {
     "standalone_websocket_miss": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.standalone-websocket-route-miss",
     "partial_async_endpoint": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.routed-async-endpoint-partial",
     "handshake": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.accept-handshake",
+    "non_close_initial_message": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.non-close-initial-message-session-entry",
     "accepted_subprotocol_value": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.accepted-subprotocol-preserves-message-value",
     "extra_headers": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.extra-headers",
     "text_messages": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.text-message-exchange",
@@ -1260,6 +1261,9 @@ STREAMING_RESPONSE_ASYNC_ITERATION_SPECIAL_METHOD_REQUIREMENT = (
 )
 STREAMING_RESPONSE_START_SEND_DISCONNECT_REQUIREMENT = f"{STREAMING_RESPONSE_SURFACE}.{STREAMING_RESPONSE_OPERATION}.client-disconnect-start-send-oserror"
 STREAMING_RESPONSE_FINAL_SEND_DISCONNECT_REQUIREMENT = f"{STREAMING_RESPONSE_SURFACE}.{STREAMING_RESPONSE_OPERATION}.client-disconnect-final-send-oserror"
+STREAMING_RESPONSE_BACKGROUND_OSERROR_REQUIREMENT = (
+    f"{STREAMING_RESPONSE_SURFACE}.{STREAMING_RESPONSE_OPERATION}.background-oserror-propagation"
+)
 STREAMING_RESPONSE_BACKPRESSURE_REQUIREMENT = (
     f"{STREAMING_RESPONSE_SURFACE}.{STREAMING_RESPONSE_OPERATION}.send-backpressure"
 )
@@ -1576,6 +1580,7 @@ REQUEST_STREAM_REQUIREMENTS = {
 REQUEST_CONSUMPTION_REQUIREMENTS = {
     "body_cache": "starlette.request.body-cache-reuse",
     "body_chunks": "starlette.request.body-chunk-concatenation",
+    "stream_original_body_object": "starlette.request.stream-yields-original-body-object",
     "body_stream_replay": "starlette.request.body-stream-cache-replay",
     "stream_body_consumed": "starlette.request.stream-then-body-consumed",
     "stream_form_consumed": "starlette.request.stream-then-form-consumed",
@@ -8825,13 +8830,14 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
 
     background = case.get("background")
     background_task = False
+    background_failure: dict[str, str] | None = None
     if background is not None:
         if not isinstance(background, dict):
             raise ContractError("StreamingResponse background must be an object")
         if background.get("kind") == "async-values-recorder":
             background = _exact(
                 background,
-                {"kind", "values"},
+                {"kind", "values"} | (background.keys() & {"failure"}),
                 "StreamingResponse background recorder",
             )
             if (
@@ -8840,6 +8846,15 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
                 or any(not isinstance(value, str) for value in background["values"])
             ):
                 raise ContractError("StreamingResponse background values must be non-empty strings")
+            if "failure" in background:
+                failure = _exact(
+                    background["failure"],
+                    {"kind", "message"},
+                    "StreamingResponse background failure",
+                )
+                if failure["kind"] != "OSError" or not isinstance(failure["message"], str):
+                    raise ContractError("StreamingResponse background failure must be an OSError")
+                background_failure = failure
         elif background.get("kind") == "single-task":
             background = _exact(
                 background,
@@ -9310,6 +9325,33 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
                 raise ContractError(
                     "finite StreamingResponse OSError input must fail the terminal send under ASGI 2.4 and map its input-derived requirement"
                 )
+    if background_failure is not None:
+        try:
+            spec_version = tuple(
+                int(part)
+                for part in case["scope"].get("asgi", {}).get("spec_version", "2.0").split(".")
+            )
+        except (AttributeError, TypeError, ValueError) as exc:
+            raise ContractError("StreamingResponse ASGI spec_version must be numeric") from exc
+        if (
+            websocket_scope
+            or case["streaming"] != "async-generator"
+            or repeating_chunks
+            or file_like_content is not None
+            or stimulus != async_generator_stimulus
+            or background is None
+            or background.get("kind") != "async-values-recorder"
+            or stream_lifecycle is not None
+            or receive_behavior is not None
+            or case["operation"] != STREAMING_RESPONSE_TRACE_OPERATION
+            or case["target_profiles"] != ["python-package-cpython312"]
+            or send != {"kind": "capture-asgi-send"}
+            or spec_version < (2, 4)
+            or case["covers"] != [STREAMING_RESPONSE_BACKGROUND_OSERROR_REQUIREMENT]
+        ):
+            raise ContractError(
+                "StreamingResponse background OSError input must follow a completed async-generator stream under ASGI 2.4 and map its input-derived requirement"
+            )
     dispatch_send = (
         {"kind": "capture-asgi-send"}
         if send_uses_checkpoint_gate or send_uses_caller_cancellation
@@ -16860,6 +16902,59 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
         if set(case["covers"]) != expected_covers:
             raise ContractError(
                 "TestClient accepted subprotocol covers must match the input-defined handshake"
+            )
+        return
+
+    preserves_non_close_initial_message = (
+        no_client_actions
+        and asgi_app["kind"] == "asgi3"
+        and isinstance(app_actions, list)
+        and len(app_actions) == 3
+        and all(isinstance(action, dict) for action in app_actions)
+        and [action.get("operation") for action in app_actions] == ["receive", "send", "receive"]
+        and isinstance(app_actions[1].get("message"), dict)
+        and isinstance(app_actions[1]["message"].get("type"), str)
+        and app_actions[1]["message"]["type"]
+        not in {"websocket.accept", "websocket.close", "websocket.http.response.start"}
+    )
+    if preserves_non_close_initial_message:
+        if "type" not in scope_fields:
+            raise ContractError("TestClient WebSocket initial-message case must observe scope type")
+        connect_action = _exact(
+            app_actions[0], {"operation"}, "TestClient WebSocket initial-message connect action"
+        )
+        if connect_action["operation"] != "receive":
+            raise ContractError("TestClient WebSocket initial-message app must receive connect")
+        send_action = _exact(
+            app_actions[1], {"operation", "message"}, "TestClient WebSocket initial-message action"
+        )
+        message = send_action["message"]
+        message = _exact(
+            message,
+            {"type"} | (message.keys() & {"subprotocol", "headers"}),
+            "TestClient WebSocket initial message",
+        )
+        if send_action["operation"] != "send":
+            raise ContractError("TestClient WebSocket initial-message app must send its message")
+        for index, action in enumerate(app_actions[2:], start=2):
+            receive_action = _exact(
+                action,
+                {"operation"},
+                f"TestClient WebSocket initial-message receive action[{index}]",
+            )
+            if receive_action["operation"] != "receive":
+                raise ContractError(
+                    "TestClient WebSocket initial-message app must receive context cleanup"
+                )
+        expected_covers = {
+            TESTCLIENT_WEBSOCKET_REQUIREMENTS["scope"],
+            TESTCLIENT_WEBSOCKET_REQUIREMENTS["non_close_initial_message"],
+            TESTCLIENT_WEBSOCKET_REQUIREMENTS["cleanup"],
+            TESTCLIENT_WEBSOCKET_REQUIREMENTS["portal_cleanup"],
+        }
+        if set(case["covers"]) != expected_covers:
+            raise ContractError(
+                "TestClient WebSocket initial-message covers must match the supplied ASGI flow"
             )
         return
 
@@ -27002,6 +27097,7 @@ def _validate_request_body_stream_json_case(case: dict[str, Any]) -> None:
     if not explicit_none_receive and (not isinstance(receive, list) or not receive):
         raise ContractError("Request body/stream/json receive tape must be non-empty")
     optional_receive_fields = False
+    body_object_probe = False
     receive_error_indices: list[int] = []
     receive_cancellation_indices: list[int] = []
     for index, raw_message in enumerate(receive):
@@ -27022,14 +27118,24 @@ def _validate_request_body_stream_json_case(case: dict[str, Any]) -> None:
         if not isinstance(raw_message, dict) or not isinstance(raw_message.get("type"), str):
             raise ContractError(f"{context} must have a string message type")
         if raw_message["type"] == "http.request":
-            allowed = {"type", "body_base64", "more_body"}
+            allowed = {"type", "body_base64", "body_type", "more_body"}
             if set(raw_message) - allowed:
                 raise ContractError(f"{context} contains unsupported HTTP request fields")
+            if "body_type" in raw_message:
+                if raw_message["body_type"] != "bytes-subclass" or "body_base64" not in raw_message:
+                    raise ContractError(
+                        f"{context}.body_type must select bytes-subclass with body_base64"
+                    )
+                body_object_probe = True
             if "body_base64" in raw_message:
                 try:
-                    base64.b64decode(raw_message["body_base64"], validate=True)
+                    body_bytes = base64.b64decode(raw_message["body_base64"], validate=True)
                 except (ValueError, TypeError, base64.binascii.Error) as exc:
                     raise ContractError(f"{context}.body_base64 is invalid") from exc
+                if "body_type" in raw_message and not body_bytes:
+                    raise ContractError(
+                        f"{context}.body_type bytes-subclass probe requires a non-empty body"
+                    )
             else:
                 optional_receive_fields = True
             if "more_body" in raw_message:
@@ -27526,6 +27632,19 @@ def _validate_request_body_stream_json_case(case: dict[str, Any]) -> None:
         < action_operations.index("await-body")
     ):
         expected_covers.add(REQUEST_CONSUMPTION_REQUIREMENTS["body_stream_overlap"])
+    if body_object_probe:
+        if (
+            len(receive) != 1
+            or receive[0].get("type") != "http.request"
+            or receive[0].get("more_body") is not False
+            or action_operations != ["stream-next"]
+            or blocked_receive_calls
+            or scope_headers
+        ):
+            raise ContractError(
+                "Request bytes-subclass identity input requires one final body message and one stream advance"
+            )
+        expected_covers.add(REQUEST_CONSUMPTION_REQUIREMENTS["stream_original_body_object"])
     if set(case["covers"]) != expected_covers:
         raise ContractError(
             "Request body/stream/json covers must match the declared action and receive inputs: "
