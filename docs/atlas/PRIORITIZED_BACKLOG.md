@@ -9,9 +9,9 @@ incomplete.
 ## Current parity snapshot
 
 Implementation remains the active phase for the full Starlette replacement.
-The working-tree `parity-input@49` contract indexes 2,226 cases across 253
-parity inputs, two benchmark inputs, 135 Starlette compatibility operations,
-12 native operations, and 1,187 parity requirements (1,148 compatibility and
+The working-tree `parity-input@49` contract indexes 2,238 cases across 261
+parity inputs, two benchmark inputs, 136 Starlette compatibility operations,
+12 native operations, and 1,196 parity requirements (1,157 compatibility and
 39 native).
 The latest static inventory reports 999/999 API candidates dispositioned and
 843 source rows: 788 input mappings, 55 source-backed `not_applicable` rows,
@@ -23,7 +23,10 @@ passed 2,254/2,254 comparisons for the preceding 1,992-case, 140-input
 contract. It predates the active @49 implementation batches, including the
 latest TestClient partial-response exception, StreamingResponse callback,
 empty WSGI iterable, WebSocketEndpoint invalid-initial-event, mutable
-WebSocket scope, explicit-None Request receive, and tuple CORS header inputs. The
+WebSocket scope and send messages, explicit-None Request receive, Request
+custom receive events, BaseHTTPMiddleware body-iterator replacement, WSGI
+header-unpack ordering, AnyIO CancelScope worker-error, and tuple CORS header
+inputs. The
 matching full coverage and 74-workload benchmark receipts also belong to the
 preceding contract. Continue implementation across feature families, then run full
 parity and grouped repairs, coverage, and benchmarks in that order. The
