@@ -1513,7 +1513,12 @@ impl PyTestClientTransport {
                     .as_ref()
                     .map(|status_code| status_code.clone_ref(py)),
                 state.headers.clone(),
-                state.body.clone(),
+                // The pinned transport rewinds its BytesIO only after a final body message.
+                if state.response_complete {
+                    state.body.clone()
+                } else {
+                    Vec::new()
+                },
                 state.debug_info.as_ref().map(|info| info.clone_ref(py)),
                 state.response_started,
             )

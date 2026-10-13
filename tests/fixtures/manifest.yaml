@@ -526,6 +526,7 @@
       "build/parity/inputs/parity/testclient-client-port-preservation.json",
       "build/parity/inputs/parity/testclient-server-port-preservation.json",
       "build/parity/inputs/parity/testclient-incomplete-response-return.json",
+      "build/parity/inputs/parity/testclient-incomplete-response-multiple-chunks.json",
       "build/parity/inputs/parity/testclient-portal-setup-exception-policy.json",
       "build/parity/inputs/parity/testclient-partial-response-exception.json",
       "build/parity/inputs/parity/testclient-generator-body-buffering.json",
