@@ -144,6 +144,7 @@ RUN_UNTIL_FIRST_COMPLETE_REQUIREMENTS = {
     "external_cancellation": (
         f"{THREADPOOL_SURFACE}.{RUN_UNTIL_FIRST_COMPLETE_OPERATION}.external-cancellation-finalization"
     ),
+    "zero_callbacks": (f"{THREADPOOL_SURFACE}.{RUN_UNTIL_FIRST_COMPLETE_OPERATION}.zero-callbacks"),
 }
 ITERATE_THREADPOOL_OPERATION = "iterate_in_threadpool"
 ITERATE_THREADPOOL_OPERATION_KEY = (THREADPOOL_SURFACE, ITERATE_THREADPOOL_OPERATION)
@@ -242,6 +243,7 @@ WEBSOCKET_ENDPOINT_REQUIREMENTS = {
     "invalid_encoding": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.invalid-encoding",
     "cancellation": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.cancellation-finalization",
     "cancellation_disconnect_error": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.cancellation-finalizer-error-context",
+    "cancellation_during_finalizer": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.cancellation-during-disconnect-finalizer",
     "invalid_message_type": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.invalid-asgi-message-type-finalization",
 }
 SESSION_MIDDLEWARE_SURFACE = "starlette.middleware.sessions.SessionMiddleware"
@@ -3676,11 +3678,13 @@ def _validate_websocket_endpoint_case_stimulus(case: dict[str, Any]) -> None:
                 on_disconnect["context_message"],
                 "WebSocketEndpoint.on_disconnect.context_message",
             )
+    elif on_disconnect.get("kind") == "wait-for-cancellation":
+        _exact(on_disconnect, {"kind"}, "WebSocketEndpoint.on_disconnect")
     else:
         raise ContractError(
             "WebSocketEndpoint.on_disconnect.kind must be default, record-and-close, "
             "raise-runtime-error, raise-runtime-error-from-value-error, or "
-            "raise-runtime-error-synchronously"
+            "raise-runtime-error-synchronously, or wait-for-cancellation"
         )
 
     sessions = case["sessions"]
@@ -3698,8 +3702,8 @@ def _validate_websocket_endpoint_case_stimulus(case: dict[str, Any]) -> None:
         )
         _validate_websocket_scope(session["scope"])
         cancel_at = session.get("cancel_at")
-        if cancel_at is not None and cancel_at != "receive":
-            raise ContractError(f"{context}.cancel_at must be receive")
+        if cancel_at is not None and cancel_at not in {"receive", "disconnect"}:
+            raise ContractError(f"{context}.cancel_at must be receive or disconnect")
         incoming = session["incoming"]
         if not isinstance(incoming, list):
             raise ContractError(f"{context}.incoming must be an ASGI message array")
@@ -3775,6 +3779,27 @@ def _validate_websocket_endpoint_case_stimulus(case: dict[str, Any]) -> None:
                     f"{context} cancellation requires an observable finalizer or a finalizer error"
                 )
             continue
+        if cancel_at == "disconnect":
+            if (
+                on_connect["kind"] != "default"
+                or message_types != ["websocket.connect", "websocket.disconnect"]
+                or encoding is not None
+                or on_receive["kind"] != "no-op"
+                or on_disconnect["kind"] != "wait-for-cancellation"
+            ):
+                raise ContractError(
+                    f"{context} disconnect cancellation requires a default connect, "
+                    "one normal disconnect, default decoding, no-op receive hook, "
+                    "and a cancellation-waiting finalizer"
+                )
+            exercised_requirements.add(
+                WEBSOCKET_ENDPOINT_REQUIREMENTS["cancellation_during_finalizer"]
+            )
+            continue
+        if on_disconnect["kind"] == "wait-for-cancellation":
+            raise ContractError(
+                f"{context} cancellation-waiting finalizer requires cancel_at disconnect"
+            )
         if len(incoming) not in {2, 3}:
             raise ContractError(f"{context}.incoming must contain two or three ASGI messages")
         if message_types not in (
@@ -22771,7 +22796,6 @@ def _validate_run_until_first_complete_case(case: dict[str, Any]) -> None:
     events = case["events"]
     if (
         not isinstance(events, list)
-        or not events
         or len(events) > 32
         or any(not isinstance(event_id, str) or not event_id for event_id in events)
         or len(events) != len(set(events))
@@ -22781,8 +22805,8 @@ def _validate_run_until_first_complete_case(case: dict[str, Any]) -> None:
         )
     event_ids = set(events)
     tasks = case["tasks"]
-    if not isinstance(tasks, list) or not 1 <= len(tasks) <= 8:
-        raise ContractError("run_until_first_complete tasks must contain one to eight callbacks")
+    if not isinstance(tasks, list) or not 0 <= len(tasks) <= 8:
+        raise ContractError("run_until_first_complete tasks must contain zero to eight callbacks")
 
     task_ids: set[str] = set()
     action_rows: list[tuple[int, str, list[dict[str, Any]]]] = []
@@ -22850,7 +22874,12 @@ def _validate_run_until_first_complete_case(case: dict[str, Any]) -> None:
                 "run_until_first_complete external cancellation references an undeclared event"
             )
 
-    if not set_events and not raise_actions and external_cancel_event is None:
+    zero_callbacks = not tasks
+    if zero_callbacks and (events or "kwargs_container" in case):
+        raise ContractError(
+            "zero-callback run_until_first_complete inputs cannot declare events or callback kwargs"
+        )
+    if tasks and not set_events and not raise_actions and external_cancel_event is None:
         raise ContractError(
             "run_until_first_complete callback inputs need a completion, failure, or cancellation stimulus"
         )
@@ -22858,7 +22887,9 @@ def _validate_run_until_first_complete_case(case: dict[str, Any]) -> None:
     expected_requirements = {RUN_UNTIL_FIRST_COMPLETE_REQUIREMENTS["deprecation_warning"]}
     if case.get("kwargs_container") == "mappingproxy":
         expected_requirements.add(RUN_UNTIL_FIRST_COMPLETE_REQUIREMENTS["kwargs_mapping"])
-    if raise_actions:
+    if zero_callbacks:
+        expected_requirements.add(RUN_UNTIL_FIRST_COMPLETE_REQUIREMENTS["zero_callbacks"])
+    elif raise_actions:
         if external_cancel_event is not None or len(raise_actions) != 1:
             raise ContractError(
                 "run_until_first_complete child-failure inputs require one raise action and no external cancellation"

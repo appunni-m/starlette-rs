@@ -538,7 +538,7 @@ four finite synchronous StreamingResponse cases, and the async-iterator,
 memoryview-chunk, and custom-async-iterable StreamingResponse cases in section 6
 pass source/package parity; the synchronous cases also pass against Rust-native.
 The latest clean full run for `parity-input@47` recorded four Rust-native
-callable boundaries as `not_run`; the active @49 contract has not had its full
+callable boundaries as `not_run`; the active @50 contract has not had its full
 matrix run. The full Starlette replacement remains incomplete. Active inputs
 cover direct `ServerErrorMiddleware` debug HTML, non-HTTP pass-through,
 response-already-started errors, application background-task errors, and

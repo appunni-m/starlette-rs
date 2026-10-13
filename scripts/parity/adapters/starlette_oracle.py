@@ -7262,12 +7262,25 @@ def _websocket_endpoint_receive_hook(spec: dict[str, Any], calls: list[dict[str,
     return on_receive
 
 
-def _websocket_endpoint_disconnect_hook(spec: dict[str, Any], calls: list[dict[str, Any]]) -> Any:
+def _websocket_endpoint_disconnect_hook(
+    spec: dict[str, Any],
+    calls: list[dict[str, Any]],
+    cancellation_ready: asyncio.Event,
+) -> Any:
     if spec["kind"] == "raise-runtime-error-synchronously":
 
         def on_disconnect(_endpoint: Any, _websocket: Any, close_code: int) -> None:
             calls.append({"hook": "on_disconnect", "close_code": close_code})
             raise RuntimeError(spec["message"])
+
+        return on_disconnect
+
+    if spec["kind"] == "wait-for-cancellation":
+
+        async def on_disconnect(_endpoint: Any, _websocket: Any, close_code: int) -> None:
+            calls.append({"hook": "on_disconnect", "close_code": close_code})
+            cancellation_ready.set()
+            await asyncio.Future()
 
         return on_disconnect
 
@@ -7314,10 +7327,10 @@ async def _await_cancelled_websocket_endpoint(
     scope: dict[str, Any],
     receive: _WebSocketEndpointInputReceive,
     send: Any,
+    cancellation_ready: asyncio.Event,
 ) -> dict[str, Any] | None:
-    receive.waiting = asyncio.Event()
     task = asyncio.create_task(_await_websocket_endpoint(endpoint_type, scope, receive, send))
-    await receive.waiting.wait()
+    await cancellation_ready.wait()
     task.cancel()
     try:
         await task
@@ -7380,6 +7393,7 @@ def _run_websocket_endpoint_case(case: dict[str, Any]) -> dict[str, Any]:
         )
         hook_calls: list[dict[str, Any]] = []
         sent_messages: list[dict[str, Any]] = []
+        cancellation_ready = asyncio.Event()
         methods: dict[str, Any] = {
             "encoding": _websocket_endpoint_encoding(endpoint_spec["encoding"])
         }
@@ -7402,20 +7416,25 @@ def _run_websocket_endpoint_case(case: dict[str, Any]) -> dict[str, Any]:
             "raise-runtime-error",
             "raise-runtime-error-synchronously",
             "raise-runtime-error-from-value-error",
+            "wait-for-cancellation",
         }:
             methods["on_disconnect"] = _websocket_endpoint_disconnect_hook(
-                endpoint_spec["on_disconnect"], hook_calls
+                endpoint_spec["on_disconnect"], hook_calls, cancellation_ready
             )
 
         endpoint_type = type("InputWebSocketEndpoint", (WebSocketEndpoint,), methods)
         receive = _WebSocketEndpointInputReceive(
             incoming, cancel_on_exhaustion=session_spec.get("cancel_at") == "receive"
         )
+        if session_spec.get("cancel_at") == "receive":
+            receive.waiting = cancellation_ready
         send = _WebSocketEndpointCaptureSend(sent_messages)
 
-        if session_spec.get("cancel_at") == "receive":
+        if session_spec.get("cancel_at") in {"receive", "disconnect"}:
             error = asyncio.run(
-                _await_cancelled_websocket_endpoint(endpoint_type, scope, receive, send)
+                _await_cancelled_websocket_endpoint(
+                    endpoint_type, scope, receive, send, cancellation_ready
+                )
             )
         else:
             error: dict[str, Any] | None = None

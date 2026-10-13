@@ -20,7 +20,7 @@ functions and 24 documentation pages. The newest six inputs compare Request rece
 
 The latest clean full parity run, `dc8c8ca6-f2b7-449b-9f53-45860e3cad4c`,
 passed 2,254/2,254 comparisons for the preceding 1,992-case, 140-input
-contract. It predates the active @49 implementation batches, including the
+contract. It predates the active @50 implementation batches, including the
 latest TestClient partial-response exception, StreamingResponse callback,
 empty WSGI iterable, WebSocketEndpoint invalid-initial-event, mutable
 WebSocket scope and send messages, explicit-None Request receive, Request

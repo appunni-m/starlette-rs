@@ -510,6 +510,7 @@
       "build/parity/inputs/parity/upload-file-rolled-write-error.json",
       "build/parity/inputs/parity/websocket-endpoint-dispatch.json",
       "build/parity/inputs/parity/websocket-endpoint-existing-disconnect-context.json",
+      "build/parity/inputs/parity/websocket-endpoint-cancellation-during-finalizer.json",
       "build/parity/inputs/parity/websocket-mutable-scope.json",
       "build/parity/inputs/parity/websocket-endpoint-sync-disconnect-hook-error.json",
       "build/parity/inputs/parity/websocket-endpoint-sync-stop-iteration.json",
@@ -547,6 +548,7 @@
       "build/parity/inputs/parity/router-converter-ordering.json",
       "build/parity/inputs/parity/application-subclass-builder.json",
       "build/parity/inputs/parity/concurrency.json",
+      "build/parity/inputs/parity/concurrency-run-until-first-complete-zero-callbacks.json",
       "build/parity/inputs/parity/websocket-scope-interface.json",
       "build/parity/inputs/parity/exception-middleware-typing.json",
       "build/parity/inputs/parity/testclient-redirect-policy.json",
@@ -4459,6 +4461,17 @@
               "id": "starlette.concurrency.run_until_first_complete.deprecation-warning",
               "dimension": "mode",
               "description": "Emit the pinned Starlette deprecation warning on invocation, with its public category, message, and source location; callback construction emits no warning. Event-trace cancellation messages normalize AnyIO scope IDs and task locations while preserving exception class and event order. Pinned source: starlette/concurrency.py:14-18; starlette/exceptions.py:33-39; docs/release-notes.md:819-821.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.concurrency.run_until_first_complete.zero-callbacks",
+              "dimension": "parameter_combination",
+              "description": "Calling with no callback pairs emits the pinned deprecation warning and completes the empty task group with None and no callback events. Pinned source: starlette/concurrency.py:16-29.",
               "lanes": [
                 "parity"
               ],
@@ -9344,6 +9357,17 @@
               "id": "starlette.endpoints.WebSocketEndpoint.dispatch.cancellation-finalizer-error-context",
               "dimension": "error_path",
               "description": "When cancellation interrupts receive and on_disconnect raises, preserve the finalizer exception with the CancelledError as its Python exception context, report the source default close code to the hook, and invoke it once. Pinned source: starlette/endpoints.py:70-89.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.endpoints.WebSocketEndpoint.dispatch.cancellation-during-disconnect-finalizer",
+              "dimension": "boundary",
+              "description": "Propagate task cancellation that arrives while the awaited on_disconnect finalizer is suspended, invoke that hook once with the normal disconnect code, and preserve the cancellation exception. Pinned source: starlette/endpoints.py:70-89.",
               "lanes": [
                 "parity"
               ],
