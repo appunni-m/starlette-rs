@@ -5,6 +5,32 @@ use pyo3::exceptions::{PyAttributeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyList, PyString, PyTuple};
 
+/// Apply Starlette's public `Response.__init__` assignments and virtual calls
+/// in source order while keeping Python values and exceptions at the boundary.
+pub(crate) fn initialize_response(
+    _py: Python<'_>,
+    response: &Bound<'_, PyAny>,
+    arguments: &Bound<'_, PyTuple>,
+) -> PyResult<()> {
+    response.setattr("status_code", arguments.get_item(1)?)?;
+    let media_type = arguments.get_item(3)?;
+    if !media_type.is_none() {
+        response.setattr("media_type", media_type)?;
+    }
+    response.setattr("background", arguments.get_item(4)?)?;
+
+    // Starlette calls these methods through `self`; resolving each at the point
+    // of use preserves subclass overrides and mutations made by render.
+    let body = response
+        .getattr("render")?
+        .call1((arguments.get_item(0)?,))?;
+    response.setattr("body", body)?;
+    response
+        .getattr("init_headers")?
+        .call1((arguments.get_item(2)?,))?;
+    Ok(())
+}
+
 /// Source-order initialization; descriptors and overrides remain user callables.
 pub(crate) fn initialize_stream(
     py: Python<'_>,

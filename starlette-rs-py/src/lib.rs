@@ -723,27 +723,6 @@ impl PyResponse {
 
 #[pymethods]
 impl PyResponse {
-    /// Creates storage before a user render callback can access headers.
-    #[staticmethod]
-    fn uninitialized() -> Self {
-        Self {
-            inner: Response::from_parts(200, Vec::new(), []),
-            raw_headers: None,
-            headers_view: None,
-        }
-    }
-
-    #[staticmethod]
-    fn set_media_type(
-        response: &Bound<'_, PyAny>,
-        media_type: Option<&Bound<'_, PyAny>>,
-    ) -> PyResult<()> {
-        if let Some(media_type) = media_type {
-            response.setattr("media_type", media_type)?;
-        }
-        Ok(())
-    }
-
     #[staticmethod]
     fn initialize_headers(
         py: Python<'_>,
@@ -751,6 +730,29 @@ impl PyResponse {
         headers: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<()> {
         response_construction_runtime::initialize_headers(py, response, headers)
+    }
+
+    /// Owns the public Response constructor's ordered Python boundary calls.
+    #[staticmethod]
+    fn initialize(
+        py: Python<'_>,
+        response: &Bound<'_, PyAny>,
+        arguments: &Bound<'_, PyTuple>,
+    ) -> PyResult<()> {
+        // The facade has no Rust storage of its own. Install it before running
+        // source-ordered assignments so render and init_headers can re-enter
+        // ordinary response methods without a live native borrow.
+        let native = Py::new(
+            py,
+            Self {
+                inner: Response::from_parts(200, Vec::new(), []),
+                raw_headers: None,
+                headers_view: None,
+            },
+        )?;
+        py.get_type::<PyAny>()
+            .call_method1("__setattr__", (response, "_inner", native))?;
+        response_construction_runtime::initialize_response(py, response, arguments)
     }
 
     #[staticmethod]
@@ -792,14 +794,6 @@ impl PyResponse {
     #[staticmethod]
     fn wrap_denial_send(py: Python<'_>, send: Py<PyAny>) -> PyResult<Py<PyAny>> {
         streaming_object_runtime::wrap_denial_send(py, send)
-    }
-
-    #[staticmethod]
-    fn prepare(py: Python<'_>, response: &Bound<'_, PyAny>) -> PyResult<()> {
-        let native = Py::new(py, Self::uninitialized())?;
-        py.get_type::<PyAny>()
-            .call_method1("__setattr__", (response, "_inner", native))?;
-        Ok(())
     }
 
     #[staticmethod]

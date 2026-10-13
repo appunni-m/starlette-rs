@@ -33,12 +33,7 @@ class Response:
         media_type: str | None = None,
         background: Any = None,
     ) -> None:
-        _core.Response.prepare(self)
-        self.status_code = status_code
-        _core.Response.set_media_type(self, media_type)
-        self.background = background
-        self.body = self.render(content)
-        self.init_headers(headers)
+        _core.Response.initialize(self, (content, status_code, headers, media_type, background))
 
     def init_headers(self, headers: Mapping[str, str] | None = None) -> None:
         _core.Response.initialize_headers(self, headers)
