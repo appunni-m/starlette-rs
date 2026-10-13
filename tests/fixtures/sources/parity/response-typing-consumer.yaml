@@ -1,0 +1,25 @@
+{
+  "schema": "migration-parity/parity-input@49",
+  "cases": [
+    {
+      "case_id": "starlette.responses.Response.typing-consumer.scope-mutable-mapping",
+      "surface": "starlette.responses.Response",
+      "operation": "typing-consumer",
+      "covers": [
+        "starlette.responses.Response.python-typing-contract.mutable-mapping-scope"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "observations": ["typing_consumer"],
+      "typing_consumer": {
+        "source": "from collections import UserDict\nfrom typing import Any\n\nfrom starlette.responses import FileResponse, Response, StreamingResponse\nfrom starlette.types import Receive, Scope, Send\n\n\nasync def response_scope_contract(\n    response: Response,\n    streaming: StreamingResponse,\n    file_response: FileResponse,\n    scope: Scope,\n    receive: Receive,\n    send: Send,\n) -> None:\n    user_scope: UserDict[str, Any] = UserDict()\n    await response(user_scope, receive, send)\n    await streaming(user_scope, receive, send)\n    await file_response(user_scope, receive, send)\n    scope['app'] = response\n\n"
+      }
+    }
+  ]
+}

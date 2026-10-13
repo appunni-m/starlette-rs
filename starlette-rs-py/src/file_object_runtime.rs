@@ -13,7 +13,7 @@ use crate::file_response_runtime::PublicFileFacts;
 pub(crate) fn call(
     py: Python<'_>,
     response: Py<PyAny>,
-    scope: Py<PyDict>,
+    scope: Py<PyAny>,
     receive: Py<PyAny>,
     send: Py<PyAny>,
 ) -> PyResult<Py<PyAny>> {
@@ -42,7 +42,7 @@ enum Pending {
 
 struct FileCall {
     response: Py<PyAny>,
-    scope: Py<PyDict>,
+    scope: Py<PyAny>,
     receive: Py<PyAny>,
     send: Py<PyAny>,
     facts: Option<PublicFileFacts>,
@@ -128,21 +128,17 @@ impl AwaitableStateMachine for FileCall {
 impl FileCall {
     fn start(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
         let scope = self.scope.bind(py);
-        let scope_type = scope
-            .get_item("type")?
-            .ok_or_else(|| pyo3::exceptions::PyKeyError::new_err("type"))?;
+        let scope_type = scope.get_item("type")?;
         let http = scope_type.eq("http")?;
         let header_only = http
             && scope
                 .get_item("method")?
-                .ok_or_else(|| pyo3::exceptions::PyKeyError::new_err("method"))?
                 .call_method0("upper")?
                 .eq("HEAD")?;
         let pathsend = http
-            && match scope.get_item("extensions")? {
-                Some(extensions) => extensions.contains("http.response.pathsend")?,
-                None => false,
-            };
+            && scope
+                .call_method1("get", ("extensions", PyDict::new(py)))?
+                .contains("http.response.pathsend")?;
         if scope_type.eq("websocket")? {
             self.send = self
                 .response

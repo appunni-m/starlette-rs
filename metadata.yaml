@@ -600,6 +600,10 @@
         {
           "operation_id": "consumer-construction",
           "source_path": "starlette.responses.Response.__init__, Response.render, JSONResponse.render, Response.__call__; public raw_headers, body, background and returned coroutine lifetime; constructor body length and header mapping/encoding protocols; Python attribute interception and public header-view access; public set_cookie/delete_cookie Python argument protocols; public cookie returned-value lifetime, translation state and surrogate encoding"
+        },
+        {
+          "operation_id": "typing-consumer",
+          "source_path": "starlette.responses.Response.__call__, StreamingResponse.__call__, FileResponse.__call__; starlette.types.Scope"
         }
       ]
     },

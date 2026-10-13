@@ -100,7 +100,7 @@ pub(crate) fn response_object_call(
     py: Python<'_>,
     call: ResponseCall,
     response: Py<PyAny>,
-    scope: &Bound<'_, PyDict>,
+    scope: &Bound<'_, PyAny>,
     receive: Py<PyAny>,
     send: Py<PyAny>,
 ) -> PyResult<Py<PyAny>> {
@@ -1282,18 +1282,12 @@ fn streaming_response_call_state(
     }
 }
 
-fn is_websocket_scope(scope: &Bound<'_, PyDict>) -> PyResult<bool> {
-    match scope.get_item("type")? {
-        Some(value) => Ok(value.extract::<String>()? == "websocket"),
-        None => Ok(false),
-    }
+fn is_websocket_scope(scope: &Bound<'_, PyAny>) -> PyResult<bool> {
+    scope.get_item("type")?.eq("websocket")
 }
 
-pub(crate) fn asgi_spec_at_least_24(py: Python<'_>, scope: &Bound<'_, PyDict>) -> PyResult<bool> {
-    let asgi = match scope.get_item("asgi")? {
-        Some(asgi) => asgi,
-        None => PyDict::new(py).into_any(),
-    };
+pub(crate) fn asgi_spec_at_least_24(py: Python<'_>, scope: &Bound<'_, PyAny>) -> PyResult<bool> {
+    let asgi = scope.call_method1("get", ("asgi", PyDict::new(py)))?;
     let spec_version = asgi.call_method1("get", ("spec_version", "2.0"))?;
     let parts = spec_version.call_method1("split", (".",))?;
     let int = py.import("builtins")?.getattr("int")?;

@@ -13,9 +13,9 @@ implementation closes, run the complete source/package and Rust-native parity
 matrix, repair mismatches across families, measure coverage from that full
 matrix, reconcile the source atlas, then run all correctness-gated benchmarks.
 
-The working-tree contract currently declares 2,226 input cases across 253
-parity inputs and two benchmark inputs, 135 Starlette compatibility
-operations, 12 Rust-native operations, and 1,187 parity requirements (1,148
+The working-tree contract currently declares 2,233 input cases across 258
+parity inputs and two benchmark inputs, 136 Starlette compatibility
+operations, 12 Rust-native operations, and 1,191 parity requirements (1,152
 compatibility and 39 native). The generated atlas has 843 source rows: 788
 input mappings, 55 source-backed `not_applicable` dispositions, and zero
 fixture-backlog rows. These counts describe inventory and evidence coverage;
@@ -66,13 +66,24 @@ iterable, a WebSocketEndpoint invalid initial event that fails during
 `on_connect` before disconnect finalization, a `UserDict` WebSocket scope,
 explicit None receive callback, and tuple response-start headers under CORS. All
 remain deferred to the full parity phase.
+The current implementation batch adds seven input-only cases across five
+files: Response, StreamingResponse, and FileResponse calls using `UserDict`
+scopes; a FileResponse tuple-header write-back observation; a pinned typing
+consumer for `Scope = MutableMapping[str, Any]`; TestClient denial-body error
+context; WebSocket iterator `athrow()` after exhaustion; and BackgroundTask
+argument expansion order. Rust now accepts mapping-backed response scopes,
+keeps the original FileResponse scope through `Headers(scope=...)`, propagates
+the application error after denial-stream closure, retains peer-disconnect
+semantics while distinguishing throws into an exhausted iterator, and expands
+mutable task arguments before re-reading `kwargs`. These comparisons remain
+unexecuted until the full parity phase.
 
 ### Execution ledger
 
 | Phase | State | Evidence |
 | --- | --- | --- |
-| Implementation | In progress. | `make contract-check` validates 2,226 cases across 253 parity inputs, 135 compatibility operations, 12 native operations, and 1,187 requirements (1,148 compatibility / 39 native), with zero parity passes claimed. `make source-inventory-check` passes with 999 API candidates dispositioned and 843 atlas rows (788 mappings / 55 reasoned not_applicable / zero backlog). The latest batch adds seven unexecuted cases across TestClient, StreamingResponse, WSGI, WebSocketEndpoint, WebSocket, Request, and CORS; Rust now preserves partial TestClient response chunks, accepts mapping-backed WebSocket scopes, preserves explicit `receive=None`, and normalizes tuple CORS response headers. `RUSTC_WRAPPER= make lint check build rustdoc-check` and `python3.12 scripts/check_docs.py` pass. Full parity, coverage, and benchmarks remain deferred until implementation closes; `make docs-check` benchmark evidence must be refreshed during the benchmark phase. |
-| Full parity and grouped repairs | Deferred until implementation closes. | The latest clean run, `dc8c8ca6-f2b7-449b-9f53-45860e3cad4c`, passed 2,254/2,254 comparisons for the preceding 1,992-case, 140-parity-input contract. Later optional-backend, WebSocket authorization, Router truthiness, BaseHTTPMiddleware iterator, StaticFiles path, response-protocol, close-code, TestClient exception, raw TestClient no-response return, custom-regex, Request stream retry, WebSocketEndpoint error-finalization, BaseHTTPMiddleware dispatch short-circuiting, StreamingResponse terminal-send failure, TestClient generator-body buffering, invalid initial WebSocket.accept events, Last-Modified If-Range matching, exception-class MRO precedence, Request receive-error retry, Request body retry after partial receive cancellation, empty root Mount dispatch, lazy StreamingResponse iterator acquisition after a failed response-start send, AsyncIterable descriptor failure after response-start, normal-return incomplete TestClient response, asyncio-marked TestClient ASGI3, WebSocketEndpoint hook-failure/context, bracketed IPv6 Host, StaticFiles `get_response` override, TestClient accepted-session error stream closure and completed-response exception propagation, StreamingResponse gated-send backpressure, WebSocket non-string send-type, BackgroundTask `kwargs` mapping expansion, synchronous WebSocketEndpoint `on_disconnect` failure, multipart rollover lifecycle, supplied-Morsel validation, and missing WebSocket disconnect-code cases are not included. The seven new TestClient partial-response, StreamingResponse callback, empty WSGI iterable, invalid initial WebSocketEndpoint, mutable WebSocket scope, explicit-None Request receive, and tuple CORS response-header cases are also outside that run. The stateful StaticFiles PathLike, UploadFile write-error, BackgroundTasks live-list mutation, and StreamingResponse caller-cancellation comparisons are also outside that run. |
+| Implementation | In progress. | `make contract-check` validates 2,233 cases across 258 parity inputs, 136 compatibility operations, 12 native operations, and 1,191 requirements (1,152 compatibility / 39 native), with zero parity passes claimed. `make source-inventory-check` passes with 999 API candidates dispositioned and 843 atlas rows (788 mappings / 55 reasoned not_applicable / zero backlog). The latest batch adds seven unexecuted Response, TestClient, WebSocket, and BackgroundTask cases; Rust now accepts mapping-backed response scopes, exposes FileResponse scope write-back, preserves TestClient denial-body exception context, handles `athrow()` after iterator exhaustion, and expands task `args` before re-reading `kwargs`. The preceding seven-case batch covers TestClient, StreamingResponse, WSGI, WebSocketEndpoint, WebSocket, Request, and CORS. `RUSTC_WRAPPER= make lint check build rustdoc-check` passes. Full parity, coverage, and benchmarks remain deferred until implementation closes; `make docs-check` benchmark evidence must be refreshed during the benchmark phase. |
+| Full parity and grouped repairs | Deferred until implementation closes. | The latest clean run, `dc8c8ca6-f2b7-449b-9f53-45860e3cad4c`, passed 2,254/2,254 comparisons for the preceding 1,992-case, 140-parity-input contract. Later optional-backend, WebSocket authorization, Router truthiness, BaseHTTPMiddleware iterator, StaticFiles path, response-protocol, close-code, TestClient exception, raw TestClient no-response return, custom-regex, Request stream retry, WebSocketEndpoint error-finalization, BaseHTTPMiddleware dispatch short-circuiting, StreamingResponse terminal-send failure, TestClient generator-body buffering, invalid initial WebSocket.accept events, Last-Modified If-Range matching, exception-class MRO precedence, Request receive-error retry, Request body retry after partial receive cancellation, empty root Mount dispatch, lazy StreamingResponse iterator acquisition after a failed response-start send, AsyncIterable descriptor failure after response-start, normal-return incomplete TestClient response, asyncio-marked TestClient ASGI3, WebSocketEndpoint hook-failure/context, bracketed IPv6 Host, StaticFiles `get_response` override, TestClient accepted-session error stream closure and completed-response exception propagation, StreamingResponse gated-send backpressure, WebSocket non-string send-type, BackgroundTask `kwargs` mapping expansion, synchronous WebSocketEndpoint `on_disconnect` failure, multipart rollover lifecycle, supplied-Morsel validation, and missing WebSocket disconnect-code cases are not included. The seven new TestClient partial-response, StreamingResponse callback, empty WSGI iterable, invalid initial WebSocketEndpoint, mutable WebSocket scope, explicit-None Request receive, and tuple CORS response-header cases are also outside that run. The current seven response, TestClient denial-body, WebSocket iterator-exhaustion, and BackgroundTask argument-order cases are likewise unexecuted. The stateful StaticFiles PathLike, UploadFile write-error, BackgroundTasks live-list mutation, and StreamingResponse caller-cancellation comparisons are also outside that run. |
 | Full coverage and source reconciliation | Deferred until the full parity phase. | The latest measured run, `fd5b3b63-9ddc-44bd-bf38-35ecbc260dbe`, covered 19,909/28,139 Rust lines (70.7%) for the preceding contract. |
 | All benchmarks | Deferred until coverage. | The latest run, `13ea2d04-7f31-4c12-93cd-855df93df8b0`, measured 74/74 source/package workloads for the preceding contract: six Router and 68 GZip workloads. |
 | Packaging and interpreter qualification | Complete for the local macOS arm64 build. | Five CPython 3.10–3.14 wheels, an sdist, and the Rust crate were inspected; isolated wheel installs passed public ASGI smoke and `pip check`. Other platform builds remain unqualified. |
@@ -138,9 +149,9 @@ also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
 The active parity contract is `parity-input@49`: the working tree currently
-indexes 2,226 input cases across 253 parity files, two benchmark files, 135
-Starlette compatibility operations, 12 Rust-native operations, and 1,187
-parity requirements (1,148 compatibility and 39 native). The latest clean full parity,
+indexes 2,233 input cases across 258 parity files, two benchmark files, 136
+Starlette compatibility operations, 12 Rust-native operations, and 1,191
+parity requirements (1,152 compatibility and 39 native). The latest clean full parity,
 coverage, and benchmark receipts belong to the preceding 1,992-case, 140-file
 contract. The generated source-row,
 mapping, `not_applicable`, and backlog totals live in

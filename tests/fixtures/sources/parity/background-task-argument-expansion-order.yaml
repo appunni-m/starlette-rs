@@ -1,0 +1,52 @@
+{
+  "schema": "migration-parity/parity-input@49",
+  "cases": [
+    {
+      "case_id": "starlette.responses.Response.asgi-call.background-task-argument-expansion-precedes-kwargs-lookup",
+      "surface": "starlette.responses.Response",
+      "operation": "asgi-call",
+      "covers": [
+        "starlette.responses.Response.asgi-call.background-task-argument-expansion-precedes-kwargs-lookup"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "content": {"kind": "text", "value": "task initiated"},
+      "status_code": 200,
+      "header_pairs": [],
+      "media_type": "text/plain",
+      "scope": {
+        "type": "http",
+        "asgi": {"version": "3.0", "spec_version": "2.4"},
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/background-argument-expansion-order",
+        "raw_path_base64": "L2JhY2tncm91bmQtYXJndW1lbnQtZXhwYW5zaW9uLW9yZGVy",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [],
+        "client": ["127.0.0.1", 12345],
+        "server": ["testserver", 80]
+      },
+      "incoming": [],
+      "send": {"kind": "capture-asgi-send"},
+      "observations": ["asgi-call"],
+      "background": {
+        "kind": "single-task",
+        "tasks": [
+          {
+            "mode": "sync",
+            "args": [],
+            "kwargs": {},
+            "failure": null,
+            "argument_protocol": {
+              "kind": "raise-on-iteration",
+              "exception_class": "RuntimeError",
+              "message": "input args expansion failed before kwargs lookup"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1077,9 +1077,10 @@ impl AwaitableStateMachine for WebSocketIteratorThrow {
                         "athrow(): asynchronous generator is already running",
                     ));
                 }
-                self.finished.set(true);
+                let was_finished = self.finished.replace(true);
                 self.running.set(false);
-                if self.started.get()
+                if !was_finished
+                    && self.started.get()
                     && self
                         .exception
                         .bind(py)

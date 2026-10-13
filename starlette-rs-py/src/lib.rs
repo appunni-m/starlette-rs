@@ -809,7 +809,7 @@ impl PyResponse {
     fn asgi_call_for(
         py: Python<'_>,
         response: &Bound<'_, PyAny>,
-        scope: &Bound<'_, PyDict>,
+        scope: &Bound<'_, PyAny>,
         receive: Py<PyAny>,
         send: Py<PyAny>,
     ) -> PyResult<Py<PyAny>> {
@@ -995,7 +995,7 @@ impl PyResponse {
     fn asgi_call(
         &self,
         py: Python<'_>,
-        scope: &Bound<'_, PyDict>,
+        scope: &Bound<'_, PyAny>,
         receive: Py<PyAny>,
         send: Py<PyAny>,
         response: Py<PyAny>,

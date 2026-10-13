@@ -12,8 +12,11 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-APPLICATION_SURFACE = "starlette.applications.Starlette"
 TYPING_OPERATION = "typing-consumer"
+TYPING_SURFACES = {
+    "starlette.applications.Starlette",
+    "starlette.responses.Response",
+}
 TYPING_OBSERVATION = "typing_consumer"
 _DIAGNOSTIC = re.compile(
     r"^(?P<file>.+?):(?P<line>\d+)(?::(?P<column>\d+))?: "
@@ -74,11 +77,8 @@ def _diagnostics(
 
 def run_application_typing_case(case: dict[str, Any]) -> dict[str, Any]:
     """Type-check the exact Python consumer source supplied by a parity input."""
-    if (case.get("surface"), case.get("operation")) != (
-        APPLICATION_SURFACE,
-        TYPING_OPERATION,
-    ):
-        raise ValueError("application typing adapter received an unrelated operation")
+    if case.get("surface") not in TYPING_SURFACES or case.get("operation") != TYPING_OPERATION:
+        raise ValueError("Starlette typing adapter received an unrelated operation")
 
     import starlette
 

@@ -1,0 +1,53 @@
+{
+  "schema": "migration-parity/parity-input@49",
+  "cases": [
+    {
+      "case_id": "starlette.testclient.TestClient.websocket-session.denial-body-app-error-context",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "websocket-session",
+      "covers": [
+        "starlette.testclient.TestClient.websocket-session.scope-projection",
+        "starlette.testclient.TestClient.websocket-session.denial-body-app-error-context",
+        "starlette.testclient.TestClient.websocket-session.portal-cleanup"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "observations": ["websocket-session"],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": ["testclient", 50000],
+        "headers": [],
+        "backend": "asyncio",
+        "backend_options": {}
+      },
+      "websocket": {
+        "url": "/denial-body-error",
+        "subprotocols": [],
+        "headers": [],
+        "actions": []
+      },
+      "asgi_app": {
+        "kind": "asgi3",
+        "scope_fields": ["type", "path"],
+        "actions": [
+          {"operation": "receive"},
+          {
+            "operation": "send",
+            "message": {
+              "type": "websocket.http.response.start",
+              "status": 503,
+              "headers_base64_pairs": []
+            }
+          },
+          {
+            "operation": "raise",
+            "exception_class": "RuntimeError",
+            "message": "denial body failed"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -11,6 +11,7 @@ from starlette_rs_py import _core
 
 from starlette.background import BackgroundTask
 from starlette.datastructures import URL, MutableHeaders
+from starlette.types import Scope
 
 _ContentChunk = str | bytes | memoryview
 _ContentStream = Iterable[_ContentChunk] | AsyncIterable[_ContentChunk]
@@ -110,7 +111,7 @@ class Response:
         return _core.Response.wrap_denial_send(send)
 
     async def __call__(
-        self, scope: dict[str, Any], receive: Callable[..., Any], send: Callable[..., Any]
+        self, scope: Scope, receive: Callable[..., Any], send: Callable[..., Any]
     ) -> None:
         await _core.Response.asgi_call_for(self, scope, receive, send)
 
@@ -155,7 +156,7 @@ class StreamingResponse(Response):
         await _core.StreamingResponse.listen_for(receive)
 
     async def __call__(
-        self, scope: dict[str, Any], receive: Callable[..., Any], send: Callable[..., Any]
+        self, scope: Scope, receive: Callable[..., Any], send: Callable[..., Any]
     ) -> None:
         await _core.StreamingResponse.call_for(self, scope, receive, send)
 
@@ -196,7 +197,7 @@ class FileResponse(Response):
         _core.Response.set_stat_headers(self, stat_result)
 
     async def __call__(
-        self, scope: dict[str, Any], receive: Callable[..., Any], send: Callable[..., Any]
+        self, scope: Scope, receive: Callable[..., Any], send: Callable[..., Any]
     ) -> None:
         await _core.FileResponse.call_for(self, scope, receive, send)
 

@@ -76,6 +76,21 @@ APPLICATION_TYPING_CONSUMER_OPERATION = (
 )
 APPLICATION_TYPING_CONSUMER_REQUIREMENT = "starlette.applications.Starlette.python-typing-contract"
 APPLICATION_TYPING_CONSUMER_OBSERVATION = "typing_consumer"
+RESPONSE_TYPING_CONSUMER_OPERATION = ("starlette.responses.Response", "typing-consumer")
+RESPONSE_TYPING_CONSUMER_REQUIREMENT = (
+    "starlette.responses.Response.python-typing-contract.mutable-mapping-scope"
+)
+TYPING_CONSUMER_SPECS = {
+    APPLICATION_TYPING_CONSUMER_OPERATION: (
+        "starlette.applications.Starlette.typing-consumer.public-facade-aliases",
+        APPLICATION_TYPING_CONSUMER_REQUIREMENT,
+    ),
+    RESPONSE_TYPING_CONSUMER_OPERATION: (
+        "starlette.responses.Response.typing-consumer.scope-mutable-mapping",
+        RESPONSE_TYPING_CONSUMER_REQUIREMENT,
+    ),
+}
+TYPING_CONSUMER_OPERATIONS = frozenset(TYPING_CONSUMER_SPECS)
 STARLETTE_SUBCLASS_BUILDER_REQUIREMENT = (
     "starlette.applications.Starlette.__call__.middleware-stack-subclass-override"
 )
@@ -348,6 +363,7 @@ TESTCLIENT_WEBSOCKET_REQUIREMENTS = {
     "application_exception": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.application-exception-propagation",
     "entry_cleanup_error_precedence": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.entry-cleanup-error-precedence",
     "app_error_stream_closure": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.app-error-closes-client-stream",
+    "denial_body_app_error_context": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.denial-body-app-error-context",
     "app_error_wins_cleanup_close_error": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.app-error-wins-cleanup-close-error",
     "duplicate_disconnect": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.duplicate-disconnect-error-propagation",
     "rejected_connection": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.rejected-connection-disconnect",
@@ -1241,6 +1257,7 @@ RESPONSE_BACKGROUND_REQUIREMENTS = {
     "async_task": "starlette.responses.Response.asgi-call.background-async-task",
     "sync_task": "starlette.responses.Response.asgi-call.background-sync-task",
     "kwargs_mapping": "starlette.responses.Response.asgi-call.background-kwargs-mapping-expansion",
+    "argument_expansion_order": "starlette.responses.Response.asgi-call.background-task-argument-expansion-precedes-kwargs-lookup",
     "task_add": "starlette.responses.Response.asgi-call.background-task-add",
     "task_order": "starlette.responses.Response.asgi-call.background-task-order",
     "task_failure": "starlette.responses.Response.asgi-call.background-task-failure-stops",
@@ -2862,7 +2879,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                 or key in VALUE_FORMATTING_OPERATIONS
                 or key in RUST_OWNED_PYTHON_OPERATIONS
                 or key == PUBLIC_API_INSPECTION_OPERATION
-                or key == APPLICATION_TYPING_CONSUMER_OPERATION
+                or key in TYPING_CONSUMER_OPERATIONS
                 or key == QUERY_PARAMS_OPERATION
                 or key == MULTIDICT_OPERATION
                 or key == COMMA_SEPARATED_STRINGS_OPERATION
@@ -3056,7 +3073,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                     elif operation_key in {
                         TESTCLIENT_OPERATION_KEY,
                         TESTCLIENT_PUBLIC_OPERATION,
-                        APPLICATION_TYPING_CONSUMER_OPERATION,
+                        *TYPING_CONSUMER_OPERATIONS,
                     }:
                         expected_parity_profiles = python_profile_ids
                     elif operation_key in PYTHON_VERSION_MATRIX_OPERATIONS:
@@ -4594,11 +4611,7 @@ def _validate_websocket_convenience_case_stimulus(case: dict[str, Any]) -> None:
                     raise ContractError(f"{context} asend requires a connected WebSocket")
                 if arguments["value"] is None:
                     payload = "bytes_base64" if arguments["iterator"] == "iter_bytes" else "text"
-                    message_type = receive_input(context, payload)
-                    if message_type == "websocket.disconnect":
-                        raise ContractError(
-                            f"{context} asend(None) stimulus must include a yielded message"
-                        )
+                    receive_input(context, payload)
             elif control == "athrow":
                 exception = _exact(
                     arguments["exception"], {"class", "message"}, f"{context}.arguments.exception"
@@ -5992,6 +6005,7 @@ def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
             has_callable_shape = False
             has_noncallable_shape = False
             has_live_task_list_mutation = False
+            has_argument_expansion_order = False
             for index, raw_task in enumerate(tasks):
                 context = f"Response background.tasks[{index}]"
                 task_fields = {"mode", "args", "kwargs", "failure"}
@@ -6001,6 +6015,8 @@ def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
                     task_fields.add("kwargs_mapping")
                 if isinstance(raw_task, dict) and "append_tasks" in raw_task:
                     task_fields.add("append_tasks")
+                if isinstance(raw_task, dict) and "argument_protocol" in raw_task:
+                    task_fields.add("argument_protocol")
                 task = _exact(raw_task, task_fields, context)
                 if task["mode"] not in {"sync", "async"}:
                     raise ContractError(f"{context}.mode must be sync or async")
@@ -6038,6 +6054,36 @@ def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
                             raise ContractError(
                                 f"{context}.kwargs_mapping.items[{item_index}] must be a string and string or integer pair"
                             )
+                if "argument_protocol" in task:
+                    protocol = _exact(
+                        task["argument_protocol"],
+                        {"kind", "exception_class", "message"},
+                        f"{context}.argument_protocol",
+                    )
+                    if (
+                        kind != "single-task"
+                        or task["mode"] != "sync"
+                        or task["args"] != []
+                        or task["kwargs"] != {}
+                        or task["failure"] is not None
+                        or "kwargs_mapping" in task
+                        or "callable" in task
+                        or "append_tasks" in task
+                        or background_control is not None
+                    ):
+                        raise ContractError(
+                            f"{context}.argument_protocol requires one plain synchronous task with empty arguments and no cancellation or failure control"
+                        )
+                    if protocol["kind"] != "raise-on-iteration":
+                        raise ContractError(
+                            f"{context}.argument_protocol.kind must be raise-on-iteration"
+                        )
+                    if protocol["exception_class"] != "RuntimeError":
+                        raise ContractError(
+                            f"{context}.argument_protocol.exception_class must be RuntimeError"
+                        )
+                    _string(protocol["message"], f"{context}.argument_protocol.message")
+                    has_argument_expansion_order = True
                 if "append_tasks" in task:
                     if kind != "task-list":
                         raise ContractError(
@@ -6156,6 +6202,10 @@ def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
                     has_callable_shape |= callable_kind != "function"
 
             if background_control is not None:
+                if has_argument_expansion_order:
+                    raise ContractError(
+                        "Response background argument expansion cannot be combined with cancellation control"
+                    )
                 if has_callable_shape or has_live_task_list_mutation:
                     raise ContractError(
                         "Response background cancellation requires plain callbacks without live list mutation"
@@ -6192,6 +6242,8 @@ def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
                     raise ContractError(
                         "Response background cancellation requires one task or a BackgroundTasks list"
                     )
+            elif has_argument_expansion_order:
+                derived = [RESPONSE_BACKGROUND_REQUIREMENTS["argument_expansion_order"]]
             elif has_noncallable_shape:
                 derived = [RESPONSE_BACKGROUND_REQUIREMENTS["sync_noncallable_error"]]
             elif has_live_task_list_mutation:
@@ -16579,6 +16631,15 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
         and app_actions[1].get("operation") == "raise"
     )
     app_error_cleanup_close_error_workflow = app_error_stream_closure_workflow and no_client_actions
+    denial_body_app_error_context_workflow = (
+        no_client_actions
+        and isinstance(app_actions, list)
+        and len(app_actions) == 3
+        and all(isinstance(action, dict) for action in app_actions)
+        and [action.get("operation") for action in app_actions] == ["receive", "send", "raise"]
+        and isinstance(app_actions[1].get("message"), dict)
+        and app_actions[1]["message"].get("type") == "websocket.http.response.start"
+    )
     app_entry_cleanup_error_precedence_workflow = (
         isinstance(app_actions, list)
         and len(app_actions) == 2
@@ -16700,6 +16761,59 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
         if set(case["covers"]) != expected_covers:
             raise ContractError(
                 "TestClient post-accept denial covers must include handshake, denial response, and cleanup"
+            )
+        return
+    if denial_body_app_error_context_workflow:
+        if settings["raise_server_exceptions"] is not True:
+            raise ContractError("TestClient denial-body error cases require server exceptions")
+        _exact(app_actions[0], {"operation"}, "TestClient denial-body connect action")
+        start_action = _exact(
+            app_actions[1], {"operation", "message"}, "TestClient denial-body response start"
+        )
+        if start_action["operation"] != "send":
+            raise ContractError("TestClient denial-body app must send its response start")
+        start_message = _exact(
+            start_action["message"],
+            {"type", "status", "headers_base64_pairs"},
+            "TestClient denial-body response start message",
+        )
+        if start_message["type"] != "websocket.http.response.start":
+            raise ContractError("TestClient denial-body app must start an HTTP denial response")
+        status_code = start_message["status"]
+        if type(status_code) is not int or not 100 <= status_code <= 599:
+            raise ContractError("TestClient denial-body status must be an HTTP status code")
+        denial_headers = start_message["headers_base64_pairs"]
+        if not isinstance(denial_headers, list):
+            raise ContractError("TestClient denial-body headers must be an array")
+        for index, pair in enumerate(denial_headers):
+            if not isinstance(pair, list) or len(pair) != 2:
+                raise ContractError(
+                    f"TestClient denial-body headers[{index}] must contain two base64 strings"
+                )
+            for part, value in zip(("name", "value"), pair, strict=True):
+                validate_base64(value, f"TestClient denial-body header {index} {part}")
+        raise_action = _exact(
+            app_actions[2],
+            {"operation", "exception_class", "message"},
+            "TestClient denial-body application exception",
+        )
+        exception_class = _string(
+            raise_action["exception_class"], "TestClient denial-body exception class"
+        )
+        exception_type = getattr(builtins, exception_class, None)
+        if not isinstance(exception_type, type) or not issubclass(exception_type, Exception):
+            raise ContractError(
+                "TestClient denial-body exception class must name a built-in Exception"
+            )
+        _string(raise_action["message"], "TestClient denial-body exception message")
+        expected_covers = {
+            TESTCLIENT_WEBSOCKET_REQUIREMENTS["scope"],
+            TESTCLIENT_WEBSOCKET_REQUIREMENTS["denial_body_app_error_context"],
+            TESTCLIENT_WEBSOCKET_REQUIREMENTS["portal_cleanup"],
+        }
+        if set(case["covers"]) != expected_covers:
+            raise ContractError(
+                "TestClient denial-body covers must match exception context and portal cleanup"
             )
         return
     if application_exception_workflow:
@@ -18624,47 +18738,39 @@ def _validate_public_api_inspection_case(
     return case
 
 
-def _validate_application_typing_consumer_case(
+def _validate_typing_consumer_case(
     case: Any,
     manifest: dict[str, Any],
 ) -> dict[str, Any]:
     expected_keys = (CASE_KEYS - {"steps", "execution_schedule"}) | {"typing_consumer"}
-    _exact(case, expected_keys, "Starlette application typing consumer case")
-    if (case["surface"], case["operation"]) != APPLICATION_TYPING_CONSUMER_OPERATION:
-        raise ContractError("Starlette application typing consumer selected another operation")
-    if case["case_id"] != "starlette.applications.Starlette.typing-consumer.public-facade-aliases":
-        raise ContractError(
-            "Starlette application typing consumer case ID is not the declared input"
-        )
+    _exact(case, expected_keys, "Starlette typing consumer case")
+    operation_key = (case["surface"], case["operation"])
+    expected_case_id, requirement_id = TYPING_CONSUMER_SPECS[operation_key]
+    if case["case_id"] != expected_case_id:
+        raise ContractError("Starlette typing consumer case ID is not the declared input")
     if case["target_profiles"] != list(PYTHON_PROFILE_IDS):
-        raise ContractError(
-            "Starlette application typing consumer selects every supported Python profile"
-        )
+        raise ContractError("Starlette typing consumer selects every supported Python profile")
     if case["assets"] != [] or case["observations"] != [APPLICATION_TYPING_CONSUMER_OBSERVATION]:
-        raise ContractError(
-            "Starlette application typing consumer selects one observation and no assets"
-        )
-    if case["covers"] != [APPLICATION_TYPING_CONSUMER_REQUIREMENT]:
-        raise ContractError(
-            "Starlette application typing consumer must cover its declared requirement"
-        )
+        raise ContractError("Starlette typing consumer selects one observation and no assets")
+    if case["covers"] != [requirement_id]:
+        raise ContractError("Starlette typing consumer must cover its declared requirement")
 
     operation = next(
         (
             item
             for surface in _all_manifest_surfaces(manifest)
             for item in surface["operations"]
-            if (surface["id"], item["id"]) == APPLICATION_TYPING_CONSUMER_OPERATION
+            if (surface["id"], item["id"]) == operation_key
         ),
         None,
     )
     if operation is None:
-        raise ContractError("Starlette application typing consumer is not declared in the manifest")
+        raise ContractError("Starlette typing consumer is not declared in the manifest")
     if {parameter["id"] for parameter in operation["source"]["parameters"]} != {"source"}:
-        raise ContractError("Starlette application typing consumer must declare only source text")
+        raise ContractError("Starlette typing consumer must declare only source text")
     requirements = {requirement["id"] for requirement in operation["requirements"]}
-    if APPLICATION_TYPING_CONSUMER_REQUIREMENT not in requirements:
-        raise ContractError("Starlette application typing requirement is not declared")
+    if requirement_id not in requirements:
+        raise ContractError("Starlette typing consumer requirement is not declared")
 
     consumer = _exact(case["typing_consumer"], {"source"}, "Starlette typing consumer")
     source = consumer["source"]
@@ -19754,9 +19860,9 @@ def _validate_case_payload(
         return _validate_public_api_inspection_case(case, manifest, public_modules)
     if (
         isinstance(case, dict)
-        and (case.get("surface"), case.get("operation")) == APPLICATION_TYPING_CONSUMER_OPERATION
+        and (case.get("surface"), case.get("operation")) in TYPING_CONSUMER_OPERATIONS
     ):
-        return _validate_application_typing_consumer_case(case, manifest)
+        return _validate_typing_consumer_case(case, manifest)
     if (
         isinstance(case, dict)
         and (case.get("surface"), case.get("operation")) == EXCEPTION_MIDDLEWARE_TYPING_OPERATION
@@ -20418,6 +20524,8 @@ def _validate_case_payload(
                 "background_task",
                 "protocols",
                 "call_override",
+                "scope_container",
+                "scope_headers_container",
             }
             & case.keys()
         )
@@ -34553,9 +34661,9 @@ def validate_previous_input_v45_document(
             raise ContractError(
                 "parity-input@45 does not allow Rust-native lifespan-only target selection"
             )
-        if (case.get("surface"), case.get("operation")) == APPLICATION_TYPING_CONSUMER_OPERATION:
+        if (case.get("surface"), case.get("operation")) in TYPING_CONSUMER_OPERATIONS:
             raise ContractError(
-                "parity-input@45 does not allow the Starlette typing-consumer operation"
+                "parity-input@45 does not allow Starlette typing-consumer operations"
             )
         if (case.get("surface"), case.get("operation")) == PUBLIC_API_INSPECTION_OPERATION:
             raise ContractError("parity-input@45 does not allow public API inspection")
@@ -38473,6 +38581,17 @@ def _validate_response_consumer_case(case: dict[str, Any]) -> None:
             "Response consumers require the installed Python package without assets"
         )
     expected_requirements = [case["surface"] + ".consumer-construction.public-render-and-asgi"]
+    scope_headers_container = case.get("scope_headers_container", "list")
+    if scope_headers_container not in {"list", "tuple"}:
+        raise ContractError("Response scope_headers_container must be list or tuple")
+    if scope_headers_container == "tuple":
+        if case["surface"] != "starlette.responses.FileResponse":
+            raise ContractError(
+                "Tuple scope headers are declared for the FileResponse mapping case"
+            )
+        expected_requirements.append(
+            "starlette.responses.FileResponse.consumer-construction.scope-header-list-writeback"
+        )
     call_override = case.get("call_override")
     if call_override is not None:
         call_override = _exact(
@@ -38689,6 +38808,10 @@ def _validate_response_consumer_case(case: dict[str, Any]) -> None:
     if (file_response or call_override is not None) and "extensions" in case["scope"]:
         fields |= {"extensions"}
     scope = _exact(case["scope"], fields, "Response consumer ASGI scope")
+    if case.get("scope_container", "dict") not in {"dict", "user-dict"}:
+        raise ContractError("Response consumer scope_container must be dict or user-dict")
+    if scope_headers_container == "tuple" and case.get("scope_container", "dict") != "user-dict":
+        raise ContractError("Tuple scope-header writeback requires the UserDict scope input")
     if scope["type"] not in {"http", "websocket"} or not isinstance(scope["path"], str):
         raise ContractError("Response consumers require an HTTP or WebSocket scope")
     if variant:

@@ -419,6 +419,7 @@
       "build/parity/inputs/parity/streaming-response-backpressure.json",
       "build/parity/inputs/parity/websocket-convenience.json",
       "build/parity/inputs/parity/websocket-iterator-disconnect-athrow.json",
+      "build/parity/inputs/parity/websocket-iterator-disconnect-athrow-after-exhaustion.json",
       "build/parity/inputs/parity/exception-values.json",
       "build/parity/inputs/parity/host-routing.json",
       "build/parity/inputs/parity/host-routing-native-port.json",
@@ -514,6 +515,7 @@
       "build/parity/inputs/parity/fault-contracts.json",
       "build/parity/inputs/parity/testclient-websocket.json",
       "build/parity/inputs/parity/testclient-websocket-entry-cleanup-error.json",
+      "build/parity/inputs/parity/testclient-websocket-denial-body-error.json",
       "build/parity/inputs/parity/testclient-websocket-denial-after-accept.json",
       "build/parity/inputs/parity/testclient-websocket-server-port-preservation.json",
       "build/parity/inputs/parity/testclient-websocket-routing.json",
@@ -551,6 +553,8 @@
       "build/parity/inputs/parity/response-cookie-raw-control-order.json",
       "build/parity/inputs/parity/response-cookie-ownership.json",
       "build/parity/inputs/parity/response-variants.json",
+      "build/parity/inputs/parity/response-mutable-scope.json",
+      "build/parity/inputs/parity/response-typing-consumer.json",
       "build/parity/inputs/parity/templating-protocols.json",
       "build/parity/inputs/parity/optional-imports.json",
       "build/parity/inputs/parity/optional-testclient-missing-backend.json",
@@ -561,6 +565,7 @@
       "build/parity/inputs/parity/application-typing-consumer.json",
       "build/parity/inputs/parity/application-exception-bool-int-key.json",
       "build/parity/inputs/parity/background-task-sync-noncallable.json",
+      "build/parity/inputs/parity/background-task-argument-expansion-order.json",
       "build/parity/inputs/parity/request-cached-headers-scope-replacement.json",
       "build/parity/inputs/parity/static-files-named-timezone.json",
       "build/parity/inputs/parity/static-files-omitted-timezone.json",
@@ -18105,7 +18110,18 @@
             {
               "id": "starlette.responses.FileResponse.consumer-construction.public-render-and-asgi",
               "dimension": "boundary",
-              "description": "Compare input-derived FileResponse construction, subclass init_headers and attribute protocols, mutable public values, error identity and ASGI outcomes against the pinned source. Source: starlette/responses.py; docs/responses.md.",
+              "description": "Compare input-derived FileResponse construction, subclass init_headers and attribute protocols, mutable public values, error identity and ASGI outcomes against the pinned source, including MutableMapping scope inputs. Source: starlette/responses.py; starlette/types.py:11-23; docs/responses.md.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.FileResponse.consumer-construction.scope-header-list-writeback",
+              "dimension": "boundary",
+              "description": "Pass a UserDict scope whose headers value is a tuple to FileResponse; compare the public post-call scope and verify Headers(scope=scope) writes its list copy back through the original MutableMapping. Pinned source: starlette/datastructures.py:505-530; starlette/responses.py:341-359.",
               "lanes": [
                 "parity"
               ],
@@ -19107,6 +19123,108 @@
       "storage_slug": "starlette-responses-Response",
       "operations": [
         {
+          "id": "typing-consumer",
+          "kind": "value_operation",
+          "classification": "non_endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.responses.Response.__call__, StreamingResponse.__call__, FileResponse.__call__; starlette.types.Scope",
+            "signature": "Mypy consumer(source: str) -> normalized diagnostics",
+            "parameters": [
+              {
+                "id": "source",
+                "style": "option",
+                "value_types": [
+                  "string"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "typing_consumer",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "out_of_scope",
+                "reason": "Python static typing metadata is part of the starlette.* facade contract; the Rust-native API has independent Rust signatures.",
+                "authority": "AGENTS.md Python typing and Rust-native API rules"
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.responses.Response, StreamingResponse, FileResponse and starlette.types.Scope",
+              "signature": "Pinned Mypy consumer against the installed Python package",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.responses.Response.python-typing-contract.mutable-mapping-scope",
+              "dimension": "type_contract",
+              "description": "Type-check that Response, StreamingResponse, and FileResponse accept the pinned starlette.types.Scope = MutableMapping[str, Any] contract, including a UserDict scope consumer. Pinned source: starlette/types.py:11-23; starlette/responses.py:163-179,257-283,341-376.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython310",
+              "python-package-cpython311",
+              "python-package-cpython312",
+              "python-package-cpython313",
+              "python-package-cpython314"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "Static consumer type checking makes no runtime code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "Static consumer type checking has no runtime benchmark boundary."
+          }
+        },
+        {
           "id": "asgi-call",
           "kind": "protocol_operation",
           "classification": "endpoint",
@@ -19674,6 +19792,17 @@
               ]
             },
             {
+              "id": "starlette.responses.Response.asgi-call.background-task-argument-expansion-precedes-kwargs-lookup",
+              "dimension": "error_path",
+              "description": "For a synchronous BackgroundTask, raise from iteration of its mutable args before looking up its deleted kwargs attribute; compare the post-response-send error to preserve Python's left-to-right call argument expansion. Pinned source: starlette/background.py:19-23.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.responses.Response.asgi-call.background-task-live-list-mutation",
               "dimension": "protocol_variant",
               "description": "Compare BackgroundTasks iteration when an awaited callback appends new BackgroundTask instances directly to the same public tasks list. Preserve Python list-iterator growth semantics, callback order, and propagation of an appended callback error after earlier callbacks complete. Pinned source: starlette/background.py:26-36; starlette/responses.py:163-170; docs/background.md:42-78. All callback actions and task values are input-derived.",
@@ -19900,7 +20029,7 @@
             {
               "id": "starlette.responses.Response.consumer-construction.public-render-and-asgi",
               "dimension": "boundary",
-              "description": "Compare documented Response constructor and render consumers with the live pin: text, bytes, nested JSON, class defaults, input-defined subclass render hooks, charset, status and body mutations, exact errors, background ordering, and HTTP/WebSocket ASGI messages. Pinned source: starlette/responses.py:29-200; docs/responses.md:10-118. User code and every callback stimulus are input-derived.",
+              "description": "Compare documented Response constructor and render consumers with the live pin: text, bytes, nested JSON, class defaults, input-defined subclass render hooks, charset, status and body mutations, exact errors, background ordering, HTTP/WebSocket ASGI messages, and MutableMapping scope inputs. Pinned source: starlette/responses.py:29-200; starlette/types.py:11-23; docs/responses.md:10-118. User code and every callback stimulus are input-derived.",
               "lanes": [
                 "parity"
               ],
@@ -20880,7 +21009,7 @@
             {
               "id": "starlette.responses.StreamingResponse.consumer-construction.public-render-and-asgi",
               "dimension": "boundary",
-              "description": "Compare input-derived StreamingResponse construction, subclass init_headers and attribute protocols, mutable public values, error identity and ASGI outcomes against the pinned source. Source: starlette/responses.py; docs/responses.md.",
+              "description": "Compare input-derived StreamingResponse construction, subclass init_headers and attribute protocols, mutable public values, error identity and ASGI outcomes against the pinned source, including MutableMapping scope inputs. Source: starlette/responses.py; starlette/types.py:11-23; docs/responses.md.",
               "lanes": [
                 "parity"
               ],
@@ -27803,7 +27932,7 @@
             {
               "id": "starlette.websocket.api.iterator.athrow",
               "dimension": "boundary",
-              "description": "Call athrow with input-supplied exception types on the public WebSocket text iterator, including a built-in exception before the first yield and WebSocketDisconnect after the first yield, and observe its result or error.",
+              "description": "Call athrow with input-supplied exception types on the public WebSocket text iterator, including a built-in exception before the first yield, WebSocketDisconnect after the first yield, and WebSocketDisconnect after iterator exhaustion, and observe its result or error.",
               "lanes": [
                 "parity"
               ],
@@ -29876,6 +30005,17 @@
               "id": "starlette.testclient.TestClient.websocket-session.app-error-closes-client-stream",
               "dimension": "error_path",
               "description": "After a WebSocket handshake, an application failure closes the app-to-client stream so an in-session receive observes anyio.EndOfStream, then context cleanup separately propagates the original app exception. Pinned source: starlette/testclient.py:115-148,184-190.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.websocket-session.denial-body-app-error-context",
+              "dimension": "error_path",
+              "description": "When a pre-acceptance denial response body read encounters a closed stream and the application then raises, context cleanup propagates the original application error while retaining anyio.EndOfStream in its __context__. Pinned source: starlette/testclient.py:115-127,150-163 and the pinned contextlib.ExitStack behavior.",
               "lanes": [
                 "parity"
               ],

@@ -1,0 +1,96 @@
+{
+  "schema": "migration-parity/parity-input@49",
+  "cases": [
+    {
+      "case_id": "starlette.responses.Response.consumer-construction.mutable-mapping-scope",
+      "surface": "starlette.responses.Response",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.Response.consumer-construction.public-render-and-asgi"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "observations": ["response-consumer"],
+      "construction": {
+        "content": {"kind": "text", "value": "response"},
+        "omit_content": false,
+        "kwargs": {},
+        "class_attributes": {},
+        "render": {"kind": "default"}
+      },
+      "post_init_attributes": {},
+      "scope": {"type": "http", "path": "/response"},
+      "scope_container": "user-dict",
+      "send_failure": null,
+      "background_label": null
+    },
+    {
+      "case_id": "starlette.responses.StreamingResponse.consumer-construction.mutable-mapping-scope",
+      "surface": "starlette.responses.StreamingResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.StreamingResponse.consumer-construction.public-render-and-asgi"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "observations": ["response-consumer"],
+      "construction": {
+        "content": {"kind": "text", "value": "stream"},
+        "omit_content": false,
+        "kwargs": {},
+        "class_attributes": {},
+        "render": {"kind": "default"}
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/stream",
+        "method": "GET",
+        "headers": [],
+        "asgi": {"spec_version": "2.4"}
+      },
+      "scope_container": "user-dict",
+      "send_failure": null,
+      "background_label": null
+    },
+    {
+      "case_id": "starlette.responses.FileResponse.consumer-construction.mutable-mapping-scope",
+      "surface": "starlette.responses.FileResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.FileResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.FileResponse.consumer-construction.scope-header-list-writeback"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "observations": ["response-consumer"],
+      "construction": {
+        "content": {
+          "kind": "file",
+          "value": {
+            "name": "payload.txt",
+            "contents_base64": "ZmlsZS1ib2R5",
+            "mtime_seconds": 1700000000.0,
+            "path_kind": "string"
+          }
+        },
+        "omit_content": false,
+        "kwargs": {},
+        "class_attributes": {},
+        "render": {"kind": "default"}
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/file",
+        "method": "GET",
+        "headers": [],
+        "asgi": {"spec_version": "2.4"}
+      },
+      "scope_container": "user-dict",
+      "scope_headers_container": "tuple",
+      "send_failure": null,
+      "background_label": null
+    }
+  ]
+}

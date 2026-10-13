@@ -813,15 +813,9 @@ impl PyWebSocketTestSession {
                                 self.failure_signal_token.as_ref(),
                             ) {
                                 if token.is(expected_token.bind(py)) {
-                                    if self.accepted {
-                                        // The private signal only wakes this path; accepted clients observe
-                                        // the stream's normal EndOfStream after the app task closes it.
-                                        continue;
-                                    }
-                                    let exception = message_dict
-                                        .get_item("exception")?
-                                        .ok_or_else(|| PyKeyError::new_err("exception"))?;
-                                    return Err(PyErr::from_value(exception));
+                                    // Starlette observes stream closure first, then ExitStack retrieves
+                                    // the task error and chains the receive failure as its context.
+                                    continue;
                                 }
                             }
                         }

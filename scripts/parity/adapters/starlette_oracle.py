@@ -507,6 +507,14 @@ def _input_background_tasks(
             raise ValueError("Response background callable shape is unsupported")
         return callback
 
+    class InputArgumentIterable:
+        def __init__(self, exception_class: type[BaseException], message: str) -> None:
+            self.exception_class = exception_class
+            self.message = message
+
+        def __iter__(self) -> Any:
+            raise self.exception_class(self.message)
+
     tasks = []
     for task_index, task_spec in enumerate(spec["tasks"]):
         task_fields = {"mode", "args", "kwargs", "failure"}
@@ -516,6 +524,8 @@ def _input_background_tasks(
             task_fields.add("kwargs_mapping")
         if isinstance(task_spec, dict) and "append_tasks" in task_spec:
             task_fields.add("append_tasks")
+        if isinstance(task_spec, dict) and "argument_protocol" in task_spec:
+            task_fields.add("argument_protocol")
         task_spec = _strict_object(
             task_spec,
             task_fields,
@@ -568,6 +578,18 @@ def _input_background_tasks(
         callback = make_callback(task_index, task_spec)
         if background_tasks is None:
             task = BackgroundTask(callback, *task_spec["args"], **task_spec["kwargs"])
+            if "argument_protocol" in task_spec:
+                protocol = _strict_object(
+                    task_spec["argument_protocol"],
+                    {"kind", "exception_class", "message"},
+                    f"Response background task[{task_index}].argument_protocol",
+                )
+                if protocol["kind"] != "raise-on-iteration":
+                    raise ValueError("Response background argument protocol is unsupported")
+                if protocol["exception_class"] != "RuntimeError":
+                    raise ValueError("Response background argument exception is unsupported")
+                task.args = InputArgumentIterable(RuntimeError, protocol["message"])
+                del task.kwargs
             if "kwargs_mapping" in task_spec:
                 from collections import UserDict
 
@@ -14389,10 +14411,10 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         from scripts.parity.adapters.public_api_inspection import run_public_api_inspection_case
 
         return run_public_api_inspection_case(case)
-    if (case.get("surface"), case.get("operation")) == (
-        "starlette.applications.Starlette",
-        "typing-consumer",
-    ):
+    if (case.get("surface"), case.get("operation")) in {
+        ("starlette.applications.Starlette", "typing-consumer"),
+        ("starlette.responses.Response", "typing-consumer"),
+    }:
         from scripts.parity.adapters.application_typing import run_application_typing_case
 
         return run_application_typing_case(case)

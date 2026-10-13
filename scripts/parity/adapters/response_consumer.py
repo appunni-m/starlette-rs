@@ -10,6 +10,7 @@ import math
 import os
 import tempfile
 import threading
+from collections import UserDict
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import ExitStack
 from pathlib import Path
@@ -365,10 +366,21 @@ def _run_response_consumer_case(case: dict[str, Any], resources: ExitStack) -> d
                 raise send_error
 
         attribute_probe["enabled"] = True
-        scope = dict(case["scope"])
-        scope["headers"] = [
-            tuple(base64.b64decode(item) for item in pair) for pair in scope.get("headers", [])
+        scope_values = dict(case["scope"])
+        scope_headers = [
+            tuple(base64.b64decode(item) for item in pair)
+            for pair in scope_values.get("headers", [])
         ]
+        scope_values["headers"] = (
+            tuple(scope_headers)
+            if case.get("scope_headers_container", "list") == "tuple"
+            else scope_headers
+        )
+        scope = (
+            UserDict(scope_values)
+            if case.get("scope_container", "dict") == "user-dict"
+            else scope_values
+        )
         event_loop_thread_id = threading.get_ident()
         asyncio.run(response(scope, receive, send))
         outcome["completed"] = True
@@ -398,6 +410,8 @@ def _run_response_consumer_case(case: dict[str, Any], resources: ExitStack) -> d
     finally:
         if background_contextvar is not None and background_contextvar_token is not None:
             background_contextvar.reset(background_contextvar_token)
+    if "scope" in locals():
+        outcome["scope_after"] = _observe(dict(scope))
     attribute_probe["enabled"] = False
     if callbacks and outcome["constructed"]:
         outcome["retained_messages"] = _observe(retained_messages)

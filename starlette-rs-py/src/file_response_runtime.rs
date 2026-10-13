@@ -57,7 +57,7 @@ impl PyFileResponse {
     fn call_for(
         py: Python<'_>,
         response: &Bound<'_, PyAny>,
-        scope: &Bound<'_, PyDict>,
+        scope: &Bound<'_, PyAny>,
         receive: Py<PyAny>,
         send: Py<PyAny>,
     ) -> PyResult<Py<PyAny>> {
@@ -371,7 +371,7 @@ impl PyFileResponse {
     fn asgi_call(
         &mut self,
         py: Python<'_>,
-        scope: &Bound<'_, PyDict>,
+        scope: &Bound<'_, PyAny>,
         receive: Py<PyAny>,
         send: Py<PyAny>,
         background: Option<Py<PyAny>>,
@@ -385,27 +385,18 @@ impl PyFileResponse {
         let response =
             self.inner
                 .with_call_time_fields(native_path, display_path, status_code, stat_override);
-        let scope_type = scope
-            .get_item("type")?
-            .ok_or_else(|| PyValueError::new_err("ASGI scope is missing 'type'"))?
-            .extract::<String>()?;
+        let scope_type = scope.get_item("type")?.extract::<String>()?;
         let method = if scope_type == "http" {
-            scope
-                .get_item("method")?
-                .ok_or_else(|| PyValueError::new_err("ASGI HTTP scope is missing 'method'"))?
-                .extract::<String>()?
+            scope.get_item("method")?.extract::<String>()?
         } else {
             String::new()
         };
         let request_headers = scope
-            .get_item("headers")?
-            .map(|value| value.extract::<Vec<(Vec<u8>, Vec<u8>)>>())
-            .transpose()?
-            .unwrap_or_default();
-        let pathsend_extension = match scope.get_item("extensions")? {
-            Some(extensions) => extensions.contains("http.response.pathsend")?,
-            None => false,
-        };
+            .call_method1("get", ("headers", PyList::empty(py)))?
+            .extract::<Vec<(Vec<u8>, Vec<u8>)>>()?;
+        let pathsend_extension = scope
+            .call_method1("get", ("extensions", PyDict::new(py)))?
+            .contains("http.response.pathsend")?;
         let headers_view = self.headers(py)?;
         let view_raw = headers_view.bind(py).getattr("raw")?;
         let view_headers = crate::response_headers_runtime::parse_raw_pairs(&view_raw)?;

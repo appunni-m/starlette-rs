@@ -904,20 +904,30 @@ impl AwaitableStateMachine for BackgroundTaskCall {
     fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
         match input {
             MachineResume::Start => {
-                let task = self.task.borrow(py);
-                let is_async =
+                let is_async = {
+                    let task = self.task.borrow(py);
                     task_attribute(py, "BackgroundTask", "is_async", task.is_async.as_ref())?
-                        .bind(py)
-                        .is_truthy()?;
+                };
+                let is_async = is_async.bind(py).is_truthy()?;
+                let task = self.task.borrow(py);
                 let func = task_attribute(py, "BackgroundTask", "func", task.func.as_ref())?;
                 let args = task_attribute(py, "BackgroundTask", "args", task.args.as_ref())?;
-                let kwargs = task_attribute(py, "BackgroundTask", "kwargs", task.kwargs.as_ref())?;
                 drop(task);
 
+                // Python evaluates the callable and expands `*args` before it
+                // loads and expands `**kwargs`. Iterating `args` can run user
+                // code, so fetch the mutable kwargs attribute only afterward.
+                let args = argument_tuple(py, &args)?;
+                let task = self.task.borrow(py);
+                let kwargs = task_attribute(py, "BackgroundTask", "kwargs", task.kwargs.as_ref())?;
+                drop(task);
+                let kwargs = keyword_mapping_to_dict(py, kwargs.bind(py))?;
+
                 let awaitable = if is_async {
-                    call_with_args_and_kwargs(py, &func, &args, &kwargs)?
+                    func.bind(py).call(&args, Some(&kwargs))?.unbind()
                 } else {
-                    threadpool_awaitable(py, &func, &args, &kwargs)?
+                    let call_args = prepend_positional_arg(py, &func, &args)?;
+                    threadpool_awaitable_expanded(py, &call_args, &kwargs)?
                 };
                 Ok(MachineAction::Await(awaitable))
             }
@@ -1197,29 +1207,22 @@ fn threadpool_awaitable(
     // callable validation at this boundary.
     let args = positional_args(py, func, args)?;
     let kwargs = keyword_mapping_to_dict(py, kwargs.bind(py))?;
+    threadpool_awaitable_expanded(py, &args, &kwargs)
+}
+
+fn threadpool_awaitable_expanded(
+    py: Python<'_>,
+    args: &Bound<'_, PyTuple>,
+    kwargs: &Bound<'_, PyDict>,
+) -> PyResult<Py<PyAny>> {
     let call = py
         .import("functools")?
         .getattr("partial")?
-        .call(&args, Some(&kwargs))?;
+        .call(args, Some(kwargs))?;
     py.import("anyio.to_thread")?
         .getattr("run_sync")?
         .call1((call,))
         .map(Bound::unbind)
-}
-
-fn call_with_args_and_kwargs(
-    py: Python<'_>,
-    func: &Py<PyAny>,
-    args: &Py<PyAny>,
-    kwargs: &Py<PyAny>,
-) -> PyResult<Py<PyAny>> {
-    let args = py
-        .import("builtins")?
-        .getattr("tuple")?
-        .call1((args.bind(py),))?;
-    let args = args.cast_into::<PyTuple>()?;
-    let kwargs = keyword_mapping_to_dict(py, kwargs.bind(py))?;
-    func.bind(py).call(&args, Some(&kwargs)).map(Bound::unbind)
 }
 
 /// Materialize the mapping used by Python's `func(*args, **kwargs)` call.
@@ -1257,11 +1260,24 @@ fn positional_args<'py>(
     leading: &Py<PyAny>,
     args: &Py<PyAny>,
 ) -> PyResult<Bound<'py, PyTuple>> {
+    let args = argument_tuple(py, args)?;
+    prepend_positional_arg(py, leading, &args)
+}
+
+fn argument_tuple<'py>(py: Python<'py>, args: &Py<PyAny>) -> PyResult<Bound<'py, PyTuple>> {
     let args = py
         .import("builtins")?
         .getattr("tuple")?
         .call1((args.bind(py),))?
         .cast_into::<PyTuple>()?;
+    Ok(args)
+}
+
+fn prepend_positional_arg<'py>(
+    py: Python<'py>,
+    leading: &Py<PyAny>,
+    args: &Bound<'py, PyTuple>,
+) -> PyResult<Bound<'py, PyTuple>> {
     let mut items = Vec::with_capacity(args.len() + 1);
     items.push(leading.clone_ref(py));
     for item in args.iter() {
