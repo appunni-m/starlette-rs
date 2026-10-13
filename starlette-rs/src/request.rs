@@ -711,7 +711,15 @@ impl RequestStreamState {
                     self.phase = RequestStreamPhase::CachedTail;
                     return Ok(RequestStreamProgress::CachedBody(cached.to_vec()));
                 }
-                body.check_stream_start()?;
+                if let Err(error) = body.check_stream_start() {
+                    // Request.stream() raises on its first advancement when
+                    // another consumer already exhausted the receive stream.
+                    // An async generator closes after that uncaught error, so
+                    // subsequent advances must be exhausted rather than retry
+                    // the initial Stream consumed check.
+                    self.phase = RequestStreamPhase::Complete;
+                    return Err(error);
+                }
                 self.phase = RequestStreamPhase::Receiving;
                 Ok(RequestStreamProgress::Receive)
             }

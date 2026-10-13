@@ -329,6 +329,62 @@
       ]
     },
     {
+      "case_id": "starlette.requests.Request.body-stream-json.new-stream-after-consumption-closes-after-error",
+      "surface": "starlette.requests.Request",
+      "operation": "body-stream-json",
+      "covers": [
+        "starlette.request.stream-interleaved-iterators",
+        "starlette.request.stream-then-body-consumed"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "http"
+      },
+      "receive": [
+        {
+          "type": "http.request",
+          "body_base64": "Y29uc3VtZWQ=",
+          "more_body": false
+        }
+      ],
+      "blocked_receive_calls": [],
+      "actions": [
+        {
+          "operation": "stream-next",
+          "stream_id": "primary"
+        },
+        {
+          "operation": "stream-next",
+          "stream_id": "after-consumption"
+        },
+        {
+          "operation": "stream-next",
+          "stream_id": "primary"
+        },
+        {
+          "operation": "stream-next",
+          "stream_id": "after-consumption"
+        },
+        {
+          "operation": "stream-next",
+          "stream_id": "primary"
+        },
+        {
+          "operation": "body"
+        }
+      ],
+      "observations": [
+        "request-consumption"
+      ]
+    },
+    {
       "case_id": "starlette.requests.Request.body-stream-json.interleaved-stream-iterators",
       "surface": "starlette.requests.Request",
       "operation": "body-stream-json",
