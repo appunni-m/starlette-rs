@@ -1,0 +1,159 @@
+{
+  "schema": "migration-parity/parity-input@48",
+  "cases": [
+    {
+      "surface": "starlette.requests.Request",
+      "operation": "form",
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "POST",
+        "scheme": "http",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "Y29udGVudC10eXBl",
+            "bXVsdGlwYXJ0L2Zvcm0tZGF0YTsgYm91bmRhcnk9cm9sbG92ZXItcHJvZ3Jlc3MtMjAyNjEwMTM="
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "receive": [
+        {
+          "type": "http.request",
+          "body_base64": "LS1yb2xsb3Zlci1wcm9ncmVzcy0yMDI2MTAxMw0KQ29udGVudC1EaXNwb3NpdGlvbjogZm9ybS1kYXRhOyBuYW1lPSJ1cGxvYWQiOyBmaWxlbmFtZT0ibGFyZ2UuYmluIg0KQ29udGVudC1UeXBlOiBhcHBsaWNhdGlvbi9vY3RldC1zdHJlYW0NCg0KeA==",
+          "more_body": true
+        },
+        {
+          "type": "http.request",
+          "body_repeat": {
+            "pattern_base64": "eA==",
+            "count": 1048576
+          },
+          "more_body": true
+        },
+        {
+          "type": "http.request",
+          "body_base64": "DQotLXJvbGxvdmVyLXByb2dyZXNzLTIwMjYxMDEzLS0NCg==",
+          "more_body": false
+        }
+      ],
+      "form_probe_keys": [],
+      "form_io_trace": true,
+      "form_rollover_event_loop_progress": true,
+      "rollover_progress_timeout_ms": 3000,
+      "form_app": "direct",
+      "observations": [
+        "form"
+      ],
+      "case_id": "starlette.requests.Request.form.multipart-rollover-keeps-event-loop-progress",
+      "covers": [
+        "starlette.request.form.multipart-form-data",
+        "starlette.datastructures.FormData.multidict-lookups",
+        "starlette.datastructures.FormData.close",
+        "starlette.request.form.multipart-file-streaming",
+        "starlette.request.form.multipart-large-file-rollover-worker",
+        "starlette.request.form.multipart-rollover-event-loop-progress"
+      ],
+      "form_close": true
+    },
+    {
+      "surface": "starlette.requests.Request",
+      "operation": "form",
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "POST",
+        "scheme": "http",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "Y29udGVudC10eXBl",
+            "bXVsdGlwYXJ0L2Zvcm0tZGF0YTsgYm91bmRhcnk9cm9sbG92ZXItcHJvZ3Jlc3MtMjAyNjEwMTM="
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "receive": [
+        {
+          "type": "http.request",
+          "body_base64": "LS1yb2xsb3Zlci1wcm9ncmVzcy0yMDI2MTAxMw0KQ29udGVudC1EaXNwb3NpdGlvbjogZm9ybS1kYXRhOyBuYW1lPSJ1cGxvYWQiOyBmaWxlbmFtZT0ibGFyZ2UuYmluIg0KQ29udGVudC1UeXBlOiBhcHBsaWNhdGlvbi9vY3RldC1zdHJlYW0NCg0KeA==",
+          "more_body": true
+        },
+        {
+          "type": "http.request",
+          "body_repeat": {
+            "pattern_base64": "eA==",
+            "count": 1048576
+          },
+          "more_body": true
+        },
+        {
+          "type": "http.request",
+          "body_base64": "DQotLXJvbGxvdmVyLXByb2dyZXNzLTIwMjYxMDEzLS0NCg==",
+          "more_body": false
+        }
+      ],
+      "form_probe_keys": [],
+      "form_io_trace": true,
+      "form_app": "direct",
+      "observations": [
+        "form"
+      ],
+      "case_id": "starlette.requests.Request.form.multipart-rollover-failure-cleans-file-and-retains-size",
+      "covers": [
+        "starlette.request.form.multipart-error-file-cleanup",
+        "starlette.request.form.multipart-large-file-rollover-worker",
+        "starlette.request.form.multipart-rollover-write-failure-size-state"
+      ],
+      "form_error_upload_sizes": true,
+      "file_rollover_error": {
+        "message": "rollover failed"
+      }
+    }
+  ]
+}

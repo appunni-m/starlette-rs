@@ -570,7 +570,11 @@
       "build/parity/inputs/parity/native-websocket.json",
       "build/parity/inputs/parity/native-lifespan.json",
       "build/parity/inputs/parity/routing-base-route-subclass-matches.json",
-      "build/parity/inputs/parity/testclient-status-exceeds-u16.json"
+      "build/parity/inputs/parity/testclient-status-exceeds-u16.json",
+      "build/parity/inputs/parity/request-form-rollover-lifecycle.json",
+      "build/parity/inputs/parity/response-cookie-supplied-morsel-control.json",
+      "build/parity/inputs/parity/testclient-request-body-error-policy.json",
+      "build/parity/inputs/parity/websocket-endpoint-disconnect-missing-code.json"
     ],
     "coverage": [],
     "benchmark": [
@@ -9078,6 +9082,17 @@
               ]
             },
             {
+              "id": "starlette.endpoints.WebSocketEndpoint.dispatch.on-disconnect-missing-code-default",
+              "dimension": "runtime",
+              "description": "When websocket.disconnect omits code, pass the source default close code 1000 to on_disconnect and preserve the dispatch lifecycle. Pinned source: starlette/endpoints.py:82-89; ASGI HTTP and WebSocket specification 2.5 permits the optional disconnect code to be absent.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.endpoints.WebSocketEndpoint.dispatch.decode-default-text",
               "dimension": "protocol_variant",
               "description": "When encoding is None, pass a supplied non-empty text frame to on_receive unchanged. Pinned source: starlette/endpoints.py:116-117; tests/test_endpoints.py::test_websocket_endpoint_on_default; docs/endpoints.md:53-85.",
@@ -15740,6 +15755,36 @@
                 "python-package-cpython313",
                 "python-package-cpython314"
               ]
+            },
+            {
+              "id": "starlette.request.form.multipart-rollover-write-failure-size-state",
+              "dimension": "error_path",
+              "description": "When spooled-file rollover raises during UploadFile.write, retain Starlette’s size update ordering, close parser-created upload files, and propagate the original write error. Pinned source: starlette/datastructures.py:UploadFile.write; starlette/formparsers.py:MultiPartParser.parse.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
+              "id": "starlette.request.form.multipart-rollover-event-loop-progress",
+              "dimension": "runtime",
+              "description": "While parsing and writing a multipart upload larger than the 1 MiB spool threshold, roll the file on a worker thread and allow an event-loop callback to run before rollover returns. Pinned source: starlette/datastructures.py:UploadFile.write; starlette/formparsers.py:MultiPartParser.parse; docs/requests.md:112-170.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
             }
           ],
           "parity": {
@@ -19794,6 +19839,17 @@
               "id": "starlette.responses.Response.consumer-construction.cookie-argument-protocols",
               "dimension": "boundary",
               "description": "Compare input-defined cookie value and attribute str/eq/lower/translate protocols, truth testing, integer subclasses, original callback errors and callback reentry through documented set_cookie/delete_cookie and raw_headers, in source assignment and serialization order. Integer expiry/deletion use a supplied fixed clock on both sides. Source: starlette/responses.py:90-160; docs/responses.md:29-52; CPython 3.12.13 http.cookies SimpleCookie/Morsel. Every argument and callback stimulus comes from input definitions; no expected output is stored.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.Response.consumer-construction.cookie-morsel-control-validation",
+              "dimension": "error_path",
+              "description": "Render an input-supplied http.cookies.Morsel, including attributes changed through Morsel.update(), and preserve CookieError when the final cookie header contains a control character. Pinned sources: starlette/responses.py:Response.set_cookie; CPython 3.12 http.cookies.BaseCookie.output and Morsel.output.",
               "lanes": [
                 "parity"
               ],

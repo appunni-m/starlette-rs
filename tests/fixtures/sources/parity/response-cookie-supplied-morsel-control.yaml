@@ -1,0 +1,63 @@
+{
+  "schema": "migration-parity/parity-input@48",
+  "cases": [
+    {
+      "case_id": "starlette.responses.Response.consumer-construction.cookie-supplied-morsel-control-in-updated-attribute",
+      "surface": "starlette.responses.Response",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.Response.consumer-construction.public-render-and-asgi",
+        "starlette.responses.Response.consumer-construction.cookie-argument-protocols",
+        "starlette.responses.Response.consumer-construction.cookie-morsel-control-validation"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "body"
+        },
+        "omit_content": false,
+        "kwargs": {},
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/cookie-supplied-morsel-control"
+      },
+      "send_failure": null,
+      "background_label": null,
+      "cookie_protocol": [
+        {
+          "operation": "set_cookie",
+          "arguments": {
+            "key": {
+              "kind": "literal",
+              "value": "session"
+            },
+            "value": {
+              "kind": "morsel",
+              "key": "session",
+              "value": "token",
+              "coded_value": "token",
+              "attributes": {
+                "path": "/unsafe\npath"
+              }
+            }
+          },
+          "clock_unix_seconds": 1700000000,
+          "observe_raw_reads": false
+        }
+      ]
+    }
+  ]
+}

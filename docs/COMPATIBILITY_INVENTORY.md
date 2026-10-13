@@ -21,7 +21,7 @@ runtime JSON under ignored `build/parity/inputs/`. Result JSON under
 `build/parity/` is also local, ignored output. These build artifacts are not
 checked in; the run IDs and counts below describe their recorded executions.
 
-The active parity manifest uses `parity-input@48` and currently indexes 2,185 input-only cases across 229 parity files and two benchmark files, with 135 Starlette compatibility operations and 7 separately registered Rust-native operations carrying 1,154 parity requirements (1,131 compatibility and 23 native). The latest implementation batch fixes WSGIMiddleware response-header unpack cardinality, SessionMiddleware tuple response-header normalization, and Response cookie-value control-character translation. Those three input-only cases remain unexecuted until full parity. A further Response cookie input covers CPython raw-value control-character validation before optional attributes. The StaticFiles cases cover lazy configuration errors for a PathLike whose `__str__` differs from `__fspath__`, including missing and non-directory paths; those comparisons are also unexecuted. New StaticFiles inputs cover full and mixed-case English month names, balanced comments before GMT, and a one-digit day accepted by the pinned `email.utils.parsedate` parser; all remain unexecuted. The FileResponse range parser now follows CPython `str.strip()` for U+001C–U+001F separators, with an indexed input-only comparison still awaiting parity. The current batch fixes route-local WebSocket exception ordering in Rust, corrects CPython's `.mjs` FileResponse media type, preserves TestClient cleanup-error propagation, and replaces invalid streamed-generator expectations with the locked HTTP client's body-buffering contract; these inputs are indexed but unexecuted. Earlier inputs cover Request recovery after cancellation during partial stream consumption, Router converter-error ordering, TestClient WebSocket denial handling after accept, FileResponse's CPython 3.12 range-digit limit, StaticFiles trailing-comment date parsing, and WebSocket send errors for unhashable event types. The new lifespan input covers actual exception type and traceback propagation when an exception shadows `__class__`; the typing consumer exercises HTTPConnection, Request, WebSocket, and WebSocketClose callback signatures. UploadFile write-error behavior already matches Starlette and is covered for rolled and in-memory files. The latest implementation batches add ten unexecuted input-only cases across nine files covering BackgroundTask attribute deletion and reassignment, FileResponse range endpoints above `u64::MAX` and empty-filename MIME inference, TestClient WebSocket server ports above `u16` and non-string accepted subprotocol values, arbitrary-precision `SessionMiddleware.max_age`, FormData key preservation without coercion, Host header-name case-insensitive matching, and the unpadded StaticFiles conditional date. A new templating input observes the `url_for` global's `__module__` and `__qualname__`; the Rust callable now preserves both attributes. An HTTPSRedirect input now covers a valid Host header taking precedence over an out-of-range server port. Five new reverse-routing cases cover nested native Host/Mount/WebSocket graphs, partial prefixes, Mount `path` forwarding, ordered name-miss fallback, and source/package-only prefix-formatting error propagation. The native nested comparisons remain unexecuted.
+The active parity manifest uses `parity-input@48` and currently indexes 2,190 input-only cases across 233 parity files and two benchmark files, with 135 Starlette compatibility operations and 7 separately registered Rust-native operations carrying 1,158 parity requirements (1,135 compatibility and 23 native). The latest implementation batch fixes WSGIMiddleware response-header unpack cardinality, SessionMiddleware tuple response-header normalization, and Response cookie-value control-character translation. Those three input-only cases remain unexecuted until full parity. A further Response cookie input covers CPython raw-value control-character validation before optional attributes. The StaticFiles cases cover lazy configuration errors for a PathLike whose `__str__` differs from `__fspath__`, including missing and non-directory paths; those comparisons are also unexecuted. New StaticFiles inputs cover full and mixed-case English month names, balanced comments before GMT, and a one-digit day accepted by the pinned `email.utils.parsedate` parser; all remain unexecuted. The FileResponse range parser now follows CPython `str.strip()` for U+001C–U+001F separators, with an indexed input-only comparison still awaiting parity. The current batch fixes route-local WebSocket exception ordering in Rust, corrects CPython's `.mjs` FileResponse media type, preserves TestClient cleanup-error propagation, and replaces invalid streamed-generator expectations with the locked HTTP client's body-buffering contract; these inputs are indexed but unexecuted. Earlier inputs cover Request recovery after cancellation during partial stream consumption, Router converter-error ordering, TestClient WebSocket denial handling after accept, FileResponse's CPython 3.12 range-digit limit, StaticFiles trailing-comment date parsing, and WebSocket send errors for unhashable event types. The new lifespan input covers actual exception type and traceback propagation when an exception shadows `__class__`; the typing consumer exercises HTTPConnection, Request, WebSocket, and WebSocketClose callback signatures. UploadFile write-error behavior already matches Starlette and is covered for rolled and in-memory files. The latest implementation batches add ten unexecuted input-only cases across nine files covering BackgroundTask attribute deletion and reassignment, FileResponse range endpoints above `u64::MAX` and empty-filename MIME inference, TestClient WebSocket server ports above `u16` and non-string accepted subprotocol values, arbitrary-precision `SessionMiddleware.max_age`, FormData key preservation without coercion, Host header-name case-insensitive matching, and the unpadded StaticFiles conditional date. A new templating input observes the `url_for` global's `__module__` and `__qualname__`; the Rust callable now preserves both attributes. An HTTPSRedirect input now covers a valid Host header taking precedence over an out-of-range server port. Five new reverse-routing cases cover nested native Host/Mount/WebSocket graphs, partial prefixes, Mount `path` forwarding, ordered name-miss fallback, and source/package-only prefix-formatting error propagation. The native nested comparisons remain unexecuted. The newest batch adds five input-only cases across four files for multipart rollover event-loop progress, rollover-failure cleanup and UploadFile size state, supplied-Morsel control-character validation, TestClient generator-body/error-policy behavior, and WebSocketEndpoint’s absent disconnect-code default. Rust now validates the final rendered Morsel header for control characters. All five cases await the deferred full parity phase.
 The newest source-confirmed fixes preserve expired out-of-range
 SessionMiddleware timestamp conversion, propagate StaticFiles secondary
 lookup errors, commit TestClient response-start state only after header
@@ -727,15 +727,18 @@ input-defined 1 MiB-plus payload, checks its size and write-chunk digests, and
 confirms rollover runs outside the request thread. A new direct input injects
 an `OSError` from a write after the rolled and in-memory paths have diverged,
 then observes propagation and `UploadFile.size`; it remains unexecuted until
-the full parity phase. Other rollover error paths remain unproven. Separately,
+the full parity phase. Two more input-only cases exercise event-loop progress
+while rollover runs on a worker and cleanup, error propagation, and size state
+when rollover itself fails. Both remain unexecuted until the full parity phase;
+other rollover error paths remain unproven. Separately,
 the direct workflow in
 [`upload-file.yaml`](../tests/fixtures/sources/parity/upload-file.yaml) maps
 the pinned `test_uploadfile_rolling` case and compares direct
 `UploadFile` reads, writes, seeks, rereads, and close under rolled (1-byte) and
 unrolled (1024-byte) spool thresholds. It passes in the latest integrated
-parity run. The documented worker-thread-identity and event-loop-progress
-boundary remains in the fixture backlog; direct rollover parity does not close
-that row.
+parity run. The worker-thread-identity and event-loop-progress boundary now has an
+input-only case, but its behavior remains unverified until the full parity
+phase; direct rollover parity does not close that row.
 
 ## Rust-native HostPattern matcher slice
 
@@ -763,14 +766,16 @@ lookup remains Python-package only.
 
 ## WebSocketEndpoint dispatch slice
 
-The input-only fixture in
+The input-only fixtures in
 [`websocket-endpoint-dispatch.yaml`](../tests/fixtures/sources/parity/websocket-endpoint-dispatch.yaml)
-contains twelve cases for the documented
+and [`websocket-endpoint-disconnect-missing-code.yaml`](../tests/fixtures/sources/parity/websocket-endpoint-disconnect-missing-code.yaml)
+contain thirteen cases for the documented
 `starlette.endpoints.WebSocketEndpoint` ASGI interface. They cover
 connect/disconnect hooks, offered subprotocols, text and bytes decoding, JSON
 text and binary decoding, malformed and mismatched frames, default encoding,
 callback-error propagation, invalid encoding, empty default-encoding text,
-and cancellation while waiting for the next receive. Every case selects the
+cancellation while waiting for the next receive, and an absent disconnect code.
+Every case selects the
 installed Python-package profile. The current @48 full parity run is deferred;
 the preceding @47 full-run receipt does not establish results for the current
 contract.
@@ -778,9 +783,9 @@ contract.
 The Python wrapper forwards dispatch and decoding to the Rust runtime. User
 hooks remain Python callables invoked and awaited on Python's event loop. The
 Rust-native target does not expose the Python `WebSocketEndpoint` class and
-ASGI consumer interface. Other boundary cases remain unverified, including
-failures from `on_connect` or `on_disconnect`, missing disconnect codes,
-malformed binary JSON, and unexpected ASGI message types.
+ASGI consumer interface. Other boundary cases remain unverified, including failures from
+`on_connect` or `on_disconnect`, malformed binary JSON, and unexpected ASGI
+message types.
 
 ## Import-path candidates
 

@@ -205,6 +205,7 @@ WEBSOCKET_ENDPOINT_REQUIREMENTS = {
     "json_binary": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.decode-json-binary",
     "json_malformed": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.decode-json-malformed",
     "disconnect": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.on-disconnect-close-code",
+    "missing_disconnect_code": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.on-disconnect-missing-code-default",
     "disconnect_error": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.on-disconnect-error-context",
     "disconnect_sync_error": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.on-disconnect-synchronous-error-once",
     "default_text": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.decode-default-text",
@@ -605,8 +606,12 @@ REQUEST_FORM_OPTIONAL_KEYS = {
     "form_file_write_base64",
     "form_close",
     "form_io_trace",
+    "form_rollover_event_loop_progress",
+    "rollover_progress_timeout_ms",
     "receive_error",
     "file_write_error",
+    "file_rollover_error",
+    "form_error_upload_sizes",
     "form_app",
     "form_read_body",
 }
@@ -3344,11 +3349,13 @@ def _validate_websocket_message(
                     raise ContractError(f"{context}.bytes_base64 is invalid base64") from exc
         elif message_type == "websocket.disconnect":
             if set(message) not in (
+                {"type"},
                 {"type", "code"},
+                {"type", "reason"},
                 {"type", "code", "reason"},
             ):
-                raise ContractError(f"{context} must contain type, code, and optional reason")
-            if (
+                raise ContractError(f"{context} must contain type and optional code/reason")
+            if "code" in message and (
                 not isinstance(message["code"], int)
                 or isinstance(message["code"], bool)
                 or message["code"] < 0
@@ -3656,6 +3663,10 @@ def _validate_websocket_endpoint_case_stimulus(case: dict[str, Any]) -> None:
 
         if "websocket.disconnect" in message_types and on_disconnect["kind"] == "record-and-close":
             exercised_requirements.add(WEBSOCKET_ENDPOINT_REQUIREMENTS["disconnect"])
+            if "code" not in incoming[-1]:
+                exercised_requirements.add(
+                    WEBSOCKET_ENDPOINT_REQUIREMENTS["missing_disconnect_code"]
+                )
 
         if "websocket.receive" not in message_types:
             if on_disconnect["kind"] == "raise-runtime-error":
@@ -15015,7 +15026,10 @@ def _validate_testclient_case(
         if case["covers"] != []:
             raise ContractError("fault-contract cases do not claim parity requirements")
     elif set(case["covers"]) != expected_covers:
-        raise ContractError("TestClient covers must match the input app and request workflow")
+        raise ContractError(
+            f"TestClient coverage for {case['case_id']} must match its inputs: "
+            f"expected {sorted(expected_covers)}, got {sorted(case['covers'])}"
+        )
     for index, message in enumerate(messages):
         message_type = message.get("type") if isinstance(message, dict) else None
         if ignored_non_string_type_prefix and index == 0:
@@ -26277,10 +26291,40 @@ def _validate_request_form_case(case: dict[str, Any]) -> None:
         )
     if "form_io_trace" in case and type(case["form_io_trace"]) is not bool:
         raise ContractError("Request.form form_io_trace must be a boolean")
+    rollover_progress = case.get("form_rollover_event_loop_progress", False)
+    if type(rollover_progress) is not bool:
+        raise ContractError("Request.form form_rollover_event_loop_progress must be a boolean")
+    if rollover_progress:
+        timeout_ms = case.get("rollover_progress_timeout_ms")
+        if type(timeout_ms) is not int or timeout_ms <= 0 or timeout_ms > 60_000:
+            raise ContractError(
+                "Request.form rollover progress requires a timeout from 1 to 60000 ms"
+            )
+    elif "rollover_progress_timeout_ms" in case:
+        raise ContractError("Request.form rollover_progress_timeout_ms requires rollover progress")
+    if "form_error_upload_sizes" in case and type(case["form_error_upload_sizes"]) is not bool:
+        raise ContractError("Request.form form_error_upload_sizes must be a boolean")
     receive_error = case.get("receive_error")
     file_write_error = case.get("file_write_error")
-    if receive_error is not None and file_write_error is not None:
-        raise ContractError("Request.form cannot select receive and file-write errors together")
+    file_rollover_error = case.get("file_rollover_error")
+    if (
+        sum(value is not None for value in (receive_error, file_write_error, file_rollover_error))
+        > 1
+    ):
+        raise ContractError("Request.form can select only one receive or file-write error")
+    if file_rollover_error is not None:
+        _exact(file_rollover_error, {"message"}, "Request.form file_rollover_error")
+        if (
+            not isinstance(file_rollover_error["message"], str)
+            or not file_rollover_error["message"]
+            or not case.get("form_io_trace", False)
+            or not case.get("form_error_upload_sizes", False)
+        ):
+            raise ContractError(
+                "Request.form file_rollover_error requires a traced upload-size observation"
+            )
+    elif case.get("form_error_upload_sizes", False):
+        raise ContractError("Request.form form_error_upload_sizes requires file_rollover_error")
     if receive_error is not None:
         _exact(receive_error, {"at_call", "message"}, "Request.form receive_error")
         if (
@@ -26430,6 +26474,25 @@ def _validate_request_form_case(case: dict[str, Any]) -> None:
                     "Request.form file-write-error cases must attempt a write before a later receive"
                 )
             expected_covers = ["starlette.request.form.multipart-error-file-cleanup"]
+        elif file_rollover_error is not None:
+            if form_options or has_file_probes or form_access != "await" or form_app != "direct":
+                raise ContractError(
+                    "Request.form rollover-error cases require a direct ASGI app without probes"
+                )
+            file_data_range = _first_multipart_file_data_range(content_type_header or "", body)
+            if (
+                file_data_range is None
+                or file_data_range[1] - file_data_range[0] <= 1024 * 1024
+                or not any("body_repeat" in message for message in case["receive"])
+            ):
+                raise ContractError(
+                    "Request.form rollover-error cases must exceed the spool threshold"
+                )
+            expected_covers = [
+                "starlette.request.form.multipart-error-file-cleanup",
+                "starlette.request.form.multipart-large-file-rollover-worker",
+                "starlette.request.form.multipart-rollover-write-failure-size-state",
+            ]
         elif receive_error is not None:
             if form_options or has_file_probes or form_access != "await":
                 raise ContractError(
@@ -26515,6 +26578,14 @@ def _validate_request_form_case(case: dict[str, Any]) -> None:
                 expected_covers.append(
                     "starlette.request.form.multipart-large-file-rollover-worker"
                 )
+            if rollover_progress:
+                if not any("body_repeat" in message for message in case["receive"]):
+                    raise ContractError(
+                        "Request.form rollover progress cases must cross the spool threshold"
+                    )
+                expected_covers.append(
+                    "starlette.request.form.multipart-rollover-event-loop-progress"
+                )
     elif content_type is None and not body:
         expected_covers = ["starlette.request.form.empty"]
     else:
@@ -26522,7 +26593,10 @@ def _validate_request_form_case(case: dict[str, Any]) -> None:
             "Request.form supports non-empty URL-encoded forms, bounded valid multipart forms, or an empty body without Content-Type"
         )
     if case["covers"] != expected_covers:
-        raise ContractError("Request.form coverage must match its media type and body input")
+        raise ContractError(
+            f"Request.form coverage for {case['case_id']} must match its input: "
+            f"expected {expected_covers}, got {case['covers']}"
+        )
 
 
 def _validate_status_symbols_case(case: dict[str, Any]) -> None:
@@ -38148,6 +38222,16 @@ def _response_cookie_boundaries(actions: list[Any]) -> list[str]:
     ]
     if any(any(0xD800 <= ord(character) <= 0xDFFF for character in text) for text in texts):
         boundaries.append("cookie-surrogate-encoding-order")
+    if any(
+        spec.get("kind") == "morsel"
+        and any(
+            isinstance(value, str)
+            and any(ord(character) < 0x20 or ord(character) == 0x7F for character in value)
+            for value in spec["attributes"].values()
+        )
+        for spec in values
+    ):
+        boundaries.append("cookie-morsel-control-validation")
     return boundaries
 
 

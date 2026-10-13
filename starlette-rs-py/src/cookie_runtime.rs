@@ -303,6 +303,14 @@ fn header_from_morsel<'py>(
         output.extend([u32::from(';'), u32::from(' ')]);
         output.extend(format_pair(py, &label, &formatted)?);
     }
+    // BaseCookie.output checks the completed Morsel.output string, including
+    // attributes inserted through Morsel.update(), which bypasses __setitem__.
+    if has_control(&output) {
+        return Err(cookie_error(
+            py,
+            "Control characters are not allowed in cookies".to_owned(),
+        )?);
+    }
     // SimpleCookie.output(header="") strips the completed header.
     let text = codepoints_to_python_string(py, &output)?
         .call_method0("strip")?

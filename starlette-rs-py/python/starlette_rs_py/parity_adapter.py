@@ -9328,8 +9328,12 @@ def _run_request_form_case(case: dict[str, Any]) -> dict[str, Any]:
         "form_io_trace",
         "receive_error",
         "file_write_error",
+        "file_rollover_error",
         "form_app",
         "form_read_body",
+        "form_rollover_event_loop_progress",
+        "rollover_progress_timeout_ms",
+        "form_error_upload_sizes",
     ):
         if key in case:
             case_fields.add(key)
@@ -9346,7 +9350,9 @@ def _run_request_form_case(case: dict[str, Any]) -> dict[str, Any]:
     received = 0
     io_trace: list[list[Any]] = []
     tracked_tempfiles: list[Any] = []
+    tracked_uploads: list[Any] = []
     tempfile_write_calls = 0
+    rollover_probe: dict[str, Any] = {}
 
     async def receive() -> dict[str, Any]:
         nonlocal received
@@ -9361,6 +9367,9 @@ def _run_request_form_case(case: dict[str, Any]) -> dict[str, Any]:
 
     async def observe() -> dict[str, Any]:
         request = Request(scope, receive)
+        if case.get("form_rollover_event_loop_progress", False):
+            rollover_probe["loop"] = asyncio.get_running_loop()
+            rollover_probe["timeout_ms"] = case["rollover_progress_timeout_ms"]
         observed_files = []
         try:
             if case.get("form_access", "await") == "context-manager":
@@ -9392,6 +9401,11 @@ def _run_request_form_case(case: dict[str, Any]) -> dict[str, Any]:
                             "temp_files_closed": [file.closed for file in tracked_tempfiles],
                         }
                         if case.get("form_io_trace", False)
+                        else {}
+                    ),
+                    **(
+                        {"upload_sizes_after_error": [upload.size for upload in tracked_uploads]}
+                        if case.get("form_error_upload_sizes", False)
                         else {}
                     ),
                 },
@@ -9590,10 +9604,32 @@ def _run_request_form_case(case: dict[str, Any]) -> dict[str, Any]:
                 return original_write(data)
 
             def observed_rollover() -> Any:
-                result = original_rollover()
+                loop = rollover_probe.get("loop")
+                if loop is not None:
+                    release = threading.Event()
+                    progressed = threading.Event()
+
+                    def release_after_event_loop_progress() -> None:
+                        if not release.is_set():
+                            io_trace.append(["event-loop-progress-during-rollover"])
+                            progressed.set()
+                            release.set()
+
+                    timeout_seconds = rollover_probe["timeout_ms"] / 1000
+                    fallback = threading.Timer(timeout_seconds, release.set)
+                    fallback.daemon = True
+                    fallback.start()
+                    loop.call_soon_threadsafe(release_after_event_loop_progress)
+                    release.wait()
+                    fallback.cancel()
+                    io_trace.append(["spooled-rollover-progress", progressed.is_set()])
                 io_trace.append(
                     ["spooled-rollover-worker", threading.get_ident() != creation_thread]
                 )
+                rollover_error = case.get("file_rollover_error")
+                if rollover_error is not None:
+                    raise OSError(rollover_error["message"])
+                result = original_rollover()
                 return result
 
             def observed_close() -> Any:
@@ -9607,6 +9643,8 @@ def _run_request_form_case(case: dict[str, Any]) -> dict[str, Any]:
             return file
 
         async def observed_upload_write(self: Any, data: bytes) -> None:
+            if case.get("form_error_upload_sizes", False):
+                tracked_uploads.append(self)
             io_trace.append(
                 ["upload-write", self.filename, len(data), hashlib.sha256(data).hexdigest()]
             )
