@@ -25,12 +25,15 @@ with no conventional Python or Rust unit-test suite.
 ## Current implementation status
 
 Implementation remains active for the full Starlette 1.6.0 replacement. The
-working-tree `parity-input@50` contract indexes 2,271 cases across 286
+working-tree `parity-input@51` contract indexes 2,282 cases across 294
 parity input files and two benchmark files, with 136 Starlette compatibility
-operations, 12 native operations, and 1,219 parity requirements (1,180 compatibility and 39 native). The latest
+operations, 12 native operations, and 1,228 parity requirements (1,189 compatibility and 39 native). The latest
 static source-inventory check passed: all 999 API candidates are dispositioned,
 and the generated atlas has 843 source rows with 788 input mappings, 55
 source-backed `not_applicable` rows, and zero backlog items.
+The newest request-dispatch input supplies a preexisting true `scope.app`
+marker and observes `Request.app` after application dispatch; it remains
+unexecuted until the full parity phase.
 The newest source-confirmed implementation inputs cover writable
 `Request._receive` callback replacement between stream chunks, a synchronous
 BackgroundTasks worker error after cancellation, the deprecated

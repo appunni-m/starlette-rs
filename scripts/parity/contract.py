@@ -22335,6 +22335,15 @@ def _validate_case_payload(
                 ),
                 allow_query=case["operation"] == "__call__",
                 allow_lifespan_callback_failures=lifespan_only,
+                allow_scope_app=(
+                    case["operation"] == "request-dispatch"
+                    and bool(app_args["routes"])
+                    and isinstance(app_args["routes"][0], dict)
+                    and isinstance(app_args["routes"][0].get("endpoint"), dict)
+                    and app_args["routes"][0]["endpoint"].get("kind")
+                    == "request-connection-property"
+                    and app_args["routes"][0]["endpoint"].get("property") == "app"
+                ),
             )
     dispatch = (
         next(step for step in reversed(case["steps"]) if step["operation"] == "__call__")

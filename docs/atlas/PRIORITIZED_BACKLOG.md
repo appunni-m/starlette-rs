@@ -9,13 +9,15 @@ incomplete.
 ## Current parity snapshot
 
 Implementation remains the active phase for the full Starlette replacement.
-The working-tree `parity-input@50` contract indexes 2,271 cases across 286
+The working-tree `parity-input@51` contract indexes 2,282 cases across 294
 parity inputs, two benchmark inputs, 136 Starlette compatibility operations,
-12 native operations, and 1,219 parity requirements (1,180 compatibility and
+12 native operations, and 1,228 parity requirements (1,189 compatibility and
 39 native).
 The latest static inventory reports 999/999 API candidates dispositioned and
 843 source rows: 788 input mappings, 55 source-backed `not_applicable` rows,
-and zero fixture backlog. Fixed source denominators are 514 upstream test
+and zero fixture backlog. The newest Request.app input seeds a preexisting
+true `scope.app` marker and observes the public property after dispatch; it
+remains unexecuted. Fixed source denominators are 514 upstream test
 functions and 24 documentation pages. The newest six inputs compare Request receive replacement, BackgroundTasks worker failure after cancellation, empty synchronous StreamingResponse framing, BaseHTTPMiddleware wide status pass-through, StaticFiles root_path/query redirect behavior, and WebSocket accept-send OSError propagation; all remain unexecuted.
 
 The latest clean full parity run, `dc8c8ca6-f2b7-449b-9f53-45860e3cad4c`,
