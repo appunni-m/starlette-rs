@@ -6369,7 +6369,8 @@ def _validate_file_response_case_stimulus(case: dict[str, Any]) -> None:
     if case["media_type"] is not None:
         _string(case["media_type"], "FileResponse.media_type")
     if case["filename"] is not None:
-        _string(case["filename"], "FileResponse.filename")
+        if not isinstance(case["filename"], str):
+            raise ContractError("FileResponse.filename must be a string or null")
     content_disposition_type = case.get("content_disposition_type", "attachment")
     if content_disposition_type not in {"attachment", "inline"}:
         raise ContractError("FileResponse content_disposition_type must be attachment or inline")

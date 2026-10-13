@@ -425,9 +425,12 @@ impl FileResponse {
         options: FileResponseOptions,
     ) -> Result<Self, FileResponseError> {
         let mut raw_headers = normalize_headers(headers)?;
+        // Starlette guesses from `filename or path`, so an empty filename
+        // selects the path for MIME lookup while remaining set for disposition.
         let source = options
             .filename
             .as_deref()
+            .filter(|filename| !filename.is_empty())
             .map_or_else(|| path.clone(), PathBuf::from);
         // CPython's mimetypes table classifies `.mjs` as `text/javascript`,
         // while mime_guess 2.0.5 classifies it as `application/javascript`.

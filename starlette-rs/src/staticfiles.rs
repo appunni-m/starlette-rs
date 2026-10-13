@@ -611,6 +611,8 @@ fn parse_http_date_ignoring_weekday(value: &str) -> Option<SystemTime> {
     let value = normalized_timezone.as_deref().unwrap_or(value);
     let normalized_month = normalize_email_month(value);
     let value = normalized_month.as_deref().unwrap_or(value);
+    let normalized_day = normalize_email_day(value);
+    let value = normalized_day.as_deref().unwrap_or(value);
     if let Ok(timestamp) = httpdate::parse_http_date(value) {
         return Some(timestamp);
     }
@@ -772,6 +774,37 @@ fn email_month_abbreviation(value: &str) -> Option<&'static str> {
     MONTHS.iter().find_map(|(full, abbreviated)| {
         (value.eq_ignore_ascii_case(full) || value.eq_ignore_ascii_case(abbreviated))
             .then_some(*abbreviated)
+    })
+}
+
+/// Pads the single-digit day fields accepted by `email.utils.parsedate` to the
+/// fixed-width form required by `httpdate`.
+fn normalize_email_day(value: &str) -> Option<String> {
+    let (prefix, rest) = value
+        .split_once(',')
+        .map_or((None, value), |(prefix, rest)| (Some(prefix), rest));
+    let whitespace_len = rest.len() - rest.trim_start().len();
+    let date_and_suffix = &rest[whitespace_len..];
+    let token_len = date_and_suffix
+        .find(char::is_whitespace)
+        .unwrap_or(date_and_suffix.len());
+    let date_token = &date_and_suffix[..token_len];
+    let day_end = date_token.find('-').unwrap_or(date_token.len());
+    let day = &date_token[..day_end];
+    if day.len() != 1 || !day.bytes().all(|byte| byte.is_ascii_digit()) {
+        return None;
+    }
+
+    let normalized_token = format!("0{day}{}", &date_token[day_end..]);
+    let normalized_rest = format!(
+        "{}{}{}",
+        &rest[..whitespace_len],
+        normalized_token,
+        &date_and_suffix[token_len..]
+    );
+    Some(match prefix {
+        Some(prefix) => format!("{prefix},{normalized_rest}"),
+        None => normalized_rest,
     })
 }
 
