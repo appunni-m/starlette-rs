@@ -329,13 +329,14 @@ class Mount(BaseRoute):
     def __init__(
         self,
         path: str,
-        app: Callable[..., Any] | None = None,
+        app: ASGIApp | None = None,
         routes: Sequence[BaseRoute] | None = None,
         name: str | None = None,
         *,
         middleware: Sequence[Middleware] | None = None,
         max_body_size: int | None = None,
     ) -> None:
+        self.app: ASGIApp
         (
             self.path,
             _endpoint,
@@ -413,7 +414,8 @@ class Host(BaseRoute):
         "_route_table",
     )
 
-    def __init__(self, host: str, app: Callable[..., Any], name: str | None = None) -> None:
+    def __init__(self, host: str, app: ASGIApp, name: str | None = None) -> None:
+        self.app: ASGIApp
         (
             self.host,
             _endpoint,
