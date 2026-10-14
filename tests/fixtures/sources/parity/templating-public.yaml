@@ -392,6 +392,84 @@
       }
     },
     {
+      "case_id": "starlette.templating.Jinja2Templates.template-public-workflow.context-processors-ordered-overlap-client",
+      "surface": "starlette.templating.Jinja2Templates",
+      "operation": "template-public-workflow",
+      "covers": [
+        "starlette.templating.Jinja2Templates.template-public-workflow.construction",
+        "starlette.templating.Jinja2Templates.template-public-workflow.client-debug-metadata",
+        "starlette.templating.Jinja2Templates.template-public-workflow.context-processors"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "template-public-workflow"
+      ],
+      "template_directories": [
+        {
+          "id": "templates",
+          "path": "templates"
+        }
+      ],
+      "template_files": [
+        {
+          "directory_id": "templates",
+          "path": "index.html",
+          "text": "<html>{{ shared }}|{{ first_only }}|{{ second_only }}|{{ route_only }}</html>"
+        }
+      ],
+      "constructor": {
+        "directory": {
+          "kind": "path",
+          "directory_ids": [
+            "templates"
+          ]
+        },
+        "environment": null
+      },
+      "processor_additions": [],
+      "processor_specs": [
+        {
+          "kind": "sync",
+          "additions": {
+            "shared": "first processor",
+            "first_only": "from first processor"
+          }
+        },
+        {
+          "kind": "sync",
+          "additions": {
+            "shared": "second processor",
+            "second_only": "from second processor"
+          }
+        }
+      ],
+      "consumer": {
+        "kind": "testclient",
+        "debug": true,
+        "routes": [
+          {
+            "path": "/",
+            "name": "homepage",
+            "template_name": "index.html",
+            "context": {
+              "shared": "route context",
+              "route_only": "from route context"
+            }
+          }
+        ],
+        "middleware": [],
+        "requests": [
+          {
+            "method": "GET",
+            "url": "/"
+          }
+        ]
+      }
+    },
+    {
       "case_id": "starlette.templating.Jinja2Templates.template-public-workflow.base-http-middleware-client",
       "surface": "starlette.templating.Jinja2Templates",
       "operation": "template-public-workflow",

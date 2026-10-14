@@ -25,12 +25,16 @@ with no conventional Python or Rust unit-test suite.
 ## Current implementation status
 
 Implementation remains active for the full Starlette 1.6.0 replacement. The
-working-tree `parity-input@52` contract indexes 2,324 cases across 306
-parity input files and two benchmark files, with 138 Starlette compatibility
-operations, 13 native operations, and 1,256 parity requirements (1,214 compatibility and 42 native). The latest
-static source-inventory check passed: all 999 API candidates are dispositioned,
-and the generated atlas has 846 source rows with 791 input mappings, 55
-source-backed `not_applicable` rows, and zero backlog items. The latest Response header-pair, StaticFiles direct and ASGI surrogateescape, and WebSocketEndpoint context comparisons remain unexecuted until the full parity phase.
+working-tree `parity-input@52` contract indexes 2,376 cases across 341
+parity input files and two benchmark files, with 142 Starlette compatibility
+operations, 13 native operations, and 1,292 parity requirements (1,250
+compatibility and 42 native). The contract remains a slice and claims zero
+parity passes. `make contract-check` passed on the current input set; the
+static source-inventory check found 999 dispositioned API candidates and
+851 source rows: 797 input mappings, 54 reasoned `not_applicable` rows, and
+zero backlog. The Request.client typing consumer and overlapping template
+processor input are authored; both comparisons remain deferred to the full
+parity phase.
 The newest request-dispatch input supplies a preexisting true `scope.app`
 marker and observes `Request.app` after application dispatch; it remains
 unexecuted until the full parity phase. The latest batch adds input-only cases
