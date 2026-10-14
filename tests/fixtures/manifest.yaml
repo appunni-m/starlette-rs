@@ -17371,6 +17371,36 @@
               ]
             },
             {
+              "id": "starlette.request.form.multipart-upload-header-wire-order",
+              "dimension": "boundary",
+              "description": "When a multipart file part supplies headers in a nonalphabetic sequence, expose UploadFile.headers.raw in parser callback order with lowercased names and the corresponding raw values. Pinned source: starlette/formparsers.py:205-218, 228-239; starlette/datastructures.py:410-431, 500-542; tests/test_formparsers.py::test_multipart_request_multiple_files_with_headers; docs/requests.md:135-143.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
+              "id": "starlette.request.form.multipart-header-duplicate-occurrences",
+              "dimension": "boundary",
+              "description": "When a multipart file part repeats headers, retain every occurrence in wire order in UploadFile.headers.raw; repeated Content-Disposition callbacks replace the current part value, so the last value selects its public name and filename. Pinned source: starlette/formparsers.py:205-218, 229-245; starlette/datastructures.py:410-431, 500-542.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
               "id": "starlette.request.form.multipart-no-filename",
               "dimension": "boundary",
               "description": "Supply a multipart part with a named file-like Content-Type but no filename parameter; observe that Request.form returns its content as a field value rather than an UploadFile. Pinned source: docs/requests.md:164-170; starlette/formparsers.py:212-243.",
@@ -35796,6 +35826,17 @@
               "id": "starlette.endpoints.HTTPEndpoint.dispatch.direct-asgi-application",
               "dimension": "boundary",
               "description": "Invoke an HTTPEndpoint subclass directly as an ASGI application and observe the response status, headers, bytes, and event order. Pinned source: starlette/endpoints.py:17-62; docs/endpoints.md:5-46.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.endpoints.HTTPEndpoint.dispatch.explicit-head-handler",
+              "dimension": "boundary",
+              "description": "Invoke an HTTPEndpoint subclass with a HEAD scope and distinct get and head methods; observe that the explicit head method is selected for dispatch. Pinned source: starlette/endpoints.py:32-46; docs/endpoints.md:5-46.",
               "lanes": [
                 "parity"
               ],

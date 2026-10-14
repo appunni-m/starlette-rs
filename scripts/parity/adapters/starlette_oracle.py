@@ -8292,23 +8292,27 @@ def _run_http_endpoint_case(case: dict[str, Any]) -> dict[str, Any]:
     if "method_reads" in endpoint_spec:
         endpoint_keys.add("method_reads")
     _strict_object(endpoint_spec, endpoint_keys, "HTTP class endpoint input")
-    if endpoint_spec["kind"] != "http-class-based-endpoint" or len(endpoint_spec["handlers"]) != 1:
-        raise ValueError("HTTPEndpoint input must define one HTTP class handler")
-    handler_spec = endpoint_spec["handlers"][0]
-    _strict_object(handler_spec, {"name", "call_style", "response"}, "HTTP class endpoint handler")
-    response_spec = handler_spec["response"]
-    _strict_object(
-        response_spec,
-        {"kind", "content", "status_code", "media_type"},
-        "HTTP class endpoint response",
-    )
-    if response_spec["kind"] != "plain-text-response" or handler_spec["name"] != "get":
-        raise ValueError("HTTPEndpoint direct input must select its GET plain-text handler")
+    if endpoint_spec["kind"] != "http-class-based-endpoint":
+        raise ValueError("HTTPEndpoint input must define an HTTP class endpoint")
+    handler_specs: dict[str, dict[str, Any]] = {}
+    for handler_spec in endpoint_spec["handlers"]:
+        _strict_object(
+            handler_spec, {"name", "call_style", "response"}, "HTTP class endpoint handler"
+        )
+        response_spec = handler_spec["response"]
+        _strict_object(
+            response_spec,
+            {"kind", "content", "status_code", "media_type"},
+            "HTTP class endpoint response",
+        )
+        if response_spec["kind"] != "plain-text-response":
+            raise ValueError("HTTPEndpoint direct handlers must return plain-text responses")
+        handler_specs[handler_spec["name"]] = handler_spec
 
     caller_thread_id = threading.get_ident()
     handler_thread_hops: list[bool] = []
 
-    def make_response() -> Any:
+    def make_response(response_spec: dict[str, Any]) -> Any:
         handler_thread_hops.append(threading.get_ident() != caller_thread_id)
         return PlainTextResponse(
             content=response_spec["content"],
@@ -8316,16 +8320,29 @@ def _run_http_endpoint_case(case: dict[str, Any]) -> dict[str, Any]:
             media_type=response_spec["media_type"],
         )
 
-    if handler_spec["call_style"] == "sync":
+    class_attributes: dict[str, Any] = {}
+    for name, handler_spec in handler_specs.items():
+        response_spec = handler_spec["response"]
+        if handler_spec["call_style"] == "sync":
 
-        def get(_self: Any, _request: Any) -> Any:
-            return make_response()
-    else:
+            def handler(
+                _self: Any,
+                _request: Any,
+                response_spec: dict[str, Any] = response_spec,
+            ) -> Any:
+                return make_response(response_spec)
+        else:
 
-        async def get(_self: Any, _request: Any) -> Any:
-            return make_response()
+            async def handler(
+                _self: Any,
+                _request: Any,
+                response_spec: dict[str, Any] = response_spec,
+            ) -> Any:
+                return make_response(response_spec)
 
-    endpoint_type = type("InputHTTPEndpoint", (HTTPEndpoint,), {"get": get})
+        class_attributes[name] = handler
+
+    endpoint_type = type("InputHTTPEndpoint", (HTTPEndpoint,), class_attributes)
     scope = _make_scope(case["scope"])
     method_trace: list[str] = []
     if "method_reads" in endpoint_spec:

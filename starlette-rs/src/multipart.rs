@@ -98,6 +98,7 @@ pub enum MultipartFormParseError {
 pub struct MultipartFormParser {
     sender: mpsc::UnboundedSender<Result<Bytes, Infallible>>,
     multipart: Multipart<'static>,
+    raw_header_capture: MultipartHeaderCapture,
     active_field: Option<Field<'static>>,
     active_part: Option<MultipartPartBuilder>,
     events: VecDeque<MultipartFormEvent>,
@@ -111,6 +112,246 @@ pub struct MultipartFormParser {
     fields: usize,
     parts_started: usize,
     complete: bool,
+}
+
+/// Captures multipart part headers before Multer converts them into a map.
+///
+/// Multer owns parsing decisions and errors. This scanner only retains header
+/// blocks so public UploadFile headers can preserve Starlette's callback order
+/// and duplicate occurrences.
+struct MultipartHeaderCapture {
+    opening_boundary: Vec<u8>,
+    field_boundary: Vec<u8>,
+    state: HeaderCaptureState,
+    boundary_prefix: Vec<u8>,
+    marker_prefix: Vec<u8>,
+    header_bytes: Vec<u8>,
+    headers: VecDeque<Vec<(Vec<u8>, Vec<u8>)>>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum HeaderCaptureState {
+    Preamble,
+    BoundaryStart,
+    BoundaryPadding,
+    BoundaryLineFeed,
+    Headers,
+    Body,
+    Done,
+}
+
+impl MultipartHeaderCapture {
+    fn new(boundary: &str) -> Self {
+        let mut opening_boundary = b"--".to_vec();
+        opening_boundary.extend_from_slice(boundary.as_bytes());
+        let mut field_boundary = b"\r\n--".to_vec();
+        field_boundary.extend_from_slice(boundary.as_bytes());
+        Self {
+            opening_boundary,
+            field_boundary,
+            state: HeaderCaptureState::Preamble,
+            boundary_prefix: Vec::with_capacity(2),
+            marker_prefix: Vec::new(),
+            header_bytes: Vec::new(),
+            headers: VecDeque::new(),
+        }
+    }
+
+    fn push(&mut self, bytes: &[u8]) {
+        let mut offset = 0;
+        while offset < bytes.len() {
+            match self.state {
+                HeaderCaptureState::Preamble => {
+                    if let Some(consumed) = find_stream_marker(
+                        &mut self.marker_prefix,
+                        &bytes[offset..],
+                        &self.opening_boundary,
+                    ) {
+                        offset += consumed;
+                        self.state = HeaderCaptureState::BoundaryStart;
+                    } else {
+                        return;
+                    }
+                }
+                HeaderCaptureState::Body => {
+                    if let Some(consumed) = find_stream_marker(
+                        &mut self.marker_prefix,
+                        &bytes[offset..],
+                        &self.field_boundary,
+                    ) {
+                        offset += consumed;
+                        self.state = HeaderCaptureState::BoundaryStart;
+                    } else {
+                        return;
+                    }
+                }
+                HeaderCaptureState::BoundaryStart => {
+                    let needed = 2usize.saturating_sub(self.boundary_prefix.len());
+                    let available = bytes.len().saturating_sub(offset);
+                    let take = needed.min(available);
+                    self.boundary_prefix
+                        .extend_from_slice(&bytes[offset..offset + take]);
+                    offset += take;
+                    if self.boundary_prefix.len() < 2 {
+                        return;
+                    }
+                    if self.boundary_prefix == b"--" {
+                        self.state = HeaderCaptureState::Done;
+                        return;
+                    }
+                    self.state = HeaderCaptureState::BoundaryPadding;
+                    let prefix = std::mem::take(&mut self.boundary_prefix);
+                    for byte in prefix {
+                        self.consume_boundary_suffix_byte(byte);
+                        if self.state == HeaderCaptureState::Done {
+                            return;
+                        }
+                    }
+                }
+                HeaderCaptureState::BoundaryPadding => {
+                    let byte = bytes[offset];
+                    offset += 1;
+                    self.consume_boundary_suffix_byte(byte);
+                    if self.state == HeaderCaptureState::Done {
+                        return;
+                    }
+                }
+                HeaderCaptureState::BoundaryLineFeed => {
+                    let byte = bytes[offset];
+                    offset += 1;
+                    self.state = if byte == b'\n' {
+                        HeaderCaptureState::Headers
+                    } else {
+                        HeaderCaptureState::Done
+                    };
+                    if self.state == HeaderCaptureState::Done {
+                        return;
+                    }
+                }
+                HeaderCaptureState::Headers => {
+                    let remaining = &bytes[offset..];
+                    let delimiter = b"\r\n\r\n";
+                    let cross_prefix = self.header_bytes.len().min(delimiter.len() - 1);
+                    let mut cross =
+                        self.header_bytes[self.header_bytes.len() - cross_prefix..].to_vec();
+                    cross.extend_from_slice(&remaining[..remaining.len().min(delimiter.len() - 1)]);
+                    let cross_delimiter = find_subslice(&cross, delimiter)
+                        .filter(|position| *position < cross_prefix);
+                    if let Some(position) = cross_delimiter {
+                        let needed = position + delimiter.len() - cross_prefix;
+                        self.header_bytes.extend_from_slice(&remaining[..needed]);
+                        offset += needed;
+                        self.finish_headers();
+                    } else if let Some(position) = find_subslice(remaining, delimiter) {
+                        let consumed = position + delimiter.len();
+                        self.header_bytes.extend_from_slice(&remaining[..consumed]);
+                        offset += consumed;
+                        self.finish_headers();
+                    } else {
+                        self.header_bytes.extend_from_slice(remaining);
+                        return;
+                    }
+                }
+                HeaderCaptureState::Done => return,
+            }
+        }
+    }
+
+    fn consume_boundary_suffix_byte(&mut self, byte: u8) {
+        match byte {
+            b' ' | b'\t' if self.state == HeaderCaptureState::BoundaryPadding => {}
+            b'\r' if self.state == HeaderCaptureState::BoundaryPadding => {
+                self.state = HeaderCaptureState::BoundaryLineFeed;
+            }
+            b'\n' if self.state == HeaderCaptureState::BoundaryLineFeed => {
+                self.state = HeaderCaptureState::Headers;
+            }
+            _ => self.state = HeaderCaptureState::Done,
+        }
+    }
+
+    fn finish_headers(&mut self) {
+        self.headers.push_back(callback_headers(&self.header_bytes));
+        self.header_bytes.clear();
+        self.state = HeaderCaptureState::Body;
+    }
+
+    fn pop_headers(&mut self) -> Option<Vec<(Vec<u8>, Vec<u8>)>> {
+        self.headers.pop_front()
+    }
+}
+
+/// Finds a multipart delimiter across chunks while retaining only a possible
+/// delimiter prefix between calls.
+fn find_stream_marker(prefix: &mut Vec<u8>, input: &[u8], marker: &[u8]) -> Option<usize> {
+    if !prefix.is_empty() {
+        let prefix_len = prefix.len();
+        let mut bridge = prefix.clone();
+        bridge.extend_from_slice(&input[..input.len().min(marker.len() - 1)]);
+        if let Some(position) =
+            find_subslice(&bridge, marker).filter(|position| *position < prefix_len)
+        {
+            prefix.clear();
+            return Some(position + marker.len() - prefix_len);
+        }
+    }
+    if let Some(position) = find_subslice(input, marker) {
+        prefix.clear();
+        return Some(position + marker.len());
+    }
+
+    let retained = if input.len() >= marker.len() - 1 {
+        input[input.len() - (marker.len() - 1)..].to_vec()
+    } else {
+        let mut combined = std::mem::take(prefix);
+        combined.extend_from_slice(input);
+        combined
+    };
+    let max_prefix = retained.len().min(marker.len() - 1);
+    let matching_len = (1..=max_prefix)
+        .rev()
+        .find(|length| retained[retained.len() - length..] == marker[..*length]);
+    prefix.clear();
+    if let Some(length) = matching_len {
+        prefix.extend_from_slice(&retained[retained.len() - length..]);
+    }
+    None
+}
+
+/// Extracts the callback-visible header names and values from a completed
+/// header block. python-multipart skips leading spaces after the colon while
+/// retaining other value bytes, including trailing whitespace.
+fn callback_headers(header_block: &[u8]) -> Vec<(Vec<u8>, Vec<u8>)> {
+    let mut headers = Vec::new();
+    let mut offset = 0;
+    while let Some(relative_end) = find_subslice(&header_block[offset..], b"\r\n") {
+        if relative_end == 0 {
+            break;
+        }
+        let line_end = offset + relative_end;
+        let line = &header_block[offset..line_end];
+        if let Some(colon) = line.iter().position(|byte| *byte == b':') {
+            let mut value_start = colon + 1;
+            while line.get(value_start) == Some(&b' ') {
+                value_start += 1;
+            }
+            headers.push((
+                line[..colon].to_ascii_lowercase(),
+                line[value_start..].to_vec(),
+            ));
+        }
+        offset = line_end + 2;
+    }
+    headers
+}
+
+fn find_subslice(haystack: &[u8], needle: &[u8]) -> Option<usize> {
+    if needle.is_empty() {
+        return Some(0);
+    }
+    haystack
+        .windows(needle.len())
+        .position(|window| window == needle)
 }
 
 struct MultipartPartBuilder {
@@ -229,7 +470,8 @@ impl MultipartFormParser {
         let (sender, receiver) = mpsc::unbounded();
         Ok(Self {
             sender,
-            multipart: Multipart::new(receiver, boundary),
+            multipart: Multipart::new(receiver, boundary.clone()),
+            raw_header_capture: MultipartHeaderCapture::new(&boundary),
             active_field: None,
             active_part: None,
             events: VecDeque::new(),
@@ -251,6 +493,7 @@ impl MultipartFormParser {
         if self.complete || chunk.is_empty() {
             return Ok(());
         }
+        self.raw_header_capture.push(&chunk);
         self.sender
             .unbounded_send(Ok(Bytes::from(chunk)))
             .map_err(|_| MultipartFormParseError::Malformed {
@@ -339,20 +582,39 @@ impl MultipartFormParser {
     }
 
     fn start_part(&mut self, field: Field<'static>) -> Result<(), MultipartFormParseError> {
-        // Starlette overwrites its stored Content-Disposition value as each
-        // duplicate header is parsed, so the final occurrence wins. HeaderMap
-        // `get` returns the first value for a repeated field.
-        let disposition = field
-            .headers()
-            .get_all("content-disposition")
+        let headers = self.raw_header_capture.pop_headers().unwrap_or_else(|| {
+            field
+                .headers()
+                .iter()
+                .map(|(name, value)| {
+                    (
+                        name.as_str().as_bytes().to_ascii_lowercase(),
+                        value.as_bytes().to_vec(),
+                    )
+                })
+                .collect()
+        });
+        // Starlette overwrites its stored Content-Disposition value on every
+        // callback, so the final wire occurrence selects the part metadata.
+        let disposition = headers
             .iter()
-            .next_back();
+            .rev()
+            .find(|(name, _)| name == b"content-disposition")
+            .map(|(_, value)| value.clone())
+            .or_else(|| {
+                field
+                    .headers()
+                    .get("content-disposition")
+                    .map(|value| value.as_bytes().to_vec())
+            });
         let name = disposition
-            .and_then(|value| disposition_parameter(value.as_bytes(), "name"))
+            .as_deref()
+            .and_then(|value| disposition_parameter(value, "name"))
             .map(|value| user_safe_decode(&value, &self.charset))
             .ok_or(MultipartFormParseError::MissingName)?;
         let filename = disposition
-            .and_then(|value| disposition_parameter(value.as_bytes(), "filename"))
+            .as_deref()
+            .and_then(|value| disposition_parameter(value, "filename"))
             .map(|value| user_safe_decode(&value, &self.charset));
         if filename.is_some() {
             self.files += 1;
@@ -370,16 +632,6 @@ impl MultipartFormParser {
             }
         }
 
-        let headers = field
-            .headers()
-            .iter()
-            .map(|(name, value)| {
-                (
-                    name.as_str().as_bytes().to_ascii_lowercase(),
-                    value.as_bytes().to_vec(),
-                )
-            })
-            .collect();
         let part_index = self.parts_started;
         self.parts_started += 1;
         self.active_part = Some(MultipartPartBuilder {

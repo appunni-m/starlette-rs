@@ -297,6 +297,7 @@ HTTP_ENDPOINT_OPERATION = "dispatch"
 HTTP_ENDPOINT_OPERATION_KEY = (HTTP_ENDPOINT_SURFACE, HTTP_ENDPOINT_OPERATION)
 HTTP_ENDPOINT_REQUIREMENTS = {
     "direct_asgi": f"{HTTP_ENDPOINT_SURFACE}.{HTTP_ENDPOINT_OPERATION}.direct-asgi-application",
+    "explicit_head": f"{HTTP_ENDPOINT_SURFACE}.{HTTP_ENDPOINT_OPERATION}.explicit-head-handler",
 }
 WEBSOCKET_ENDPOINT_REQUIREMENTS = {
     "scope_type_validation": f"{WEBSOCKET_ENDPOINT_SURFACE}.__init__.scope-type-validation",
@@ -5705,33 +5706,46 @@ def _validate_http_endpoint_case_stimulus(case: dict[str, Any]) -> None:
         "HTTPEndpoint endpoint input",
     )
     handlers = endpoint["handlers"]
-    if (
-        len(handlers) != 1
-        or handlers[0]["name"] != "get"
-        or handlers[0]["call_style"] not in {"async", "sync"}
-        or handlers[0]["response"]["kind"] != "plain-text-response"
-    ):
-        raise ContractError(
-            "direct HTTPEndpoint input requires one sync or async GET plain-text handler"
-        )
-
     scope = case["scope"]
+    method = scope.get("method") if isinstance(scope, dict) else None
+    expected_requirement: str
+    if method == "GET":
+        if (
+            len(handlers) != 1
+            or handlers[0]["name"] != "get"
+            or handlers[0]["response"]["kind"] != "plain-text-response"
+        ):
+            raise ContractError(
+                "direct GET HTTPEndpoint input requires one sync or async GET plain-text handler"
+            )
+        expected_requirement = HTTP_ENDPOINT_REQUIREMENTS["direct_asgi"]
+    elif method == "HEAD":
+        if {handler["name"] for handler in handlers} != {"get", "head"} or any(
+            handler["response"]["kind"] != "plain-text-response" for handler in handlers
+        ):
+            raise ContractError(
+                "direct HEAD HTTPEndpoint input requires GET and HEAD plain-text handlers"
+            )
+        expected_requirement = HTTP_ENDPOINT_REQUIREMENTS["explicit_head"]
+    else:
+        raise ContractError("direct HTTPEndpoint input method must be GET or HEAD")
+
     if (
         not isinstance(scope, dict)
-        or scope.get("method") != "GET"
+        or scope.get("method") not in {"GET", "HEAD"}
         or scope.get("path") != "/"
         or scope.get("root_path") != ""
         or scope.get("query_string_base64") != ""
         or scope.get("headers_base64_pairs") != []
     ):
-        raise ContractError("direct HTTPEndpoint input must use the declared GET / scope")
+        raise ContractError("direct HTTPEndpoint input must use the declared GET or HEAD / scope")
     _validate_dispatch_stimulus(
         {"scope": scope, "receive": case["incoming"], "send": case["send"]},
         request_dispatch=True,
     )
     if case["incoming"] != [] or case["send"] != {"kind": "capture-asgi-send"}:
         raise ContractError("direct HTTPEndpoint dispatch uses empty receive and captured send")
-    if case["covers"] != [HTTP_ENDPOINT_REQUIREMENTS["direct_asgi"]]:
+    if case["covers"] != [expected_requirement]:
         raise ContractError("HTTPEndpoint covers must match its direct ASGI dispatch input")
 
 
@@ -32203,6 +32217,14 @@ def _multipart_part_counts(content_type: str, body: bytes) -> tuple[int, int]:
     return fields, files
 
 
+def _multipart_file_part_header_names(content_type: str, body: bytes) -> list[list[str]]:
+    return [
+        [name.lower() for name, _ in part.raw_items()]
+        for part in _multipart_parts(content_type, body)
+        if part.get_filename() is not None
+    ]
+
+
 def _multipart_has_missing_name(content_type: str, body: bytes) -> bool:
     return any(
         part.get("Content-Disposition") is not None
@@ -32797,10 +32819,17 @@ def _validate_request_form_case(case: dict[str, Any]) -> None:
                 and not _request_form_has_out_of_float_range_count_limit(form_options)
             ):
                 raise ContractError("multipart count-limit options must reach the supplied limit")
-            expected_covers = [
-                "starlette.request.form.multipart-form-data",
-                "starlette.datastructures.FormData.multidict-lookups",
-            ]
+            expected_covers = ["starlette.request.form.multipart-form-data"]
+            file_part_header_names = _multipart_file_part_header_names(
+                effective_content_type_header or "", body
+            )
+            if any(names != sorted(names) for names in file_part_header_names):
+                expected_covers.append("starlette.request.form.multipart-upload-header-wire-order")
+            if any(len(names) != len(set(names)) for names in file_part_header_names):
+                expected_covers.append(
+                    "starlette.request.form.multipart-header-duplicate-occurrences"
+                )
+            expected_covers.append("starlette.datastructures.FormData.multidict-lookups")
             filelike_fields_without_filename = _multipart_filelike_fields_without_filename(
                 effective_content_type_header or "", body
             )

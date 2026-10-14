@@ -2315,6 +2315,7 @@
       "operation": "form",
       "covers": [
         "starlette.request.form.multipart-form-data",
+        "starlette.request.form.multipart-upload-header-wire-order",
         "starlette.datastructures.FormData.multidict-lookups",
         "starlette.datastructures.FormData.file-values",
         "starlette.datastructures.UploadFile.file-operations",
@@ -2374,6 +2375,87 @@
       "form_app": "direct",
       "form_file_probe_keys": [
         "test2"
+      ],
+      "form_file_read_size": -1,
+      "form_close": true
+    },
+    {
+      "case_id": "starlette.requests.Request.form.multipart-duplicate-part-header-occurrences",
+      "surface": "starlette.requests.Request",
+      "operation": "form",
+      "covers": [
+        "starlette.request.form.multipart-form-data",
+        "starlette.request.form.multipart-upload-header-wire-order",
+        "starlette.request.form.multipart-header-duplicate-occurrences",
+        "starlette.datastructures.FormData.multidict-lookups",
+        "starlette.datastructures.FormData.file-values",
+        "starlette.datastructures.UploadFile.file-operations",
+        "starlette.datastructures.FormData.close"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "POST",
+        "scheme": "http",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "Y29udGVudC10eXBl",
+            "bXVsdGlwYXJ0L2Zvcm0tZGF0YTsgYm91bmRhcnk9U1RBUkxFVFRFLVJTLURVUExJQ0FURS1IRUFERVJT"
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "receive": [
+        {
+          "type": "http.request",
+          "body_base64": "LS1TVEFSTA==",
+          "more_body": true
+        },
+        {
+          "type": "http.request",
+          "body_base64": "RVRURS1SUy1EVVBMSUNBVEUtSEVBREVSUw0KQ29udGVudC1EaXNwb3NpdGlvbjogZm9ybS1kYXRhOyBuYW1lPSJzdGFsZSI7IGZpbGVuYW1lPSJzdGFsZS50eHQiDQpYLVRyYWNlOiBmaXJzdA0KQ29udGVudC1UeXBlOiBhcHBsaWNhdGlvbi9vY3RldC1zdHJlYW0NClgtVHJhY2U6IHNlY29uZA0KQ29udGVudC1EaXNwb3NpdGlvbjogZm9ybS1kYXRhOyBuYW1lPSJ1cGxvYWQiOyBmaWxlbmFtZT0iY2hvc2VuLnR4dCINCg0=",
+          "more_body": true
+        },
+        {
+          "type": "http.request",
+          "body_base64": "CnBheWxvYWQNCi0tU1RBUkxFVFRFLVJTLURVUExJQ0FURS1IRUFERVJTLS0NCg==",
+          "more_body": false
+        }
+      ],
+      "form_probe_keys": [
+        "upload",
+        "stale"
+      ],
+      "observations": [
+        "form"
+      ],
+      "form_options": {},
+      "form_app": "direct",
+      "form_file_probe_keys": [
+        "upload"
       ],
       "form_file_read_size": -1,
       "form_close": true
