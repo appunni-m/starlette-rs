@@ -34477,16 +34477,20 @@ def _url_scope_value(value: Any) -> dict[str, Any]:
         scope["scheme"] = _string(value["scheme"], "URL scope scheme")
     if "server" in value:
         server = value["server"]
+        if not isinstance(server, list):
+            raise ContractError("URL scope server must be an array")
         if (
-            not isinstance(server, list)
-            or len(server) != 2
-            or not isinstance(server[0], str)
-            or not isinstance(server[1], int)
-            or isinstance(server[1], bool)
-            or not 0 <= server[1] <= 65535
+            len(server) == 2
+            and isinstance(server[0], str)
+            and isinstance(server[1], int)
+            and not isinstance(server[1], bool)
+            and 0 <= server[1] <= 65535
         ):
-            raise ContractError("URL scope server must be a host and valid port pair")
-        scope["server"] = (server[0], server[1])
+            scope["server"] = (server[0], server[1])
+        else:
+            # Preserve malformed iterable shapes for inputs where Starlette
+            # chooses a valid Host header before unpacking the server tuple.
+            scope["server"] = tuple(server)
     if "query_string_base64" in value:
         try:
             query_string = base64.b64decode(value["query_string_base64"], validate=True)

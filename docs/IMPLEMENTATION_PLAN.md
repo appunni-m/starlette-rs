@@ -9,6 +9,12 @@ Pydantic are outside this project's scope.
 
 The latest Request.state boundary input uses a custom mapping whose `setdefault("state", {})` result differs from its subsequent `scope["state"]` read; Rust now preserves that ordering. A separate TemplateResponse input checks dynamic `HTMLResponse.__call__` lookup after the optional debug event. Both source/package comparisons remain deferred to the full parity phase.
 
+The latest URL(scope=...) change passes the raw ASGI `server` value to Rust,
+which selects a valid Host header before converting the server tuple, matching
+Starlette's lookup order. Its input-only case uses a valid Host with an empty
+server sequence. The source/package comparison remains deferred to the full
+parity phase.
+
 A direct Response input supplies an explicit Content-Type header alongside `media_type="text/plain"`; the comparison observes constructor header precedence and automatic Content-Length and remains deferred to full parity.
 
 The templating runtime now renders before resolving the dynamic `HTMLResponse.__init__`, and Rust looks up `context.update` before invoking each processor. Two input-only cases record those lookup orders and remain unexecuted until grouped parity. The `Jinja2Templates.get_template` facade annotation now exposes Jinja's `Template` type; its input-derived Mypy 1.19.1 consumer passed against both the pinned source and rebuilt package wheel. The registered comparison remains deferred to full parity.
@@ -19,7 +25,7 @@ implementation closes, run the complete source/package and Rust-native parity
 matrix, repair mismatches across families, measure coverage from that full
 matrix, reconcile the source atlas, then run all correctness-gated benchmarks.
 
-The active contract currently declares 2,407 input cases across 354
+The active contract currently declares 2,408 input cases across 355
 parity inputs and two benchmark inputs, 144 Starlette compatibility
 operations, 13 Rust-native operations, and 1,316 parity requirements (1,274
 compatibility and 42 native). Its scope mode is still `slice`. A new Config

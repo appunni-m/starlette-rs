@@ -1434,9 +1434,27 @@ fn connection_url(
     path: &str,
     query_string: &Bound<'_, PyBytes>,
     headers: Vec<(Vec<u8>, Vec<u8>)>,
-    server: Option<(String, String)>,
+    server: &Bound<'_, PyAny>,
 ) -> PyResult<String> {
     let query_bytes = query_string.as_bytes();
+    // Starlette checks the first Host header before unpacking the server tuple.
+    // Probe the native Host selection with an empty path/query so malformed or
+    // stateful server values are only touched when the Host header is unusable.
+    let has_valid_host_header =
+        native_connection_url_with_port_text(scheme.as_deref(), "", &[], &headers, None)
+            .map(|url| !url.is_empty())
+            .map_err(|error| connection_url_error_to_python(py, &[], error))?;
+    let server = if server.is_none() || has_valid_host_header {
+        None
+    } else {
+        let host = server.get_item(0)?.extract::<String>()?;
+        let port = py
+            .import("builtins")?
+            .getattr("str")?
+            .call1((server.get_item(1)?,))?
+            .extract::<String>()?;
+        Some((host, port))
+    };
     let server = server
         .as_ref()
         .map(|(host, port)| (host.as_str(), port.as_str()));
@@ -1448,11 +1466,21 @@ fn connection_url(
         server,
     ) {
         Ok(url) => Ok(url),
-        Err(ConnectionUrlError::UnsupportedScheme(scheme)) => Err(PyKeyError::new_err(scheme)),
-        Err(ConnectionUrlError::InvalidQueryUtf8(_)) => {
+        Err(error) => Err(connection_url_error_to_python(py, query_bytes, error)),
+    }
+}
+
+fn connection_url_error_to_python(
+    py: Python<'_>,
+    query_bytes: &[u8],
+    error: ConnectionUrlError,
+) -> PyErr {
+    match error {
+        ConnectionUrlError::UnsupportedScheme(scheme) => PyKeyError::new_err(scheme),
+        ConnectionUrlError::InvalidQueryUtf8(_) => {
             match PyBytes::new(py, query_bytes).call_method0("decode") {
-                Err(error) => Err(error),
-                Ok(_) => Err(PyValueError::new_err("query string is not valid UTF-8")),
+                Err(error) => error,
+                Ok(_) => PyValueError::new_err("query string is not valid UTF-8"),
             }
         }
     }

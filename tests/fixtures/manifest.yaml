@@ -469,6 +469,7 @@
       "build/parity/inputs/parity/schemas-optional-pyyaml-boundary.json",
       "build/parity/inputs/parity/url-query-operations.json",
       "build/parity/inputs/parity/url-scope.json",
+      "build/parity/inputs/parity/url-scope-host-precedes-server-unpack.json",
       "build/parity/inputs/parity/url-components.json",
       "build/parity/inputs/parity/urlpath-absolute.json",
       "build/parity/inputs/parity/datastructures-headers.json",

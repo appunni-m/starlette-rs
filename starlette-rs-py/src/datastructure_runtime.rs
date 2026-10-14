@@ -1429,16 +1429,6 @@ fn url_init(
         let query_string = get.call1(("query_string", b""))?;
         let headers = scope.get_item("headers")?;
         let server = get.call1(("server", py.None()))?;
-        let server = if server.is_none() {
-            py.None()
-        } else {
-            let host = server.get_item(0)?;
-            let port = py
-                .import("builtins")?
-                .getattr("str")?
-                .call1((server.get_item(1)?,))?;
-            PyTuple::new(py, [host, port])?.into_any().unbind()
-        };
         let core = py.import("starlette_rs_py._core")?;
         return core
             .getattr("_connection_url")?
