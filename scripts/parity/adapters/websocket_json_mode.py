@@ -6,7 +6,7 @@ from typing import Any
 
 
 def materialize_websocket_json_mode(value: Any) -> Any:
-    """Build the stateful string mode used by the comparison-order input."""
+    """Build a stateful string mode for comparison-order inputs."""
     if not isinstance(value, dict) or value.get("kind") != (
         "websocket-mode-equality-after-membership"
     ):
@@ -32,3 +32,10 @@ def materialize_websocket_json_mode(value: Any) -> Any:
         __hash__ = str.__hash__
 
     return InputWebSocketJsonMode()
+
+
+def materialize_websocket_json_payload(value: Any) -> Any:
+    """Build an unserializable payload used to observe JSON operation order."""
+    if not isinstance(value, dict) or value.get("kind") != ("websocket-json-unserializable-object"):
+        return value
+    return object()

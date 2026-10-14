@@ -1142,15 +1142,25 @@ fn format_path_parameter(
             ))
         }
         RoutePathConverter::Builtin(PathConverter::Integer) => Ok(canonical_integer(value)),
-        RoutePathConverter::Builtin(PathConverter::Float) if value == "-0.0" => {
-            Ok(String::from("-0"))
+        RoutePathConverter::Builtin(PathConverter::Float) => {
+            let number = parse_python_float(value)
+                .ok_or_else(|| invalid("float converter values must be numeric"))?;
+            if matches!(
+                number.partial_cmp(&0.0),
+                Some(std::cmp::Ordering::Less) | None
+            ) {
+                return Err(invalid("float converter values must be non-negative"));
+            }
+            if !number.is_finite() {
+                return Err(invalid("float converter values must be finite"));
+            }
+            let formatted = format!("{number:.20}");
+            Ok(formatted
+                .trim_end_matches('0')
+                .trim_end_matches('.')
+                .to_owned())
         }
-        RoutePathConverter::Builtin(PathConverter::Float) if !valid_float_lexeme(value) => Err(
-            invalid("float converter values must use non-negative decimal notation"),
-        ),
-        RoutePathConverter::Builtin(
-            PathConverter::Float | PathConverter::Uuid | PathConverter::Path,
-        )
+        RoutePathConverter::Builtin(PathConverter::Uuid | PathConverter::Path)
         | RoutePathConverter::Builtin(PathConverter::String) => Ok(String::from(value)),
         RoutePathConverter::Custom { name, converter } => {
             let formatted = converter.to_string(value).map_err(|reason| {
@@ -1171,27 +1181,47 @@ fn format_path_parameter(
     }
 }
 
-fn valid_float_lexeme(value: &str) -> bool {
-    // Python's `float(-0.0) >= 0.0` is true, and its fixed-point formatter
-    // consequently emits `-0` after trimming the fractional zeroes.
-    if value == "-0" {
-        return true;
+fn parse_python_float(value: &str) -> Option<f64> {
+    let value = value.trim();
+    if value.is_empty() {
+        return None;
     }
 
-    let bytes = value.as_bytes();
-    let digit_end = bytes
-        .iter()
-        .take_while(|byte| byte.is_ascii_digit())
-        .count();
-    if digit_end == 0 {
-        return false;
+    let (negative, unsigned) = if let Some(unsigned) = value.strip_prefix('-') {
+        (true, unsigned)
+    } else if let Some(unsigned) = value.strip_prefix('+') {
+        (false, unsigned)
+    } else {
+        (false, value)
+    };
+    if unsigned.eq_ignore_ascii_case("nan") {
+        return Some(f64::NAN);
     }
-    if digit_end == bytes.len() {
-        return true;
+    if unsigned.eq_ignore_ascii_case("inf") || unsigned.eq_ignore_ascii_case("infinity") {
+        return Some(if negative {
+            f64::NEG_INFINITY
+        } else {
+            f64::INFINITY
+        });
     }
-    bytes.get(digit_end) == Some(&b'.')
-        && digit_end + 1 < bytes.len()
-        && bytes[digit_end + 1..].iter().all(u8::is_ascii_digit)
+
+    let characters = value.chars().collect::<Vec<_>>();
+    let mut normalized = String::with_capacity(value.len());
+    for (index, character) in characters.iter().copied().enumerate() {
+        if character == '_' {
+            let previous_is_digit = index
+                .checked_sub(1)
+                .and_then(|previous| characters.get(previous))
+                .is_some_and(char::is_ascii_digit);
+            let next_is_digit = characters.get(index + 1).is_some_and(char::is_ascii_digit);
+            if !previous_is_digit || !next_is_digit {
+                return None;
+            }
+        } else {
+            normalized.push(character);
+        }
+    }
+    normalized.parse::<f64>().ok()
 }
 
 fn method_not_allowed_response(

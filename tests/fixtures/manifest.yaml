@@ -440,6 +440,7 @@
       "build/parity/inputs/parity/host-reverse-nested-miss-parameters.json",
       "build/parity/inputs/parity/route-url-path-native.json",
       "build/parity/inputs/parity/route-url-path-float-negative-zero.json",
+      "build/parity/inputs/parity/route-url-path-float-rounding.json",
       "build/parity/inputs/parity/redirect-response.json",
       "build/parity/inputs/parity/responses-basic.json",
       "build/parity/inputs/parity/background-tasks.json",
@@ -458,6 +459,7 @@
       "build/parity/inputs/parity/websocket-convenience.json",
       "build/parity/inputs/parity/websocket-disconnect-constructor.json",
       "build/parity/inputs/parity/websocket-json-mode-state-order.json",
+      "build/parity/inputs/parity/websocket-send-json-serialization-order.json",
       "build/parity/inputs/parity/websocket-iterator-athrow-stop-async-iteration.json",
       "build/parity/inputs/parity/websocket-send-oserror-synchronous-callback.json",
       "build/parity/inputs/parity/websocket-json-mode-close-reason-boundary.json",
@@ -30958,6 +30960,17 @@
               "id": "starlette.websocket.api.thread-transfer",
               "dimension": "boundary",
               "description": "Construct public WebSocket values and iterators in input-selected worker threads, then use them on the caller event loop through public convenience methods. Compare frame/state ordering and errors with the same live source consumer. Source: starlette/websockets.py:25-201; docs/websockets.md.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.websocket.api.send.json.serialization-before-mode-comparison",
+              "dimension": "error_path",
+              "description": "Preserve pinned send_json order: validate mode membership, serialize data, then compare mode with text to choose the frame. An unserializable payload must fail before the input-defined mode subclass raises during equality. Pinned source: starlette/websockets.py:167-181.",
               "lanes": [
                 "parity"
               ],

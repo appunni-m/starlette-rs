@@ -860,11 +860,6 @@ fn validate_json_mode(py: Python<'_>, mode: &Bound<'_, PyAny>) -> PyResult<()> {
     Ok(())
 }
 
-fn json_mode_is_binary(py: Python<'_>, mode: &Bound<'_, PyAny>) -> PyResult<bool> {
-    validate_json_mode(py, mode)?;
-    Ok(!mode.eq("text")?)
-}
-
 fn raise_on_disconnect(
     py: Python<'_>,
     disconnect_error: &Py<PyAny>,
@@ -1056,7 +1051,9 @@ fn build_send_frame(py: Python<'_>, frame: WebSocketSendFrame) -> PyResult<Bound
             message.set_item("bytes", data.bind(py))?;
         }
         WebSocketSendFrame::Json { data, mode } => {
-            let binary = json_mode_is_binary(py, mode.bind(py))?;
+            // Starlette 1.6.0 validates mode, serializes, then compares it with
+            // "text"; preserve that order for custom mode and payload values.
+            validate_json_mode(py, mode.bind(py))?;
             let kwargs = PyDict::new(py);
             kwargs.set_item("separators", (",", ":"))?;
             kwargs.set_item("ensure_ascii", false)?;
@@ -1065,11 +1062,11 @@ fn build_send_frame(py: Python<'_>, frame: WebSocketSendFrame) -> PyResult<Bound
                 .getattr("dumps")?
                 .call((data.bind(py),), Some(&kwargs))?;
             message.set_item("type", "websocket.send")?;
-            if binary {
+            if mode.bind(py).eq("text")? {
+                message.set_item("text", encoded)?;
+            } else {
                 let payload = encoded.call_method1("encode", ("utf-8",))?;
                 message.set_item("bytes", payload)?;
-            } else {
-                message.set_item("text", encoded)?;
             }
         }
         WebSocketSendFrame::Close {

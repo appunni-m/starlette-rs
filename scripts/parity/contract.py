@@ -283,6 +283,9 @@ WEBSOCKET_INVALID_JSON_MODE_REQUIREMENTS = {
     "send": "starlette.websocket.api.send.json.invalid-mode",
 }
 WEBSOCKET_JSON_MODE_ORDER_REQUIREMENT = "starlette.websocket.api.receive.json.mode-comparison-order"
+WEBSOCKET_SEND_JSON_MODE_ORDER_REQUIREMENT = (
+    "starlette.websocket.api.send.json.serialization-before-mode-comparison"
+)
 WEBSOCKET_ENDPOINT_SURFACE = "starlette.endpoints.WebSocketEndpoint"
 WEBSOCKET_ENDPOINT_OPERATION = "dispatch"
 WEBSOCKET_ENDPOINT_OPERATION_KEY = (
@@ -5406,9 +5409,45 @@ def _validate_websocket_convenience_case_stimulus(case: dict[str, Any]) -> None:
                 if set(arguments) not in ({"data"}, {"data", "mode"}):
                     raise ContractError(f"{context}.arguments must contain data and optional mode")
                 mode = arguments.get("mode", "text")
-                if not isinstance(mode, str) or mode not in {"text", "binary"}:
-                    exercised.add(WEBSOCKET_INVALID_JSON_MODE_REQUIREMENTS["send"])
+                if isinstance(mode, dict):
+                    mode = _exact(
+                        mode,
+                        {"kind", "value", "error_type", "message"},
+                        f"{context}.arguments.mode",
+                    )
+                    payload = _exact(
+                        arguments["data"],
+                        {"kind"},
+                        f"{context}.arguments.data",
+                    )
+                    if (
+                        mode["kind"] != "websocket-mode-equality-after-membership"
+                        or mode["value"] != "text"
+                        or mode["error_type"] != "ValueError"
+                        or not isinstance(mode["message"], str)
+                        or not mode["message"]
+                        or payload["kind"] != "websocket-json-unserializable-object"
+                    ):
+                        raise ContractError(
+                            f"{context} mode-order input must pair a stateful text mode "
+                            "with an unserializable JSON payload"
+                        )
+                    exercised.add(WEBSOCKET_SEND_JSON_MODE_ORDER_REQUIREMENT)
                 else:
+                    payload = arguments["data"]
+                    if (
+                        isinstance(payload, dict)
+                        and payload.get("kind") == "websocket-json-unserializable-object"
+                    ):
+                        raise ContractError(
+                            f"{context}.arguments.data unserializable-object marker "
+                            "requires the stateful mode-order input"
+                        )
+                if not isinstance(mode, dict) and (
+                    not isinstance(mode, str) or mode not in {"text", "binary"}
+                ):
+                    exercised.add(WEBSOCKET_INVALID_JSON_MODE_REQUIREMENTS["send"])
+                elif not isinstance(mode, dict):
                     exercised.add(f"starlette.websocket.api.send.json.{mode}")
             else:
                 if set(arguments) - {"code", "reason"}:
