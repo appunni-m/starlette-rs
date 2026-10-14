@@ -19768,6 +19768,18 @@
               ]
             },
             {
+              "id": "starlette.responses.FileResponse.asgi-call.websocket-denial-response",
+              "dimension": "protocol_variant",
+              "description": "Invoke FileResponse.__call__ directly with a negotiated WebSocket denial-response extension and observe its event names and file body. Pinned source: starlette/responses.py:154-159,341-346,387-399; starlette/testclient.py:260-273.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.responses.FileResponse.asgi-call.default-media-type",
               "dimension": "boundary",
               "description": "Infer the default media type from the input filename and compare the emitted content-type with the pinned Python mimetypes behavior. Upstream: starlette/responses.py:314-316; CPython 3.12 mimetypes.",

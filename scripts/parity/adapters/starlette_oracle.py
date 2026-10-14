@@ -10281,26 +10281,42 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
     else:
         call_specs = [{"scope": case["scope"], "incoming": case["incoming"], "send": case["send"]}]
         scope_spec = case["scope"]
-        scope_keys = {
-            "type",
-            "asgi",
-            "http_version",
-            "method",
-            "scheme",
-            "path",
-            "raw_path_base64",
-            "query_string_base64",
-            "root_path",
-            "headers_base64_pairs",
-            "client",
-            "server",
-        }
+        if isinstance(scope_spec, dict) and scope_spec.get("type") == "websocket":
+            scope_keys = {
+                "type",
+                "asgi",
+                "http_version",
+                "scheme",
+                "path",
+                "raw_path_base64",
+                "query_string_base64",
+                "root_path",
+                "headers_base64_pairs",
+                "client",
+                "server",
+                "subprotocols",
+            }
+        else:
+            scope_keys = {
+                "type",
+                "asgi",
+                "http_version",
+                "method",
+                "scheme",
+                "path",
+                "raw_path_base64",
+                "query_string_base64",
+                "root_path",
+                "headers_base64_pairs",
+                "client",
+                "server",
+            }
         if isinstance(scope_spec, dict) and "extensions" in scope_spec:
             scope_keys.add("extensions")
-        _strict_object(scope_spec, scope_keys, "FileResponse HTTP scope")
-        if scope_spec["type"] != "http":
-            raise ValueError("FileResponse ASGI-call requires an HTTP scope")
-        if "extensions" in scope_spec:
+        _strict_object(scope_spec, scope_keys, "FileResponse ASGI scope")
+        if scope_spec["type"] not in {"http", "websocket"}:
+            raise ValueError("FileResponse ASGI-call requires an HTTP or WebSocket scope")
+        if scope_spec["type"] == "http" and "extensions" in scope_spec:
             extensions = scope_spec["extensions"]
             if not isinstance(extensions, dict) or any(
                 key != "http.response.pathsend" for key in extensions
@@ -10719,19 +10735,26 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
                 }
             )
         events = [_canonical_message(message) for message in sent]
+        websocket_scope = scope_spec["type"] == "websocket"
+        response_type = "websocket.http.response" if websocket_scope else "http.response"
+        response_start_type = f"{response_type}.start"
+        response_body_type = f"{response_type}.body"
         response_start = next(
-            (message for message in sent if message["type"] == "http.response.start"), None
+            (message for message in sent if message["type"] == response_start_type), None
         )
         response_start_event = next(
-            (event for event in events if event["type"] == "http.response.start"), None
+            (event for event in events if event["type"] == response_start_type), None
         )
         response_body = b"".join(
-            message.get("body", b"") for message in sent if message["type"] == "http.response.body"
+            message.get("body", b"") for message in sent if message["type"] == response_body_type
         )
+        response_headers_key = "headers_base64_pairs" if websocket_scope else "headers"
         observation = {
             "response_status": response_start["status"] if response_start is not None else None,
             "ordered_repeated_headers": (
-                response_start_event["headers"] if response_start_event is not None else []
+                response_start_event[response_headers_key]
+                if response_start_event is not None
+                else []
             ),
             "response_bytes": {
                 "encoding": "base64",

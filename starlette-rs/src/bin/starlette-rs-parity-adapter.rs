@@ -6763,16 +6763,37 @@ fn validated_file_response_scope(scope: &Value) -> Result<(Map<String, Value>, b
     let mut scope_without_extensions = scope
         .as_object()
         .cloned()
-        .ok_or_else(|| String::from("FileResponse HTTP scope must be a JSON object"))?;
-    let pathsend_extension = match scope_without_extensions.remove("extensions") {
+        .ok_or_else(|| String::from("FileResponse ASGI scope must be a JSON object"))?;
+    let scope_type = scope_without_extensions
+        .get("type")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_owned();
+    let extensions = scope_without_extensions.remove("extensions");
+    let pathsend_extension = match extensions.as_ref() {
         None => false,
-        Some(Value::Object(extensions)) => extensions.contains_key("http.response.pathsend"),
+        Some(Value::Object(extensions)) if scope_type == "http" => {
+            extensions.contains_key("http.response.pathsend")
+        }
+        Some(Value::Object(_)) => false,
         Some(_) => {
             return Err(String::from(
-                "FileResponse HTTP scope.extensions must be an object when present",
+                "FileResponse ASGI scope.extensions must be an object when present",
             ));
         }
     };
+    if scope_type == "websocket" {
+        if let Some(extensions) = extensions {
+            scope_without_extensions.insert("extensions".to_owned(), extensions);
+        }
+        let scope_with_extensions = Value::Object(scope_without_extensions);
+        validate_websocket_scope(&scope_with_extensions)?;
+        let validated = scope_with_extensions
+            .as_object()
+            .cloned()
+            .ok_or_else(|| String::from("FileResponse WebSocket scope must be a JSON object"))?;
+        return Ok((validated, false));
+    }
     let scope_without_extensions = Value::Object(scope_without_extensions);
     let validated = validate_asgi_http_scope(&scope_without_extensions, "FileResponse")?.clone();
     Ok((validated, pathsend_extension))
@@ -7801,10 +7822,15 @@ fn run_file_response_case(case: &Value) -> Result<Value, String> {
                 "FileResponse call sequences do not combine with pathsend extensions",
             ));
         }
-        let request_headers = parse_scope_request_headers(&scope, "FileResponse HTTP scope")?;
-        let method = string_field(&scope, "method", "FileResponse HTTP scope")?;
+        let scope_type = string_field(&scope, "type", "FileResponse ASGI scope")?;
+        let request_headers = parse_scope_request_headers(&scope, "FileResponse ASGI scope")?;
+        let method = if scope_type == "http" {
+            string_field(&scope, "method", "FileResponse HTTP scope")?
+        } else {
+            ""
+        };
         let mut call = match response.call_state(
-            "http",
+            scope_type,
             method,
             &request_headers,
             pathsend_extension,
@@ -7874,8 +7900,15 @@ fn run_file_response_case(case: &Value) -> Result<Value, String> {
                         }
                     }
                     send_index += 1;
+                    let websocket = scope_type == "websocket";
                     let event_type = match &event {
+                        FileResponseEvent::Start { .. } if websocket => {
+                            "websocket.http.response.start"
+                        }
                         FileResponseEvent::Start { .. } => "http.response.start",
+                        FileResponseEvent::Body { .. } if websocket => {
+                            "websocket.http.response.body"
+                        }
                         FileResponseEvent::Body { .. } => "http.response.body",
                         FileResponseEvent::Pathsend { .. } => "http.response.pathsend",
                     };
@@ -7893,7 +7926,7 @@ fn run_file_response_case(case: &Value) -> Result<Value, String> {
                         }
                         FileResponseEvent::Pathsend { .. } => {}
                     }
-                    events.push(canonical_file_response_event(event));
+                    events.push(canonical_file_response_event(event, websocket));
                     call.advance(FileResponseCallInput::<String>::Send(Ok(())))
                         .map_err(|error| {
                             format!("FileResponse send transition failed: {error:?}")
@@ -8590,7 +8623,7 @@ fn observe_static_files_call(
                             }
                             FileResponseEvent::Pathsend { .. } => {}
                         }
-                        events.push(canonical_file_response_event(event));
+                        events.push(canonical_file_response_event(event, false));
                         call.advance(FileResponseCallInput::<String>::Send(Ok(())))
                             .map_err(|error| {
                                 format!("StaticFiles file response transition failed: {error:?}")
@@ -10158,7 +10191,7 @@ fn websocket_state_from_name(name: &str) -> Result<WebSocketState, String> {
 }
 
 fn validate_websocket_scope(scope: &Value) -> Result<(), String> {
-    let scope = exact_object(
+    let scope = object_with_optional_keys(
         scope,
         &[
             "type",
@@ -10174,6 +10207,7 @@ fn validate_websocket_scope(scope: &Value) -> Result<(), String> {
             "server",
             "subprotocols",
         ],
+        &["extensions"],
         "WebSocket scope",
     )?;
     if string_field(scope, "type", "WebSocket scope")? != "websocket" {
@@ -10244,7 +10278,25 @@ fn validate_websocket_scope(scope: &Value) -> Result<(), String> {
             .ok_or_else(|| String::from("WebSocket scope misses server"))?,
         "WebSocket scope.server",
     )?;
-    validate_string_array(scope, "subprotocols", "WebSocket scope.subprotocols", true)
+    validate_string_array(scope, "subprotocols", "WebSocket scope.subprotocols", true)?;
+    if let Some(extensions) = scope.get("extensions") {
+        let extensions = extensions
+            .as_object()
+            .ok_or_else(|| String::from("WebSocket scope.extensions must be an object"))?;
+        for (name, configuration) in extensions {
+            if name.is_empty() {
+                return Err(String::from(
+                    "WebSocket scope extension name must not be empty",
+                ));
+            }
+            if !configuration.is_object() {
+                return Err(String::from(
+                    "WebSocket scope extension configurations must be objects",
+                ));
+            }
+        }
+    }
+    Ok(())
 }
 
 fn validate_websocket_message(
@@ -12761,8 +12813,16 @@ fn canonical_response_event(event: ResponseEvent) -> Value {
     }
 }
 
-fn canonical_file_response_event(event: FileResponseEvent) -> Value {
+fn canonical_file_response_event(event: FileResponseEvent, websocket: bool) -> Value {
     match event {
+        FileResponseEvent::Start {
+            status_code,
+            headers,
+        } if websocket => json!({
+            "type": "websocket.http.response.start",
+            "status": status_code,
+            "headers_base64_pairs": canonical_headers(&headers),
+        }),
         FileResponseEvent::Start {
             status_code,
             headers,
@@ -12771,6 +12831,16 @@ fn canonical_file_response_event(event: FileResponseEvent) -> Value {
             "status": status_code,
             "headers": canonical_headers(&headers),
         }),
+        FileResponseEvent::Body { body, more_body } if websocket => {
+            let mut event = json!({
+                "type": "websocket.http.response.body",
+                "body_base64": encode_base64(&body),
+            });
+            if let Some(more_body) = more_body {
+                event["more_body"] = json!(more_body);
+            }
+            event
+        }
         FileResponseEvent::Body { body, more_body } => {
             let mut event = json!({
                 "type": "http.response.body",

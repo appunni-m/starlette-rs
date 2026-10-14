@@ -1624,6 +1624,9 @@ RESPONSE_BACKGROUND_REQUIREMENTS = {
 }
 RESPONSE_BACKGROUND_CONTEXTVAR_REQUIREMENT = "starlette.responses.Response.consumer-construction.sync-background-contextvar-worker-propagation"
 FILE_RESPONSE_PATHSEND_REQUIREMENT = f"{FILE_RESPONSE_SURFACE}.{RESPONSE_OPERATION}.pathsend"
+FILE_RESPONSE_WEBSOCKET_DENIAL_REQUIREMENT = (
+    f"{FILE_RESPONSE_SURFACE}.{RESPONSE_OPERATION}.websocket-denial-response"
+)
 FILE_RESPONSE_STATEFUL_PATHLIKE_REQUIREMENT = (
     f"{FILE_RESPONSE_SURFACE}.{RESPONSE_OPERATION}.stateful-pathlike-stat-open"
 )
@@ -8019,28 +8022,69 @@ def _validate_file_response_case_stimulus(case: dict[str, Any]) -> None:
                 "FileResponse call-time assignments must map their matching field requirement"
             )
 
-    scope_keys = {
-        "type",
-        "asgi",
-        "http_version",
-        "method",
-        "scheme",
-        "path",
-        "raw_path_base64",
-        "query_string_base64",
-        "root_path",
-        "headers_base64_pairs",
-        "client",
-        "server",
-    }
+    if not isinstance(scope_spec, dict):
+        raise ContractError("FileResponse ASGI scope must be an object")
+    scope_type = scope_spec.get("type")
+    if scope_type == "websocket":
+        scope_keys = {
+            "type",
+            "asgi",
+            "http_version",
+            "scheme",
+            "path",
+            "raw_path_base64",
+            "query_string_base64",
+            "root_path",
+            "headers_base64_pairs",
+            "client",
+            "server",
+            "subprotocols",
+        }
+    else:
+        scope_keys = {
+            "type",
+            "asgi",
+            "http_version",
+            "method",
+            "scheme",
+            "path",
+            "raw_path_base64",
+            "query_string_base64",
+            "root_path",
+            "headers_base64_pairs",
+            "client",
+            "server",
+        }
     if isinstance(scope_spec, dict) and "extensions" in scope_spec:
         scope_keys.add("extensions")
-    scope_spec = _exact(scope_spec, scope_keys, "FileResponse HTTP scope")
-    if scope_spec["type"] != "http":
-        raise ContractError("FileResponse ASGI-call requires an HTTP scope")
-    if error_path_kind is not None and scope_spec["method"].upper() != "GET":
+    scope_spec = _exact(scope_spec, scope_keys, "FileResponse ASGI scope")
+    if scope_type == "websocket":
+        _validate_websocket_scope(scope_spec)
+        if "websocket.http.response" not in scope_spec.get("extensions", {}):
+            raise ContractError(
+                "FileResponse WebSocket denial-response requires the negotiated extension"
+            )
+        if case["covers"] != [FILE_RESPONSE_WEBSOCKET_DENIAL_REQUIREMENT]:
+            raise ContractError(
+                "FileResponse WebSocket scope must map its denial-response requirement"
+            )
+        if set(case["target_profiles"]) != {
+            "rust-native-local",
+            "python-package-cpython312",
+        }:
+            raise ContractError("FileResponse WebSocket scope requires both target profiles")
+    elif scope_type == "http":
+        if FILE_RESPONSE_WEBSOCKET_DENIAL_REQUIREMENT in case["covers"]:
+            raise ContractError(
+                "FileResponse denial-response requirement must use a WebSocket scope"
+            )
+    else:
+        raise ContractError("FileResponse ASGI-call requires an HTTP or WebSocket scope")
+    if error_path_kind is not None and (
+        scope_type != "http" or scope_spec["method"].upper() != "GET"
+    ):
         raise ContractError("FileResponse error paths require a direct HTTP GET scope")
-    if "extensions" in scope_spec:
+    if scope_type == "http" and "extensions" in scope_spec:
         extensions = scope_spec["extensions"]
         if not isinstance(extensions, dict) or any(
             key != "http.response.pathsend" for key in extensions
@@ -8048,7 +8092,9 @@ def _validate_file_response_case_stimulus(case: dict[str, Any]) -> None:
             raise ContractError(
                 "FileResponse scope.extensions may only declare http.response.pathsend"
             )
-    has_pathsend_extension = "http.response.pathsend" in scope_spec.get("extensions", {})
+    has_pathsend_extension = scope_type == "http" and "http.response.pathsend" in scope_spec.get(
+        "extensions", {}
+    )
     has_pathsend_requirement = FILE_RESPONSE_PATHSEND_REQUIREMENT in case["covers"]
     if has_pathsend_extension != has_pathsend_requirement:
         raise ContractError(
@@ -8079,7 +8125,8 @@ def _validate_file_response_case_stimulus(case: dict[str, Any]) -> None:
                 "FileResponse PathLike request headers must be valid base64"
             ) from exc
         if (
-            scope_spec["method"].upper() != "GET"
+            scope_type != "http"
+            or scope_spec["method"].upper() != "GET"
             or has_pathsend_extension
             or b"range" in request_header_names
             or send != {"kind": "capture-asgi-send"}
@@ -8112,6 +8159,7 @@ def _validate_file_response_case_stimulus(case: dict[str, Any]) -> None:
             or case.get("chunk_size") != 0
             or send_error is None
             or error_path_kind is not None
+            or scope_type != "http"
             or scope_spec["method"].upper() != "GET"
             or has_pathsend_extension
         ):
@@ -8165,7 +8213,7 @@ def _validate_file_response_case_stimulus(case: dict[str, Any]) -> None:
         stat_size = case["stat_result"]["size"]
         if stat_size <= len(file_contents):
             raise ContractError("FileResponse short-read stat size must exceed the file bytes")
-        if scope_spec["method"].upper() != "GET":
+        if scope_type != "http" or scope_spec["method"].upper() != "GET":
             raise ContractError("FileResponse short-read input requires a direct GET")
         range_values = []
         for pair in scope_spec["headers_base64_pairs"]:
@@ -8249,7 +8297,8 @@ def _validate_file_response_case_stimulus(case: dict[str, Any]) -> None:
         if case["target_profiles"] != ["python-package-cpython312"]:
             raise ContractError("FileResponse scheduling probe selects the Python package target")
         if (
-            not isinstance(scope_spec["method"], str)
+            scope_type != "http"
+            or not isinstance(scope_spec["method"], str)
             or scope_spec["method"].upper() != "GET"
             or has_pathsend_extension
         ):
