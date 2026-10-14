@@ -209,9 +209,7 @@ fn schemas_remove_converter(py: Python<'_>, path: &Bound<'_, PyAny>) -> PyResult
     while index < characters.len() {
         if characters[index].1 == ':' {
             let mut end = index + 1;
-            while end < characters.len()
-                && (characters[end].1 == '_' || characters[end].1.is_alphanumeric())
-            {
+            while end < characters.len() && python_word_character(py, characters[end].1)? {
                 end += 1;
             }
             if end > index + 1 && end < characters.len() && characters[end].1 == '}' {
@@ -228,6 +226,18 @@ fn schemas_remove_converter(py: Python<'_>, path: &Bound<'_, PyAny>) -> PyResult
     }
     normalized.push_str(&path[last_copied..]);
     Ok(PyString::new(py, &normalized).into_any().unbind())
+}
+
+fn python_word_character(py: Python<'_>, character: char) -> PyResult<bool> {
+    if character == '_' || character.is_ascii_alphanumeric() {
+        return Ok(true);
+    }
+
+    // Python's Unicode `re` defines `\w` using `str.isalnum()` plus `_`.
+    // Query that primitive at the boundary because Rust's compiled Unicode
+    // tables can classify code points added after the active Python version.
+    let python_character = PyString::new(py, &character.to_string());
+    python_character.call_method0("isalnum")?.extract::<bool>()
 }
 
 #[pyfunction(name = "_schemas_parse_docstring")]

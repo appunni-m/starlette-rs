@@ -124,6 +124,17 @@
               ]
             }
           ]
+        },
+        {
+          "kind": "route",
+          "path": "/literal:\ud87a\udff0}",
+          "methods": [
+            "GET"
+          ],
+          "endpoint": {
+            "kind": "function",
+            "docstring": "responses:\n  200:\n    description: Literal Unicode word boundary\n"
+          }
         }
       ],
       "observations": [
