@@ -17,6 +17,10 @@ produced identical diagnostics and revealed types. The checks cover:
 - `Request.form()` works through both `await` and `async with`; each result is
   asserted and revealed as `FormData`.
 - Iterating `Request.stream()` yields values asserted and revealed as `bytes`.
+- `Request.query_params` is asserted and revealed as `QueryParams`, and
+  `Request.path_params` is asserted and revealed as `dict[str, Any]`.
+- `await request.body()` is asserted and revealed as `bytes`, and
+  `await request.json()` is asserted and revealed as `Any`.
 - `WebSocketClose` construction and its `(Scope, Receive, Send) -> Awaitable[None]`
   ASGI callable signature.
 - ASGI app, receive, send, scope, and response call signatures, including a
@@ -36,7 +40,7 @@ declarative Protocol in `starlette/_utils.py` and imports it from
 `starlette/requests.py`, so the consumer reveal matches the source module path.
 This change contains no runtime branching or Starlette behavior.
 
-One additional public typing candidate remains: assert that `await
-request.body()` returns `bytes` and record the public `Request.json()` result
-type. Source evidence is `starlette/requests.py`'s `body()` and `json()`
-annotations, with request parsing examples in `docs/requests.md`.
+One additional public typing candidate remains: assert `Request.client` as
+`Address | None` in a consumer. Source evidence is
+`starlette/requests.py`'s `HTTPConnection.client` annotation and the remote
+address examples in `docs/requests.md`.
