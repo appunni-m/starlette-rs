@@ -11173,7 +11173,10 @@ def _run_static_files_case(case: dict[str, Any]) -> dict[str, Any]:
                         _apply_static_files_actions(root, call.get("filesystem_actions_before", []))
                         await application(scope, receive, send)
                     except Exception as exc:
-                        if not isinstance(exc, HTTPException):
+                        invalid_scope_type = not isinstance(call["scope"].get("type"), str)
+                        if not isinstance(exc, HTTPException) and not (
+                            invalid_scope_type and isinstance(exc, AssertionError)
+                        ):
                             raise
                         captured_error = exc
                     scope_observation_result = (
@@ -11259,8 +11262,11 @@ def _run_static_files_case(case: dict[str, Any]) -> dict[str, Any]:
             try:
                 asyncio.run(application(scope, receive, send))
             except Exception as exc:
-                if not isinstance(exc, HTTPException) and "lookup_path" not in (
-                    subclass_hooks or {}
+                invalid_scope_type = not isinstance(case["scope"].get("type"), str)
+                if (
+                    not isinstance(exc, HTTPException)
+                    and not (invalid_scope_type and isinstance(exc, AssertionError))
+                    and "lookup_path" not in (subclass_hooks or {})
                 ):
                     raise
                 captured_error = exc

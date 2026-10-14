@@ -1,0 +1,119 @@
+{
+  "schema": "migration-parity/parity-input@55",
+  "cases": [
+    {
+      "case_id": "starlette.testclient.TestClient.websocket-session.mutable-mapping-session-reentry",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "websocket-session",
+      "covers": [
+        "starlette.testclient.TestClient.websocket-session.scope-projection",
+        "starlette.testclient.TestClient.websocket-session.accept-handshake",
+        "starlette.testclient.TestClient.websocket-session.portal-cleanup",
+        "starlette.testclient.TestClient.websocket-session.mutable-mapping-asgi-message",
+        "starlette.testclient.TestClient.websocket-session.session-context-reentry"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "websocket-session"
+      ],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "headers": [],
+        "backend": "asyncio",
+        "backend_options": {}
+      },
+      "websocket": {
+        "url": "/",
+        "subprotocols": [],
+        "headers": [],
+        "session_entries": [
+          {
+            "actions": [
+              {
+                "operation": "receive_text"
+              }
+            ]
+          },
+          {
+            "actions": [
+              {
+                "operation": "receive_text"
+              }
+            ]
+          }
+        ],
+        "actions": []
+      },
+      "asgi_app": {
+        "kind": "asgi3",
+        "scope_fields": [
+          "type",
+          "path"
+        ],
+        "actions": [],
+        "message_mapping": "user-dict",
+        "invocation_actions": [
+          [
+            {
+              "operation": "send",
+              "message": {
+                "type": "websocket.accept",
+                "subprotocol": "first-entry",
+                "headers_base64_pairs": [
+                  [
+                    "eC1ydW4=",
+                    "Zmlyc3Q="
+                  ]
+                ]
+              }
+            },
+            {
+              "operation": "send",
+              "message": {
+                "type": "websocket.send",
+                "text": "first-entry"
+              }
+            },
+            {
+              "operation": "receive"
+            }
+          ],
+          [
+            {
+              "operation": "send",
+              "message": {
+                "type": "websocket.accept",
+                "subprotocol": "second-entry",
+                "headers_base64_pairs": [
+                  [
+                    "eC1ydW4=",
+                    "c2Vjb25k"
+                  ]
+                ]
+              }
+            },
+            {
+              "operation": "send",
+              "message": {
+                "type": "websocket.send",
+                "text": "second-entry"
+              }
+            },
+            {
+              "operation": "receive"
+            }
+          ]
+        ]
+      }
+    }
+  ]
+}

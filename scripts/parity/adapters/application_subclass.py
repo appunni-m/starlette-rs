@@ -45,6 +45,22 @@ def materialize_starlette_subclass(
             {"build_middleware_stack": build_middleware_stack},
         )
 
+    if specification["kind"] == "build-middleware-stack-wrap-exception-handlers-userdict":
+        if set(specification) != {"kind"}:
+            raise ValueError("UserDict exception-handler subclass input has unexpected fields")
+
+        def build_middleware_stack(self: Any) -> Any:
+            from collections import UserDict
+
+            self.exception_handlers = UserDict(self.exception_handlers)
+            return super(type(self), self).build_middleware_stack()
+
+        return type(
+            "MappingExceptionHandlersStarletteSubclass",
+            (base_type,),
+            {"build_middleware_stack": build_middleware_stack},
+        )
+
     if set(specification) != {"kind", "response_header_base64"}:
         raise ValueError("application_subclass must define its kind and response header")
     if specification["kind"] != "build-middleware-stack-delegate-and-append-header":

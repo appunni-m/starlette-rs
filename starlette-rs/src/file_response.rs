@@ -436,14 +436,14 @@ impl FileResponse {
         // CPython's mimetypes table classifies `.mjs` as `text/javascript`,
         // while mime_guess 2.0.5 classifies it as `application/javascript`.
         // FileResponse delegates its default type to mimetypes.guess_type.
-        let guessed_type = if source
-            .extension()
-            .and_then(|extension| extension.to_str())
-            .is_some_and(|extension| extension.eq_ignore_ascii_case("mjs"))
-        {
-            Some("text/javascript")
-        } else {
-            mime_guess::from_path(&source).first_raw()
+        let guessed_type = match source.extension().and_then(|extension| extension.to_str()) {
+            // CPython 3.12's mimetypes table differs from mime_guess for these
+            // extensions; FileResponse delegates its default to that table.
+            Some(extension) if extension.eq_ignore_ascii_case("mjs") => Some("text/javascript"),
+            Some(extension) if extension.eq_ignore_ascii_case("exe") => {
+                Some("application/x-msdownload")
+            }
+            _ => mime_guess::from_path(&source).first_raw(),
         };
         let media_type = options
             .media_type

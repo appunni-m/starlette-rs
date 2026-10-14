@@ -12,7 +12,7 @@ from collections.abc import (
     Sequence,
     ValuesView,
 )
-from typing import Any, Literal, NamedTuple, TypeVar
+from typing import Any, BinaryIO, Literal, NamedTuple, TypeVar
 from urllib.parse import SplitResult
 
 from starlette_rs_py import _core
@@ -253,6 +253,12 @@ class QueryParams(ImmutableMultiDict[str, str]):
 
 class UploadFile(_core.UploadFile):
     """An uploaded file whose storage and I/O policy are owned by Rust."""
+
+    file: BinaryIO
+    filename: str | None
+    size: int | None
+    headers: Headers
+    content_type: str | None
 
     async def write(self, data: bytes) -> None:
         await self._write(data)

@@ -694,10 +694,8 @@ impl PyWebSocketTestSession {
 
         self.send_client_message(py, websocket_connect_message(py)?)?;
         let message = self.receive_app_message(py)?;
-        let message = message.bind(py).cast::<PyDict>()?;
-        let message_type = message
-            .get_item("type")?
-            .ok_or_else(|| PyKeyError::new_err("type"))?;
+        let message = message.bind(py);
+        let message_type = message.get_item("type")?;
         // Match Starlette's ordered Python equality checks against the original
         // value so str-subclass comparison exceptions cross the PyO3 boundary.
         if message_type
@@ -715,11 +713,10 @@ impl PyWebSocketTestSession {
         // Starlette's _raise_on_close only rejects these two messages. It
         // preserves any other initial message and registers close(1000)
         // for context cleanup, even if the ASGI app did not accept.
-        self.accepted_subprotocol = message
-            .get_item("subprotocol")?
-            .filter(|value| !value.is_none())
-            .map(Bound::unbind);
-        self.extra_headers = message.get_item("headers")?.map(|value| value.unbind());
+        let subprotocol = message.call_method1("get", ("subprotocol",))?;
+        self.accepted_subprotocol = (!subprotocol.is_none()).then(|| subprotocol.unbind());
+        let headers = message.call_method1("get", ("headers",))?;
+        self.extra_headers = (!headers.is_none()).then(|| headers.unbind());
         self.close_callback_registered = true;
         Ok(())
     }
@@ -727,38 +724,26 @@ impl PyWebSocketTestSession {
     fn websocket_denial_response(
         &self,
         py: Python<'_>,
-        start_message: &Bound<'_, PyDict>,
+        start_message: &Bound<'_, PyAny>,
     ) -> PyResult<PyErr> {
-        let status = start_message
-            .get_item("status")?
-            .ok_or_else(|| PyKeyError::new_err("status"))?;
-        let headers = start_message
-            .get_item("headers")?
-            .ok_or_else(|| PyKeyError::new_err("headers"))?;
+        let status = start_message.get_item("status")?;
+        let headers = start_message.get_item("headers")?;
         let body_chunks = PyList::empty(py);
 
         loop {
             let message = self.receive_app_message(py)?;
-            let message = message.bind(py).cast::<PyDict>()?;
-            let message_type = message
-                .get_item("type")?
-                .ok_or_else(|| PyKeyError::new_err("type"))?;
+            let message = message.bind(py);
+            let message_type = message.get_item("type")?;
             let is_body_message = message_type
                 .rich_compare("websocket.http.response.body", CompareOp::Eq)?
                 .is_truthy()?;
             if !is_body_message {
                 return Err(PyAssertionError::new_err(()));
             }
-            body_chunks.append(
-                message
-                    .get_item("body")?
-                    .ok_or_else(|| PyKeyError::new_err("body"))?,
-            )?;
+            body_chunks.append(message.get_item("body")?)?;
             let more_body = message
-                .get_item("more_body")?
-                .map(|value| value.is_truthy())
-                .transpose()?
-                .unwrap_or(false);
+                .call_method1("get", ("more_body", false))?
+                .is_truthy()?;
             if !more_body {
                 break;
             }
@@ -776,10 +761,8 @@ impl PyWebSocketTestSession {
         Ok(PyErr::from_value(exception))
     }
 
-    fn raise_on_close(&self, py: Python<'_>, message: &Bound<'_, PyDict>) -> PyResult<()> {
-        let message_type = message
-            .get_item("type")?
-            .ok_or_else(|| PyKeyError::new_err("type"))?;
+    fn raise_on_close(&self, py: Python<'_>, message: &Bound<'_, PyAny>) -> PyResult<()> {
+        let message_type = message.get_item("type")?;
         // Keep Python's comparison order and let rich-comparison errors
         // propagate with their original type and message.
         if message_type
@@ -1037,12 +1020,9 @@ impl PyWebSocketTestSession {
 
     fn receive_text(&self, py: Python<'_>) -> PyResult<String> {
         let message = self.receive_app_message(py)?;
-        let message = message.bind(py).cast::<PyDict>()?;
+        let message = message.bind(py);
         self.raise_on_close(py, message)?;
-        message
-            .get_item("text")?
-            .ok_or_else(|| PyKeyError::new_err("text"))?
-            .extract::<String>()
+        message.get_item("text")?.extract::<String>()
     }
 
     fn send_bytes(&self, py: Python<'_>, data: Py<PyAny>) -> PyResult<()> {
@@ -1071,27 +1051,21 @@ impl PyWebSocketTestSession {
 
     fn receive_bytes(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let message = self.receive_app_message(py)?;
-        let message = message.bind(py).cast::<PyDict>()?;
+        let message = message.bind(py);
         self.raise_on_close(py, message)?;
-        message
-            .get_item("bytes")?
-            .ok_or_else(|| PyKeyError::new_err("bytes"))
-            .map(Bound::unbind)
+        message.get_item("bytes").map(Bound::unbind)
     }
 
     #[pyo3(signature = (mode="text"))]
     fn receive_json(&self, py: Python<'_>, mode: &str) -> PyResult<Py<PyAny>> {
         let message = self.receive_app_message(py)?;
-        let message = message.bind(py).cast::<PyDict>()?;
+        let message = message.bind(py);
         self.raise_on_close(py, message)?;
         let value = if mode == "text" {
-            message
-                .get_item("text")?
-                .ok_or_else(|| PyKeyError::new_err("text"))?
+            message.get_item("text")?
         } else {
             message
                 .get_item("bytes")?
-                .ok_or_else(|| PyKeyError::new_err("bytes"))?
                 .call_method1("decode", ("utf-8",))?
         };
         py.import("json")?
@@ -2067,13 +2041,9 @@ fn websocket_disconnect_message(
     Ok(message.into_any().unbind())
 }
 
-fn websocket_disconnect(py: Python<'_>, message: &Bound<'_, PyDict>) -> PyResult<PyErr> {
-    let code = message
-        .get_item("code")?
-        .unwrap_or_else(|| PyInt::new(py, 1000).into_any());
-    let reason = message
-        .get_item("reason")?
-        .unwrap_or_else(|| PyString::new(py, "").into_any());
+fn websocket_disconnect(py: Python<'_>, message: &Bound<'_, PyAny>) -> PyResult<PyErr> {
+    let code = message.call_method1("get", ("code", 1000))?;
+    let reason = message.call_method1("get", ("reason", ""))?;
     let kwargs = PyDict::new(py);
     kwargs.set_item("code", code)?;
     kwargs.set_item("reason", reason)?;

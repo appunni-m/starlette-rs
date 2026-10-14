@@ -195,7 +195,16 @@ impl GzipMiddlewareCall {
             let responder = if self.gzip_always {
                 config.call_method0("gzip_responder")?.unbind()
             } else {
-                let request_headers = scope.get_item("headers")?.extract::<Vec<GzipHeader>>()?;
+                // Starlette constructs Headers(scope=scope) before checking
+                // Accept-Encoding. Headers copies even an existing list and
+                // writes that copy back through the caller's mutable mapping.
+                let source_headers = scope.get_item("headers")?;
+                let request_headers = py
+                    .import("builtins")?
+                    .getattr("list")?
+                    .call1((source_headers,))?;
+                scope.set_item("headers", &request_headers)?;
+                let request_headers = request_headers.extract::<Vec<GzipHeader>>()?;
                 let request_headers = gzip_headers_to_python(py, &request_headers)?;
                 config
                     .call_method1("responder", (request_headers,))?

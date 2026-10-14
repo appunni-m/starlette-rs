@@ -189,7 +189,7 @@ impl PyStarletteRuntime {
         let router = app.getattr("router")?;
         let debug = app.getattr("debug")?;
         let max_body_size = app.getattr("max_body_size")?;
-        let handlers = app.getattr("exception_handlers")?.cast_into::<PyDict>()?;
+        let handlers = app.getattr("exception_handlers")?;
         // Starlette appends `user_middleware` to a local list, so the public
         // attribute may be any iterable when the stack is built.
         let middleware = app.getattr("user_middleware")?;

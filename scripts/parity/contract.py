@@ -126,6 +126,12 @@ STARLETTE_USER_MIDDLEWARE_ITERABLE_REQUIREMENT = (
     "starlette.applications.Starlette.build_middleware_stack.user-middleware-iterable"
 )
 STARLETTE_SUBCLASS_USER_MIDDLEWARE_KIND = "build-middleware-stack-set-user-middleware-tuple"
+STARLETTE_EXCEPTION_HANDLERS_USERDICT_KIND = (
+    "build-middleware-stack-wrap-exception-handlers-userdict"
+)
+STARLETTE_EXCEPTION_HANDLERS_MAPPING_REQUIREMENT = (
+    "starlette.applications.Starlette.build_middleware_stack.exception-handlers-mapping-protocol"
+)
 STARLETTE_CONSTRUCTOR_INPUT_ORDER_REQUIREMENT = (
     "starlette.applications.Starlette.__init__.constructor-input-copy-order"
 )
@@ -451,6 +457,12 @@ TESTCLIENT_LIFESPAN_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | 
 }
 TESTCLIENT_WEBSOCKET_REQUIREMENTS = {
     "scope": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.scope-projection",
+    "mutable_mapping_asgi_message": (
+        f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.mutable-mapping-asgi-message"
+    ),
+    "session_context_reentry": (
+        f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.session-context-reentry"
+    ),
     "application_exception": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.application-exception-propagation",
     "error_policy_independent": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.error-propagation-independent-of-http-policy",
     "entry_cleanup_error_precedence": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.entry-cleanup-error-precedence",
@@ -1455,6 +1467,9 @@ STREAMING_RESPONSE_SURFACE = "starlette.responses.StreamingResponse"
 FILE_RESPONSE_SURFACE = "starlette.responses.FileResponse"
 STATIC_FILES_SURFACE = "starlette.staticfiles.StaticFiles"
 STATIC_FILES_PACKAGE_TRUTHINESS_REQUIREMENT = "packages-truthiness-before-iteration"
+STATIC_FILES_SCOPE_TYPE_EQUALITY_REQUIREMENT = (
+    f"{STATIC_FILES_SURFACE}.asgi-call.scope-type-equality"
+)
 STATIC_FILES_LOOKUP_PATH_OPERATION = "lookup-path"
 STATIC_FILES_OS_SPECIFIC_PATH_BEHAVIOR = "os-specific-path-normalization"
 STATIC_FILES_ROOT_PATH_PREFIX_INDEX_REDIRECT = "root-path-prefix-html-index-redirect"
@@ -8641,8 +8656,13 @@ def _validate_static_files_case_stimulus(
     if isinstance(scope, dict) and "extensions" in scope:
         scope_keys.add("extensions")
     scope = _exact(scope, scope_keys, "StaticFiles HTTP scope")
-    if scope["type"] != "http":
+    non_string_scope_type = not isinstance(scope["type"], str)
+    if scope["type"] != "http" and not non_string_scope_type:
         raise ContractError("StaticFiles asgi-call requires an HTTP scope")
+    if non_string_scope_type and case["target_profiles"] != ["python-package-cpython312"]:
+        raise ContractError(
+            "StaticFiles non-string scope.type input requires the Python package profile"
+        )
     if "extensions" in scope:
         extensions = scope["extensions"]
         if not isinstance(extensions, dict) or any(
@@ -8679,7 +8699,15 @@ def _validate_static_files_case_stimulus(
         allow_headers=True,
         allow_root_path=True,
         allow_query=True,
+        allow_non_string_scope_type=non_string_scope_type,
     )
+
+    if non_string_scope_type:
+        if validate_covers and case["covers"] != [STATIC_FILES_SCOPE_TYPE_EQUALITY_REQUIREMENT]:
+            raise ContractError(
+                "StaticFiles non-string scope.type input must cover its equality boundary"
+            )
+        return {STATIC_FILES_SCOPE_TYPE_EQUALITY_REQUIREMENT}
 
     path = scope["path"]
     root_path = scope["root_path"]
@@ -17959,6 +17987,107 @@ def _validate_testclient_portal_exit_environment(case: dict[str, Any]) -> dict[s
     return error
 
 
+def _validate_testclient_websocket_mapping_reentry_case(
+    case: dict[str, Any],
+    websocket: dict[str, Any],
+    asgi_app: dict[str, Any],
+    validate_base64: Callable[[Any, str], None],
+) -> None:
+    """Validate a two-entry WebSocket session using input-defined mapping messages."""
+    if (
+        asgi_app["kind"] != "asgi3"
+        or asgi_app.get("message_mapping") != "user-dict"
+        or asgi_app.get("actions") != []
+        or "invocation_actions" not in asgi_app
+    ):
+        raise ContractError(
+            "WebSocket session re-entry requires a UserDict ASGI3 app with per-invocation actions"
+        )
+    entries = websocket["session_entries"]
+    invocations = asgi_app["invocation_actions"]
+    if (
+        websocket["actions"] != []
+        or not isinstance(entries, list)
+        or len(entries) != 2
+        or not isinstance(invocations, list)
+        or len(invocations) != len(entries)
+    ):
+        raise ContractError(
+            "WebSocket session re-entry must supply two input-defined session and app entries"
+        )
+
+    for index, entry in enumerate(entries):
+        entry = _exact(entry, {"actions"}, f"WebSocket session entry[{index}]")
+        actions = entry["actions"]
+        if actions != [{"operation": "receive_text"}]:
+            raise ContractError(
+                "each WebSocket session re-entry must receive one input-defined text frame"
+            )
+
+    observed_subprotocols: list[str] = []
+    observed_text_frames: list[str] = []
+    for index, raw_actions in enumerate(invocations):
+        if not isinstance(raw_actions, list) or len(raw_actions) != 3:
+            raise ContractError(f"WebSocket app invocation[{index}] must accept, send, and receive")
+        accept_action = _exact(
+            raw_actions[0], {"operation", "message"}, f"WebSocket accept action[{index}]"
+        )
+        accept_message = _exact(
+            accept_action["message"],
+            {"type", "subprotocol", "headers_base64_pairs"},
+            f"WebSocket accept message[{index}]",
+        )
+        if accept_action["operation"] != "send" or accept_message["type"] != "websocket.accept":
+            raise ContractError("each WebSocket app invocation must send websocket.accept")
+        observed_subprotocols.append(
+            _string(accept_message["subprotocol"], f"WebSocket accept subprotocol[{index}]")
+        )
+        headers = accept_message["headers_base64_pairs"]
+        if not isinstance(headers, list):
+            raise ContractError(f"WebSocket accept headers[{index}] must be an array")
+        for header_index, pair in enumerate(headers):
+            if not isinstance(pair, list) or len(pair) != 2:
+                raise ContractError(
+                    f"WebSocket accept headers[{index}][{header_index}] must be a pair"
+                )
+            for part, value in zip(("name", "value"), pair, strict=True):
+                validate_base64(value, f"WebSocket accept headers[{index}][{header_index}].{part}")
+
+        send_action = _exact(
+            raw_actions[1], {"operation", "message"}, f"WebSocket send action[{index}]"
+        )
+        send_message = _exact(
+            send_action["message"],
+            {"type", "text"},
+            f"WebSocket text message[{index}]",
+        )
+        if send_action["operation"] != "send" or send_message["type"] != "websocket.send":
+            raise ContractError("each WebSocket app invocation must send websocket.send")
+        observed_text_frames.append(_string(send_message["text"], f"WebSocket text[{index}]"))
+
+        receive_action = _exact(raw_actions[2], {"operation"}, f"WebSocket receive action[{index}]")
+        if receive_action["operation"] != "receive":
+            raise ContractError("each WebSocket app invocation must receive context cleanup")
+
+    if len(set(observed_subprotocols)) != len(entries) or len(set(observed_text_frames)) != len(
+        entries
+    ):
+        raise ContractError(
+            "WebSocket session re-entry must use distinct input-defined handshakes and text frames"
+        )
+    expected_covers = {
+        TESTCLIENT_WEBSOCKET_REQUIREMENTS["scope"],
+        TESTCLIENT_WEBSOCKET_REQUIREMENTS["handshake"],
+        TESTCLIENT_WEBSOCKET_REQUIREMENTS["portal_cleanup"],
+        TESTCLIENT_WEBSOCKET_REQUIREMENTS["mutable_mapping_asgi_message"],
+        TESTCLIENT_WEBSOCKET_REQUIREMENTS["session_context_reentry"],
+    }
+    if set(case["covers"]) != expected_covers:
+        raise ContractError(
+            "WebSocket mapping and re-entry covers must match the supplied session workflow"
+        )
+
+
 def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
     portal_exit_error = _validate_testclient_portal_exit_environment(case)
     settings_keys = {"base_url", "raise_server_exceptions", "root_path", "client", "headers"}
@@ -18019,6 +18148,8 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
     websocket_keys = {"url", "subprotocols", "headers", "actions"}
     if isinstance(case["websocket"], dict) and "params" in case["websocket"]:
         websocket_keys.add("params")
+    if isinstance(case["websocket"], dict) and "session_entries" in case["websocket"]:
+        websocket_keys.add("session_entries")
     websocket = _exact(case["websocket"], websocket_keys, "TestClient WebSocket input")
     websocket_url = _string(websocket["url"], "TestClient WebSocket url")
     is_routed_websocket_app = isinstance(case["asgi_app"], dict) and case["asgi_app"].get(
@@ -18371,9 +18502,12 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
         )
         app_actions = []
     else:
+        asgi_app_keys = {"kind", "scope_fields", "actions"}
+        if isinstance(raw_asgi_app, dict):
+            asgi_app_keys |= raw_asgi_app.keys() & {"message_mapping", "invocation_actions"}
         asgi_app = _exact(
             raw_asgi_app,
-            {"kind", "scope_fields", "actions"},
+            asgi_app_keys,
             "TestClient WebSocket ASGI app",
         )
         app_actions = asgi_app["actions"]
@@ -18412,6 +18546,12 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
         or len(scope_fields) != len(set(scope_fields))
     ):
         raise ContractError("TestClient WebSocket scope_fields must be unique supported scope keys")
+
+    if "session_entries" in websocket:
+        _validate_testclient_websocket_mapping_reentry_case(
+            case, websocket, asgi_app, validate_base64
+        )
+        return
 
     if raw_session_workflow:
         _validate_testclient_raw_websocket_workflow(
@@ -21363,6 +21503,14 @@ def _validate_application_subclass_builder_case(
     elif kind == STARLETTE_SUBCLASS_USER_MIDDLEWARE_KIND:
         _exact(raw_specification, {"kind"}, "Starlette application subclass input")
         expected_requirement = STARLETTE_USER_MIDDLEWARE_ITERABLE_REQUIREMENT
+    elif kind == STARLETTE_EXCEPTION_HANDLERS_USERDICT_KIND:
+        _exact(raw_specification, {"kind"}, "Starlette application subclass input")
+        exception_handlers = application_arguments["exception_handlers"]["value"]
+        if not isinstance(exception_handlers, list) or not exception_handlers:
+            raise ContractError(
+                "UserDict exception-handler input must contain an input-registered handler"
+            )
+        expected_requirement = STARLETTE_EXCEPTION_HANDLERS_MAPPING_REQUIREMENT
     elif kind == STARLETTE_CONSTRUCTOR_VISIBILITY_SUBCLASS_KIND:
         specification = _exact(
             raw_specification,
@@ -24281,6 +24429,13 @@ def _validate_case_payload(
                 and case["application_subclass"].get("kind")
                 == STARLETTE_SUBCLASS_USER_MIDDLEWARE_KIND
             ),
+            allow_exception_handlers_userdict=(
+                case["surface"] == "starlette.applications.Starlette"
+                and case["operation"] == "__call__"
+                and isinstance(case.get("application_subclass"), dict)
+                and case["application_subclass"].get("kind")
+                == STARLETTE_EXCEPTION_HANDLERS_USERDICT_KIND
+            ),
         )
     server_error_case = not is_protocol_middleware and _is_server_error_stimulus(app_args)
     body_reuse = False
@@ -24412,7 +24567,18 @@ def _validate_case_payload(
     elif (
         not is_starlette_add_exception_handler_workflow
         and not is_protocol_middleware
-        and (body_reuse or exception_handler_inputs or server_error_case)
+        and (
+            body_reuse
+            or (
+                exception_handler_inputs
+                and not (
+                    isinstance(case.get("application_subclass"), dict)
+                    and case["application_subclass"].get("kind")
+                    == STARLETTE_EXCEPTION_HANDLERS_USERDICT_KIND
+                )
+            )
+            or server_error_case
+        )
     ):
         _validate_exception_handler_dispatch(app_args, dispatch_args)
     schedule = case["execution_schedule"]
@@ -27403,6 +27569,7 @@ def _validate_application_stimulus(
     allow_observable_constructor_inputs: bool = False,
     allow_middleware_iterator_subclass: bool = False,
     allow_user_middleware_iterable: bool = False,
+    allow_exception_handlers_userdict: bool = False,
 ) -> None:
     if set(args) != {
         "debug",
@@ -27733,6 +27900,8 @@ def _validate_application_stimulus(
         return
 
     if handlers != []:
+        if allow_exception_handlers_userdict:
+            return
         _validate_status_precedence_application(route, handlers)
         return
 
@@ -28961,6 +29130,7 @@ def _validate_dispatch_stimulus(
     allow_scope_app: bool = False,
     allow_minimal_http_scope: bool = False,
     allow_caller_cancellation_send: bool = False,
+    allow_non_string_scope_type: bool = False,
 ) -> None:
     if set(args) != {"scope", "receive", "send"}:
         raise ContractError(
@@ -28969,6 +29139,8 @@ def _validate_dispatch_stimulus(
     scope = args["scope"]
     if not isinstance(scope, dict):
         raise ContractError("scope input must be an object")
+    if allow_non_string_scope_type and not isinstance(scope.get("type"), str):
+        scope = {**scope, "type": "http"}
     if scope.get("type") == "lifespan":
         scope_fields = {"type", "asgi"}
         if allow_lifespan_callback_failures and "state" in scope:
@@ -39073,6 +39245,8 @@ def _semantic_coverage(case: dict[str, Any]) -> set[str]:
     ):
         if case["application_subclass"].get("kind") == STARLETTE_SUBCLASS_USER_MIDDLEWARE_KIND:
             coverage.add(STARLETTE_USER_MIDDLEWARE_ITERABLE_REQUIREMENT)
+        elif case["application_subclass"].get("kind") == STARLETTE_EXCEPTION_HANDLERS_USERDICT_KIND:
+            coverage.add(STARLETTE_EXCEPTION_HANDLERS_MAPPING_REQUIREMENT)
         elif (
             case["application_subclass"].get("kind")
             == STARLETTE_CONSTRUCTOR_VISIBILITY_SUBCLASS_KIND

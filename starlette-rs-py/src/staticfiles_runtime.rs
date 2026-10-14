@@ -372,8 +372,10 @@ impl PyStaticFiles {
         file_response: Py<PyAny>,
         check_config: Py<PyAny>,
     ) -> PyResult<Py<PyAny>> {
-        let scope_type = scope.get_item("type")?.extract::<String>()?;
-        if scope_type != "http" {
+        // Match the source's `scope["type"] == "http"` expression without
+        // requiring the ASGI value to be a Python string first. A non-string
+        // value compares false in Starlette and reaches the assertion path.
+        if !scope.get_item("type")?.eq("http")? {
             return Err(PyAssertionError::new_err(()));
         }
         into_sendable_python_awaitable(

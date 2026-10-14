@@ -1415,7 +1415,7 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
     application_values: list[dict[str, Any]] = []
     disconnect_observations: list[dict[str, Any]] = []
     cancellation_observations: list[dict[str, str]] = []
-    application_state: dict[str, Any] = {"completed": False, "thread": None}
+    application_state: dict[str, Any] = {"completed": False, "thread": None, "invocations": 0}
     flow_actions = app_input.get("actions", [])
     flow_actions = (
         flow_actions[0]["actions"]
@@ -1444,7 +1444,12 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
         safe_message = _safe(message)
         send_observations.append(safe_message)
         event_tape.append({"direction": "send", "message": safe_message})
-        await send(message)
+        outgoing_message = message
+        if app_input.get("message_mapping") == "user-dict":
+            from collections import UserDict
+
+            outgoing_message = UserDict(message)
+        await send(outgoing_message)
 
     def record_scope(scope: dict[str, Any]) -> None:
         scope_observations.append(
@@ -1462,8 +1467,10 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
             "body_base64": base64.b64encode(exception.content).decode("ascii"),
         }
 
-    async def run_app_body(receive: Any, send: Any) -> None:
-        for action in app_input["actions"]:
+    async def run_app_body(
+        receive: Any, send: Any, actions: list[dict[str, Any]] | None = None
+    ) -> None:
+        for action in app_input["actions"] if actions is None else actions:
             if action["operation"] == "receive":
                 await observed_receive(receive)
             elif action["operation"] == "raise":
@@ -1884,10 +1891,18 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
             record_scope(scope)
             application_state["thread"] = threading.current_thread()
             try:
-                if app_input["actions"][0]["operation"] == "websocket_flow":
+                app_actions = app_input.get("actions", [])
+                if app_actions and app_actions[0]["operation"] == "websocket_flow":
                     await run_websocket_flow(scope, receive, send)
                 else:
-                    await run_app_body(receive, send)
+                    invocation_actions = app_input.get("invocation_actions")
+                    if invocation_actions is None:
+                        selected_actions = app_actions
+                    else:
+                        invocation_index = application_state["invocations"]
+                        selected_actions = invocation_actions[invocation_index]
+                        application_state["invocations"] = invocation_index + 1
+                    await run_app_body(receive, send, selected_actions)
             finally:
                 application_state["completed"] = True
 
@@ -1909,6 +1924,11 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
     denial_response = None
     session_entered = False
     session_body_completed = False
+    session_entry_observations: list[dict[str, Any]] = []
+    explicit_session_entries = "session_entries" in websocket_input
+    session_entries = websocket_input.get("session_entries") or [
+        {"actions": websocket_input["actions"]}
+    ]
     captured_error: BaseException | None = None
     captured_error_stage = "websocket-session-entry"
     entry_disconnect = None
@@ -1916,76 +1936,42 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
     if "params" in websocket_input:
         websocket_kwargs["params"] = websocket_input["params"]
     portal_exit_restore = _install_portal_exit_error(case)
-    try:
-        with client.websocket_connect(
-            websocket_input["url"],
-            subprotocols=session_input,
-            **websocket_kwargs,
-        ) as session:
-            session_entered = True
-            accepted_subprotocol = session.accepted_subprotocol
-            accepted_extra_headers = session.extra_headers
-            for action in websocket_input["actions"]:
-                try:
-                    if action["operation"] == "send":
-                        value = session.send(_message(action["message"]))
-                    elif action["operation"] == "receive":
-                        value = session.receive()
-                    elif action["operation"] == "send_text":
-                        value = session.send_text(action["text"])
-                    elif action["operation"] == "send_bytes":
-                        value = session.send_bytes(base64.b64decode(action["data_base64"]))
-                    elif action["operation"] == "send_json":
-                        value = session.send_json(action["value"], action.get("mode", "text"))
-                    elif action["operation"] == "receive_text":
-                        value = session.receive_text()
-                    elif action["operation"] == "receive_bytes":
-                        value = session.receive_bytes()
-                    elif action["operation"] == "receive_json":
-                        value = session.receive_json(action.get("mode", "text"))
-                    elif action["operation"] == "close":
-                        value = session.close(action.get("code", 1000), action.get("reason"))
-                    else:
-                        raise ValueError(
-                            f"unsupported TestClient WebSocket action: {action['operation']!r}"
-                        )
-                except WebSocketDenialResponse as error:
-                    if not action.get("capture_exception", False):
-                        raise
-                    denial_response = describe_denial_response(error)
-                    action_results.append(
-                        {
-                            "operation": action["operation"],
-                            "denial_response": denial_response,
-                        }
+
+    def run_session_actions(session: Any, actions: list[dict[str, Any]]) -> None:
+        nonlocal denial_response
+        for action in actions:
+            try:
+                if action["operation"] == "send":
+                    value = session.send(_message(action["message"]))
+                elif action["operation"] == "receive":
+                    value = session.receive()
+                elif action["operation"] == "send_text":
+                    value = session.send_text(action["text"])
+                elif action["operation"] == "send_bytes":
+                    value = session.send_bytes(base64.b64decode(action["data_base64"]))
+                elif action["operation"] == "send_json":
+                    value = session.send_json(action["value"], action.get("mode", "text"))
+                elif action["operation"] == "receive_text":
+                    value = session.receive_text()
+                elif action["operation"] == "receive_bytes":
+                    value = session.receive_bytes()
+                elif action["operation"] == "receive_json":
+                    value = session.receive_json(action.get("mode", "text"))
+                elif action["operation"] == "close":
+                    value = session.close(action.get("code", 1000), action.get("reason"))
+                else:
+                    raise ValueError(
+                        f"unsupported TestClient WebSocket action: {action['operation']!r}"
                     )
-                except WebSocketDisconnect as error:
-                    if action.get("capture_exception", False):
-                        action_results.append(
-                            {
-                                "operation": action["operation"],
-                                "exception": {
-                                    "class": f"{type(error).__module__}.{type(error).__qualname__}",
-                                    "message": str(error),
-                                },
-                            }
-                        )
-                        continue
-                    if not action.get("capture_disconnect", False):
-                        raise
-                    action_results.append(
-                        {
-                            "operation": action["operation"],
-                            "disconnect": {
-                                "class": f"{type(error).__module__}.{type(error).__qualname__}",
-                                "code": error.code,
-                                "reason": error.reason,
-                            },
-                        }
-                    )
-                except Exception as error:
-                    if not action.get("capture_exception", False):
-                        raise
+            except WebSocketDenialResponse as error:
+                if not action.get("capture_exception", False):
+                    raise
+                denial_response = describe_denial_response(error)
+                action_results.append(
+                    {"operation": action["operation"], "denial_response": denial_response}
+                )
+            except WebSocketDisconnect as error:
+                if action.get("capture_exception", False):
                     action_results.append(
                         {
                             "operation": action["operation"],
@@ -1995,9 +1981,56 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
                             },
                         }
                     )
-                else:
-                    action_results.append({"operation": action["operation"], "value": _safe(value)})
-            session_body_completed = True
+                    continue
+                if not action.get("capture_disconnect", False):
+                    raise
+                action_results.append(
+                    {
+                        "operation": action["operation"],
+                        "disconnect": {
+                            "class": f"{type(error).__module__}.{type(error).__qualname__}",
+                            "code": error.code,
+                            "reason": error.reason,
+                        },
+                    }
+                )
+            except Exception as error:
+                if not action.get("capture_exception", False):
+                    raise
+                action_results.append(
+                    {
+                        "operation": action["operation"],
+                        "exception": {
+                            "class": f"{type(error).__module__}.{type(error).__qualname__}",
+                            "message": str(error),
+                        },
+                    }
+                )
+            else:
+                action_results.append({"operation": action["operation"], "value": _safe(value)})
+
+    try:
+        session = client.websocket_connect(
+            websocket_input["url"],
+            subprotocols=session_input,
+            **websocket_kwargs,
+        )
+        for session_entry in session_entries:
+            action_start = len(action_results)
+            session_body_completed = False
+            with session:
+                session_entered = True
+                accepted_subprotocol = session.accepted_subprotocol
+                accepted_extra_headers = session.extra_headers
+                run_session_actions(session, session_entry["actions"])
+                session_body_completed = True
+            session_entry_observations.append(
+                {
+                    "accepted_subprotocol": accepted_subprotocol,
+                    "extra_headers": _safe(accepted_extra_headers),
+                    "actions": action_results[action_start:],
+                }
+            )
     except WebSocketDenialResponse as exception:
         denial_response = describe_denial_response(exception)
     except WebSocketDisconnect as error:
@@ -2033,6 +2066,8 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
         },
         "denial_response": denial_response,
     }
+    if explicit_session_entries:
+        result["session"]["entries"] = session_entry_observations
     result["event_tape"] = event_tape
     portal_thread = application_state["thread"]
     result["app"] = {

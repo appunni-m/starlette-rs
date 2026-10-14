@@ -491,6 +491,7 @@
       "build/parity/inputs/parity/file-response-zero-chunk-size.json",
       "build/parity/inputs/parity/response-file-range-large-integer.json",
       "build/parity/inputs/parity/file-response-mjs-media-type.json",
+      "build/parity/inputs/parity/file-response-exe-media-type.json",
       "build/parity/inputs/parity/file-response-empty-filename-media-type.json",
       "build/parity/inputs/parity/file-response-range-decimal-inputs.json",
       "build/parity/inputs/parity/file-response-if-range-last-modified.json",
@@ -505,6 +506,7 @@
       "build/parity/inputs/parity/authentication-required-routes.json",
       "build/parity/inputs/parity/authentication-required-websockets.json",
       "build/parity/inputs/parity/static-files.json",
+      "build/parity/inputs/parity/static-files-scope-type-equality.json",
       "build/parity/inputs/parity/static-files-packages-falsey-sequence.json",
       "build/parity/inputs/parity/static-files-root-path-index-redirect.json",
       "build/parity/inputs/parity/static-files-symlink-asgi.json",
@@ -590,6 +592,7 @@
       "build/parity/inputs/parity/testclient-partial-websocket-endpoints.json",
       "build/parity/inputs/parity/fault-contracts.json",
       "build/parity/inputs/parity/testclient-websocket.json",
+      "build/parity/inputs/parity/testclient-websocket-mutable-mapping-session-reentry.json",
       "build/parity/inputs/parity/testclient-websocket-entry-cleanup-error.json",
       "build/parity/inputs/parity/testclient-websocket-denial-body-error.json",
       "build/parity/inputs/parity/testclient-websocket-denial-after-accept.json",
@@ -614,6 +617,7 @@
       "build/parity/inputs/parity/router-converter-ordering.json",
       "build/parity/inputs/parity/router-mixed-route-ordering.json",
       "build/parity/inputs/parity/application-subclass-builder.json",
+      "build/parity/inputs/parity/application-exception-handlers-userdict.json",
       "build/parity/inputs/parity/concurrency.json",
       "build/parity/inputs/parity/concurrency-stop-async-iteration.json",
       "build/parity/inputs/parity/concurrency-run-in-threadpool-cancellation.json",
@@ -1585,6 +1589,17 @@
               "id": "starlette.applications.Starlette.build_middleware_stack.user-middleware-iterable",
               "dimension": "boundary",
               "description": "Set Starlette.user_middleware to an input-defined tuple before the first ASGI dispatch and preserve Starlette's iterable expansion while constructing the middleware stack. Pinned source: starlette/applications.py:75-87.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.applications.Starlette.build_middleware_stack.exception-handlers-mapping-protocol",
+              "dimension": "boundary",
+              "description": "Replace Starlette.exception_handlers with an input-initialized UserDict from a build_middleware_stack subclass hook, then dispatch an ordinary route while constructing the handler stack. The builder must consume the mapping's items protocol. Pinned source: starlette/applications.py:62-66.",
               "lanes": [
                 "parity"
               ],
@@ -27663,6 +27678,17 @@
               ]
             },
             {
+              "id": "starlette.staticfiles.StaticFiles.asgi-call.scope-type-equality",
+              "dimension": "boundary",
+              "description": "Pass a non-string scope.type value through the Python StaticFiles ASGI entry point and compare the live assertion outcome produced by Python equality against 'http'. Pinned source: starlette/staticfiles.py:85.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.staticfiles.StaticFiles.asgi-call.directory-root-404",
               "dimension": "error_path",
               "description": "Request the root of an input-defined non-HTML static directory containing a file and compare the live 404 HTTPException outcome and empty ASGI event trace. Upstream: tests/test_staticfiles.py::test_staticfiles_with_directory_returns_404.",
@@ -32538,6 +32564,28 @@
               "id": "starlette.testclient.TestClient.websocket-session.accept-handshake",
               "dimension": "success_path",
               "description": "Send websocket.connect when the session context starts, accept the supplied app handshake, and expose its selected subprotocol through accepted_subprotocol. Pinned source: starlette/testclient.py:102-117,259-267,656-677; tests/test_testclient.py::test_websocket_blocking_receive.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.websocket-session.mutable-mapping-asgi-message",
+              "dimension": "boundary",
+              "description": "Deliver input-defined UserDict ASGI messages through the public WebSocket session handshake and receive path, exercising Starlette's mapping access and get protocol. Pinned source: starlette/testclient.py:95-117,138-151,169-188.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.websocket-session.session-context-reentry",
+              "dimension": "boundary",
+              "description": "Enter the same WebSocketTestSession context object twice in sequence, supplying distinct input-defined handshakes and text messages to each app invocation. Pinned source: starlette/testclient.py:95-131.",
               "lanes": [
                 "parity"
               ],
