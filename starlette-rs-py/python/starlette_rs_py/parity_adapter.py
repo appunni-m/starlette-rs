@@ -49,6 +49,7 @@ from scripts.parity.adapters.staticfiles_config import (
     run_static_files_configuration_case,
 )
 from scripts.parity.adapters.status_module import run_status_module_sequence
+from scripts.parity.adapters.websocket_json_mode import materialize_websocket_json_mode
 
 REQUEST_SCHEMA = "migration-parity/adapter-request@1"
 RESPONSE_SCHEMA = "migration-parity/adapter-response@1"
@@ -6184,7 +6185,11 @@ def _run_websocket_convenience_case(case: dict[str, Any]) -> dict[str, Any]:
                 elif method in {"receive_text", "receive_bytes"}:
                     value = await getattr(websocket, method)()
                 elif method == "receive_json":
-                    kwargs = {"mode": arguments["mode"]} if "mode" in arguments else {}
+                    kwargs = (
+                        {"mode": materialize_websocket_json_mode(arguments["mode"])}
+                        if "mode" in arguments
+                        else {}
+                    )
                     value = await websocket.receive_json(**kwargs)
                 elif method in {"send_text", "send_json", "close"}:
                     kwargs = dict(arguments)

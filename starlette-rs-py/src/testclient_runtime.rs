@@ -461,11 +461,20 @@ impl TestClientLifespan {
         portal.bind(py).call_method1("call", (send, message))?;
 
         let response = self.receive_lifespan_message(py, portal.bind(py), receive_stream)?;
-        let response_type = response.bind(py).get_item("type")?.extract::<String>()?;
-        if response_type != complete && response_type != failed {
+        let response_type = response.bind(py).get_item("type")?;
+        // The pinned client uses tuple membership on the original Python value.
+        // Keep its equality hooks and any comparison exception observable.
+        let accepted_types = PyTuple::new(py, [complete, failed])?;
+        let accepted = accepted_types
+            .call_method1("__contains__", (&response_type,))?
+            .is_truthy()?;
+        if !accepted {
             return Err(PyAssertionError::new_err(()));
         }
-        if response_type == failed {
+        if response_type
+            .rich_compare(failed, CompareOp::Eq)?
+            .is_truthy()?
+        {
             let _ = self.receive_lifespan_message(py, portal.bind(py), receive_stream)?;
         }
         Ok(())

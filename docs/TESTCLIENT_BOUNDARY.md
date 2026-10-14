@@ -168,6 +168,20 @@ integration must extend the lifespan adapter to construct that portal failure
 from the input and record the propagated exception's context chain. The new
 comparison is authored but remains unexecuted until the grouped parity phase.
 
+## Lifespan handshake message-type comparisons
+
+The pinned startup and shutdown handshakes validate `message["type"]` with
+tuple membership (`testclient.py:727-731` and `testclient.py:743-747`). The
+comparison runs on the original Python value, so a `str` subclass can raise
+from `__eq__` while the TestClient is entering or leaving its context. Rust
+keeps the source's tuple-membership operation on that value instead of
+normalizing it to a Rust string first. The input-only
+[`testclient-lifespan-message-type-comparison-error.yaml`](../tests/fixtures/sources/parity/testclient-lifespan-message-type-comparison-error.yaml)
+supplies such a startup response type and observes the resulting exception.
+Root integration must add the fixture to the active manifest and attribute it
+to the existing startup-handshake and startup-error requirements. Its
+comparison remains unexecuted until the grouped parity phase.
+
 ## WebSocket portal-exit errors during session cleanup
 
 `WebSocketTestSession.__enter__` registers the portal manager, task result, cancel

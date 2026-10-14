@@ -764,7 +764,6 @@ fn typed_receive_awaitable(
             receive_callback,
             disconnect_handler,
             kind,
-            json_binary: false,
         },
     )
 }
@@ -776,7 +775,6 @@ struct TypedReceiveMachine {
     receive_callback: Py<PyAny>,
     disconnect_handler: Py<PyAny>,
     kind: TypedReceiveKind,
-    json_binary: bool,
 }
 
 impl AwaitableStateMachine for TypedReceiveMachine {
@@ -806,7 +804,7 @@ impl AwaitableStateMachine for TypedReceiveMachine {
 impl TypedReceiveMachine {
     fn start(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
         if let TypedReceiveKind::Json(mode) = &self.kind {
-            self.json_binary = json_mode_is_binary(py, mode.bind(py))?;
+            validate_json_mode(py, mode.bind(py))?;
         }
         if protocol_state_matches(
             py,
@@ -829,11 +827,14 @@ impl TypedReceiveMachine {
             .bind(py)
             .call1((message.bind(py),))?;
 
-        let value = match self.kind {
+        let value = match &self.kind {
             TypedReceiveKind::Text => message.bind(py).get_item("text")?,
             TypedReceiveKind::Bytes => message.bind(py).get_item("bytes")?,
-            TypedReceiveKind::Json(_) => {
-                let text = if self.json_binary {
+            TypedReceiveKind::Json(mode) => {
+                // Starlette compares `mode` with "text" only after the state
+                // check, receive, and disconnect check have completed.
+                let json_binary = !mode.bind(py).eq("text")?;
+                let text = if json_binary {
                     message
                         .bind(py)
                         .get_item("bytes")?
@@ -848,13 +849,18 @@ impl TypedReceiveMachine {
     }
 }
 
-fn json_mode_is_binary(py: Python<'_>, mode: &Bound<'_, PyAny>) -> PyResult<bool> {
+fn validate_json_mode(py: Python<'_>, mode: &Bound<'_, PyAny>) -> PyResult<()> {
     let valid_modes = PySet::new(py, ["text", "binary"])?;
     if !valid_modes.contains(mode)? {
         return Err(PyRuntimeError::new_err(
             "The \"mode\" argument should be \"text\" or \"binary\".",
         ));
     }
+    Ok(())
+}
+
+fn json_mode_is_binary(py: Python<'_>, mode: &Bound<'_, PyAny>) -> PyResult<bool> {
+    validate_json_mode(py, mode)?;
     Ok(!mode.eq("text")?)
 }
 

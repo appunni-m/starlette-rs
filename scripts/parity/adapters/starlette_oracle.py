@@ -46,6 +46,7 @@ from scripts.parity.adapters.staticfiles_config import (
 )
 from scripts.parity.adapters.status_module import run_status_module_sequence
 from scripts.parity.adapters.traceback_cleanup import TracebackCleanup
+from scripts.parity.adapters.websocket_json_mode import materialize_websocket_json_mode
 
 PROTOCOL_REQUEST = "migration-parity/adapter-request@1"
 PROTOCOL_RESPONSE = "migration-parity/adapter-response@1"
@@ -8131,7 +8132,11 @@ def _run_websocket_convenience_case(case: dict[str, Any]) -> dict[str, Any]:
                 elif method in {"receive_text", "receive_bytes"}:
                     value = await getattr(websocket, method)()
                 elif method == "receive_json":
-                    kwargs = {"mode": arguments["mode"]} if "mode" in arguments else {}
+                    kwargs = (
+                        {"mode": materialize_websocket_json_mode(arguments["mode"])}
+                        if "mode" in arguments
+                        else {}
+                    )
                     value = await websocket.receive_json(**kwargs)
                 elif method in {"send_text", "send_json", "close"}:
                     kwargs = dict(arguments)
@@ -15593,8 +15598,7 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         return run_request_client_case(case, Request)
     if (
         isinstance(case, dict)
-        and (case.get("surface"), case.get("operation"))
-        == REQUEST_CONNECTION_PROPERTIES_OPERATION
+        and (case.get("surface"), case.get("operation")) == REQUEST_CONNECTION_PROPERTIES_OPERATION
     ):
         from starlette.requests import Request
 

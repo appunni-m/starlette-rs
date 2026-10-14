@@ -44,6 +44,55 @@
       "observations": [
         "request-consumption"
       ]
+    },
+    {
+      "case_id": "starlette.requests.Request.body-stream-json.truthiness-error-before-body-consumed-stream",
+      "surface": "starlette.requests.Request",
+      "operation": "body-stream-json",
+      "covers": [
+        "starlette.request.body.truthiness-error-consumes-terminal-stream"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "http"
+      },
+      "receive": [
+        {
+          "type": "http.request",
+          "body_type": "bytes-subclass",
+          "body_base64": "c2FtcGxl",
+          "body_truthiness_error": {
+            "exception_type": "ValueError",
+            "message": "request body truthiness failed"
+          },
+          "more_body": false
+        },
+        {
+          "type": "http.request",
+          "body_base64": "c2Vjb25k",
+          "more_body": false
+        }
+      ],
+      "blocked_receive_calls": [],
+      "actions": [
+        {
+          "operation": "stream-next",
+          "stream_id": "truthiness-failed-stream"
+        },
+        {
+          "operation": "body"
+        }
+      ],
+      "observations": [
+        "request-consumption"
+      ]
     }
   ]
 }

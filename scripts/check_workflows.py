@@ -6,6 +6,7 @@ from __future__ import annotations
 import hashlib
 import io
 import platform
+import re
 import subprocess
 import tarfile
 import urllib.request
@@ -32,6 +33,9 @@ ARCHIVES = {
     ),
 }
 ROOT = Path(__file__).resolve().parent.parent
+USES_DIRECTIVE = re.compile(r"^\s*uses:\s*(?P<reference>[^#\s]+)")
+ACTION_COMMIT = re.compile(r"^[0-9a-f]{40}$")
+CONTAINER_DIGEST = re.compile(r"@sha256:[0-9a-f]{64}$")
 
 
 def binary_bytes(archive: bytes, checksum: str) -> bytes:
@@ -48,7 +52,46 @@ def binary_bytes(archive: bytes, checksum: str) -> bytes:
         return source.read()
 
 
+def check_immutable_action_references(workflows: list[Path]) -> list[str]:
+    """Require external workflow actions and container actions to be immutable."""
+    violations: list[str] = []
+    for workflow in workflows:
+        for line_number, line in enumerate(workflow.read_text().splitlines(), start=1):
+            match = USES_DIRECTIVE.match(line)
+            if match is None:
+                continue
+
+            reference = match.group("reference")
+            if reference.startswith("./"):
+                continue
+            if reference.startswith("docker://"):
+                pinned = CONTAINER_DIGEST.search(reference) is not None
+                requirement = "a sha256 image digest"
+            else:
+                _, separator, revision = reference.rpartition("@")
+                pinned = bool(separator) and ACTION_COMMIT.fullmatch(revision) is not None
+                requirement = "a full 40-character commit SHA"
+
+            if not pinned:
+                relative = workflow.relative_to(ROOT)
+                violations.append(
+                    f"{relative}:{line_number}: external workflow action reference "
+                    f"{reference!r} must use {requirement}"
+                )
+    return violations
+
+
 def main() -> int:
+    workflows = sorted((ROOT / ".github" / "workflows").glob("*.y*ml"))
+    if not workflows:
+        raise SystemExit("No GitHub workflows found")
+    violations = check_immutable_action_references(workflows)
+    if violations:
+        print("Workflow action pinning violations:")
+        for violation in violations:
+            print(f"  {violation}")
+        return 1
+
     target = (platform.system(), platform.machine())
     if target not in ARCHIVES:
         raise SystemExit(f"Workflow lint supports Linux/macOS x86-64 and ARM64; got {target}")
@@ -67,9 +110,6 @@ def main() -> int:
     binary = directory / "actionlint"
     binary.write_bytes(executable)
     binary.chmod(0o755)
-    workflows = sorted((ROOT / ".github" / "workflows").glob("*.y*ml"))
-    if not workflows:
-        raise SystemExit("No GitHub workflows found")
     # Shell and Python linters are separate tools, not host-dependent checks.
     result = subprocess.run(
         [str(binary), "-shellcheck=", "-pyflakes=", *(str(path) for path in workflows)],

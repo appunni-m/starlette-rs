@@ -437,6 +437,7 @@
       "build/parity/inputs/parity/streaming-response-final-send-disconnect.json",
       "build/parity/inputs/parity/streaming-response-backpressure.json",
       "build/parity/inputs/parity/websocket-convenience.json",
+      "build/parity/inputs/parity/websocket-json-mode-state-order.json",
       "build/parity/inputs/parity/websocket-iterator-athrow-stop-async-iteration.json",
       "build/parity/inputs/parity/websocket-send-oserror-synchronous-callback.json",
       "build/parity/inputs/parity/websocket-json-mode-close-reason-boundary.json",
@@ -569,6 +570,7 @@
       "build/parity/inputs/parity/testclient-websocket-endpoint-path-params.json",
       "build/parity/inputs/parity/testclient-docs-inputs.json",
       "build/parity/inputs/parity/testclient-lifespan-context.json",
+      "build/parity/inputs/parity/testclient-lifespan-message-type-comparison-error.json",
       "build/parity/inputs/parity/testclient-websocket-exit-cleanup-error.json",
       "build/parity/inputs/parity/testclient-startup-cleanup-error.json",
       "build/parity/inputs/parity/application-routes.json",
@@ -29060,6 +29062,17 @@
               ]
             },
             {
+              "id": "starlette.websocket.api.receive.json.mode-comparison-order",
+              "dimension": "error_path",
+              "description": "Preserve the pinned receive_json order: validate set membership, check application connection state, receive and inspect disconnect, then compare mode with text for decoding. The input-defined string subclass passes membership and exposes the before-accept state error before its later comparison can raise. Pinned source: starlette/websockets.py:130-142.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.websocket.api.receive.text.before-accept",
               "dimension": "error_path",
               "description": "Call receive_text while the application state is connecting and compare the action error, callback tape, and final protocol states. Pinned source: starlette/websockets.py:116-120; tests/test_websockets.py::test_receive_text_before_accept.",
@@ -31954,6 +31967,21 @@
               "id": "starlette.testclient.TestClient.lifespan-context.startup-error-propagation",
               "dimension": "error_path",
               "description": "When the lifespan task raises during startup, entering TestClient propagates the app error and tears down the portal. For ordered failure messages, the declared normalization removes the source-only Router.lifespan traceback frame, which has no Rust runtime frame counterpart. Pinned source: starlette/testclient.py:679-722; starlette/routing.py:639-653; tests/test_testclient.py::test_error_on_startup.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.lifespan-context.startup-message-type-comparison-error",
+              "dimension": "error_path",
+              "description": "A lifespan startup response supplies a str subclass whose tuple-membership comparison raises. TestClient entry propagates that comparison error while validating the startup message type. Pinned source: starlette/testclient.py:727-731.",
               "lanes": [
                 "parity"
               ],

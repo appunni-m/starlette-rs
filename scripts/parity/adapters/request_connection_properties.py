@@ -21,8 +21,7 @@ def run_request_connection_properties_case(
 
     request = request_type(scope)
     property_values = [
-        {"name": name, "value": _safe(getattr(request, name))}
-        for name in case["properties"]
+        {"name": name, "value": _safe(getattr(request, name))} for name in case["properties"]
     ]
     return {
         "case_id": case["case_id"],

@@ -232,6 +232,7 @@ WEBSOCKET_INVALID_JSON_MODE_REQUIREMENTS = {
     "receive": "starlette.websocket.api.receive.json.invalid-mode",
     "send": "starlette.websocket.api.send.json.invalid-mode",
 }
+WEBSOCKET_JSON_MODE_ORDER_REQUIREMENT = "starlette.websocket.api.receive.json.mode-comparison-order"
 WEBSOCKET_ENDPOINT_SURFACE = "starlette.endpoints.WebSocketEndpoint"
 WEBSOCKET_ENDPOINT_OPERATION = "dispatch"
 WEBSOCKET_ENDPOINT_OPERATION_KEY = (
@@ -374,6 +375,7 @@ TESTCLIENT_LIFESPAN_REQUIREMENTS = {
     "shutdown": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.shutdown-handshake",
     "outside_requests": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.transient-outside-context-requests",
     "startup_error": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.startup-error-propagation",
+    "startup_message_type_comparison_error": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.startup-message-type-comparison-error",
     "startup_cleanup_error_precedence": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.startup-cleanup-error-precedence",
     "shutdown_error": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.shutdown-error-propagation",
     "http_state": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.http-lifespan-state",
@@ -4848,6 +4850,25 @@ def _validate_websocket_convenience_case_stimulus(case: dict[str, Any]) -> None:
                         f"{context}.arguments has fields unsupported by receive_json"
                     )
                 mode = arguments.get("mode", "text")
+                if isinstance(mode, dict):
+                    mode = _exact(
+                        mode,
+                        {"kind", "value", "error_type", "message"},
+                        f"{context}.arguments.mode",
+                    )
+                    if (
+                        mode["kind"] != "websocket-mode-equality-after-membership"
+                        or mode["value"] != "text"
+                        or mode["error_type"] != "ValueError"
+                        or not isinstance(mode["message"], str)
+                        or not mode["message"]
+                    ):
+                        raise ContractError(
+                            f"{context}.arguments.mode must describe the supported "
+                            "stateful text-mode comparison input"
+                        )
+                    mode = "text"
+                    exercised.add(WEBSOCKET_JSON_MODE_ORDER_REQUIREMENT)
                 invalid_mode = not isinstance(mode, str) or mode not in {"text", "binary"}
                 if invalid_mode:
                     exercised.add(WEBSOCKET_INVALID_JSON_MODE_REQUIREMENTS["receive"])
@@ -20042,6 +20063,17 @@ def _validate_testclient_lifespan_case(case: dict[str, Any]) -> None:
         if error["exception_type"] != "RuntimeError":
             raise ContractError("TestClient lifespan error inputs currently use RuntimeError")
         _string(error["message"], "TestClient startup error message")
+    elif lifespan_operations == ["receive", "send"]:
+        _exact(lifespan_actions[0], {"operation"}, "TestClient lifespan receive action")
+        startup = _exact(
+            lifespan_actions[1], {"operation", "message"}, "TestClient startup message action"
+        )
+        message = _exact(startup["message"], {"type_spec"}, "TestClient startup message")
+        _validate_testclient_message_type_spec(
+            message["type_spec"],
+            "TestClient startup message",
+            allowed_values=frozenset({"lifespan.startup.complete"}),
+        )
     elif lifespan_operations == ["receive", "send", "receive", "raise"]:
         _exact(lifespan_actions[0], {"operation"}, "TestClient lifespan receive action")
         startup = _exact(
@@ -20069,6 +20101,7 @@ def _validate_testclient_lifespan_case(case: dict[str, Any]) -> None:
     ):
         expected_covers = set(TESTCLIENT_LIFESPAN_REQUIREMENTS.values()) - {
             TESTCLIENT_LIFESPAN_REQUIREMENTS["startup_error"],
+            TESTCLIENT_LIFESPAN_REQUIREMENTS["startup_message_type_comparison_error"],
             TESTCLIENT_LIFESPAN_REQUIREMENTS["startup_cleanup_error_precedence"],
             TESTCLIENT_LIFESPAN_REQUIREMENTS["shutdown_error"],
             TESTCLIENT_LIFESPAN_REQUIREMENTS["http_state"],
@@ -20087,6 +20120,11 @@ def _validate_testclient_lifespan_case(case: dict[str, Any]) -> None:
         }
     elif (client_operations, lifespan_operations) == (["enter"], ["receive", "raise"]):
         expected_covers = {TESTCLIENT_LIFESPAN_REQUIREMENTS["startup_error"]}
+    elif (client_operations, lifespan_operations) == (["enter"], ["receive", "send"]):
+        expected_covers = {
+            TESTCLIENT_LIFESPAN_REQUIREMENTS["startup"],
+            TESTCLIENT_LIFESPAN_REQUIREMENTS["startup_message_type_comparison_error"],
+        }
     elif (client_operations, lifespan_operations) == (
         ["enter", "exit"],
         ["receive", "send", "receive", "raise"],
@@ -20115,6 +20153,12 @@ def _validate_testclient_lifespan_case(case: dict[str, Any]) -> None:
         expected_covers.add(TESTCLIENT_LIFESPAN_REQUIREMENTS["startup_cleanup_error_precedence"])
 
     http = _exact(asgi_app["http"], {"receive_count", "messages"}, "TestClient lifespan HTTP app")
+    if "request" not in client_operations and lifespan_operations == ["receive", "send"]:
+        if type(http["receive_count"]) is not int or http["receive_count"] != 0:
+            raise ContractError("TestClient lifespan without HTTP requests has no HTTP receives")
+        if http["messages"] != []:
+            raise ContractError("TestClient lifespan without HTTP requests has no HTTP messages")
+        return
     if type(http["receive_count"]) is not int or http["receive_count"] != 1:
         raise ContractError("TestClient lifespan HTTP app consumes one request message")
     messages = http["messages"]
@@ -21710,8 +21754,7 @@ def _validate_case_payload(
     )
     is_request_connection_properties = (
         isinstance(case, dict)
-        and (case.get("surface"), case.get("operation"))
-        == REQUEST_CONNECTION_PROPERTIES_OPERATION
+        and (case.get("surface"), case.get("operation")) == REQUEST_CONNECTION_PROPERTIES_OPERATION
     )
     is_request_header_cache_sequence = (
         isinstance(case, dict)
@@ -28103,9 +28146,7 @@ def _validate_request_connection_properties_case(case: dict[str, Any]) -> None:
         raise ContractError(
             "Request connection-properties cases select connection-properties without assets"
         )
-    if not case["case_id"].startswith(
-        "starlette.requests.Request.connection-properties."
-    ):
+    if not case["case_id"].startswith("starlette.requests.Request.connection-properties."):
         raise ContractError(
             "Request connection-properties case ID must bind to its public properties"
         )
@@ -28145,7 +28186,9 @@ def _validate_request_connection_properties_case(case: dict[str, Any]) -> None:
         raise ContractError(
             "Request connection-properties input must select session, auth, and user once each"
         )
-    if case["covers"] != ["starlette.requests.Request.connection-properties.mapping-membership-protocol"]:
+    if case["covers"] != [
+        "starlette.requests.Request.connection-properties.mapping-membership-protocol"
+    ]:
         raise ContractError(
             "Request connection-properties case must cover its membership-protocol requirement"
         )
@@ -29108,6 +29151,7 @@ def _validate_request_body_stream_json_case(case: dict[str, Any]) -> None:
         and stream_positions[0] < direct_body_positions[0]
         and not stream_close_recovery_probe
         and not stream_cancellation_recovery_probe
+        and not body_truthiness_probe
     ):
         expected_covers.add(REQUEST_CONSUMPTION_REQUIREMENTS["stream_body_consumed"])
     if stream_positions and form_positions and stream_positions[0] < form_positions[0]:
@@ -29186,18 +29230,30 @@ def _validate_request_body_stream_json_case(case: dict[str, Any]) -> None:
     ):
         expected_covers.add(REQUEST_CONSUMPTION_REQUIREMENTS["body_stream_overlap"])
     if body_truthiness_probe:
+        original_order_probe = len(receive) == 1 and action_operations == ["body", "stream-next"]
+        stream_error_then_body_probe = (
+            len(receive) == 2
+            and action_operations == ["stream-next", "body"]
+            and receive[1].get("type") == "http.request"
+            and receive[1].get("more_body") is False
+            and isinstance(receive[1].get("body_base64"), str)
+            and bool(base64.b64decode(receive[1]["body_base64"], validate=True))
+            and "body_type" not in receive[1]
+            and "body_truthiness_error" not in receive[1]
+        )
         if (
-            len(receive) != 1
+            not (original_order_probe or stream_error_then_body_probe)
             or receive[0].get("type") != "http.request"
             or receive[0].get("more_body") is not False
             or not receive[0].get("body_base64")
-            or action_operations != ["body", "stream-next"]
+            or receive[0].get("body_type") != "bytes-subclass"
+            or "body_truthiness_error" not in receive[0]
             or len(stream_ids) != 1
             or blocked_receive_calls
             or scope_headers
         ):
             raise ContractError(
-                "Request body truthiness failure requires one non-empty terminal bytes subclass, then body and stream retry"
+                "Request body truthiness failure requires a non-empty terminal bytes subclass and a declared body/stream retry order"
             )
         expected_covers.add(REQUEST_CONSUMPTION_REQUIREMENTS["body_truthiness_terminal_consumed"])
     elif body_object_probe:
@@ -37491,7 +37547,12 @@ def _contains_testclient_message_type_spec(case: Any) -> bool:
     if (
         not isinstance(case, dict)
         or case.get("surface") != TESTCLIENT_SURFACE
-        or case.get("operation") not in {TESTCLIENT_OPERATION, TESTCLIENT_WEBSOCKET_OPERATION}
+        or case.get("operation")
+        not in {
+            TESTCLIENT_OPERATION,
+            TESTCLIENT_WEBSOCKET_OPERATION,
+            TESTCLIENT_LIFESPAN_OPERATION,
+        }
     ):
         return False
     app = case.get("asgi_app")
@@ -37503,9 +37564,12 @@ def _contains_testclient_message_type_spec(case: Any) -> bool:
     actions = app.get("actions", [])
     if not isinstance(actions, list):
         actions = []
+    lifespan_actions = app.get("lifespan_actions", [])
+    if not isinstance(lifespan_actions, list):
+        lifespan_actions = []
     action_messages = [
         action.get("message")
-        for action in actions
+        for action in [*actions, *lifespan_actions]
         if isinstance(action, dict) and "message" in action
     ]
     return any(
