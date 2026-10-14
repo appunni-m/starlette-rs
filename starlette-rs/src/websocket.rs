@@ -9,6 +9,7 @@
 
 use std::error::Error;
 use std::fmt::{self, Display, Formatter};
+use unicode_general_category::{GeneralCategory, get_general_category};
 
 /// The state of one side of an ASGI WebSocket connection.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -296,13 +297,35 @@ fn python_string_repr(value: &str) -> String {
                 representation.push('\\');
                 representation.push(character);
             }
-            character if character.is_control() => {
+            character if !python_is_printable(character) => {
                 use fmt::Write as _;
-                let _ = write!(representation, "\\x{:02x}", u32::from(character));
+                let codepoint = u32::from(character);
+                if codepoint <= 0xff {
+                    let _ = write!(representation, "\\x{codepoint:02x}");
+                } else if codepoint <= 0xffff {
+                    let _ = write!(representation, "\\u{codepoint:04x}");
+                } else {
+                    let _ = write!(representation, "\\U{codepoint:08x}");
+                }
             }
             character => representation.push(character),
         }
     }
     representation.push(quote);
     representation
+}
+
+fn python_is_printable(character: char) -> bool {
+    // Python repr escapes format and separator characters as well as controls.
+    match get_general_category(character) {
+        GeneralCategory::Control
+        | GeneralCategory::Format
+        | GeneralCategory::Surrogate
+        | GeneralCategory::PrivateUse
+        | GeneralCategory::Unassigned
+        | GeneralCategory::LineSeparator
+        | GeneralCategory::ParagraphSeparator => false,
+        GeneralCategory::SpaceSeparator => character == ' ',
+        _ => true,
+    }
 }

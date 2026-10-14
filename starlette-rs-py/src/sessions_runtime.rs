@@ -13,7 +13,7 @@ use pyo3::class::gc::{PyTraverseError, PyVisit};
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyDict, PyInt, PyList, PyString, PyTuple};
-use starlette_rs::{SessionSignatureError, timestamp_sign, timestamp_unsign_with_timestamp};
+use starlette_rs::{SessionSignatureError, timestamp_sign, timestamp_unsign_with_timestamp_bytes};
 
 use crate::awaitable::{
     AwaitableStateMachine, MachineAction, MachineResume, into_sendable_python_awaitable,
@@ -400,14 +400,15 @@ impl SessionMiddlewareCall {
             let cookie_bytes = cookie_value
                 .call_method1("encode", ("utf-8",))?
                 .extract::<Vec<u8>>()?;
-            match timestamp_unsign_with_timestamp(&cookie_bytes, &runtime.secret_key) {
-                Ok((payload, timestamp)) => {
+            match timestamp_unsign_with_timestamp_bytes(&cookie_bytes, &runtime.secret_key) {
+                Ok((payload, timestamp_bytes)) => {
+                    let timestamp = python_unsigned_integer(py, &timestamp_bytes)?;
                     let max_age = runtime.max_age.bind(py);
                     let expired = if max_age.is_none() {
                         false
                     } else {
-                        let age = PyInt::new(py, now)
-                            .call_method1("__sub__", (PyInt::new(py, timestamp),))?;
+                        let age =
+                            PyInt::new(py, now).call_method1("__sub__", (timestamp.bind(py),))?;
                         let exceeds_max_age =
                             age.rich_compare(max_age, CompareOp::Gt)?.is_truthy()?;
                         let is_future_timestamp = age
@@ -419,7 +420,7 @@ impl SessionMiddlewareCall {
                         // itsdangerous converts the timestamp while building
                         // SignatureExpired; datetime can reject out-of-range
                         // authenticated timestamps before Starlette catches it.
-                        timestamp_to_datetime(py, timestamp)?;
+                        timestamp_to_datetime(py, timestamp.bind(py))?;
                         (py.None(), true)
                     } else {
                         let encoded_json = py
@@ -465,7 +466,15 @@ impl SessionMiddlewareCall {
     }
 }
 
-fn timestamp_to_datetime(py: Python<'_>, timestamp: u64) -> PyResult<()> {
+fn python_unsigned_integer(py: Python<'_>, bytes: &[u8]) -> PyResult<Py<PyAny>> {
+    let integer = py
+        .import("builtins")?
+        .getattr("int")?
+        .call_method1("from_bytes", (PyBytes::new(py, bytes), "big"))?;
+    Ok(integer.unbind())
+}
+
+fn timestamp_to_datetime(py: Python<'_>, timestamp: &Bound<'_, PyAny>) -> PyResult<()> {
     let datetime = py.import("datetime")?;
     let kwargs = PyDict::new(py);
     kwargs.set_item("tz", datetime.getattr("timezone")?.getattr("utc")?)?;

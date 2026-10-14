@@ -1857,6 +1857,65 @@ def _materialize_application(
             return context_manager
     elif (
         isinstance(lifespan_spec, dict)
+        and lifespan_spec.get("kind") == "async-context-manager-special-method-descriptor"
+    ):
+        descriptor = lifespan_spec["descriptor"]
+        if descriptor == "classmethod":
+
+            class ClassMethodContextManager:
+                @classmethod
+                async def __aenter__(cls) -> None:
+                    lifecycle_trace.append(
+                        {"event": "enter", "descriptor": "classmethod", "owner": cls.__name__}
+                    )
+                    return None
+
+                @classmethod
+                async def __aexit__(
+                    cls, exception_type: Any, _exception: Any, _traceback: Any
+                ) -> bool:
+                    lifecycle_trace.append(
+                        {
+                            "event": "exit",
+                            "descriptor": "classmethod",
+                            "owner": cls.__name__,
+                            "exception_type": (
+                                None if exception_type is None else exception_type.__name__
+                            ),
+                        }
+                    )
+                    return False
+
+            context_manager = ClassMethodContextManager()
+        elif descriptor == "staticmethod":
+
+            class StaticMethodContextManager:
+                @staticmethod
+                async def __aenter__() -> None:
+                    lifecycle_trace.append({"event": "enter", "descriptor": "staticmethod"})
+                    return None
+
+                @staticmethod
+                async def __aexit__(exception_type: Any, _exception: Any, _traceback: Any) -> bool:
+                    lifecycle_trace.append(
+                        {
+                            "event": "exit",
+                            "descriptor": "staticmethod",
+                            "exception_type": (
+                                None if exception_type is None else exception_type.__name__
+                            ),
+                        }
+                    )
+                    return False
+
+            context_manager = StaticMethodContextManager()
+        else:
+            raise ValueError("async context-manager descriptor is unsupported")
+
+        def lifespan(_app: Any) -> Any:
+            return context_manager
+    elif (
+        isinstance(lifespan_spec, dict)
         and lifespan_spec.get("kind") == "async-context-manager-shadowed-specials"
     ):
         if set(lifespan_spec) != {

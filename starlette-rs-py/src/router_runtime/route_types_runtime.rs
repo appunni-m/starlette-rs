@@ -11,8 +11,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use pyo3::class::basic::CompareOp;
 use pyo3::class::gc::{PyTraverseError, PyVisit};
 use pyo3::exceptions::{
-    PyAssertionError, PyException, PyKeyError, PyNotImplementedError, PyRuntimeError,
-    PyStopAsyncIteration, PyStopIteration, PyValueError,
+    PyAssertionError, PyAttributeError, PyException, PyKeyError, PyNotImplementedError,
+    PyRuntimeError, PyStopAsyncIteration, PyStopIteration, PyTypeError, PyValueError,
 };
 use pyo3::prelude::*;
 use pyo3::types::{PyBool, PyBytes, PyDict, PyList, PySet, PyString, PyTuple};
@@ -657,12 +657,58 @@ fn router_lifespan(
         RouterLifespanMachine {
             lifespan_context,
             context_manager: None,
+            exit_method: None,
             scope,
             receive,
             send,
             pending: None,
         },
     )
+}
+
+fn type_attribute<'py>(
+    py: Python<'py>,
+    object_type: &Bound<'py, PyAny>,
+    name: &str,
+) -> PyResult<Option<Bound<'py, PyAny>>> {
+    let mro_value = object_type.getattr("__mro__")?;
+    let mro = mro_value.cast::<PyTuple>()?;
+    for base in mro.iter() {
+        let namespace = base.getattr("__dict__")?;
+        match namespace.get_item(name) {
+            Ok(attribute) => return Ok(Some(attribute)),
+            Err(error) if error.is_instance_of::<PyKeyError>(py) => {}
+            Err(error) => return Err(error),
+        }
+    }
+    Ok(None)
+}
+
+fn lookup_async_context_method<'py>(
+    py: Python<'py>,
+    context_manager: &Bound<'py, PyAny>,
+    name: &str,
+) -> PyResult<Bound<'py, PyAny>> {
+    let context_manager_type = context_manager.get_type();
+    let type_name = context_manager_type
+        .getattr("__name__")?
+        .extract::<String>()?;
+    let descriptor = type_attribute(py, &context_manager_type, name)?.ok_or_else(|| {
+        if name == "__aenter__" {
+            PyTypeError::new_err(format!(
+                "'{type_name}' object does not support the asynchronous context manager protocol"
+            ))
+        } else {
+            PyTypeError::new_err(format!(
+                "'{type_name}' object does not support the asynchronous context manager protocol (missed {name} method)"
+            ))
+        }
+    })?;
+    match descriptor.getattr("__get__") {
+        Ok(getter) => getter.call1((context_manager, context_manager_type)),
+        Err(error) if error.is_instance_of::<PyAttributeError>(py) => Ok(descriptor),
+        Err(error) => Err(error),
+    }
 }
 
 enum RouterLifespanPending {
@@ -679,6 +725,7 @@ enum RouterLifespanPending {
 struct RouterLifespanMachine {
     lifespan_context: Py<PyAny>,
     context_manager: Option<Py<PyAny>>,
+    exit_method: Option<Py<PyAny>>,
     scope: Py<PyAny>,
     receive: Py<PyAny>,
     send: Py<PyAny>,
@@ -689,6 +736,7 @@ impl AwaitableStateMachine for RouterLifespanMachine {
     fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
         visit.call(&self.lifespan_context)?;
         visit.call(&self.context_manager)?;
+        visit.call(&self.exit_method)?;
         visit.call(&self.scope)?;
         visit.call(&self.receive)?;
         visit.call(&self.send)?;
@@ -801,17 +849,20 @@ impl RouterLifespanMachine {
             Ok(context_manager) => context_manager,
             Err(error) => return self.send_failure(py, error, false),
         };
-        // `async with` resolves special methods on the manager's type, even when
-        // an instance has attributes with the same names.
-        let enter = match context_manager
-            .get_type()
-            .getattr("__aenter__")
-            .and_then(|method| method.call1((context_manager.clone(),)))
-        {
+        let enter_method = match lookup_async_context_method(py, &context_manager, "__aenter__") {
+            Ok(method) => method,
+            Err(error) => return self.send_failure(py, error, false),
+        };
+        let exit_method = match lookup_async_context_method(py, &context_manager, "__aexit__") {
+            Ok(method) => method,
+            Err(error) => return self.send_failure(py, error, false),
+        };
+        let enter = match enter_method.call0() {
             Ok(enter) => enter,
             Err(error) => return self.send_failure(py, error, false),
         };
         self.context_manager = Some(context_manager.unbind());
+        self.exit_method = Some(exit_method.unbind());
         self.pending = Some(RouterLifespanPending::Enter);
         Ok(MachineAction::Await(enter.unbind()))
     }
@@ -842,16 +893,19 @@ impl RouterLifespanMachine {
     }
 
     fn exit_normally(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
-        let Some(context_manager) = self.context_manager.as_ref() else {
+        if self.context_manager.is_none() {
             return Err(PyRuntimeError::new_err(
                 "lifespan context manager was not entered",
             ));
+        }
+        let Some(exit_method) = self.exit_method.as_ref() else {
+            return Err(PyRuntimeError::new_err(
+                "lifespan context manager exit method was not resolved",
+            ));
         };
-        let context_manager = context_manager.bind(py);
-        let exit = match context_manager
-            .get_type()
-            .getattr("__aexit__")
-            .and_then(|method| method.call1((context_manager, py.None(), py.None(), py.None())))
+        let exit = match exit_method
+            .bind(py)
+            .call1((py.None(), py.None(), py.None()))
         {
             Ok(exit) => exit,
             Err(error) => return self.send_failure(py, error, true),
@@ -866,21 +920,21 @@ impl RouterLifespanMachine {
         original: PyErr,
         started: bool,
     ) -> PyResult<MachineAction> {
-        let Some(context_manager) = self.context_manager.as_ref() else {
+        if self.context_manager.is_none() {
             return self.send_failure(py, original, started);
-        };
+        }
         let exception = original.value(py);
         let exception_type = original.get_type(py);
         let traceback = original
             .traceback(py)
             .map_or_else(|| py.None().into_bound(py), Bound::into_any);
-        let context_manager = context_manager.bind(py);
-        let exit = match context_manager
-            .get_type()
-            .getattr("__aexit__")
-            .and_then(|method| {
-                method.call1((context_manager, exception_type, exception, traceback))
-            }) {
+        let Some(exit_method) = self.exit_method.as_ref() else {
+            return self.send_failure(py, original, started);
+        };
+        let exit = match exit_method
+            .bind(py)
+            .call1((exception_type, exception, traceback))
+        {
             Ok(exit) => exit,
             Err(error) => return self.send_failure(py, error, started),
         };

@@ -400,6 +400,7 @@
       "build/parity/inputs/parity/route-constructor-errors.json",
       "build/parity/inputs/parity/route-lone-surrogate.json",
       "build/parity/inputs/parity/websocket-state-sequence.json",
+      "build/parity/inputs/parity/websocket-state-invalid-message-repr-unicode.json",
       "build/parity/inputs/parity/websocket-accept-send-oserror.json",
       "build/parity/inputs/parity/websocket-raw-state-assignment.json",
       "build/parity/inputs/parity/websocket-send-non-string-type.json",
@@ -487,6 +488,7 @@
       "build/parity/inputs/parity/file-response-signed-zero-range.json",
       "build/parity/inputs/parity/file-response-range-python-strip-c0-separators.json",
       "build/parity/inputs/parity/lifespan-generators.json",
+      "build/parity/inputs/parity/lifespan-context-manager-descriptors.json",
       "build/parity/inputs/parity/router-lifespan-exception-class-identity.json",
       "build/parity/inputs/parity/lifespan-native-failure-transitions.json",
       "build/parity/inputs/parity/authentication-runtime.json",
@@ -513,6 +515,7 @@
       "build/parity/inputs/parity/wsgi-response-header-unpack-error.json",
       "build/parity/inputs/parity/wsgi-boundary.json",
       "build/parity/inputs/parity/session-middleware.json",
+      "build/parity/inputs/parity/session-arbitrary-precision-timestamp.json",
       "build/parity/inputs/parity/session-response-header-iterable.json",
       "build/parity/inputs/parity/session-future-timestamp.json",
       "build/parity/inputs/parity/session-expired-timestamp-out-of-range.json",
@@ -2047,6 +2050,28 @@
               "id": "starlette.asgi.lifespan.async-context-manager-special-method-lookup",
               "dimension": "boundary",
               "description": "An async context manager instance with shadowing __aenter__ and __aexit__ attributes follows Python async-with type-level special-method lookup through the lifespan protocol. Upstream: starlette/routing.py::Router.lifespan; Python data model special-method lookup.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.asgi.lifespan.async-context-manager.classmethod-special-method-binding",
+              "dimension": "boundary",
+              "description": "Bind classmethod special methods on an async context-manager type through the Python async-with protocol used by Router.lifespan. Pinned source: starlette/routing.py:648-655.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.asgi.lifespan.async-context-manager.staticmethod-special-method-binding",
+              "dimension": "boundary",
+              "description": "Bind staticmethod special methods on an async context-manager type through the Python async-with protocol used by Router.lifespan. Pinned source: starlette/routing.py:648-655.",
               "lanes": [
                 "parity"
               ],
@@ -15020,6 +15045,17 @@
               "id": "starlette.middleware.sessions.SessionMiddleware.session-workflow.arbitrary-precision-max-age",
               "dimension": "boundary",
               "description": "Preserve an arbitrary-precision Python integer max_age through SessionMiddleware construction, Max-Age cookie formatting, and signed-cookie age comparison without narrowing to a Rust integer. Pinned source: starlette/middleware/sessions.py:31,43-54,72; itsdangerous 2.2.0 TimestampSigner.unsign.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.sessions.SessionMiddleware.session-workflow.arbitrary-precision-timestamp-without-expiry",
+              "dimension": "boundary",
+              "description": "Accept a cryptographically valid cookie with an arbitrary-precision timestamp when max_age=None, matching itsdangerous without converting the timestamp to datetime. Starlette only requests age conversion when expiry is configured. Pinned source: starlette/middleware/sessions.py:43-54; itsdangerous 2.2.0 timed.py:820-899.",
               "lanes": [
                 "parity"
               ],
@@ -29190,6 +29226,18 @@
               "id": "starlette.websocket.state.accept-invalid-connect-event",
               "dimension": "error_path",
               "description": "Call WebSocket.accept() while client_state is CONNECTING with websocket.receive as the first ASGI event. Starlette consumes the event through receive(), raises the exact RuntimeError before sending websocket.accept, and leaves both protocol states CONNECTING. Pinned source: starlette/websockets.py:35-44,100-110.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.websocket.state.invalid-message-repr-unicode-format-character",
+              "dimension": "error_path",
+              "description": "Format invalid incoming and outgoing WebSocket event types with Python repr semantics for Unicode format characters such as U+200B. Pinned source: starlette/websockets.py:39-43,63-68.",
               "lanes": [
                 "parity"
               ],

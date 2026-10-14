@@ -17,6 +17,7 @@ import re
 import statistics
 import subprocess
 import sys
+import unicodedata
 import uuid
 from collections.abc import Callable
 from datetime import datetime, timezone
@@ -239,6 +240,9 @@ NATIVE_LIFESPAN_OPERATION = "native-lifespan"
 NATIVE_LIFESPAN_SURFACE = "starlette-rs.NativeLifespan"
 NATIVE_WORKFLOW_OBSERVATION = "workflow"
 WEBSOCKET_SEND_OSERROR_REQUIREMENT = "starlette.websocket.api.send.os-error.disconnect-details"
+WEBSOCKET_INVALID_REPR_FORMAT_REQUIREMENT = (
+    "starlette.websocket.state.invalid-message-repr-unicode-format-character"
+)
 WEBSOCKET_DESCRIPTOR_TIMING_REQUIREMENT = (
     "starlette.websocket.api.callback-descriptor.lookup-timing"
 )
@@ -414,6 +418,12 @@ TESTCLIENT_LIFESPAN_REQUIREMENTS = {
     "reentrant_context_entry": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.reentrant-context-entry",
 }
 ASGI_LIFESPAN_SCOPE_STATE_REQUIRED_REQUIREMENT = "starlette.asgi.lifespan.scope-state-required"
+ASGI_LIFESPAN_CLASSMETHOD_BINDING_REQUIREMENT = (
+    "starlette.asgi.lifespan.async-context-manager.classmethod-special-method-binding"
+)
+ASGI_LIFESPAN_STATICMETHOD_BINDING_REQUIREMENT = (
+    "starlette.asgi.lifespan.async-context-manager.staticmethod-special-method-binding"
+)
 TESTCLIENT_LIFESPAN_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
     "testclient",
     "client_actions",
@@ -528,6 +538,7 @@ SESSION_REQUIREMENTS = {
     "max_age_default": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.max-age-default",
     "max_age_none": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.max-age-none",
     "max_age_arbitrary_precision": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.arbitrary-precision-max-age",
+    "timestamp_arbitrary_precision_without_expiry": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.arbitrary-precision-timestamp-without-expiry",
     "default_cookie_attributes": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.default-cookie-attributes",
     "custom_cookie_attributes": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.custom-cookie-attributes",
     "domain_secure_attributes": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.domain-secure-attributes",
@@ -550,6 +561,12 @@ SESSION_REQUIREMENTS = {
 
 def _itsdangerous_cookie_timestamp(cookie: str) -> int | None:
     """Read a TimestampSigner epoch from the supplied signed-cookie shape."""
+    encoded_timestamp = _itsdangerous_cookie_timestamp_bytes(cookie)
+    return int.from_bytes(encoded_timestamp, "big") if encoded_timestamp else None
+
+
+def _itsdangerous_cookie_timestamp_bytes(cookie: str) -> bytes | None:
+    """Decode the timestamp segment from a TimestampSigner cookie."""
     _, separator, token = cookie.partition("=")
     if not separator:
         return None
@@ -559,10 +576,9 @@ def _itsdangerous_cookie_timestamp(cookie: str) -> int | None:
     timestamp = parts[1]
     padded = timestamp + "=" * (-len(timestamp) % 4)
     try:
-        decoded = base64.b64decode(padded, altchars=b"-_", validate=True)
+        return base64.b64decode(padded, altchars=b"-_", validate=True)
     except (binascii.Error, ValueError):
         return None
-    return int.from_bytes(decoded, "big") if decoded else None
 
 
 WEBSOCKET_CLOSE_SURFACE = "starlette.websockets.WebSocketClose"
@@ -3618,6 +3634,7 @@ def _validate_websocket_message(
     allow_unhashable_type: bool = False,
     allow_string_subclass_hash_error: bool = False,
     allow_type_lookup_tape: bool = False,
+    allow_invalid_type: bool = False,
 ) -> Any:
     if not isinstance(message, dict):
         raise ContractError(f"{context} must be an ASGI message object")
@@ -3718,6 +3735,9 @@ def _validate_websocket_message(
             if "reason" in message and not isinstance(message["reason"], str):
                 raise ContractError(f"{context}.reason must be a string")
         else:
+            if allow_invalid_type:
+                _exact(message, {"type"}, context)
+                return message_type
             raise ContractError(
                 f"{context}.type is unsupported for incoming WebSocket messages: {message_type!r}"
             )
@@ -3787,6 +3807,9 @@ def _validate_websocket_message(
         except (ValueError, TypeError) as exc:
             raise ContractError(f"{context}.body_base64 is invalid base64") from exc
     else:
+        if allow_invalid_type:
+            _exact(message, {"type"}, context)
+            return message_type
         raise ContractError(
             f"{context}.type is unsupported for outgoing WebSocket messages: {message_type!r}"
         )
@@ -4377,7 +4400,12 @@ def _validate_websocket_case_stimulus(case: dict[str, Any]) -> None:
             "WebSocket incoming and actions must be arrays, with at least one action"
         )
     incoming_types = [
-        _validate_websocket_message(message, f"WebSocket incoming[{index}]", incoming=True)
+        _validate_websocket_message(
+            message,
+            f"WebSocket incoming[{index}]",
+            incoming=True,
+            allow_invalid_type=operation == WEBSOCKET_STATE_OPERATION,
+        )
         for index, message in enumerate(incoming)
     ]
     action_ids: set[str] = set()
@@ -4472,6 +4500,7 @@ def _validate_websocket_case_stimulus(case: dict[str, Any]) -> None:
                     message,
                     f"{context}.message",
                     incoming=False,
+                    allow_invalid_type=operation == WEBSOCKET_STATE_OPERATION,
                     allow_unhashable_type=(
                         operation == WEBSOCKET_STATE_OPERATION
                         and isinstance(message.get("type"), (list, dict))
@@ -4589,6 +4618,31 @@ def _validate_websocket_case_stimulus(case: dict[str, Any]) -> None:
         else "starlette.websocket.state"
     )
     coverage: set[str] = set()
+    format_character_types = [
+        message_type
+        for message_type in incoming_types
+        if isinstance(message_type, str)
+        and message_type not in {"websocket.connect", "websocket.receive", "websocket.disconnect"}
+        and any(unicodedata.category(character) == "Cf" for character in message_type)
+    ]
+    format_character_types.extend(
+        message["type"]
+        for action in actions
+        if action["action"] == "send"
+        and isinstance(action.get("message"), dict)
+        and isinstance(action["message"].get("type"), str)
+        and action["message"]["type"]
+        not in {
+            "websocket.accept",
+            "websocket.close",
+            "websocket.send",
+            "websocket.http.response.start",
+            "websocket.http.response.body",
+        }
+        and any(unicodedata.category(character) == "Cf" for character in action["message"]["type"])
+    )
+    if format_character_types:
+        coverage.add(WEBSOCKET_INVALID_REPR_FORMAT_REQUIREMENT)
     action_signature = [
         (
             action["action"],
@@ -12505,6 +12559,7 @@ def _validate_session_workflow_case(case: dict[str, Any]) -> None:
     has_invalid_signature_input = False
     has_future_timestamp_out_of_range_input = False
     has_expired_timestamp_out_of_range_input = False
+    has_arbitrary_precision_timestamp_without_expiry_input = False
     out_of_range_timestamp_requests: set[str] = set()
     for index, raw_request in enumerate(requests):
         context = f"SessionMiddleware request[{index}]"
@@ -12577,15 +12632,19 @@ def _validate_session_workflow_case(case: dict[str, Any]) -> None:
                 if scope_type in {"http", "websocket"} and value.startswith(
                     f"{constructor['session_cookie']}="
                 ):
-                    timestamp = _itsdangerous_cookie_timestamp(value)
+                    timestamp_bytes = _itsdangerous_cookie_timestamp_bytes(value)
+                    timestamp = int.from_bytes(timestamp_bytes, "big") if timestamp_bytes else None
                     if timestamp is None:
                         has_invalid_signature_input = True
+                    elif constructor["max_age"] is None and timestamp > (1 << 64) - 1:
+                        has_arbitrary_precision_timestamp_without_expiry_input = True
                     elif timestamp > constructor["clock_epoch"]:
-                        try:
-                            datetime.fromtimestamp(timestamp, tz=timezone.utc)
-                        except (OverflowError, OSError, ValueError):
-                            has_future_timestamp_out_of_range_input = True
-                            out_of_range_timestamp_requests.add(request_id)
+                        if constructor["max_age"] is not None:
+                            try:
+                                datetime.fromtimestamp(timestamp, tz=timezone.utc)
+                            except (OverflowError, OSError, ValueError):
+                                has_future_timestamp_out_of_range_input = True
+                                out_of_range_timestamp_requests.add(request_id)
                     elif (
                         constructor["max_age"] is not None
                         and constructor["clock_epoch"] - timestamp > constructor["max_age"]
@@ -12874,6 +12933,8 @@ def _validate_session_workflow_case(case: dict[str, Any]) -> None:
         requirements.add(SESSION_REQUIREMENTS["future_timestamp_out_of_range_error"])
     if has_expired_timestamp_out_of_range_input:
         requirements.add(SESSION_REQUIREMENTS["expired_timestamp_out_of_range_error"])
+    if has_arbitrary_precision_timestamp_without_expiry_input:
+        requirements.add(SESSION_REQUIREMENTS["timestamp_arbitrary_precision_without_expiry"])
     if (
         type(constructor["max_age"]) is int
         and constructor["max_age"] < 0
@@ -23987,7 +24048,7 @@ def _validate_case_payload(
         )
     server_error_case = not is_protocol_middleware and _is_server_error_stimulus(app_args)
     body_reuse = False
-    if not is_protocol_middleware:
+    if not is_protocol_middleware and app_args["routes"]:
         first_route = app_args["routes"][0]
         body_reuse = (
             isinstance(first_route, dict)
@@ -24099,6 +24160,7 @@ def _validate_case_payload(
         exception_handler_inputs = exception_handler_inputs["entries"]
     if (
         not is_protocol_middleware
+        and app_args["routes"]
         and app_args["routes"][0]["kind"] == "websocket-route"
         and not _is_authentication_required_websocket_application(app_args)
     ):
@@ -25568,6 +25630,17 @@ def _validate_lifespan_marker(marker: Any) -> str:
         ):
             _string(marker[name], f"shadowed async context-manager {name}")
         return marker["kind"]
+    if kind == "async-context-manager-special-method-descriptor":
+        marker = _exact(
+            marker,
+            {"kind", "descriptor"},
+            "async context-manager special-method descriptor marker",
+        )
+        if marker["descriptor"] not in {"classmethod", "staticmethod"}:
+            raise ContractError(
+                "async context-manager special-method descriptor must be classmethod or staticmethod"
+            )
+        return marker["kind"]
     if kind == "async-context-manager-observe-exception-class":
         marker = _exact(
             marker,
@@ -25642,6 +25715,12 @@ def _lifespan_case_requirement(marker: dict[str, Any], lifecycle_args: dict[str,
     kind = _validate_lifespan_marker(marker)
     if kind == "async-context-manager-shadowed-specials":
         return "starlette.asgi.lifespan.async-context-manager-special-method-lookup"
+    if kind == "async-context-manager-special-method-descriptor":
+        return (
+            ASGI_LIFESPAN_CLASSMETHOD_BINDING_REQUIREMENT
+            if marker["descriptor"] == "classmethod"
+            else ASGI_LIFESPAN_STATICMETHOD_BINDING_REQUIREMENT
+        )
     send = lifecycle_args["send"]
     receive = lifecycle_args["receive"]
     prefix = "sync" if kind == "sync-generator" else "async"
@@ -25740,6 +25819,7 @@ def _validate_lifespan_only_case(case: dict[str, Any], app_args: dict[str, Any])
         "sync-generator",
         "async-generator",
         "async-context-manager-shadowed-specials",
+        "async-context-manager-special-method-descriptor",
         "async-context-manager-observe-exception-class",
     }:
         raise ContractError(
@@ -27013,6 +27093,8 @@ def _validate_application_stimulus(
         raise ContractError(
             "generator and special-method lifespan markers require lifecycle-only input"
         )
+    if allow_lifespan_variants and not request_dispatch and args["routes"] == []:
+        return
     if not isinstance(args["routes"], list) or len(args["routes"]) != 1:
         raise ContractError("application input must contain exactly one route")
     route = args["routes"][0]

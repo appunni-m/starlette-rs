@@ -168,6 +168,29 @@ pub fn timestamp_unsign_with_timestamp(
     value: &[u8],
     secret: &str,
 ) -> Result<(Vec<u8>, u64), SessionSignatureError> {
+    let (payload, timestamp) = timestamp_unsign_with_timestamp_bytes(value, secret)?;
+    let timestamp =
+        decode_timestamp(&timestamp).ok_or(SessionSignatureError::MalformedTimestamp)?;
+    Ok((payload, timestamp))
+}
+
+/// Verifies a timestamped value and returns its payload and unsigned timestamp bytes.
+///
+/// The byte representation preserves arbitrary-precision timestamps used by
+/// `itsdangerous.TimestampSigner`; callers can convert it to their native
+/// integer representation without limiting it to `u64`.
+///
+/// # Errors
+///
+/// Returns [`SessionSignatureError::InvalidSignature`] when the authenticator
+/// is absent or invalid, [`SessionSignatureError::MissingTimestamp`] when no
+/// timestamp segment is present, [`SessionSignatureError::MalformedTimestamp`]
+/// for an invalid timestamp, and [`SessionSignatureError::InvalidKey`] if key
+/// construction fails.
+pub fn timestamp_unsign_with_timestamp_bytes(
+    value: &[u8],
+    secret: &str,
+) -> Result<(Vec<u8>, Vec<u8>), SessionSignatureError> {
     let signature_separator = value
         .iter()
         .rposition(|byte| *byte == SEPARATOR)
@@ -189,8 +212,8 @@ pub fn timestamp_unsign_with_timestamp(
         .ok_or(SessionSignatureError::MissingTimestamp)?;
     let payload = &signed_value[..timestamp_separator];
     let encoded_timestamp = &signed_value[timestamp_separator + 1..];
-    let timestamp =
-        decode_timestamp(encoded_timestamp).ok_or(SessionSignatureError::MalformedTimestamp)?;
+    let timestamp = decode_itsdangerous_base64(encoded_timestamp)
+        .ok_or(SessionSignatureError::MalformedTimestamp)?;
     Ok((payload.to_vec(), timestamp))
 }
 
