@@ -1,0 +1,62 @@
+{
+  "schema": "migration-parity/parity-input@55",
+  "cases": [
+    {
+      "case_id": "starlette.requests.Request.body-stream-json.stream-ignores-custom-event-between-body-chunks",
+      "surface": "starlette.requests.Request",
+      "operation": "body-stream-json",
+      "covers": [
+        "starlette.request.stream-ignore-custom-receive-event-between-body-chunks"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "http"
+      },
+      "receive": [
+        {
+          "type": "http.request",
+          "body_base64": "Zmlyc3Qt",
+          "more_body": true
+        },
+        {
+          "type": "application.progress",
+          "body_value": "ignored between request stream chunks"
+        },
+        {
+          "type": "http.request",
+          "body_base64": "c2Vjb25k",
+          "more_body": false
+        }
+      ],
+      "blocked_receive_calls": [],
+      "actions": [
+        {
+          "operation": "stream-next",
+          "stream_id": "request-body"
+        },
+        {
+          "operation": "stream-next",
+          "stream_id": "request-body"
+        },
+        {
+          "operation": "stream-next",
+          "stream_id": "request-body"
+        },
+        {
+          "operation": "stream-next",
+          "stream_id": "request-body"
+        }
+      ],
+      "observations": [
+        "request-consumption"
+      ]
+    }
+  ]
+}

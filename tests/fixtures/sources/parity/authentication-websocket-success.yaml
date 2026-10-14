@@ -1,0 +1,36 @@
+{
+  "schema": "migration-parity/parity-input@55",
+  "cases": [
+    {
+      "case_id": "starlette.middleware.authentication.AuthenticationMiddleware.dispatch.websocket-authenticated-success",
+      "surface": "starlette.middleware.authentication.AuthenticationMiddleware",
+      "operation": "dispatch",
+      "covers": [
+        "starlette.middleware.authentication.AuthenticationMiddleware.scope-user-install",
+        "starlette.middleware.authentication.AuthenticationMiddleware.websocket-authenticated-success"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scenarios": [
+        {
+          "scope_type": "websocket",
+          "backend": {
+            "outcome": {
+              "credentials": [
+                "authenticated",
+                "events:read"
+              ],
+              "user": "mira"
+            }
+          },
+          "error_handler": "default"
+        }
+      ],
+      "observations": [
+        "scenarios"
+      ]
+    }
+  ]
+}

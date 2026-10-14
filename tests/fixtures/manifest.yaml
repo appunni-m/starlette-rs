@@ -365,6 +365,7 @@
       "build/parity/inputs/parity/request-constructor-stateful-scope-type.json",
       "build/parity/inputs/parity/request-consumption.json",
       "build/parity/inputs/parity/request-custom-receive-event-interleaved.json",
+      "build/parity/inputs/parity/request-stream-custom-event-interleaved.json",
       "build/parity/inputs/parity/request-explicit-none-receive.json",
       "build/parity/inputs/parity/request-stream-close-recovery.json",
       "build/parity/inputs/parity/request-stream-aclose-before-first-advance.json",
@@ -465,6 +466,7 @@
       "build/parity/inputs/parity/cors-middleware.json",
       "build/parity/inputs/parity/cors-private-network-empty-header.json",
       "build/parity/inputs/parity/cors-method-lookup-order.json",
+      "build/parity/inputs/parity/cors-duplicate-request-headers.json",
       "build/parity/inputs/parity/cors-response-header-container.json",
       "build/parity/inputs/parity/middleware-docs-inputs.json",
       "build/parity/inputs/parity/host-middleware.json",
@@ -503,6 +505,7 @@
       "build/parity/inputs/parity/router-lifespan-exception-class-identity.json",
       "build/parity/inputs/parity/lifespan-native-failure-transitions.json",
       "build/parity/inputs/parity/authentication-runtime.json",
+      "build/parity/inputs/parity/authentication-websocket-success.json",
       "build/parity/inputs/parity/authentication-user-interface.json",
       "build/parity/inputs/parity/authentication-required-routes.json",
       "build/parity/inputs/parity/authentication-required-websockets.json",
@@ -10936,6 +10939,17 @@
               ]
             },
             {
+              "id": "starlette.middleware.authentication.AuthenticationMiddleware.websocket-authenticated-success",
+              "dimension": "success_path",
+              "description": "For a successful WebSocket backend result, install credentials and user before dispatching the ASGI app. Upstream: starlette/middleware/authentication.py:29-32,45-48; tests/test_authentication.py::test_websocket_auth_middleware.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.middleware.authentication.AuthenticationMiddleware.iterable-backend-result",
               "dimension": "parameter_combination",
               "description": "Unpack the backend result from a list or one-shot generator using Python's two-target iteration semantics before installing auth and user. Upstream: starlette/middleware/authentication.py:45-48.",
@@ -12733,6 +12747,17 @@
               "id": "starlette.middleware.cors.CORSMiddleware.explicit-origin-match-reflects-and-varies",
               "dimension": "success_path",
               "description": "Reflect an explicitly allowed request Origin and add it to Vary for simple and preflight responses. Pinned source: tests/middleware/test_cors.py::test_cors_allow_specific_origin; starlette/middleware/cors.py:110-115,170-179.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.cors.CORSMiddleware.duplicate-request-header-first-value",
+              "dimension": "boundary",
+              "description": "For repeated Origin, Access-Control-Request-Method, and Access-Control-Request-Headers fields, select each first raw header value before evaluating preflight eligibility. Pinned source: starlette/middleware/cors.py:83-96,107-135; starlette/datastructures.py:544-556.",
               "lanes": [
                 "parity"
               ],

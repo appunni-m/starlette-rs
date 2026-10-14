@@ -1159,6 +1159,9 @@ AUTHENTICATION_OPERATIONS = {
     ("starlette.authentication", "decorator-dispatch"),
     ("starlette.middleware.authentication.AuthenticationMiddleware", "dispatch"),
 }
+AUTHENTICATION_WEBSOCKET_SUCCESS_REQUIREMENT = (
+    "starlette.middleware.authentication.AuthenticationMiddleware.websocket-authenticated-success"
+)
 AUTH_USER_INTERFACE_REQUIREMENTS = {
     "unauthenticated": (
         "starlette.applications.Starlette.__call__.authentication-user-interface."
@@ -1976,6 +1979,9 @@ CORS_PRIVATE_NETWORK_EMPTY_HEADER_DENIAL_REQUIREMENT = (
 )
 CORS_METHOD_LOOKUP_REQUIREMENT = (
     "starlette.middleware.cors.CORSMiddleware.method-lookup-before-header-and-origin-check"
+)
+CORS_DUPLICATE_REQUEST_HEADER_REQUIREMENT = (
+    "starlette.middleware.cors.CORSMiddleware.duplicate-request-header-first-value"
 )
 HTTPS_REDIRECT_SURFACE = "starlette.middleware.httpsredirect.HTTPSRedirectMiddleware"
 TRUSTED_HOST_SURFACE = "starlette.middleware.trustedhost.TrustedHostMiddleware"
@@ -36649,6 +36655,8 @@ def _validate_authentication_case(case: dict[str, Any]) -> None:
                             exercised.add(
                                 "starlette.middleware.authentication.AuthenticationMiddleware.iterable-backend-result"
                             )
+                            if scenario["scope_type"] == "websocket":
+                                exercised.add(AUTHENTICATION_WEBSOCKET_SUCCESS_REQUIREMENT)
                         else:
                             exercised.add(
                                 "starlette.middleware.authentication.AuthenticationMiddleware.backend-result-arity-error"
@@ -36669,6 +36677,8 @@ def _validate_authentication_case(case: dict[str, Any]) -> None:
                         exercised.add(
                             "starlette.middleware.authentication.AuthenticationMiddleware.scope-user-install"
                         )
+                        if scenario["scope_type"] == "websocket":
+                            exercised.add(AUTHENTICATION_WEBSOCKET_SUCCESS_REQUIREMENT)
                 elif isinstance(outcome, str) and outcome in {"none", "must-not-run"}:
                     if outcome == "none":
                         exercised.add(
@@ -38313,13 +38323,20 @@ def _asgi_middleware_semantic_coverage(case: dict[str, Any]) -> set[str]:
             covered.discard(WSGI_REQUIREMENTS["request-body-buffering"])
         return covered
 
-    def decoded_headers(scope_value: dict[str, Any]) -> dict[str, str]:
-        return {
-            base64.b64decode(name, validate=True).decode("latin-1").lower(): base64.b64decode(
-                value, validate=True
-            ).decode("latin-1")
+    def decoded_header_pairs(scope_value: dict[str, Any]) -> list[tuple[str, str]]:
+        return [
+            (
+                base64.b64decode(name, validate=True).decode("latin-1").lower(),
+                base64.b64decode(value, validate=True).decode("latin-1"),
+            )
             for name, value in scope_value.get("headers_base64_pairs", [])
-        }
+        ]
+
+    def decoded_headers(scope_value: dict[str, Any]) -> dict[str, str]:
+        headers: dict[str, str] = {}
+        for name, value in decoded_header_pairs(scope_value):
+            headers.setdefault(name, value)
+        return headers
 
     headers = decoded_headers(scope)
     if surface == CORS_SURFACE:
@@ -38396,6 +38413,33 @@ def _asgi_middleware_semantic_coverage(case: dict[str, Any]) -> set[str]:
             ):
                 covered.add(suffix("regex-fullmatch-origin"))
             allowed_request_headers = {value.lower() for value in constructor["allow_headers"]}
+            grouped_headers: dict[str, list[str]] = {}
+            for header_name, header_value in decoded_header_pairs(cors_scope):
+                grouped_headers.setdefault(header_name, []).append(header_value)
+            duplicated_request_headers = {
+                "origin",
+                "access-control-request-method",
+                "access-control-request-headers",
+            }
+            if (
+                cors_scope.get("type") == "http"
+                and cors_scope.get("method") == "OPTIONS"
+                and request_method is not None
+                and request_origin_allowed
+                and (
+                    "*" in constructor["allow_methods"]
+                    or request_method in constructor["allow_methods"]
+                )
+                and (
+                    "*" in allowed_request_headers
+                    or all(value in allowed_request_headers for value in request_headers)
+                )
+                and all(
+                    len(grouped_headers.get(name, [])) > 1 and len(set(grouped_headers[name])) > 1
+                    for name in duplicated_request_headers
+                )
+            ):
+                covered.add(CORS_DUPLICATE_REQUEST_HEADER_REQUIREMENT)
             if (
                 cors_scope.get("type") == "http"
                 and cors_scope.get("method") == "OPTIONS"

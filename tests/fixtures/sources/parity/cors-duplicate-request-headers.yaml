@@ -1,0 +1,169 @@
+{
+  "schema": "migration-parity/parity-input@55",
+  "cases": [
+    {
+      "case_id": "starlette.middleware.cors.CORSMiddleware.__call__.duplicate-request-header-first-value",
+      "surface": "starlette.middleware.cors.CORSMiddleware",
+      "operation": "__call__",
+      "covers": [
+        "starlette.middleware.cors.CORSMiddleware.construct",
+        "starlette.middleware.cors.CORSMiddleware.explicit-origin-match-reflects-and-varies",
+        "starlette.middleware.cors.CORSMiddleware.duplicate-request-header-first-value"
+      ],
+      "execution_schedule": [
+        "dispatch"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "steps": [
+        {
+          "step_id": "middleware",
+          "surface": "starlette.middleware.cors.CORSMiddleware",
+          "operation": "__init__",
+          "receiver": null,
+          "arguments": {
+            "app": {
+              "kind": "literal",
+              "value": {
+                "kind": "asgi-response-sequence",
+                "messages": [
+                  {
+                    "type": "http.response.start",
+                    "status": 200,
+                    "headers_base64_pairs": []
+                  },
+                  {
+                    "type": "http.response.body",
+                    "body_base64": "YXBw",
+                    "more_body": false
+                  }
+                ]
+              }
+            },
+            "allow_origins": {
+              "kind": "literal",
+              "value": [
+                "https://allowed.example"
+              ]
+            },
+            "allow_methods": {
+              "kind": "literal",
+              "value": [
+                "GET"
+              ]
+            },
+            "allow_headers": {
+              "kind": "literal",
+              "value": [
+                "X-Good"
+              ]
+            },
+            "allow_credentials": {
+              "kind": "literal",
+              "value": false
+            },
+            "allow_origin_regex": {
+              "kind": "literal",
+              "value": null
+            },
+            "allow_private_network": {
+              "kind": "literal",
+              "value": false
+            },
+            "expose_headers": {
+              "kind": "literal",
+              "value": []
+            },
+            "max_age": {
+              "kind": "literal",
+              "value": 600
+            }
+          }
+        },
+        {
+          "step_id": "dispatch",
+          "surface": "starlette.middleware.cors.CORSMiddleware",
+          "operation": "__call__",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "middleware"
+          },
+          "arguments": {
+            "scope": {
+              "kind": "literal",
+              "value": {
+                "type": "http",
+                "asgi": {
+                  "version": "3.0",
+                  "spec_version": "2.4"
+                },
+                "http_version": "1.1",
+                "method": "OPTIONS",
+                "scheme": "https",
+                "path": "/cors",
+                "raw_path_base64": "L2NvcnM=",
+                "query_string_base64": "",
+                "root_path": "",
+                "headers_base64_pairs": [
+                  [
+                    "b3JpZ2lu",
+                    "aHR0cHM6Ly9hbGxvd2VkLmV4YW1wbGU="
+                  ],
+                  [
+                    "b3JpZ2lu",
+                    "aHR0cHM6Ly9ibG9ja2VkLmV4YW1wbGU="
+                  ],
+                  [
+                    "YWNjZXNzLWNvbnRyb2wtcmVxdWVzdC1tZXRob2Q=",
+                    "R0VU"
+                  ],
+                  [
+                    "YWNjZXNzLWNvbnRyb2wtcmVxdWVzdC1tZXRob2Q=",
+                    "UE9TVA=="
+                  ],
+                  [
+                    "YWNjZXNzLWNvbnRyb2wtcmVxdWVzdC1oZWFkZXJz",
+                    "WC1Hb29k"
+                  ],
+                  [
+                    "YWNjZXNzLWNvbnRyb2wtcmVxdWVzdC1oZWFkZXJz",
+                    "WC1CYWQ="
+                  ]
+                ],
+                "client": [
+                  "127.0.0.1",
+                  12345
+                ],
+                "server": [
+                  "testserver",
+                  443
+                ]
+              }
+            },
+            "receive": {
+              "kind": "literal",
+              "value": [
+                {
+                  "type": "http.request",
+                  "body_base64": "",
+                  "more_body": false
+                }
+              ]
+            },
+            "send": {
+              "kind": "literal",
+              "value": {
+                "kind": "capture-asgi-send"
+              }
+            }
+          }
+        }
+      ],
+      "observations": [
+        "dispatch"
+      ]
+    }
+  ]
+}
