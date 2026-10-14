@@ -373,6 +373,7 @@
       "build/parity/inputs/parity/request-custom-receive-event.json",
       "build/parity/inputs/parity/request-body-truthiness-terminal-consumed.json",
       "build/parity/inputs/parity/request-concurrent-body-disconnect-recovery.json",
+      "build/parity/inputs/parity/request-stream-after-concurrent-body-completion.json",
       "build/parity/inputs/parity/gzip-middleware.json",
       "build/parity/inputs/parity/gzip-python-bigint-threshold.json",
       "build/parity/inputs/parity/gzip-python-bigint-compresslevel.json",
@@ -16842,6 +16843,21 @@
               "id": "starlette.request.stream-interleaved-iterators",
               "dimension": "runtime",
               "description": "Create two Request.stream() iterators over one receive callback and interleave their next calls, observing each chunk, terminal empty chunk, and exhaustion. Pinned source: starlette/requests.py::Request.stream; tests/test_requests.py::test_request_stream_called_twice.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
+              "id": "starlette.request.stream-stops-after-shared-body-completion",
+              "dimension": "runtime",
+              "description": "When a started Request.stream() iterator is suspended after a partial chunk and Request.body() consumes the final request event, resume the original iterator and observe its terminal empty chunk and exhaustion without another receive call. Pinned source: starlette/requests.py:239-252.",
               "lanes": [
                 "parity"
               ],

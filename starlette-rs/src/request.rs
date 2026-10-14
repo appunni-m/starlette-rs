@@ -721,6 +721,15 @@ impl RequestStreamState {
                 self.phase = RequestStreamPhase::Receiving;
                 Ok(RequestStreamProgress::Receive)
             }
+            RequestStreamPhase::Receiving if body.is_complete() => {
+                // The source generator checks the shared consumed flag after
+                // each yielded chunk. Another consumer can therefore finish
+                // the request while this iterator is suspended between
+                // advances; resume with the terminal empty chunk instead of
+                // issuing another receive callback.
+                self.phase = RequestStreamPhase::Complete;
+                Ok(RequestStreamProgress::Chunk(Vec::new()))
+            }
             RequestStreamPhase::Receiving => Ok(RequestStreamProgress::Receive),
             RequestStreamPhase::CachedTail | RequestStreamPhase::FinalTail => {
                 self.phase = RequestStreamPhase::Complete;

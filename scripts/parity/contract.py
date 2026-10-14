@@ -1670,6 +1670,7 @@ REQUEST_CONSUMPTION_REQUIREMENTS = {
     "stream_form_consumed": "starlette.request.stream-then-form-consumed",
     "stream_json_consumed": "starlette.request.stream-then-json-consumed",
     "stream_interleaving": "starlette.request.stream-interleaved-iterators",
+    "stream_after_shared_body_completion": "starlette.request.stream-stops-after-shared-body-completion",
     "json_cache": "starlette.request.json-body-cache",
     "json_decode_error": "starlette.request.json-decode-error-cache",
     "optional_receive_fields": "starlette.request.receive-optional-body-fields",
@@ -29077,6 +29078,21 @@ def _validate_request_body_stream_json_case(case: dict[str, Any]) -> None:
     stream_positions = [
         index for index, operation in enumerate(action_operations) if operation == "stream-next"
     ]
+    stream_after_shared_body_completion_probe = (
+        action_operations == ["stream-next", "body", "stream-next", "stream-next"]
+        and len(stream_ids) == 3
+        and len(set(stream_ids)) == 1
+        and len(receive) == 2
+        and all(message.get("type") == "http.request" for message in receive)
+        and receive[0].get("more_body") is True
+        and receive[1].get("more_body") is False
+        and bool(base64.b64decode(receive[0].get("body_base64", ""), validate=True))
+        and bool(base64.b64decode(receive[1].get("body_base64", ""), validate=True))
+        and not blocked_receive_calls
+        and not scope_headers
+        and not optional_receive_fields
+        and not body_truthiness_probe
+    )
     custom_receive_indices = [
         index
         for index, message in enumerate(receive)
@@ -29151,9 +29167,12 @@ def _validate_request_body_stream_json_case(case: dict[str, Any]) -> None:
         and stream_positions[0] < direct_body_positions[0]
         and not stream_close_recovery_probe
         and not stream_cancellation_recovery_probe
+        and not stream_after_shared_body_completion_probe
         and not body_truthiness_probe
     ):
         expected_covers.add(REQUEST_CONSUMPTION_REQUIREMENTS["stream_body_consumed"])
+    if stream_after_shared_body_completion_probe:
+        expected_covers.add(REQUEST_CONSUMPTION_REQUIREMENTS["stream_after_shared_body_completion"])
     if stream_positions and form_positions and stream_positions[0] < form_positions[0]:
         if not any(
             name.lower() == b"content-type"
