@@ -627,6 +627,9 @@ WEBSOCKET_CONSTRUCTOR_SCOPE_REQUIREMENT = (
 REQUEST_SEND_PUSH_PROMISE_OPERATION = ("starlette.requests.Request", "send-push-promise")
 REQUEST_IS_DISCONNECTED_OPERATION = ("starlette.requests.Request", "is-disconnected")
 REQUEST_FORM_OPERATION = ("starlette.requests.Request", "form")
+REQUEST_FORM_ARBITRARY_PRECISION_LIMIT_REQUIREMENT = (
+    "starlette.request.form.arbitrary-precision-count-limits"
+)
 REQUEST_BODY_STREAM_JSON_OPERATION = ("starlette.requests.Request", "body-stream-json")
 REQUEST_LIFETIME_OPERATION = ("starlette.requests.Request", "callback-lifetime")
 RESPONSE_CONSUMER_OPERATIONS = {
@@ -29633,6 +29636,15 @@ def _multipart_count_limit_boundary(
     )
 
 
+def _request_form_has_out_of_float_range_count_limit(form_options: dict[str, Any]) -> bool:
+    return any(
+        type(form_options.get(name)) is int
+        and (form_options[name] > sys.float_info.max or form_options[name] < -sys.float_info.max)
+        for name in ("max_fields", "max_files")
+        if name in form_options
+    )
+
+
 def _multipart_part_limit_exceeded(
     content_type: str, body: bytes, form_options: dict[str, Any]
 ) -> bool:
@@ -29961,7 +29973,7 @@ def _validate_request_form_case(case: dict[str, Any]) -> None:
         if name == "max_part_size":
             if type(value) is not int:
                 raise ContractError("Request.form max_part_size must be an integer")
-        elif type(value) not in (int, float) or not math.isfinite(value):
+        elif type(value) not in (int, float) or (type(value) is float and not math.isfinite(value)):
             raise ContractError(f"Request.form {name} must be a finite number")
 
     form_access = case.get("form_access", "await")
@@ -30005,6 +30017,8 @@ def _validate_request_form_case(case: dict[str, Any]) -> None:
             ]
             if form_access == "context-manager":
                 expected_covers.append("starlette.request.form.context-manager-lifecycle")
+        if _request_form_has_out_of_float_range_count_limit(form_options):
+            expected_covers.append(REQUEST_FORM_ARBITRARY_PRECISION_LIMIT_REQUIREMENT)
     elif (
         content_type == b"multipart/form-data"
         and body
@@ -30055,6 +30069,8 @@ def _validate_request_form_case(case: dict[str, Any]) -> None:
         if has_file_probes or form_access != "await":
             raise ContractError("multipart count-limit errors cannot inspect or close form values")
         expected_covers = ["starlette.request.form.multipart-count-limits"]
+        if _request_form_has_out_of_float_range_count_limit(form_options):
+            expected_covers.append(REQUEST_FORM_ARBITRARY_PRECISION_LIMIT_REQUIREMENT)
     elif content_type == b"multipart/form-data" and body:
         if not case["scope"]["headers_base64_pairs"]:
             raise ContractError("Request.form multipart cases require Content-Type")
@@ -30116,8 +30132,12 @@ def _validate_request_form_case(case: dict[str, Any]) -> None:
         else:
             if set(form_options) - {"max_fields", "max_files"}:
                 raise ContractError("multipart success cases select only file/field limits")
-            if form_options and not _multipart_count_limit_boundary(
-                content_type_header or "", body, form_options
+            if (
+                form_options
+                and not _multipart_count_limit_boundary(
+                    content_type_header or "", body, form_options
+                )
+                and not _request_form_has_out_of_float_range_count_limit(form_options)
             ):
                 raise ContractError("multipart count-limit options must reach the supplied limit")
             expected_covers = [
@@ -30135,6 +30155,8 @@ def _validate_request_form_case(case: dict[str, Any]) -> None:
                 expected_covers.append("starlette.request.form.multipart-no-filename")
             if form_options:
                 expected_covers.append("starlette.request.form.multipart-count-limits")
+            if _request_form_has_out_of_float_range_count_limit(form_options):
+                expected_covers.append(REQUEST_FORM_ARBITRARY_PRECISION_LIMIT_REQUIREMENT)
             if re.search(r"(?:^|;)\s*charset\s*=", content_type_header or "", re.IGNORECASE) or any(
                 value > 127 for value in body
             ):

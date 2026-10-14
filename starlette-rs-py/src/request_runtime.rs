@@ -645,9 +645,9 @@ impl PyRequestBody {
             stream: RequestStreamState::default(),
             content_type,
             scope,
-            max_files: max_files.extract::<f64>()?,
+            max_files: extract_form_count_limit(max_files)?,
             max_files_display: max_files.str()?.extract::<String>()?,
-            max_fields: max_fields.extract::<f64>()?,
+            max_fields: extract_form_count_limit(max_fields)?,
             max_fields_display: max_fields.str()?.extract::<String>()?,
             max_part_size: extract_form_max_part_size(max_part_size)?,
             max_part_size_value: max_part_size.clone().unbind(),
@@ -1458,6 +1458,26 @@ fn extract_form_max_part_size(value: &Bound<'_, PyAny>) -> PyResult<i64> {
             }
             Err(error)
         }
+    }
+}
+
+fn extract_form_count_limit(value: &Bound<'_, PyAny>) -> PyResult<f64> {
+    match value.extract::<f64>() {
+        Ok(limit) => Ok(limit),
+        Err(error) if value.is_instance_of::<PyInt>() => {
+            // Starlette compares parser counters directly with Python's
+            // arbitrary-precision int limits. Counts cannot reach the range
+            // where converting a larger magnitude to infinity changes that
+            // comparison, so preserve the outcome for valid oversized ints.
+            if value.rich_compare(f64::MAX, CompareOp::Gt)?.is_truthy()? {
+                return Ok(f64::INFINITY);
+            }
+            if value.rich_compare(-f64::MAX, CompareOp::Lt)?.is_truthy()? {
+                return Ok(f64::NEG_INFINITY);
+            }
+            Err(error)
+        }
+        Err(error) => Err(error),
     }
 }
 

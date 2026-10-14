@@ -526,6 +526,7 @@
       "build/parity/inputs/parity/templating-url-for-function-annotations.json",
       "build/parity/inputs/parity/request-form-urlencoded.json",
       "build/parity/inputs/parity/request-form-large-part-size.json",
+      "build/parity/inputs/parity/request-form-large-count-limits.json",
       "build/parity/inputs/parity/request-form-multipart.json",
       "build/parity/inputs/parity/request-form-multipart-iso-8859-1.json",
       "build/parity/inputs/parity/formdata-constructor.json",
@@ -16461,6 +16462,21 @@
               "id": "starlette.request.form.parser-limits",
               "dimension": "parameter_combination",
               "description": "Enforce URL-encoded max_fields and max_part_size options at both defaults and supplied limits, preserve Python's unbounded integer comparison and deferred error-message conversion for max_part_size, preserve the upstream MultiPartException versus HTTPException boundary, stop before requesting a later body chunk after a limit is exceeded, and return the exact public form-parsing error when a single chunk exceeds either limit. Pinned source: starlette/requests.py:268-308; starlette/formparsers.py:57-100; tests/test_formparsers.py::test_urlencoded_too_many_fields_raise, ::test_urlencoded_field_exceeds_max_part_size_raise, ::test_urlencoded_limits_stop_parsing_within_a_single_chunk, ::test_urlencoded_max_fields_is_customizable, and ::test_urlencoded_max_part_size_is_customizable; docs/requests.md:116-126.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
+              "id": "starlette.request.form.arbitrary-precision-count-limits",
+              "dimension": "parameter_combination",
+              "description": "Accept Python arbitrary-precision integer max_fields and max_files values and preserve successful form parsing when a positive limit exceeds the finite float range used by the Rust bridge. Pinned source: starlette/requests.py:268-321; starlette/formparsers.py:57-100 and 181-297; docs/requests.md:112-170.",
               "lanes": [
                 "parity"
               ],
