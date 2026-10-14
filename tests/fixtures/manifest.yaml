@@ -356,6 +356,7 @@
       "build/parity/inputs/parity/request-runtime.json",
       "build/parity/inputs/parity/request-stream-terminal-throw.json",
       "build/parity/inputs/parity/request-stream-receive-cancellation-retry.json",
+      "build/parity/inputs/parity/request-stream-receive-error-retry.json",
       "build/parity/inputs/parity/request-client-address.json",
       "build/parity/inputs/parity/request-connection-properties-mapping-membership.json",
       "build/parity/inputs/parity/request-scope-interface.json",
@@ -602,6 +603,8 @@
       "build/parity/inputs/parity/testclient-startup-cleanup-error.json",
       "build/parity/inputs/parity/testclient-shutdown-cleanup-error.json",
       "build/parity/inputs/parity/application-routes.json",
+      "build/parity/inputs/parity/asgi-app-streaming-response.json",
+      "build/parity/inputs/parity/asgi-app-streaming-response-caller-cancellation.json",
       "build/parity/inputs/parity/router-converter-ordering.json",
       "build/parity/inputs/parity/router-mixed-route-ordering.json",
       "build/parity/inputs/parity/application-subclass-builder.json",
@@ -795,6 +798,17 @@
               "id": "starlette.public-api-inspection.gzip-exclusion-constant",
               "dimension": "parameter",
               "description": "Inspect the documented plural GZip exclusion constant, its value, the singular TODO spelling, and identity with the middleware constructor default. Upstream: starlette/middleware/gzip.py and docs/middleware.md.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.compatibility.full-public-surface",
+              "dimension": "feature",
+              "description": "Inspect presence and observable signatures or values for the source-reviewed supported Starlette 1.6.0 Python API across metadata-listed public modules, including the root import boundary. Evidence: pinned docs, API directives, release notes, tests, explicit imports, and docs/atlas/api-review.csv.",
               "lanes": [
                 "parity"
               ],
@@ -1296,6 +1310,17 @@
               ],
               "target_profiles": [
                 "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.asgi.streaming.application-route-response",
+              "dimension": "protocol_variant",
+              "description": "Return an input-defined StreamingResponse from a Starlette HTTP route and compare emitted response chunks, headers, status, and ASGI event order. Pinned sources: starlette/applications.py:25-29; starlette/routing.py; starlette/responses.py:212-280.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
                 "python-package-cpython312"
               ]
             },
@@ -17358,6 +17383,21 @@
               "id": "starlette.request.stream.receive-error-propagation",
               "dimension": "error_path",
               "description": "Propagate the original CancelledError when ASGI receive is cancelled after Request.stream() has yielded a partial request chunk. Pinned source: starlette/requests.py:239\u2013252; tests/test_requests.py::test_request_stream, test_request_stream_then_body.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
+              "id": "starlette.request.stream.retry-after-receive-error",
+              "dimension": "error_path",
+              "description": "After Request.stream() yields a partial chunk and ASGI receive raises ValueError, propagate the original error, exhaust that iterator, and let a fresh stream consume the remaining body, terminal empty chunk, and exhaustion. Pinned source: starlette/requests.py:234-252; tests/test_requests.py::test_request_stream, test_request_stream_then_body.",
               "lanes": [
                 "parity"
               ],

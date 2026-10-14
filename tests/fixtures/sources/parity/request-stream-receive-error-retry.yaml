@@ -1,0 +1,71 @@
+{
+  "schema": "migration-parity/parity-input@55",
+  "cases": [
+    {
+      "case_id": "starlette.requests.Request.body-stream-json.stream-retry-after-partial-receive-error",
+      "surface": "starlette.requests.Request",
+      "operation": "body-stream-json",
+      "covers": [
+        "starlette.request.stream.retry-after-receive-error"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "http"
+      },
+      "receive": [
+        {
+          "type": "http.request",
+          "body_base64": "cHJlZml4",
+          "more_body": true
+        },
+        {
+          "kind": "raise",
+          "exception_type": "ValueError",
+          "message": "temporary stream receive failure"
+        },
+        {
+          "type": "http.request",
+          "body_base64": "c3VmZml4",
+          "more_body": false
+        }
+      ],
+      "blocked_receive_calls": [],
+      "actions": [
+        {
+          "operation": "stream-next",
+          "stream_id": "partial"
+        },
+        {
+          "operation": "stream-next",
+          "stream_id": "partial"
+        },
+        {
+          "operation": "stream-next",
+          "stream_id": "partial"
+        },
+        {
+          "operation": "stream-next",
+          "stream_id": "retry"
+        },
+        {
+          "operation": "stream-next",
+          "stream_id": "retry"
+        },
+        {
+          "operation": "stream-next",
+          "stream_id": "retry"
+        }
+      ],
+      "observations": [
+        "request-consumption"
+      ]
+    }
+  ]
+}

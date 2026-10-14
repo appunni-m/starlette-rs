@@ -1728,7 +1728,13 @@ def _materialize_application(
     from starlette.applications import Starlette
     from starlette.background import BackgroundTask
     from starlette.exceptions import HTTPException, WebSocketException
-    from starlette.responses import JSONResponse, PlainTextResponse, RedirectResponse, Response
+    from starlette.responses import (
+        JSONResponse,
+        PlainTextResponse,
+        RedirectResponse,
+        Response,
+        StreamingResponse,
+    )
     from starlette.routing import Mount, Route, Router, WebSocketRoute
 
     application_type = Starlette
@@ -2281,6 +2287,95 @@ def _materialize_application(
                 return endpoint
 
             route_endpoint = make_json_endpoint(response_spec)
+        elif response_spec["kind"] == "streaming-response":
+            _strict_object(
+                response_spec,
+                {"kind", "content", "streaming", "status_code", "header_pairs", "media_type"},
+                "StreamingResponse endpoint",
+            )
+            content_spec = _strict_object(
+                response_spec["content"],
+                {"kind", "value"},
+                "StreamingResponse endpoint content",
+            )
+            if content_spec["kind"] != "chunks" or not isinstance(content_spec["value"], list):
+                raise ValueError("StreamingResponse endpoint content must contain chunks")
+            if response_spec["streaming"] != "async-generator":
+                raise ValueError("StreamingResponse endpoint must use an async generator")
+            if type(response_spec["status_code"]) is not int:
+                raise ValueError("StreamingResponse endpoint status code must be an integer")
+            if response_spec["media_type"] is not None and not isinstance(
+                response_spec["media_type"], str
+            ):
+                raise ValueError("StreamingResponse endpoint media type must be text or null")
+            if not isinstance(response_spec["header_pairs"], list):
+                raise ValueError("StreamingResponse endpoint headers must be a list")
+
+            chunks = []
+            for index, chunk_spec in enumerate(content_spec["value"]):
+                chunk_spec = _strict_object(
+                    chunk_spec,
+                    {"kind", "value"},
+                    f"StreamingResponse endpoint chunk[{index}]",
+                )
+                if chunk_spec["kind"] == "text":
+                    if not isinstance(chunk_spec["value"], str):
+                        raise ValueError("StreamingResponse endpoint text chunks must be strings")
+                    chunks.append(chunk_spec["value"])
+                elif chunk_spec["kind"] == "base64-bytes":
+                    if not isinstance(chunk_spec["value"], str):
+                        raise ValueError(
+                            "StreamingResponse endpoint byte chunks must be base64 text"
+                        )
+                    chunks.append(
+                        _decode_b64(
+                            chunk_spec["value"],
+                            f"StreamingResponse endpoint content[{index}].value",
+                        )
+                    )
+                elif chunk_spec["kind"] == "memoryview-base64":
+                    if not isinstance(chunk_spec["value"], str):
+                        raise ValueError(
+                            "StreamingResponse endpoint memoryview chunks must be base64 text"
+                        )
+                    chunks.append(
+                        memoryview(
+                            _decode_b64(
+                                chunk_spec["value"],
+                                f"StreamingResponse endpoint content[{index}].value",
+                            )
+                        )
+                    )
+                else:
+                    raise ValueError(
+                        "StreamingResponse endpoint chunks must be text, bytes, or memoryview"
+                    )
+
+            header_pairs = response_spec["header_pairs"]
+            if any(
+                not isinstance(pair, list)
+                or len(pair) != 2
+                or any(not isinstance(value, str) for value in pair)
+                for pair in header_pairs
+            ):
+                raise ValueError("StreamingResponse endpoint headers must be string pairs")
+
+            def make_streaming_endpoint(spec: dict[str, Any], values: list[Any]) -> Any:
+                async def response_body() -> Any:
+                    for chunk in values:
+                        yield chunk
+
+                async def endpoint(_request: Any) -> Any:
+                    return StreamingResponse(
+                        response_body(),
+                        status_code=spec["status_code"],
+                        headers=dict(spec["header_pairs"]),
+                        media_type=spec["media_type"],
+                    )
+
+                return endpoint
+
+            route_endpoint = make_streaming_endpoint(response_spec, chunks)
         elif response_spec["kind"] == "response-background-task-error":
             _strict_object(
                 response_spec,
@@ -3088,13 +3183,64 @@ async def _invoke(
             return message
         return {"type": "http.disconnect"}
 
+    send_cancellation_spec = None
+    if step_args["send"] != {"kind": "capture-asgi-send"}:
+        send_cancellation_spec = _strict_object(
+            step_args["send"],
+            {"kind", "event_index"},
+            "Starlette caller-cancelled send",
+        )
+        if (
+            send_cancellation_spec["kind"] != "capture-asgi-send-with-caller-cancellation"
+            or type(send_cancellation_spec["event_index"]) is not int
+            or send_cancellation_spec["event_index"] != 1
+        ):
+            raise ValueError("Starlette caller-cancelled send input is invalid")
+
+    send_index = 0
+    send_gate_entered = asyncio.Event() if send_cancellation_spec is not None else None
+    send_gate_release = asyncio.Event() if send_cancellation_spec is not None else None
+    send_execution_trace: list[dict[str, Any]] | None = (
+        [] if send_cancellation_spec is not None else None
+    )
+
     async def send(message: dict[str, Any]) -> None:
+        nonlocal send_index
+        if (
+            send_cancellation_spec is not None
+            and send_index == send_cancellation_spec["event_index"]
+        ):
+            if (
+                send_gate_entered is None
+                or send_gate_release is None
+                or send_execution_trace is None
+            ):
+                raise RuntimeError("Starlette caller-cancellation gate is unavailable")
+            send_execution_trace.append(
+                {
+                    "event": "asgi-send-enter",
+                    "event_index": send_index,
+                    "message": _canonical_message(message),
+                }
+            )
+            send_gate_entered.set()
+            await send_gate_release.wait()
         sent.append(message)
         if workflow_events is not None:
             workflow_events.append(_canonical_message(message))
+        if send_execution_trace is not None:
+            send_execution_trace.append(
+                {"event": "asgi-send", "message": _canonical_message(message)}
+            )
+            if (
+                send_cancellation_spec is not None
+                and send_index == send_cancellation_spec["event_index"]
+            ):
+                send_execution_trace.append(
+                    {"event": "asgi-send-complete", "event_index": send_index}
+                )
+        send_index += 1
 
-    if step_args["send"] != {"kind": "capture-asgi-send"}:
-        raise ValueError("send input must select the declared ASGI message collector")
     context_tokens: list[tuple[dict[str, Any], contextvars.Token[Any]]] = []
     captured_exception: BaseException | None = None
     async_endpoint_observations: dict[str, Any] | None = None
@@ -3205,6 +3351,32 @@ async def _invoke(
                     }
             else:
                 raise RuntimeError("cancellation schedule requires a declared endpoint observer")
+        elif send_cancellation_spec is not None:
+            if (
+                send_gate_entered is None
+                or send_gate_release is None
+                or send_execution_trace is None
+            ):
+                raise RuntimeError("Starlette caller-cancellation gate events are unavailable")
+            server_task = asyncio.create_task(app(scope, receive, send))
+            try:
+                await asyncio.wait_for(send_gate_entered.wait(), timeout=5.0)
+                send_execution_trace.append({"event": "response-cancellation-requested"})
+                server_task.cancel()
+                try:
+                    await server_task
+                except asyncio.CancelledError as exc:
+                    captured_exception = exc
+                except Exception as exc:
+                    captured_exception = exc
+            finally:
+                if not server_task.done():
+                    server_task.cancel()
+                    send_gate_release.set()
+                    try:
+                        await server_task
+                    except BaseException:
+                        pass
         else:
             try:
                 await app(scope, receive, send)
@@ -3255,6 +3427,8 @@ async def _invoke(
         "lifecycle_and_cleanup_effects": list(lifecycle_trace),
         "server_error_observation": _server_error_observation(app, start, body, captured_exception),
     }
+    if send_execution_trace is not None:
+        result["execution_trace"] = send_execution_trace
     if request_dispatch:
         result["scope_mapping_observation"] = {
             "type": f"{type(scope).__module__}.{type(scope).__qualname__}",
@@ -3302,7 +3476,9 @@ async def _invoke(
         result["sync_endpoint_observations"] = _observed_sync_endpoint(sync_endpoint_states or [])
         if scope_observation_result is not None:
             result["scope_observation"] = scope_observation_result
-        if captured_exception is not None and capture_dispatch_error_as_observation:
+        if captured_exception is not None and (
+            capture_dispatch_error_as_observation or send_cancellation_spec is not None
+        ):
             return _CapturedDispatchError(
                 error=_dispatch_error(captured_exception),
                 partial_value=result,

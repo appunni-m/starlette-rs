@@ -1804,6 +1804,7 @@ REQUEST_CONSUMPTION_REQUIREMENTS = {
     "body_truthiness_terminal_consumed": "starlette.request.body.truthiness-error-consumes-terminal-stream",
     "body_cancellation_retry": "starlette.request.body.retry-after-cancellation",
     "stream_receive_error": "starlette.request.stream.receive-error-propagation",
+    "stream_receive_error_retry": "starlette.request.stream.retry-after-receive-error",
     "body_stream_cancellation_retry": "starlette.request.body.retry-after-stream-cancellation",
     "stream_disconnect_retry": "starlette.request.stream-disconnect-retry",
     "stream_close_recovery": "starlette.request.stream-close-recovers-remaining-body",
@@ -24234,6 +24235,14 @@ def _validate_case_payload(
                     or _is_authentication_required_websocket_application(app_args)
                 ),
                 allow_query=case["operation"] == "__call__",
+                allow_caller_cancellation_send=(
+                    case["surface"] == "starlette.applications.Starlette"
+                    and case["operation"] == "__call__"
+                    and bool(app_args["routes"])
+                    and isinstance(app_args["routes"][0], dict)
+                    and isinstance(app_args["routes"][0].get("endpoint"), dict)
+                    and app_args["routes"][0]["endpoint"].get("kind") == "streaming-response"
+                ),
                 allow_lifespan_callback_failures=lifespan_only,
                 allow_scope_app=(
                     case["operation"] == "request-dispatch"
@@ -27433,6 +27442,64 @@ def _validate_application_stimulus(
             raise ContractError("synchronous plain-text route input must use default Route methods")
         _string(endpoint["content"], "synchronous plain-text endpoint content")
         return
+    if endpoint_kind == "streaming-response":
+        endpoint = _exact(
+            route["endpoint"],
+            {"kind", "content", "streaming", "status_code", "header_pairs", "media_type"},
+            "StreamingResponse endpoint input",
+        )
+        if endpoint["kind"] != "streaming-response" or endpoint["streaming"] != "async-generator":
+            raise ContractError("application StreamingResponse must use an async generator")
+        if route["methods"] is None:
+            raise ContractError("StreamingResponse route input must declare HTTP methods")
+        if type(endpoint["status_code"]) is not int or not 100 <= endpoint["status_code"] <= 599:
+            raise ContractError(
+                "StreamingResponse endpoint status_code must be an HTTP status code"
+            )
+        content = _exact(
+            endpoint["content"], {"kind", "value"}, "StreamingResponse endpoint content"
+        )
+        if (
+            content["kind"] != "chunks"
+            or not isinstance(content["value"], list)
+            or not content["value"]
+        ):
+            raise ContractError(
+                "StreamingResponse endpoint content must contain a non-empty chunk list"
+            )
+        for index, chunk_value in enumerate(content["value"]):
+            chunk = _exact(
+                chunk_value, {"kind", "value"}, f"StreamingResponse endpoint chunk[{index}]"
+            )
+            if chunk["kind"] == "text":
+                _string(chunk["value"], f"StreamingResponse endpoint chunk[{index}].value")
+            elif chunk["kind"] == "base64-bytes":
+                encoded = _string(
+                    chunk["value"], f"StreamingResponse endpoint chunk[{index}].value"
+                )
+                try:
+                    base64.b64decode(encoded, validate=True)
+                except (ValueError, TypeError) as exc:
+                    raise ContractError(
+                        f"StreamingResponse endpoint chunk[{index}].value must be valid base64"
+                    ) from exc
+            else:
+                raise ContractError(
+                    "StreamingResponse endpoint chunks must be text or base64 bytes"
+                )
+        headers = endpoint["header_pairs"]
+        if not isinstance(headers, list) or any(
+            not isinstance(pair, list)
+            or len(pair) != 2
+            or any(not isinstance(value, str) for value in pair)
+            for pair in headers
+        ):
+            raise ContractError(
+                "StreamingResponse endpoint header_pairs must be ordered string pairs"
+            )
+        if endpoint["media_type"] is not None and not isinstance(endpoint["media_type"], str):
+            raise ContractError("StreamingResponse endpoint media_type must be a string or null")
+        return
     endpoint = _exact(
         route["endpoint"],
         {"kind", "content", "status_code", "media_type", "cookies"},
@@ -28570,6 +28637,7 @@ def _validate_dispatch_stimulus(
     allow_pre_asgi24_disconnect: bool = False,
     allow_scope_app: bool = False,
     allow_minimal_http_scope: bool = False,
+    allow_caller_cancellation_send: bool = False,
 ) -> None:
     if set(args) != {"scope", "receive", "send"}:
         raise ContractError(
@@ -28768,6 +28836,20 @@ def _validate_dispatch_stimulus(
         raise ContractError("scope type must be http, websocket, or lifespan")
     if args["send"] != {"kind": "capture-asgi-send"}:
         if allow_lifespan_callback_failures and scope.get("type") == "lifespan":
+            return
+        if allow_caller_cancellation_send:
+            send = _exact(
+                args["send"],
+                {"kind", "event_index"},
+                "ASGI caller-cancellation send input",
+            )
+            if (
+                send["kind"] != "capture-asgi-send-with-caller-cancellation"
+                or type(send["event_index"]) is not int
+                or send["event_index"] != 1
+                or scope.get("type") != "http"
+            ):
+                raise ContractError("ASGI caller-cancellation send input is invalid")
             return
         if not allow_oserror_send:
             raise ContractError("send input must contain the fixed ASGI capture selector")
@@ -29964,17 +30046,36 @@ def _validate_request_body_stream_json_case(case: dict[str, Any]) -> None:
             "http.disconnect before is_disconnected()"
         )
     receive_error_probe = bool(receive_error_indices)
-    if receive_error_probe and (
-        receive_error_indices != [0]
-        or len(receive) != 2
-        or receive[1].get("type") != "http.request"
-        or receive[1].get("more_body") is not False
-        or action_operations != ["body", "body"]
-        or blocked_receive_calls
-        or scope_headers
-    ):
+    receive_error_body_retry = (
+        receive_error_indices == [0]
+        and len(receive) == 2
+        and receive[1].get("type") == "http.request"
+        and receive[1].get("more_body") is False
+        and action_operations == ["body", "body"]
+        and not blocked_receive_calls
+        and not scope_headers
+    )
+    receive_error_stream_retry = (
+        receive_error_indices == [1]
+        and len(receive) == 3
+        and receive[0].get("type") == "http.request"
+        and receive[0].get("more_body") is True
+        and bool(base64.b64decode(receive[0].get("body_base64", ""), validate=True))
+        and receive[1].get("exception_type") == "ValueError"
+        and receive[2].get("type") == "http.request"
+        and receive[2].get("more_body") is False
+        and bool(base64.b64decode(receive[2].get("body_base64", ""), validate=True))
+        and action_operations == ["stream-next"] * 6
+        and stream_ids[:3] == [stream_ids[0]] * 3
+        and stream_ids[3:] == [stream_ids[3]] * 3
+        and stream_ids[0] != stream_ids[3]
+        and not blocked_receive_calls
+        and not scope_headers
+    )
+    if receive_error_probe and not (receive_error_body_retry or receive_error_stream_retry):
         raise ContractError(
-            "receive-error retry requires one initial ValueError, one final request, and two body calls"
+            "receive-error retry requires either one initial ValueError, one final request, "
+            "and two body calls, or a partial stream, ValueError, and fresh-stream recovery"
         )
 
     receive_cancellation_probe = bool(receive_cancellation_indices)
@@ -30140,13 +30241,15 @@ def _validate_request_body_stream_json_case(case: dict[str, Any]) -> None:
         )
     elif receive_cancellation_probe:
         expected_covers.add(REQUEST_CONSUMPTION_REQUIREMENTS["body_cancellation_retry"])
-    if receive_error_probe:
+    if receive_error_body_retry:
         expected_covers.update(
             {
                 REQUEST_CONSUMPTION_REQUIREMENTS["body_receive_error"],
                 REQUEST_CONSUMPTION_REQUIREMENTS["body_receive_error_retry"],
             }
         )
+    elif receive_error_stream_retry:
+        expected_covers.add(REQUEST_CONSUMPTION_REQUIREMENTS["stream_receive_error_retry"])
     body_positions = [
         index
         for index, operation in enumerate(action_operations)
@@ -30292,6 +30395,7 @@ def _validate_request_body_stream_json_case(case: dict[str, Any]) -> None:
         and not first_stream_ended_on_disconnect
         and not stream_close_recovery_probe
         and not stream_cancellation_recovery_probe
+        and not receive_error_stream_retry
     ):
         expected_covers.add(REQUEST_CONSUMPTION_REQUIREMENTS["stream_interleaving"])
     if (stream_positions or direct_body_positions) and any(
@@ -38514,11 +38618,18 @@ def _semantic_coverage(case: dict[str, Any]) -> set[str]:
         case["operation"] == "__call__"
         and case["target_profiles"] == ["python-package-cpython312"]
         and route["kind"] == "http-route"
-        and endpoint["kind"] in {"plain-text-response", "json-response"}
+        and endpoint["kind"] in {"plain-text-response", "json-response", "streaming-response"}
         and path_matches
         and method_matches
     ):
-        coverage.add("starlette.applications.Starlette.__call__.async-route-return-response")
+        if endpoint["kind"] == "streaming-response":
+            coverage.add("starlette.asgi.streaming.application-route-response")
+            if dispatch_arguments["send"].get("kind") == (
+                "capture-asgi-send-with-caller-cancellation"
+            ):
+                coverage.add(STREAMING_RESPONSE_CALLER_CANCELLATION_REQUIREMENT)
+        else:
+            coverage.add("starlette.applications.Starlette.__call__.async-route-return-response")
     if (
         case["operation"] == "__call__"
         and case["target_profiles"] == ["python-package-cpython312"]

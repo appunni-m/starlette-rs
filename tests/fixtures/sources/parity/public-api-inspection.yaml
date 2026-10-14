@@ -415,6 +415,2983 @@
           }
         ]
       }
+    },
+    {
+      "case_id": "starlette.public-api-inspection.full-public-surface",
+      "surface": "starlette",
+      "operation": "public-api-inspection",
+      "covers": [
+        "starlette.compatibility.full-public-surface"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "public-api-inspection"
+      ],
+      "inspection": {
+        "modules": [
+          {
+            "name": "starlette",
+            "symbols": [
+              {
+                "name": "Starlette",
+                "observe": [
+                  "presence"
+                ]
+              },
+              {
+                "name": "__all__",
+                "observe": [
+                  "presence"
+                ]
+              },
+              {
+                "name": "__version__",
+                "observe": [
+                  "presence"
+                ]
+              }
+            ]
+          },
+          {
+            "name": "starlette.applications",
+            "symbols": [
+              {
+                "name": "Starlette",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "Starlette.__call__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "Starlette.__init__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "Starlette.add_exception_handler",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "Starlette.add_middleware",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "Starlette.add_route",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "Starlette.host",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "Starlette.mount",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "Starlette.routes",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "Starlette.url_path_for",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              }
+            ]
+          },
+          {
+            "name": "starlette.authentication",
+            "symbols": [
+              {
+                "name": "AuthCredentials",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "AuthCredentials.__init__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "AuthenticationBackend",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "AuthenticationBackend.authenticate",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "AuthenticationError",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "BaseUser",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "BaseUser.display_name",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "BaseUser.is_authenticated",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "SimpleUser",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "SimpleUser.__init__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "SimpleUser.display_name",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "SimpleUser.is_authenticated",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "UnauthenticatedUser",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "UnauthenticatedUser.display_name",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "UnauthenticatedUser.is_authenticated",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "requires",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              }
+            ]
+          },
+          {
+            "name": "starlette.background",
+            "symbols": [
+              {
+                "name": "BackgroundTask",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "BackgroundTask.__call__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "BackgroundTask.__init__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "BackgroundTasks",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "BackgroundTasks.__call__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "BackgroundTasks.__init__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "BackgroundTasks.add_task",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              }
+            ]
+          },
+          {
+            "name": "starlette.concurrency",
+            "symbols": [
+              {
+                "name": "iterate_in_threadpool",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "run_in_threadpool",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "run_until_first_complete",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              }
+            ]
+          },
+          {
+            "name": "starlette.config",
+            "symbols": [
+              {
+                "name": "Config",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "Config.__call__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "Config.__init__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "Environ.__delitem__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "Environ.__getitem__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "Environ.__iter__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "Environ.__len__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "Environ.__setitem__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "environ",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              }
+            ]
+          },
+          {
+            "name": "starlette.convertors",
+            "symbols": [
+              {
+                "name": "Convertor",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "Convertor.convert",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "Convertor.to_string",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "register_url_convertor",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              }
+            ]
+          },
+          {
+            "name": "starlette.datastructures",
+            "symbols": [
+              {
+                "name": "Address",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "CommaSeparatedStrings",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "CommaSeparatedStrings.__getitem__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "CommaSeparatedStrings.__init__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "CommaSeparatedStrings.__iter__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "CommaSeparatedStrings.__len__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "CommaSeparatedStrings.__repr__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "CommaSeparatedStrings.__str__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "FormData",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "FormData.__init__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "Headers",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "Headers.__contains__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "Headers.__getitem__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "Headers.__init__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "Headers.__iter__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "Headers.__len__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "Headers.getlist",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "Headers.items",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "Headers.keys",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "Headers.mutablecopy",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "Headers.raw",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "Headers.values",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "ImmutableMultiDict",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "ImmutableMultiDict.__contains__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "ImmutableMultiDict.__eq__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "ImmutableMultiDict.__getitem__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "ImmutableMultiDict.__init__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "ImmutableMultiDict.__iter__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "ImmutableMultiDict.__len__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "ImmutableMultiDict.__repr__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "ImmutableMultiDict.getlist",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "ImmutableMultiDict.items",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "ImmutableMultiDict.keys",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "ImmutableMultiDict.multi_items",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "ImmutableMultiDict.values",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "MultiDict",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "MultiDict.__delitem__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "MultiDict.__setitem__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "MultiDict.append",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "MultiDict.clear",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "MultiDict.pop",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "MultiDict.popitem",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "MultiDict.poplist",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "MultiDict.setdefault",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "MultiDict.setlist",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "MultiDict.update",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "MutableHeaders",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "MutableHeaders.__delitem__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "MutableHeaders.__ior__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "MutableHeaders.__or__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "MutableHeaders.__setitem__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "MutableHeaders.append",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "MutableHeaders.raw",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "MutableHeaders.setdefault",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "MutableHeaders.update",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "QueryParams",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "QueryParams.__init__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "QueryParams.__str__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "Secret",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "Secret.__bool__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "Secret.__init__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "Secret.__repr__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "Secret.__str__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "State",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "State.__delattr__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "State.__delitem__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "State.__getattr__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "State.__getitem__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "State.__init__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "State.__iter__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "State.__len__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "State.__setattr__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "State.__setitem__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "URL",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "URL.__eq__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "URL.__init__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "URL.__repr__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "URL.__str__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "URL.components",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "URL.fragment",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "URL.hostname",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "URL.include_query_params",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "URL.is_secure",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "URL.netloc",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "URL.password",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "URL.path",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "URL.port",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "URL.query",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "URL.remove_query_params",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "URL.replace",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "URL.replace_query_params",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "URL.scheme",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "URL.username",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "URLPath",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "URLPath.__init__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "URLPath.__new__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "URLPath.make_absolute_url",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "UploadFile",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "UploadFile.__init__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "UploadFile.__repr__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "UploadFile.close",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "UploadFile.content_type",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "UploadFile.read",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "UploadFile.seek",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "UploadFile.write",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              }
+            ]
+          },
+          {
+            "name": "starlette.endpoints",
+            "symbols": [
+              {
+                "name": "HTTPEndpoint",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "HTTPEndpoint.__await__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "HTTPEndpoint.__init__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "WebSocketEndpoint",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "WebSocketEndpoint.__await__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "WebSocketEndpoint.__init__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "WebSocketEndpoint.on_connect",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "WebSocketEndpoint.on_disconnect",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "WebSocketEndpoint.on_receive",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              }
+            ]
+          },
+          {
+            "name": "starlette.exceptions",
+            "symbols": [
+              {
+                "name": "HTTPException",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "HTTPException.__init__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "HTTPException.__str__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "WebSocketException",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "WebSocketException.__init__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "WebSocketException.__str__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              }
+            ]
+          },
+          {
+            "name": "starlette.middleware",
+            "symbols": [
+              {
+                "name": "Middleware",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "Middleware.__init__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              }
+            ]
+          },
+          {
+            "name": "starlette.middleware.authentication",
+            "symbols": [
+              {
+                "name": "AuthenticationMiddleware",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "AuthenticationMiddleware.__call__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "AuthenticationMiddleware.__init__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              }
+            ]
+          },
+          {
+            "name": "starlette.middleware.base",
+            "symbols": [
+              {
+                "name": "BaseHTTPMiddleware",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "BaseHTTPMiddleware.__call__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "BaseHTTPMiddleware.__init__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "BaseHTTPMiddleware.dispatch",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              }
+            ]
+          },
+          {
+            "name": "starlette.middleware.body_limit",
+            "symbols": [
+              {
+                "name": "RequestBodyLimitMiddleware",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "RequestBodyLimitMiddleware.__call__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "RequestBodyLimitMiddleware.__init__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              }
+            ]
+          },
+          {
+            "name": "starlette.middleware.cors",
+            "symbols": [
+              {
+                "name": "CORSMiddleware",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "CORSMiddleware.__call__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "CORSMiddleware.__init__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              }
+            ]
+          },
+          {
+            "name": "starlette.middleware.errors",
+            "symbols": [
+              {
+                "name": "ServerErrorMiddleware",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "ServerErrorMiddleware.__call__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "ServerErrorMiddleware.__init__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              }
+            ]
+          },
+          {
+            "name": "starlette.middleware.exceptions",
+            "symbols": [
+              {
+                "name": "ExceptionMiddleware",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "ExceptionMiddleware.__call__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "ExceptionMiddleware.__init__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              }
+            ]
+          },
+          {
+            "name": "starlette.middleware.gzip",
+            "symbols": [
+              {
+                "name": "DEFAULT_EXCLUDED_CONTENT_TYPES",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              },
+              {
+                "name": "GZipMiddleware",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "GZipMiddleware.__call__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "GZipMiddleware.__init__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              }
+            ]
+          },
+          {
+            "name": "starlette.middleware.httpsredirect",
+            "symbols": [
+              {
+                "name": "HTTPSRedirectMiddleware",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "HTTPSRedirectMiddleware.__call__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "HTTPSRedirectMiddleware.__init__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              }
+            ]
+          },
+          {
+            "name": "starlette.middleware.sessions",
+            "symbols": [
+              {
+                "name": "SessionMiddleware",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "SessionMiddleware.__call__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "SessionMiddleware.__init__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              }
+            ]
+          },
+          {
+            "name": "starlette.middleware.trustedhost",
+            "symbols": [
+              {
+                "name": "TrustedHostMiddleware",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "TrustedHostMiddleware.__call__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "TrustedHostMiddleware.__init__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              }
+            ]
+          },
+          {
+            "name": "starlette.middleware.wsgi",
+            "symbols": [
+              {
+                "name": "WSGIMiddleware",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "WSGIMiddleware.__call__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "WSGIMiddleware.__init__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              }
+            ]
+          },
+          {
+            "name": "starlette.requests",
+            "symbols": [
+              {
+                "name": "HTTPConnection.__getitem__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "HTTPConnection.__iter__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "HTTPConnection.__len__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "HTTPConnection.app",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "HTTPConnection.auth",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "HTTPConnection.client",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "HTTPConnection.cookies",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "HTTPConnection.headers",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "HTTPConnection.path_params",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "HTTPConnection.query_params",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "HTTPConnection.state",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "HTTPConnection.url",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "Request",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "Request.__init__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "Request.body",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "Request.form",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "Request.is_disconnected",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "Request.json",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "Request.method",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "Request.send_push_promise",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "Request.stream",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              }
+            ]
+          },
+          {
+            "name": "starlette.responses",
+            "symbols": [
+              {
+                "name": "FileResponse",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "FileResponse.__call__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "FileResponse.__init__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "HTMLResponse",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "JSONResponse",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "JSONResponse.__init__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "JSONResponse.render",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "PlainTextResponse",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "RedirectResponse",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "RedirectResponse.__init__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "Response",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "Response.__call__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "Response.__init__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "Response.delete_cookie",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "Response.headers",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "Response.render",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "Response.set_cookie",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "StreamingResponse",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "StreamingResponse.__call__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "StreamingResponse.__init__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              }
+            ]
+          },
+          {
+            "name": "starlette.routing",
+            "symbols": [
+              {
+                "name": "Host",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "Host.__init__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "Mount",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "Mount.__init__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "Route",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "Route.__init__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "Router",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "Router.__call__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "Router.__init__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "Router.url_path_for",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "WebSocketRoute",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "WebSocketRoute.__init__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              }
+            ]
+          },
+          {
+            "name": "starlette.schemas",
+            "symbols": [
+              {
+                "name": "BaseSchemaGenerator.OpenAPIResponse",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "SchemaGenerator",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "SchemaGenerator.__init__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "SchemaGenerator.get_schema",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              }
+            ]
+          },
+          {
+            "name": "starlette.staticfiles",
+            "symbols": [
+              {
+                "name": "StaticFiles",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "StaticFiles.__call__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "StaticFiles.__init__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              }
+            ]
+          },
+          {
+            "name": "starlette.status",
+            "symbols": [
+              {
+                "name": "HTTP_100_CONTINUE",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              },
+              {
+                "name": "HTTP_101_SWITCHING_PROTOCOLS",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              },
+              {
+                "name": "HTTP_102_PROCESSING",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              },
+              {
+                "name": "HTTP_103_EARLY_HINTS",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              },
+              {
+                "name": "HTTP_200_OK",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              },
+              {
+                "name": "HTTP_201_CREATED",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              },
+              {
+                "name": "HTTP_202_ACCEPTED",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              },
+              {
+                "name": "HTTP_203_NON_AUTHORITATIVE_INFORMATION",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              },
+              {
+                "name": "HTTP_204_NO_CONTENT",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              },
+              {
+                "name": "HTTP_205_RESET_CONTENT",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              },
+              {
+                "name": "HTTP_206_PARTIAL_CONTENT",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              },
+              {
+                "name": "HTTP_207_MULTI_STATUS",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              },
+              {
+                "name": "HTTP_208_ALREADY_REPORTED",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              },
+              {
+                "name": "HTTP_226_IM_USED",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              },
+              {
+                "name": "HTTP_300_MULTIPLE_CHOICES",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              },
+              {
+                "name": "HTTP_301_MOVED_PERMANENTLY",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              },
+              {
+                "name": "HTTP_302_FOUND",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              },
+              {
+                "name": "HTTP_303_SEE_OTHER",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              },
+              {
+                "name": "HTTP_304_NOT_MODIFIED",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              },
+              {
+                "name": "HTTP_305_USE_PROXY",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              },
+              {
+                "name": "HTTP_306_RESERVED",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              },
+              {
+                "name": "HTTP_307_TEMPORARY_REDIRECT",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              },
+              {
+                "name": "HTTP_308_PERMANENT_REDIRECT",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              },
+              {
+                "name": "HTTP_400_BAD_REQUEST",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              },
+              {
+                "name": "HTTP_401_UNAUTHORIZED",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              },
+              {
+                "name": "HTTP_402_PAYMENT_REQUIRED",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              },
+              {
+                "name": "HTTP_403_FORBIDDEN",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              },
+              {
+                "name": "HTTP_404_NOT_FOUND",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              },
+              {
+                "name": "HTTP_405_METHOD_NOT_ALLOWED",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              },
+              {
+                "name": "HTTP_406_NOT_ACCEPTABLE",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              },
+              {
+                "name": "HTTP_407_PROXY_AUTHENTICATION_REQUIRED",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              },
+              {
+                "name": "HTTP_408_REQUEST_TIMEOUT",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              },
+              {
+                "name": "HTTP_409_CONFLICT",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              },
+              {
+                "name": "HTTP_410_GONE",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              },
+              {
+                "name": "HTTP_411_LENGTH_REQUIRED",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              },
+              {
+                "name": "HTTP_412_PRECONDITION_FAILED",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              },
+              {
+                "name": "HTTP_413_CONTENT_TOO_LARGE",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              },
+              {
+                "name": "HTTP_414_URI_TOO_LONG",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              },
+              {
+                "name": "HTTP_415_UNSUPPORTED_MEDIA_TYPE",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              },
+              {
+                "name": "HTTP_416_RANGE_NOT_SATISFIABLE",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              },
+              {
+                "name": "HTTP_417_EXPECTATION_FAILED",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              },
+              {
+                "name": "HTTP_418_IM_A_TEAPOT",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              },
+              {
+                "name": "HTTP_421_MISDIRECTED_REQUEST",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              },
+              {
+                "name": "HTTP_422_UNPROCESSABLE_CONTENT",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              },
+              {
+                "name": "HTTP_423_LOCKED",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              },
+              {
+                "name": "HTTP_424_FAILED_DEPENDENCY",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              },
+              {
+                "name": "HTTP_425_TOO_EARLY",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              },
+              {
+                "name": "HTTP_426_UPGRADE_REQUIRED",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              },
+              {
+                "name": "HTTP_428_PRECONDITION_REQUIRED",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              },
+              {
+                "name": "HTTP_429_TOO_MANY_REQUESTS",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              },
+              {
+                "name": "HTTP_431_REQUEST_HEADER_FIELDS_TOO_LARGE",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              },
+              {
+                "name": "HTTP_451_UNAVAILABLE_FOR_LEGAL_REASONS",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              },
+              {
+                "name": "HTTP_500_INTERNAL_SERVER_ERROR",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              },
+              {
+                "name": "HTTP_501_NOT_IMPLEMENTED",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              },
+              {
+                "name": "HTTP_502_BAD_GATEWAY",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              },
+              {
+                "name": "HTTP_503_SERVICE_UNAVAILABLE",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              },
+              {
+                "name": "HTTP_504_GATEWAY_TIMEOUT",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              },
+              {
+                "name": "HTTP_505_HTTP_VERSION_NOT_SUPPORTED",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              },
+              {
+                "name": "HTTP_506_VARIANT_ALSO_NEGOTIATES",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              },
+              {
+                "name": "HTTP_507_INSUFFICIENT_STORAGE",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              },
+              {
+                "name": "HTTP_508_LOOP_DETECTED",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              },
+              {
+                "name": "HTTP_510_NOT_EXTENDED",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              },
+              {
+                "name": "HTTP_511_NETWORK_AUTHENTICATION_REQUIRED",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              },
+              {
+                "name": "WS_1000_NORMAL_CLOSURE",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              },
+              {
+                "name": "WS_1001_GOING_AWAY",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              },
+              {
+                "name": "WS_1002_PROTOCOL_ERROR",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              },
+              {
+                "name": "WS_1003_UNSUPPORTED_DATA",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              },
+              {
+                "name": "WS_1005_NO_STATUS_RCVD",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              },
+              {
+                "name": "WS_1006_ABNORMAL_CLOSURE",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              },
+              {
+                "name": "WS_1007_INVALID_FRAME_PAYLOAD_DATA",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              },
+              {
+                "name": "WS_1008_POLICY_VIOLATION",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              },
+              {
+                "name": "WS_1009_MESSAGE_TOO_BIG",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              },
+              {
+                "name": "WS_1010_MANDATORY_EXT",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              },
+              {
+                "name": "WS_1011_INTERNAL_ERROR",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              },
+              {
+                "name": "WS_1012_SERVICE_RESTART",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              },
+              {
+                "name": "WS_1013_TRY_AGAIN_LATER",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              },
+              {
+                "name": "WS_1014_BAD_GATEWAY",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              },
+              {
+                "name": "WS_1015_TLS_HANDSHAKE",
+                "observe": [
+                  "presence",
+                  "value"
+                ]
+              }
+            ]
+          },
+          {
+            "name": "starlette.templating",
+            "symbols": [
+              {
+                "name": "Jinja2Templates",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "Jinja2Templates.TemplateResponse",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "Jinja2Templates.__init__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              }
+            ]
+          },
+          {
+            "name": "starlette.testclient",
+            "symbols": [
+              {
+                "name": "ASGIInstance",
+                "observe": [
+                  "presence"
+                ]
+              },
+              {
+                "name": "TestClient",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "TestClient.__enter__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "TestClient.__exit__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "TestClient.__init__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "TestClient.delete",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "TestClient.get",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "TestClient.head",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "TestClient.options",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "TestClient.patch",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "TestClient.post",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "TestClient.put",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "TestClient.request",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "TestClient.websocket_connect",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "WebSocketDenialResponse",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "WebSocketTestSession",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "WebSocketTestSession.__enter__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "WebSocketTestSession.__exit__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "WebSocketTestSession.close",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "WebSocketTestSession.receive",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "WebSocketTestSession.receive_bytes",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "WebSocketTestSession.receive_json",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "WebSocketTestSession.receive_text",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "WebSocketTestSession.send",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "WebSocketTestSession.send_bytes",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "WebSocketTestSession.send_json",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "WebSocketTestSession.send_text",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              }
+            ]
+          },
+          {
+            "name": "starlette.types",
+            "symbols": [
+              {
+                "name": "ASGIApp",
+                "observe": [
+                  "presence"
+                ]
+              },
+              {
+                "name": "Lifespan",
+                "observe": [
+                  "presence"
+                ]
+              },
+              {
+                "name": "Message",
+                "observe": [
+                  "presence"
+                ]
+              },
+              {
+                "name": "Receive",
+                "observe": [
+                  "presence"
+                ]
+              },
+              {
+                "name": "Scope",
+                "observe": [
+                  "presence"
+                ]
+              },
+              {
+                "name": "Send",
+                "observe": [
+                  "presence"
+                ]
+              }
+            ]
+          },
+          {
+            "name": "starlette.websockets",
+            "symbols": [
+              {
+                "name": "WebSocket",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "WebSocket.__init__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "WebSocket.accept",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "WebSocket.close",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "WebSocket.iter_bytes",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "WebSocket.iter_json",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "WebSocket.iter_text",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "WebSocket.receive",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "WebSocket.receive_bytes",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "WebSocket.receive_json",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "WebSocket.receive_text",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "WebSocket.send",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "WebSocket.send_bytes",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "WebSocket.send_denial_response",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "WebSocket.send_json",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "WebSocket.send_text",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "WebSocketDisconnect",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "WebSocketDisconnect.__init__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              }
+            ]
+          }
+        ],
+        "identity_checks": []
+      }
     }
   ]
 }
