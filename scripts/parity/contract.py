@@ -39571,8 +39571,12 @@ def _validate_wsgi_app(value: Any) -> None:
     if not isinstance(headers, list):
         raise ContractError("WSGIMiddleware response headers must be an array")
     for index, pair in enumerate(headers):
+        if pair is None:
+            continue
         if not isinstance(pair, list) or any(not isinstance(item, str) for item in pair):
-            raise ContractError(f"WSGIMiddleware response header[{index}] must be a string array")
+            raise ContractError(
+                f"WSGIMiddleware response header[{index}] must be a string array or null"
+            )
         for item in pair:
             try:
                 item.encode("ascii")

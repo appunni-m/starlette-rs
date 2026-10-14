@@ -61,7 +61,7 @@ def run_wsgi_protocol_case(case: dict[str, Any]) -> dict[str, Any]:
         worker_observations.append({"event": "entry", "context": context.get()})
         context.set(context_spec["worker_value"])
         try:
-            start_response(app_spec["status"], [tuple(pair) for pair in app_spec["headers"]])
+            start_response(app_spec["status"], app_spec["headers"])
             for chunk in app_spec["chunks_base64"]:
                 yield base64.b64decode(chunk, validate=True)
         finally:

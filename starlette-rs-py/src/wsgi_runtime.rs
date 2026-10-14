@@ -11,7 +11,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use pyo3::basic::CompareOp;
 use pyo3::class::gc::{PyTraverseError, PyVisit};
 use pyo3::exceptions::{
-    PyAssertionError, PyBaseException, PyRuntimeError, PyStopAsyncIteration, PyValueError,
+    PyAssertionError, PyBaseException, PyRuntimeError, PyStopAsyncIteration, PyTypeError,
+    PyValueError,
 };
 use pyo3::prelude::*;
 use pyo3::types::{
@@ -819,25 +820,15 @@ impl PyWsgiStartResponse {
             .call1((status_parts.get_item(0)?,))?;
         let headers = PyList::empty(py);
         for header in response_headers.bind(py).try_iter()? {
-            let pair = py.import("builtins")?.getattr("tuple")?.call1((header?,))?;
-            let pair_len = pair.len()?;
-            if pair_len < 2 {
-                return Err(PyValueError::new_err(format!(
-                    "not enough values to unpack (expected 2, got {pair_len})"
-                )));
-            }
-            if pair_len > 2 {
-                return Err(PyValueError::new_err(
-                    "too many values to unpack (expected 2)",
-                ));
-            }
-            let name = pair
-                .get_item(0)?
+            let header = header?;
+            let (name, value) = unpack_wsgi_header_pair(py, &header)?;
+            let name = name
+                .bind(py)
                 .call_method0("strip")?
                 .call_method1("encode", ("ascii",))?
                 .call_method0("lower")?;
-            let value = pair
-                .get_item(1)?
+            let value = value
+                .bind(py)
                 .call_method0("strip")?
                 .call_method1("encode", ("ascii",))?;
             headers.append(PyTuple::new(py, [name, value])?)?;
@@ -847,6 +838,65 @@ impl PyWsgiStartResponse {
         message.set_item("status", status_code)?;
         message.set_item("headers", headers)?;
         send_from_worker(py, self.send.bind(py), &message)
+    }
+}
+
+/// Match the two-target unpacking performed for each WSGI response header.
+fn unpack_wsgi_header_pair(
+    py: Python<'_>,
+    header: &Bound<'_, PyAny>,
+) -> PyResult<(Py<PyAny>, Py<PyAny>)> {
+    if let Ok(values) = header.cast::<PyTuple>() {
+        let value_count = values.len();
+        if value_count != 2 {
+            return Err(wsgi_header_pair_arity_error(value_count));
+        }
+        return Ok((values.get_item(0)?.unbind(), values.get_item(1)?.unbind()));
+    }
+    if let Ok(values) = header.cast::<PyList>() {
+        let value_count = values.len();
+        if value_count != 2 {
+            return Err(wsgi_header_pair_arity_error(value_count));
+        }
+        return Ok((values.get_item(0)?.unbind(), values.get_item(1)?.unbind()));
+    }
+
+    let header_type = header.get_type();
+    let mut values = match header.try_iter() {
+        Ok(values) => values,
+        Err(error)
+            if error.is_instance_of::<PyTypeError>(py)
+                && !header_type.hasattr("__iter__")?
+                && !header_type.hasattr("__getitem__")? =>
+        {
+            let type_name = header_type.name()?.to_string();
+            return Err(PyTypeError::new_err(format!(
+                "cannot unpack non-iterable {type_name} object"
+            )));
+        }
+        Err(error) => return Err(error),
+    };
+    let name = values
+        .next()
+        .transpose()?
+        .ok_or_else(|| wsgi_header_pair_arity_error(0))?;
+    let value = values
+        .next()
+        .transpose()?
+        .ok_or_else(|| wsgi_header_pair_arity_error(1))?;
+    if values.next().transpose()?.is_some() {
+        return Err(wsgi_header_pair_arity_error(3));
+    }
+    Ok((name.unbind(), value.unbind()))
+}
+
+fn wsgi_header_pair_arity_error(value_count: usize) -> PyErr {
+    if value_count < 2 {
+        PyValueError::new_err(format!(
+            "not enough values to unpack (expected 2, got {value_count})"
+        ))
+    } else {
+        PyValueError::new_err("too many values to unpack (expected 2)")
     }
 }
 
