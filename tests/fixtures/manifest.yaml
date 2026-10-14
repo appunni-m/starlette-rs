@@ -8550,7 +8550,7 @@
             {
               "id": "starlette.datastructures.MultiDict.update",
               "dimension": "protocol_variant",
-              "description": "Replace all current values for updated keys, retain other pair order, and append supplied ordered pairs. Pinned source: starlette/datastructures.py:367-375; tests/test_datastructures.py::test_multidict.",
+              "description": "Replace all current values for updated keys, retain other pair order, and append values from one positional mapping or iterable of pairs followed by any supplied keyword values in their input order. Pinned source: starlette/datastructures.py:256-280,367-375; tests/test_datastructures.py::test_multidict.",
               "lanes": [
                 "parity"
               ],

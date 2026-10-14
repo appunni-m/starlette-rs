@@ -944,6 +944,13 @@
                 ]
               },
               {
+                "name": "Headers.__eq__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
                 "name": "Headers.__getitem__",
                 "observe": [
                   "presence",
@@ -966,6 +973,13 @@
               },
               {
                 "name": "Headers.__len__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "Headers.__repr__",
                 "observe": [
                   "presence",
                   "signature"
@@ -1253,6 +1267,13 @@
               },
               {
                 "name": "QueryParams.__init__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "QueryParams.__repr__",
                 "observe": [
                   "presence",
                   "signature"
@@ -1682,6 +1703,13 @@
                 ]
               },
               {
+                "name": "HTTPException.__repr__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
                 "name": "HTTPException.__str__",
                 "observe": [
                   "presence",
@@ -1704,6 +1732,13 @@
               },
               {
                 "name": "WebSocketException.__init__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "WebSocketException.__repr__",
                 "observe": [
                   "presence",
                   "signature"
@@ -1741,6 +1776,13 @@
               },
               {
                 "name": "Middleware.__init__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "Middleware.__iter__",
                 "observe": [
                   "presence",
                   "signature"
@@ -1803,6 +1845,12 @@
                 "observe": [
                   "presence",
                   "signature"
+                ]
+              },
+              {
+                "name": "RequestResponseEndpoint",
+                "observe": [
+                  "presence"
                 ]
               }
             ]

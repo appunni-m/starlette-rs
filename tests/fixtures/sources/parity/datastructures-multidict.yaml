@@ -190,6 +190,57 @@
       ]
     },
     {
+      "case_id": "starlette.datastructures.MultiDict.mutation-sequence.mixed-positional-and-keyword-update",
+      "surface": "starlette.datastructures.MultiDict",
+      "operation": "mutation-sequence",
+      "covers": [
+        "starlette.datastructures.MultiDict.constructor-input-forms",
+        "starlette.datastructures.MultiDict.update"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "source": {
+        "kind": "pairs",
+        "items": [
+          [
+            "a",
+            "123"
+          ]
+        ],
+        "kwargs": []
+      },
+      "probe_keys": [
+        "a",
+        "b",
+        "missing"
+      ],
+      "comparison": null,
+      "actions": [
+        {
+          "action_id": "update-with-pair-iterable-and-keywords",
+          "method": "update",
+          "args": [
+            [
+              [
+                "a",
+                "456"
+              ]
+            ]
+          ],
+          "kwargs": {
+            "a": "789",
+            "b": "123"
+          }
+        }
+      ],
+      "observations": [
+        "mutation-sequence"
+      ]
+    },
+    {
       "case_id": "starlette.datastructures.MultiDict.mutation-sequence.mutator-family",
       "surface": "starlette.datastructures.MultiDict",
       "operation": "mutation-sequence",
