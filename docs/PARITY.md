@@ -1951,6 +1951,14 @@ Python static generic declarations at runtime, so the boundary is limited to
 declarative annotations and the package marker. The `@25` to `@26` migrator
 changes the schema header and validates all 77 indexed authored inputs.
 
+The current application typing consumer also supplies `WebSocket[State]` to a
+consumer function and asserts that the inherited `headers` and `query_params`
+properties have the public `Headers` and `QueryParams` types. These assertions
+use the pinned source annotations and the facade's matching declarative
+annotations; Mypy 1.19.1 reports identical diagnostics and revealed types for
+Starlette 1.6.0 and the rebuilt installed wheel. The consumer is registered
+for the deferred full parity phase.
+
 The same `parity-input@23` revision adds a two-dispatch CORSMiddleware input for private-network-access denial and a WebSocketEndpoint input for empty text under `encoding=None`. Both focused source/package comparisons passed; the output artifacts remain in ignored `build/parity/` storage. Together, the `@23` additions increase the indexed denominator from 671 cases/703 requirements to 675/706 without claiming a new full-slice run. The `@24` observer adds one parity requirement, leaving 675 cases and increasing the requirement count to 707. Later input additions under that schema add three StaticFiles HTML fallback cases and three requirements; the resulting `@24` contract had 678 cases and 710 requirements.
 
 ### TestClient lifespan child-task lifecycle
