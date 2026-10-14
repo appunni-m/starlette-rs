@@ -637,6 +637,7 @@
       "build/parity/inputs/parity/application-routes.json",
       "build/parity/inputs/parity/asgi-app-streaming-response.json",
       "build/parity/inputs/parity/asgi-app-streaming-response-caller-cancellation.json",
+      "build/parity/inputs/parity/asgi-app-request-stream-response-relay.json",
       "build/parity/inputs/parity/application-subclass-attribute-read-order.json",
       "build/parity/inputs/parity/router-converter-ordering.json",
       "build/parity/inputs/parity/router-mixed-route-ordering.json",
@@ -1588,6 +1589,17 @@
               "id": "starlette.asgi.streaming.application-route-response",
               "dimension": "protocol_variant",
               "description": "Return an input-defined StreamingResponse from a Starlette HTTP route and compare emitted response chunks, headers, status, and ASGI event order. Pinned sources: starlette/applications.py:25-29; starlette/routing.py; starlette/responses.py:212-280.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.asgi.streaming.request-body-stream-relay",
+              "dimension": "protocol_variant",
+              "description": "Return StreamingResponse(request.stream()) from a Starlette HTTP route while the input receive callback supplies fragmented request-body events. Compare the live response byte chunks and complete ASGI send-event order, including Request.stream's terminal empty chunk and StreamingResponse's final event. Pinned sources: starlette/requests.py:234-255; starlette/responses.py:222-280.",
               "lanes": [
                 "parity"
               ],

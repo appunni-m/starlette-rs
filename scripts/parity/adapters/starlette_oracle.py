@@ -2367,13 +2367,20 @@ def _materialize_application(
                 {"kind", "content", "streaming", "status_code", "header_pairs", "media_type"},
                 "StreamingResponse endpoint",
             )
-            content_spec = _strict_object(
-                response_spec["content"],
-                {"kind", "value"},
-                "StreamingResponse endpoint content",
-            )
-            if content_spec["kind"] != "chunks" or not isinstance(content_spec["value"], list):
-                raise ValueError("StreamingResponse endpoint content must contain chunks")
+            content_spec = response_spec["content"]
+            if not isinstance(content_spec, dict) or not isinstance(content_spec.get("kind"), str):
+                raise ValueError("StreamingResponse endpoint content must declare its source")
+            request_stream = content_spec["kind"] == "request-stream"
+            if request_stream:
+                _strict_object(content_spec, {"kind"}, "StreamingResponse request-stream content")
+            else:
+                content_spec = _strict_object(
+                    content_spec,
+                    {"kind", "value"},
+                    "StreamingResponse endpoint content",
+                )
+                if content_spec["kind"] != "chunks" or not isinstance(content_spec["value"], list):
+                    raise ValueError("StreamingResponse endpoint content must contain chunks")
             if response_spec["streaming"] != "async-generator":
                 raise ValueError("StreamingResponse endpoint must use an async generator")
             if type(response_spec["status_code"]) is not int:
@@ -2386,7 +2393,7 @@ def _materialize_application(
                 raise ValueError("StreamingResponse endpoint headers must be a list")
 
             chunks = []
-            for index, chunk_spec in enumerate(content_spec["value"]):
+            for index, chunk_spec in enumerate([] if request_stream else content_spec["value"]):
                 chunk_spec = _strict_object(
                     chunk_spec,
                     {"kind", "value"},
@@ -2434,14 +2441,17 @@ def _materialize_application(
             ):
                 raise ValueError("StreamingResponse endpoint headers must be string pairs")
 
-            def make_streaming_endpoint(spec: dict[str, Any], values: list[Any]) -> Any:
+            def make_streaming_endpoint(
+                spec: dict[str, Any], values: list[Any], relay_request_stream: bool
+            ) -> Any:
                 async def response_body() -> Any:
                     for chunk in values:
                         yield chunk
 
-                async def endpoint(_request: Any) -> Any:
+                async def endpoint(request: Any) -> Any:
+                    body_iterator = request.stream() if relay_request_stream else response_body()
                     return StreamingResponse(
-                        response_body(),
+                        body_iterator,
                         status_code=spec["status_code"],
                         headers=dict(spec["header_pairs"]),
                         media_type=spec["media_type"],
@@ -2449,7 +2459,7 @@ def _materialize_application(
 
                 return endpoint
 
-            route_endpoint = make_streaming_endpoint(response_spec, chunks)
+            route_endpoint = make_streaming_endpoint(response_spec, chunks, request_stream)
         elif response_spec["kind"] == "response-background-task-error":
             _strict_object(
                 response_spec,

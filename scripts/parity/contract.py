@@ -1589,6 +1589,9 @@ STREAMING_RESPONSE_BACKPRESSURE_REQUIREMENT = (
 STREAMING_RESPONSE_CALLER_CANCELLATION_REQUIREMENT = (
     f"{STREAMING_RESPONSE_SURFACE}.{STREAMING_RESPONSE_OPERATION}.caller-cancellation-during-send"
 )
+STARLETTE_REQUEST_BODY_STREAM_RELAY_REQUIREMENT = (
+    "starlette.asgi.streaming.request-body-stream-relay"
+)
 STREAMING_RESPONSE_PRE_ASGI24_CANCELLATION_REQUIREMENT = f"{STREAMING_RESPONSE_SURFACE}.{STREAMING_RESPONSE_OPERATION}.pre-asgi24-caller-cancellation-during-receive"
 STREAMING_RESPONSE_EMPTY_SYNC_CHUNK_REQUIREMENT = (
     f"{STREAMING_RESPONSE_SURFACE}.{STREAMING_RESPONSE_OPERATION}.empty-sync-chunk-framing"
@@ -25200,6 +25203,16 @@ def _validate_case_payload(
                         == STARLETTE_ATTRIBUTE_READ_PLAN_KIND
                     )
                 ),
+                allow_body_stream=(
+                    case["surface"] == "starlette.applications.Starlette"
+                    and case["operation"] == "__call__"
+                    and bool(app_args["routes"])
+                    and isinstance(app_args["routes"][0], dict)
+                    and isinstance(app_args["routes"][0].get("endpoint"), dict)
+                    and app_args["routes"][0]["endpoint"].get("kind") == "streaming-response"
+                    and isinstance(app_args["routes"][0]["endpoint"].get("content"), dict)
+                    and app_args["routes"][0]["endpoint"]["content"].get("kind") == "request-stream"
+                ),
                 allow_headers=(
                     server_error_case
                     or is_route_body_limit_workflow
@@ -28968,37 +28981,43 @@ def _validate_application_stimulus(
             raise ContractError(
                 "StreamingResponse endpoint status_code must be an HTTP status code"
             )
-        content = _exact(
-            endpoint["content"], {"kind", "value"}, "StreamingResponse endpoint content"
-        )
-        if (
-            content["kind"] != "chunks"
-            or not isinstance(content["value"], list)
-            or not content["value"]
-        ):
-            raise ContractError(
-                "StreamingResponse endpoint content must contain a non-empty chunk list"
-            )
-        for index, chunk_value in enumerate(content["value"]):
-            chunk = _exact(
-                chunk_value, {"kind", "value"}, f"StreamingResponse endpoint chunk[{index}]"
-            )
-            if chunk["kind"] == "text":
-                _string(chunk["value"], f"StreamingResponse endpoint chunk[{index}].value")
-            elif chunk["kind"] == "base64-bytes":
-                encoded = _string(
-                    chunk["value"], f"StreamingResponse endpoint chunk[{index}].value"
-                )
-                try:
-                    base64.b64decode(encoded, validate=True)
-                except (ValueError, TypeError) as exc:
-                    raise ContractError(
-                        f"StreamingResponse endpoint chunk[{index}].value must be valid base64"
-                    ) from exc
-            else:
+        content_value = endpoint["content"]
+        if not isinstance(content_value, dict) or not isinstance(content_value.get("kind"), str):
+            raise ContractError("StreamingResponse endpoint content must declare its source")
+        if content_value["kind"] == "request-stream":
+            _exact(content_value, {"kind"}, "StreamingResponse request-stream content")
+            if "POST" not in route["methods"]:
+                raise ContractError("Request.stream StreamingResponse routes must accept POST")
+        else:
+            content = _exact(content_value, {"kind", "value"}, "StreamingResponse endpoint content")
+            if (
+                content["kind"] != "chunks"
+                or not isinstance(content["value"], list)
+                or not content["value"]
+            ):
                 raise ContractError(
-                    "StreamingResponse endpoint chunks must be text or base64 bytes"
+                    "StreamingResponse endpoint content must contain chunks or request-stream"
                 )
+            for index, chunk_value in enumerate(content["value"]):
+                chunk = _exact(
+                    chunk_value, {"kind", "value"}, f"StreamingResponse endpoint chunk[{index}]"
+                )
+                if chunk["kind"] == "text":
+                    _string(chunk["value"], f"StreamingResponse endpoint chunk[{index}].value")
+                elif chunk["kind"] == "base64-bytes":
+                    encoded = _string(
+                        chunk["value"], f"StreamingResponse endpoint chunk[{index}].value"
+                    )
+                    try:
+                        base64.b64decode(encoded, validate=True)
+                    except (ValueError, TypeError) as exc:
+                        raise ContractError(
+                            f"StreamingResponse endpoint chunk[{index}].value must be valid base64"
+                        ) from exc
+                else:
+                    raise ContractError(
+                        "StreamingResponse endpoint chunks must be text or base64 bytes"
+                    )
         headers = endpoint["header_pairs"]
         if not isinstance(headers, list) or any(
             not isinstance(pair, list)
@@ -40918,6 +40937,8 @@ def _semantic_coverage(case: dict[str, Any]) -> set[str]:
     ):
         if endpoint["kind"] == "streaming-response":
             coverage.add("starlette.asgi.streaming.application-route-response")
+            if endpoint["content"].get("kind") == "request-stream":
+                coverage.add(STARLETTE_REQUEST_BODY_STREAM_RELAY_REQUIREMENT)
             if dispatch_arguments["send"].get("kind") == (
                 "capture-asgi-send-with-caller-cancellation"
             ):
