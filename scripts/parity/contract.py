@@ -735,6 +735,7 @@ REQUEST_BODY_STREAM_JSON_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"
 REQUEST_FORM_OPTIONAL_KEYS = {
     "form_options",
     "form_access",
+    "form_deferred_scope_headers",
     "form_file_probe_keys",
     "form_file_probe_all",
     "form_type_probe_keys",
@@ -30283,6 +30284,27 @@ def _validate_request_form_case(case: dict[str, Any]) -> None:
     form_access = case.get("form_access", "await")
     if form_access not in {"await", "context-manager"}:
         raise ContractError("Request.form form_access must be await or context-manager")
+    has_deferred_scope_headers = "form_deferred_scope_headers" in case
+    deferred_scope_headers = case.get("form_deferred_scope_headers")
+    if has_deferred_scope_headers:
+        if not isinstance(deferred_scope_headers, list):
+            raise ContractError("Request.form deferred scope headers must be an array")
+        for index, pair in enumerate(deferred_scope_headers):
+            if not isinstance(pair, list) or len(pair) != 2:
+                raise ContractError(
+                    f"Request.form deferred scope header[{index}] must be a two-item base64 pair"
+                )
+            for encoded in pair:
+                if not isinstance(encoded, str):
+                    raise ContractError(
+                        f"Request.form deferred scope header[{index}] values must be base64 strings"
+                    )
+                try:
+                    base64.b64decode(encoded, validate=True)
+                except (ValueError, TypeError) as exc:
+                    raise ContractError(
+                        f"Request.form deferred scope header[{index}] contains invalid base64"
+                    ) from exc
     form_app = case.get("form_app")
     if form_app is not None and form_app not in {"direct", "mount"}:
         raise ContractError("Request.form form_app must be direct or mount")
@@ -30293,25 +30315,52 @@ def _validate_request_form_case(case: dict[str, Any]) -> None:
     if case.get("form_read_body", False) and form_app is None:
         raise ContractError("Request.form form_read_body requires an ASGI application case")
 
-    content_type = None
-    content_type_header = None
+    original_content_type = None
+    original_content_type_header = None
     for encoded_name, encoded_value in case["scope"]["headers_base64_pairs"]:
         name = base64.b64decode(encoded_name, validate=True).decode("latin-1").lower()
         if name == "content-type":
-            content_type_header = base64.b64decode(encoded_value, validate=True).decode("latin-1")
-            content_type = content_type_header.split(";", 1)[0].strip().lower().encode("latin-1")
+            original_content_type_header = base64.b64decode(encoded_value, validate=True).decode(
+                "latin-1"
+            )
+            original_content_type = (
+                original_content_type_header.split(";", 1)[0].strip().lower().encode("latin-1")
+            )
             break
+    effective_content_type = original_content_type
+    effective_content_type_header = original_content_type_header
+    if has_deferred_scope_headers:
+        effective_content_type = None
+        effective_content_type_header = None
+        for encoded_name, encoded_value in deferred_scope_headers:
+            name = base64.b64decode(encoded_name, validate=True).decode("latin-1").lower()
+            if name == "content-type":
+                effective_content_type_header = base64.b64decode(
+                    encoded_value, validate=True
+                ).decode("latin-1")
+                effective_content_type = (
+                    effective_content_type_header.split(";", 1)[0].strip().lower().encode("latin-1")
+                )
+                break
     body = b"".join(base64.b64decode(message["body_base64"], validate=True) for message in messages)
+    if has_deferred_scope_headers and (
+        effective_content_type != b"application/x-www-form-urlencoded"
+        or effective_content_type == original_content_type
+        or not body
+    ):
+        raise ContractError(
+            "Request.form deferred-header cases must change Content-Type to a non-empty URL-encoded form"
+        )
     if (
         case.get("form_close", False)
         and not has_file_probes
         and (
-            content_type != b"multipart/form-data"
-            or _first_multipart_file_data_range(content_type_header or "", body) is None
+            effective_content_type != b"multipart/form-data"
+            or _first_multipart_file_data_range(effective_content_type_header or "", body) is None
         )
     ):
         raise ContractError("Request.form form_close without file probes requires a multipart file")
-    if content_type == b"application/x-www-form-urlencoded" and body:
+    if effective_content_type == b"application/x-www-form-urlencoded" and body:
         if _request_form_limits_exceeded(body, form_options):
             expected_covers = ["starlette.request.form.parser-limits"]
         else:
@@ -30324,20 +30373,20 @@ def _validate_request_form_case(case: dict[str, Any]) -> None:
         if _request_form_has_out_of_float_range_count_limit(form_options):
             expected_covers.append(REQUEST_FORM_ARBITRARY_PRECISION_LIMIT_REQUIREMENT)
     elif (
-        content_type == b"multipart/form-data"
+        effective_content_type == b"multipart/form-data"
         and body
         and (
-            _multipart_boundary(content_type_header or "") is None
-            or _multipart_has_missing_name(content_type_header or "", body)
+            _multipart_boundary(effective_content_type_header or "") is None
+            or _multipart_has_missing_name(effective_content_type_header or "", body)
         )
     ):
         if form_options or has_file_probes or form_access != "await":
             raise ContractError("multipart framing-error cases only observe the parser error")
         expected_covers = ["starlette.request.form.multipart-input-errors"]
     elif (
-        content_type == b"multipart/form-data"
+        effective_content_type == b"multipart/form-data"
         and body
-        and _multipart_part_limit_exceeded(content_type_header or "", body, form_options)
+        and _multipart_part_limit_exceeded(effective_content_type_header or "", body, form_options)
     ):
         if set(form_options) - {"max_part_size"}:
             raise ContractError("multipart part-limit cases select max_part_size alone")
@@ -30347,7 +30396,7 @@ def _validate_request_form_case(case: dict[str, Any]) -> None:
             )
         oversized_parts = [
             part
-            for part in _multipart_text_parts(content_type_header or "", body)
+            for part in _multipart_text_parts(effective_content_type_header or "", body)
             if len(part) > form_options.get("max_part_size", 1024 * 1024)
         ]
         first_chunk = base64.b64decode(messages[0]["body_base64"], validate=True)
@@ -30364,9 +30413,9 @@ def _validate_request_form_case(case: dict[str, Any]) -> None:
             )
         expected_covers = ["starlette.request.form.multipart-incremental-part-limits"]
     elif (
-        content_type == b"multipart/form-data"
+        effective_content_type == b"multipart/form-data"
         and body
-        and _multipart_count_limit_exceeded(content_type_header or "", body, form_options)
+        and _multipart_count_limit_exceeded(effective_content_type_header or "", body, form_options)
     ):
         if set(form_options) - {"max_files", "max_fields"}:
             raise ContractError("multipart count-limit cases select max_files or max_fields")
@@ -30375,15 +30424,17 @@ def _validate_request_form_case(case: dict[str, Any]) -> None:
         expected_covers = ["starlette.request.form.multipart-count-limits"]
         if _request_form_has_out_of_float_range_count_limit(form_options):
             expected_covers.append(REQUEST_FORM_ARBITRARY_PRECISION_LIMIT_REQUIREMENT)
-    elif content_type == b"multipart/form-data" and body:
-        if not case["scope"]["headers_base64_pairs"]:
+    elif effective_content_type == b"multipart/form-data" and body:
+        if effective_content_type_header is None:
             raise ContractError("Request.form multipart cases require Content-Type")
         if file_write_error is not None:
             if form_options or has_file_probes or form_access != "await":
                 raise ContractError(
                     "Request.form file-write-error cleanup cases cannot include options or probes"
                 )
-            file_data_range = _first_multipart_file_data_range(content_type_header or "", body)
+            file_data_range = _first_multipart_file_data_range(
+                effective_content_type_header or "", body
+            )
             first_chunk = base64.b64decode(messages[0]["body_base64"], validate=True)
             if (
                 file_data_range is None
@@ -30400,7 +30451,9 @@ def _validate_request_form_case(case: dict[str, Any]) -> None:
                 raise ContractError(
                     "Request.form rollover-error cases require a direct ASGI app without probes"
                 )
-            file_data_range = _first_multipart_file_data_range(content_type_header or "", body)
+            file_data_range = _first_multipart_file_data_range(
+                effective_content_type_header or "", body
+            )
             if (
                 file_data_range is None
                 or file_data_range[1] - file_data_range[0] <= 1024 * 1024
@@ -30419,7 +30472,9 @@ def _validate_request_form_case(case: dict[str, Any]) -> None:
                 raise ContractError(
                     "Request.form receive-error cleanup cases cannot include form options or probes"
                 )
-            file_data_range = _first_multipart_file_data_range(content_type_header or "", body)
+            file_data_range = _first_multipart_file_data_range(
+                effective_content_type_header or "", body
+            )
             prior_body = b"".join(
                 base64.b64decode(message["body_base64"], validate=True)
                 for message in messages[: receive_error["at_call"]]
@@ -30439,7 +30494,7 @@ def _validate_request_form_case(case: dict[str, Any]) -> None:
             if (
                 form_options
                 and not _multipart_count_limit_boundary(
-                    content_type_header or "", body, form_options
+                    effective_content_type_header or "", body, form_options
                 )
                 and not _request_form_has_out_of_float_range_count_limit(form_options)
             ):
@@ -30449,7 +30504,7 @@ def _validate_request_form_case(case: dict[str, Any]) -> None:
                 "starlette.datastructures.FormData.multidict-lookups",
             ]
             filelike_fields_without_filename = _multipart_filelike_fields_without_filename(
-                content_type_header or "", body
+                effective_content_type_header or "", body
             )
             if filelike_fields_without_filename:
                 if not set(filelike_fields_without_filename) <= set(form_type_probe_keys):
@@ -30461,9 +30516,9 @@ def _validate_request_form_case(case: dict[str, Any]) -> None:
                 expected_covers.append("starlette.request.form.multipart-count-limits")
             if _request_form_has_out_of_float_range_count_limit(form_options):
                 expected_covers.append(REQUEST_FORM_ARBITRARY_PRECISION_LIMIT_REQUIREMENT)
-            if re.search(r"(?:^|;)\s*charset\s*=", content_type_header or "", re.IGNORECASE) or any(
-                value > 127 for value in body
-            ):
+            if re.search(
+                r"(?:^|;)\s*charset\s*=", effective_content_type_header or "", re.IGNORECASE
+            ) or any(value > 127 for value in body):
                 expected_covers.append("starlette.request.form.multipart-charset-decoding")
             if has_file_probes:
                 expected_covers.extend(
@@ -30477,7 +30532,9 @@ def _validate_request_form_case(case: dict[str, Any]) -> None:
             if form_access == "context-manager":
                 expected_covers.append("starlette.request.form.context-manager-lifecycle")
             if case.get("form_io_trace", False):
-                file_data_range = _first_multipart_file_data_range(content_type_header or "", body)
+                file_data_range = _first_multipart_file_data_range(
+                    effective_content_type_header or "", body
+                )
                 first_chunk_length = len(
                     base64.b64decode(messages[0]["body_base64"], validate=True)
                 )
@@ -30491,7 +30548,9 @@ def _validate_request_form_case(case: dict[str, Any]) -> None:
                     )
                 expected_covers.append("starlette.request.form.multipart-file-streaming")
             if any("body_repeat" in message for message in case["receive"]):
-                file_data_range = _first_multipart_file_data_range(content_type_header or "", body)
+                file_data_range = _first_multipart_file_data_range(
+                    effective_content_type_header or "", body
+                )
                 if (
                     not case.get("form_io_trace", False)
                     or file_data_range is None
@@ -30513,12 +30572,14 @@ def _validate_request_form_case(case: dict[str, Any]) -> None:
                 expected_covers.append(
                     "starlette.request.form.multipart-rollover-event-loop-progress"
                 )
-    elif content_type is None and not body:
+    elif effective_content_type is None and not body:
         expected_covers = ["starlette.request.form.empty"]
     else:
         raise ContractError(
             "Request.form supports non-empty URL-encoded forms, bounded valid multipart forms, or an empty body without Content-Type"
         )
+    if has_deferred_scope_headers:
+        expected_covers.insert(0, "starlette.request.form.call-await-header-snapshot")
     if case["covers"] != expected_covers:
         raise ContractError(
             f"Request.form coverage for {case['case_id']} must match its input: "

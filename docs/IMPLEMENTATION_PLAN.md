@@ -13,9 +13,9 @@ implementation closes, run the complete source/package and Rust-native parity
 matrix, repair mismatches across families, measure coverage from that full
 matrix, reconcile the source atlas, then run all correctness-gated benchmarks.
 
-The active contract currently declares 2,371 input cases across 338
+The active contract currently declares 2,372 input cases across 339
 parity inputs and two benchmark inputs, 142 Starlette compatibility
-operations, 13 Rust-native operations, and 1,289 parity requirements (1,247
+operations, 13 Rust-native operations, and 1,290 parity requirements (1,248
 compatibility and 42 native). Its scope mode is still `slice`. A new Config
 typing consumer covers all nine pinned `Config.__call__` overload assertions;
 its source/package Mypy comparison remains deferred to the full parity phase.
@@ -24,6 +24,10 @@ waits for its gated synchronous worker; its source/package comparison remains
 deferred to full parity.
 A Host→WebSocketRoute dispatch input and a TestClient cleanup-context input
 are also registered and remain unexecuted until full parity.
+A deferred `Request.form()` input now replaces `scope["headers"]` between
+returning the form awaitable and awaiting it. The Rust state machine reads the
+cached Request headers when it starts, matching pinned Starlette's `_get_form`
+coroutine timing; the new comparison remains unexecuted until full parity.
 A new direct
 `WebSocketDisconnect` constructor input compares field assignment, inherited
 exception arguments, Python truthiness, and call-binding errors; the Rust

@@ -987,6 +987,17 @@ def _make_scope(
     return _scope_container(scope, container)
 
 
+def _apply_request_form_deferred_scope_headers(scope: dict[str, Any], case: dict[str, Any]) -> None:
+    if "form_deferred_scope_headers" in case:
+        scope["headers"][:] = [
+            (
+                base64.b64decode(name, validate=True),
+                base64.b64decode(value, validate=True),
+            )
+            for name, value in case["form_deferred_scope_headers"]
+        ]
+
+
 def _make_message(spec: dict[str, Any]) -> dict[str, Any]:
     if spec["type"] in {"lifespan.startup", "lifespan.shutdown"}:
         return {"type": spec["type"]}
@@ -10655,6 +10666,7 @@ def _run_request_form_case(case: dict[str, Any]) -> dict[str, Any]:
         "form_rollover_event_loop_progress",
         "rollover_progress_timeout_ms",
         "form_error_upload_sizes",
+        "form_deferred_scope_headers",
     ):
         if key in case:
             case_fields.add(key)
@@ -10693,11 +10705,13 @@ def _run_request_form_case(case: dict[str, Any]) -> dict[str, Any]:
             rollover_probe["timeout_ms"] = case["rollover_progress_timeout_ms"]
         observed_files = []
         try:
+            form_operation = request.form(**case.get("form_options", {}))
+            _apply_request_form_deferred_scope_headers(scope, case)
             if case.get("form_access", "await") == "context-manager":
-                async with request.form(**case.get("form_options", {})) as form:
+                async with form_operation as form:
                     value, observed_files = await inspect_form(form)
             else:
-                form = await request.form(**case.get("form_options", {}))
+                form = await form_operation
                 value, observed_files = await inspect_form(form)
                 if case.get("form_close", False):
                     await form.close()
@@ -10761,7 +10775,9 @@ def _run_request_form_case(case: dict[str, Any]) -> dict[str, Any]:
             if case.get("form_read_body", False):
                 cached_body = await request.body()
             try:
-                form = await request.form(**case.get("form_options", {}))
+                form_operation = request.form(**case.get("form_options", {}))
+                _apply_request_form_deferred_scope_headers(app_scope, case)
+                form = await form_operation
             except Exception as exc:
                 application_error = {
                     "class": f"{type(exc).__module__}.{type(exc).__qualname__}",

@@ -630,26 +630,27 @@ impl PyRequestBody {
         )
     }
 
-    #[pyo3(signature = (content_type, scope, max_files, max_fields, max_part_size))]
+    #[pyo3(signature = (request, max_files, max_fields, max_part_size))]
     fn form(
         &self,
         py: Python<'_>,
-        content_type: Option<String>,
-        scope: Py<PyAny>,
+        request: Py<PyAny>,
         max_files: &Bound<'_, PyAny>,
         max_fields: &Bound<'_, PyAny>,
         max_part_size: &Bound<'_, PyAny>,
     ) -> PyResult<Py<PyFormAwaitableContext>> {
         let machine = FormMachine {
             shared: self.shared.clone_ref(py),
+            request,
             stream: RequestStreamState::default(),
-            content_type,
-            scope,
-            max_files: extract_form_count_limit(max_files)?,
-            max_files_display: max_files.str()?.extract::<String>()?,
-            max_fields: extract_form_count_limit(max_fields)?,
-            max_fields_display: max_fields.str()?.extract::<String>()?,
-            max_part_size: extract_form_max_part_size(max_part_size)?,
+            content_type: None,
+            max_files_value: max_files.clone().unbind(),
+            max_files: 1000.0,
+            max_files_display: String::new(),
+            max_fields_value: max_fields.clone().unbind(),
+            max_fields: 1000.0,
+            max_fields_display: String::new(),
+            max_part_size: 1024 * 1024,
             max_part_size_value: max_part_size.clone().unbind(),
             multipart_parser: None,
             multipart_events: VecDeque::new(),
@@ -1414,11 +1415,13 @@ impl StreamMachine {
 
 struct FormMachine {
     shared: SharedRequestBody,
+    request: Py<PyAny>,
     stream: RequestStreamState,
     content_type: Option<String>,
-    scope: Py<PyAny>,
+    max_files_value: Py<PyAny>,
     max_files: f64,
     max_files_display: String,
+    max_fields_value: Py<PyAny>,
     max_fields: f64,
     max_fields_display: String,
     max_part_size: i64,
@@ -1556,7 +1559,9 @@ impl AwaitableStateMachine for FormMachine {
 
     fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
         visit.call(&self.shared)?;
-        visit.call(&self.scope)?;
+        visit.call(&self.request)?;
+        visit.call(&self.max_files_value)?;
+        visit.call(&self.max_fields_value)?;
         visit.call(&self.max_part_size_value)?;
         for (_, item) in &self.multipart_items {
             visit.call(item)?;
@@ -1656,8 +1661,22 @@ impl FormMachine {
             ));
         }
 
+        // Request.form() returns a wrapper around a coroutine. Match the
+        // coroutine's deferred lookup so scope/header replacement after the
+        // call but before the first await remains visible here.
+        let headers = self.request.bind(py).getattr("headers")?;
+        let content_type = headers.call_method1("get", ("Content-Type",))?;
+        self.content_type = content_type.extract::<Option<String>>()?;
+
         match request_form_media_type(self.content_type.as_deref()) {
             FormMediaType::Multipart => {
+                let max_files = self.max_files_value.bind(py);
+                self.max_files = extract_form_count_limit(max_files)?;
+                self.max_files_display = max_files.str()?.extract::<String>()?;
+                let max_fields = self.max_fields_value.bind(py);
+                self.max_fields = extract_form_count_limit(max_fields)?;
+                self.max_fields_display = max_fields.str()?.extract::<String>()?;
+                self.max_part_size = extract_form_max_part_size(self.max_part_size_value.bind(py))?;
                 if let Some(content_type) = self.content_type.as_deref() {
                     self.multipart_parser = Some(
                         MultipartFormParser::new(
@@ -1680,6 +1699,10 @@ impl FormMachine {
             }
             FormMediaType::Other => self.complete_form(py, NativeFormData::default()),
             FormMediaType::UrlEncoded => {
+                let max_fields = self.max_fields_value.bind(py);
+                self.max_fields = extract_form_count_limit(max_fields)?;
+                self.max_fields_display = max_fields.str()?.extract::<String>()?;
+                self.max_part_size = extract_form_max_part_size(self.max_part_size_value.bind(py))?;
                 let progress = {
                     let runtime = borrow_runtime(py, &self.shared)?;
                     self.stream.next(&runtime.accumulator)
@@ -1810,10 +1833,10 @@ impl FormMachine {
 
     fn form_exception(&self, py: Python<'_>, message: &str) -> PyErr {
         let has_app = self
-            .scope
+            .request
             .bind(py)
-            .call_method1("__contains__", ("app",))
-            .and_then(|present| present.is_truthy());
+            .getattr("scope")
+            .and_then(|scope| scope.contains("app"));
         match has_app {
             Ok(true) => {
                 let kwargs = PyDict::new(py);

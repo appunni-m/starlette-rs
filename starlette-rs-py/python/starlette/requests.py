@@ -180,8 +180,7 @@ class Request(HTTPConnection[StateT]):
     ) -> AwaitableOrContextManager[FormData]:
         """Return an awaitable context manager for parsed form data."""
         return self._body_state.form(
-            self.headers.get("Content-Type"),
-            self.scope,
+            self,
             max_files,
             max_fields,
             max_part_size,

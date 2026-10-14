@@ -529,6 +529,7 @@
       "build/parity/inputs/parity/templating-url-for-function-annotations.json",
       "build/parity/inputs/parity/templating-url-for-function-type.json",
       "build/parity/inputs/parity/request-form-urlencoded.json",
+      "build/parity/inputs/parity/request-form-call-await-header-snapshot.json",
       "build/parity/inputs/parity/request-form-large-part-size.json",
       "build/parity/inputs/parity/request-form-large-count-limits.json",
       "build/parity/inputs/parity/request-form-multipart.json",
@@ -16565,6 +16566,21 @@
             }
           ],
           "requirements": [
+            {
+              "id": "starlette.request.form.call-await-header-snapshot",
+              "dimension": "boundary",
+              "description": "Read the request Content-Type when the Request.form coroutine is awaited rather than when the awaitable wrapper is returned. Pinned source: starlette/requests.py:268-321; tests/test_requests.py::test_request_form_urlencoded and ::test_request_form_context_manager; docs/requests.md:79-105.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
             {
               "id": "starlette.request.form.urlencoded-fields",
               "dimension": "input_family",
