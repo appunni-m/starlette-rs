@@ -43,7 +43,10 @@ as `QueryParams`, `Request.path_params` as `dict[str, Any]`, and
 inherited `WebSocket.client` as `Address | None`, `WebSocket.cookies` as
 `dict[str, str]`, `WebSocket.url` as `URL`, and the inherited
 `WebSocket.headers` and `WebSocket.query_params` as `Headers` and
-`QueryParams`. It assigns `WebSocket.receive` and `WebSocket.send` to ASGI
+`QueryParams`. It now also asserts `Request.session` and inherited
+`WebSocket.session` as `dict[str, Any]`; pinned Mypy 1.19.1 passes on both the
+Starlette source and installed package with identical diagnostics and revealed
+types. It assigns `WebSocket.receive` and `WebSocket.send` to ASGI
 `Receive` and `Send` callback types and asserts that awaited
 `WebSocket.receive_text()` and `receive_bytes()` return `str` and `bytes`.
 Pinned Mypy 1.19.1 produced identical output against Starlette 1.6.0 and the
