@@ -825,46 +825,49 @@ fn resolve_directories(
 ) -> PyResult<(Vec<PathBuf>, Option<PathBuf>)> {
     let mut package_paths = Vec::new();
     if let Some(packages) = packages {
-        for item in packages.bind(py).try_iter()? {
-            let item = item?;
-            let (package, statics_dir) = if let Ok(package_tuple) = item.cast::<PyTuple>() {
-                (
-                    package_tuple.get_item(0)?.extract::<String>()?,
-                    package_tuple.get_item(1)?.extract::<String>()?,
-                )
-            } else {
-                (item.extract::<String>()?, "statics".to_owned())
-            };
-            let package_repr = PyString::new(py, &package).repr()?.to_str()?.to_owned();
-            let spec = PyModule::import(py, "importlib.util")?
-                .getattr("find_spec")?
-                .call1((package.as_str(),))?;
-            if spec.is_none() {
-                return Err(PyAssertionError::new_err(format!(
-                    "Package {package_repr} could not be found."
-                )));
+        let packages = packages.bind(py);
+        if packages.is_truthy()? {
+            for item in packages.try_iter()? {
+                let item = item?;
+                let (package, statics_dir) = if let Ok(package_tuple) = item.cast::<PyTuple>() {
+                    (
+                        package_tuple.get_item(0)?.extract::<String>()?,
+                        package_tuple.get_item(1)?.extract::<String>()?,
+                    )
+                } else {
+                    (item.extract::<String>()?, "statics".to_owned())
+                };
+                let package_repr = PyString::new(py, &package).repr()?.to_str()?.to_owned();
+                let spec = PyModule::import(py, "importlib.util")?
+                    .getattr("find_spec")?
+                    .call1((package.as_str(),))?;
+                if spec.is_none() {
+                    return Err(PyAssertionError::new_err(format!(
+                        "Package {package_repr} could not be found."
+                    )));
+                }
+                let origin = spec.getattr("origin")?;
+                if origin.is_none() {
+                    return Err(PyAssertionError::new_err(format!(
+                        "Package {package_repr} could not be found."
+                    )));
+                }
+                let os_path = PyModule::import(py, "os.path")?;
+                let package_directory = os_path.getattr("normpath")?.call1((os_path
+                    .getattr("join")?
+                    .call1((origin, "..", &statics_dir))?,))?;
+                if !os_path
+                    .getattr("isdir")?
+                    .call1((package_directory.clone(),))?
+                    .extract::<bool>()?
+                {
+                    let statics_repr = PyString::new(py, &statics_dir).repr()?.to_str()?.to_owned();
+                    return Err(PyAssertionError::new_err(format!(
+                        "Directory {statics_repr} in package {package_repr} could not be found."
+                    )));
+                }
+                package_paths.push(path_from_python(py, &package_directory)?);
             }
-            let origin = spec.getattr("origin")?;
-            if origin.is_none() {
-                return Err(PyAssertionError::new_err(format!(
-                    "Package {package_repr} could not be found."
-                )));
-            }
-            let os_path = PyModule::import(py, "os.path")?;
-            let package_directory = os_path.getattr("normpath")?.call1((os_path
-                .getattr("join")?
-                .call1((origin, "..", &statics_dir))?,))?;
-            if !os_path
-                .getattr("isdir")?
-                .call1((package_directory.clone(),))?
-                .extract::<bool>()?
-            {
-                let statics_repr = PyString::new(py, &statics_dir).repr()?.to_str()?.to_owned();
-                return Err(PyAssertionError::new_err(format!(
-                    "Directory {statics_repr} in package {package_repr} could not be found."
-                )));
-            }
-            package_paths.push(path_from_python(py, &package_directory)?);
         }
     }
     let native_directory = if include_directory {

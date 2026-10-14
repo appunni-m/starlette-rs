@@ -374,6 +374,7 @@ TESTCLIENT_LIFESPAN_REQUIREMENTS = {
     "shutdown": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.shutdown-handshake",
     "outside_requests": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.transient-outside-context-requests",
     "startup_error": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.startup-error-propagation",
+    "startup_cleanup_error_precedence": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.startup-cleanup-error-precedence",
     "shutdown_error": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.shutdown-error-propagation",
     "http_state": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.http-lifespan-state",
     "shallow_copy": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.request-state-shallow-copy",
@@ -399,6 +400,7 @@ TESTCLIENT_WEBSOCKET_REQUIREMENTS = {
     "scope": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.scope-projection",
     "application_exception": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.application-exception-propagation",
     "entry_cleanup_error_precedence": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.entry-cleanup-error-precedence",
+    "portal_exit_error_context": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.portal-exit-error-context",
     "app_error_stream_closure": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.app-error-closes-client-stream",
     "denial_body_app_error_context": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.denial-body-app-error-context",
     "app_error_wins_cleanup_close_error": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.app-error-wins-cleanup-close-error",
@@ -1291,6 +1293,7 @@ RESPONSE_SURFACES = {RESPONSE_SURFACE, JSON_RESPONSE_SURFACE}
 STREAMING_RESPONSE_SURFACE = "starlette.responses.StreamingResponse"
 FILE_RESPONSE_SURFACE = "starlette.responses.FileResponse"
 STATIC_FILES_SURFACE = "starlette.staticfiles.StaticFiles"
+STATIC_FILES_PACKAGE_TRUTHINESS_REQUIREMENT = "packages-truthiness-before-iteration"
 STATIC_FILES_LOOKUP_PATH_OPERATION = "lookup-path"
 STATIC_FILES_OS_SPECIFIC_PATH_BEHAVIOR = "os-specific-path-normalization"
 STATIC_FILES_ROOT_PATH_PREFIX_INDEX_REDIRECT = "root-path-prefix-html-index-redirect"
@@ -1670,6 +1673,7 @@ REQUEST_CONSUMPTION_REQUIREMENTS = {
     "body_receive_error": "starlette.request.body.receive-error-propagation",
     "explicit_none_receive": "starlette.request.body.explicit-none-receive-call-error",
     "body_receive_error_retry": "starlette.request.body.retry-after-receive-error",
+    "body_truthiness_terminal_consumed": "starlette.request.body.truthiness-error-consumes-terminal-stream",
     "body_cancellation_retry": "starlette.request.body.retry-after-cancellation",
     "stream_receive_error": "starlette.request.stream.receive-error-propagation",
     "body_stream_cancellation_retry": "starlette.request.body.retry-after-stream-cancellation",
@@ -4501,6 +4505,7 @@ def _validate_websocket_athrow_arguments(arguments: Any, context: str) -> None:
         "TypeError",
         "LookupError",
         "KeyError",
+        "StopAsyncIteration",
         "WebSocketDisconnect",
     }
     first = arguments[0]
@@ -4751,11 +4756,21 @@ def _validate_websocket_convenience_case_stimulus(case: dict[str, Any]) -> None:
         if not isinstance(arguments, dict):
             raise ContractError(f"{context}.arguments must be an object")
         if "send_error" in action:
-            send_error = _exact(action["send_error"], {"kind", "message"}, f"{context}.send_error")
+            send_error_value = action["send_error"]
+            send_error_keys = {"kind", "message"}
+            if isinstance(send_error_value, dict) and "timing" in send_error_value:
+                send_error_keys.add("timing")
+            send_error = _exact(
+                send_error_value,
+                send_error_keys,
+                f"{context}.send_error",
+            )
             if send_error["kind"] != "os-error":
                 raise ContractError(f"{context}.send_error.kind must be os-error")
             if not isinstance(send_error["message"], str):
                 raise ContractError(f"{context}.send_error.message must be a string")
+            if "timing" in send_error and send_error["timing"] not in {"call", "await"}:
+                raise ContractError(f"{context}.send_error.timing must be call or await")
             if method not in {"send_text", "send_bytes", "send_json", "close"}:
                 raise ContractError(f"{context}.send_error requires a send convenience method")
 
@@ -7647,6 +7662,8 @@ def _validate_static_files_case_stimulus(
         sequence_case_keys = STATIC_FILES_ASGI_CALL_SEQUENCE_CASE_KEYS | (
             {"scope_container", "scope_observation"} & case.keys()
         )
+        if "package_sequence" in case:
+            sequence_case_keys.add("package_sequence")
         _exact(
             case,
             sequence_case_keys,
@@ -7875,6 +7892,7 @@ def _validate_static_files_case_stimulus(
     case_keys = (
         STATIC_FILES_ASGI_CALL_CASE_KEYS
         | ({"subclass_hooks"} if "subclass_hooks" in case else set())
+        | ({"package_sequence"} if "package_sequence" in case else set())
         | ({"scope_container", "scope_observation"} & case.keys())
     )
     _exact(case, case_keys, "StaticFiles asgi-call case")
@@ -8030,6 +8048,16 @@ def _validate_static_files_case_stimulus(
     packages = case["packages"]
     if not isinstance(packages, list):
         raise ContractError("StaticFiles.packages must be an array")
+    package_sequence_present = "package_sequence" in case
+    package_sequence = case.get("package_sequence")
+    if package_sequence_present:
+        package_sequence = _exact(
+            package_sequence,
+            {"kind"},
+            "StaticFiles.package_sequence",
+        )
+        if package_sequence["kind"] != "falsey-list-subclass":
+            raise ContractError("StaticFiles.package_sequence.kind must be falsey-list-subclass")
     package_paths: set[str] = set()
     for index, package in enumerate(packages):
         context = f"StaticFiles.packages[{index}]"
@@ -8129,6 +8157,30 @@ def _validate_static_files_case_stimulus(
 
     path = scope["path"]
     root_path = scope["root_path"]
+    visible_packages = packages
+    if package_sequence_present:
+        if (
+            len(packages) != 1
+            or len(packages[0]["files"]) != 1
+            or files
+            or case["html"]
+            or case["filesystem"] is not None
+            or path_limit_stress is not None
+            or permission_denial_stress is not None
+            or subclass_hook_name is not None
+            or scope["method"] != "GET"
+            or root_path
+            or set(case["target_profiles"]) != {"python-package-cpython312"}
+        ):
+            raise ContractError(
+                "StaticFiles falsey package sequence requires one package asset, a plain package-profile GET, and no other roots or hooks"
+            )
+        package_asset_path = packages[0]["files"][0]["path"]
+        if path != f"/{package_asset_path}":
+            raise ContractError(
+                "StaticFiles falsey package sequence must request its input-defined package asset"
+            )
+        visible_packages = []
     if (
         not files
         and not packages
@@ -8192,7 +8244,7 @@ def _validate_static_files_case_stimulus(
         "\\", "/"
     )
     selected_files = {file_path: (mtime, False) for file_path, mtime in file_inputs}
-    for package in packages:
+    for package in visible_packages:
         for file_input in package["files"]:
             selected_files[file_input["path"]] = (float(file_input["mtime_seconds"]), True)
     if subclass_hooks is not None:
@@ -8256,6 +8308,8 @@ def _validate_static_files_case_stimulus(
         and (normalized_path in selected_files) != (windows_normalized_path in selected_files)
     )
     derived: set[str] = set()
+    if package_sequence_present:
+        derived.add(STATIC_FILES_PACKAGE_TRUTHINESS_REQUIREMENT)
     if scope_path_encoded:
         derived.add("surrogateescape-scope-path")
     filesystem_requirement_by_lookup = {
@@ -17151,7 +17205,23 @@ def _validate_testclient_raw_websocket_workflow(
         raise ContractError("Raw TestClient WebSocket covers must follow the supplied actions")
 
 
+def _validate_testclient_portal_exit_environment(case: dict[str, Any]) -> dict[str, Any] | None:
+    if "environment" not in case:
+        return None
+    environment = _exact(case["environment"], {"portal_exit_error"}, "TestClient environment")
+    error = _exact(
+        environment["portal_exit_error"],
+        {"exception_type", "message"},
+        "TestClient portal exit error",
+    )
+    if error["exception_type"] != "RuntimeError":
+        raise ContractError("TestClient portal exit error currently uses RuntimeError")
+    _string(error["message"], "TestClient portal exit error message")
+    return error
+
+
 def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
+    portal_exit_error = _validate_testclient_portal_exit_environment(case)
     settings_keys = {"base_url", "raise_server_exceptions", "root_path", "client", "headers"}
     raw_settings = case["testclient"]
     if isinstance(raw_settings, dict):
@@ -18096,6 +18166,7 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
         and app_actions[1].get("operation") == "raise"
     )
     app_error_cleanup_close_error_workflow = app_error_stream_closure_workflow and no_client_actions
+    portal_exit_error_workflow = portal_exit_error is not None
     denial_body_app_error_context_workflow = (
         no_client_actions
         and isinstance(app_actions, list)
@@ -18143,6 +18214,7 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
         )
         or app_error_stream_closure_workflow
         or app_entry_cleanup_error_precedence_workflow
+        or portal_exit_error_workflow
     )
     if no_client_actions and (accepted_flow_workflow or application_exception_workflow):
         denial_workflow = False
@@ -18295,7 +18367,45 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
             raise ContractError(
                 "TestClient WebSocket app exception cases require server exception propagation and only the declared stream-closure receive"
             )
-        if is_starlette_websocket_route_error:
+        if portal_exit_error_workflow:
+            if (
+                session_actions
+                or not isinstance(app_actions, list)
+                or len(app_actions) != 4
+                or [action.get("operation") for action in app_actions if isinstance(action, dict)]
+                != ["receive", "send", "receive", "raise"]
+                or settings["client"] != ["127.0.0.1", 12345]
+                or settings["base_url"] != "http://testserver"
+                or settings["root_path"]
+                or settings["headers"]
+                or websocket["actions"]
+            ):
+                raise ContractError(
+                    "TestClient portal-exit error case requires one accepted session and default actions"
+                )
+            _exact(app_actions[0], {"operation"}, "TestClient WebSocket connect receive")
+            accept_action = _exact(
+                app_actions[1], {"operation", "message"}, "TestClient WebSocket accept action"
+            )
+            accept_message = _exact(
+                accept_action["message"], {"type"}, "TestClient WebSocket accept message"
+            )
+            if accept_action["operation"] != "send" or accept_message["type"] != "websocket.accept":
+                raise ContractError("TestClient portal-exit error case must accept the session")
+            _exact(app_actions[2], {"operation"}, "TestClient WebSocket disconnect receive")
+            raise_action_index = 3
+            raise_action = _exact(
+                app_actions[raise_action_index],
+                {"operation", "exception_class", "message"},
+                "TestClient WebSocket application exception action",
+            )
+            if raise_action["operation"] != "raise":
+                raise ContractError("TestClient portal-exit error case must raise during teardown")
+            exception_spec = {
+                "class": raise_action["exception_class"],
+                "message": raise_action["message"],
+            }
+        elif is_starlette_websocket_route_error:
             exception_spec = asgi_app["endpoint_exception"]
         else:
             if app_error_stream_closure_workflow:
@@ -18341,9 +18451,18 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
         _string(exception_spec["message"], "TestClient WebSocket application exception message")
         expected_covers = {
             TESTCLIENT_WEBSOCKET_REQUIREMENTS["scope"],
-            TESTCLIENT_WEBSOCKET_REQUIREMENTS["application_exception"],
             TESTCLIENT_WEBSOCKET_REQUIREMENTS["portal_cleanup"],
         }
+        if portal_exit_error_workflow:
+            expected_covers.update(
+                {
+                    TESTCLIENT_WEBSOCKET_REQUIREMENTS["handshake"],
+                    TESTCLIENT_WEBSOCKET_REQUIREMENTS["cleanup"],
+                    TESTCLIENT_WEBSOCKET_REQUIREMENTS["portal_exit_error_context"],
+                }
+            )
+        else:
+            expected_covers.add(TESTCLIENT_WEBSOCKET_REQUIREMENTS["application_exception"])
         if app_error_stream_closure_workflow and not app_error_cleanup_close_error_workflow:
             expected_covers.update(
                 {
@@ -19004,6 +19123,7 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
 
 
 def _validate_testclient_lifespan_case(case: dict[str, Any]) -> None:
+    portal_exit_error = _validate_testclient_portal_exit_environment(case)
     settings = _exact(
         case["testclient"],
         {
@@ -19942,6 +20062,7 @@ def _validate_testclient_lifespan_case(case: dict[str, Any]) -> None:
     ):
         expected_covers = set(TESTCLIENT_LIFESPAN_REQUIREMENTS.values()) - {
             TESTCLIENT_LIFESPAN_REQUIREMENTS["startup_error"],
+            TESTCLIENT_LIFESPAN_REQUIREMENTS["startup_cleanup_error_precedence"],
             TESTCLIENT_LIFESPAN_REQUIREMENTS["shutdown_error"],
             TESTCLIENT_LIFESPAN_REQUIREMENTS["http_state"],
             TESTCLIENT_LIFESPAN_REQUIREMENTS["shallow_copy"],
@@ -19979,6 +20100,13 @@ def _validate_testclient_lifespan_case(case: dict[str, Any]) -> None:
     else:
         raise ContractError("TestClient client actions and lifespan app actions do not align")
 
+    if portal_exit_error is not None:
+        if (client_operations, lifespan_operations) != (["enter"], ["receive", "raise"]):
+            raise ContractError(
+                "TestClient portal-exit error input requires a startup failure during context entry"
+            )
+        expected_covers.add(TESTCLIENT_LIFESPAN_REQUIREMENTS["startup_cleanup_error_precedence"])
+
     http = _exact(asgi_app["http"], {"receive_count", "messages"}, "TestClient lifespan HTTP app")
     if type(http["receive_count"]) is not int or http["receive_count"] != 1:
         raise ContractError("TestClient lifespan HTTP app consumes one request message")
@@ -20015,7 +20143,10 @@ def _validate_testclient_lifespan_case(case: dict[str, Any]) -> None:
         or len(covers) != len(set(covers))
         or set(covers) != expected_covers
     ):
-        raise ContractError("TestClient lifespan covers must match the input lifecycle workflow")
+        raise ContractError(
+            "TestClient lifespan covers must match the input lifecycle workflow: "
+            f"expected={sorted(expected_covers)}, actual={sorted(covers) if isinstance(covers, list) else covers!r}"
+        )
 
 
 def _validate_fault_contract_case(case: dict[str, Any], manifest: dict[str, Any]) -> dict[str, Any]:
@@ -21769,6 +21900,12 @@ def _validate_case_payload(
         if is_testclient
         else CASE_KEYS
     )
+    if (
+        (is_testclient_lifespan or is_testclient_websocket)
+        and isinstance(case, dict)
+        and "environment" in case
+    ):
+        expected_case_keys = expected_case_keys | {"environment"}
     if is_upload_file:
         expected_case_keys = (CASE_KEYS - {"steps", "execution_schedule"}) | {
             "scenarios",
@@ -21791,6 +21928,13 @@ def _validate_case_payload(
         and "subclass_hooks" in case
     ):
         expected_case_keys = expected_case_keys | {"subclass_hooks"}
+    if (
+        is_static_files
+        and isinstance(case, dict)
+        and case.get("operation") == RESPONSE_OPERATION
+        and "package_sequence" in case
+    ):
+        expected_case_keys = expected_case_keys | {"package_sequence"}
     if is_router and isinstance(case, dict) and "observe_router_scope" in case:
         expected_case_keys = expected_case_keys | {"observe_router_scope"}
     if is_router and isinstance(case, dict) and "observe_dispatch_error" in case:
@@ -28404,6 +28548,7 @@ def _validate_request_body_stream_json_case(case: dict[str, Any]) -> None:
         raise ContractError("Request body/stream/json receive tape must be non-empty")
     optional_receive_fields = False
     body_object_probe = False
+    body_truthiness_probe = False
     receive_error_indices: list[int] = []
     receive_cancellation_indices: list[int] = []
     for index, raw_message in enumerate(receive):
@@ -28424,7 +28569,13 @@ def _validate_request_body_stream_json_case(case: dict[str, Any]) -> None:
         if not isinstance(raw_message, dict) or not isinstance(raw_message.get("type"), str):
             raise ContractError(f"{context} must have a string message type")
         if raw_message["type"] == "http.request":
-            allowed = {"type", "body_base64", "body_type", "more_body"}
+            allowed = {
+                "type",
+                "body_base64",
+                "body_type",
+                "body_truthiness_error",
+                "more_body",
+            }
             if set(raw_message) - allowed:
                 raise ContractError(f"{context} contains unsupported HTTP request fields")
             if "body_type" in raw_message:
@@ -28433,6 +28584,25 @@ def _validate_request_body_stream_json_case(case: dict[str, Any]) -> None:
                         f"{context}.body_type must select bytes-subclass with body_base64"
                     )
                 body_object_probe = True
+            if "body_truthiness_error" in raw_message:
+                if raw_message.get("body_type") != "bytes-subclass":
+                    raise ContractError(
+                        f"{context}.body_truthiness_error requires body_type bytes-subclass"
+                    )
+                body_truthiness_error = _exact(
+                    raw_message["body_truthiness_error"],
+                    {"exception_type", "message"},
+                    f"{context}.body_truthiness_error",
+                )
+                if body_truthiness_error["exception_type"] != "ValueError":
+                    raise ContractError(
+                        f"{context}.body_truthiness_error.exception_type must be ValueError"
+                    )
+                _string(
+                    body_truthiness_error["message"],
+                    f"{context}.body_truthiness_error.message",
+                )
+                body_truthiness_probe = True
             if "body_base64" in raw_message:
                 try:
                     body_bytes = base64.b64decode(raw_message["body_base64"], validate=True)
@@ -28853,6 +29023,7 @@ def _validate_request_body_stream_json_case(case: dict[str, Any]) -> None:
         direct_body_positions
         and stream_positions
         and direct_body_positions[0] < stream_positions[0]
+        and not body_truthiness_probe
     ):
         expected_covers.add(REQUEST_CONSUMPTION_REQUIREMENTS["body_stream_replay"])
     if (
@@ -28938,7 +29109,22 @@ def _validate_request_body_stream_json_case(case: dict[str, Any]) -> None:
         < action_operations.index("await-body")
     ):
         expected_covers.add(REQUEST_CONSUMPTION_REQUIREMENTS["body_stream_overlap"])
-    if body_object_probe:
+    if body_truthiness_probe:
+        if (
+            len(receive) != 1
+            or receive[0].get("type") != "http.request"
+            or receive[0].get("more_body") is not False
+            or not receive[0].get("body_base64")
+            or action_operations != ["body", "stream-next"]
+            or len(stream_ids) != 1
+            or blocked_receive_calls
+            or scope_headers
+        ):
+            raise ContractError(
+                "Request body truthiness failure requires one non-empty terminal bytes subclass, then body and stream retry"
+            )
+        expected_covers.add(REQUEST_CONSUMPTION_REQUIREMENTS["body_truthiness_terminal_consumed"])
+    elif body_object_probe:
         if (
             len(receive) != 1
             or receive[0].get("type") != "http.request"

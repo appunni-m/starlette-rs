@@ -149,6 +149,43 @@ public status remains unresolved in [Compatibility inventory](COMPATIBILITY_INVE
 Cleanup is observed through the thread recorded by the user application,
 without depending on the source's internal portal storage.
 
+## Startup failure during portal cleanup
+
+The pinned `TestClient.__enter__` registers its AnyIO portal and stream cleanup
+with `contextlib.ExitStack` before it waits for lifespan startup
+(`testclient.py:679-704`). If startup raises, ExitStack unwinds those callbacks
+with the startup exception active. A later cleanup callback that raises replaces
+the pending error and keeps the startup exception in the new error's
+`__context__`, matching Python's cleanup-stack ordering.
+
+Rust now carries the startup error through
+[`TestClientLifespan::cleanup`](../starlette-rs-py/src/testclient_runtime.rs)
+and applies that last-error-wins ordering to shutdown, stream-close, and portal
+exit failures. The input-only
+[`testclient-startup-cleanup-error.yaml`](../tests/fixtures/sources/parity/testclient-startup-cleanup-error.yaml)
+supplies a startup failure plus a test-environment portal-exit failure. Root
+integration must extend the lifespan adapter to construct that portal failure
+from the input and record the propagated exception's context chain. The new
+comparison is authored but remains unexecuted until the grouped parity phase.
+
+## WebSocket portal-exit errors during session cleanup
+
+`WebSocketTestSession.__enter__` registers the portal manager, task result, cancel
+callback, and close callback on an `ExitStack` in that order
+(`testclient.py:115-131`). During normal session exit, a failure raised by the
+portal manager's `__exit__` replaces an earlier application-task failure and
+retains it in the portal error's `__context__`. Rust now applies the same
+last-failing-callback ordering when `PyWebSocketTestSession::teardown` exits its
+portal.
+
+The input-only
+[`testclient-websocket-exit-cleanup-error.yaml`](../tests/fixtures/sources/parity/testclient-websocket-exit-cleanup-error.yaml)
+injects a portal-exit error after the WebSocket app fails while handling the
+client disconnect. Root integration needs the lifespan and WebSocket adapters
+to construct the configured portal-exit exception and observe the propagated
+exception's context chain. The comparison remains unexecuted until the grouped
+parity phase.
+
 ## Composite Router in a managed client
 
 [`testclient-router.yaml`](../tests/fixtures/sources/parity/testclient-router.yaml)

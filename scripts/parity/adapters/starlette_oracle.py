@@ -7997,12 +7997,19 @@ def _run_websocket_convenience_case(case: dict[str, Any]) -> dict[str, Any]:
         )
         return message
 
-    async def send(message: dict[str, Any]) -> None:
+    def send(message: dict[str, Any]) -> Any:
         callback_tape.append(
             {"direction": "send", "message": _canonical_websocket_message(message)}
         )
-        if pending_send_error is not None:
-            raise OSError(pending_send_error["message"])
+        send_error = pending_send_error
+        if send_error is not None and send_error.get("timing", "await") == "call":
+            raise OSError(send_error["message"])
+
+        async def complete_send() -> None:
+            if send_error is not None:
+                raise OSError(send_error["message"])
+
+        return complete_send()
 
     def construct() -> Any:
         scope = _make_websocket_scope(case["scope"])
@@ -10462,6 +10469,8 @@ def _run_static_files_case(case: dict[str, Any]) -> dict[str, Any]:
         expected_fields.add("scope_observation")
     if "subclass_hooks" in case:
         expected_fields.add("subclass_hooks")
+    if "package_sequence" in case:
+        expected_fields.add("package_sequence")
     if request_sequence:
         expected_fields.add("calls")
     else:
@@ -10712,6 +10721,27 @@ def _run_static_files_case(case: dict[str, Any]) -> dict[str, Any]:
                 if package["statics_dir"] == "statics"
                 else (package["name"], package["statics_dir"])
             )
+        package_sequence_trace: list[str] = []
+        package_sequence = case.get("package_sequence")
+        if package_sequence is not None:
+            _strict_object(
+                package_sequence,
+                {"kind"},
+                "StaticFiles package sequence",
+            )
+            if package_sequence["kind"] != "falsey-list-subclass":
+                raise ValueError("StaticFiles package sequence kind is unsupported")
+
+            class InputPackageSequence(list[Any]):
+                def __bool__(self) -> bool:
+                    package_sequence_trace.append("bool")
+                    return False
+
+                def __iter__(self) -> Any:
+                    package_sequence_trace.append("iter")
+                    return super().__iter__()
+
+            package_arguments = InputPackageSequence(package_arguments)
         sys.path.insert(0, str(package_source_root))
         try:
             application = static_files_type(
@@ -10867,6 +10897,8 @@ def _run_static_files_case(case: dict[str, Any]) -> dict[str, Any]:
             observation["scope_observation"] = scope_observation_result
         if subclass_hooks is not None:
             observation["subclass_hook_calls"] = subclass_hook_calls
+        if package_sequence is not None:
+            observation["package_sequence_trace"] = package_sequence_trace
     observation_item = {
         "step_id": RESPONSE_OPERATION,
         "status": "ok",

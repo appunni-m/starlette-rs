@@ -370,6 +370,8 @@
       "build/parity/inputs/parity/request-body-receive-error-retry.json",
       "build/parity/inputs/parity/request-stream-disconnect-retry.json",
       "build/parity/inputs/parity/request-custom-receive-event.json",
+      "build/parity/inputs/parity/request-body-truthiness-terminal-consumed.json",
+      "build/parity/inputs/parity/request-concurrent-body-disconnect-recovery.json",
       "build/parity/inputs/parity/gzip-middleware.json",
       "build/parity/inputs/parity/gzip-python-bigint-threshold.json",
       "build/parity/inputs/parity/gzip-python-bigint-compresslevel.json",
@@ -433,6 +435,8 @@
       "build/parity/inputs/parity/streaming-response-final-send-disconnect.json",
       "build/parity/inputs/parity/streaming-response-backpressure.json",
       "build/parity/inputs/parity/websocket-convenience.json",
+      "build/parity/inputs/parity/websocket-iterator-athrow-stop-async-iteration.json",
+      "build/parity/inputs/parity/websocket-send-oserror-synchronous-callback.json",
       "build/parity/inputs/parity/websocket-json-mode-close-reason-boundary.json",
       "build/parity/inputs/parity/websocket-iterator-disconnect-athrow.json",
       "build/parity/inputs/parity/websocket-iterator-disconnect-athrow-after-exhaustion.json",
@@ -480,6 +484,7 @@
       "build/parity/inputs/parity/authentication-required-routes.json",
       "build/parity/inputs/parity/authentication-required-websockets.json",
       "build/parity/inputs/parity/static-files.json",
+      "build/parity/inputs/parity/static-files-packages-falsey-sequence.json",
       "build/parity/inputs/parity/static-files-root-path-index-redirect.json",
       "build/parity/inputs/parity/static-files-symlink-asgi.json",
       "build/parity/inputs/parity/static-files-lookup.json",
@@ -562,6 +567,8 @@
       "build/parity/inputs/parity/testclient-websocket-endpoint-path-params.json",
       "build/parity/inputs/parity/testclient-docs-inputs.json",
       "build/parity/inputs/parity/testclient-lifespan-context.json",
+      "build/parity/inputs/parity/testclient-websocket-exit-cleanup-error.json",
+      "build/parity/inputs/parity/testclient-startup-cleanup-error.json",
       "build/parity/inputs/parity/application-routes.json",
       "build/parity/inputs/parity/router-converter-ordering.json",
       "build/parity/inputs/parity/router-mixed-route-ordering.json",
@@ -17008,6 +17015,21 @@
               ]
             },
             {
+              "id": "starlette.request.body.truthiness-error-consumes-terminal-stream",
+              "dimension": "error_path",
+              "description": "If truth-testing a final ASGI body bytes subclass raises, the terminal receive has already marked the request stream consumed; a later stream advance raises Stream consumed. Pinned source: starlette/requests.py:243-248.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
               "id": "starlette.request.body.retry-after-cancellation",
               "dimension": "error_path",
               "description": "Propagate CancelledError from the ASGI receive callback during Request.body() after a partial chunk, discard the incomplete local collection, and let a later body() call collect and cache only the remaining messages. Pinned source: starlette/requests.py:234-260; Request.stream does not set _stream_consumed until a final http.request message.",
@@ -26359,6 +26381,17 @@
               ]
             },
             {
+              "id": "starlette.staticfiles.StaticFiles.asgi-call.packages-truthiness-before-iteration",
+              "dimension": "boundary",
+              "description": "StaticFiles evaluates packages truthiness before iterating it; a falsey list subclass suppresses package-root lookup and leaves the requested asset not found. Pinned source: starlette/staticfiles.py:69.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.staticfiles.StaticFiles.asgi-call.directory-root-404",
               "dimension": "error_path",
               "description": "Request the root of an input-defined non-HTML static directory containing a file and compare the live 404 HTTPException outcome and empty ASGI event trace. Upstream: tests/test_staticfiles.py::test_staticfiles_with_directory_returns_404.",
@@ -31204,6 +31237,17 @@
               ]
             },
             {
+              "id": "starlette.testclient.TestClient.websocket-session.portal-exit-error-context",
+              "dimension": "error_path",
+              "description": "If portal exit fails while a WebSocket application task is already failing during session teardown, the portal exception replaces the task error and retains it in __context__ through ExitStack cleanup ordering. Pinned source: starlette/testclient.py:115-131.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.testclient.TestClient.websocket-session.application-exception-propagation",
               "dimension": "error_path",
               "description": "When the input ASGI app raises before sending a WebSocket handshake, websocket_connect propagates the original application exception during session entry and closes the portal thread. Pinned source: tests/test_websockets.py::test_websocket_exception; starlette/testclient.py:102-125.",
@@ -31806,6 +31850,21 @@
               "id": "starlette.testclient.TestClient.lifespan-context.startup-error-propagation",
               "dimension": "error_path",
               "description": "When the lifespan task raises during startup, entering TestClient propagates the app error and tears down the portal. For ordered failure messages, the declared normalization removes the source-only Router.lifespan traceback frame, which has no Rust runtime frame counterpart. Pinned source: starlette/testclient.py:679-722; starlette/routing.py:639-653; tests/test_testclient.py::test_error_on_startup.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.lifespan-context.startup-cleanup-error-precedence",
+              "dimension": "error_path",
+              "description": "If TestClient startup fails and portal cleanup also raises, the later ExitStack cleanup error is propagated with the startup error in its exception context. Pinned source: starlette/testclient.py:679-722 and contextlib.ExitStack cleanup behavior.",
               "lanes": [
                 "parity"
               ],

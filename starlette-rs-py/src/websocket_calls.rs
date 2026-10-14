@@ -1356,6 +1356,11 @@ impl AwaitableStateMachine for WebSocketIteratorThrow {
                     && error.is_instance(py, self.disconnect_error.bind(py))
                 {
                     Err(PyStopAsyncIteration::new_err(()))
+                } else if !was_finished
+                    && self.started.get()
+                    && error.is_instance_of::<PyStopAsyncIteration>(py)
+                {
+                    Err(async_generator_stop_async_iteration_error(py, error))
                 } else {
                     Err(error)
                 }
@@ -1460,10 +1465,7 @@ impl WebSocketIteratorStep {
         if error.is_instance(py, self.disconnect_error.bind(py)) {
             Err(PyStopAsyncIteration::new_err(()))
         } else if error.is_instance_of::<PyStopAsyncIteration>(py) {
-            let raised = PyRuntimeError::new_err("async generator raised StopAsyncIteration");
-            raised.set_context(py, Some(error.clone_ref(py)));
-            raised.set_cause(py, Some(error));
-            Err(raised)
+            Err(async_generator_stop_async_iteration_error(py, error))
         } else {
             Err(error)
         }
@@ -1473,6 +1475,13 @@ impl WebSocketIteratorStep {
         self.finished.set(true);
         self.running.set(false);
     }
+}
+
+fn async_generator_stop_async_iteration_error(py: Python<'_>, cause: PyErr) -> PyErr {
+    let error = PyRuntimeError::new_err("async generator raised StopAsyncIteration");
+    error.set_context(py, Some(cause.clone_ref(py)));
+    error.set_cause(py, Some(cause));
+    error
 }
 
 #[pyclass(name = "WebSocketClose")]

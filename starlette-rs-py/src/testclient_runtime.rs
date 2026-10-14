@@ -336,8 +336,10 @@ impl TestClientLifespan {
         if let Err(error) =
             lifespan.start_inner(py, app, runner, app_state, backend, backend_options)
         {
-            let _ = lifespan.cleanup(py, false, None);
-            return Err(error);
+            return match lifespan.cleanup(py, false, Some(error.clone_ref(py))) {
+                Ok(()) => Err(error),
+                Err(cleanup_error) => Err(cleanup_error),
+            };
         }
         Ok(lifespan)
     }
@@ -495,25 +497,22 @@ impl TestClientLifespan {
     ) -> PyResult<()> {
         if wait_shutdown && self.portal.is_some() {
             if let Err(error) = self.handshake(py, false) {
-                if primary_error.is_none() {
-                    primary_error = Some(error);
-                }
+                replace_cleanup_error(py, &mut primary_error, error)?;
             }
         }
 
+        // ExitStack closes the four streams in reverse registration order.
         for stream in [
-            self.client_to_app_send.take(),
-            self.client_to_app_receive.take(),
-            self.app_to_client_send.take(),
             self.app_to_client_receive.take(),
+            self.app_to_client_send.take(),
+            self.client_to_app_receive.take(),
+            self.client_to_app_send.take(),
         ]
         .into_iter()
         .flatten()
         {
             if let Err(error) = stream.bind(py).call_method0("close") {
-                if primary_error.is_none() {
-                    primary_error = Some(error);
-                }
+                replace_cleanup_error(py, &mut primary_error, error)?;
             }
         }
 
@@ -525,9 +524,7 @@ impl TestClientLifespan {
                 if let Err(error) =
                     exit_portal(py, manager.bind(py).clone(), primary_error.as_ref())
                 {
-                    if primary_error.is_none() {
-                        primary_error = Some(error);
-                    }
+                    replace_cleanup_error(py, &mut primary_error, error)?;
                 }
             }
         }
@@ -909,7 +906,9 @@ impl PyWebSocketTestSession {
         self.portal = None;
         let manager = self.portal_manager.take();
         if let Some(manager) = manager {
-            exit_portal(py, manager.bind(py).clone(), task_error.as_ref())?;
+            if let Err(error) = exit_portal(py, manager.bind(py).clone(), task_error.as_ref()) {
+                replace_cleanup_error(py, &mut task_error, error)?;
+            }
         }
 
         match task_error {
@@ -2178,6 +2177,19 @@ fn exit_portal(py: Python<'_>, manager: Bound<'_, PyAny>, error: Option<&PyErr>)
             manager.call_method1("__exit__", (exception_type, exception_value, traceback))?;
         }
     }
+    Ok(())
+}
+
+fn replace_cleanup_error(
+    py: Python<'_>,
+    primary_error: &mut Option<PyErr>,
+    error: PyErr,
+) -> PyResult<()> {
+    // ExitStack lets each later failing callback replace the active exception.
+    if let Some(previous_error) = primary_error.take() {
+        chain_exception_context(py, &error, &previous_error)?;
+    }
+    *primary_error = Some(error);
     Ok(())
 }
 

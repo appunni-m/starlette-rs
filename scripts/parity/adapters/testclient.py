@@ -106,6 +106,49 @@ def _exception_context_chain(error: BaseException) -> list[dict[str, str]]:
     return chain
 
 
+def _install_portal_exit_error(case: dict[str, Any]) -> Any:
+    environment = case.get("environment")
+    if environment is None:
+        return lambda: None
+
+    import anyio.from_thread
+
+    original = anyio.from_thread.start_blocking_portal
+    error_spec = environment["portal_exit_error"]
+    error_type = getattr(builtins, error_spec["exception_type"])
+    restored = False
+
+    def restore() -> None:
+        nonlocal restored
+        if not restored:
+            if anyio.from_thread.start_blocking_portal is portal_factory:
+                anyio.from_thread.start_blocking_portal = original
+            restored = True
+
+    def portal_factory(*args: Any, **kwargs: Any) -> Any:
+        manager = original(*args, **kwargs)
+
+        class InputPortalManager:
+            def __enter__(self) -> Any:
+                try:
+                    return manager.__enter__()
+                except BaseException:
+                    restore()
+                    raise
+
+            def __exit__(self, exc_type: Any, exc: Any, traceback: Any) -> Any:
+                try:
+                    manager.__exit__(exc_type, exc, traceback)
+                    raise error_type(error_spec["message"])
+                finally:
+                    restore()
+
+        return InputPortalManager()
+
+    anyio.from_thread.start_blocking_portal = portal_factory
+    return restore
+
+
 def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
     from starlette.testclient import TestClient
 
@@ -1872,6 +1915,7 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
     websocket_kwargs = {"headers": request_headers}
     if "params" in websocket_input:
         websocket_kwargs["params"] = websocket_input["params"]
+    portal_exit_restore = _install_portal_exit_error(case)
     try:
         with client.websocket_connect(
             websocket_input["url"],
@@ -1976,6 +2020,7 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
             captured_error_stage = (
                 "websocket-session-exit" if session_body_completed else "websocket-session-action"
             )
+    portal_exit_restore()
     result = {
         "scope": scope_observations,
         "receive_messages": receive_observations,
@@ -2697,6 +2742,7 @@ def run_testclient_lifespan_case(case: dict[str, Any]) -> dict[str, Any]:
         backend_options=settings["backend_options"],
     )
     action_errors: list[dict[str, Any]] = []
+    portal_exit_restore = _install_portal_exit_error(case)
     for action_index, action in enumerate(case["client_actions"]):
         try:
             if action["operation"] == "enter":
@@ -2722,15 +2768,17 @@ def run_testclient_lifespan_case(case: dict[str, Any]) -> dict[str, Any]:
                 )
         except Exception as error:
             error_type = type(error)
-            action_errors.append(
-                {
-                    "action_index": action_index,
-                    "operation": action["operation"],
-                    "exception_type": f"{error_type.__module__}.{error_type.__qualname__}",
-                    "message": str(error),
-                }
-            )
+            action_error = {
+                "action_index": action_index,
+                "operation": action["operation"],
+                "exception_type": f"{error_type.__module__}.{error_type.__qualname__}",
+                "message": str(error),
+            }
+            if "environment" in case:
+                action_error["context_chain"] = _exception_context_chain(error)
+            action_errors.append(action_error)
             break
+    portal_exit_restore()
     client.close()
     result = {
         "lifespan_scope": lifespan_scope[0],

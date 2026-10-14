@@ -16,6 +16,18 @@ cyclic GC. Non-iteration callbacks preserve their original StopAsyncIteration.
 Iterator callbacks retain the original error in Python's generator-error
 cause/context instead of replacing it with an empty exception.
 
+`starlette/websockets.py:144-163` implements `iter_text`, `iter_bytes`, and
+`iter_json` as native async generators whose only handled exception is
+`WebSocketDisconnect`. If a consumer injects `StopAsyncIteration` with
+`athrow()` after the generator has yielded, it escapes the generator body and
+Python converts it to `RuntimeError("async generator raised StopAsyncIteration")`
+with the injected exception as cause and context, as specified by
+[PEP 525](https://peps.python.org/pep-0525/). The compatibility iterator must
+apply that conversion to a started generator's `athrow()` path as well as to
+errors from its receive callback. The input-only case in
+[`websocket-iterator-athrow-stop-async-iteration.yaml`](../tests/fixtures/sources/parity/websocket-iterator-athrow-stop-async-iteration.yaml)
+records this path; comparison remains deferred to the full parity phase.
+
 Thirty `websocket-thread-ownership.yaml` definitions select worker construction
 of public WebSocket objects and, for iterator workflows, worker construction of
 the iterator. The caller then drives public typed receives, sends, iteration,

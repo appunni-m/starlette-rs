@@ -11,6 +11,18 @@ from typing import Any
 class RequestBodyChunk(bytes):
     """Model a valid bytes subclass supplied by an ASGI receive callback."""
 
+    def __new__(
+        cls, value: bytes, truthiness_error: dict[str, str] | None = None
+    ) -> RequestBodyChunk:
+        instance = super().__new__(cls, value)
+        instance.truthiness_error = truthiness_error
+        return instance
+
+    def __bool__(self) -> bool:
+        if self.truthiness_error is not None:
+            raise ValueError(self.truthiness_error["message"])
+        return len(self) != 0
+
 
 def _safe(value: Any) -> Any:
     if value is None or isinstance(value, (bool, int, float, str)):
@@ -27,7 +39,10 @@ def _safe(value: Any) -> Any:
 def _decode_message(spec: dict[str, Any]) -> dict[str, Any]:
     message = {"type": spec["type"]}
     if spec.get("body_type") == "bytes-subclass":
-        message["body"] = RequestBodyChunk(base64.b64decode(spec["body_base64"], validate=True))
+        message["body"] = RequestBodyChunk(
+            base64.b64decode(spec["body_base64"], validate=True),
+            spec.get("body_truthiness_error"),
+        )
     elif "body_value" in spec:
         message["body"] = spec["body_value"]
     elif "body_base64" in spec:

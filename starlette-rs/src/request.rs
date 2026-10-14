@@ -612,14 +612,12 @@ impl RequestBodyAccumulator {
     }
 
     /// Stores bytes collected by one body consumer after its receive loop
-    /// finishes. The caller owns the local chunks because concurrent stream
-    /// consumers may have received other messages from the same callback. A
-    /// disconnect observed by another consumer does not block caching a body
-    /// completed by this consumer.
+    /// finishes. The caller owns the local chunks because concurrent body or
+    /// stream consumers may have received other messages from the same
+    /// callback. Completion is local to this consumer plus the shared final
+    /// receive state: a sibling consumer may abort its own collection while
+    /// this consumer is still waiting for the final message.
     pub fn cache_body_from(&mut self, body: &[u8]) -> Result<&[u8], RequestBodyError> {
-        if !self.collecting_body && self.cached_body.is_none() {
-            return Err(RequestBodyError::BodyCollectionNotStarted);
-        }
         if !self.complete {
             return Err(RequestBodyError::BodyNotComplete);
         }

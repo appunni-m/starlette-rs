@@ -1017,7 +1017,7 @@ impl AwaitableStateMachine for BodyMachine {
                     ));
                 }
                 self.pending_receive = false;
-                let message = match request_message(py, message) {
+                let message = match request_message(py, &self.shared, message) {
                     Ok(message) => message,
                     Err(error) => {
                         self.abort_collection(py);
@@ -1175,7 +1175,7 @@ impl AwaitableStateMachine for StreamMachine {
                     ));
                 }
                 self.pending_receive = false;
-                let message = match request_message(py, message) {
+                let message = match request_message(py, &self.shared, message) {
                     Ok(message) => message,
                     Err(error) => {
                         self.fail_stream();
@@ -1591,7 +1591,7 @@ impl FormMachine {
             MachineResume::Value(message) => {
                 if self.pending_receive {
                     self.pending_receive = false;
-                    let message = request_message(py, message)?;
+                    let message = request_message(py, &self.shared, message)?;
                     let progress = {
                         let mut runtime = borrow_runtime_mut(py, &self.shared)?;
                         if message.kind == RequestMessageKind::Disconnect {
@@ -2284,7 +2284,11 @@ struct ParsedRequestMessage {
     more_body: bool,
 }
 
-fn request_message(py: Python<'_>, message: Py<PyAny>) -> PyResult<ParsedRequestMessage> {
+fn request_message(
+    py: Python<'_>,
+    shared: &SharedRequestBody,
+    message: Py<PyAny>,
+) -> PyResult<ParsedRequestMessage> {
     let message = message.bind(py);
     let message_type = message.get_item("type")?;
     // Match Request.stream()'s branch order: only http.request reads body and
@@ -2292,15 +2296,30 @@ fn request_message(py: Python<'_>, message: Py<PyAny>) -> PyResult<ParsedRequest
     // fields, which lets middleware pass high-level ASGI events through.
     if message_type.eq("http.request")? {
         let empty = PyBytes::new(py, b"");
-        let body = message.call_method1("get", ("body", empty))?;
-        let (body, body_object) = if body.is_truthy()? {
-            (body.extract::<Vec<u8>>()?, Some(body.unbind()))
-        } else {
-            (Vec::new(), None)
-        };
+        let body_object = message.call_method1("get", ("body", empty))?;
         let more_body = message
             .call_method1("get", ("more_body", false))?
             .is_truthy()?;
+
+        // Request.stream() marks a terminal receive consumed before testing
+        // body truthiness. Keep that state change if a bytes subclass raises
+        // from __bool__, so a later body()/stream() call observes the same
+        // consumed-stream error as upstream Starlette.
+        if !more_body {
+            borrow_runtime_mut(py, shared)?
+                .accumulator
+                .accept_pending_message("http.request", &[], false)
+                .map_err(|error| request_body_error(py, error))?;
+        }
+
+        let (body, body_object) = if body_object.is_truthy()? {
+            (
+                body_object.extract::<Vec<u8>>()?,
+                Some(body_object.unbind()),
+            )
+        } else {
+            (Vec::new(), None)
+        };
         return Ok(ParsedRequestMessage {
             kind: RequestMessageKind::Request,
             body,
