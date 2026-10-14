@@ -5085,6 +5085,17 @@
               "target_profiles": [
                 "python-package-cpython312"
               ]
+            },
+            {
+              "id": "starlette.concurrency.iterate_in_threadpool.athrow-after-exhaustion-is-noop",
+              "dimension": "protocol_variant",
+              "description": "After input-driven normal exhaustion, athrow(StopIteration) and athrow(ValueError) complete without raising and later __anext__ remains exhausted. Pinned wrapper: starlette/concurrency.py:51-59; closed async-generator behavior is supplied by the pinned CPython 3.12 protocol.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
             }
           ],
           "parity": {

@@ -192,7 +192,8 @@
         "starlette.concurrency.iterate_in_threadpool.invalid-athrow-preserves-iteration",
         "starlette.concurrency.iterate_in_threadpool.athrow-stop-async-iteration-pep479",
         "starlette.concurrency.iterate_in_threadpool.athrow-stop-iteration-pep479",
-        "starlette.concurrency.iterate_in_threadpool.pre-start-throw-closes-iterator"
+        "starlette.concurrency.iterate_in_threadpool.pre-start-throw-closes-iterator",
+        "starlette.concurrency.iterate_in_threadpool.athrow-after-exhaustion-is-noop"
       ],
       "target_profiles": [
         "python-package-cpython312"
@@ -258,6 +259,12 @@
               70,
               71
             ]
+          },
+          {
+            "stream_id": "athrow-after-exhaustion",
+            "items": [
+              80
+            ]
           }
         ],
         "actions": [
@@ -400,6 +407,38 @@
           {
             "stream_id": "throw-before-start-aclose",
             "operation": "next"
+          },
+          {
+            "stream_id": "athrow-after-exhaustion",
+            "operation": "next"
+          },
+          {
+            "stream_id": "athrow-after-exhaustion",
+            "operation": "next"
+          },
+          {
+            "stream_id": "athrow-after-exhaustion",
+            "operation": "athrow",
+            "arguments": [
+              {
+                "kind": "exception-class",
+                "name": "StopIteration"
+              }
+            ]
+          },
+          {
+            "stream_id": "athrow-after-exhaustion",
+            "operation": "athrow",
+            "arguments": [
+              {
+                "kind": "exception-class",
+                "name": "ValueError"
+              }
+            ]
+          },
+          {
+            "stream_id": "athrow-after-exhaustion",
+            "operation": "next"
           }
         ]
       }
@@ -415,7 +454,8 @@
         "starlette.concurrency.iterate_in_threadpool.invalid-athrow-preserves-iteration",
         "starlette.concurrency.iterate_in_threadpool.athrow-stop-async-iteration-pep479",
         "starlette.concurrency.iterate_in_threadpool.athrow-stop-iteration-pep479",
-        "starlette.concurrency.iterate_in_threadpool.pre-start-throw-closes-iterator"
+        "starlette.concurrency.iterate_in_threadpool.pre-start-throw-closes-iterator",
+        "starlette.concurrency.iterate_in_threadpool.athrow-after-exhaustion-is-noop"
       ],
       "target_profiles": [
         "python-package-cpython312"
@@ -477,6 +517,12 @@
               70,
               71
             ]
+          },
+          {
+            "stream_id": "athrow-after-exhaustion",
+            "items": [
+              80
+            ]
           }
         ],
         "actions": [
@@ -618,6 +664,38 @@
           },
           {
             "stream_id": "throw-before-start-aclose",
+            "operation": "next"
+          },
+          {
+            "stream_id": "athrow-after-exhaustion",
+            "operation": "next"
+          },
+          {
+            "stream_id": "athrow-after-exhaustion",
+            "operation": "next"
+          },
+          {
+            "stream_id": "athrow-after-exhaustion",
+            "operation": "athrow",
+            "arguments": [
+              {
+                "kind": "exception-class",
+                "name": "StopIteration"
+              }
+            ]
+          },
+          {
+            "stream_id": "athrow-after-exhaustion",
+            "operation": "athrow",
+            "arguments": [
+              {
+                "kind": "exception-class",
+                "name": "ValueError"
+              }
+            ]
+          },
+          {
+            "stream_id": "athrow-after-exhaustion",
             "operation": "next"
           }
         ]

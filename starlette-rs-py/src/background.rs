@@ -792,6 +792,10 @@ impl AwaitableStateMachine for ThreadpoolIteratorThrow {
                         return Err(error);
                     }
                 };
+                if self.finished.get() {
+                    self.running.set(false);
+                    return Ok(MachineAction::Complete(py.None()));
+                }
                 self.finished.set(true);
                 self.iterable.replace(py, None)?;
                 self.iterator.replace(py, None)?;

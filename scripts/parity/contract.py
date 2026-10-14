@@ -206,6 +206,9 @@ ITERATE_THREADPOOL_REQUIREMENTS = {
     "pre_start_throw_closes_iterator": (
         f"{THREADPOOL_SURFACE}.{ITERATE_THREADPOOL_OPERATION}.pre-start-throw-closes-iterator"
     ),
+    "athrow_after_exhaustion_is_noop": (
+        f"{THREADPOOL_SURFACE}.{ITERATE_THREADPOOL_OPERATION}.athrow-after-exhaustion-is-noop"
+    ),
 }
 ITERATE_THREADPOOL_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
     "iterable",
@@ -24921,7 +24924,11 @@ def _validate_iterate_threadpool_case(case: dict[str, Any]) -> None:
                         argument["name"],
                         f"iterate_in_threadpool protocol action {index} athrow argument {argument_index} name",
                     )
-                    if exception_name not in {"StopAsyncIteration", "StopIteration"}:
+                    if exception_name not in {
+                        "StopAsyncIteration",
+                        "StopIteration",
+                        "ValueError",
+                    }:
                         raise ContractError(
                             f"iterate_in_threadpool protocol action {index} uses an unsupported exception class"
                         )
