@@ -6,7 +6,8 @@
       "surface": "starlette.requests.Request",
       "operation": "scope-mapping",
       "covers": [
-        "starlette.requests.Request.scope-mapping.minimal-http-scope"
+        "starlette.requests.Request.scope-mapping.minimal-http-scope",
+        "starlette.requests.Request.scope-property.supplied-mapping"
       ],
       "target_profiles": [
         "python-package-cpython310",
@@ -31,6 +32,7 @@
       "operation": "scope-mapping",
       "covers": [
         "starlette.requests.Request.scope-mapping.minimal-http-scope",
+        "starlette.requests.Request.scope-property.supplied-mapping",
         "starlette.requests.Request.scope-mapping.instance-iter-override"
       ],
       "target_profiles": [
@@ -53,6 +55,31 @@
           "type",
           "method"
         ]
+      },
+      "observations": [
+        "scope-mapping"
+      ]
+    },
+    {
+      "case_id": "starlette.requests.Request.scope-mapping.custom-asgi-data",
+      "surface": "starlette.requests.Request",
+      "operation": "scope-mapping",
+      "covers": [
+        "starlette.requests.Request.scope-property.supplied-mapping"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "http",
+        "method": "GET",
+        "path": "/abc/",
+        "asgi_transaction_id": "txn-42"
       },
       "observations": [
         "scope-mapping"

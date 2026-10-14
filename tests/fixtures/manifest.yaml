@@ -570,6 +570,7 @@
       "build/parity/inputs/parity/request-form-large-part-size.json",
       "build/parity/inputs/parity/request-form-large-count-limits.json",
       "build/parity/inputs/parity/request-form-multipart.json",
+      "build/parity/inputs/parity/request-form-multipart-parser-edge-cases.json",
       "build/parity/inputs/parity/request-form-multipart-duplicate-charset.json",
       "build/parity/inputs/parity/request-form-multipart-iso-8859-1.json",
       "build/parity/inputs/parity/formdata-constructor.json",
@@ -1652,6 +1653,17 @@
               "id": "starlette.applications.Starlette.__call__.async-route-return-response",
               "dimension": "boundary",
               "description": "Construct a Starlette app with an async HTTP endpoint that returns JSONResponse, then dispatch GET / through the public ASGI callable. Compare status, headers, bytes, and complete events. Upstream: tests/test_applications.py::test_app_add_route.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.applications.Starlette.max_body_size.default-unlimited",
+              "dimension": "parameter_combination",
+              "description": "Omit max_body_size from Starlette construction, then send a non-empty fragmented POST body through a route and observe that the default None limit does not reject it. Pinned source: starlette/applications.py:31,52-53,74-76; tests/middleware/test_body_limit.py.",
               "lanes": [
                 "parity"
               ],
@@ -18734,6 +18746,21 @@
               "id": "starlette.requests.Request.scope-mapping.instance-iter-override",
               "dimension": "boundary",
               "description": "Resolve Request scope iteration through Python's mapping type special method even when the supplied UserDict has an instance-level __iter__ override. Pinned source: starlette/requests.py::HTTPConnection.__iter__ returns iter(self.scope); this input distinguishes Python's special-method lookup from an instance attribute lookup.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
+              "id": "starlette.requests.Request.scope-property.supplied-mapping",
+              "dimension": "boundary",
+              "description": "Expose the supplied ASGI scope through Request.scope without dropping custom scope entries. Pinned source: starlette/requests.py::HTTPConnection.scope; docs/middleware.md:641-657.",
               "lanes": [
                 "parity"
               ],

@@ -339,7 +339,14 @@ impl MultipartFormParser {
     }
 
     fn start_part(&mut self, field: Field<'static>) -> Result<(), MultipartFormParseError> {
-        let disposition = field.headers().get("content-disposition");
+        // Starlette overwrites its stored Content-Disposition value as each
+        // duplicate header is parsed, so the final occurrence wins. HeaderMap
+        // `get` returns the first value for a repeated field.
+        let disposition = field
+            .headers()
+            .get_all("content-disposition")
+            .iter()
+            .next_back();
         let name = disposition
             .and_then(|value| disposition_parameter(value.as_bytes(), "name"))
             .map(|value| user_safe_decode(&value, &self.charset))
@@ -492,21 +499,32 @@ fn split_disposition_parameters(header: &str) -> Vec<&str> {
 fn request_charset(content_type: &str) -> String {
     // `parse_options_header` stores parameters in a dict, so a later charset
     // replaces an earlier one when the header repeats this parameter.
-    content_type
-        .split(';')
+    split_disposition_parameters(content_type)
+        .into_iter()
         .skip(1)
         .filter_map(|parameter| parameter.split_once('='))
-        .filter(|(name, _)| name.trim().eq_ignore_ascii_case("charset"))
-        .last()
-        .map(|(_, value)| value.trim().trim_matches(['"', '\'']).to_owned())
-        .filter(|charset| !charset.is_empty())
-        .unwrap_or_else(|| "utf-8".to_owned())
+        .rfind(|(name, _)| name.trim().eq_ignore_ascii_case("charset"))
+        .map_or_else(
+            || "utf-8".to_owned(),
+            |(_, value)| unquote_parameter(value.trim()),
+        )
+}
+
+fn unquote_parameter(value: &str) -> String {
+    if value.len() >= 2 && value.starts_with('"') && value.ends_with('"') {
+        value[1..value.len() - 1]
+            .replace("\\\\", "\\")
+            .replace("\\\"", "\"")
+    } else {
+        value.to_owned()
+    }
 }
 
 fn user_safe_decode(bytes: &[u8], charset: &str) -> String {
-    // Python's ISO-8859-1 codec maps every byte directly, while encoding_rs
-    // follows the web encoding registry and aliases this label to Windows-1252.
-    if is_iso_8859_1_charset(charset) {
+    // Latin-1 maps every byte directly. For ASCII, Starlette decodes strictly
+    // and falls back to Latin-1 on non-ASCII bytes, so both codecs have the
+    // same final output even though encoding_rs aliases ASCII to Windows-1252.
+    if is_iso_8859_1_charset(charset) || is_ascii_charset(charset) {
         return bytes.iter().map(|byte| char::from(*byte)).collect();
     }
 
@@ -538,5 +556,25 @@ fn is_iso_8859_1_charset(charset: &str) -> bool {
             | "l1"
             | "latin"
             | "latin1"
+    )
+}
+
+fn is_ascii_charset(charset: &str) -> bool {
+    let normalized = charset
+        .bytes()
+        .filter(u8::is_ascii_alphanumeric)
+        .map(|byte| byte.to_ascii_lowercase() as char)
+        .collect::<String>();
+    matches!(
+        normalized.as_str(),
+        "ascii"
+            | "usascii"
+            | "iso646us"
+            | "ansix341968"
+            | "ansix341986"
+            | "isoir6"
+            | "csascii"
+            | "cp367"
+            | "ibm367"
     )
 }

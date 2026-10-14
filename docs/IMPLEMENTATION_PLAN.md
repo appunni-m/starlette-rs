@@ -8,13 +8,18 @@ Pydantic are outside this project's scope.
 ## Execution order and current status
 
 Current implementation checkpoint (2026-10-15): the active manifest validates
-2,470 cases from 403 parity input sources and two benchmark inputs, with 150
-Starlette compatibility operations, 13 Rust-native operations, and 1,361 parity
-requirements. `make source-inventory` passes; its generated atlas reports 861
-upstream source rows, 807 input mappings, 54 source-backed `not_applicable`
-rows, and zero fixture-backlog rows. These are inventory counts, not parity
-results. Full parity, full-suite coverage, and the complete benchmark workload
-remain deferred until implementation across feature families is complete.
+2,486 cases from 404 parity input sources and two benchmark inputs, with 150
+Starlette compatibility operations, 13 Rust-native operations, and 1,364
+parity requirements. `make source-inventory` passes; its generated atlas
+reports 861 upstream source rows, 807 input mappings, 54 source-backed
+`not_applicable` rows, and zero fixture-backlog rows. These are inventory
+counts, not parity results. The current batch fixes source-confirmed multipart
+charset and repeated-header mismatches, adds input-only coverage for custom
+`Request.scope` values and application-to-Mount body limits, and maps the
+TestClient timeout/cookie and request-form source rows to their active
+requirements. All new comparisons remain unexecuted. Full parity, full-suite
+coverage, and the complete benchmark workload remain deferred until
+implementation across feature families is complete.
 
 This checkpoint adds three implementation slices. Schema converter removal
 now preserves lone-surrogate paths while matching Python `str.isalnum()` for

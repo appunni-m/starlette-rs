@@ -1748,9 +1748,11 @@ def _materialize_application(
         "middleware",
         "exception_handlers",
         "lifespan",
-        "max_body_size",
     }
-    if set(app_spec) != required_arguments:
+    if frozenset(app_spec) not in {
+        frozenset(required_arguments),
+        frozenset(required_arguments | {"max_body_size"}),
+    }:
         raise ValueError("Starlette.__init__ arguments do not match the declared workflow")
     lifecycle_trace: list[Any] = []
     captured_application["attribute_trace"] = lifecycle_trace
@@ -1970,6 +1972,7 @@ def _materialize_application(
                 return Router(
                     routes=[make_middleware_route(child) for child in route_spec["routes"]],
                     middleware=middleware,
+                    max_body_size=route_spec.get("max_body_size"),
                 )
             if kind == "http-route":
                 endpoint_spec = route_spec["endpoint"]
@@ -2003,6 +2006,11 @@ def _materialize_application(
                     def endpoint(_request: Any) -> None:
                         raise Exception(endpoint_spec["message"])
 
+                elif endpoint_spec["kind"] == "request-body-echo":
+
+                    async def endpoint(request: Any) -> Any:
+                        return Response(await request.body())
+
                 else:
                     raise ValueError("route-middleware endpoint uses an unsupported input kind")
                 middleware = _build_reverse_route_middleware(route_spec.get("middleware", []))
@@ -2012,6 +2020,7 @@ def _materialize_application(
                     methods=route_spec["methods"],
                     name=route_spec.get("name"),
                     middleware=middleware,
+                    max_body_size=route_spec.get("max_body_size"),
                 )
             if kind != "mount":
                 raise ValueError("route-middleware node must be an HTTP route, Router, or Mount")
@@ -2021,22 +2030,26 @@ def _materialize_application(
                     route_spec["path"],
                     app=make_middleware_route(route_spec["app"]),
                     middleware=middleware,
+                    max_body_size=route_spec.get("max_body_size"),
                 )
             return Mount(
                 route_spec["path"],
                 routes=[make_middleware_route(child) for child in route_spec["routes"]],
                 middleware=middleware,
+                max_body_size=route_spec.get("max_body_size"),
             )
 
         route_objects = [make_middleware_route(route) for route in app_spec["routes"]]
-        app = application_type(
-            debug=app_spec["debug"],
-            routes=route_objects,
-            middleware=middleware_input,
-            exception_handlers=exception_handlers,
-            lifespan=lifespan,
-            max_body_size=app_spec["max_body_size"],
-        )
+        application_arguments = {
+            "debug": app_spec["debug"],
+            "routes": route_objects,
+            "middleware": middleware_input,
+            "exception_handlers": exception_handlers,
+            "lifespan": lifespan,
+        }
+        if "max_body_size" in app_spec:
+            application_arguments["max_body_size"] = app_spec["max_body_size"]
+        app = application_type(**application_arguments)
         return app, lifecycle_trace, request_observations, route_endpoint, sync_endpoint_states
 
     for route_spec in app_spec["routes"]:
@@ -3047,14 +3060,16 @@ def _materialize_application(
 
     with warnings.catch_warnings(record=True) as recorded_warnings:
         warnings.simplefilter("always")
-        app = application_type(
-            debug=app_spec["debug"],
-            routes=routes,
-            middleware=middleware_input,
-            exception_handlers=exception_handlers,
-            lifespan=lifespan,
-            max_body_size=app_spec["max_body_size"],
-        )
+        application_arguments = {
+            "debug": app_spec["debug"],
+            "routes": routes,
+            "middleware": middleware_input,
+            "exception_handlers": exception_handlers,
+            "lifespan": lifespan,
+        }
+        if "max_body_size" in app_spec:
+            application_arguments["max_body_size"] = app_spec["max_body_size"]
+        app = application_type(**application_arguments)
     app._parity_lifespan_warnings = [
         {
             "category": f"{item.category.__module__}.{item.category.__qualname__}",

@@ -727,6 +727,7 @@ REQUEST_COOKIE_CACHE_SEQUENCE_CASE_KEYS = (CASE_KEYS - {"steps", "execution_sche
     "actions",
 }
 REQUEST_SCOPE_MAPPING_REQUIREMENT = "starlette.requests.Request.scope-mapping.minimal-http-scope"
+REQUEST_SCOPE_PROPERTY_REQUIREMENT = "starlette.requests.Request.scope-property.supplied-mapping"
 REQUEST_SCOPE_IDENTITY_REQUIREMENT = "starlette.requests.Request.scope-mapping.object-identity"
 REQUEST_SCOPE_INSTANCE_ITER_REQUIREMENT = (
     "starlette.requests.Request.scope-mapping.instance-iter-override"
@@ -1800,6 +1801,7 @@ STARLETTE_ROUTES_OPERATION_KEY = ("starlette.applications.Starlette", "routes")
 ROUTE_CONSTRUCTOR_OPERATION_KEY = ("starlette.routing.Route", "__init__")
 ROUTE_BODY_LIMIT_WORKFLOW_REQUIREMENTS = {
     "application_default": "starlette.routing.Route.max_body_size.application-default",
+    "application_default_unlimited": "starlette.applications.Starlette.max_body_size.default-unlimited",
     "raise_application": "starlette.routing.Route.max_body_size.raise-application-limit",
     "application_limit_before_route_override": (
         "starlette.routing.Route.max_body_size.application-limit-before-route-override"
@@ -1808,6 +1810,7 @@ ROUTE_BODY_LIMIT_WORKFLOW_REQUIREMENTS = {
         "starlette.routing.Route.max_body_size.raise-application-limit-through-scope-copy"
     ),
     "lower_application": "starlette.routing.Route.max_body_size.lower-application-limit",
+    "mount_override": "starlette.routing.Mount.route-dispatch.max-body-size-override",
 }
 ROUTER_MISS_EXCEPTION_HANDLER_REQUIREMENT = "starlette.asgi.exception-handler.router-miss-404"
 EXCEPTION_CLASS_MRO_ORDER_REQUIREMENT = "starlette.asgi.exception-handler.exception-class-mro-order"
@@ -25120,6 +25123,8 @@ def _validate_case_payload(
         expected_schedule = _starlette_add_middleware_expected_schedule(case)
     elif is_starlette_add_exception_handler_workflow:
         expected_schedule = _starlette_add_exception_handler_expected_schedule(case)
+    elif is_route_body_limit_workflow:
+        expected_schedule = ["dispatch"]
     elif is_route_middleware_workflow:
         expected_schedule = step_ids[1:]
     elif step_ids == ["application", "dispatch-get", "dispatch-head"]:
@@ -28346,17 +28351,24 @@ def _validate_application_stimulus(
     allow_user_middleware_iterable: bool = False,
     allow_exception_handlers_userdict: bool = False,
 ) -> None:
-    if set(args) != {
+    required_constructor_inputs = {
         "debug",
         "routes",
         "middleware",
         "exception_handlers",
         "lifespan",
-        "max_body_size",
+    }
+    if not isinstance(args, dict) or frozenset(args) not in {
+        frozenset(required_constructor_inputs),
+        frozenset(required_constructor_inputs | {"max_body_size"}),
     }:
-        raise ContractError(
-            "application inputs must explicitly encode each Starlette constructor input"
-        )
+        raise ContractError("application inputs must encode required Starlette constructor inputs")
+    if "max_body_size" not in args:
+        if not _is_route_body_limit_application(args):
+            raise ContractError(
+                "Starlette.max_body_size may be omitted only in a body-limit route workflow"
+            )
+        args = {**args, "max_body_size": None}
     observable_mapping = (
         isinstance(args["exception_handlers"], dict)
         and args["exception_handlers"].get("kind") == "observable-mapping"
@@ -29325,31 +29337,57 @@ def _is_route_body_limit_workflow(case: Any) -> bool:
         or routes_input.get("kind") != "literal"
         or not isinstance(routes_input.get("value"), list)
         or len(routes_input["value"]) != 1
-        or not isinstance(limit_input, dict)
-        or limit_input.get("kind") != "literal"
-        or type(limit_input.get("value")) is not int
+        or (
+            limit_input is not None
+            and (
+                not isinstance(limit_input, dict)
+                or limit_input.get("kind") != "literal"
+                or (
+                    limit_input.get("value") is not None
+                    and type(limit_input.get("value")) is not int
+                )
+            )
+        )
     ):
         return False
     route = routes_input["value"][0]
+    if not isinstance(route, dict):
+        return False
+    if route.get("kind") == "http-route":
+        return "max_body_size" in route and _is_route_body_limit_endpoint(route.get("endpoint"))
+    if route.get("kind") != "mount" or "max_body_size" not in route:
+        return False
+    children = route.get("routes")
     return (
-        isinstance(route, dict)
-        and route.get("kind") == "http-route"
-        and "max_body_size" in route
-        and _is_route_body_limit_endpoint(route.get("endpoint"))
+        isinstance(children, list)
+        and len(children) == 1
+        and isinstance(children[0], dict)
+        and children[0].get("kind") == "http-route"
+        and _is_route_body_limit_endpoint(children[0].get("endpoint"))
     )
 
 
 def _is_route_body_limit_application(arguments: Any) -> bool:
-    if not isinstance(arguments, dict) or type(arguments.get("max_body_size")) is not int:
+    if not isinstance(arguments, dict) or (
+        arguments.get("max_body_size") is not None
+        and type(arguments.get("max_body_size")) is not int
+    ):
         return False
     routes = arguments.get("routes")
     if not isinstance(routes, list) or len(routes) != 1 or not isinstance(routes[0], dict):
         return False
     route = routes[0]
+    if route.get("kind") == "http-route":
+        return "max_body_size" in route and _is_route_body_limit_endpoint(route.get("endpoint"))
+    if route.get("kind") != "mount" or "max_body_size" not in route:
+        return False
+    children = route.get("routes")
     return (
-        route.get("kind") == "http-route"
-        and "max_body_size" in route
-        and _is_route_body_limit_endpoint(route.get("endpoint"))
+        isinstance(children, list)
+        and len(children) == 1
+        and isinstance(children[0], dict)
+        and children[0].get("kind") == "http-route"
+        and _is_route_body_limit_endpoint(children[0].get("endpoint"))
     )
 
 
@@ -29376,11 +29414,13 @@ def _is_route_body_limit_endpoint(endpoint: Any) -> bool:
 
 
 def _validate_route_body_limit_application(arguments: dict[str, Any]) -> None:
-    arguments = _exact(
-        arguments,
-        {"debug", "routes", "middleware", "exception_handlers", "lifespan", "max_body_size"},
-        "route body-limit application input",
-    )
+    required_arguments = {"debug", "routes", "middleware", "exception_handlers", "lifespan"}
+    allowed_arguments = required_arguments | {"max_body_size"}
+    if not isinstance(arguments, dict) or frozenset(arguments) not in {
+        frozenset(required_arguments),
+        frozenset(allowed_arguments),
+    }:
+        raise ContractError("route body-limit application input has unsupported arguments")
     middleware = arguments["middleware"]
     if not isinstance(middleware, list):
         raise ContractError("route body-limit middleware must be an input-defined array")
@@ -29396,16 +29436,53 @@ def _validate_route_body_limit_application(arguments: dict[str, Any]) -> None:
     if (
         arguments["debug"] is not False
         or arguments["exception_handlers"] != []
-        or type(arguments["max_body_size"]) is not int
-        or arguments["max_body_size"] < 0
+        or (
+            arguments.get("max_body_size") is not None
+            and (type(arguments["max_body_size"]) is not int or arguments["max_body_size"] < 0)
+        )
         or _validate_lifespan_marker(arguments["lifespan"]) != "async-context-manager"
     ):
         raise ContractError("route body-limit application must use the declared bounded setup")
     routes = arguments["routes"]
     if not isinstance(routes, list) or len(routes) != 1:
-        raise ContractError("route body-limit application must contain one HTTP route")
+        raise ContractError("route body-limit application must contain one HTTP route or Mount")
+    route = routes[0]
+    if isinstance(route, dict) and route.get("kind") == "mount":
+        route = _exact(
+            route,
+            {"kind", "path", "max_body_size", "routes"},
+            "route body-limit Mount input",
+        )
+        mount_limit = route["max_body_size"]
+        children = route["routes"]
+        if (
+            not isinstance(route["path"], str)
+            or not route["path"].startswith("/")
+            or type(mount_limit) is not int
+            or mount_limit < 0
+            or (
+                arguments.get("max_body_size") is not None
+                and mount_limit <= arguments["max_body_size"]
+            )
+            or not isinstance(children, list)
+            or len(children) != 1
+        ):
+            raise ContractError("route body-limit Mount must raise its enclosing app limit")
+        child = _exact(
+            children[0],
+            {"kind", "path", "methods", "endpoint"},
+            "route body-limit mounted child Route input",
+        )
+        if (
+            child["kind"] != "http-route"
+            or child["path"] != "/"
+            or child["methods"] != ["POST"]
+            or child["endpoint"] != {"kind": "request-body-echo"}
+        ):
+            raise ContractError("route body-limit Mount must contain one POST body-echo Route")
+        return
     route = _exact(
-        routes[0],
+        route,
         {"kind", "path", "methods", "endpoint", "max_body_size"},
         "route body-limit route input",
     )
@@ -29433,8 +29510,7 @@ def _route_body_limit_requirement_from_input(case: dict[str, Any]) -> str | None
         key: descriptor["value"] for key, descriptor in case["steps"][1]["arguments"].items()
     }
     route = construction["routes"][0]
-    app_limit = construction["max_body_size"]
-    route_limit = route["max_body_size"]
+    app_limit = construction.get("max_body_size")
     scope_copy_middleware = any(
         middleware_spec["kind"] == "copy-scope" for middleware_spec in construction["middleware"]
     )
@@ -29442,9 +29518,23 @@ def _route_body_limit_requirement_from_input(case: dict[str, Any]) -> str | None
         len(base64.b64decode(message["body_base64"], validate=True))
         for message in dispatch["receive"]
     )
-    if route_limit is None and body_size > app_limit:
-        return ROUTE_BODY_LIMIT_WORKFLOW_REQUIREMENTS["application_default"]
+    if route["kind"] == "mount":
+        mount_limit = route["max_body_size"]
+        if (
+            (app_limit is None or mount_limit > app_limit)
+            and body_size > (app_limit or 0)
+            and body_size <= mount_limit
+        ):
+            return ROUTE_BODY_LIMIT_WORKFLOW_REQUIREMENTS["mount_override"]
+        return None
+    route_limit = route["max_body_size"]
     if route_limit is None:
+        if app_limit is None and body_size > 0:
+            return ROUTE_BODY_LIMIT_WORKFLOW_REQUIREMENTS["application_default_unlimited"]
+        if app_limit is not None and body_size > app_limit:
+            return ROUTE_BODY_LIMIT_WORKFLOW_REQUIREMENTS["application_default"]
+        return None
+    if app_limit is None:
         return None
     body_read_before_routing = any(
         middleware_spec["kind"] in {"read-before-application", "base-http-read-body"}
@@ -29472,13 +29562,19 @@ def _validate_route_body_limit_workflow(case: dict[str, Any]) -> None:
         key: descriptor["value"] for key, descriptor in case["steps"][0]["arguments"].items()
     }
     route = construction["routes"][0]
+    if route["kind"] == "mount":
+        route_path = route["path"].rstrip("/") + "/"
+        endpoint = route["routes"][0]["endpoint"]
+    else:
+        route_path = route["path"]
+        endpoint = route["endpoint"]
     dispatch = {
         key: descriptor["value"] for key, descriptor in case["steps"][1]["arguments"].items()
     }
     scope = dispatch["scope"]
     if (
         scope.get("type") != "http"
-        or scope.get("path") != route["path"]
+        or scope.get("path") != route_path
         or scope.get("method") != "POST"
     ):
         raise ContractError("route body-limit dispatch must POST to its configured route")
@@ -29506,7 +29602,7 @@ def _validate_route_body_limit_workflow(case: dict[str, Any]) -> None:
             "route body-limit request may omit Content-Length or declare its complete "
             "non-empty body length"
         )
-    if route["endpoint"]["kind"] == "request-form-consumer":
+    if endpoint["kind"] == "request-form-consumer":
         content_types = [value for name, value in headers if name == b"content-type"]
         if len(content_types) != 1:
             raise ContractError("request-form endpoint requires one multipart Content-Type")
@@ -30962,21 +31058,29 @@ def _validate_request_scope_mapping_case(case: dict[str, Any]) -> None:
     if not case["case_id"].startswith("starlette.requests.Request.scope-mapping."):
         raise ContractError("Request scope-mapping case ID must bind to the mapping interface")
     expected_scope = {"type": "http", "method": "GET", "path": "/abc/"}
-    if case["scope"] != expected_scope:
-        raise ContractError("Request scope-mapping input must preserve the pinned minimal scope")
+    scope = case["scope"]
+    if not isinstance(scope, dict) or any(
+        scope.get(key) != value for key, value in expected_scope.items()
+    ):
+        raise ContractError("Request scope-mapping input must preserve the pinned HTTP scope")
     requirements = set(case["covers"])
     allowed_requirements = {
         REQUEST_SCOPE_MAPPING_REQUIREMENT,
         REQUEST_SCOPE_IDENTITY_REQUIREMENT,
         REQUEST_SCOPE_INSTANCE_ITER_REQUIREMENT,
+        REQUEST_SCOPE_PROPERTY_REQUIREMENT,
     }
-    if (
-        REQUEST_SCOPE_MAPPING_REQUIREMENT not in requirements
-        or not requirements <= allowed_requirements
-    ):
+    if not requirements <= allowed_requirements:
         raise ContractError(
             "Request scope-mapping case must cover its declared mapping requirements"
         )
+    if set(scope) == set(expected_scope):
+        if REQUEST_SCOPE_MAPPING_REQUIREMENT not in requirements:
+            raise ContractError("minimal Request scope mapping must cover the mapping requirement")
+    elif REQUEST_SCOPE_PROPERTY_REQUIREMENT not in requirements or any(
+        not isinstance(key, str) or not key for key in scope
+    ):
+        raise ContractError("custom Request scope data must cover the scope property requirement")
     if "scope_mapping" in case:
         mapping_spec = _exact(
             case["scope_mapping"],
@@ -31001,6 +31105,7 @@ def _validate_request_scope_mapping_case(case: dict[str, Any]) -> None:
         if requirements != {
             REQUEST_SCOPE_MAPPING_REQUIREMENT,
             REQUEST_SCOPE_INSTANCE_ITER_REQUIREMENT,
+            REQUEST_SCOPE_PROPERTY_REQUIREMENT,
         }:
             raise ContractError(
                 "Request scope mapping override must cover its iterator requirement"

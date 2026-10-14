@@ -6,14 +6,14 @@ import base64
 import builtins
 import operator
 from collections import UserDict
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from typing import Any
 
 
 def _safe(value: Any) -> Any:
     if value is None or isinstance(value, (bool, int, float, str)):
         return value
-    if isinstance(value, dict):
+    if isinstance(value, Mapping):
         return {str(key): _safe(item) for key, item in value.items()}
     if isinstance(value, (list, tuple)):
         return [_safe(item) for item in value]
@@ -74,6 +74,7 @@ def run_request_scope_mapping_case(
     peer = request_type(dict(case["scope"]))
     value = {
         "keyed_method": _safe(request["method"]),
+        "scope_property": _safe(request.scope),
         "mapping": _safe(dict(request)),
         "iteration_order": _safe(list(request)),
         "length": len(request),
