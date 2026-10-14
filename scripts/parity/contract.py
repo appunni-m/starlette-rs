@@ -939,6 +939,7 @@ TEMPLATING_PUBLIC_REQUIREMENTS = {
         "default-autoescape",
         "supplied-environment",
         "context-processors",
+        "async-context-processors-unsupported",
         "processor-exception-before-template-lookup",
         "base-http-middleware",
         "url-for",
@@ -32828,6 +32829,10 @@ def _validate_request_form_case(case: dict[str, Any]) -> None:
                 expected_covers.append("starlette.datastructures.FormData.close")
             if form_access == "context-manager":
                 expected_covers.append("starlette.request.form.context-manager-lifecycle")
+                if has_file_probes:
+                    expected_covers.append(
+                        "starlette.request.form.context-manager-closes-upload-files"
+                    )
             if case.get("form_io_trace", False):
                 file_data_range = _first_multipart_file_data_range(
                     effective_content_type_header or "", body
@@ -34817,6 +34822,8 @@ def _validate_templating_public_case(case: dict[str, Any]) -> None:
             coverage.add(TEMPLATING_PUBLIC_REQUIREMENTS["directory-sequence"])
         if has_processors:
             coverage.add(TEMPLATING_PUBLIC_REQUIREMENTS["context-processors"])
+        if has_async_processors:
+            coverage.add(TEMPLATING_PUBLIC_REQUIREMENTS["async-context-processors-unsupported"])
         if has_sync_raising_processors:
             coverage.add(
                 TEMPLATING_PUBLIC_REQUIREMENTS["processor-exception-before-template-lookup"]

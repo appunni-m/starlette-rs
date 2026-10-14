@@ -556,7 +556,8 @@
       "covers": [
         "starlette.templating.Jinja2Templates.template-public-workflow.construction",
         "starlette.templating.Jinja2Templates.template-public-workflow.subclass-hook-dispatch",
-        "starlette.templating.Jinja2Templates.template-public-workflow.context-processors"
+        "starlette.templating.Jinja2Templates.template-public-workflow.context-processors",
+        "starlette.templating.Jinja2Templates.template-public-workflow.async-context-processors-unsupported"
       ],
       "target_profiles": [
         "python-package-cpython312"

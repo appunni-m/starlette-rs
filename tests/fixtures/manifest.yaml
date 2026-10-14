@@ -570,6 +570,7 @@
       "build/parity/inputs/parity/request-form-large-part-size.json",
       "build/parity/inputs/parity/request-form-large-count-limits.json",
       "build/parity/inputs/parity/request-form-multipart.json",
+      "build/parity/inputs/parity/request-form-context-manager-file-close.json",
       "build/parity/inputs/parity/request-form-multipart-parser-edge-cases.json",
       "build/parity/inputs/parity/request-form-multipart-duplicate-charset.json",
       "build/parity/inputs/parity/request-form-multipart-iso-8859-1.json",
@@ -17328,6 +17329,21 @@
               "id": "starlette.request.form.context-manager-lifecycle",
               "dimension": "runtime",
               "description": "Consume the URL-encoded Request.form result with async-with entry and exit, preserving the FormData result and completing the context-manager lifecycle. Pinned source: starlette/requests.py:313-321; tests/test_requests.py::test_request_form_context_manager; docs/requests.md:83, 124-136.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
+              "id": "starlette.request.form.context-manager-closes-upload-files",
+              "dimension": "runtime",
+              "description": "When a multipart Request.form result containing UploadFile values is consumed with async-with, close the uploads when the form context exits while preserving the FormData result inside the context. Pinned source: starlette/requests.py:313-321; starlette/_utils.py:64-79; starlette/datastructures.py:482-498; docs/requests.md:83, 124-136.",
               "lanes": [
                 "parity"
               ],
@@ -35275,6 +35291,17 @@
               "id": "starlette.templating.Jinja2Templates.template-public-workflow.context-processors",
               "dimension": "success_path",
               "description": "Render through a named route and TestClient after synchronous processors supply input mappings; compare processor calls, merged context, metadata, and response events. Pinned source: tests/test_templates.py:49-74; starlette/templating.py:142-151.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.templating.Jinja2Templates.template-public-workflow.async-context-processors-unsupported",
+              "dimension": "error_path",
+              "description": "Invoke an input-defined asynchronous context processor synchronously without awaiting it, preserving the source-visible unsupported-processor failure through TemplateResponse. Pinned source: docs/templates.md:87-121; starlette/templating.py:142-148.",
               "lanes": [
                 "parity"
               ],

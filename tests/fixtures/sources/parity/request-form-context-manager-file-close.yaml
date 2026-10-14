@@ -1,0 +1,74 @@
+{
+  "schema": "migration-parity/parity-input@55",
+  "cases": [
+    {
+      "case_id": "starlette.requests.Request.form.multipart-context-manager-closes-upload-file",
+      "surface": "starlette.requests.Request",
+      "operation": "form",
+      "covers": [
+        "starlette.request.form.multipart-form-data",
+        "starlette.datastructures.FormData.multidict-lookups",
+        "starlette.datastructures.FormData.file-values",
+        "starlette.datastructures.UploadFile.file-operations",
+        "starlette.datastructures.FormData.close",
+        "starlette.request.form.context-manager-lifecycle",
+        "starlette.request.form.context-manager-closes-upload-files"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "POST",
+        "scheme": "http",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "Y29udGVudC10eXBl",
+            "bXVsdGlwYXJ0L2Zvcm0tZGF0YTsgYm91bmRhcnk9Zm9ybS1jb250ZXh0LWNsb3NlLTE="
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "receive": [
+        {
+          "type": "http.request",
+          "body_base64": "LS1mb3JtLWNvbnRleHQtY2xvc2UtMQ0KQ29udGVudC1EaXNwb3NpdGlvbjogZm9ybS1kYXRhOyBuYW1lPSJ1cGxvYWQiOyBmaWxlbmFtZT0ic21hbGwudHh0Ig0KQ29udGVudC1UeXBlOiB0ZXh0L3BsYWluDQoNCmhlbGxvDQotLWZvcm0tY29udGV4dC1jbG9zZS0xLS0NCg==",
+          "more_body": false
+        }
+      ],
+      "form_probe_keys": [
+        "upload"
+      ],
+      "form_file_probe_keys": [
+        "upload"
+      ],
+      "form_file_read_size": 5,
+      "observations": [
+        "form"
+      ],
+      "form_options": {},
+      "form_access": "context-manager"
+    }
+  ]
+}
