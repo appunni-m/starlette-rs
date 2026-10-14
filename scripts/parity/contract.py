@@ -1741,6 +1741,9 @@ ASYNC_CALL_BOUNDARY_REQUIREMENTS = (
     "starlette.asgi.caller-event-loop-ownership",
     "starlette.asgi.request-cancellation",
 )
+# These explicit scope/API gaps are carried by partial-support records without
+# being requirements of the bounded operation itself. The manifest remains the
+# source for each use; validation below rejects stale allowlist entries.
 DECLARED_UNSCOPED_SUPPORT_GAPS = {
     (
         "starlette.applications.Starlette",
@@ -1761,7 +1764,6 @@ DECLARED_UNSCOPED_SUPPORT_GAPS = {
     ): frozenset(
         {
             "starlette.asgi.boundary-cancellation",
-            "starlette.asgi.scope-mutation",
             "starlette.asgi.streaming",
             "starlette.compatibility.full-public-surface",
         }
@@ -1785,7 +1787,6 @@ DECLARED_UNSCOPED_SUPPORT_GAPS = {
     ): frozenset(
         {
             "starlette.asgi.boundary-cancellation",
-            "starlette.asgi.scope-mutation",
             "starlette.asgi.streaming",
             "starlette.compatibility.full-public-surface",
         }
@@ -1796,11 +1797,6 @@ DECLARED_UNSCOPED_SUPPORT_GAPS = {
     (ROUTER_SURFACE, ROUTER_URL_PATH_FOR_OPERATION, "rust-native"): frozenset(
         {ROUTER_URL_PATH_FOR_NATIVE_GAP, ROUTER_URL_PATH_FOR_ERROR_MAPPING_GAP}
     ),
-    (
-        UPLOAD_FILE_OPERATION[0],
-        UPLOAD_FILE_OPERATION[1],
-        "python-package",
-    ): frozenset({UPLOAD_FILE_CONSTRUCTOR_GAP}),
 }
 GZIP_SURFACE = "starlette.middleware.gzip.GZipMiddleware"
 GZIP_RESPONDER_SURFACE = "starlette.middleware.gzip.GZipResponder"
@@ -2473,6 +2469,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
     if public_surface_ids & native_surface_ids:
         raise ContractError("native_surfaces IDs must be separate from Starlette surfaces")
     operation_rows: dict[tuple[str, str], dict[str, Any]] = {}
+    used_unscoped_support_gaps: set[tuple[str, str, str, str]] = set()
     surface_rows = [(f"surfaces[{index}]", surface) for index, surface in enumerate(surfaces)] + [
         (f"native_surfaces[{index}]", surface) for index, surface in enumerate(native_surfaces)
     ]
@@ -3232,6 +3229,10 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                     raise ContractError(
                         f"{context}.targets missing support references undeclared requirement IDs: {sorted(unknown_requirements)}"
                     )
+                used_unscoped_support_gaps.update(
+                    (surface["id"], operation["id"], target_id, requirement)
+                    for requirement in set(missing_requirements) - requirement_ids
+                )
             for lane in ("parity", "coverage", "benchmark"):
                 policy = operation[lane]
                 if not isinstance(policy, dict) or policy.get("applicability") not in {
@@ -3404,6 +3405,18 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                     raise ContractError(
                         f"{context}.{lane} is required but this contract has no matching input"
                     )
+
+    declared_unscoped_support_gaps = {
+        (*operation_key, requirement)
+        for operation_key, requirements in DECLARED_UNSCOPED_SUPPORT_GAPS.items()
+        for requirement in requirements
+    }
+    unused_unscoped_support_gaps = declared_unscoped_support_gaps - used_unscoped_support_gaps
+    if unused_unscoped_support_gaps:
+        raise ContractError(
+            "declared unscoped support gaps must be referenced by partial target records: "
+            f"{sorted(unused_unscoped_support_gaps)}"
+        )
 
     docs = _exact(
         manifest["documentation"],
@@ -4598,6 +4611,7 @@ def _validate_websocket_athrow_arguments(arguments: Any, context: str) -> None:
         "TypeError",
         "LookupError",
         "KeyError",
+        "StopIteration",
         "StopAsyncIteration",
         "WebSocketDisconnect",
     }

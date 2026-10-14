@@ -6,7 +6,8 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use pyo3::class::gc::{PyTraverseError, PyVisit};
 
 use pyo3::exceptions::{
-    PyAssertionError, PyOSError, PyRuntimeError, PyStopAsyncIteration, PyTypeError, PyValueError,
+    PyAssertionError, PyOSError, PyRuntimeError, PyStopAsyncIteration, PyStopIteration,
+    PyTypeError, PyValueError,
 };
 use pyo3::prelude::*;
 use pyo3::types::{
@@ -1370,6 +1371,12 @@ impl AwaitableStateMachine for WebSocketIteratorThrow {
                     Err(PyStopAsyncIteration::new_err(()))
                 } else if !was_finished
                     && self.started.get()
+                    && error.is_instance_of::<PyStopIteration>(py)
+                {
+                    // PEP 479 converts StopIteration escaping an async generator body.
+                    Err(async_generator_stop_iteration_error(py, error))
+                } else if !was_finished
+                    && self.started.get()
                     && error.is_instance_of::<PyStopAsyncIteration>(py)
                 {
                     Err(async_generator_stop_async_iteration_error(py, error))
@@ -1495,6 +1502,13 @@ impl WebSocketIteratorStep {
 
 fn async_generator_stop_async_iteration_error(py: Python<'_>, cause: PyErr) -> PyErr {
     let error = PyRuntimeError::new_err("async generator raised StopAsyncIteration");
+    error.set_context(py, Some(cause.clone_ref(py)));
+    error.set_cause(py, Some(cause));
+    error
+}
+
+fn async_generator_stop_iteration_error(py: Python<'_>, cause: PyErr) -> PyErr {
+    let error = PyRuntimeError::new_err("async generator raised StopIteration");
     error.set_context(py, Some(cause.clone_ref(py)));
     error.set_cause(py, Some(cause));
     error
