@@ -2192,6 +2192,13 @@
                 ]
               },
               {
+                "name": "Request.close",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
                 "name": "Request.form",
                 "observe": [
                   "presence",
@@ -2398,6 +2405,13 @@
                 ]
               },
               {
+                "name": "Host.__repr__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
                 "name": "Host.__init__",
                 "observe": [
                   "presence",
@@ -2406,6 +2420,13 @@
               },
               {
                 "name": "Mount",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "Mount.__repr__",
                 "observe": [
                   "presence",
                   "signature"
@@ -2427,6 +2448,13 @@
               },
               {
                 "name": "Route",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "Route.__repr__",
                 "observe": [
                   "presence",
                   "signature"
@@ -2461,6 +2489,13 @@
                 ]
               },
               {
+                "name": "Router.add_route",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
                 "name": "Router.url_path_for",
                 "observe": [
                   "presence",
@@ -2469,6 +2504,13 @@
               },
               {
                 "name": "WebSocketRoute",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "WebSocketRoute.__repr__",
                 "observe": [
                   "presence",
                   "signature"
