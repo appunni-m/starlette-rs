@@ -836,7 +836,7 @@ The input-only fixtures in
 and [`websocket-endpoint-disconnect-missing-code.yaml`](../tests/fixtures/sources/parity/websocket-endpoint-disconnect-missing-code.yaml)
 and [`websocket-endpoint-existing-disconnect-context.yaml`](../tests/fixtures/sources/parity/websocket-endpoint-existing-disconnect-context.yaml)
 and [`websocket-endpoint-encoding-property.yaml`](../tests/fixtures/sources/parity/websocket-endpoint-encoding-property.yaml)
-are four of eight indexed input files with 28 cases for the documented
+are four of thirteen indexed input files with 33 cases for the documented
 `starlette.endpoints.WebSocketEndpoint` ASGI interface. They cover lifecycle
 hooks, offered subprotocols, text/bytes/JSON decoding, malformed and mismatched
 frames, default encoding, callback and synchronous-hook errors, invalid

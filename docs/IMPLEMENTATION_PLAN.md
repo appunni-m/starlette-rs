@@ -235,7 +235,7 @@ from the generated [`coverage matrix`](atlas/coverage-matrix.csv) and
 [`fixture backlog`](atlas/fixture-backlog.csv). Coverage is a measurement, not
 a parity score. The full-replacement goal remains active.
 
-`python3 scripts/check_docs.py` passes its 35-file link check. The aggregate
+`python3 scripts/check_docs.py` passes its 37-file link check. The aggregate
 `make docs-check` still needs a benchmark receipt bound to the current manifest;
 refresh it only during the planned full benchmark phase.
 
