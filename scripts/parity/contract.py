@@ -3775,9 +3775,12 @@ def _validate_websocket_endpoint_case_stimulus(case: dict[str, Any]) -> None:
     if case["target_profiles"] != ["python-package-cpython312"]:
         raise ContractError("WebSocketEndpoint dispatch selects only the Python-package profile")
 
+    endpoint_fields = {"encoding", "on_connect", "on_receive", "on_disconnect"}
+    if isinstance(case["endpoint"], dict) and "json_decoder_lookup" in case["endpoint"]:
+        endpoint_fields.add("json_decoder_lookup")
     endpoint = _exact(
         case["endpoint"],
-        {"encoding", "on_connect", "on_receive", "on_disconnect"},
+        endpoint_fields,
         "WebSocketEndpoint endpoint input",
     )
     encoding = endpoint["encoding"]
@@ -3834,6 +3837,26 @@ def _validate_websocket_endpoint_case_stimulus(case: dict[str, Any]) -> None:
         if encoding is not None and not isinstance(encoding, str):
             raise ContractError("WebSocketEndpoint encoding must be null or a string")
         encoding_supported = encoding is None or encoding in {"text", "bytes", "json"}
+
+    json_decoder_lookup = endpoint.get("json_decoder_lookup")
+    if "json_decoder_lookup" in endpoint:
+        json_decoder_lookup = _exact(
+            json_decoder_lookup,
+            {"kind", "message"},
+            "WebSocketEndpoint.json_decoder_lookup",
+        )
+        if json_decoder_lookup["kind"] != "raise-runtime-error":
+            raise ContractError(
+                "WebSocketEndpoint.json_decoder_lookup.kind must be raise-runtime-error"
+            )
+        _string(
+            json_decoder_lookup["message"],
+            "WebSocketEndpoint.json_decoder_lookup.message",
+        )
+        if encoding != "json" or encoding_kind is not None:
+            raise ContractError(
+                "WebSocketEndpoint.json_decoder_lookup requires literal json encoding"
+            )
 
     on_connect = endpoint["on_connect"]
     if not isinstance(on_connect, dict):
@@ -3984,6 +4007,20 @@ def _validate_websocket_endpoint_case_stimulus(case: dict[str, Any]) -> None:
                         allow_type_lookup_tape=True,
                     )
                 )
+        if json_decoder_lookup is not None and (
+            cancel_at is not None
+            or message_types != ["websocket.connect", "websocket.receive"]
+            or any(
+                isinstance(message, dict) and "type_lookup_tape" in message for message in incoming
+            )
+            or on_connect["kind"] != "default"
+            or on_receive["kind"] != "no-op"
+            or on_disconnect["kind"] != "record-and-close"
+        ):
+            raise ContractError(
+                f"{context} JSON decoder lookup fault requires one ordinary malformed receive "
+                "with default connect, no-op receive, and observed finalization"
+            )
         if message_types[0] != "websocket.connect":
             if (
                 message_types == ["websocket.receive"]
@@ -4184,6 +4221,11 @@ def _validate_websocket_endpoint_case_stimulus(case: dict[str, Any]) -> None:
                     )
             else:
                 requirement_name = "default_text" if message_encoding == "text" else "default_bytes"
+
+        if json_decoder_lookup is not None and requirement_name != "json_malformed":
+            raise ContractError(
+                f"{context} JSON decoder lookup fault requires malformed JSON input"
+            )
 
         decode_succeeds = requirement_name not in {
             "text_rejects_bytes",

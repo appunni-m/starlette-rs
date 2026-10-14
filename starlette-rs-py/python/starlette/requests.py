@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from collections.abc import AsyncGenerator, Awaitable, Iterator, Mapping
-from contextlib import AbstractAsyncContextManager
-from typing import Any, Generic, NoReturn, Protocol
+from collections.abc import AsyncGenerator, Iterator, Mapping
+from typing import Any, Generic, NoReturn
 
 from starlette_rs_py import _core
 from typing_extensions import TypeVar
 
+from starlette._utils import AwaitableOrContextManager
 from starlette.datastructures import URL, Address, FormData, Headers, QueryParams, State
 from starlette.formparsers import MultiPartException as MultiPartException
 from starlette.types import Message, Receive, Scope, Send
@@ -16,14 +16,6 @@ from starlette.types import Message, Receive, Scope, Send
 parse_options_header = _core._request_form_dependency()
 
 StateT = TypeVar("StateT", bound=Mapping[str, Any] | State, default=State)
-_AwaitableT_co = TypeVar("_AwaitableT_co", covariant=True)
-
-
-class AwaitableOrContextManager(
-    Awaitable[_AwaitableT_co],
-    AbstractAsyncContextManager[_AwaitableT_co],
-    Protocol[_AwaitableT_co],
-): ...
 
 
 class ClientDisconnect(Exception):

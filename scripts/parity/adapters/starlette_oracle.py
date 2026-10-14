@@ -7540,6 +7540,16 @@ class _WebSocketEndpointInputReceive:
         return message
 
 
+class _WebSocketEndpointJSONDecoderLookupFailure:
+    def __init__(self, message: str) -> None:
+        self.message = message
+
+    def __getattr__(self, name: str) -> Any:
+        if name == "JSONDecodeError":
+            raise RuntimeError(self.message)
+        raise AttributeError(name)
+
+
 class _WebSocketEndpointCaptureSend:
     def __init__(self, messages: list[dict[str, Any]]) -> None:
         self.messages = messages
@@ -7747,6 +7757,7 @@ def _run_websocket_endpoint_case(case: dict[str, Any]) -> dict[str, Any]:
     from starlette import status
     from starlette.endpoints import WebSocketEndpoint
 
+    endpoint_module = sys.modules[WebSocketEndpoint.__module__]
     internal_error_close_code = status.WS_1011_INTERNAL_ERROR
 
     endpoint_spec = case["endpoint"]
@@ -7794,8 +7805,17 @@ def _run_websocket_endpoint_case(case: dict[str, Any]) -> dict[str, Any]:
         if session_spec.get("cancel_at") == "receive":
             receive.waiting = cancellation_ready
         send = _WebSocketEndpointCaptureSend(sent_messages)
+        json_module: Any | None = None
+        original_json_decoder: Any = None
 
         try:
+            json_decoder_lookup = endpoint_spec.get("json_decoder_lookup")
+            if json_decoder_lookup is not None:
+                json_module = endpoint_module.json
+                original_json_decoder = json_module.decoder
+                json_module.decoder = _WebSocketEndpointJSONDecoderLookupFailure(
+                    json_decoder_lookup["message"]
+                )
             if session_spec.get("cancel_at") in {"receive", "disconnect"}:
                 error = asyncio.run(
                     _await_cancelled_websocket_endpoint(
@@ -7809,6 +7829,8 @@ def _run_websocket_endpoint_case(case: dict[str, Any]) -> dict[str, Any]:
                 except Exception as exc:
                     error = _websocket_endpoint_error(exc)
         finally:
+            if json_module is not None:
+                json_module.decoder = original_json_decoder
             if on_receive_spec["kind"] == "delete-internal-error-close-code-and-raise-value-error":
                 status.WS_1011_INTERNAL_ERROR = internal_error_close_code
         if (

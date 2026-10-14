@@ -693,12 +693,29 @@ impl WebSocketDecodeCall {
         match loads.call1((text,)) {
             Ok(value) => Ok(MachineAction::Complete(value.unbind())),
             Err(error) => {
-                let json_decode_error = self
+                // Python chains an exception raised while evaluating an `except`
+                // type expression to the exception being matched. The Rust
+                // continuation has captured that exception as a PyErr, so the
+                // interpreter no longer has it active while these lookups run.
+                let json_decode_error = match self
                     .json_module
                     .bind(py)
-                    .getattr("decoder")?
-                    .getattr("JSONDecodeError")?;
-                if error.value(py).is_instance(&json_decode_error)? {
+                    .getattr("decoder")
+                    .and_then(|decoder| decoder.getattr("JSONDecodeError"))
+                {
+                    Ok(json_decode_error) => json_decode_error,
+                    Err(lookup_error) => {
+                        return Err(exception_handler_match_error(py, lookup_error, &error));
+                    }
+                };
+                let matches_json_decode_error =
+                    match error.value(py).is_instance(&json_decode_error) {
+                        Ok(matches) => matches,
+                        Err(match_error) => {
+                            return Err(exception_handler_match_error(py, match_error, &error));
+                        }
+                    };
+                if matches_json_decode_error {
                     let result = self.close_then_error(
                         py,
                         "WS_1003_UNSUPPORTED_DATA",
@@ -742,6 +759,17 @@ impl WebSocketDecodeCall {
         self.pending = true;
         Ok(MachineAction::Await(close.unbind()))
     }
+}
+
+fn exception_handler_match_error(
+    py: Python<'_>,
+    match_error: PyErr,
+    original_error: &PyErr,
+) -> PyErr {
+    if match_error.context(py).is_none() && !match_error.value(py).is(original_error.value(py)) {
+        match_error.set_context(py, Some(original_error.clone_ref(py)));
+    }
+    match_error
 }
 
 #[pyfunction(name = "_websocket_endpoint_on_connect")]
