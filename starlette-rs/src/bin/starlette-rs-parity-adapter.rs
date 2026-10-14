@@ -8028,26 +8028,48 @@ fn file_response_dispatch_error(error: FileResponseError) -> Result<Value, Strin
     }))
 }
 
+fn static_files_lookup_error_observation(error: &StaticFilesError) -> Value {
+    let category = match error {
+        StaticFilesError::InvalidPath => "value-error",
+        StaticFilesError::PermissionDenied => "permission-error",
+        StaticFilesError::Io(error) if error.kind() == io::ErrorKind::PermissionDenied => {
+            "permission-error"
+        }
+        StaticFilesError::Io(_) => "os-error",
+        _ => "other-error",
+    };
+    json!({
+        "resolved_path": null,
+        "stat_result_present": false,
+        "mode_type_bits": null,
+        "is_file": null,
+        "is_directory": null,
+        "size": null,
+        "mtime_seconds": null,
+        "lookup_error": {"category": category},
+    })
+}
+
 fn run_static_files_lookup_path_case(case: &Value) -> Result<Value, String> {
-    let case = exact_object(
-        case,
-        &[
-            "case_id",
-            "surface",
-            "operation",
-            "covers",
-            "target_profiles",
-            "assets",
-            "directory",
-            "files",
-            "filesystem",
-            "lookup_path",
-            "check_dir",
-            "follow_symlink",
-            "observations",
-        ],
-        "StaticFiles lookup-path case",
-    )?;
+    let mut expected_fields = vec![
+        "case_id",
+        "surface",
+        "operation",
+        "covers",
+        "target_profiles",
+        "assets",
+        "directory",
+        "files",
+        "filesystem",
+        "lookup_path",
+        "check_dir",
+        "follow_symlink",
+        "observations",
+    ];
+    if case.get("observe_lookup_error").is_some() {
+        expected_fields.push("observe_lookup_error");
+    }
+    let case = exact_object(case, &expected_fields, "StaticFiles lookup-path case")?;
     let case_id = string_field(case, "case_id", "StaticFiles lookup-path case")?;
     if string_field(case, "surface", "StaticFiles lookup-path case")? != STATIC_FILES_SURFACE
         || string_field(case, "operation", "StaticFiles lookup-path case")?
@@ -8075,6 +8097,15 @@ fn run_static_files_lookup_path_case(case: &Value) -> Result<Value, String> {
         .get("follow_symlink")
         .and_then(Value::as_bool)
         .ok_or_else(|| String::from("StaticFiles lookup-path follow_symlink must be boolean"))?;
+    let observe_lookup_error = case
+        .get("observe_lookup_error")
+        .map(|value| {
+            value.as_bool().ok_or_else(|| {
+                String::from("StaticFiles lookup-path observe_lookup_error must be boolean")
+            })
+        })
+        .transpose()?
+        .unwrap_or(false);
     let file_inputs = case
         .get("files")
         .and_then(Value::as_array)
@@ -8117,6 +8148,7 @@ fn run_static_files_lookup_path_case(case: &Value) -> Result<Value, String> {
     )
     .map_err(|error| format!("StaticFiles lookup-path construction failed: {error:?}"))?;
     let observation = match static_files.lookup_path(&lookup_path) {
+        Err(error) if observe_lookup_error => static_files_lookup_error_observation(&error),
         Err(StaticFilesError::InvalidPath) => json!({
             "lookup_error": {
                 "class": "builtins.ValueError",
@@ -8173,6 +8205,16 @@ fn run_static_files_lookup_path_case(case: &Value) -> Result<Value, String> {
             "size": null,
             "mtime_seconds": null,
         }),
+    };
+    let observation = if observe_lookup_error {
+        let mut observation = observation;
+        let fields = observation
+            .as_object_mut()
+            .ok_or_else(|| String::from("StaticFiles lookup-path observation must be an object"))?;
+        fields.insert(String::from("lookup_error"), Value::Null);
+        observation
+    } else {
+        observation
     };
     drop(temporary_directory);
     Ok(json!({

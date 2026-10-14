@@ -1546,6 +1546,7 @@ STATIC_FILES_EMPTY_IF_NONE_MATCH_FALLBACK = "empty-if-none-match-falls-through-t
 STATIC_FILES_LOOKUP_PATH_NULL_BYTE_REQUIREMENT = (
     f"{STATIC_FILES_SURFACE}.{STATIC_FILES_LOOKUP_PATH_OPERATION}.null-byte-error"
 )
+STATIC_FILES_LOOKUP_PATH_WINDOWS_INVALID_NAME_REQUIREMENT = f"{STATIC_FILES_SURFACE}.{STATIC_FILES_LOOKUP_PATH_OPERATION}.windows-invalid-name-error-propagation"
 STATIC_FILES_LOOKUP_PATH_SURROGATEESCAPE_REQUIREMENT = (
     f"{STATIC_FILES_SURFACE}.{STATIC_FILES_LOOKUP_PATH_OPERATION}.surrogateescape-path"
 )
@@ -2969,6 +2970,11 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         and key == (STATIC_FILES_SURFACE, RESPONSE_OPERATION)
                         and observation["path"] == "requests"
                     )
+                    static_files_lookup_error = (
+                        condition["input_key"] == "observe_lookup_error"
+                        and key == (STATIC_FILES_SURFACE, STATIC_FILES_LOOKUP_PATH_OPERATION)
+                        and observation["path"] == "lookup_error"
+                    )
                     trusted_host_constructor_probe = (
                         condition["input_key"] == "constructor_probes"
                         and key == (TRUSTED_HOST_SURFACE, "__call__")
@@ -3083,6 +3089,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         and not testclient_request_body_generator
                         and not static_files_single_call
                         and not static_files_call_sequence
+                        and not static_files_lookup_error
                         and not trusted_host_constructor_probe
                         and not file_response_single_call
                         and not file_response_call_sequence
@@ -9404,6 +9411,8 @@ def _validate_static_files_lookup_path_case(
     case_keys = STATIC_FILES_LOOKUP_PATH_CASE_KEYS
     if "directory_pathlike" in case:
         case_keys = case_keys | {"directory_pathlike"}
+    if "observe_lookup_error" in case:
+        case_keys = case_keys | {"observe_lookup_error"}
     _exact(case, case_keys, "StaticFiles lookup-path case")
     if (
         case["surface"] != STATIC_FILES_SURFACE
@@ -9421,6 +9430,9 @@ def _validate_static_files_lookup_path_case(
         raise ContractError("StaticFiles lookup-path.directory must be a relative basename")
     if type(case["check_dir"]) is not bool or type(case["follow_symlink"]) is not bool:
         raise ContractError("StaticFiles lookup-path options must be boolean")
+    observe_lookup_error = case.get("observe_lookup_error", False)
+    if type(observe_lookup_error) is not bool:
+        raise ContractError("StaticFiles lookup-path observe_lookup_error must be boolean")
 
     has_directory_pathlike = "directory_pathlike" in case
     directory_pathlike = case.get("directory_pathlike")
@@ -9708,6 +9720,28 @@ def _validate_static_files_lookup_path_case(
         requirement = "null-byte-error"
     elif lookup_path.startswith(("/", "\\")) or Path(lookup_path).is_absolute():
         requirement = "absolute-path-rejected"
+    elif any(character in lookup_path for character in '<>:"|?*'):
+        lookup_components = _static_files_relative_components(
+            lookup_path, "StaticFiles lookup_path", allow_parent=False
+        )
+        candidate_path = _static_files_workspace_path(
+            directory,
+            "/".join(lookup_components),
+            "StaticFiles invalid-name lookup_path",
+        )
+        if (
+            candidate_path in workspace_file_paths
+            or candidate_path in workspace_directories
+            or candidate_path in symlink_targets
+        ):
+            raise ContractError(
+                "Windows-invalid StaticFiles lookup paths must remain absent from the input filesystem"
+            )
+        if not observe_lookup_error:
+            raise ContractError(
+                "Windows-invalid StaticFiles lookup paths must request lookup-error observation"
+            )
+        requirement = "windows-invalid-name-error-propagation"
     else:
         lookup_components = _static_files_relative_components(
             lookup_path, "StaticFiles lookup_path", allow_parent=True
@@ -9772,6 +9806,8 @@ def _validate_static_files_lookup_path_case(
     if validate_covers:
         if requirement == "null-byte-error":
             requirement_id = STATIC_FILES_LOOKUP_PATH_NULL_BYTE_REQUIREMENT
+        elif requirement == "windows-invalid-name-error-propagation":
+            requirement_id = STATIC_FILES_LOOKUP_PATH_WINDOWS_INVALID_NAME_REQUIREMENT
         elif requirement == "surrogateescape-path":
             requirement_id = STATIC_FILES_LOOKUP_PATH_SURROGATEESCAPE_REQUIREMENT
         elif requirement == "stateful-pathlike-root-resolution":
@@ -23726,6 +23762,8 @@ def _validate_case_payload(
         and "package_sequence" in case
     ):
         expected_case_keys = expected_case_keys | {"package_sequence"}
+    if is_static_files_lookup_path and isinstance(case, dict) and "observe_lookup_error" in case:
+        expected_case_keys = expected_case_keys | {"observe_lookup_error"}
     if is_router and isinstance(case, dict) and "observe_router_scope" in case:
         expected_case_keys = expected_case_keys | {"observe_router_scope"}
     if is_router and isinstance(case, dict) and "observe_dispatch_error" in case:

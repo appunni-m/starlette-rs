@@ -11834,6 +11834,19 @@ def _run_static_files_async_boundary_case(case: dict[str, Any]) -> dict[str, Any
     }
 
 
+def _static_files_lookup_error_observation(error: BaseException) -> dict[str, str]:
+    if isinstance(error, PermissionError):
+        return {"category": "permission-error"}
+    if isinstance(error, ValueError):
+        return {"category": "value-error"}
+    if isinstance(error, OSError):
+        return {"category": "os-error"}
+    return {
+        "category": "other-error",
+        "class": f"{type(error).__module__}.{type(error).__qualname__}",
+    }
+
+
 def _run_static_files_lookup_path_case(case: dict[str, Any]) -> dict[str, Any]:
     has_pathlike = "directory_pathlike" in case
     case_fields = {
@@ -11853,6 +11866,9 @@ def _run_static_files_lookup_path_case(case: dict[str, Any]) -> dict[str, Any]:
     }
     if has_pathlike:
         case_fields.add("directory_pathlike")
+    observe_lookup_error = case.get("observe_lookup_error", False)
+    if "observe_lookup_error" in case:
+        case_fields.add("observe_lookup_error")
     _strict_object(
         case,
         case_fields,
@@ -11970,12 +11986,24 @@ def _run_static_files_lookup_path_case(case: dict[str, Any]) -> dict[str, Any]:
         try:
             full_path, stat_result = application.lookup_path(lookup_path)
         except Exception as exc:
-            observation = {
-                "lookup_error": {
-                    "class": f"{type(exc).__module__}.{type(exc).__qualname__}",
-                    "message": str(exc),
+            if observe_lookup_error:
+                observation = {
+                    "resolved_path": None,
+                    "stat_result_present": False,
+                    "mode_type_bits": None,
+                    "is_file": None,
+                    "is_directory": None,
+                    "size": None,
+                    "mtime_seconds": None,
+                    "lookup_error": _static_files_lookup_error_observation(exc),
                 }
-            }
+            else:
+                observation = {
+                    "lookup_error": {
+                        "class": f"{type(exc).__module__}.{type(exc).__qualname__}",
+                        "message": str(exc),
+                    }
+                }
         else:
             if directory_pathlike is None:
                 relative_root = root.absolute() if case["follow_symlink"] else root.resolve()
@@ -11999,6 +12027,8 @@ def _run_static_files_lookup_path_case(case: dict[str, Any]) -> dict[str, Any]:
                 "size": stat_result.st_size if is_file else None,
                 "mtime_seconds": stat_result.st_mtime if is_file else None,
             }
+            if observe_lookup_error:
+                observation["lookup_error"] = None
     observations = [
         {
             "step_id": STATIC_FILES_LOOKUP_PATH_OPERATION,

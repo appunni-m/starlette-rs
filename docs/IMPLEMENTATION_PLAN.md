@@ -628,7 +628,14 @@ both symlink settings. Permission inputs deny search access to a root containing
 an asset and match the 401 error for both symlink settings. Python package
 discovery is profile-specific; Rust-native uses explicit package roots.
 Windows path normalization is implemented and has an authored ASGI input, but
-Windows execution remains unverified. The ASGI entry passes the bound
+Windows execution remains unverified. Two new input-only lookup cases use an
+absent `missing?.txt` component to observe the lookup outcome through both
+canonicalized and `follow_symlink` paths. The adapters compare a shared OS-error
+category because native messages and error codes vary by platform. A dedicated
+manual Windows workflow is available to run these cases against the pinned
+source, installed package, and Rust-native target. The Windows comparison is
+unexecuted, so the possible `InvalidInput` mismatch remains open and no runtime
+behavior change has been accepted. The ASGI entry passes the bound
 `get_response(path, scope)` override into the Rust awaitable state machine,
 which calls and awaits that Python callback on the caller's loop; the default
 path selection and response dispatch remain Rust-owned. This callback boundary

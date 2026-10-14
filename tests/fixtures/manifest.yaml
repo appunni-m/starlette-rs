@@ -28886,6 +28886,17 @@
                 }
               },
               {
+                "id": "observe_lookup_error",
+                "style": "option",
+                "value_types": [
+                  "boolean"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": false
+                }
+              },
+              {
                 "id": "directory_pathlike",
                 "style": "option",
                 "value_types": [
@@ -28968,6 +28979,19 @@
                   ],
                   "comparison": {
                     "kind": "exact"
+                  }
+                },
+                {
+                  "path": "lookup_error",
+                  "value_types": [
+                    "record",
+                    "null"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  },
+                  "condition": {
+                    "input_key": "observe_lookup_error"
                   }
                 },
                 {
@@ -29069,6 +29093,18 @@
               "id": "starlette.staticfiles.StaticFiles.lookup-path.null-byte-error",
               "dimension": "error_path",
               "description": "Pass an input-defined path containing an embedded NUL to lookup_path and compare its direct ValueError outcome. Upstream: starlette/staticfiles.py:154-173; tests/test_staticfiles.py::test_staticfiles_null_byte_in_path covers the corresponding ASGI 404 mapping at lines 466-472.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.staticfiles.StaticFiles.lookup-path.windows-invalid-name-error-propagation",
+              "dimension": "error_path",
+              "description": "Pass an absent relative component containing a Windows-invalid filename character and observe whether the live filesystem lookup propagates its OS error. Starlette suppresses only FileNotFoundError and NotADirectoryError; adapters compare the shared OS-error category because native messages and error codes vary by platform. The paired inputs select both canonicalized and follow_symlink lookup paths. Upstream: starlette/staticfiles.py::StaticFiles.lookup_path.",
               "lanes": [
                 "parity"
               ],

@@ -658,6 +658,74 @@
       "observations": [
         "lookup-path"
       ]
+    },
+    {
+      "case_id": "starlette.staticfiles.StaticFiles.lookup-path.windows-invalid-name-follow-symlink-disabled",
+      "surface": "starlette.staticfiles.StaticFiles",
+      "operation": "lookup-path",
+      "covers": [
+        "starlette.staticfiles.StaticFiles.lookup-path.windows-invalid-name-error-propagation"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "directory": "public",
+      "files": [
+        {
+          "path": "asset.txt",
+          "contents_base64": "c3RhdGljIGJvZHk=",
+          "mtime_seconds": 1700000000.0
+        }
+      ],
+      "filesystem": {
+        "root_symlink_target": null,
+        "directories": [],
+        "outside_files": [],
+        "symlinks": []
+      },
+      "lookup_path": "missing?.txt",
+      "check_dir": true,
+      "follow_symlink": false,
+      "observe_lookup_error": true,
+      "observations": [
+        "lookup-path"
+      ]
+    },
+    {
+      "case_id": "starlette.staticfiles.StaticFiles.lookup-path.windows-invalid-name-follow-symlink-enabled",
+      "surface": "starlette.staticfiles.StaticFiles",
+      "operation": "lookup-path",
+      "covers": [
+        "starlette.staticfiles.StaticFiles.lookup-path.windows-invalid-name-error-propagation"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "directory": "public",
+      "files": [
+        {
+          "path": "asset.txt",
+          "contents_base64": "c3RhdGljIGJvZHk=",
+          "mtime_seconds": 1700000000.0
+        }
+      ],
+      "filesystem": {
+        "root_symlink_target": null,
+        "directories": [],
+        "outside_files": [],
+        "symlinks": []
+      },
+      "lookup_path": "missing?.txt",
+      "check_dir": true,
+      "follow_symlink": true,
+      "observe_lookup_error": true,
+      "observations": [
+        "lookup-path"
+      ]
     }
   ]
 }

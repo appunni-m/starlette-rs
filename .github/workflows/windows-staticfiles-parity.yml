@@ -1,0 +1,56 @@
+name: StaticFiles Windows parity probe
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  staticfiles-invalid-name:
+    name: Windows StaticFiles invalid-name parity
+    runs-on: windows-latest
+    timeout-minutes: 45
+    env:
+      PYO3_PYTHON: python
+      RUSTC_WRAPPER: ""
+      RUSTUP_TOOLCHAIN: 1.96.1
+      STARLETTE_ORACLE_ROOT: ${{ github.workspace }}/starlette
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Checkout the pinned Starlette oracle
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: Kludex/starlette
+          ref: 4f250d6b814587e20c5365f0a5f0c4d42bcb929f
+          path: starlette
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: 3.12.10
+      - name: Install the pinned Rust toolchain
+        run: |
+          rustup toolchain install 1.96.1 --profile minimal
+          rustup default 1.96.1
+      - name: Generate parity inputs and prepare isolated environments
+        run: |
+          python -m scripts.parity.generate_inputs
+          python -m scripts.parity.cli prepare-env --force --upstream "$env:STARLETTE_ORACLE_ROOT"
+      - name: Build the Rust-native parity adapter
+        run: cargo build --locked --bin starlette-rs-parity-adapter
+      - name: Compare both invalid-name lookup paths
+        run: >-
+          python -m scripts.parity.cli run
+          --case-id starlette.staticfiles.StaticFiles.lookup-path.windows-invalid-name-follow-symlink-disabled
+          --case-id starlette.staticfiles.StaticFiles.lookup-path.windows-invalid-name-follow-symlink-enabled
+          --output build/parity/windows-staticfiles-result.json
+      - name: Upload Windows parity evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: starlette-staticfiles-windows-parity-${{ github.run_id }}
+          path: build/parity/windows-staticfiles-result.json
+          if-no-files-found: warn
+          retention-days: 30
