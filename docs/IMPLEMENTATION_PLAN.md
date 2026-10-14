@@ -30,7 +30,7 @@ implementation closes, run the complete source/package and Rust-native parity
 matrix, repair mismatches across families, measure coverage from that full
 matrix, reconcile the source atlas, then run all correctness-gated benchmarks.
 
-The active contract currently declares 2,413 input cases across 358
+The active contract currently declares 2,413 input cases across 359
 parity inputs and two benchmark inputs, 144 Starlette compatibility
 operations, 13 Rust-native operations, and 1,320 parity requirements (1,278
 compatibility and 42 native). Its scope mode is still `slice`. A new Config
