@@ -9,9 +9,9 @@ incomplete.
 ## Current parity snapshot
 
 Implementation remains the active phase for the full Starlette replacement.
-The working-tree `parity-input@52` contract indexes 2,369 cases across 336
+The working-tree `parity-input@52` contract indexes 2,371 cases across 338
 parity inputs, two benchmark inputs, 142 Starlette compatibility operations,
-13 native operations, and 1,288 parity requirements (1,246 compatibility and
+13 native operations, and 1,289 parity requirements (1,247 compatibility and
 42 native).
 The latest static inventory reports 999/999 API candidates dispositioned and
 850 source rows: 796 input mappings, 54 source-backed `not_applicable` rows,
@@ -33,6 +33,10 @@ failure after cancellation, empty synchronous StreamingResponse framing,
 BaseHTTPMiddleware wide status pass-through, StaticFiles root_path/query
 redirect behavior, and WebSocket accept-send OSError propagation; all remain
 unexecuted.
+
+The latest input-only batch adds Host dispatch through a nested Router to a
+WebSocketRoute and preserves the TestClient WebSocket session-body exception
+under cleanup failures. Both comparisons remain deferred until full parity.
 
 The latest routing correction matches Host header names using the same exact raw
 byte lookup as pinned Starlette. Its input supplies only `b"Host"` and observes

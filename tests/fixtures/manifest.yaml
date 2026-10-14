@@ -450,6 +450,7 @@
       "build/parity/inputs/parity/websocket-iterator-athrow-arities.json",
       "build/parity/inputs/parity/exception-values.json",
       "build/parity/inputs/parity/host-routing.json",
+      "build/parity/inputs/parity/host-websocket-routing.json",
       "build/parity/inputs/parity/host-routing-native-port.json",
       "build/parity/inputs/parity/router-host-header-raw-name.json",
       "build/parity/inputs/parity/status-constants.json",
@@ -582,6 +583,7 @@
       "build/parity/inputs/parity/testclient-lifespan-context.json",
       "build/parity/inputs/parity/testclient-lifespan-message-type-comparison-error.json",
       "build/parity/inputs/parity/testclient-websocket-exit-cleanup-error.json",
+      "build/parity/inputs/parity/testclient-websocket-exit-body-exception-context.json",
       "build/parity/inputs/parity/testclient-startup-cleanup-error.json",
       "build/parity/inputs/parity/testclient-shutdown-cleanup-error.json",
       "build/parity/inputs/parity/application-routes.json",
@@ -24662,7 +24664,7 @@
             {
               "id": "starlette.routing.Router.route-dispatch.host-route-child-dispatch",
               "dimension": "success_path",
-              "description": "After Host selects an ASGI Router app, dispatch its matching child Route and preserve the child response. Upstream: tests/test_routing.py::test_host_routing; starlette/routing.py:466-512.",
+              "description": "After Host selects an ASGI Router app, dispatch its matching child HTTP Route or WebSocketRoute and preserve the child ASGI events. Upstream: docs/routing.md:211-238,327-364; tests/test_routing.py::test_host_routing; starlette/routing.py:298-340,466-512.",
               "lanes": [
                 "parity"
               ],
@@ -31823,6 +31825,17 @@
               "id": "starlette.testclient.TestClient.websocket-session.portal-exit-error-context",
               "dimension": "error_path",
               "description": "If portal exit fails while a WebSocket application task is already failing during session teardown, the portal exception replaces the task error and retains it in __context__ through ExitStack cleanup ordering. Pinned source: starlette/testclient.py:115-131.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.websocket-session.exit-body-exception-context-chain",
+              "dimension": "error_path",
+              "description": "When receive_json raises for an input-defined malformed text frame in the WebSocket session body and application cleanup also fails, propagate the cleanup error while preserving the body exception in its __context__ chain. Pinned source: starlette/testclient.py:115-131; docs/testclient.md:189-207.",
               "lanes": [
                 "parity"
               ],

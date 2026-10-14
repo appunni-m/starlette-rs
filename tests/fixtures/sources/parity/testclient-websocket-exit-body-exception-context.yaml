@@ -1,0 +1,73 @@
+{
+  "schema": "migration-parity/parity-input@52",
+  "cases": [
+    {
+      "case_id": "starlette.testclient.TestClient.websocket-session.exit-body-exception-context-chain",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "websocket-session",
+      "covers": [
+        "starlette.testclient.TestClient.websocket-session.scope-projection",
+        "starlette.testclient.TestClient.websocket-session.accept-handshake",
+        "starlette.testclient.TestClient.websocket-session.receive-json-text-frame",
+        "starlette.testclient.TestClient.websocket-session.portal-cleanup",
+        "starlette.testclient.TestClient.websocket-session.exit-body-exception-context-chain"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "websocket-session"
+      ],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": [
+          "testclient",
+          50000
+        ],
+        "headers": [],
+        "backend": "asyncio",
+        "backend_options": {}
+      },
+      "websocket": {
+        "url": "/exit-body-exception-context",
+        "subprotocols": [],
+        "headers": [],
+        "actions": [
+          {
+            "operation": "receive_json"
+          }
+        ]
+      },
+      "asgi_app": {
+        "kind": "asgi3",
+        "scope_fields": [
+          "type",
+          "path"
+        ],
+        "actions": [
+          {
+            "operation": "send",
+            "message": {
+              "type": "websocket.accept"
+            }
+          },
+          {
+            "operation": "send",
+            "message": {
+              "type": "websocket.send",
+              "text": "not-json"
+            }
+          },
+          {
+            "operation": "raise",
+            "exception_class": "RuntimeError",
+            "message": "app failed after sending invalid JSON"
+          }
+        ]
+      }
+    }
+  ]
+}

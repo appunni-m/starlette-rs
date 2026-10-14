@@ -8701,7 +8701,7 @@ def _run_route_dispatch_case(case: dict[str, Any]) -> dict[str, Any]:
     from starlette.endpoints import HTTPEndpoint
     from starlette.requests import Request
     from starlette.responses import JSONResponse, PlainTextResponse, Response
-    from starlette.routing import BaseRoute, Host, Match, Mount, Route, Router
+    from starlette.routing import BaseRoute, Host, Match, Mount, Route, Router, WebSocketRoute
 
     previous_convertors = {
         spec["name"]: CONVERTOR_TYPES.get(spec["name"], _MISSING) for spec in custom_convertors
@@ -8966,16 +8966,35 @@ def _run_route_dispatch_case(case: dict[str, Any]) -> dict[str, Any]:
 
     def make_host_app(app_spec: dict[str, Any], route_index: int) -> Any:
         if app_spec["kind"] == "router":
-            return Router(
-                routes=[
+            host_routes = []
+            for route_spec in app_spec["routes"]:
+                if route_spec["kind"] == "websocket-route":
+                    endpoint_actions = route_spec["endpoint_actions"]
+
+                    async def websocket_endpoint(
+                        websocket: Any,
+                        actions: list[dict[str, Any]] = endpoint_actions,
+                        observed_route_index: int = route_index,
+                    ) -> None:
+                        route_index_observations.append(observed_route_index)
+                        for action in actions:
+                            if action["action"] == "accept":
+                                await websocket.accept(subprotocol=action["subprotocol"])
+                            elif action["action"] == "send_text":
+                                await websocket.send_text(action["text"])
+                            else:
+                                await websocket.close(code=action["code"], reason=action["reason"])
+
+                    host_routes.append(WebSocketRoute(route_spec["path"], websocket_endpoint))
+                    continue
+                host_routes.append(
                     Route(
                         route_spec["path"],
                         make_endpoint(route_spec["endpoint"], route_index),
                         methods=route_spec["methods"],
                     )
-                    for route_spec in app_spec["routes"]
-                ]
-            )
+                )
+            return Router(routes=host_routes)
         if app_spec["kind"] == "scope-path-parameter-json":
             path_parameter = app_spec["path_parameter"]
 

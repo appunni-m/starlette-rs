@@ -1,0 +1,92 @@
+{
+  "schema": "migration-parity/parity-input@52",
+  "cases": [
+    {
+      "case_id": "starlette.routing.Router.route-dispatch.host-websocket-child-dispatch",
+      "surface": "starlette.routing.Router",
+      "operation": "route-dispatch",
+      "covers": [
+        "starlette.routing.Router.route-dispatch.host-route-match",
+        "starlette.routing.Router.route-dispatch.host-route-child-dispatch"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "routes": [
+        {
+          "kind": "host-route",
+          "host": "{tenant}.example.test",
+          "name": "tenant",
+          "app": {
+            "kind": "router",
+            "routes": [
+              {
+                "kind": "websocket-route",
+                "path": "/rooms/{room:str}",
+                "endpoint_actions": [
+                  {
+                    "action": "accept",
+                    "subprotocol": "chat"
+                  },
+                  {
+                    "action": "send_text",
+                    "text": "room-ready"
+                  },
+                  {
+                    "action": "close",
+                    "code": 1000,
+                    "reason": "done"
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "scope": {
+        "type": "websocket",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.5"
+        },
+        "http_version": "1.1",
+        "scheme": "wss",
+        "path": "/rooms/blue",
+        "raw_path_base64": "L3Jvb21zL2JsdWU=",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "YXBpLmV4YW1wbGUudGVzdA=="
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "example.test",
+          443
+        ],
+        "subprotocols": [
+          "chat"
+        ]
+      },
+      "incoming": [
+        {
+          "type": "websocket.connect"
+        }
+      ],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "route-dispatch"
+      ],
+      "custom_convertors": [],
+      "redirect_slashes": true
+    }
+  ]
+}

@@ -872,10 +872,14 @@ impl PyWebSocketTestSession {
         self.send_client_message(py, message)
     }
 
-    fn teardown(&mut self, py: Python<'_>) -> PyResult<()> {
+    fn teardown(&mut self, py: Python<'_>, active_exception: Option<&PyErr>) -> PyResult<()> {
         let mut task_error = None;
         if self.portal.is_some() && self.close_callback_registered {
             if let Err(error) = self.close_inner(py, &PyInt::new(py, 1000).into_any(), None) {
+                // ExitStack keeps the active session-body exception beneath cleanup failures.
+                if let Some(active_exception) = active_exception {
+                    chain_exception_context(py, &error, active_exception)?;
+                }
                 task_error = Some(error);
             }
         }
@@ -892,6 +896,8 @@ impl PyWebSocketTestSession {
                 if !is_cancelled_error(py, &error)? {
                     if let Some(previous_error) = task_error.take() {
                         chain_exception_context(py, &error, &previous_error)?;
+                    } else if let Some(active_exception) = active_exception {
+                        chain_exception_context(py, &error, active_exception)?;
                     }
                     task_error = Some(error);
                 }
@@ -915,8 +921,14 @@ impl PyWebSocketTestSession {
         self.portal = None;
         let manager = self.portal_manager.take();
         if let Some(manager) = manager {
-            if let Err(error) = exit_portal(py, manager.bind(py).clone(), task_error.as_ref()) {
-                replace_cleanup_error(py, &mut task_error, error)?;
+            let exit_exception = task_error.as_ref().or(active_exception);
+            if let Err(error) = exit_portal(py, manager.bind(py).clone(), exit_exception) {
+                if let Some(previous_error) = task_error.take() {
+                    chain_exception_context(py, &error, &previous_error)?;
+                } else if let Some(active_exception) = active_exception {
+                    chain_exception_context(py, &error, active_exception)?;
+                }
+                task_error = Some(error);
             }
         }
 
@@ -981,7 +993,7 @@ impl PyWebSocketTestSession {
     fn __enter__(slf: Py<Self>, py: Python<'_>) -> PyResult<Py<Self>> {
         let result = slf.borrow_mut(py).start(py);
         if let Err(error) = result {
-            return match slf.borrow_mut(py).teardown(py) {
+            return match slf.borrow_mut(py).teardown(py, None) {
                 Ok(()) => Err(error),
                 Err(cleanup_error) => {
                     // ExitStack lets the last failing cleanup callback replace
@@ -998,11 +1010,16 @@ impl PyWebSocketTestSession {
     fn __exit__(
         slf: Py<Self>,
         py: Python<'_>,
-        _exception_type: Py<PyAny>,
-        _exception_value: Py<PyAny>,
+        exception_type: Py<PyAny>,
+        exception_value: Py<PyAny>,
         _traceback: Py<PyAny>,
     ) -> PyResult<bool> {
-        slf.borrow_mut(py).teardown(py)?;
+        let active_exception = if exception_type.is_none(py) {
+            None
+        } else {
+            Some(PyErr::from_value(exception_value.bind(py).clone()))
+        };
+        slf.borrow_mut(py).teardown(py, active_exception.as_ref())?;
         Ok(false)
     }
 

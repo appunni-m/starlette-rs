@@ -419,6 +419,7 @@ TESTCLIENT_WEBSOCKET_REQUIREMENTS = {
     "application_exception": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.application-exception-propagation",
     "entry_cleanup_error_precedence": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.entry-cleanup-error-precedence",
     "portal_exit_error_context": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.portal-exit-error-context",
+    "body_exception_context": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.exit-body-exception-context-chain",
     "app_error_stream_closure": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.app-error-closes-client-stream",
     "denial_body_app_error_context": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.denial-body-app-error-context",
     "app_error_wins_cleanup_close_error": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.app-error-wins-cleanup-close-error",
@@ -3649,9 +3650,11 @@ def _validate_websocket_message(
     message_type = _string(message_type_value, f"{context}.type")
     if incoming:
         if message_type == "websocket.connect":
-            _exact(message, {"type", "subprotocols"}, context)
-            if not isinstance(message["subprotocols"], list) or any(
-                not isinstance(item, str) for item in message["subprotocols"]
+            if set(message) not in ({"type"}, {"type", "subprotocols"}):
+                raise ContractError(f"{context} must contain type and optional subprotocols")
+            if "subprotocols" in message and (
+                not isinstance(message["subprotocols"], list)
+                or any(not isinstance(item, str) for item in message["subprotocols"])
             ):
                 raise ContractError(f"{context}.subprotocols must be an array of strings")
         elif message_type == "websocket.receive":
@@ -6056,6 +6059,65 @@ def _validate_http_class_endpoint_input(
     return endpoint
 
 
+def _validate_websocket_endpoint_actions(
+    actions: Any,
+    context: str,
+    *,
+    allow_raise_exception: bool = True,
+) -> None:
+    if not isinstance(actions, list):
+        raise ContractError(f"{context} must be an array")
+    for index, action in enumerate(actions):
+        action_context = f"{context}[{index}]"
+        if not isinstance(action, dict) or not isinstance(action.get("action"), str):
+            raise ContractError(f"{action_context} must declare an action")
+        if action["action"] == "accept":
+            _exact(action, {"action", "subprotocol"}, action_context)
+            if action["subprotocol"] is not None:
+                _string(action["subprotocol"], f"{action_context}.subprotocol")
+        elif action["action"] == "send_text":
+            _exact(action, {"action", "text"}, action_context)
+            _string(action["text"], f"{action_context}.text")
+        elif action["action"] == "close":
+            _exact(action, {"action", "code", "reason"}, action_context)
+            if type(action["code"]) is not int or action["code"] < 0:
+                raise ContractError(f"{action_context}.code must be a non-negative integer")
+            if not isinstance(action["reason"], str):
+                raise ContractError(f"{action_context}.reason must be a string")
+        elif action["action"] == "raise-websocket-exception" and allow_raise_exception:
+            _exact(action, {"action", "code", "reason"}, action_context)
+            if type(action["code"]) is not int or action["code"] < 0:
+                raise ContractError(f"{action_context}.code must be a non-negative integer")
+            _string(action["reason"], f"{action_context}.reason")
+        else:
+            raise ContractError(f"{action_context}.action is unsupported")
+
+
+def _validate_host_websocket_route_input(route: Any, context: str) -> dict[str, Any]:
+    route = _exact(route, {"kind", "path", "endpoint_actions"}, context)
+    if route["kind"] != "websocket-route":
+        raise ContractError(f"{context}.kind must be websocket-route")
+    path = _string(route["path"], f"{context}.path")
+    if not path.startswith("/"):
+        raise ContractError(f"{context}.path must be an absolute path")
+    parameters = _route_template_parameters(path)
+    if len({name for name, _converter in parameters}) != len(parameters):
+        raise ContractError(f"{context}.path must not repeat a parameter name")
+    unsupported = sorted(
+        converter
+        for _name, converter in parameters
+        if converter not in {"str", "int", "float", "uuid", "path"}
+    )
+    if unsupported:
+        raise ContractError(f"{context}.path uses undeclared convertors: {unsupported}")
+    _validate_websocket_endpoint_actions(
+        route["endpoint_actions"],
+        f"{context}.endpoint_actions",
+        allow_raise_exception=False,
+    )
+    return route
+
+
 def _validate_host_route_input(route: Any, context: str) -> dict[str, Any]:
     route = _exact(route, {"kind", "host", "name", "app"}, context)
     host = _string(route["host"], f"{context}.host")
@@ -6096,11 +6158,15 @@ def _validate_host_route_input(route: Any, context: str) -> dict[str, Any]:
         if not isinstance(app["routes"], list) or not app["routes"]:
             raise ContractError(f"{app_context}.routes must be a non-empty array")
         for index, child in enumerate(app["routes"]):
-            _validate_http_route_input(
-                child,
-                f"{app_context}.routes[{index}]",
-                allow_http_endpoint=True,
-            )
+            child_context = f"{app_context}.routes[{index}]"
+            if isinstance(child, dict) and child.get("kind") == "websocket-route":
+                _validate_host_websocket_route_input(child, child_context)
+            else:
+                _validate_http_route_input(
+                    child,
+                    child_context,
+                    allow_http_endpoint=True,
+                )
     elif raw_app["kind"] == "scope-path-parameter-json":
         app = _exact(raw_app, {"kind", "path_parameter"}, app_context)
         path_parameter = _string(app["path_parameter"], f"{app_context}.path_parameter")
@@ -6328,8 +6394,15 @@ def _validate_route_dispatch_io(
     allow_headers: bool = False,
     allow_host: bool = False,
     allow_inherited_mount_scope: bool = False,
+    allow_websocket: bool = False,
 ) -> None:
-    if case["scope"].get("type") != "http" or (
+    scope_type = case["scope"].get("type")
+    if scope_type == "websocket" and allow_websocket:
+        if not allow_query and case["scope"].get("query_string_base64") != "":
+            raise ContractError("route-dispatch cases do not declare a query string")
+        if not allow_headers and case["scope"].get("headers_base64_pairs") != []:
+            raise ContractError("route-dispatch cases do not declare request headers")
+    elif scope_type != "http" or (
         not allow_query and case["scope"].get("query_string_base64") != ""
     ):
         raise ContractError(
@@ -6337,9 +6410,12 @@ def _validate_route_dispatch_io(
         )
     if not allow_headers and case["scope"].get("headers_base64_pairs") != []:
         raise ContractError("route-dispatch cases do not declare request headers")
-    if case["incoming"] != [] or case["send"] != {"kind": "capture-asgi-send"}:
+    expected_incoming = (
+        [{"type": "websocket.connect"}] if scope_type == "websocket" and allow_websocket else []
+    )
+    if case["incoming"] != expected_incoming or case["send"] != {"kind": "capture-asgi-send"}:
         raise ContractError(
-            "route-dispatch cases use an empty receive stream and captured ASGI send"
+            "route-dispatch cases use their declared ASGI receive event and send collector"
         )
     _validate_dispatch_stimulus(
         {"scope": case["scope"], "receive": case["incoming"], "send": case["send"]},
@@ -10396,19 +10472,38 @@ def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
     ]
     if "garbage_collection" in case:
         _validate_router_cache_gc_case(case, routes)
+    websocket_dispatch = case["scope"].get("type") == "websocket"
     path = case["scope"].get("path")
     root_path = case["scope"].get("root_path")
-    method = case["scope"].get("method")
-    if not isinstance(path, str) or not isinstance(root_path, str) or not isinstance(method, str):
-        raise ContractError(
-            "Router route-dispatch scope must declare string path, root_path, and method"
-        )
+    if websocket_dispatch:
+        if (
+            len(routes) != 1
+            or routes[0]["kind"] != "host-route"
+            or routes[0]["app"]["kind"] != "router"
+            or not routes[0]["app"]["routes"]
+            or any(child["kind"] != "websocket-route" for child in routes[0]["app"]["routes"])
+        ):
+            raise ContractError(
+                "Router WebSocket dispatch is limited to a Host route with nested WebSocketRoute children"
+            )
+        method = ""
+        if case["incoming"] != [{"type": "websocket.connect"}]:
+            raise ContractError(
+                "Host WebSocket route-dispatch requires one websocket.connect input"
+            )
+    else:
+        method = case["scope"].get("method")
+        if not isinstance(method, str):
+            raise ContractError("Router HTTP route-dispatch scope must declare a method")
+    if not isinstance(path, str) or not isinstance(root_path, str):
+        raise ContractError("Router route-dispatch scope must declare string path and root_path")
     _validate_route_dispatch_io(
         case,
         allow_query=True,
         allow_headers=has_host_route,
         allow_host=has_host_route,
         allow_inherited_mount_scope=has_mount_route,
+        allow_websocket=websocket_dispatch,
     )
     route_path = _route_path_after_root(path, root_path)
     http_routes = [route for route in routes if route["kind"] == "http-route"]
@@ -10532,7 +10627,7 @@ def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
         for route in http_routes
         if _route_template_matches(route["path"], route_path, custom_convertors)
     ]
-    if not matched:
+    if not websocket_dispatch and not matched:
         if path_matches:
             if any(
                 route["methods"] is not None and not _route_method_matches(route, method)
@@ -10585,11 +10680,16 @@ def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
         host_app = selected_host_route["app"]
         if host_app["kind"] == "router":
             child_route_path = _route_path_after_root(path, root_path)
-            if any(
-                _route_method_matches(route, method)
-                and _route_template_matches(route["path"], child_route_path, custom_convertors)
+            child_route_matches = any(
+                _route_template_matches(route["path"], child_route_path, custom_convertors)
+                and (
+                    route["kind"] == "websocket-route"
+                    if websocket_dispatch
+                    else route["kind"] == "http-route" and _route_method_matches(route, method)
+                )
                 for route in host_app["routes"]
-            ):
+            )
+            if child_route_matches:
                 derived.add("starlette.routing.Router.route-dispatch.host-route-child-dispatch")
         elif host_app["kind"] == "scope-path-parameter-json":
             derived.add("starlette.routing.Router.route-dispatch.host-path-parameter-propagation")
@@ -18357,6 +18457,20 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
         and app_actions[0]["message"].get("type") == "websocket.accept"
         and app_actions[1].get("operation") == "raise"
     )
+    body_exception_context_workflow = (
+        len(session_actions) == 1
+        and client_json_workflow
+        and client_json_receive_mode == "text"
+        and not client_exception_capture_workflow
+        and isinstance(app_actions, list)
+        and len(app_actions) == 3
+        and all(isinstance(action, dict) for action in app_actions)
+        and [action.get("operation") for action in app_actions] == ["send", "send", "raise"]
+        and isinstance(app_actions[0].get("message"), dict)
+        and app_actions[0]["message"].get("type") == "websocket.accept"
+        and isinstance(app_actions[1].get("message"), dict)
+        and app_actions[1]["message"].get("type") == "websocket.send"
+    )
     app_error_cleanup_close_error_workflow = app_error_stream_closure_workflow and no_client_actions
     portal_exit_error_workflow = portal_exit_error is not None
     denial_body_app_error_context_workflow = (
@@ -18405,6 +18519,7 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
             and app_actions[0].get("operation") == "raise"
         )
         or app_error_stream_closure_workflow
+        or body_exception_context_workflow
         or app_entry_cleanup_error_precedence_workflow
         or portal_exit_error_workflow
     )
@@ -18553,7 +18668,11 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
                 and not app_error_cleanup_close_error_workflow
                 and (len(session_actions) != 1 or not client_exception_capture_workflow)
             )
-            or (not app_error_stream_closure_workflow and not no_client_actions)
+            or (
+                not app_error_stream_closure_workflow
+                and not body_exception_context_workflow
+                and not no_client_actions
+            )
             or (client_exception_capture_workflow and not app_error_stream_closure_workflow)
         ):
             raise ContractError(
@@ -18593,6 +18712,51 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
             )
             if raise_action["operation"] != "raise":
                 raise ContractError("TestClient portal-exit error case must raise during teardown")
+            exception_spec = {
+                "class": raise_action["exception_class"],
+                "message": raise_action["message"],
+            }
+        elif body_exception_context_workflow:
+            accept_action = _exact(
+                app_actions[0],
+                {"operation", "message"},
+                "TestClient body-exception WebSocket accept action",
+            )
+            accept_message = _exact(
+                accept_action["message"],
+                {"type"},
+                "TestClient body-exception WebSocket accept message",
+            )
+            if accept_action["operation"] != "send" or accept_message["type"] != "websocket.accept":
+                raise ContractError("TestClient body-exception case must accept the WebSocket")
+            frame_action = _exact(
+                app_actions[1],
+                {"operation", "message"},
+                "TestClient body-exception WebSocket frame action",
+            )
+            frame_message = _exact(
+                frame_action["message"],
+                {"type", "text"},
+                "TestClient body-exception WebSocket frame",
+            )
+            if frame_action["operation"] != "send" or frame_message["type"] != "websocket.send":
+                raise ContractError("TestClient body-exception case must send a text frame")
+            frame_text = _string(frame_message["text"], "TestClient body-exception frame text")
+            try:
+                json.loads(frame_text)
+            except json.JSONDecodeError:
+                pass
+            else:
+                raise ContractError(
+                    "TestClient body-exception receive_json case requires invalid JSON text"
+                )
+            raise_action = _exact(
+                app_actions[2],
+                {"operation", "exception_class", "message"},
+                "TestClient body-exception WebSocket application exception",
+            )
+            if raise_action["operation"] != "raise":
+                raise ContractError("TestClient body-exception app must fail during cleanup")
             exception_spec = {
                 "class": raise_action["exception_class"],
                 "message": raise_action["message"],
@@ -18651,6 +18815,14 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
                     TESTCLIENT_WEBSOCKET_REQUIREMENTS["handshake"],
                     TESTCLIENT_WEBSOCKET_REQUIREMENTS["cleanup"],
                     TESTCLIENT_WEBSOCKET_REQUIREMENTS["portal_exit_error_context"],
+                }
+            )
+        elif body_exception_context_workflow:
+            expected_covers.update(
+                {
+                    TESTCLIENT_WEBSOCKET_REQUIREMENTS["handshake"],
+                    TESTCLIENT_WEBSOCKET_REQUIREMENTS["receive_json_text"],
+                    TESTCLIENT_WEBSOCKET_REQUIREMENTS["body_exception_context"],
                 }
             )
         else:
