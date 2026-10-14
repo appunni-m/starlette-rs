@@ -495,6 +495,7 @@ TESTCLIENT_WEBSOCKET_REQUIREMENTS = {
     "accepted_subprotocol_value": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.accepted-subprotocol-preserves-message-value",
     "extra_headers": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.extra-headers",
     "text_messages": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.text-message-exchange",
+    "text_object_preservation": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.text-object-preservation",
     "binary_messages": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.binary-message-exchange",
     "raw_send": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.raw-send-message",
     "raw_receive": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.raw-receive-message",
@@ -1120,6 +1121,14 @@ EXCEPTION_MIDDLEWARE_TYPING_REQUIREMENT = (
 EXCEPTION_MIDDLEWARE_LIVE_APP_REQUIREMENT = (
     "starlette.middleware.exceptions.ExceptionMiddleware.__call__.live-app-replacement"
 )
+EXCEPTION_MIDDLEWARE_REQUIREMENTS = {
+    "message_type_python_equality": (
+        "starlette.middleware.exceptions.ExceptionMiddleware.asgi-send.message-type-python-equality"
+    ),
+    "scope_type_python_membership": (
+        "starlette.middleware.exceptions.ExceptionMiddleware.asgi-call.scope-type-python-membership"
+    ),
+}
 MULTIDICT_REQUIREMENTS = {
     "constructor": "starlette.datastructures.MultiDict.constructor-input-forms",
     "mapping_views": "starlette.datastructures.MultiDict.duplicate-key-mapping-views",
@@ -1906,6 +1915,7 @@ REQUEST_CONSUMPTION_REQUIREMENTS = {
     "custom_receive_event_between_chunks": (
         "starlette.request.stream-ignore-custom-receive-event-between-body-chunks"
     ),
+    "stream_message_type_lookup_order": "starlette.request.stream-receive-message-type-lookup-order",
 }
 SYNC_REQUEST_RUNTIME_REQUIREMENTS = {
     "receive": "starlette.request.receive-worker-access",
@@ -2030,6 +2040,9 @@ SERVER_ERROR_MIDDLEWARE_REQUIREMENTS = {
     "mutable-debug": f"{SERVER_ERROR_MIDDLEWARE_SURFACE}.mutable-debug",
     "message-type-python-equality": (
         f"{SERVER_ERROR_MIDDLEWARE_SURFACE}.asgi-send.message-type-python-equality"
+    ),
+    "scope-type-python-inequality": (
+        f"{SERVER_ERROR_MIDDLEWARE_SURFACE}.asgi-call.scope-type-python-inequality"
     ),
 }
 ASGI_MIDDLEWARE_SURFACES = {
@@ -18229,7 +18242,27 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
         websocket_keys.add("params")
     if isinstance(case["websocket"], dict) and "session_entries" in case["websocket"]:
         websocket_keys.add("session_entries")
+    if isinstance(case["websocket"], dict) and "text_objects" in case["websocket"]:
+        websocket_keys.add("text_objects")
     websocket = _exact(case["websocket"], websocket_keys, "TestClient WebSocket input")
+    text_objects: dict[str, dict[str, str]] = {}
+    if "text_objects" in websocket:
+        raw_text_objects = websocket["text_objects"]
+        if not isinstance(raw_text_objects, list) or len(raw_text_objects) != 2:
+            raise ContractError("TestClient WebSocket text_objects must define exactly two objects")
+        class_names: set[str] = set()
+        for index, raw_text_object in enumerate(raw_text_objects):
+            context = f"TestClient WebSocket text_objects[{index}]"
+            text_object = _exact(raw_text_object, {"id", "class_name", "value"}, context)
+            object_id = _string(text_object["id"], f"{context}.id")
+            class_name = _string(text_object["class_name"], f"{context}.class_name")
+            value = _string(text_object["value"], f"{context}.value")
+            if not object_id or object_id in text_objects:
+                raise ContractError("TestClient WebSocket text object IDs must be non-empty and unique")
+            if not class_name.isidentifier() or class_name in class_names:
+                raise ContractError("TestClient WebSocket text class names must be unique identifiers")
+            text_objects[object_id] = {"class_name": class_name, "value": value}
+            class_names.add(class_name)
     websocket_url = _string(websocket["url"], "TestClient WebSocket url")
     is_routed_websocket_app = isinstance(case["asgi_app"], dict) and case["asgi_app"].get(
         "kind"
@@ -18276,6 +18309,7 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
     client_close_workflow = False
     client_stream_echo_workflow = False
     client_exception_capture_workflow = False
+    client_text_identity_workflow = False
     if denial_workflow:
         pass
     elif raw_session_workflow:
@@ -18342,10 +18376,39 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
             client_json_workflow = True
             client_json_exchange = True
         elif send_operation == "send_text":
-            send_action = _exact(
-                session_actions[0], {"operation", "text"}, "TestClient WebSocket text send action"
-            )
-            _string(send_action["text"], "TestClient WebSocket send_text.text")
+            if "text_object_id" in session_actions[0]:
+                send_action = _exact(
+                    session_actions[0],
+                    {"operation", "text_object_id"},
+                    "TestClient WebSocket text-object send action",
+                )
+                object_id = _string(
+                    send_action["text_object_id"],
+                    "TestClient WebSocket send_text.text_object_id",
+                )
+                if object_id not in text_objects:
+                    raise ContractError("TestClient WebSocket send_text references an unknown object")
+                receive_action = _exact(
+                    session_actions[1],
+                    {"operation", "observe_text_object_id"},
+                    "TestClient WebSocket text-object receive action",
+                )
+                if receive_action["operation"] != "receive_text":
+                    raise ContractError("Text-object send must be followed by receive_text")
+                observed_id = _string(
+                    receive_action["observe_text_object_id"],
+                    "TestClient WebSocket receive_text.observe_text_object_id",
+                )
+                if observed_id not in text_objects:
+                    raise ContractError("TestClient WebSocket receive_text references an unknown object")
+                client_text_identity_workflow = True
+            else:
+                send_action = _exact(
+                    session_actions[0],
+                    {"operation", "text"},
+                    "TestClient WebSocket text send action",
+                )
+                _string(send_action["text"], "TestClient WebSocket send_text.text")
             receive_operation = "receive_text"
             exchange_requirement = TESTCLIENT_WEBSOCKET_REQUIREMENTS["text_messages"]
             frame_mode = "text"
@@ -18392,7 +18455,10 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
             )
         if send_operation not in {"send_json", "close"}:
             receive_action = _exact(
-                session_actions[1], {"operation"}, "TestClient WebSocket receive action"
+                session_actions[1],
+                {"operation"}
+                | ({"observe_text_object_id"} if client_text_identity_workflow else set()),
+                "TestClient WebSocket receive action",
             )
             if receive_action["operation"] != receive_operation:
                 raise ContractError(
@@ -18625,6 +18691,81 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
         or len(scope_fields) != len(set(scope_fields))
     ):
         raise ContractError("TestClient WebSocket scope_fields must be unique supported scope keys")
+
+    if client_text_identity_workflow:
+        if (
+            not text_objects
+            or asgi_app["kind"] != "asgi3"
+            or raw_session_workflow
+            or no_client_actions
+            or len(app_actions) != 5
+            or not {"type", "path"} <= set(scope_fields)
+        ):
+            raise ContractError("WebSocket text-object preservation requires the declared ASGI3 exchange")
+        client_send = _exact(
+            session_actions[0],
+            {"operation", "text_object_id"},
+            "TestClient WebSocket text-object send action",
+        )
+        client_receive = _exact(
+            session_actions[1],
+            {"operation", "observe_text_object_id"},
+            "TestClient WebSocket text-object receive action",
+        )
+        if client_send["operation"] != "send_text" or client_receive["operation"] != "receive_text":
+            raise ContractError("WebSocket text-object client actions must send and receive text")
+        client_object_id = client_send["text_object_id"]
+        app_object_id = client_receive["observe_text_object_id"]
+        app_receive = _exact(
+            app_actions[0], {"operation"}, "WebSocket text-object initial connect action"
+        )
+        accept_action = _exact(
+            app_actions[1], {"operation", "message"}, "WebSocket text-object accept action"
+        )
+        app_observe = _exact(
+            app_actions[2],
+            {"operation", "observe_text_object_id"},
+            "WebSocket text-object app receive action",
+        )
+        app_send = _exact(
+            app_actions[3], {"operation", "message"}, "WebSocket text-object app send action"
+        )
+        app_disconnect = _exact(
+            app_actions[4], {"operation"}, "WebSocket text-object cleanup receive action"
+        )
+        accepted_message = _exact(
+            accept_action["message"], {"type"}, "WebSocket text-object accept message"
+        )
+        sent_message = _exact(
+            app_send["message"],
+            {"type", "text_object_id"},
+            "WebSocket text-object message",
+        )
+        if (
+            app_receive["operation"] != "receive"
+            or accept_action["operation"] != "send"
+            or accepted_message["type"] != "websocket.accept"
+            or app_observe["operation"] != "receive"
+            or app_observe["observe_text_object_id"] != client_object_id
+            or app_send["operation"] != "send"
+            or sent_message["type"] != "websocket.send"
+            or sent_message["text_object_id"] != app_object_id
+            or app_disconnect["operation"] != "receive"
+            or {client_object_id, app_object_id} != set(text_objects)
+        ):
+            raise ContractError("WebSocket text-object exchange must preserve both input identities")
+        expected_covers = {
+            TESTCLIENT_WEBSOCKET_REQUIREMENTS["scope"],
+            TESTCLIENT_WEBSOCKET_REQUIREMENTS["handshake"],
+            TESTCLIENT_WEBSOCKET_REQUIREMENTS["text_messages"],
+            TESTCLIENT_WEBSOCKET_REQUIREMENTS["text_object_preservation"],
+            TESTCLIENT_WEBSOCKET_REQUIREMENTS["cleanup"],
+        }
+        if set(case["covers"]) != expected_covers:
+            raise ContractError("WebSocket text-object covers must match its exchange and identity probes")
+        return
+    if text_objects:
+        raise ContractError("TestClient WebSocket text_objects are reserved for the identity exchange")
 
     if "session_entries" in websocket:
         _validate_testclient_websocket_mapping_reentry_case(
@@ -25167,14 +25308,80 @@ def _validate_server_error_middleware_app(value: Any, context: str) -> None:
         _validate_asgi_middleware_app(
             {"kind": "asgi-response-sequence", "messages": normalized_messages}
         )
+        comparison_messages = [
+            (
+                {key: field for key, field in message.items() if key != "more_body"}
+                if isinstance(message, dict)
+                and message.get("type") == "http.response.body"
+                and message.get("more_body") is False
+                else message
+            )
+            for message in shape_messages
+        ]
         if (
-            len(shape_messages) != 2
-            or shape_messages[0]
+            len(comparison_messages) != 2
+            or comparison_messages[0]
             != {"type": "http.response.start", "status": 204, "headers_base64_pairs": []}
-            or shape_messages[1] != {"type": "http.response.body", "body_base64": ""}
+            or comparison_messages[1] != {"type": "http.response.body", "body_base64": ""}
         ):
             raise ContractError(
                 f"{context} must model the pinned empty 204 response before raising"
+            )
+        return
+    if kind == "asgi-response-sequence-then-http-exception":
+        app = _exact(
+            value,
+            {"kind", "label", "messages", "status_code", "detail", "headers"},
+            context,
+        )
+        _string(app["label"], f"{context}.label")
+        if type(app["status_code"]) is not int or not 100 <= app["status_code"] <= 599:
+            raise ContractError(f"{context}.status_code must be an HTTP status code")
+        _string(app["detail"], f"{context}.detail")
+        if app["headers"] is not None and (
+            not isinstance(app["headers"], dict)
+            or any(
+                not isinstance(name, str) or not isinstance(header_value, str)
+                for name, header_value in app["headers"].items()
+            )
+        ):
+            raise ContractError(f"{context}.headers must be a string mapping or null")
+        shape_messages = _server_error_message_type_shape(app["messages"], context)
+        normalized_messages = (
+            [
+                (
+                    {**message, "more_body": False}
+                    if isinstance(message, dict)
+                    and message.get("type") == "http.response.body"
+                    and "more_body" not in message
+                    else message
+                )
+                for message in shape_messages
+            ]
+            if isinstance(shape_messages, list)
+            else shape_messages
+        )
+        _validate_asgi_middleware_app(
+            {"kind": "asgi-response-sequence", "messages": normalized_messages}
+        )
+        comparison_messages = [
+            (
+                {key: field for key, field in message.items() if key != "more_body"}
+                if isinstance(message, dict)
+                and message.get("type") == "http.response.body"
+                and message.get("more_body") is False
+                else message
+            )
+            for message in shape_messages
+        ]
+        if (
+            len(comparison_messages) != 2
+            or comparison_messages[0]
+            != {"type": "http.response.start", "status": 204, "headers_base64_pairs": []}
+            or comparison_messages[1] != {"type": "http.response.body", "body_base64": ""}
+        ):
+            raise ContractError(
+                f"{context} must model the pinned empty 204 response before raising HTTPException"
             )
         return
     raise ContractError(f"{context} must use a declared ASGI app kind")
@@ -25226,6 +25433,42 @@ def _is_server_error_message_type_equality_probe(app: Any) -> bool:
         and subclass.get("value") == "http.response.start"
         and subclass.get("equal_result") is False
     )
+
+
+def _is_exception_message_type_equality_probe(app: Any) -> bool:
+    if (
+        not isinstance(app, dict)
+        or app.get("kind") != "asgi-response-sequence-then-http-exception"
+    ):
+        return False
+    messages = app.get("messages")
+    if not isinstance(messages, list) or not messages or not isinstance(messages[0], dict):
+        return False
+    message_type = messages[0].get("type")
+    if not isinstance(message_type, dict) or set(message_type) != {"str_subclass"}:
+        return False
+    subclass = message_type["str_subclass"]
+    return (
+        isinstance(subclass, dict)
+        and subclass.get("value") == "http.response.start"
+        and subclass.get("equal_result") is False
+    )
+
+
+def _middleware_scope_type_value(value: Any, context: str, comparison: str) -> tuple[str, bool]:
+    """Validate one input-defined str subclass descriptor and return its base value and probe flag."""
+    if isinstance(value, str):
+        return value, False
+    descriptor = _exact(value, {"str_subclass"}, f"{context} descriptor")
+    subclass = _exact(
+        descriptor["str_subclass"],
+        {"value", comparison},
+        f"{context}.str_subclass",
+    )
+    value_string = _string(subclass["value"], f"{context}.str_subclass.value")
+    if value_string != "http" or type(subclass[comparison]) is not bool:
+        raise ContractError(f"{context} str subclass must define boolean {comparison} for http")
+    return value_string, True
 
 
 def _validate_server_error_middleware_handler(value: Any, context: str) -> None:
@@ -26287,14 +26530,35 @@ def _validate_server_error_middleware_case(
         dispatch = _exact(
             case["dispatch"], {"scope", "receive", "send"}, "ServerErrorMiddleware dispatch input"
         )
+        raw_scope_type = dispatch["scope"].get("type") if isinstance(dispatch["scope"], dict) else None
+        scope_type, scope_type_probe = _middleware_scope_type_value(
+            raw_scope_type,
+            "ServerErrorMiddleware scope.type",
+            "not_equal_result",
+        )
+        if scope_type_probe:
+            normalized_scope = {**dispatch["scope"], "type": scope_type}
+            dispatch = {**dispatch, "scope": normalized_scope}
         _validate_asgi_middleware_dispatch(SERVER_ERROR_MIDDLEWARE_SURFACE, dispatch)
         if assignment_fields and dispatch["scope"]["type"] != "http":
             raise ContractError("ServerErrorMiddleware field-mutation probes require HTTP scope")
 
         if not assignment_fields:
-            scope_type = dispatch["scope"]["type"]
             app_kind = constructor["app"]["kind"]
-            if scope_type == "websocket":
+            if scope_type_probe:
+                raw_descriptor = raw_scope_type["str_subclass"]
+                if (
+                    scope_type != "http"
+                    or raw_descriptor["not_equal_result"] is not True
+                    or app_kind != "raise-runtime-error"
+                    or constructor["handler"] is not None
+                    or constructor["debug"]
+                ):
+                    raise ContractError(
+                        "scope inequality input must define true Python inequality for an HTTP scope and propagate the app error"
+                    )
+                requirement_key = "scope-type-python-inequality"
+            elif scope_type == "websocket":
                 if (
                     app_kind != "raise-runtime-error"
                     or constructor["handler"] is not None
@@ -26438,43 +26702,78 @@ def _validate_exception_middleware_case(
         )
 
     assignments = case["assignments"]
-    if not isinstance(assignments, list) or len(assignments) != 1:
-        raise ContractError("ExceptionMiddleware live-app input requires one app assignment")
-    assignment = _exact(
-        assignments[0],
-        {"field", "value"},
-        "ExceptionMiddleware app assignment",
-    )
-    if assignment["field"] != "app":
-        raise ContractError("ExceptionMiddleware live-app input must assign app")
-    _validate_server_error_middleware_app(
-        assignment["value"], "ExceptionMiddleware replacement app"
-    )
-    if assignment["value"] == constructor["app"]:
-        raise ContractError("ExceptionMiddleware app replacement must change the input callable")
+    if not isinstance(assignments, list) or len(assignments) not in {0, 1}:
+        raise ContractError("ExceptionMiddleware calls permit zero assignments or one app assignment")
+    if assignments:
+        assignment = _exact(
+            assignments[0],
+            {"field", "value"},
+            "ExceptionMiddleware app assignment",
+        )
+        if assignment["field"] != "app":
+            raise ContractError("ExceptionMiddleware live-app input must assign app")
+        _validate_server_error_middleware_app(
+            assignment["value"], "ExceptionMiddleware replacement app"
+        )
+        if assignment["value"] == constructor["app"]:
+            raise ContractError("ExceptionMiddleware app replacement must change the input callable")
 
     dispatch = _exact(
         case["dispatch"],
         {"scope", "receive", "send"},
         "ExceptionMiddleware dispatch input",
     )
+    raw_scope_type = dispatch["scope"].get("type") if isinstance(dispatch["scope"], dict) else None
+    scope_type, scope_type_probe = _middleware_scope_type_value(
+        raw_scope_type,
+        "ExceptionMiddleware scope.type",
+        "equal_result",
+    )
+    if scope_type_probe:
+        dispatch = {**dispatch, "scope": {**dispatch["scope"], "type": scope_type}}
     _validate_asgi_middleware_dispatch(surface_id, dispatch)
-    if dispatch["scope"]["type"] != "http":
+    if scope_type != "http":
         raise ContractError("ExceptionMiddleware live-app input must dispatch an HTTP scope")
 
-    if case["covers"] != [EXCEPTION_MIDDLEWARE_LIVE_APP_REQUIREMENT]:
-        raise ContractError(
-            "ExceptionMiddleware live-app case must cover its canonical requirement"
-        )
-    requirement = declared_requirements.get(EXCEPTION_MIDDLEWARE_LIVE_APP_REQUIREMENT)
-    if (
-        requirement is None
-        or "parity" not in requirement["lanes"]
-        or "python-package-cpython312" not in requirement["target_profiles"]
-    ):
-        raise ContractError(
-            "ExceptionMiddleware live-app requirement is not declared for the package profile"
-        )
+    if assignments:
+        requirement_ids = {EXCEPTION_MIDDLEWARE_LIVE_APP_REQUIREMENT}
+        if case["covers"] != [EXCEPTION_MIDDLEWARE_LIVE_APP_REQUIREMENT]:
+            raise ContractError(
+                "ExceptionMiddleware live-app case must cover its canonical requirement"
+            )
+    else:
+        if (
+            constructor["app"]["kind"] != "asgi-response-sequence-then-http-exception"
+            or constructor["handlers"] is not None
+            or constructor["debug"] is not False
+        ):
+            raise ContractError("ExceptionMiddleware direct-call probes require the declared app")
+        if _is_exception_message_type_equality_probe(constructor["app"]) and not scope_type_probe:
+            requirement_ids = {EXCEPTION_MIDDLEWARE_REQUIREMENTS["message_type_python_equality"]}
+        elif (
+            scope_type_probe
+            and raw_scope_type["str_subclass"]["equal_result"] is False
+            and not _is_exception_message_type_equality_probe(constructor["app"])
+        ):
+            requirement_ids = {
+                EXCEPTION_MIDDLEWARE_REQUIREMENTS["scope_type_python_membership"]
+            }
+        else:
+            raise ContractError("ExceptionMiddleware direct-call input must select a declared probe")
+        if set(case["covers"]) != requirement_ids:
+            raise ContractError(
+                "ExceptionMiddleware direct-call covers must match its Python comparison probe"
+            )
+    for requirement_id in requirement_ids:
+        requirement = declared_requirements.get(requirement_id)
+        if (
+            requirement is None
+            or "parity" not in requirement["lanes"]
+            or "python-package-cpython312" not in requirement["target_profiles"]
+        ):
+            raise ContractError(
+                f"ExceptionMiddleware requirement is not declared for the package profile: {requirement_id}"
+            )
     return case
 
 
@@ -30906,6 +31205,7 @@ def _validate_request_body_stream_json_case(case: dict[str, Any]) -> None:
     optional_receive_fields = False
     body_object_probe = False
     body_truthiness_probe = False
+    message_type_lookup_order_probe = False
     receive_error_indices: list[int] = []
     receive_cancellation_indices: list[int] = []
     for index, raw_message in enumerate(receive):
@@ -30979,10 +31279,28 @@ def _validate_request_body_stream_json_case(case: dict[str, Any]) -> None:
         elif raw_message["type"] == "http.disconnect" and set(raw_message) != {"type"}:
             raise ContractError(f"{context} disconnect message has unsupported fields")
         elif raw_message["type"] not in {"http.request", "http.disconnect"}:
-            _exact(raw_message, {"type", "body_value"}, context)
+            _exact(
+                raw_message,
+                {"type", "body_value"}
+                | ({"type_lookup_values"} if "type_lookup_values" in raw_message else set()),
+                context,
+            )
             if "body_value" not in raw_message:
                 raise ContractError(f"{context} custom event must declare its body_value")
             _validate_threadpool_json(raw_message["body_value"], f"{context}.body_value")
+            if "type_lookup_values" in raw_message:
+                lookup_values = raw_message["type_lookup_values"]
+                if (
+                    not isinstance(lookup_values, list)
+                    or lookup_values != [raw_message["type"], "http.disconnect"]
+                ):
+                    raise ContractError(
+                        f"{context}.type_lookup_values must provide its original custom type, "
+                        "then http.disconnect"
+                    )
+                if any(not isinstance(value, str) for value in lookup_values):
+                    raise ContractError(f"{context}.type_lookup_values must contain strings")
+                message_type_lookup_order_probe = True
 
     blocked_receive_calls = case["blocked_receive_calls"]
     if (
@@ -31067,6 +31385,26 @@ def _validate_request_body_stream_json_case(case: dict[str, Any]) -> None:
     if explicit_none_receive and (action_operations != ["body"] or blocked_receive_calls):
         raise ContractError(
             "explicit None receive must be observed by one Request.body() call without gates"
+        )
+    if message_type_lookup_order_probe and (
+        len(receive) != 2
+        or not isinstance(receive[0], dict)
+        or "type_lookup_values" not in receive[0]
+        or receive[1].get("type") != "http.request"
+        or receive[1].get("more_body") is not False
+        or not isinstance(receive[1].get("body_base64"), str)
+        or not base64.b64decode(receive[1]["body_base64"], validate=True)
+        or action_operations != ["stream-next"] * 4
+        or len(stream_ids) != 4
+        or stream_ids[:2] != [stream_ids[0]] * 2
+        or stream_ids[2:] != [stream_ids[2]] * 2
+        or stream_ids[0] == stream_ids[2]
+        or blocked_receive_calls
+        or scope_headers
+    ):
+        raise ContractError(
+            "Request message-type lookup order requires one stateful custom event, one final "
+            "request, two advances on the initial stream, and two on a fresh stream"
         )
     if started_tasks != awaited_tasks:
         raise ContractError("every started body task must be awaited exactly once")
@@ -31356,6 +31694,7 @@ def _validate_request_body_stream_json_case(case: dict[str, Any]) -> None:
         for index, message in enumerate(receive)
         if isinstance(message, dict)
         and message.get("kind") != "raise"
+        and "type_lookup_values" not in message
         and message.get("type") not in {"http.request", "http.disconnect"}
     ]
     if custom_receive_indices:
@@ -31456,8 +31795,11 @@ def _validate_request_body_stream_json_case(case: dict[str, Any]) -> None:
     first_stream_ended_on_disconnect = (
         len(stream_ids) > 1
         and not receive_error_probe
-        and receive[0]["type"] == "http.disconnect"
-        and stream_ids.count(stream_ids[0]) == 1
+        and (
+            receive[0]["type"] == "http.disconnect"
+            or "http.disconnect" in receive[0].get("type_lookup_values", [])
+        )
+        and (message_type_lookup_order_probe or stream_ids.count(stream_ids[0]) == 1)
     )
     if (
         len(set(stream_ids)) > 1
@@ -31468,9 +31810,13 @@ def _validate_request_body_stream_json_case(case: dict[str, Any]) -> None:
     ):
         expected_covers.add(REQUEST_CONSUMPTION_REQUIREMENTS["stream_interleaving"])
     if (stream_positions or direct_body_positions) and any(
-        message.get("type") == "http.disconnect" for message in receive
+        message.get("type") == "http.disconnect"
+        or "http.disconnect" in message.get("type_lookup_values", [])
+        for message in receive
     ):
         expected_covers.add(REQUEST_CONSUMPTION_REQUIREMENTS["stream_client_disconnect"])
+    if message_type_lookup_order_probe:
+        expected_covers.add(REQUEST_CONSUMPTION_REQUIREMENTS["stream_message_type_lookup_order"])
     if action_operations in (
         ["body", "is-disconnected"],
         ["stream-next", "is-disconnected"],

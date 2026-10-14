@@ -1,0 +1,93 @@
+{
+  "schema": "migration-parity/parity-input@55",
+  "cases": [
+    {
+      "case_id": "starlette.testclient.TestClient.websocket-session.text-object-identity",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "websocket-session",
+      "covers": [
+        "starlette.testclient.TestClient.websocket-session.scope-projection",
+        "starlette.testclient.TestClient.websocket-session.accept-handshake",
+        "starlette.testclient.TestClient.websocket-session.text-message-exchange",
+        "starlette.testclient.TestClient.websocket-session.text-object-preservation",
+        "starlette.testclient.TestClient.websocket-session.context-cleanup"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "websocket-session"
+      ],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": [
+          "testclient",
+          50000
+        ],
+        "headers": []
+      },
+      "websocket": {
+        "url": "/text-object-identity",
+        "subprotocols": [],
+        "headers": [],
+        "text_objects": [
+          {
+            "id": "client-text",
+            "class_name": "ClientText",
+            "value": "client subclass payload"
+          },
+          {
+            "id": "app-text",
+            "class_name": "ApplicationText",
+            "value": "application subclass payload"
+          }
+        ],
+        "actions": [
+          {
+            "operation": "send_text",
+            "text_object_id": "client-text"
+          },
+          {
+            "operation": "receive_text",
+            "observe_text_object_id": "app-text"
+          }
+        ]
+      },
+      "asgi_app": {
+        "kind": "asgi3",
+        "scope_fields": [
+          "type",
+          "path"
+        ],
+        "actions": [
+          {
+            "operation": "receive"
+          },
+          {
+            "operation": "send",
+            "message": {
+              "type": "websocket.accept"
+            }
+          },
+          {
+            "operation": "receive",
+            "observe_text_object_id": "client-text"
+          },
+          {
+            "operation": "send",
+            "message": {
+              "type": "websocket.send",
+              "text_object_id": "app-text"
+            }
+          },
+          {
+            "operation": "receive"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,78 @@
+{
+  "schema": "migration-parity/parity-input@55",
+  "cases": [
+    {
+      "case_id": "starlette.middleware.exceptions.ExceptionMiddleware.__call__.scope-type-str-subclass-membership",
+      "surface": "starlette.middleware.exceptions.ExceptionMiddleware",
+      "operation": "__call__",
+      "covers": [
+        "starlette.middleware.exceptions.ExceptionMiddleware.asgi-call.scope-type-python-membership"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "constructor": {
+        "app": {
+          "kind": "asgi-response-sequence-then-http-exception",
+          "label": "scope-type-membership-app",
+          "messages": [
+            {
+              "type": "http.response.start",
+              "status": 204,
+              "headers_base64_pairs": []
+            },
+            {
+              "type": "http.response.body",
+              "body_base64": "",
+              "more_body": false
+            }
+          ],
+          "status_code": 418,
+          "detail": "scope passed through",
+          "headers": null
+        },
+        "handlers": null,
+        "debug": false
+      },
+      "assignments": [],
+      "dispatch": {
+        "scope": {
+          "type": {
+            "str_subclass": {
+              "value": "http",
+              "equal_result": false
+            }
+          },
+          "asgi": {
+            "version": "3.0",
+            "spec_version": "2.4"
+          },
+          "http_version": "1.1",
+          "method": "GET",
+          "scheme": "http",
+          "path": "/",
+          "raw_path_base64": "Lw==",
+          "query_string_base64": "",
+          "root_path": "",
+          "headers_base64_pairs": [],
+          "client": [
+            "127.0.0.1",
+            12345
+          ],
+          "server": [
+            "testserver",
+            80
+          ]
+        },
+        "receive": [],
+        "send": {
+          "kind": "capture-asgi-send"
+        }
+      },
+      "observations": [
+        "dispatch"
+      ]
+    }
+  ]
+}

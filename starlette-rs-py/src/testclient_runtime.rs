@@ -831,7 +831,7 @@ impl PyWebSocketTestSession {
         }
     }
 
-    fn send_text_inner(&self, py: Python<'_>, data: &str) -> PyResult<()> {
+    fn send_text_inner(&self, py: Python<'_>, data: &Bound<'_, PyAny>) -> PyResult<()> {
         let message = PyDict::new(py);
         message.set_item("type", "websocket.receive")?;
         message.set_item("text", data)?;
@@ -1014,15 +1014,15 @@ impl PyWebSocketTestSession {
         self.receive_app_message(py)
     }
 
-    fn send_text(&self, py: Python<'_>, data: &str) -> PyResult<()> {
-        self.send_text_inner(py, data)
+    fn send_text(&self, py: Python<'_>, data: Py<PyAny>) -> PyResult<()> {
+        self.send_text_inner(py, data.bind(py))
     }
 
-    fn receive_text(&self, py: Python<'_>) -> PyResult<String> {
+    fn receive_text(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let message = self.receive_app_message(py)?;
         let message = message.bind(py);
         self.raise_on_close(py, message)?;
-        message.get_item("text")?.extract::<String>()
+        Ok(message.get_item("text")?.unbind())
     }
 
     fn send_bytes(&self, py: Python<'_>, data: Py<PyAny>) -> PyResult<()> {

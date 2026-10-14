@@ -8,6 +8,7 @@
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
+use pyo3::class::basic::CompareOp;
 use pyo3::class::gc::{PyTraverseError, PyVisit};
 use pyo3::exceptions::{
     PyAssertionError, PyException, PyRuntimeError, PyStopAsyncIteration, PyValueError,
@@ -676,12 +677,15 @@ impl AwaitableStateMachine for ExceptionSendCall {
     fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
         match input {
             MachineResume::Start if !self.pending => {
-                let message_type = self
-                    .message
-                    .bind(py)
-                    .get_item("type")?
-                    .extract::<String>()?;
-                if message_type == "http.response.start" {
+                let message_type = self.message.bind(py).get_item("type")?;
+                // Starlette compares the original ASGI type object with Python
+                // `==`, then uses the result in a conditional. Preserve both
+                // rich-equality and truth-testing behavior for subclasses and
+                // other Python values, while forwarding the original message.
+                let is_response_start = message_type
+                    .rich_compare("http.response.start", CompareOp::Eq)?
+                    .is_truthy()?;
+                if is_response_start {
                     self.response_started.store(true, Ordering::Relaxed);
                 }
                 let awaitable = self.send.bind(py).call1((self.message.bind(py),))?;
@@ -776,8 +780,9 @@ impl AwaitableStateMachine for ExceptionMiddlewareCall {
 impl ExceptionMiddlewareCall {
     fn start(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
         let scope = self.scope.bind(py);
-        let scope_type = scope.get_item("type")?.extract::<String>()?;
-        if !matches!(scope_type.as_str(), "http" | "websocket") {
+        let scope_type = scope.get_item("type")?;
+        let supported_scope_types = PyTuple::new(py, ["http", "websocket"])?;
+        if !supported_scope_types.contains(&scope_type)? {
             self.pending = Some(ExceptionPending::PassThrough);
             let app = self.middleware.bind(py).getattr("app")?;
             let awaitable = app.call1((scope, &self.receive, &self.send))?;
@@ -794,7 +799,13 @@ impl ExceptionMiddlewareCall {
                 ],
             )?,
         )?;
-        let connection = if scope_type == "http" {
+        // Match the second source lookup after the handler mapping is written:
+        // `scope["type"] == "http"` chooses Request versus WebSocket.
+        let is_http = scope
+            .get_item("type")?
+            .rich_compare("http", CompareOp::Eq)?
+            .is_truthy()?;
+        let connection = if is_http {
             match crate::scope_mapping::optional_item(scope, "starlette._exception_request")? {
                 Some(request) => {
                     scope.del_item("starlette._exception_request")?;

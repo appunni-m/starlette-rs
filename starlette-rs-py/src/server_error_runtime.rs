@@ -280,8 +280,13 @@ impl AwaitableStateMachine for ServerErrorCall {
 
 impl ServerErrorCall {
     fn start(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
-        let scope_type = self.scope.bind(py).get_item("type")?.extract::<String>()?;
-        let send = if scope_type == "http" {
+        let scope_type = self.scope.bind(py).get_item("type")?;
+        // Starlette's `scope["type"] != "http"` dispatch invokes Python's
+        // rich inequality and truth testing on the original scope value.
+        let is_http = !scope_type
+            .rich_compare("http", CompareOp::Ne)?
+            .is_truthy()?;
+        let send = if is_http {
             let proxy = Py::new(
                 py,
                 PyServerErrorSendProxy {
@@ -296,7 +301,7 @@ impl ServerErrorCall {
             self.send.clone_ref(py)
         };
 
-        self.pending = Some(if scope_type == "http" {
+        self.pending = Some(if is_http {
             ServerErrorPending::Application
         } else {
             ServerErrorPending::Passthrough

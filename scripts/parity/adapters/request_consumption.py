@@ -24,6 +24,26 @@ class RequestBodyChunk(bytes):
         return len(self) != 0
 
 
+class RequestTypeLookupMessage(dict[str, Any]):
+    """Model an ASGI mapping whose type field changes between item lookups."""
+
+    def __init__(self, spec: dict[str, Any]) -> None:
+        super().__init__({"type": spec["type"], "body": spec["body_value"]})
+        self.type_lookup_values = list(spec["type_lookup_values"])
+        self.type_lookup_trace: list[str] = []
+
+    def __getitem__(self, key: str) -> Any:
+        if key == "type":
+            value = (
+                self.type_lookup_values.pop(0)
+                if self.type_lookup_values
+                else super().__getitem__(key)
+            )
+            self.type_lookup_trace.append(value)
+            return value
+        return super().__getitem__(key)
+
+
 def _safe(value: Any) -> Any:
     if value is None or isinstance(value, (bool, int, float, str)):
         return value
@@ -37,6 +57,8 @@ def _safe(value: Any) -> Any:
 
 
 def _decode_message(spec: dict[str, Any]) -> dict[str, Any]:
+    if "type_lookup_values" in spec:
+        return RequestTypeLookupMessage(spec)
     message = {"type": spec["type"]}
     if spec.get("body_type") == "bytes-subclass":
         message["body"] = RequestBodyChunk(
@@ -96,10 +118,16 @@ async def _observe(case: dict[str, Any], request_type: Callable[..., Any]) -> di
     gates = {index: asyncio.Event() for index in case["blocked_receive_calls"]}
     receive_trace: list[dict[str, Any]] = []
     receive_body_objects: list[Any] = []
+    type_lookup_messages: list[RequestTypeLookupMessage] = []
     received = 0
 
     def make_receive(events: list[dict[str, Any]]) -> Callable[[], Any]:
         incoming = _decode_receive_tape(events)
+        type_lookup_messages.extend(
+            message
+            for message in incoming
+            if isinstance(message, RequestTypeLookupMessage)
+        )
         tape_position = 0
 
         async def receive() -> dict[str, Any]:
@@ -230,11 +258,20 @@ async def _observe(case: dict[str, Any], request_type: Callable[..., Any]) -> di
                 {"operation": operation, "receive_call": receive_call, "status": "released"}
             )
 
-    return {
+    result = {
         "actions": observations,
         "receive_calls": received,
         "receive_trace": receive_trace,
     }
+    if type_lookup_messages:
+        result["message_type_lookup_trace"] = [
+            {
+                "reads": message.type_lookup_trace,
+                "remaining": message.type_lookup_values,
+            }
+            for message in type_lookup_messages
+        ]
+    return result
 
 
 def run_request_consumption_case(

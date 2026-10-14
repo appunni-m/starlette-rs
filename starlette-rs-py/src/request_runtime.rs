@@ -2333,11 +2333,13 @@ fn request_message(
     message: Py<PyAny>,
 ) -> PyResult<ParsedRequestMessage> {
     let message = message.bind(py);
-    let message_type = message.get_item("type")?;
     // Match Request.stream()'s branch order: only http.request reads body and
     // more_body. Disconnect and application-defined messages ignore all other
-    // fields, which lets middleware pass high-level ASGI events through.
-    if message_type.eq("http.request")? {
+    // fields, which lets middleware pass high-level ASGI events through. The
+    // source also performs a fresh mapping lookup for the disconnect branch
+    // after the request comparison fails; preserve that for stateful
+    // MutableMapping messages and their Python comparison/truth behavior.
+    if message.get_item("type")?.eq("http.request")? {
         let empty = PyBytes::new(py, b"");
         let body_object = message.call_method1("get", ("body", empty))?;
         let more_body = message
@@ -2370,7 +2372,7 @@ fn request_message(
             more_body,
         });
     }
-    if message_type.eq("http.disconnect")? {
+    if message.get_item("type")?.eq("http.disconnect")? {
         return Ok(ParsedRequestMessage {
             kind: RequestMessageKind::Disconnect,
             body: Vec::new(),

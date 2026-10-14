@@ -1,0 +1,70 @@
+{
+  "schema": "migration-parity/parity-input@55",
+  "cases": [
+    {
+      "case_id": "starlette.middleware.errors.ServerErrorMiddleware.__call__.scope-type-str-subclass-inequality",
+      "surface": "starlette.middleware.errors.ServerErrorMiddleware",
+      "operation": "__call__",
+      "covers": [
+        "starlette.middleware.errors.ServerErrorMiddleware.asgi-call.scope-type-python-inequality"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "constructor": {
+        "app": {
+          "kind": "raise-runtime-error",
+          "label": "scope-type-inequality-app",
+          "message": "scope type inequality probe"
+        },
+        "handler": null,
+        "debug": false
+      },
+      "assignments": [],
+      "dispatch": {
+        "scope": {
+          "type": {
+            "str_subclass": {
+              "value": "http",
+              "not_equal_result": true
+            }
+          },
+          "asgi": {
+            "version": "3.0",
+            "spec_version": "2.4"
+          },
+          "http_version": "1.1",
+          "method": "GET",
+          "scheme": "http",
+          "path": "/",
+          "raw_path_base64": "Lw==",
+          "query_string_base64": "",
+          "root_path": "",
+          "headers_base64_pairs": [],
+          "client": [
+            "127.0.0.1",
+            12345
+          ],
+          "server": [
+            "testserver",
+            80
+          ]
+        },
+        "receive": [
+          {
+            "type": "http.request",
+            "body_base64": "",
+            "more_body": false
+          }
+        ],
+        "send": {
+          "kind": "capture-asgi-send"
+        }
+      },
+      "observations": [
+        "dispatch"
+      ]
+    }
+  ]
+}

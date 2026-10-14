@@ -108,6 +108,7 @@ CORS_SURFACE = "starlette.middleware.cors.CORSMiddleware"
 HTTPS_REDIRECT_SURFACE = "starlette.middleware.httpsredirect.HTTPSRedirectMiddleware"
 TRUSTED_HOST_SURFACE = "starlette.middleware.trustedhost.TrustedHostMiddleware"
 SERVER_ERROR_MIDDLEWARE_SURFACE = "starlette.middleware.errors.ServerErrorMiddleware"
+EXCEPTION_MIDDLEWARE_SURFACE = "starlette.middleware.exceptions.ExceptionMiddleware"
 SESSION_MIDDLEWARE_SURFACE = "starlette.middleware.sessions.SessionMiddleware"
 SESSION_WORKFLOW_OPERATION = "session-workflow"
 BASE_HTTP_SURFACE = "starlette.middleware.base.BaseHTTPMiddleware"
@@ -954,20 +955,42 @@ def _scope_observation_value(value: Any) -> Any:
     return {"type": f"{type(value).__module__}.{type(value).__qualname__}"}
 
 
+def _materialize_scope_type_spec(value: Any) -> tuple[Any, Any]:
+    if not isinstance(value, dict) or set(value) != {"str_subclass"}:
+        return value, value
+    descriptor = _exact_object(value, {"str_subclass"}, "scope type")
+    subclass = descriptor["str_subclass"]
+    if not isinstance(subclass, dict) or not isinstance(subclass.get("value"), str):
+        raise ValueError("scope type str_subclass requires a string value")
+    behavior = set(subclass) - {"value"}
+    if behavior == {"equal_result"} and type(subclass["equal_result"]) is bool:
+        return (
+            _InputStringSubclass(subclass["value"], equal_result=subclass["equal_result"]),
+            subclass["value"],
+        )
+    if behavior == {"not_equal_result"} and type(subclass["not_equal_result"]) is bool:
+        return (
+            _InputStringSubclass(subclass["value"], not_equal_result=subclass["not_equal_result"]),
+            subclass["value"],
+        )
+    raise ValueError("scope type str_subclass must declare one boolean comparison result")
+
+
 def _make_scope(
     spec: dict[str, Any], container: str | dict[str, Any] = "dict"
 ) -> dict[str, Any] | UserDict:
-    if spec["type"] == "lifespan":
-        scope = {"type": "lifespan", "asgi": dict(spec["asgi"])}
+    scope_type, scope_type_value = _materialize_scope_type_spec(spec["type"])
+    if scope_type_value == "lifespan":
+        scope = {"type": scope_type, "asgi": dict(spec["asgi"])}
         if "state" in spec:
             scope["state"] = dict(spec["state"])
         return _scope_container(scope, container)
     if set(spec) == {"type"}:
-        return _scope_container(dict(spec), container)
+        return _scope_container({"type": scope_type}, container)
     if set(spec) == {"type", "version", "method", "path"}:
-        return _scope_container(dict(spec), container)
+        return _scope_container({**spec, "type": scope_type}, container)
     scope = {
-        "type": spec["type"],
+        "type": scope_type,
         "asgi": dict(spec["asgi"]),
         "http_version": spec["http_version"],
         "scheme": spec["scheme"],
@@ -982,9 +1005,9 @@ def _make_scope(
         "client": tuple(spec["client"]),
         "server": tuple(spec["server"]),
     }
-    if spec["type"] == "http":
+    if scope_type_value == "http":
         scope["method"] = spec["method"]
-    elif spec["type"] == "websocket":
+    elif scope_type_value == "websocket":
         scope["subprotocols"] = list(spec["subprotocols"])
     if "extensions" in spec:
         scope["extensions"] = dict(spec["extensions"])
@@ -3591,7 +3614,11 @@ def _materialize_server_error_middleware_app(
     spec: dict[str, Any], app_calls: list[str], app_exceptions: list[BaseException]
 ) -> Any:
     label = spec["label"]
-    if spec["kind"] in {"asgi-response-sequence", "asgi-response-sequence-then-raise"}:
+    if spec["kind"] in {
+        "asgi-response-sequence",
+        "asgi-response-sequence-then-raise",
+        "asgi-response-sequence-then-http-exception",
+    }:
         response_app = _materialize_asgi_sequence_app(
             {"kind": "asgi-response-sequence", "messages": spec["messages"]}
         )
@@ -3601,6 +3628,17 @@ def _materialize_server_error_middleware_app(
             await response_app(scope, receive, send)
             if spec["kind"] == "asgi-response-sequence-then-raise":
                 error = RuntimeError(spec["message"])
+                app_exceptions.append(error)
+                raise error
+            if spec["kind"] == "asgi-response-sequence-then-http-exception":
+                from starlette.exceptions import HTTPException
+
+                headers = spec["headers"]
+                error = HTTPException(
+                    status_code=spec["status_code"],
+                    detail=spec["detail"],
+                    headers=None if headers is None else dict(headers),
+                )
                 app_exceptions.append(error)
                 raise error
 
@@ -3736,6 +3774,61 @@ def _run_server_error_middleware_case(case: dict[str, Any]) -> dict[str, Any]:
         "server_error_observation": _server_error_observation(
             middleware, start, body, captured_exception
         ),
+    }
+    return {
+        "case_id": case["case_id"],
+        "status": "completed",
+        "observations": [{"step_id": "dispatch", "status": "ok", "value": value}],
+    }
+
+
+def _run_exception_middleware_case(case: dict[str, Any]) -> dict[str, Any]:
+    from starlette.middleware.exceptions import ExceptionMiddleware
+
+    constructor = case["constructor"]
+    app_calls: list[str] = []
+    app_exceptions: list[BaseException] = []
+    app = _materialize_server_error_middleware_app(constructor["app"], app_calls, app_exceptions)
+    middleware = ExceptionMiddleware(
+        app,
+        handlers=constructor["handlers"],
+        debug=constructor["debug"],
+    )
+    for assignment in case["assignments"]:
+        if assignment["field"] == "app":
+            middleware.app = _materialize_server_error_middleware_app(
+                assignment["value"], app_calls, app_exceptions
+            )
+
+    dispatch = case["dispatch"]
+    scope = _make_scope(dispatch["scope"])
+    incoming = [_make_message(message) for message in dispatch["receive"]]
+    received = 0
+    sent: list[dict[str, Any]] = []
+
+    async def receive() -> dict[str, Any]:
+        nonlocal received
+        if received < len(incoming):
+            message = incoming[received]
+            received += 1
+            return message
+        return {"type": "http.disconnect"}
+
+    async def send(message: dict[str, Any]) -> None:
+        sent.append(message)
+
+    if dispatch["send"] != {"kind": "capture-asgi-send"}:
+        raise ValueError("ExceptionMiddleware send input must select the ASGI event collector")
+    captured_exception: BaseException | None = None
+    try:
+        asyncio.run(middleware(scope, receive, send))
+    except Exception as exc:
+        captured_exception = exc
+
+    value = {
+        "asgi_events": [_canonical_message(message) for message in sent],
+        "selected_app_calls": list(app_calls),
+        "propagated_error": _dispatch_error(captured_exception) if captured_exception else None,
     }
     return {
         "case_id": case["case_id"],
@@ -17292,6 +17385,8 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         return _run_protocol_middleware_case(case)
     if case.get("surface") == SERVER_ERROR_MIDDLEWARE_SURFACE:
         return _run_server_error_middleware_case(case)
+    if case.get("surface") == EXCEPTION_MIDDLEWARE_SURFACE and case.get("operation") == "__call__":
+        return _run_exception_middleware_case(case)
     if case.get("surface") == WSGI_SURFACE:
         _exact_object(
             case,

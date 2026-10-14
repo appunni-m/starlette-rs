@@ -19,9 +19,12 @@ def _decoded_pairs(value: list[list[str]]) -> list[tuple[bytes, bytes]]:
     return [(base64.b64decode(key), base64.b64decode(item)) for key, item in value]
 
 
-def _message(value: dict[str, Any]) -> dict[str, Any]:
+def _message(
+    value: dict[str, Any], text_objects: dict[str, str] | None = None
+) -> dict[str, Any]:
     message = dict(value)
     type_spec = message.pop("type_spec", None)
+    text_object_id = message.pop("text_object_id", None)
     body_kind = message.pop("body_kind", "bytes")
     headers_pair_container = message.pop("headers_pair_container", "tuple")
     message.pop("headers_base64_pairs", None)
@@ -41,6 +44,10 @@ def _message(value: dict[str, Any]) -> dict[str, Any]:
                 return super().__eq__(other)
 
         message["type"] = InputMessageType(type_spec["value"])
+    if text_object_id is not None:
+        if text_objects is None:
+            raise ValueError("input-defined WebSocket text object has no registry")
+        message["text"] = text_objects[text_object_id]
     if "headers_base64_pairs" in value:
         headers = _decoded_pairs(value["headers_base64_pairs"])
         if headers_pair_container == "tuple":
@@ -62,6 +69,28 @@ def _message(value: dict[str, Any]) -> dict[str, Any]:
     if "bytes_base64" in value:
         message["bytes"] = base64.b64decode(value["bytes_base64"])
     return message
+
+
+def _input_text_objects(specifications: list[dict[str, str]]) -> dict[str, str]:
+    objects: dict[str, str] = {}
+    for specification in specifications:
+        text_type = type(
+            specification["class_name"],
+            (str,),
+            {"__module__": "starlette_testclient_parity_input"},
+        )
+        objects[specification["id"]] = text_type(specification["value"])
+    return objects
+
+
+def _text_object_observation(
+    value: Any, object_id: str, text_objects: dict[str, str]
+) -> dict[str, Any]:
+    value_type = type(value)
+    return {
+        "type": f"{value_type.__module__}.{value_type.__qualname__}",
+        "is_same_object": value is text_objects[object_id],
+    }
 
 
 def _safe(value: Any) -> Any:
@@ -1408,6 +1437,7 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
     settings = case["testclient"]
     websocket_input = case["websocket"]
     app_input = case["asgi_app"]
+    text_objects = _input_text_objects(websocket_input.get("text_objects", []))
     scope_observations: list[dict[str, Any]] = []
     receive_observations: list[dict[str, Any]] = []
     send_observations: list[dict[str, Any]] = []
@@ -1433,10 +1463,20 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
         # The pinned user app creates these streams on the client caller thread.
         stream_pair = anyio.create_memory_object_stream(stream_spec["buffer_size"])
 
-    async def observed_receive(receive: Any) -> dict[str, Any]:
+    async def observed_receive(
+        receive: Any, observe_text_object_id: str | None = None
+    ) -> dict[str, Any]:
         message = await receive()
         safe_message = _safe(message)
-        receive_observations.append(safe_message)
+        observation: Any = safe_message
+        if observe_text_object_id is not None:
+            observation = {
+                "message": safe_message,
+                "text_object": _text_object_observation(
+                    message["text"], observe_text_object_id, text_objects
+                ),
+            }
+        receive_observations.append(observation)
         event_tape.append({"direction": "receive", "message": safe_message})
         return message
 
@@ -1472,12 +1512,12 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
     ) -> None:
         for action in app_input["actions"] if actions is None else actions:
             if action["operation"] == "receive":
-                await observed_receive(receive)
+                await observed_receive(receive, action.get("observe_text_object_id"))
             elif action["operation"] == "raise":
                 exception_type = getattr(builtins, action["exception_class"])
                 raise exception_type(action["message"])
             else:
-                message = _message(action["message"])
+                message = _message(action["message"], text_objects)
                 await observed_send(send, message)
 
     async def run_websocket_flow(scope: dict[str, Any], receive: Any, send: Any) -> None:
@@ -1946,7 +1986,12 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
                 elif action["operation"] == "receive":
                     value = session.receive()
                 elif action["operation"] == "send_text":
-                    value = session.send_text(action["text"])
+                    text = (
+                        text_objects[action["text_object_id"]]
+                        if "text_object_id" in action
+                        else action["text"]
+                    )
+                    value = session.send_text(text)
                 elif action["operation"] == "send_bytes":
                     value = session.send_bytes(base64.b64decode(action["data_base64"]))
                 elif action["operation"] == "send_json":
@@ -2007,7 +2052,13 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
                     }
                 )
             else:
-                action_results.append({"operation": action["operation"], "value": _safe(value)})
+                action_result = {"operation": action["operation"], "value": _safe(value)}
+                observe_text_object_id = action.get("observe_text_object_id")
+                if observe_text_object_id is not None:
+                    action_result["text_object"] = _text_object_observation(
+                        value, observe_text_object_id, text_objects
+                    )
+                action_results.append(action_result)
 
     try:
         session = client.websocket_connect(

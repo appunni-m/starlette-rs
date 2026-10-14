@@ -980,20 +980,54 @@ def _scope_observation_value(value: Any) -> Any:
     return {"type": f"{type(value).__module__}.{type(value).__qualname__}"}
 
 
+def _materialize_scope_type_spec(value: Any) -> tuple[Any, Any]:
+    if not isinstance(value, dict) or set(value) != {"str_subclass"}:
+        return value, value
+    descriptor = _strict_object(value, {"str_subclass"}, "scope type")
+    subclass = descriptor["str_subclass"]
+    if not isinstance(subclass, dict):
+        raise ValueError("scope type str_subclass must be an object")
+    behavior = set(subclass) - {"value"}
+    if not isinstance(subclass.get("value"), str):
+        raise ValueError("scope type str_subclass value must be a string")
+    if behavior == {"equal_result"}:
+        equal_result = subclass["equal_result"]
+        if type(equal_result) is not bool:
+            raise ValueError("scope type str_subclass equal_result must be boolean")
+
+        class InputStringSubclass(str):
+            def __eq__(self, _other: object, result: bool = equal_result) -> bool:
+                return result
+
+        return InputStringSubclass(subclass["value"]), subclass["value"]
+    if behavior == {"not_equal_result"}:
+        not_equal_result = subclass["not_equal_result"]
+        if type(not_equal_result) is not bool:
+            raise ValueError("scope type str_subclass not_equal_result must be boolean")
+
+        class InputStringSubclass(str):
+            def __ne__(self, _other: object, result: bool = not_equal_result) -> bool:
+                return result
+
+        return InputStringSubclass(subclass["value"]), subclass["value"]
+    raise ValueError("scope type str_subclass must declare one comparison result")
+
+
 def _make_scope(
     spec: dict[str, Any], container: str | dict[str, Any] = "dict"
 ) -> dict[str, Any] | UserDict:
-    if spec["type"] == "lifespan":
-        scope = {"type": "lifespan", "asgi": dict(spec["asgi"])}
+    scope_type, scope_type_value = _materialize_scope_type_spec(spec["type"])
+    if scope_type_value == "lifespan":
+        scope = {"type": scope_type, "asgi": dict(spec["asgi"])}
         if "state" in spec:
             scope["state"] = dict(spec["state"])
         return _scope_container(scope, container)
     if set(spec) == {"type"}:
-        return _scope_container(dict(spec), container)
+        return _scope_container({"type": scope_type}, container)
     if set(spec) == {"type", "version", "method", "path"}:
-        return _scope_container(dict(spec), container)
+        return _scope_container({**spec, "type": scope_type}, container)
     scope = {
-        "type": spec["type"],
+        "type": scope_type,
         "asgi": dict(spec["asgi"]),
         "http_version": spec["http_version"],
         "scheme": spec["scheme"],
@@ -1008,9 +1042,9 @@ def _make_scope(
         "client": tuple(spec["client"]),
         "server": tuple(spec["server"]),
     }
-    if spec["type"] == "http":
+    if scope_type_value == "http":
         scope["method"] = spec["method"]
-    elif spec["type"] == "websocket":
+    elif scope_type_value == "websocket":
         scope["subprotocols"] = list(spec["subprotocols"])
     if "extensions" in spec:
         scope["extensions"] = dict(spec["extensions"])
@@ -3880,7 +3914,11 @@ def _materialize_server_error_middleware_app(
     spec: dict[str, Any], app_calls: list[str], app_exceptions: list[BaseException]
 ) -> Any:
     label = spec["label"]
-    if spec["kind"] in {"asgi-response-sequence", "asgi-response-sequence-then-raise"}:
+    if spec["kind"] in {
+        "asgi-response-sequence",
+        "asgi-response-sequence-then-raise",
+        "asgi-response-sequence-then-http-exception",
+    }:
         response_app = _materialize_asgi_sequence_app(
             {"kind": "asgi-response-sequence", "messages": spec["messages"]}
         )
@@ -3890,6 +3928,17 @@ def _materialize_server_error_middleware_app(
             await response_app(scope, receive, send)
             if spec["kind"] == "asgi-response-sequence-then-raise":
                 error = RuntimeError(spec["message"])
+                app_exceptions.append(error)
+                raise error
+            if spec["kind"] == "asgi-response-sequence-then-http-exception":
+                from starlette.exceptions import HTTPException
+
+                headers = spec["headers"]
+                error = HTTPException(
+                    status_code=spec["status_code"],
+                    detail=spec["detail"],
+                    headers=None if headers is None else dict(headers),
+                )
                 app_exceptions.append(error)
                 raise error
 

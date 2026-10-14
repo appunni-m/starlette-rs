@@ -1,0 +1,64 @@
+{
+  "schema": "migration-parity/parity-input@55",
+  "cases": [
+    {
+      "case_id": "starlette.requests.Request.body-stream-json.message-type-lookup-order",
+      "surface": "starlette.requests.Request",
+      "operation": "body-stream-json",
+      "covers": [
+        "starlette.request.stream-client-disconnect",
+        "starlette.request.stream-receive-message-type-lookup-order"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "http"
+      },
+      "receive": [
+        {
+          "type": "application.progress",
+          "type_lookup_values": [
+            "application.progress",
+            "http.disconnect"
+          ],
+          "body_value": {
+            "progress": "ignored"
+          }
+        },
+        {
+          "type": "http.request",
+          "body_base64": "bGF0ZXI=",
+          "more_body": false
+        }
+      ],
+      "blocked_receive_calls": [],
+      "actions": [
+        {
+          "operation": "stream-next",
+          "stream_id": "initial"
+        },
+        {
+          "operation": "stream-next",
+          "stream_id": "initial"
+        },
+        {
+          "operation": "stream-next",
+          "stream_id": "retry"
+        },
+        {
+          "operation": "stream-next",
+          "stream_id": "retry"
+        }
+      ],
+      "observations": [
+        "request-consumption"
+      ]
+    }
+  ]
+}

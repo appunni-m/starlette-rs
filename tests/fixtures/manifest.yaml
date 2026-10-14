@@ -368,6 +368,7 @@
       "build/parity/inputs/parity/request-consumption.json",
       "build/parity/inputs/parity/request-custom-receive-event-interleaved.json",
       "build/parity/inputs/parity/request-stream-custom-event-interleaved.json",
+      "build/parity/inputs/parity/request-stream-message-type-lookup-order.json",
       "build/parity/inputs/parity/request-explicit-none-receive.json",
       "build/parity/inputs/parity/request-stream-close-recovery.json",
       "build/parity/inputs/parity/request-stream-aclose-before-first-advance.json",
@@ -397,6 +398,7 @@
       "build/parity/inputs/parity/asgi-server-errors.json",
       "build/parity/inputs/parity/server-error-middleware.json",
       "build/parity/inputs/parity/server-error-message-type-python-equality.json",
+      "build/parity/inputs/parity/server-error-scope-type-python-inequality.json",
       "build/parity/inputs/parity/websocket-protocol.json",
       "build/parity/inputs/parity/websocket-route-dispatch.json",
       "build/parity/inputs/parity/websocket-route-middleware-exception-order.json",
@@ -619,6 +621,7 @@
       "build/parity/inputs/parity/testclient-websocket-public.json",
       "build/parity/inputs/parity/testclient-websocket-endpoint-path-params.json",
       "build/parity/inputs/parity/testclient-websocket-query-encoding.json",
+      "build/parity/inputs/parity/testclient-websocket-text-object-identity.json",
       "build/parity/inputs/parity/testclient-docs-inputs.json",
       "build/parity/inputs/parity/testclient-lifespan-context.json",
       "build/parity/inputs/parity/testclient-lifespan-message-type-comparison-error.json",
@@ -641,6 +644,8 @@
       "build/parity/inputs/parity/concurrency-run-until-first-complete-base-exception.json",
       "build/parity/inputs/parity/websocket-scope-interface.json",
       "build/parity/inputs/parity/exception-middleware-live-app.json",
+      "build/parity/inputs/parity/exception-middleware-message-type-python-equality.json",
+      "build/parity/inputs/parity/exception-middleware-scope-type-python-membership.json",
       "build/parity/inputs/parity/exception-middleware-typing.json",
       "build/parity/inputs/parity/testclient-redirect-policy.json",
       "build/parity/inputs/parity/templating-public.json",
@@ -13311,6 +13316,28 @@
               "target_profiles": [
                 "python-package-cpython312"
               ]
+            },
+            {
+              "id": "starlette.middleware.exceptions.ExceptionMiddleware.asgi-send.message-type-python-equality",
+              "dimension": "boundary",
+              "description": "Apply Python rich equality and truth testing to the original ASGI response-start message type before deciding whether ExceptionMiddleware should handle a later HTTPException. Pinned source: starlette/_exception_handler.py:34-39,55-56.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.exceptions.ExceptionMiddleware.asgi-call.scope-type-python-membership",
+              "dimension": "boundary",
+              "description": "Preserve tuple membership against the original Python scope type when ExceptionMiddleware selects whether to install HTTP and WebSocket handlers. Pinned source: starlette/middleware/exceptions.py:47-50.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
             }
           ],
           "parity": {
@@ -14645,6 +14672,17 @@
               "id": "starlette.middleware.errors.ServerErrorMiddleware.asgi-send.message-type-python-equality",
               "dimension": "boundary",
               "description": "Use Python rich equality and truth testing on an input-defined ASGI message type subclass when deciding whether an HTTP response start has been sent. Pinned source: starlette/middleware/errors.py:156-161.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.errors.ServerErrorMiddleware.asgi-call.scope-type-python-inequality",
+              "dimension": "boundary",
+              "description": "Use Python inequality and truth testing on the original scope type when ServerErrorMiddleware decides whether an application error belongs to HTTP. Pinned source: starlette/middleware/errors.py:149-152.",
               "lanes": [
                 "parity"
               ],
@@ -17733,6 +17771,21 @@
               "id": "starlette.request.stream-ignore-custom-receive-event-between-body-chunks",
               "dimension": "boundary",
               "description": "Ignore an application-defined receive event between a partial http.request chunk and the final chunk, append only the request body chunks, and continue reading until completion. Pinned source: starlette/requests.py:239-252,254-260; the stream loop reads until its final http.request and handles only http.request and http.disconnect.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
+              "id": "starlette.request.stream-receive-message-type-lookup-order",
+              "dimension": "boundary",
+              "description": "Preserve separate Python MutableMapping message['type'] lookups for the Request.stream http.request and subsequent http.disconnect comparisons, including a stateful message whose first lookup is a custom event and second lookup is a disconnect. Pinned source: starlette/requests.py:241-251; public type: starlette/types.py:12-16.",
               "lanes": [
                 "parity"
               ],
@@ -33120,6 +33173,17 @@
               "id": "starlette.testclient.TestClient.websocket-session.text-message-exchange",
               "dimension": "success_path",
               "description": "Forward the input text frame to the ASGI receive callback and return the app text frame from receive_text(). Pinned source: starlette/testclient.py:154-181; tests/test_testclient.py::test_websocket_blocking_receive.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.websocket-session.text-object-preservation",
+              "dimension": "boundary",
+              "description": "Forward Python str subclass objects unchanged through WebSocketTestSession.send_text and receive_text, preserving their dynamic type and identity at the ASGI boundary. Pinned source: starlette/testclient.py:168-170,187-190.",
               "lanes": [
                 "parity"
               ],
