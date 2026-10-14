@@ -666,6 +666,59 @@
       ]
     },
     {
+      "case_id": "starlette.middleware.authentication.AuthenticationMiddleware.dispatch.backend-result-non-iterable-error",
+      "surface": "starlette.middleware.authentication.AuthenticationMiddleware",
+      "operation": "dispatch",
+      "covers": [
+        "starlette.middleware.authentication.AuthenticationMiddleware.backend-result-non-iterable-error"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scenarios": [
+        {
+          "scope_type": "http",
+          "backend": {
+            "outcome": {
+              "non_iterable": 17
+            }
+          },
+          "error_handler": "default"
+        }
+      ],
+      "observations": [
+        "scenarios"
+      ]
+    },
+    {
+      "case_id": "starlette.middleware.authentication.AuthenticationMiddleware.dispatch.backend-result-empty-arity-error",
+      "surface": "starlette.middleware.authentication.AuthenticationMiddleware",
+      "operation": "dispatch",
+      "covers": [
+        "starlette.middleware.authentication.AuthenticationMiddleware.backend-result-arity-error"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scenarios": [
+        {
+          "scope_type": "http",
+          "backend": {
+            "outcome": {
+              "container": "generator",
+              "items": []
+            }
+          },
+          "error_handler": "default"
+        }
+      ],
+      "observations": [
+        "scenarios"
+      ]
+    },
+    {
       "case_id": "starlette.middleware.authentication.AuthenticationMiddleware.dispatch.user-dict-scope-mutation",
       "surface": "starlette.middleware.authentication.AuthenticationMiddleware",
       "operation": "dispatch",

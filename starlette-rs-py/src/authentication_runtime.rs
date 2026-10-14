@@ -6,7 +6,7 @@
 
 use pyo3::class::gc::{PyTraverseError, PyVisit};
 use pyo3::exceptions::{
-    PyAssertionError, PyException, PyNotImplementedError, PyRuntimeError, PyTypeError,
+    PyAssertionError, PyException, PyNotImplementedError, PyRuntimeError, PyTypeError, PyValueError,
 };
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList, PyModule, PyString, PyTuple};
@@ -863,20 +863,34 @@ impl AuthenticationMiddlewareCall {
 }
 
 /// Match Starlette's two-target assignment from the backend result. Python
-/// tuple unpacking accepts any iterator, including a one-shot generator, so
-/// require only two yielded values and probe once for an extra value.
+/// tuple unpacking accepts any iterator and raises `ValueError` on wrong arity,
+/// so require two yielded values and probe once for an extra value.
 fn unpack_authentication_result(result: &Bound<'_, PyAny>) -> PyResult<(Py<PyAny>, Py<PyAny>)> {
-    let mut result = result.try_iter()?;
+    let result_type = result.get_type();
+    let mut result = match result.try_iter() {
+        Ok(iterator) => iterator,
+        Err(error)
+            if error.is_instance_of::<PyTypeError>(result.py())
+                && !result_type.hasattr("__iter__")?
+                && !result_type.hasattr("__getitem__")? =>
+        {
+            let type_name = result_type.name()?.to_string();
+            return Err(PyTypeError::new_err(format!(
+                "cannot unpack non-iterable {type_name} object"
+            )));
+        }
+        Err(error) => return Err(error),
+    };
     let credentials = result
         .next()
         .transpose()?
-        .ok_or_else(|| PyTypeError::new_err("not enough values to unpack (expected 2, got 0)"))?;
+        .ok_or_else(|| PyValueError::new_err("not enough values to unpack (expected 2, got 0)"))?;
     let user = result
         .next()
         .transpose()?
-        .ok_or_else(|| PyTypeError::new_err("not enough values to unpack (expected 2, got 1)"))?;
+        .ok_or_else(|| PyValueError::new_err("not enough values to unpack (expected 2, got 1)"))?;
     if result.next().transpose()?.is_some() {
-        return Err(PyTypeError::new_err(
+        return Err(PyValueError::new_err(
             "too many values to unpack (expected 2)",
         ));
     }

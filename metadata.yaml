@@ -848,6 +848,10 @@
         {
           "operation_id": "lookup-path",
           "source_path": "starlette.staticfiles.StaticFiles.lookup_path"
+        },
+        {
+          "operation_id": "get-response",
+          "source_path": "starlette.staticfiles.StaticFiles.get_response"
         }
       ]
     },

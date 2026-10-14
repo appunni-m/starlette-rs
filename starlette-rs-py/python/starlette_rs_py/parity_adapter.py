@@ -102,6 +102,7 @@ STREAMING_RESPONSE_SURFACE = "starlette.responses.StreamingResponse"
 FILE_RESPONSE_SURFACE = "starlette.responses.FileResponse"
 STATIC_FILES_SURFACE = "starlette.staticfiles.StaticFiles"
 STATIC_FILES_LOOKUP_PATH_OPERATION = "lookup-path"
+STATIC_FILES_GET_RESPONSE_OPERATION = "get-response"
 STATIC_FILES_ASYNC_BOUNDARY_OPERATION = "asgi-call-async-boundary"
 RESPONSE_OPERATION = "asgi-call"
 STREAMING_RESPONSE_TRACE_OPERATION = "asgi-call-with-execution-trace"
@@ -9326,6 +9327,90 @@ def _run_static_files_case(case: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _run_static_files_get_response_case(case: dict[str, Any]) -> dict[str, Any]:
+    _exact_object(
+        case,
+        {
+            "case_id",
+            "surface",
+            "operation",
+            "covers",
+            "target_profiles",
+            "assets",
+            "directory",
+            "files",
+            "path",
+            "scope",
+            "html",
+            "check_dir",
+            "follow_symlink",
+            "observations",
+        },
+        "StaticFiles get-response case",
+    )
+    if (
+        case["surface"] != STATIC_FILES_SURFACE
+        or case["operation"] != STATIC_FILES_GET_RESPONSE_OPERATION
+        or case["observations"] != [STATIC_FILES_GET_RESPONSE_OPERATION]
+    ):
+        raise ValueError("workflow is outside the StaticFiles get-response operation")
+
+    from starlette.staticfiles import StaticFiles
+
+    with tempfile.TemporaryDirectory(
+        prefix="starlette-package-static-response-"
+    ) as temporary_directory:
+        root = Path(temporary_directory) / case["directory"]
+        root.mkdir(parents=True)
+        for file_spec in case["files"]:
+            path = root / file_spec["path"]
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(_decode_base64(file_spec["contents_base64"], "file.contents_base64"))
+            os.utime(path, (file_spec["mtime_seconds"], file_spec["mtime_seconds"]))
+        application = StaticFiles(
+            directory=root,
+            html=case["html"],
+            check_dir=case["check_dir"],
+            follow_symlink=case["follow_symlink"],
+        )
+
+        async def get_response() -> Any:
+            return await application.get_response(case["path"], case["scope"])
+
+        try:
+            response = asyncio.run(get_response())
+        except Exception as exc:
+            error = _dispatch_error(exc)
+            error["code"] = getattr(exc, "status_code", None)
+            observation_item = {
+                "step_id": STATIC_FILES_GET_RESPONSE_OPERATION,
+                "status": "error",
+                "error": error,
+            }
+        else:
+            observation = {
+                "response_class": f"{type(response).__module__}.{type(response).__qualname__}",
+                "response_status": getattr(response, "status_code", None),
+                "ordered_repeated_headers": [
+                    [
+                        base64.b64encode(name).decode("ascii"),
+                        base64.b64encode(value).decode("ascii"),
+                    ]
+                    for name, value in getattr(response, "raw_headers", [])
+                ],
+            }
+            observation_item = {
+                "step_id": STATIC_FILES_GET_RESPONSE_OPERATION,
+                "status": "ok",
+                "value": observation,
+            }
+    return {
+        "case_id": case["case_id"],
+        "status": "completed",
+        "observations": [observation_item],
+    }
+
+
 def _run_static_files_lookup_path_case(case: dict[str, Any]) -> dict[str, Any]:
     has_pathlike = "directory_pathlike" in case
     case_fields = {
@@ -12414,6 +12499,8 @@ def _run_authentication_case(case: dict[str, Any]) -> dict[str, Any]:
                     result = _backend_spec["outcome"]
                     if not isinstance(result, dict):
                         return None
+                    if "non_iterable" in result:
+                        return result["non_iterable"]
                     return AuthCredentials(result["credentials"]), SimpleUser(result["user"])
 
             async def app(
@@ -17494,6 +17581,12 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         and case.get("operation") == RESPONSE_OPERATION
     ):
         return _run_file_response_case(case)
+    if (
+        isinstance(case, dict)
+        and case.get("surface") == STATIC_FILES_SURFACE
+        and case.get("operation") == STATIC_FILES_GET_RESPONSE_OPERATION
+    ):
+        return _run_static_files_get_response_case(case)
     if (
         isinstance(case, dict)
         and case.get("surface") == STATIC_FILES_SURFACE

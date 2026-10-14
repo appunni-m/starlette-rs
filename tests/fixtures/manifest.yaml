@@ -11043,7 +11043,18 @@
             {
               "id": "starlette.middleware.authentication.AuthenticationMiddleware.backend-result-arity-error",
               "dimension": "error_path",
-              "description": "A backend iterable with fewer or more than two values propagates Python's tuple-unpacking TypeError before app dispatch. Upstream: starlette/middleware/authentication.py:45-48.",
+              "description": "A backend iterable with fewer or more than two values propagates Python's tuple-unpacking ValueError before app dispatch. Upstream: starlette/middleware/authentication.py:45-48.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.authentication.AuthenticationMiddleware.backend-result-non-iterable-error",
+              "dimension": "error_path",
+              "description": "A non-iterable backend result propagates Python's tuple-unpacking TypeError before app dispatch. Upstream: starlette/middleware/authentication.py:45-48.",
               "lanes": [
                 "parity"
               ],
@@ -14229,6 +14240,17 @@
               "id": "starlette.middleware.gzip.GZipResponder.excluded-content-type-normalization",
               "dimension": "parameter_combination",
               "description": "Normalize a configured content-type exclusion and a response media type before bypassing direct GZipResponder compression. Pinned source: starlette/middleware/gzip.py:134-139,212-225; tests/middleware/test_gzip.py::test_gzip_responder_normalizes_content_types.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.gzip.GZipResponder.reused-instance-start-state",
+              "dimension": "protocol_variant",
+              "description": "Dispatch twice through the same responder instance and preserve its started state across calls, as the pinned IdentityResponder stores started on the instance. Pinned source: starlette/middleware/gzip.py:96-107,120-125.",
               "lanes": [
                 "parity"
               ],
@@ -29772,6 +29794,191 @@
           "benchmark": {
             "applicability": "not_applicable",
             "reason": "StaticFiles AnyIO scheduling is outside active benchmark workloads."
+          }
+        },
+        {
+          "id": "get-response",
+          "kind": "protocol_operation",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.staticfiles.StaticFiles.get_response",
+            "signature": "async get_response(path: str, scope: Scope) -> Response",
+            "parameters": [
+              {
+                "id": "directory",
+                "style": "input_asset",
+                "value_types": [
+                  "path"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "files",
+                "style": "input_asset",
+                "value_types": [
+                  "sequence"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "path",
+                "style": "input_asset",
+                "value_types": [
+                  "string"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "scope",
+                "style": "input_asset",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "html",
+                "style": "input_asset",
+                "value_types": [
+                  "boolean"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "check_dir",
+                "style": "input_asset",
+                "value_types": [
+                  "boolean"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "follow_symlink",
+                "style": "input_asset",
+                "value_types": [
+                  "boolean"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "response_class",
+                  "value_types": [
+                    "string",
+                    "null"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                },
+                {
+                  "path": "response_status",
+                  "value_types": [
+                    "integer",
+                    "null"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                },
+                {
+                  "path": "ordered_repeated_headers",
+                  "value_types": [
+                    "sequence",
+                    "null"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                },
+                {
+                  "path": "error",
+                  "value_types": [
+                    "record",
+                    "null"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "out_of_scope",
+                "reason": "The native StaticFiles API receives method and scope_path as separate arguments and has no Python scope mapping whose key access order can be observed.",
+                "authority": "This input compares the documented Python get_response(path, scope) boundary and selects only the python-package-cpython312 profile."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.staticfiles.StaticFiles.get_response",
+              "signature": "async get_response(path: str, scope: Scope) -> Response",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.staticfiles.StaticFiles.get-response.method-before-scope-path",
+              "dimension": "boundary",
+              "description": "Call get_response directly with an input-defined disallowed method and a sparse scope lacking path; compare method rejection before any scope path access. Pinned source: starlette/staticfiles.py:109-117.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This input-only StaticFiles method-order comparison makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "The direct StaticFiles scope validation is outside the active benchmark workloads."
           }
         }
       ]

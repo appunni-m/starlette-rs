@@ -1213,6 +1213,9 @@ AUTHENTICATION_OPERATIONS = {
 AUTHENTICATION_WEBSOCKET_SUCCESS_REQUIREMENT = (
     "starlette.middleware.authentication.AuthenticationMiddleware.websocket-authenticated-success"
 )
+AUTHENTICATION_BACKEND_NON_ITERABLE_REQUIREMENT = (
+    "starlette.middleware.authentication.AuthenticationMiddleware.backend-result-non-iterable-error"
+)
 AUTH_USER_INTERFACE_REQUIREMENTS = {
     "unauthenticated": (
         "starlette.applications.Starlette.__call__.authentication-user-interface."
@@ -1525,6 +1528,14 @@ STATIC_FILES_SCOPE_TYPE_EQUALITY_REQUIREMENT = (
     f"{STATIC_FILES_SURFACE}.asgi-call.scope-type-equality"
 )
 STATIC_FILES_LOOKUP_PATH_OPERATION = "lookup-path"
+STATIC_FILES_GET_RESPONSE_OPERATION = "get-response"
+STATIC_FILES_GET_RESPONSE_OPERATION_KEY = (
+    STATIC_FILES_SURFACE,
+    STATIC_FILES_GET_RESPONSE_OPERATION,
+)
+STATIC_FILES_GET_RESPONSE_METHOD_BEFORE_SCOPE_PATH_REQUIREMENT = (
+    f"{STATIC_FILES_SURFACE}.{STATIC_FILES_GET_RESPONSE_OPERATION}.method-before-scope-path"
+)
 STATIC_FILES_OS_SPECIFIC_PATH_BEHAVIOR = "os-specific-path-normalization"
 STATIC_FILES_ROOT_PATH_PREFIX_INDEX_REDIRECT = "root-path-prefix-html-index-redirect"
 STATIC_FILES_EMPTY_IF_NONE_MATCH_FALLBACK = "empty-if-none-match-falls-through-to-if-modified-since"
@@ -1708,6 +1719,15 @@ STATIC_FILES_CONFIGURATION_CHECK_CASE_KEYS = (CASE_KEYS - {"steps", "execution_s
     "check_dir",
     "follow_symlink",
     "calls",
+}
+STATIC_FILES_GET_RESPONSE_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
+    "directory",
+    "files",
+    "path",
+    "scope",
+    "html",
+    "check_dir",
+    "follow_symlink",
 }
 
 
@@ -2024,6 +2044,7 @@ GZIP_RESPONDER_REQUIREMENTS = {
     "construct": f"{GZIP_RESPONDER_SURFACE}.construct",
     "direct-compression": f"{GZIP_RESPONDER_SURFACE}.direct-compression-without-negotiation",
     "excluded-content-type": f"{GZIP_RESPONDER_SURFACE}.excluded-content-type-normalization",
+    "reused-instance-start-state": f"{GZIP_RESPONDER_SURFACE}.reused-instance-start-state",
 }
 CORS_SURFACE = "starlette.middleware.cors.CORSMiddleware"
 CORS_PRIVATE_NETWORK_DENIAL_REQUIREMENT = (
@@ -3325,6 +3346,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                 or key == BASE_HTTP_WORKFLOW_OPERATION_KEY
                 or key == BASE_HTTP_CONTEXTVARS_OPERATION_KEY
                 or key == STATIC_FILES_CONFIGURATION_CHECK_OPERATION_KEY
+                or key == STATIC_FILES_GET_RESPONSE_OPERATION_KEY
                 or key == WEBSOCKET_ENDPOINT_OPERATION_KEY
                 or key == THREADPOOL_OPERATION_KEY
                 or key in AUTHENTICATION_OPERATIONS
@@ -3576,6 +3598,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                                 (STREAMING_RESPONSE_SURFACE, STREAMING_RESPONSE_TRACE_OPERATION),
                                 (STATIC_FILES_SURFACE, STATIC_FILES_ASYNC_BOUNDARY_OPERATION),
                                 STATIC_FILES_CONFIGURATION_CHECK_OPERATION_KEY,
+                                STATIC_FILES_GET_RESPONSE_OPERATION_KEY,
                             }
                             or surface["id"] == BODY_LIMIT_SURFACE
                             or surface["id"]
@@ -10003,6 +10026,50 @@ def _validate_static_files_configuration_check_case(case: dict[str, Any]) -> Non
     if set(case["covers"]) != {requirement}:
         raise ContractError(
             "StaticFiles configuration-check covers must match the input-described workflow"
+        )
+
+
+def _validate_static_files_get_response_case(case: dict[str, Any]) -> None:
+    _exact(case, STATIC_FILES_GET_RESPONSE_CASE_KEYS, "StaticFiles get-response case")
+    if (case["surface"], case["operation"]) != STATIC_FILES_GET_RESPONSE_OPERATION_KEY:
+        raise ContractError("case is outside the declared StaticFiles get-response operation")
+    if case["observations"] != [STATIC_FILES_GET_RESPONSE_OPERATION]:
+        raise ContractError("StaticFiles get-response observations must select the operation")
+    if case["target_profiles"] != ["python-package-cpython312"]:
+        raise ContractError("StaticFiles get-response cases use only the Python-package profile")
+    if case["assets"] != []:
+        raise ContractError("StaticFiles get-response cases use no package assets")
+
+    directory = _string(case["directory"], "StaticFiles get-response.directory")
+    _static_files_relative_components(
+        directory, "StaticFiles get-response.directory", allow_parent=False
+    )
+    path = _string(case["path"], "StaticFiles get-response.path")
+    if not path:
+        raise ContractError("StaticFiles get-response.path must not be empty")
+    scope = _exact(case["scope"], {"method"}, "StaticFiles get-response sparse scope")
+    method = _string(scope["method"], "StaticFiles get-response.scope.method")
+    if method in {"GET", "HEAD"}:
+        raise ContractError("StaticFiles get-response sparse scope requires a disallowed method")
+    for key in ("html", "check_dir", "follow_symlink"):
+        if type(case[key]) is not bool:
+            raise ContractError(f"StaticFiles get-response.{key} must be boolean")
+
+    files = case["files"]
+    if not isinstance(files, list):
+        raise ContractError("StaticFiles get-response.files must be an array")
+    file_paths: set[str] = set()
+    for index, file_input in enumerate(files):
+        file_path, _mtime = _validate_static_asset_file(
+            file_input, f"StaticFiles get-response.files[{index}]"
+        )
+        if file_path in file_paths:
+            raise ContractError("StaticFiles get-response file paths must be unique")
+        file_paths.add(file_path)
+
+    if set(case["covers"]) != {STATIC_FILES_GET_RESPONSE_METHOD_BEFORE_SCOPE_PATH_REQUIREMENT}:
+        raise ContractError(
+            "StaticFiles get-response covers must match the input-described sparse-scope method check"
         )
 
 
@@ -23182,6 +23249,10 @@ def _validate_case_payload(
         and case.get("surface") == STATIC_FILES_SURFACE
         and case.get("operation") == RESPONSE_OPERATION
     )
+    is_static_files_get_response = (
+        isinstance(case, dict)
+        and (case.get("surface"), case.get("operation")) == STATIC_FILES_GET_RESPONSE_OPERATION_KEY
+    )
     is_static_files_async_boundary = (
         isinstance(case, dict)
         and case.get("surface") == STATIC_FILES_SURFACE
@@ -23442,6 +23513,8 @@ def _validate_case_payload(
         if is_static_files and "calls" in case
         else STATIC_FILES_ASGI_CALL_CASE_KEYS
         if is_static_files
+        else STATIC_FILES_GET_RESPONSE_CASE_KEYS
+        if is_static_files_get_response
         else STATIC_FILES_ASYNC_BOUNDARY_CASE_KEYS
         if is_static_files_async_boundary
         else _static_files_configuration_check_case_keys(case)
@@ -24090,6 +24163,9 @@ def _validate_case_payload(
     elif is_static_files:
         if case["operation"] != RESPONSE_OPERATION:
             raise ContractError("StaticFiles cases must use the declared asgi-call operation")
+    elif is_static_files_get_response:
+        if case["operation"] != STATIC_FILES_GET_RESPONSE_OPERATION:
+            raise ContractError("StaticFiles cases must use the declared get-response operation")
     elif is_static_files_async_boundary:
         if case["operation"] != STATIC_FILES_ASYNC_BOUNDARY_OPERATION:
             raise ContractError(
@@ -24610,6 +24686,9 @@ def _validate_case_payload(
     if is_static_files:
         _validate_static_files_case_stimulus(case)
         return case
+    if is_static_files_get_response:
+        _validate_static_files_get_response_case(case)
+        return case
     if is_static_files_async_boundary:
         _validate_static_files_async_boundary_case(case)
         return case
@@ -24629,6 +24708,7 @@ def _validate_case_payload(
     is_cors_state_sequence = _is_cors_dispatch_sequence(case)
     if not isinstance(case["steps"], list) or (
         len(case["steps"]) not in {2, 3}
+        and not (is_gzip_responder and len(case["steps"]) > 2)
         and not is_cors_state_sequence
         and not (is_starlette_add_route_workflow and len(case["steps"]) == 4)
         and not is_starlette_add_middleware_workflow
@@ -24679,7 +24759,7 @@ def _validate_case_payload(
         if is_middleware_construction
         else (step_ids,)
         if is_route_middleware_workflow or is_cors_state_sequence
-        else (["responder", "dispatch"],)
+        else (["responder", *step_ids[1:]],)
         if is_gzip_responder
         else (["middleware", *step_ids[1:]],)
         if is_gzip
@@ -24698,6 +24778,8 @@ def _validate_case_payload(
         and step_ids not in allowed_step_sequences
     ):
         raise ContractError("case steps must follow the declared construction and dispatch order")
+    if is_gzip_responder and (step_ids[0] != "responder" or len(step_ids) < 2):
+        raise ContractError("GZipResponder cases must construct once and dispatch at least once")
     expected_observations = (
         step_ids
         if is_middleware_construction
@@ -25142,7 +25224,7 @@ def _validate_case_payload(
         expected_schedule = ["construct"]
     elif is_protocol_middleware:
         expected_protocol_schedule = (
-            step_ids[1:] if is_cors_state_sequence or is_gzip else ["dispatch"]
+            step_ids[1:] if is_cors_state_sequence or is_gzip or is_gzip_responder else ["dispatch"]
         )
         scope_type = dispatch_args["scope"]["type"]
         valid_scope_type = scope_type in ("http", "websocket") or (
@@ -37793,7 +37875,24 @@ def _validate_authentication_case(case: dict[str, Any]) -> None:
             elif isinstance(backend, dict) and set(backend) == {"outcome"}:
                 outcome = backend["outcome"]
                 if isinstance(outcome, dict):
-                    if "container" in outcome or "items" in outcome:
+                    if set(outcome) == {"non_iterable"}:
+                        result = _exact(
+                            outcome,
+                            {"non_iterable"},
+                            f"{context}.backend.outcome",
+                        )
+                        if type(result["non_iterable"]) not in {
+                            type(None),
+                            bool,
+                            int,
+                            float,
+                        }:
+                            raise ContractError(
+                                f"{context}.backend.outcome.non_iterable must be a non-iterable JSON scalar"
+                            )
+                        if backend_is_dispatched:
+                            exercised.add(AUTHENTICATION_BACKEND_NON_ITERABLE_REQUIREMENT)
+                    elif "container" in outcome or "items" in outcome:
                         result = _exact(
                             outcome,
                             {"container", "items"},
@@ -40418,6 +40517,8 @@ def _gzip_responder_semantic_coverage(case: dict[str, Any]) -> set[str]:
         and not partial_response
     ):
         coverage.add(GZIP_RESPONDER_REQUIREMENTS["excluded-content-type"])
+    if len(case["steps"]) > 2:
+        coverage.add(GZIP_RESPONDER_REQUIREMENTS["reused-instance-start-state"])
     if (
         body_messages
         and body_length >= minimum_size

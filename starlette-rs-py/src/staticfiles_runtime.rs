@@ -536,8 +536,10 @@ impl StaticFilesCallMachine {
                 return Ok(MachineAction::Await(awaitable.unbind()));
             }
         };
-        let scope_path = scope_path_from_python(py, &scope.get_item("path")?)?;
         let method = scope.get_item("method")?.extract::<String>()?;
+        NativeStaticFiles::validate_response_method(&method)
+            .map_err(|error| static_files_http_error(py, error))?;
+        let scope_path = scope_path_from_python(py, &scope.get_item("path")?)?;
         let (flow, step) = {
             let owner = self.owner.borrow(py);
             owner

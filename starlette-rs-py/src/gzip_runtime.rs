@@ -89,6 +89,7 @@ pub(crate) struct PyGzipMiddlewareRuntime {
     config: Py<PyAny>,
     offload_body: Py<PyAny>,
     gzip_always: bool,
+    persistent_responder: Option<Py<PyAny>>,
 }
 
 #[pymethods]
@@ -97,6 +98,7 @@ impl PyGzipMiddlewareRuntime {
         visit.call(&self.app)?;
         visit.call(&self.config)?;
         visit.call(&self.offload_body)?;
+        visit.call(&self.persistent_responder)?;
         Ok(())
     }
 
@@ -104,17 +106,30 @@ impl PyGzipMiddlewareRuntime {
         self.app = py.None();
         self.config = py.None();
         self.offload_body = py.None();
+        self.persistent_responder = None;
     }
 
     #[new]
     #[pyo3(signature = (app, config, offload_body, gzip_always=false))]
-    fn new(app: Py<PyAny>, config: Py<PyAny>, offload_body: Py<PyAny>, gzip_always: bool) -> Self {
-        Self {
+    fn new(
+        py: Python<'_>,
+        app: Py<PyAny>,
+        config: Py<PyAny>,
+        offload_body: Py<PyAny>,
+        gzip_always: bool,
+    ) -> PyResult<Self> {
+        let persistent_responder = if gzip_always {
+            Some(config.bind(py).call_method0("gzip_responder")?.unbind())
+        } else {
+            None
+        };
+        Ok(Self {
             app,
             config,
             offload_body,
             gzip_always,
-        }
+            persistent_responder,
+        })
     }
 
     fn __call__(
@@ -132,6 +147,10 @@ impl PyGzipMiddlewareRuntime {
                 config: runtime.config.clone_ref(py),
                 offload_body: runtime.offload_body.clone_ref(py),
                 gzip_always: runtime.gzip_always,
+                persistent_responder: runtime
+                    .persistent_responder
+                    .as_ref()
+                    .map(|responder| responder.clone_ref(py)),
                 scope,
                 receive,
                 send,
@@ -146,6 +165,7 @@ struct GzipMiddlewareCall {
     config: Py<PyAny>,
     offload_body: Py<PyAny>,
     gzip_always: bool,
+    persistent_responder: Option<Py<PyAny>>,
     scope: Py<PyAny>,
     receive: Py<PyAny>,
     send: Py<PyAny>,
@@ -157,6 +177,7 @@ impl AwaitableStateMachine for GzipMiddlewareCall {
         visit.call(&self.app)?;
         visit.call(&self.config)?;
         visit.call(&self.offload_body)?;
+        visit.call(&self.persistent_responder)?;
         visit.call(&self.scope)?;
         visit.call(&self.receive)?;
         visit.call(&self.send)?;
@@ -193,7 +214,9 @@ impl GzipMiddlewareCall {
         // the non-HTTP pass-through path instead of failing String extraction.
         let send = if self.gzip_always || !scope.get_item("type")?.ne("http")? {
             let config = self.config.bind(py);
-            let responder = if self.gzip_always {
+            let responder = if let Some(responder) = &self.persistent_responder {
+                responder.clone_ref(py)
+            } else if self.gzip_always {
                 config.call_method0("gzip_responder")?.unbind()
             } else {
                 // Starlette constructs Headers(scope=scope) before checking

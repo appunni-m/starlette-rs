@@ -294,6 +294,18 @@ impl StaticFiles {
         }
     }
 
+    /// Validates the request method accepted by StaticFiles response selection.
+    ///
+    /// Python compatibility callers use this before reading any request-scope
+    /// values that Starlette only accesses after the method check.
+    pub fn validate_response_method(method: &str) -> Result<(), StaticFilesError> {
+        if method == "GET" || method == "HEAD" {
+            Ok(())
+        } else {
+            Err(StaticFilesError::MethodNotAllowed)
+        }
+    }
+
     /// Starts Rust response selection and returns the first filesystem lookup.
     ///
     /// The method check happens before the first lookup, matching
@@ -306,9 +318,7 @@ impl StaticFiles {
         method: &str,
         _request_headers: &[(Vec<u8>, Vec<u8>)],
     ) -> Result<(StaticFilesResponseFlow, StaticFilesResponseStep), StaticFilesError> {
-        if method != "GET" && method != "HEAD" {
-            return Err(StaticFilesError::MethodNotAllowed);
-        }
+        Self::validate_response_method(method)?;
 
         Ok((
             StaticFilesResponseFlow {
