@@ -617,6 +617,7 @@
       "build/parity/inputs/parity/exception-middleware-typing.json",
       "build/parity/inputs/parity/testclient-redirect-policy.json",
       "build/parity/inputs/parity/templating-public.json",
+      "build/parity/inputs/parity/templating-preconfigured-url-for-global.json",
       "build/parity/inputs/parity/templating-url-for-function-name.json",
       "build/parity/inputs/parity/testclient-public.json",
       "build/parity/inputs/parity/testclient-router.json",
@@ -661,6 +662,7 @@
       "build/parity/inputs/parity/static-files-weekdayless-date.json",
       "build/parity/inputs/parity/static-files-empty-if-none-match.json",
       "build/parity/inputs/parity/static-files-if-modified-since-full-month.json",
+      "build/parity/inputs/parity/static-files-if-modified-since-single-digit-time.json",
       "build/parity/inputs/parity/static-files-if-modified-since-rfc-comment.json",
       "build/parity/inputs/parity/static-files-if-modified-since-internal-comment.json",
       "build/parity/inputs/parity/static-files-if-modified-since-unpadded-day.json",
@@ -27637,6 +27639,18 @@
               ]
             },
             {
+              "id": "starlette.staticfiles.StaticFiles.asgi-call.if-modified-since-single-digit-time-fields",
+              "dimension": "boundary",
+              "description": "Compare the conditional response when If-Modified-Since contains single-digit hour, minute, or second fields accepted by email.utils.parsedate. Pinned source: starlette/staticfiles.py::StaticFiles.is_not_modified; CPython email._parseaddr.py::parsedate_tz.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.staticfiles.StaticFiles.asgi-call.mutable-scope-mapping",
               "dimension": "boundary",
               "description": "Pass an input-defined collections.UserDict to StaticFiles and compare operations on the original scope and selected final keys with the live file response status, headers, body, and ASGI events. StaticFiles reads request headers through Headers(scope=scope); it does not write response headers back to the input scope. Pinned source: starlette/types.py::Scope; starlette/staticfiles.py:87,182.",
@@ -33994,6 +34008,17 @@
               "id": "starlette.templating.Jinja2Templates.template-public-workflow.direct-render",
               "dimension": "success_path",
               "description": "Resolve a template through public get_template and render the input context without a Request or response. Pinned source: tests/test_templates.py:37-46,148-155; starlette/templating.py:112-113.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.templating.Jinja2Templates.template-public-workflow.preconfigured-url-for-global",
+              "dimension": "boundary",
+              "description": "Preserve the caller-supplied Jinja environment url_for global when Jinja2Templates installs its default through setdefault, then render its input value. Pinned source: starlette/templating.py:101-115.",
               "lanes": [
                 "parity"
               ],

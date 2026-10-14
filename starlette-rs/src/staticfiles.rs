@@ -649,6 +649,8 @@ fn parse_http_date_ignoring_weekday(value: &str) -> Option<SystemTime> {
     let value = normalized_month.as_deref().unwrap_or(value);
     let normalized_day = normalize_email_day(value);
     let value = normalized_day.as_deref().unwrap_or(value);
+    let normalized_time = normalize_email_time(value);
+    let value = normalized_time.as_deref().unwrap_or(value);
     if let Ok(timestamp) = httpdate::parse_http_date(value) {
         return Some(timestamp);
     }
@@ -842,6 +844,52 @@ fn normalize_email_day(value: &str) -> Option<String> {
         Some(prefix) => format!("{prefix},{normalized_rest}"),
         None => normalized_rest,
     })
+}
+
+/// Pads single-digit time fields accepted by `email.utils.parsedate` to the
+/// fixed-width form required by `httpdate`.
+fn normalize_email_time(value: &str) -> Option<String> {
+    let mut cursor = 0;
+    for field in value.split_whitespace() {
+        let start = cursor + value.get(cursor..)?.find(field)?;
+        let end = start + field.len();
+        cursor = end;
+
+        let parts = field.split(':').collect::<Vec<_>>();
+        if !(2..=3).contains(&parts.len())
+            || !parts.iter().all(|part| {
+                !part.is_empty()
+                    && part.len() <= 2
+                    && part.bytes().all(|byte| byte.is_ascii_digit())
+            })
+        {
+            continue;
+        }
+
+        let mut normalized = String::with_capacity(field.len() + 3);
+        for (index, part) in parts.iter().enumerate() {
+            if index > 0 {
+                normalized.push(':');
+            }
+            if part.len() == 1 {
+                normalized.push('0');
+            }
+            normalized.push_str(part);
+        }
+        if parts.len() == 2 {
+            normalized.push_str(":00");
+        }
+        if normalized == field {
+            return None;
+        }
+        return Some(format!(
+            "{}{}{}",
+            &value[..start],
+            normalized,
+            &value[end..]
+        ));
+    }
+    None
 }
 
 /// Removes terminal RFC date comments accepted by `email.utils.parsedate`.

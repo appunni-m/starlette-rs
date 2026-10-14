@@ -1,0 +1,70 @@
+{
+  "schema": "migration-parity/parity-input@55",
+  "cases": [
+    {
+      "case_id": "starlette.templating.Jinja2Templates.template-public-workflow.preconfigured-url-for-global",
+      "surface": "starlette.templating.Jinja2Templates",
+      "operation": "template-public-workflow",
+      "covers": [
+        "starlette.templating.Jinja2Templates.template-public-workflow.construction",
+        "starlette.templating.Jinja2Templates.template-public-workflow.subclass-hook-dispatch",
+        "starlette.templating.Jinja2Templates.template-public-workflow.direct-render",
+        "starlette.templating.Jinja2Templates.template-public-workflow.preconfigured-url-for-global"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "template-public-workflow"
+      ],
+      "template_directories": [
+        {
+          "id": "templates",
+          "path": "templates"
+        }
+      ],
+      "template_files": [
+        {
+          "directory_id": "templates",
+          "path": "url-for.html",
+          "text": "{{ url_for }}"
+        }
+      ],
+      "constructor": {
+        "directory": {
+          "kind": "path",
+          "directory_ids": [
+            "templates"
+          ]
+        },
+        "environment": null
+      },
+      "hooks": {
+        "setup": {
+          "kind": "delegate",
+          "failure": null,
+          "globals": {
+            "url_for": "preserved by the caller"
+          }
+        },
+        "template": {
+          "kind": "delegate",
+          "failure": null
+        },
+        "get_watch": [],
+        "set_watch": []
+      },
+      "processor_additions": [],
+      "consumer": {
+        "kind": "template-render",
+        "renders": [
+          {
+            "name": "url-for.html",
+            "context": {}
+          }
+        ]
+      }
+    }
+  ]
+}

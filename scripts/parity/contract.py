@@ -872,6 +872,7 @@ TEMPLATING_PUBLIC_REQUIREMENTS = {
     name: f"starlette.templating.Jinja2Templates.template-public-workflow.{name}"
     for name in (
         "construction",
+        "preconfigured-url-for-global",
         "missing-configuration",
         "conflicting-configuration",
         "direct-render",
@@ -8894,6 +8895,7 @@ def _validate_static_files_case_stimulus(
     conditional_named_timezone = False
     conditional_full_month = False
     conditional_trailing_rfc_comment = False
+    conditional_single_digit_time = False
     request_headers: dict[str, str] = {}
     if method == "GET" and normalized_path in selected_files and not os_specific_path_normalization:
         if permission_denial_stress is not None:
@@ -8918,6 +8920,11 @@ def _validate_static_files_case_stimulus(
                         value,
                         re.IGNORECASE,
                     )
+                )
+                conditional_time = re.search(r"(?<!\d)(\d{1,2}:\d{1,2}(?::\d{1,2})?)(?!\d)", value)
+                conditional_single_digit_time = bool(
+                    conditional_time
+                    and any(len(part) == 1 for part in conditional_time.group(1).split(":"))
                 )
                 timezone_token = value.strip().rsplit(" ", 1)[-1]
                 conditional_named_timezone = (
@@ -8982,6 +8989,8 @@ def _validate_static_files_case_stimulus(
                     derived.add(
                         "if-modified-since-trailing-rfc-comment"
                         if conditional_trailing_rfc_comment
+                        else "if-modified-since-single-digit-time-fields"
+                        if conditional_single_digit_time
                         else "if-modified-since-omitted-timezone"
                         if conditional_omitted_timezone
                         else "if-modified-since-named-timezone"
@@ -32993,6 +33002,8 @@ def _validate_templating_public_case(case: dict[str, Any]) -> None:
                 _validate_threadpool_json(definition["globals"], "Template hook globals")
                 if not isinstance(definition["globals"], dict):
                     raise ContractError("Template hook globals require a mapping")
+                if "url_for" in definition["globals"]:
+                    coverage.add(TEMPLATING_PUBLIC_REQUIREMENTS["preconfigured-url-for-global"])
         coverage.add(
             "starlette.templating.Jinja2Templates.template-public-workflow.subclass-hook-dispatch"
         )
