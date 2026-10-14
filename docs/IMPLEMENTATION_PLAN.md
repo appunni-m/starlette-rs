@@ -25,8 +25,9 @@ both `await Request.form()` and `async with Request.form()`, and iterates
 `Request.stream()` to assert that each yielded chunk is `bytes`. It also checks
 `Request.body()` as `bytes`, `Request.json()` as `Any`, `Request.query_params`
 as `QueryParams`, `Request.path_params` as `dict[str, Any]`, and
-`Request.client` as `Address | None`. It also asserts `Request.headers` as
-`Headers`, `Request.url` as `URL`, `Request.cookies` as `dict[str, str]`, and
+`Request.client` as `Address | None`. It also asserts `Request.receive` as
+`Receive`, `Request.headers` as `Headers`, `Request.url` as `URL`,
+`Request.cookies` as `dict[str, str]`, and
 inherited `WebSocket.client` as `Address | None`, `WebSocket.cookies` as
 `dict[str, str]`, `WebSocket.url` as `URL`, and the inherited
 `WebSocket.headers` and `WebSocket.query_params` as `Headers` and
