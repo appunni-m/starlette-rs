@@ -10292,6 +10292,9 @@ def _build_reverse_route_node(
                 async def no_op_asgi(scope: Any, receive: Any, send: Any) -> None:
                     del scope, receive, send
 
+                if "routes" in app_spec:
+                    no_op_asgi.routes = app_spec["routes"]
+
                 app = no_op_asgi
             return Mount(node["path"], app=app, name=node["name"], **mount_arguments)
         return Mount(

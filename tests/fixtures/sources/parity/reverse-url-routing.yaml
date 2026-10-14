@@ -597,6 +597,36 @@
       ]
     },
     {
+      "case_id": "starlette.routing.Mount.url_path_for.app-routes-none",
+      "surface": "starlette.routing.Mount",
+      "operation": "url_path_for",
+      "covers": [
+        "starlette.routing.Mount.url_path_for.none-routes-app"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "route_graph": {
+        "kind": "mount",
+        "path": "/mounted",
+        "name": "mounted",
+        "app": {
+          "kind": "no-op-asgi",
+          "routes": null
+        }
+      },
+      "lookup": {
+        "name": "mounted:child",
+        "path_params": {}
+      },
+      "request_scope": null,
+      "custom_convertors": [],
+      "observations": [
+        "reverse-url"
+      ]
+    },
+    {
       "case_id": "starlette.routing.Mount.url_path_for.nested-route",
       "surface": "starlette.routing.Mount",
       "operation": "url_path_for",

@@ -13,9 +13,9 @@ implementation closes, run the complete source/package and Rust-native parity
 matrix, repair mismatches across families, measure coverage from that full
 matrix, reconcile the source atlas, then run all correctness-gated benchmarks.
 
-The active contract currently declares 2,373 input cases across 340
+The active contract currently declares 2,374 input cases across 340
 parity inputs and two benchmark inputs, 142 Starlette compatibility
-operations, 13 Rust-native operations, and 1,290 parity requirements (1,248
+operations, 13 Rust-native operations, and 1,291 parity requirements (1,249
 compatibility and 42 native). Its scope mode is still `slice`. A new Config
 typing consumer covers all nine pinned `Config.__call__` overload assertions;
 its input-derived source/package Mypy 1.19.1 comparison passes with identical
@@ -137,6 +137,13 @@ The newest implementation cases cover CPython async-generator `athrow()` call ti
 The latest implementation slice fixes Host routing to read `host_regex`, preserves multipart `UploadFile.filename` values without stripping Windows path components, and reproduces CPython's `async for` TypeError/context/cause when an `__anext__` awaitable factory raises `StopAsyncIteration`. It also makes Starlette stack construction honor a `Middleware` subclass's `__iter__` and yielded `*args/**kwargs`; the Python iterator/mapping callback boundary is documented in [`APPLICATION_MIDDLEWARE_BOUNDARY.md`](APPLICATION_MIDDLEWARE_BOUNDARY.md). Two new input-only cases cover multipart Windows filenames and middleware iterator overrides. These inputs and the existing Host and StreamingResponse cases remain unexecuted until full parity.
 The latest 12 input-only cases cover non-string `HTTPException` detail and header-key errors, Python equality for special exception-handler selection, FileResponse multipart short reads, Mount `path=None`, Request custom receive events between chunks, TestClient portal-setup error policy, empty StaticFiles `If-None-Match` fallback, WebSocket raw state assignment, StreamingResponse type-level async iteration, and empty CORS private-network headers. Source inventory and contract validation pass with zero parity passes claimed; all 12 comparisons remain deferred to the grouped parity phase.
 The newest four input-only cases cover the deprecated TestClient `httpx` fallback, closing `Request.stream()` before its first advance, preserving an existing WebSocketEndpoint disconnect-hook context, and duplicate-key Python mapping expansion in a synchronous `BackgroundTask`. The Request, WebSocketEndpoint, and BackgroundTask Rust paths now preserve the source behavior; the TestClient fallback input records the existing boundary. All four comparisons remain unexecuted until the full parity phase.
+The latest routing slice makes `Mount.url_path_for()` treat a falsey mounted
+app `routes` attribute as empty, matching the pinned `routes or []` behavior;
+its `routes: null` comparison is authored and unexecuted. The compatibility
+facade also restores the explicitly imported `starlette.testclient.ASGIInstance`
+typing alias. Its consumer assertion is included in the existing application
+typing input, but that expanded input has not yet been rechecked against the
+pinned source and installed wheel.
 The preceding implementation batch adds eight unexecuted cases: CPython cookie
 raw-value validation before optional attributes, two lazy StaticFiles
 PathLike error-display cases, and five nested Rust-native reverse-routing
@@ -232,7 +239,7 @@ until the grouped parity phase.
 
 | Phase | State | Evidence |
 | --- | --- | --- |
-| Implementation | In progress. | `make contract-check PARITY_PYTHON=python3.12` validates 2,373 cases across 340 parity inputs, 142 compatibility operations, 13 native operations, and 1,290 parity requirements (1,248 compatibility / 42 native), with zero parity passes claimed. The Host→WebSocketRoute and TestClient cleanup-context inputs remain unexecuted until full parity. The new direct `run_in_threadpool` cancellation input observes AnyIO-scope cancellation while the worker is gated and remains unexecuted until full parity. The Config typing consumer covers all nine pinned `Config.__call__` overload assertions and passed direct Mypy 1.19.1 checks against the pinned source and installed wheel with identical diagnostics and revealed types; its registered parity case remains unexecuted. The application typing consumer checks `Request.form()` await/async-with, `Request.stream()` chunks as `bytes`, `Request.body()` as `bytes`, `Request.json()` as `Any`, `Request.query_params` as `QueryParams`, and `Request.path_params` as `dict[str, Any]`; pinned-source and installed-wheel Mypy 1.19.1 output matches. `Request.client` remains the next candidate. A new direct `WebSocketDisconnect` constructor input covers supplied/default fields, inherited exception arguments, reason truthiness, and call-binding errors; its comparison remains unexecuted. A new FormData consumer contract preserves the pinned `UploadFile | str` types for indexing, `getlist()`, and `multi_items()`; the input comparison remains unexecuted. Two new Request.form inputs cover positive
+| Implementation | In progress. | `make contract-check PARITY_PYTHON=python3.12` validates 2,374 cases across 340 parity inputs, 142 compatibility operations, 13 native operations, and 1,291 parity requirements (1,249 compatibility / 42 native), with zero parity passes claimed. The Host→WebSocketRoute and TestClient cleanup-context inputs remain unexecuted until full parity. The new direct `run_in_threadpool` cancellation input observes AnyIO-scope cancellation while the worker is gated and remains unexecuted until full parity. The Config typing consumer covers all nine pinned `Config.__call__` overload assertions and passed direct Mypy 1.19.1 checks against the pinned source and installed wheel with identical diagnostics and revealed types; its registered parity case remains unexecuted. The application typing consumer checks `Request.form()` await/async-with, `Request.stream()` chunks as `bytes`, `Request.body()` as `bytes`, `Request.json()` as `Any`, `Request.query_params` as `QueryParams`, and `Request.path_params` as `dict[str, Any]`; pinned-source and installed-wheel Mypy 1.19.1 output matches for the existing assertions. The new `ASGIInstance` assertion has not yet been rechecked. The Mount `routes: null` input and Rust truthiness fix are authored but unexecuted. `Request.client` remains the next candidate. A new direct `WebSocketDisconnect` constructor input covers supplied/default fields, inherited exception arguments, reason truthiness, and call-binding errors; its comparison remains unexecuted. A new FormData consumer contract preserves the pinned `UploadFile | str` types for indexing, `getlist()`, and `multi_items()`; the input comparison remains unexecuted. Two new Request.form inputs cover positive
 arbitrary-precision max_fields and max_files limits; these comparisons remain
 unexecuted. A new body-limit input checks that the Content-Length precheck
 preserves the original scope headers mapping; both behavior and comparison
@@ -306,9 +313,9 @@ also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
 The active parity contract is `parity-input@52`: the working tree currently
-indexes 2,373 input cases across 340 parity files, two benchmark files, 142
-Starlette compatibility operations, 13 Rust-native operations, and 1,290
-parity requirements (1,248 compatibility and 42 native). The Config typing
+indexes 2,374 input cases across 340 parity files, two benchmark files, 142
+Starlette compatibility operations, 13 Rust-native operations, and 1,291
+parity requirements (1,249 compatibility and 42 native). The Config typing
 consumer covers all nine pinned `Config.__call__` overload assertions and is
 deferred to full parity. The latest clean full parity,
 coverage, and benchmark receipts belong to the preceding 1,992-case, 140-file
@@ -399,8 +406,8 @@ That integrated run includes the focused `parity-input@23` through `@27` additio
 The two BaseHTTPMiddleware ContextVar observer comparisons pass exactly against
 the pinned source and installed package in the integrated run.
 
-The latest generated coverage matrix contains 846 source rows: 791 input
-mappings, 55 source-backed `not_applicable` rows, and zero fixture-backlog rows.
+The latest generated coverage matrix contains 850 source rows: 796 input
+mappings, 54 source-backed `not_applicable` rows, and zero fixture-backlog rows.
 Refresh these counts from the generated atlas CSV files after changing fixture
 dispositions.
 The fixed denominators remain 514 upstream test functions and 24 documentation

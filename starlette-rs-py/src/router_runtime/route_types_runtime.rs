@@ -2658,24 +2658,26 @@ fn mount_url_path_for(
             remaining_params.bind(py).set_item("path", path_kwarg)?;
         }
         let routes = mount.getattr("routes")?;
-        for route in routes.try_iter()? {
-            let route = route?;
-            match route.call_method(
-                "url_path_for",
-                (nested_name.clone(),),
-                Some(remaining_params.bind(py)),
-            ) {
-                Ok(url) => {
-                    let url_text = py.import("builtins")?.getattr("str")?.call1((&url,))?;
-                    let prefix = path_prefix.trim_end_matches('/');
-                    let full_path = format!("{prefix}{url_text}");
-                    let kwargs = PyDict::new(py);
-                    kwargs.set_item("path", full_path)?;
-                    kwargs.set_item("protocol", url.getattr("protocol")?)?;
-                    return url_path_type.call((), Some(&kwargs)).map(Bound::unbind);
+        if routes.is_truthy()? {
+            for route in routes.try_iter()? {
+                let route = route?;
+                match route.call_method(
+                    "url_path_for",
+                    (nested_name.clone(),),
+                    Some(remaining_params.bind(py)),
+                ) {
+                    Ok(url) => {
+                        let url_text = py.import("builtins")?.getattr("str")?.call1((&url,))?;
+                        let prefix = path_prefix.trim_end_matches('/');
+                        let full_path = format!("{prefix}{url_text}");
+                        let kwargs = PyDict::new(py);
+                        kwargs.set_item("path", full_path)?;
+                        kwargs.set_item("protocol", url.getattr("protocol")?)?;
+                        return url_path_type.call((), Some(&kwargs)).map(Bound::unbind);
+                    }
+                    Err(error) if error.value(py).is_instance(no_match_type)? => {}
+                    Err(error) => return Err(error),
                 }
-                Err(error) if error.value(py).is_instance(no_match_type)? => {}
-                Err(error) => return Err(error),
             }
         }
         current_params = remaining_params.into_bound(py);

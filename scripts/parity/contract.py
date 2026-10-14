@@ -11337,7 +11337,12 @@ def _validate_reverse_route_node(
         if "app" in node:
             app_spec = node["app"]
             if isinstance(app_spec, dict) and app_spec.get("kind") == "no-op-asgi":
-                _exact(app_spec, {"kind"}, f"{context}.app")
+                app_keys = {"kind"}
+                if "routes" in app_spec:
+                    app_keys.add("routes")
+                _exact(app_spec, app_keys, f"{context}.app")
+                if "routes" in app_spec:
+                    _validate_threadpool_json(app_spec["routes"], f"{context}.app.routes")
             elif isinstance(app_spec, dict) and app_spec.get("kind") == "http-route":
                 _validate_reverse_route_node(
                     app_spec,
@@ -11931,6 +11936,15 @@ def _reverse_input_requirements(case: dict[str, Any]) -> set[str]:
                 derived.add(rid("nested-route"))
                 if _reverse_node_depth(graph, "mount") > 1:
                     derived.add(rid("double-mount"))
+        elif (
+            isinstance(graph.get("app"), dict)
+            and graph["app"].get("kind") == "no-op-asgi"
+            and "routes" in graph["app"]
+            and graph["app"]["routes"] is None
+            and graph["name"] is not None
+            and lookup["name"].startswith(graph["name"] + ":")
+        ):
+            derived.add(rid("none-routes-app"))
         else:
             derived.add(rid("mismatch"))
     elif surface == "starlette.applications.Starlette":

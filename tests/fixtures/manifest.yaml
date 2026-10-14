@@ -3814,7 +3814,7 @@
             {
               "id": "starlette.applications.Starlette.python-typing-contract",
               "dimension": "type_contract",
-              "description": "Type-check the same consumer against pinned Starlette source and the installed package, including Scope/Receive/Send constructor signatures for HTTPConnection, Request, WebSocket, and WebSocketClose; Request[State] and WebSocket[State]; Request cookies, stream, form, and receive annotations; Starlette lifecycle, ASGIApp, ExceptionHandler, and public scope aliases; plus subclass-preserving with statements that reveal TestClient and WebSocketTestSession subclass types from their Self-typed __enter__ methods. Pinned source: starlette/applications.py:24-34,45-61,65-88; starlette/types.py:11-26; starlette/requests.py:77,80,214; starlette/websockets.py:26; starlette/testclient.py:115,679.",
+              "description": "Type-check the same consumer against pinned Starlette source and the installed package, including Scope/Receive/Send constructor signatures for HTTPConnection, Request, WebSocket, and WebSocketClose; Request[State] and WebSocket[State]; Request cookies, stream, form, and receive annotations; Starlette lifecycle, ASGIApp, ExceptionHandler, and public scope aliases; the ASGIInstance callable alias imported and used by upstream TestClient consumers; plus subclass-preserving with statements that reveal TestClient and WebSocketTestSession subclass types from their Self-typed __enter__ methods. Pinned source: starlette/applications.py:24-34,45-61,65-88; starlette/types.py:11-26; starlette/requests.py:77,80,214; starlette/websockets.py:26; starlette/testclient.py:55,115,679; tests/test_testclient.py:22,199.",
               "lanes": [
                 "parity"
               ],
@@ -23139,6 +23139,17 @@
               "id": "starlette.routing.Mount.url_path_for.mismatch",
               "dimension": "error_path",
               "description": "A missing path or extra parameter on direct Mount lookup raises NoMatchFound.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Mount.url_path_for.none-routes-app",
+              "dimension": "error_path",
+              "description": "A nested reverse lookup through an ASGI app whose routes attribute is None treats the child routes as empty and raises NoMatchFound. Pinned source: starlette/routing.py:446; documented mounted-app reverse lookup: docs/routing.md:192-202.",
               "lanes": [
                 "parity"
               ],

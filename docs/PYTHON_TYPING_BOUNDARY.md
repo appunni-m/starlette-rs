@@ -7,10 +7,12 @@ in `tests/fixtures/sources/parity/application-typing-consumer.yaml`,
 `config-typing-consumer.yaml`, `formdata-generic-typing.yaml`, and
 `response-typing-consumer.yaml`.
 
-The consumer sources were checked against the pinned checkout with
+The consumer assertions present at the previous check were checked against the pinned checkout with
 `MYPYPATH=../starlette` and against the current wheel installed in
 `build/parity/envs/cpython312/python-package`. Both Mypy runs exited 0 and
-produced identical diagnostics and revealed types. The checks cover:
+produced identical diagnostics and revealed types. The latest addition of the
+`ASGIInstance` import and return-annotation assertion has not yet been rechecked
+against either target; include it in the grouped type-consumer comparison. The checks cover:
 
 - `Request[State]`, `WebSocket[State]`, and default `HTTPConnection[State]`
   typing, including the typed state access.

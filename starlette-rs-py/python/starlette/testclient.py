@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
 from typing import Any, Literal
 
 from starlette_rs_py import _core
 from typing_extensions import Self
 
-from starlette.types import ASGIApp, Message
+from starlette.types import ASGIApp, Message, Receive, Send
 from starlette.websockets import WebSocketDisconnect
+
+ASGIInstance = Callable[[Receive, Send], Awaitable[None]]
 
 httpx = _core.testclient_httpx()
 _httpx = httpx
