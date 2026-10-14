@@ -1201,8 +1201,13 @@ impl AwaitableStateMachine for ThreadpoolCall {
                 Ok(MachineAction::Await(awaitable))
             }
             MachineResume::Value(value) => Ok(MachineAction::Complete(value)),
-            MachineResume::AsyncIterationComplete(_) => Err(PyStopAsyncIteration::new_err(())),
-            MachineResume::Error(error) => Err(error),
+            // This continuation awaits AnyIO's coroutine, so StopAsyncIteration
+            // is a callback failure here. Preserve the original exception just
+            // like every other worker error instead of treating it as iterator
+            // completion.
+            MachineResume::AsyncIterationComplete(error) | MachineResume::Error(error) => {
+                Err(error)
+            }
         }
     }
 }

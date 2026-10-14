@@ -24101,6 +24101,7 @@ def _validate_threadpool_case(case: dict[str, Any]) -> None:
         if callable_behavior["exception_type"] not in {
             "LookupError",
             "RuntimeError",
+            "StopAsyncIteration",
             "TypeError",
             "ValueError",
         }:

@@ -581,6 +581,7 @@
       "build/parity/inputs/parity/router-mixed-route-ordering.json",
       "build/parity/inputs/parity/application-subclass-builder.json",
       "build/parity/inputs/parity/concurrency.json",
+      "build/parity/inputs/parity/concurrency-stop-async-iteration.json",
       "build/parity/inputs/parity/concurrency-run-until-first-complete-zero-callbacks.json",
       "build/parity/inputs/parity/websocket-scope-interface.json",
       "build/parity/inputs/parity/exception-middleware-live-app.json",

@@ -1,0 +1,43 @@
+{
+  "schema": "migration-parity/parity-input@52",
+  "cases": [
+    {
+      "case_id": "starlette.concurrency.run_in_threadpool.stop-async-iteration-exception-identity",
+      "surface": "starlette.concurrency",
+      "operation": "run_in_threadpool",
+      "covers": [
+        "starlette.concurrency.run_in_threadpool.exception-identity",
+        "starlette.concurrency.run_in_threadpool.worker-thread",
+        "starlette.concurrency.run_in_threadpool.event-loop-progress"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "observations": [
+        "run_in_threadpool"
+      ],
+      "call": {
+        "call_id": "stop-async-iteration-exception-identity",
+        "args": [
+          "worker-input"
+        ],
+        "kwargs": {
+          "label": "worker-keyword"
+        },
+        "callable_behavior": {
+          "kind": "raise",
+          "exception_type": "StopAsyncIteration",
+          "message": "input-defined worker StopAsyncIteration"
+        },
+      "event_loop_checkpoints": ["worker-still-blocked"],
+        "start_timeout_ms": 5000,
+        "release_timeout_ms": 5000
+      }
+    }
+  ]
+}

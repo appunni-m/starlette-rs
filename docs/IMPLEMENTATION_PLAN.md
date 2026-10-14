@@ -13,14 +13,20 @@ implementation closes, run the complete source/package and Rust-native parity
 matrix, repair mismatches across families, measure coverage from that full
 matrix, reconcile the source atlas, then run all correctness-gated benchmarks.
 
-The active contract currently declares 2,349 input cases across 323
-parity inputs and two benchmark inputs, 139 Starlette compatibility
-operations, 13 Rust-native operations, and 1,272 parity requirements (1,230
-compatibility and 42 native). The generated atlas has 846 source rows: 791
-input mappings, 55 source-backed `not_applicable` dispositions, and zero
-fixture-backlog rows. These counts describe inventory and evidence coverage;
-they do not establish that every documented behavior is implemented or
-compatible. The latest Request boundary fix uses Python membership for the
+The active contract currently declares 2,353 input cases across 326
+parity inputs and two benchmark inputs, 140 Starlette compatibility
+operations, 13 Rust-native operations, and 1,275 parity requirements (1,233
+compatibility and 42 native). Its scope mode is still `slice`. The generated
+atlas has 849 source rows: 794 input mappings, 55 source-backed
+`not_applicable` dispositions, and zero fixture-backlog rows. These counts
+describe inventory and evidence coverage; they do not establish that every
+documented behavior is implemented or compatible. Three newly registered
+input-only comparisons cover Request cookie-cache persistence across header
+mutation, TestClient shutdown and portal cleanup error precedence, and
+`requires` mixed positional/keyword connection binding; they remain
+unexecuted until the grouped parity phase. A new input-only comparison checks
+`run_in_threadpool` propagation and identity for a worker-raised
+`StopAsyncIteration`; it also remains unexecuted. The latest Request boundary fix uses Python membership for the
 documented `session`, `auth`, and `user` properties and adds a UserDict
 instance-override input to the active source/package adapters; it remains
 unexecuted until full parity. The Rust-native Route float negative-zero case is
