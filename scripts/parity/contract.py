@@ -1626,6 +1626,9 @@ STARLETTE_ADD_MIDDLEWARE_REQUIREMENTS = {
     "after_start_error": "starlette.applications.Starlette.add_middleware.after-start-error",
     "per_application_stack_cache": "starlette.applications.Starlette.add_middleware.per-application-stack-cache",
     "boundary_order": "starlette.applications.Starlette.add_middleware.middleware-boundary-order",
+    "boundary_success_order": (
+        "starlette.applications.Starlette.add_middleware.middleware-boundary-success-order"
+    ),
 }
 STARLETTE_ADD_MIDDLEWARE_OPERATION_KEY = (
     "starlette.applications.Starlette",
@@ -27381,6 +27384,26 @@ def _starlette_add_middleware_semantic_coverage(case: dict[str, Any]) -> set[str
             and all(item["scope"]["path"] == route["path"] for item in boundary_dispatches)
         ):
             coverage.add(STARLETTE_ADD_MIDDLEWARE_REQUIREMENTS["boundary_order"])
+        if (
+            len(definitions) == 2
+            and app_input["debug"] is False
+            and app_input["exception_handlers"] == []
+            and all(
+                item["middleware_class"]["callable_kind"] == "class"
+                and item["middleware_class"].get("boundary_trace") is True
+                for item in definitions
+            )
+            and len({item["middleware_class"]["name"] for item in definitions}) == 2
+            and route["kind"] == "http-route"
+            and route["methods"] == ["GET"]
+            and route["endpoint"].get("kind") == "plain-text-response"
+            and route["endpoint"].get("status_code") == 200
+            and len(boundary_dispatches) == 1
+            and boundary_dispatches[0]["scope"]["type"] == "http"
+            and boundary_dispatches[0]["scope"]["method"] == "GET"
+            and boundary_dispatches[0]["scope"]["path"] == route["path"]
+        ):
+            coverage.add(STARLETTE_ADD_MIDDLEWARE_REQUIREMENTS["boundary_success_order"])
         if (
             len(definitions) >= 2
             and all(item["middleware_class"]["callable_kind"] == "class" for item in definitions)

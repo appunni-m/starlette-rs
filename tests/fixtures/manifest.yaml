@@ -3193,6 +3193,17 @@
               "target_profiles": [
                 "python-package-cpython312"
               ]
+            },
+            {
+              "id": "starlette.applications.Starlette.add_middleware.middleware-boundary-success-order",
+              "dimension": "success_path",
+              "description": "Trace two user middleware layers around a successful HTTP response through the default Starlette exception middleware stack. Upstream: starlette/applications.py:63-83; starlette/middleware/errors.py:149-187; starlette/middleware/exceptions.py:47-63; docs/middleware.md:5-48.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
             }
           ],
           "parity": {
