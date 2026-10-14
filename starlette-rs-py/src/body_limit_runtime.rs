@@ -691,7 +691,6 @@ impl BodyLimitSendMachine {
 fn get_content_length(py: Python<'_>, scope: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
     let headers = scope.get_item("headers")?;
     let headers_list = py.import("builtins")?.getattr("list")?.call1((headers,))?;
-    scope.set_item("headers", &headers_list)?;
     let int = py.import("builtins")?.getattr("int")?;
     for pair in headers_list.try_iter()? {
         let pair = pair?;

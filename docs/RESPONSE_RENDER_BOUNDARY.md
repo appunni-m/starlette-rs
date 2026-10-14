@@ -79,9 +79,14 @@ are computed by those executions, with exact comparisons and no stored
 expected values. Python subclass behavior has no equivalent native-only
 consumer; existing native response cases continue to cover that interface.
 
-`Response.init_headers` remains an unresolved public API candidate in the
-inventory. These inputs do not establish its public status. Passing this
-workflow does not establish complete response or Starlette parity.
+The source API audit classifies `Response.init_headers` as a private/internal
+constructor hook. The pinned guide documents the `Response` import and
+constructor, cookie methods, and `render` override, but not this method;
+`starlette/__init__.py` exports only `__version__`, and no upstream test or
+release note directly names it. The compatibility facade keeps a Rust-backed
+wrapper because constructors dynamically call `self.init_headers`, preserving
+that callback behavior without establishing a separate public method contract.
+Passing this workflow does not establish complete response or Starlette parity.
 
 ## Response construction and rendering evidence
 
@@ -91,7 +96,7 @@ Normal selection `65b6c7fe-3a99-4e86-a11d-2c5ea89da75f` passed 210/210 ordinary 
 
 Coverage MCP verified 18 newly covered Rust lines with matching source/build receipts and passing live selections: baseline 3,208/24,979, batch 2,876/24,979, union 3,226/24,979. Baseline run `e962efa3-7e72-4088-adb6-449d1bbd38fc` passed 34 ordinary comparisons; batch `275a65e8-770e-469c-a285-35387ead595b` passed 53. Both passed both fault contracts. Instrumented package tree: `9cf2ae4d7eff80093ac019ff0c91b2158882a6af8f46d09c066ab7f7553ccee2`; wheel SHA-256: `14fb00f251da1f9eadac98a5482783c1ae8977fb14f61c5ed5266b33cfddbdac`. Reports and receipts remain ignored under `build/parity/coverage/response-consumer-20261005/`. This is selected incremental coverage; full-suite coverage regression status is unknown.
 
-The generated atlas has 809 source rows: 694 existing mappings, 52 source-backed not_applicable rows, and 63 backlog rows. Four response documentation workflows now map to live comparisons. The fixed denominators remain 514 upstream test functions and 24 documentation pages. These counts do not establish complete behavioral coverage. `Response.init_headers` remains uncertain. See [response rendering boundary](RESPONSE_RENDER_BOUNDARY.md).
+The generated atlas has 809 source rows: 694 existing mappings, 52 source-backed not_applicable rows, and 63 backlog rows. Four response documentation workflows now map to live comparisons. The fixed denominators remain 514 upstream test functions and 24 documentation pages. These counts do not establish complete behavioral coverage. `Response.init_headers` is classified as a private/internal constructor hook; its callback behavior remains part of response construction. See [response rendering boundary](RESPONSE_RENDER_BOUNDARY.md).
 
 ### Clean full regression and benchmark gate
 
@@ -103,9 +108,9 @@ Benchmark `69c5837b-24df-4708-8fee-ad27ed75049f` matched and timed all 74 source
 
 The earlier constructor batch covered changes during rendering and before
 calling. The callback extension below covers in-call changes, raw-header
-aliasing, and suspended-coroutine collection. The uncertain `init_headers`
-candidate and other inventory gaps remain visible; these bounded workflows do
-not prove complete response behavior.
+aliasing, and suspended-coroutine collection. The `init_headers` constructor
+hook remains dynamically dispatched; other inventory gaps remain visible.
+These bounded workflows do not prove complete response behavior.
 
 ## ASGI callback and coroutine ownership inputs
 
@@ -155,7 +160,8 @@ Benchmark `b032a0d3-e787-4d23-b066-87b84086cb69` matched and timed all 74 source
 The earlier binding converted memoryviews with `tobytes()` before native
 header construction. The pin derives content length with Python `len(body)`.
 The input extension below investigates those body/header protocols. The
-uncertain `init_headers` candidate remains unchanged.
+source API audit classifies `init_headers` as a private/internal constructor
+hook; its callback behavior remains preserved.
 
 ## Constructor body and header protocol inputs
 
@@ -174,9 +180,10 @@ Rust must own the header construction order, conditional length/content-type
 selection, and cached-view lifetime. The facade may initialize a Rust state
 holder before invoking user render code and forward header construction to
 Rust. No Python semantic algorithm is needed. The workflow observes only the
-documented constructors and public attributes; `init_headers` remains an
-uncertain candidate. Existing target-only fault contracts remain separate
-counts in the shared selected runs.
+documented constructors and public attributes; its `init_headers` wrapper is
+retained as constructor glue, not a separate documented method contract.
+Existing target-only fault contracts remain separate counts in the shared
+selected runs.
 
 ## Constructor body and header protocol evidence
 
@@ -188,7 +195,7 @@ Normal selection `6de84f15-3fb2-489a-8bd8-d06195f65d6b` passed 434/434 ordinary 
 
 Coverage MCP verified 27 additional Rust lines with matching source/build receipts: baseline 3,278/25,179, batch 2,882/25,179, union 3,305/25,179. Baseline `a971621e-957e-4366-a602-6c8a7c476478` passed 178 ordinary comparisons; batch `b24af4a4-8bea-467a-b4bf-5c78c3144cf9` passed 133. Both passed both fault contracts. Instrumented package tree: `4a5c520948883a92183b654d412c3e35b3aa61124f087dd2de1b8c26d830f2ab`; wheel SHA-256: `40d05a57c4a2c49b5fb4b9a9a67c52a946997b709947fad5e453ce5ee8826367`. Reports/receipts remain ignored under `build/parity/coverage/response-construction-20261005/`. This selected incremental union does not establish full-suite coverage regression status.
 
-The generated atlas has 809 source rows: 694 existing mappings, 52 source-backed not_applicable rows, and 63 backlog rows. Fixed denominators remain 514 upstream test functions and 24 documentation pages. `Response.init_headers` remains uncertain; complete response and Starlette parity remain unproven. See [response boundary](RESPONSE_RENDER_BOUNDARY.md).
+The generated atlas has 809 source rows: 694 existing mappings, 52 source-backed not_applicable rows, and 63 backlog rows. Fixed denominators remain 514 upstream test functions and 24 documentation pages. `Response.init_headers` is classified as a private/internal constructor hook; complete response and Starlette parity remain unproven. See [response boundary](RESPONSE_RENDER_BOUNDARY.md).
 
 ### Clean full constructor regression and benchmark gate
 
@@ -202,8 +209,9 @@ The attribute workflow below covers user raw-header accessors, public header-vie
 cache changes, and constructor attribute interception for the four documented
 base response classes. Streaming/File/Redirect subclass interception and other
 cookie conversion/type protocols still need input-only comparisons.
-`Response.init_headers` remains uncertain in the inventory; the current
-workflows do not establish all Python subclass boundary behavior.
+The source API audit classifies `Response.init_headers` as a private/internal
+constructor hook. The current workflows still do not establish all Python
+subclass boundary behavior.
 
 ## Attribute interception and public header-view inputs
 
@@ -223,7 +231,8 @@ attribute storage and deletion. Rust owns cache selection, raw-view construction
 callback ordering, and error propagation. Native
 storage access must avoid exposing implementation-only fields to those hooks.
 Base rendering must read charset only when encoding requires it. These
-workflows do not promote `init_headers` from its uncertain inventory status.
+workflows preserve constructor dispatch through `init_headers` without
+establishing a separate public method contract.
 
 ## Response attribute and header-cache evidence
 
@@ -235,7 +244,7 @@ Normal selection `b91ac23e-b116-43a8-be87-2a58c562d7d2` passed 570/570 ordinary 
 
 Coverage MCP verified 10 additional Rust lines with matching source/build receipts: baseline 3,235/25,239, batch 3,041/25,239, union 3,245/25,239. Baseline `829844f5-ce76-4ca4-b1e8-3432a7063f48` passed 310 ordinary comparisons; batch `4dd9209a-7635-4bfe-8eff-2f1b49433b95` passed 137. Both passed both fault contracts. Instrumented package tree: `4772847b93f269e0ee61bf25b8a554f4dae30b4e35c2c88d3c00102ca0e15cc4`; wheel SHA-256: `03117b1709b60f9da7d572a1eecc0e03c391bbf84697242bc0cb1d97b2541b08`. Reports and receipts remain ignored under `build/parity/coverage/response-attributes-20261005/`. This selected incremental union does not establish full-suite coverage regression status.
 
-The generated atlas remains 809 source rows: 694 existing mappings, 52 source-backed not_applicable rows, and 63 backlog rows. Fixed denominators remain 514 upstream test functions and 24 documentation pages. `Response.init_headers` remains uncertain; forwarding the constructor hook does not establish its public status. Streaming/File/Redirect subclass interception and other cookie conversion/type protocols need further comparisons. Complete response and Starlette parity remain unproven. See [response boundary](RESPONSE_RENDER_BOUNDARY.md).
+The generated atlas remains 809 source rows: 694 existing mappings, 52 source-backed not_applicable rows, and 63 backlog rows. Fixed denominators remain 514 upstream test functions and 24 documentation pages. `Response.init_headers` is classified as a private/internal constructor hook; forwarding it preserves the pinned constructor callback behavior. Streaming/File/Redirect subclass interception and other cookie conversion/type protocols need further comparisons. Complete response and Starlette parity remain unproven. See [response boundary](RESPONSE_RENDER_BOUNDARY.md).
 
 ### Clean full attribute regression and benchmark gate
 
@@ -253,7 +262,7 @@ Normal selection `8a4bc151-3147-4c94-8f90-c5b1677ac7cc` passed 668/668 ordinary 
 
 Coverage MCP verified 20 additional Rust lines with matching source/build receipts: baseline 3,231/25,392, batch 3,004/25,392, union 3,251/25,392. Baseline `4bd2dded-21df-4ea4-9841-ee693de53c0b` passed 446 ordinary comparisons; batch `096e641a-e283-4033-af86-a6c5d005b58f` passed 99. Both passed both fault contracts. Instrumented package tree: `a52ae84285111153f866ef4a64d50a93cdc81ec920911c707c889275a0254bb9`; wheel SHA-256: `331c3aa4de2fd664057a7ff942fc2f4bcf399a97568ca7bea445bfbd79940778`. Reports and receipts remain ignored under `build/parity/coverage/response-cookie-protocols-20261005/`. This selected incremental union does not establish full-suite coverage regression status.
 
-The generated atlas remains 809 source rows: 694 existing mappings, 52 source-backed not_applicable rows, and 63 backlog rows. Fixed denominators remain 514 upstream test functions and 24 documentation pages. Arbitrary cookie key objects, supplied Morsel values, other interpreter versions, and Streaming/File/Redirect subclass interception need further comparisons. `Response.init_headers` remains uncertain. Complete response and Starlette parity remain unproven. See [response boundary](RESPONSE_RENDER_BOUNDARY.md).
+The generated atlas remains 809 source rows: 694 existing mappings, 52 source-backed not_applicable rows, and 63 backlog rows. Fixed denominators remain 514 upstream test functions and 24 documentation pages. Arbitrary cookie key objects, supplied Morsel values, other interpreter versions, and Streaming/File/Redirect subclass interception need further comparisons. `Response.init_headers` is classified as a private/internal constructor hook. Complete response and Starlette parity remain unproven. See [response boundary](RESPONSE_RENDER_BOUNDARY.md).
 
 ### Clean full cookie regression and benchmark gate
 
@@ -364,8 +373,9 @@ original values. Every other response consumer uses exact comparison.
 
 Further implementation review includes supplied Morsel values, cookie traceback
 release and cyclic GC, arbitrary filename/stat encoding protocols, active stream
-finalization, and remaining FileResponse range/I/O callbacks. Exposing a forwarding method does
-not resolve an uncertain helper's public status in the compatibility inventory.
+finalization, and remaining FileResponse range/I/O callbacks. The constructor
+hook's forwarding wrapper preserves source callback behavior; the API review
+classifies it as private/internal rather than a separate public method.
 
 ## File range and supplied-cookie protocols
 

@@ -380,6 +380,7 @@
       "build/parity/inputs/parity/gzip-header-case-insensitive.json",
       "build/parity/inputs/parity/gzip-responder.json",
       "build/parity/inputs/parity/body-limit-middleware.json",
+      "build/parity/inputs/parity/body-limit-header-scope-preservation.json",
       "build/parity/inputs/parity/route-body-limits.json",
       "build/parity/inputs/parity/routing-docs-inputs.json",
       "build/parity/inputs/parity/routing-docs-body-boundary.json",
