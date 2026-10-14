@@ -13,9 +13,9 @@ implementation closes, run the complete source/package and Rust-native parity
 matrix, repair mismatches across families, measure coverage from that full
 matrix, reconcile the source atlas, then run all correctness-gated benchmarks.
 
-The active contract currently declares 2,364 input cases across 332
+The active contract currently declares 2,365 input cases across 333
 parity inputs and two benchmark inputs, 140 Starlette compatibility
-operations, 13 Rust-native operations, and 1,279 parity requirements (1,237
+operations, 13 Rust-native operations, and 1,280 parity requirements (1,238
 compatibility and 42 native). Its scope mode is still `slice`. Commit
 `162c2cb6` adds a WebSocket iterator `athrow(StopIteration)` input and the Rust
 PEP 479 conversion to `RuntimeError` with cause/context; that comparison stays
@@ -200,7 +200,7 @@ until the grouped parity phase.
 
 | Phase | State | Evidence |
 | --- | --- | --- |
-| Implementation | In progress. | `make contract-check PARITY_PYTHON=python3.12` validates 2,364 cases across 332 parity inputs, 140 compatibility operations, 13 native operations, and 1,279 parity requirements (1,237 compatibility / 42 native), with zero parity passes claimed. Two new Request.form inputs cover positive
+| Implementation | In progress. | `make contract-check PARITY_PYTHON=python3.12` validates 2,365 cases across 333 parity inputs, 140 compatibility operations, 13 native operations, and 1,280 parity requirements (1,238 compatibility / 42 native), with zero parity passes claimed. A new FormData consumer contract preserves the pinned `UploadFile | str` types for indexing, `getlist()`, and `multi_items()`; the input comparison remains unexecuted. Two new Request.form inputs cover positive
 arbitrary-precision max_fields and max_files limits; these comparisons remain
 unexecuted. A new body-limit input checks that the Content-Length precheck
 preserves the original scope headers mapping; both behavior and comparison
@@ -274,9 +274,9 @@ also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
 The active parity contract is `parity-input@52`: the working tree currently
-indexes 2,364 input cases across 332 parity files, two benchmark files, 140
-Starlette compatibility operations, 13 Rust-native operations, and 1,279
-parity requirements (1,237 compatibility and 42 native). The latest clean full parity,
+indexes 2,365 input cases across 333 parity files, two benchmark files, 140
+Starlette compatibility operations, 13 Rust-native operations, and 1,280
+parity requirements (1,238 compatibility and 42 native). The latest clean full parity,
 coverage, and benchmark receipts belong to the preceding 1,992-case, 140-file
 contract. The generated source-row,
 mapping, `not_applicable`, and backlog totals live in

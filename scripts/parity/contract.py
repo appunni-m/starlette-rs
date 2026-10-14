@@ -1019,6 +1019,7 @@ FORM_DATA_CLOSE_OPERATION = (
     "close-lifecycle",
 )
 FORM_DATA_CONSTRUCTOR_REQUIREMENT = "starlette.datastructures.FormData.constructor-input-semantics"
+FORM_DATA_TYPING_REQUIREMENT = "starlette.datastructures.FormData.generic-typing"
 FORM_DATA_CLOSE_REQUIREMENT = "starlette.datastructures.FormData.close.dynamic-multi-items-order"
 FORM_DATA_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
     "constructor",
@@ -22156,6 +22157,8 @@ def _validate_case_payload(
         expected_case_keys = FORM_DATA_CASE_KEYS
     elif is_formdata_close:
         expected_case_keys = FORM_DATA_CLOSE_CASE_KEYS
+    if is_formdata and isinstance(case, dict) and "typing_contract" in case:
+        expected_case_keys = expected_case_keys | {"typing_contract"}
     if (
         isinstance(case, dict)
         and case.get("surface") in ASGI_MIDDLEWARE_SURFACES
@@ -22907,8 +22910,14 @@ def _validate_case_payload(
         raise ContractError("Request body/stream/json cases select all supported Python profiles")
     if is_upload_file and selected_profiles != list(PYTHON_PROFILE_IDS):
         raise ContractError("UploadFile cases select all supported Python profiles")
-    if is_formdata and selected_profiles != list(PYTHON_PROFILE_IDS):
-        raise ContractError("FormData cases select all supported Python profiles")
+    if is_formdata:
+        expected_formdata_profiles = (
+            ["python-package-cpython312"] if "typing_contract" in case else list(PYTHON_PROFILE_IDS)
+        )
+        if selected_profiles != expected_formdata_profiles:
+            raise ContractError(
+                "FormData cases select the profiles declared by their input contract"
+            )
     if is_formdata_close and selected_profiles != list(PYTHON_PROFILE_IDS):
         raise ContractError("FormData.close cases select all supported Python profiles")
     if is_threadpool and selected_profiles != list(PYTHON_PROFILE_IDS):
@@ -34316,8 +34325,13 @@ def _validate_formdata_argument(spec: Any, context: str, *, allow_primary: bool)
 def _validate_formdata_case(case: dict[str, Any]) -> None:
     if case["assets"] != [] or case["observations"] != ["multidict-lookups"]:
         raise ContractError("FormData cases use no assets and select multidict-lookups")
-    if case["target_profiles"] != list(PYTHON_PROFILE_IDS):
+    typing_contract = case.get("typing_contract")
+    if typing_contract is None and case["target_profiles"] != list(PYTHON_PROFILE_IDS):
         raise ContractError("FormData constructor parity selects all supported Python profiles")
+    if typing_contract is not None and case["target_profiles"] != ["python-package-cpython312"]:
+        raise ContractError(
+            "FormData typing cases select only the Python-package CPython 3.12 profile"
+        )
 
     constructor = _exact(case["constructor"], {"args", "kwargs"}, "FormData constructor")
     args = constructor["args"]
@@ -34358,8 +34372,16 @@ def _validate_formdata_case(case: dict[str, Any]) -> None:
     elif not probe_keys or not equalities:
         raise ContractError("successful FormData constructor cases require probes and equalities")
 
-    if case["covers"] != [FORM_DATA_CONSTRUCTOR_REQUIREMENT]:
-        raise ContractError("FormData covers must select constructor-input-semantics")
+    expected_covers = [FORM_DATA_CONSTRUCTOR_REQUIREMENT]
+    if typing_contract is not None:
+        contract = _exact(typing_contract, {"probes"}, "FormData typing contract")
+        if contract["probes"] != ["formdata-values"]:
+            raise ContractError("FormData typing probes must select the declared value consumer")
+        expected_covers.append(FORM_DATA_TYPING_REQUIREMENT)
+    if case["covers"] != expected_covers:
+        raise ContractError(
+            "FormData covers must select the supplied constructor and typing contract"
+        )
 
 
 def _validate_formdata_close_case(case: dict[str, Any]) -> None:

@@ -143,7 +143,7 @@ def run_formdata_case(
     upload_file_type: type[Any],
 ) -> dict[str, Any]:
     """Construct FormData from case inputs and observe public mapping operations."""
-    return {
+    result = {
         "case_id": case["case_id"],
         "status": "completed",
         "observations": [
@@ -158,6 +158,13 @@ def run_formdata_case(
             }
         ],
     }
+    if "typing_contract" in case:
+        from scripts.parity.adapters.multidict import _typecheck_consumer
+
+        result["observations"][0]["value"]["multidict-lookups"]["typing_contract"] = (
+            _typecheck_consumer(case["typing_contract"])
+        )
+    return result
 
 
 def run_formdata_close_case(

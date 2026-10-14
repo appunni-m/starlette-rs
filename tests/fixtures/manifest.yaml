@@ -532,6 +532,7 @@
       "build/parity/inputs/parity/request-form-multipart.json",
       "build/parity/inputs/parity/request-form-multipart-iso-8859-1.json",
       "build/parity/inputs/parity/formdata-constructor.json",
+      "build/parity/inputs/parity/formdata-generic-typing.json",
       "build/parity/inputs/parity/formdata-close.json",
       "build/parity/inputs/parity/formdata-key-preservation.json",
       "build/parity/inputs/parity/upload-file.json",
@@ -6117,6 +6118,17 @@
                 "python-package-cpython312",
                 "python-package-cpython313",
                 "python-package-cpython314"
+              ]
+            },
+            {
+              "id": "starlette.datastructures.FormData.generic-typing",
+              "dimension": "type_contract",
+              "description": "Preserve FormData's ImmutableMultiDict[str, UploadFile | str] value type for item lookup, getlist(), and multi_items(). Pinned source: starlette/datastructures.py:253-319, 482-498; verified through an input-derived consumer snippet with the pinned type checker.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
               ]
             },
             {

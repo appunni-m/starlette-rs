@@ -258,8 +258,21 @@ class UploadFile(_core.UploadFile):
         await self._close()
 
 
-class FormData(_core.FormData, Mapping[str, Any]):
+class FormData(_core.FormData, Mapping[str, UploadFile | str]):
     """Immutable ordered form values backed by Rust-owned multi-dict semantics."""
+
+    def __init__(
+        self,
+        *args: FormData | Mapping[str, str | UploadFile] | list[tuple[str, str | UploadFile]],
+        **kwargs: str | UploadFile,
+    ) -> None:
+        super().__init__(*args, **kwargs)
+
+    def getlist(self, key: str) -> list[UploadFile | str]:
+        return super().getlist(key)
+
+    def multi_items(self) -> list[tuple[str, UploadFile | str]]:
+        return super().multi_items()
 
     async def close(self) -> None:
         await self._close()

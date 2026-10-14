@@ -71,7 +71,7 @@ def _typecheck_consumer(contract: dict[str, Any]) -> dict[str, Any]:
         raise RuntimeError("the pinned parity type-checker executable is not configured")
 
     source_lines = [
-        "from starlette.datastructures import ImmutableMultiDict, MultiDict",
+        "from starlette.datastructures import FormData, ImmutableMultiDict, MultiDict",
         "",
     ]
     reveal_lines: dict[int, str] = {}
@@ -105,6 +105,22 @@ def _typecheck_consumer(contract: dict[str, Any]) -> dict[str, Any]:
             )
             reveal_lines[len(source_lines) - 1] = "mutable_pop"
             expected_reveals.add("mutable_pop")
+        elif probe == "formdata-values":
+            source_lines.extend(
+                [
+                    "def formdata_values(value: FormData) -> None:",
+                    "    reveal_type(value['tag'])",
+                    "    reveal_type(value.getlist('tag'))",
+                    "    reveal_type(value.multi_items())",
+                    "",
+                ]
+            )
+            reveal_lines[len(source_lines) - 3] = "formdata_getitem"
+            reveal_lines[len(source_lines) - 2] = "formdata_getlist"
+            reveal_lines[len(source_lines) - 1] = "formdata_multi_items"
+            expected_reveals.update(
+                {"formdata_getitem", "formdata_getlist", "formdata_multi_items"}
+            )
 
     package_root = Path(starlette.__file__).resolve().parent.parent
     environment = dict(os.environ)

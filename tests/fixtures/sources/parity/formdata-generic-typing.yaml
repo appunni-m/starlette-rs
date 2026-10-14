@@ -1,0 +1,59 @@
+{
+  "schema": "migration-parity/parity-input@52",
+  "cases": [
+    {
+      "case_id": "starlette.datastructures.FormData.multidict-lookups.generic-typing",
+      "surface": "starlette.datastructures.FormData",
+      "operation": "multidict-lookups",
+      "covers": [
+        "starlette.datastructures.FormData.constructor-input-semantics",
+        "starlette.datastructures.FormData.generic-typing"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "constructor": {
+        "args": [
+          {
+            "kind": "pairs",
+            "entries": [
+              [
+                "tag",
+                "text"
+              ]
+            ]
+          }
+        ],
+        "kwargs": []
+      },
+      "probe_keys": [
+        "tag"
+      ],
+      "equalities": [
+        {
+          "left": {
+            "kind": "form-data",
+            "args": [
+              {
+                "kind": "primary"
+              }
+            ],
+            "kwargs": []
+          },
+          "right": {
+            "kind": "primary"
+          }
+        }
+      ],
+      "typing_contract": {
+        "probes": [
+          "formdata-values"
+        ]
+      },
+      "observations": [
+        "multidict-lookups"
+      ]
+    }
+  ]
+}
