@@ -156,6 +156,10 @@ REQUEST_COOKIE_CACHE_SEQUENCE_OPERATION = ("starlette.requests.Request", "cookie
 REQUEST_CONSTRUCTOR_OPERATION = ("starlette.requests.Request", "constructor-contract")
 WEBSOCKET_SCOPE_MAPPING_OPERATION = ("starlette.websockets.WebSocket", "scope-mapping")
 WEBSOCKET_CONSTRUCTOR_OPERATION = ("starlette.websockets.WebSocket", "constructor-contract")
+WEBSOCKET_DISCONNECT_CONSTRUCTOR_OPERATION = (
+    "starlette.websockets.WebSocketDisconnect",
+    "constructor-contract",
+)
 REQUEST_SEND_PUSH_PROMISE_OPERATION = ("starlette.requests.Request", "send-push-promise")
 REQUEST_IS_DISCONNECTED_OPERATION = ("starlette.requests.Request", "is-disconnected")
 REQUEST_FORM_OPERATION = ("starlette.requests.Request", "form")
@@ -13562,6 +13566,115 @@ def _run_routing_value_formatting_case(case: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _materialize_websocket_disconnect_value(value: Any) -> Any:
+    if isinstance(value, dict) and value.get("$python_value") == "str-subclass":
+        truthiness = value["truthiness"]
+
+        class InputString(str):
+            __slots__ = ()
+
+            def __bool__(self) -> bool:
+                if truthiness == "raise":
+                    raise ValueError("input-defined reason truthiness failure")
+                return truthiness == "true"
+
+        return InputString(value["value"])
+    if isinstance(value, list):
+        return [_materialize_websocket_disconnect_value(item) for item in value]
+    if isinstance(value, dict):
+        return {key: _materialize_websocket_disconnect_value(item) for key, item in value.items()}
+    return value
+
+
+def _run_websocket_disconnect_constructor_case(case: dict[str, Any]) -> dict[str, Any]:
+    _strict_object(
+        case,
+        {
+            "case_id",
+            "surface",
+            "operation",
+            "covers",
+            "target_profiles",
+            "assets",
+            "calls",
+            "observations",
+        },
+        "WebSocketDisconnect constructor case",
+    )
+    from starlette.websockets import WebSocketDisconnect
+
+    observed_calls: list[dict[str, Any]] = []
+    for index, call in enumerate(case["calls"]):
+        _strict_object(call, {"call_id", "args", "kwargs"}, "WebSocketDisconnect call")
+        args = [_materialize_websocket_disconnect_value(value) for value in call["args"]]
+        kwargs = {
+            name: _materialize_websocket_disconnect_value(value)
+            for name, value in call["kwargs"].items()
+        }
+        if len(args) > 1:
+            reason_input = args[1]
+            reason_input_supplied = True
+        elif "reason" in kwargs:
+            reason_input = kwargs["reason"]
+            reason_input_supplied = True
+        else:
+            reason_input = None
+            reason_input_supplied = False
+        if args:
+            code_input = args[0]
+            code_input_supplied = True
+        elif "code" in kwargs:
+            code_input = kwargs["code"]
+            code_input_supplied = True
+        else:
+            code_input = None
+            code_input_supplied = False
+
+        try:
+            value = WebSocketDisconnect(*args, **kwargs)
+        except Exception as exc:
+            observed_calls.append(
+                {
+                    "call_id": call["call_id"],
+                    "index": index,
+                    "outcome": "constructor-error",
+                    "error": {
+                        "class": f"{type(exc).__module__}.{type(exc).__qualname__}",
+                        "message": str(exc),
+                    },
+                }
+            )
+        else:
+            observed_calls.append(
+                {
+                    "call_id": call["call_id"],
+                    "index": index,
+                    "outcome": "constructed",
+                    "code": _json_safe(value.code),
+                    "reason": _json_safe(value.reason),
+                    "args": _json_safe(value.args),
+                    "code_input_identity": (
+                        value.code is code_input if code_input_supplied else None
+                    ),
+                    "reason_input_identity": (
+                        value.reason is reason_input if reason_input_supplied else None
+                    ),
+                }
+            )
+
+    return {
+        "case_id": case["case_id"],
+        "status": "completed",
+        "observations": [
+            {
+                "step_id": "constructor-contract",
+                "status": "ok",
+                "value": {"constructor-contract": {"calls": observed_calls}},
+            }
+        ],
+    }
+
+
 def _run_value_formatting_case(case: dict[str, Any]) -> dict[str, Any]:
     if case["surface"] in ROUTE_REPRESENTATION_SURFACES:
         return _run_routing_value_formatting_case(case)
@@ -15925,6 +16038,12 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         in {EXCEPTION_VALUES_SURFACE, MIDDLEWARE_CONFIG_SURFACE, *ROUTE_REPRESENTATION_SURFACES}
     ):
         return _run_value_formatting_case(case)
+    if (
+        isinstance(case, dict)
+        and (case.get("surface"), case.get("operation"))
+        == WEBSOCKET_DISCONNECT_CONSTRUCTOR_OPERATION
+    ):
+        return _run_websocket_disconnect_constructor_case(case)
     if isinstance(case, dict) and (case.get("surface"), case.get("operation")) == (
         HTTP_ROUTE_SURFACE,
         "__init__",

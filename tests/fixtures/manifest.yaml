@@ -440,6 +440,7 @@
       "build/parity/inputs/parity/streaming-response-final-send-disconnect.json",
       "build/parity/inputs/parity/streaming-response-backpressure.json",
       "build/parity/inputs/parity/websocket-convenience.json",
+      "build/parity/inputs/parity/websocket-disconnect-constructor.json",
       "build/parity/inputs/parity/websocket-json-mode-state-order.json",
       "build/parity/inputs/parity/websocket-iterator-athrow-stop-async-iteration.json",
       "build/parity/inputs/parity/websocket-send-oserror-synchronous-callback.json",
@@ -29800,6 +29801,163 @@
           "benchmark": {
             "applicability": "not_applicable",
             "reason": "Python mapping protocol compatibility is outside the active ASGI benchmark workloads."
+          }
+        }
+      ]
+    },
+    {
+      "id": "starlette.websockets.WebSocketDisconnect",
+      "kind": "type",
+      "source_path": "starlette/websockets.py:20",
+      "storage_slug": "starlette-websockets-WebSocketDisconnect-constructor",
+      "operations": [
+        {
+          "id": "constructor-contract",
+          "kind": "constructor",
+          "classification": "non_endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.websockets.WebSocketDisconnect.__init__",
+            "signature": "WebSocketDisconnect(code=1000, reason=None); construct from each supplied positional/keyword call and observe code, reason, BaseException.args, and exact errors",
+            "parameters": [
+              {
+                "id": "calls",
+                "style": "option",
+                "value_types": [
+                  "sequence"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "constructor-contract",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "The Rust-native API does not expose the Python WebSocketDisconnect class or Python exception construction semantics.",
+                "blocker": "No Rust-native WebSocketDisconnect compatibility type is declared for this input-defined constructor operation."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.websockets.WebSocketDisconnect",
+              "signature": "WebSocketDisconnect(code=1000, reason=None); observe fields, args, and constructor errors",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.websockets.WebSocketDisconnect.constructor-contract.fields-and-args",
+              "dimension": "parameter_combination",
+              "description": "Observe the public code and reason fields plus BaseException.args after omitted and supplied constructor values. Pinned source: starlette/websockets.py:20-23.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.websockets.WebSocketDisconnect.constructor-contract.falsey-reason",
+              "dimension": "parameter_combination",
+              "description": "Normalize None and supplied falsey reason values through the public reason or empty-string rule, including a falsey str subclass. Pinned source: starlette/websockets.py:20-23.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.websockets.WebSocketDisconnect.constructor-contract.truthy-reason",
+              "dimension": "parameter_combination",
+              "description": "Preserve a supplied truthy reason value through construction. Pinned source: starlette/websockets.py:20-23.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.websockets.WebSocketDisconnect.constructor-contract.reason-truthiness-error",
+              "dimension": "error_path",
+              "description": "Forward the exact exception raised when a supplied str subclass raises while Python evaluates reason truthiness. Pinned source: starlette/websockets.py:23.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.websockets.WebSocketDisconnect.constructor-contract.code-value",
+              "dimension": "parameter_combination",
+              "description": "Preserve a supplied code value by direct field assignment. Pinned source: starlette/websockets.py:22.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.websockets.WebSocketDisconnect.constructor-contract.signature-errors",
+              "dimension": "error_path",
+              "description": "Preserve exact Python call-binding errors for invalid positional and keyword argument forms. Pinned source: starlette/websockets.py:21.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "Input-only constructor observations make no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "The standalone exception constructor is outside the active benchmark workloads."
           }
         }
       ]

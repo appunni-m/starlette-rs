@@ -1,0 +1,133 @@
+{
+  "schema": "migration-parity/parity-input@52",
+  "cases": [
+    {
+      "case_id": "starlette.websockets.WebSocketDisconnect.constructor-contract.falsey-reasons-and-errors",
+      "surface": "starlette.websockets.WebSocketDisconnect",
+      "operation": "constructor-contract",
+      "covers": [
+        "starlette.websockets.WebSocketDisconnect.constructor-contract.fields-and-args",
+        "starlette.websockets.WebSocketDisconnect.constructor-contract.falsey-reason",
+        "starlette.websockets.WebSocketDisconnect.constructor-contract.truthy-reason",
+        "starlette.websockets.WebSocketDisconnect.constructor-contract.reason-truthiness-error",
+        "starlette.websockets.WebSocketDisconnect.constructor-contract.code-value",
+        "starlette.websockets.WebSocketDisconnect.constructor-contract.signature-errors"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "calls": [
+        {
+          "call_id": "omitted-defaults",
+          "args": [],
+          "kwargs": {}
+        },
+        {
+          "call_id": "explicit-none",
+          "args": [],
+          "kwargs": {
+            "reason": null
+          }
+        },
+        {
+          "call_id": "empty-string-positional",
+          "args": [1001, ""],
+          "kwargs": {}
+        },
+        {
+          "call_id": "false-reason",
+          "args": [],
+          "kwargs": {
+            "reason": false
+          }
+        },
+        {
+          "call_id": "zero-reason",
+          "args": [],
+          "kwargs": {
+            "reason": 0
+          }
+        },
+        {
+          "call_id": "empty-list-reason",
+          "args": [],
+          "kwargs": {
+            "reason": []
+          }
+        },
+        {
+          "call_id": "empty-mapping-reason",
+          "args": [],
+          "kwargs": {
+            "reason": {}
+          }
+        },
+        {
+          "call_id": "falsey-str-subclass-reason",
+          "args": [],
+          "kwargs": {
+            "reason": {
+              "$python_value": "str-subclass",
+              "value": "closed",
+              "truthiness": "false"
+            }
+          }
+        },
+        {
+          "call_id": "truthy-str-subclass-reason",
+          "args": [],
+          "kwargs": {
+            "reason": {
+              "$python_value": "str-subclass",
+              "value": "server closed the connection",
+              "truthiness": "true"
+            }
+          }
+        },
+        {
+          "call_id": "truthiness-error",
+          "args": [],
+          "kwargs": {
+            "reason": {
+              "$python_value": "str-subclass",
+              "value": "raises from bool",
+              "truthiness": "raise"
+            }
+          }
+        },
+        {
+          "call_id": "code-direct-assignment",
+          "args": [],
+          "kwargs": {
+            "code": {
+              "opaque": [1, 2]
+            }
+          }
+        },
+        {
+          "call_id": "unexpected-keyword",
+          "args": [],
+          "kwargs": {
+            "unexpected": true
+          }
+        },
+        {
+          "call_id": "too-many-positional",
+          "args": [1000, null, "extra"],
+          "kwargs": {}
+        },
+        {
+          "call_id": "duplicate-code",
+          "args": [1000],
+          "kwargs": {
+            "code": 1001
+          }
+        }
+      ],
+      "observations": [
+        "constructor-contract"
+      ]
+    }
+  ]
+}

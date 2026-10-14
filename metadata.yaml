@@ -876,6 +876,16 @@
       ]
     },
     {
+      "surface_id": "starlette.websockets.WebSocketDisconnect",
+      "source_path": "starlette/websockets.py:20",
+      "operations": [
+        {
+          "operation_id": "constructor-contract",
+          "source_path": "starlette.websockets.WebSocketDisconnect.__init__"
+        }
+      ]
+    },
+    {
       "surface_id": "starlette.websockets.WebSocketClose",
       "source_path": "starlette/websockets.py:190",
       "operations": [

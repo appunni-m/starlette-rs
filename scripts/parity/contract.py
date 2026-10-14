@@ -551,6 +551,29 @@ def _itsdangerous_cookie_timestamp(cookie: str) -> int | None:
 
 WEBSOCKET_CLOSE_SURFACE = "starlette.websockets.WebSocketClose"
 WEBSOCKET_CLOSE_OPERATION = "call-sequence"
+WEBSOCKET_DISCONNECT_SURFACE = "starlette.websockets.WebSocketDisconnect"
+WEBSOCKET_DISCONNECT_CONSTRUCTOR_OPERATION = (
+    WEBSOCKET_DISCONNECT_SURFACE,
+    "constructor-contract",
+)
+WEBSOCKET_DISCONNECT_CONSTRUCTOR_REQUIREMENTS = {
+    "fields_and_args": (
+        "starlette.websockets.WebSocketDisconnect.constructor-contract.fields-and-args"
+    ),
+    "falsey_reason": (
+        "starlette.websockets.WebSocketDisconnect.constructor-contract.falsey-reason"
+    ),
+    "truthy_reason": (
+        "starlette.websockets.WebSocketDisconnect.constructor-contract.truthy-reason"
+    ),
+    "reason_truthiness_error": (
+        "starlette.websockets.WebSocketDisconnect.constructor-contract.reason-truthiness-error"
+    ),
+    "code_value": ("starlette.websockets.WebSocketDisconnect.constructor-contract.code-value"),
+    "signature_errors": (
+        "starlette.websockets.WebSocketDisconnect.constructor-contract.signature-errors"
+    ),
+}
 EXCEPTION_VALUES_SURFACE = "starlette.exceptions"
 MIDDLEWARE_CONFIG_SURFACE = "starlette.middleware.Middleware"
 VALUE_FORMATTING_OPERATION = "value-formatting"
@@ -1117,6 +1140,7 @@ RUST_OWNED_PYTHON_OPERATIONS = (
         URL_COMPONENTS_OPERATION,
         BACKGROUND_ATTRIBUTES_OPERATION,
         URLPATH_ABSOLUTE_OPERATION,
+        WEBSOCKET_DISCONNECT_CONSTRUCTOR_OPERATION,
         *HEADERS_OPERATIONS,
         STATE_OPERATION_KEY,
         *WSGI_BOUNDARY_OPERATIONS,
@@ -21958,6 +21982,11 @@ def _validate_case_payload(
         isinstance(case, dict)
         and (case.get("surface"), case.get("operation")) == WEBSOCKET_CONSTRUCTOR_OPERATION
     )
+    is_websocket_disconnect_constructor = (
+        isinstance(case, dict)
+        and (case.get("surface"), case.get("operation"))
+        == WEBSOCKET_DISCONNECT_CONSTRUCTOR_OPERATION
+    )
     is_send_push_promise = (
         isinstance(case, dict)
         and (case.get("surface"), case.get("operation")) == REQUEST_SEND_PUSH_PROMISE_OPERATION
@@ -22354,6 +22383,7 @@ def _validate_case_payload(
             },
             ("starlette.config", "environ"): {"initial_environ", "actions"},
             BACKGROUND_ATTRIBUTES_OPERATION: {"task"},
+            WEBSOCKET_DISCONNECT_CONSTRUCTOR_OPERATION: {"calls"},
             ("starlette.schemas.SchemaGenerator", "schema-generation"): {
                 "base_schema",
                 "routes",
@@ -22732,6 +22762,9 @@ def _validate_case_payload(
     elif is_value_formatting:
         if case["operation"] != VALUE_FORMATTING_OPERATION:
             raise ContractError("value-formatting cases must use their declared operation")
+    elif is_websocket_disconnect_constructor:
+        if (case["surface"], case["operation"]) != WEBSOCKET_DISCONNECT_CONSTRUCTOR_OPERATION:
+            raise ContractError("WebSocketDisconnect cases must use constructor-contract")
     elif is_upload_file:
         if (case["surface"], case["operation"]) != UPLOAD_FILE_OPERATION:
             raise ContractError("UploadFile cases must use the declared file-operations operation")
@@ -23044,6 +23077,9 @@ def _validate_case_payload(
         return case
     if is_value_formatting:
         _validate_value_formatting_case(case)
+        return case
+    if is_websocket_disconnect_constructor:
+        _validate_websocket_disconnect_constructor_case(case)
         return case
     if is_default_receive:
         _validate_default_receive_case(case)
@@ -35157,6 +35193,124 @@ def _validate_route_repr_case(case: dict[str, Any]) -> None:
         raise ContractError(
             "routing representation coverage must derive from its constructor input"
         )
+
+
+def _validate_websocket_disconnect_constructor_value(value: Any, context: str) -> None:
+    if value is None or isinstance(value, (bool, int, float, str)):
+        return
+    if isinstance(value, list):
+        for index, item in enumerate(value):
+            _validate_websocket_disconnect_constructor_value(item, f"{context}[{index}]")
+        return
+    if not isinstance(value, dict):
+        raise ContractError(f"{context} must be JSON-compatible")
+    if "$python_value" in value:
+        spec = _exact(value, {"$python_value", "value", "truthiness"}, context)
+        if (
+            spec["$python_value"] != "str-subclass"
+            or not isinstance(spec["value"], str)
+            or spec["truthiness"] not in {"false", "true", "raise"}
+        ):
+            raise ContractError(
+                f"{context} custom Python value must be a str-subclass truthiness probe"
+            )
+        return
+    for key, item in value.items():
+        if not isinstance(key, str):
+            raise ContractError(f"{context} mapping keys must be strings")
+        _validate_websocket_disconnect_constructor_value(item, f"{context}.{key}")
+
+
+def _websocket_disconnect_call_has_binding_error(args: list[Any], kwargs: dict[str, Any]) -> bool:
+    return (
+        len(args) > 2
+        or any(name not in {"code", "reason"} for name in kwargs)
+        or (len(args) >= 1 and "code" in kwargs)
+        or (len(args) >= 2 and "reason" in kwargs)
+    )
+
+
+def _websocket_disconnect_fixture_truthiness(value: Any) -> bool | None:
+    if isinstance(value, dict) and value.get("$python_value") == "str-subclass":
+        return {"false": False, "true": True, "raise": None}[value["truthiness"]]
+    return bool(value)
+
+
+def _validate_websocket_disconnect_constructor_case(case: dict[str, Any]) -> None:
+    if case["target_profiles"] != ["python-package-cpython312"]:
+        raise ContractError(
+            "WebSocketDisconnect constructor parity targets the Python package profile"
+        )
+    if case["assets"] != [] or case["observations"] != ["constructor-contract"]:
+        raise ContractError(
+            "WebSocketDisconnect constructor cases select constructor-contract without assets"
+        )
+    if not case["case_id"].startswith(
+        "starlette.websockets.WebSocketDisconnect.constructor-contract."
+    ):
+        raise ContractError(
+            "WebSocketDisconnect constructor case ID must bind to the public constructor"
+        )
+
+    calls = case["calls"]
+    if not isinstance(calls, list) or not calls:
+        raise ContractError("WebSocketDisconnect constructor cases require input-defined calls")
+    call_ids: set[str] = set()
+    exercised: set[str] = set()
+    has_success = False
+    for index, raw_call in enumerate(calls):
+        context = f"WebSocketDisconnect constructor calls[{index}]"
+        call = _exact(raw_call, {"call_id", "args", "kwargs"}, context)
+        call_id = _string(call["call_id"], f"{context}.call_id")
+        if not call_id or call_id in call_ids:
+            raise ContractError(f"{context}.call_id must be nonempty and unique")
+        call_ids.add(call_id)
+        args = call["args"]
+        kwargs = call["kwargs"]
+        if not isinstance(args, list) or not isinstance(kwargs, dict):
+            raise ContractError(f"{context}.args and kwargs must be an array and mapping")
+        if any(not isinstance(name, str) for name in kwargs):
+            raise ContractError(f"{context}.kwargs names must be strings")
+        for argument_index, value in enumerate(args):
+            _validate_websocket_disconnect_constructor_value(
+                value, f"{context}.args[{argument_index}]"
+            )
+        for name, value in kwargs.items():
+            _validate_websocket_disconnect_constructor_value(value, f"{context}.kwargs.{name}")
+
+        if _websocket_disconnect_call_has_binding_error(args, kwargs):
+            exercised.add(WEBSOCKET_DISCONNECT_CONSTRUCTOR_REQUIREMENTS["signature_errors"])
+            continue
+
+        has_success = True
+        if args or "code" in kwargs:
+            exercised.add(WEBSOCKET_DISCONNECT_CONSTRUCTOR_REQUIREMENTS["code_value"])
+
+        if len(args) > 1:
+            reason = args[1]
+            reason_is_supplied = True
+        elif "reason" in kwargs:
+            reason = kwargs["reason"]
+            reason_is_supplied = True
+        else:
+            reason = None
+            reason_is_supplied = False
+
+        truthiness = (
+            _websocket_disconnect_fixture_truthiness(reason) if reason_is_supplied else False
+        )
+        if truthiness is None:
+            exercised.add(WEBSOCKET_DISCONNECT_CONSTRUCTOR_REQUIREMENTS["reason_truthiness_error"])
+        elif truthiness:
+            exercised.add(WEBSOCKET_DISCONNECT_CONSTRUCTOR_REQUIREMENTS["truthy_reason"])
+        else:
+            exercised.add(WEBSOCKET_DISCONNECT_CONSTRUCTOR_REQUIREMENTS["falsey_reason"])
+
+    if not has_success:
+        raise ContractError("WebSocketDisconnect constructor cases require a successful call shape")
+    exercised.add(WEBSOCKET_DISCONNECT_CONSTRUCTOR_REQUIREMENTS["fields_and_args"])
+    if set(case["covers"]) != exercised:
+        raise ContractError("WebSocketDisconnect constructor coverage must match its input calls")
 
 
 def _validate_value_formatting_case(case: dict[str, Any]) -> None:

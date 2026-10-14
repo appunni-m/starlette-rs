@@ -13,10 +13,14 @@ implementation closes, run the complete source/package and Rust-native parity
 matrix, repair mismatches across families, measure coverage from that full
 matrix, reconcile the source atlas, then run all correctness-gated benchmarks.
 
-The active contract currently declares 2,365 input cases across 333
-parity inputs and two benchmark inputs, 140 Starlette compatibility
-operations, 13 Rust-native operations, and 1,280 parity requirements (1,238
-compatibility and 42 native). Its scope mode is still `slice`. Commit
+The active contract currently declares 2,366 input cases across 334
+parity inputs and two benchmark inputs, 141 Starlette compatibility
+operations, 13 Rust-native operations, and 1,286 parity requirements (1,244
+compatibility and 42 native). Its scope mode is still `slice`. A new direct
+`WebSocketDisconnect` constructor input compares field assignment, inherited
+exception arguments, Python truthiness, and call-binding errors; the Rust
+helper and facade already match the pinned source, so no runtime change was
+needed. This comparison remains deferred to the full parity phase. Commit
 `162c2cb6` adds a WebSocket iterator `athrow(StopIteration)` input and the Rust
 PEP 479 conversion to `RuntimeError` with cause/context; that comparison stays
 unexecuted until the full parity phase. The generated
@@ -200,7 +204,7 @@ until the grouped parity phase.
 
 | Phase | State | Evidence |
 | --- | --- | --- |
-| Implementation | In progress. | `make contract-check PARITY_PYTHON=python3.12` validates 2,365 cases across 333 parity inputs, 140 compatibility operations, 13 native operations, and 1,280 parity requirements (1,238 compatibility / 42 native), with zero parity passes claimed. A new FormData consumer contract preserves the pinned `UploadFile | str` types for indexing, `getlist()`, and `multi_items()`; the input comparison remains unexecuted. Two new Request.form inputs cover positive
+| Implementation | In progress. | `make contract-check PARITY_PYTHON=python3.12` validates 2,366 cases across 334 parity inputs, 141 compatibility operations, 13 native operations, and 1,286 parity requirements (1,244 compatibility / 42 native), with zero parity passes claimed. A new direct `WebSocketDisconnect` constructor input covers supplied/default fields, inherited exception arguments, reason truthiness, and call-binding errors; its comparison remains unexecuted. A new FormData consumer contract preserves the pinned `UploadFile | str` types for indexing, `getlist()`, and `multi_items()`; the input comparison remains unexecuted. Two new Request.form inputs cover positive
 arbitrary-precision max_fields and max_files limits; these comparisons remain
 unexecuted. A new body-limit input checks that the Content-Length precheck
 preserves the original scope headers mapping; both behavior and comparison

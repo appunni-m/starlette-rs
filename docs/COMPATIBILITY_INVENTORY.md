@@ -890,6 +890,23 @@ candidates include `AuthenticationError`, `ClientDisconnect`, `EnvironError`,
 and `WebSocketException`; their source-backed classification and observable
 behavior are recorded in the merged API review and fixture matrix.
 
+The standalone import `starlette.formparsers.MultiPartException` remains
+unresolved. In pinned 1.6.0, the request and exception guides do not name this
+class or document its import path, the package root exports only
+`__version__`, and the API catalog records the formparsers declaration as a
+source-only candidate. The optional-features API review keeps it uncertain;
+its `tests/test_testclient.py:89` evidence pointer does not support this
+candidate. The request-response API review classifies the separate
+`starlette.requests.MultiPartException` source re-export as private/internal.
+`tests/test_formparsers.py` imports the exception to assert parser and direct
+`Request.form()` failure behavior, which supports that observable error
+boundary but does not establish a standalone import guarantee. The pinned
+release notes mention the name only in a temporary-file cleanup fix. This
+package's facade forwards the exception, and its Request facade re-exports the
+same object to preserve that boundary; these target imports do not establish
+the upstream status. No standalone-import case or additional behavior is
+justified without stronger upstream API evidence.
+
 The deprecated `starlette.status` aliases and their replacements are:
 
 | Deprecated name | Replacement | Compatibility detail |
@@ -915,6 +932,14 @@ and the legacy `httpx` TestClient backend.
 
 - Unresolved API candidates remain deliberately uncertain where the pinned docs,
   source, and release history do not establish public intent.
+- `Router.add_route` is documented in the source and implemented by both
+  packages, but the pinned API documentation does not establish a public
+  method-level typing contract. Starlette 1.6.0 annotates `methods` as
+  `Collection[str] | None`; the facade currently accepts `Iterable[str] | None`.
+  The upstream test passes a list and checks runtime route addition, so it does
+  not resolve the static distinction. Keep this candidate uncertain unless
+  stronger public typing evidence appears; see `docs/api-surface.csv` and Kata
+  audit `d2c1`.
 - The WebSocket guide says query parameters are unsupported while a pinned test
   exercises them; both inputs remain separate in
   `doc.testclient.websocket-query-params` until the mismatch is reconciled.
