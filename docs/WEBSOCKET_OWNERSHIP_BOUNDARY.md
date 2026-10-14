@@ -28,6 +28,18 @@ errors from its receive callback. The input-only case in
 [`websocket-iterator-athrow-stop-async-iteration.yaml`](../tests/fixtures/sources/parity/websocket-iterator-athrow-stop-async-iteration.yaml)
 records this path; comparison remains deferred to the full parity phase.
 
+Starlette's three typed receive iterators resolve `self.receive_text`,
+`self.receive_bytes`, or `self.receive_json` inside the async-generator body,
+once for each advance, including the advance that receives disconnect. The
+facade therefore passes the WebSocket receiver to Rust; the Rust iterator
+performs Python attribute lookup when each `__anext__`/`asend` step starts.
+That lookup must execute Python descriptors and subclass overrides to preserve
+the source contract. It is an unavoidable Python callback boundary; iterator
+state, advance order, and disconnect handling remain in Rust. The three
+`websocket-convenience.yaml` descriptor inputs compare ordered reads for text,
+bytes, and JSON iterators, including the disconnect advance, against the pinned
+source. Their comparisons are deferred to the grouped parity phase.
+
 Thirty `websocket-thread-ownership.yaml` definitions select worker construction
 of public WebSocket objects and, for iterator workflows, worker construction of
 the iterator. The caller then drives public typed receives, sends, iteration,

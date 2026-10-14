@@ -28918,7 +28918,7 @@
           "source": {
             "oracle_id": "starlette-python",
             "path": "starlette.websockets.WebSocket",
-            "signature": "Parity workflow: call public WebSocket methods from the supplied action sequence, exercise raw and typed receive/send framing, accepted headers, iterator async-for and async-generator controls, denial-response dispatch with fixed, streaming, or file-backed response inputs, optional input-defined client_state assignments inside awaited receive callbacks, and input-defined subclass descriptors; compare returned values/errors, the ASGI callback tape, descriptor reads, and final protocol states.",
+            "signature": "Parity workflow: call public WebSocket methods from the supplied action sequence, exercise raw and typed receive/send framing, accepted headers, iterator async-for and async-generator controls, denial-response dispatch with fixed, streaming, or file-backed response inputs, optional input-defined client_state assignments inside awaited receive callbacks, and input-defined subclass descriptors including per-advance typed-receive lookup; compare returned values/errors, the ASGI callback tape, descriptor reads, and final protocol states.",
             "parameters": [
               {
                 "id": "scope",
@@ -29123,6 +29123,17 @@
               "id": "starlette.websocket.api.callback-descriptor.lookup-timing",
               "dimension": "boundary",
               "description": "Construct WebSocket subclasses with input-defined descriptors. The send descriptor observes CONNECTED after accept awaits receive, and denial-response descriptors observe the extension scope check before the response's scope, receive, and send arguments are resolved. Pinned source: starlette/websockets.py:100-111,183-187.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.websocket.api.iterator.receive-method-descriptor.lookup-timing",
+              "dimension": "boundary",
+              "description": "For iter_text, iter_bytes, and iter_json, look up the corresponding typed receive method only when the native async iterator advances and repeat that Python descriptor lookup for each received frame, including the disconnect advance. Pinned source: starlette/websockets.py:144-160.",
               "lanes": [
                 "parity"
               ],

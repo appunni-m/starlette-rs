@@ -228,6 +228,9 @@ WEBSOCKET_SEND_OSERROR_REQUIREMENT = "starlette.websocket.api.send.os-error.disc
 WEBSOCKET_DESCRIPTOR_TIMING_REQUIREMENT = (
     "starlette.websocket.api.callback-descriptor.lookup-timing"
 )
+WEBSOCKET_ITERATOR_RECEIVE_LOOKUP_REQUIREMENT = (
+    "starlette.websocket.api.iterator.receive-method-descriptor.lookup-timing"
+)
 WEBSOCKET_INVALID_JSON_MODE_REQUIREMENTS = {
     "receive": "starlette.websocket.api.receive.json.invalid-mode",
     "send": "starlette.websocket.api.send.json.invalid-mode",
@@ -4689,12 +4692,17 @@ def _validate_websocket_convenience_case_stimulus(case: dict[str, Any]) -> None:
     if not isinstance(method_descriptors, dict) or set(method_descriptors) - {
         "scope",
         "receive",
+        "receive_text",
+        "receive_bytes",
+        "receive_json",
         "send",
     }:
-        raise ContractError("WebSocket method_descriptors may select scope, receive, or send")
+        raise ContractError(
+            "WebSocket method_descriptors may select scope, receive, typed receives, or send"
+        )
     for attribute, descriptor in method_descriptors.items():
         context = f"WebSocket method_descriptors.{attribute}"
-        if attribute in {"scope", "receive"}:
+        if attribute in {"scope", "receive", "receive_text", "receive_bytes", "receive_json"}:
             descriptor = _exact(descriptor, {"read_labels"}, context)
             labels = descriptor["read_labels"]
             if (
@@ -4846,7 +4854,7 @@ def _validate_websocket_convenience_case_stimulus(case: dict[str, Any]) -> None:
                                 ) from exc
             if application_state != "CONNECTING":
                 raise ContractError(f"{context} requires the application to be connecting")
-            if method_descriptors:
+            if "send" in method_descriptors:
                 method_descriptors_used = True
                 if set(method_descriptors) != {"send"}:
                     raise ContractError(
@@ -4954,14 +4962,40 @@ def _validate_websocket_convenience_case_stimulus(case: dict[str, Any]) -> None:
                 raise ContractError(f"{context} requires a connected WebSocket")
             payload = "bytes_base64" if method == "iter_bytes" else "text"
             iterated = False
+            iterator_receive_count = 0
             while True:
                 message_type = receive_input(context, payload)
+                iterator_receive_count += 1
                 if message_type == "websocket.disconnect":
                     break
                 iterated = True
             if not iterated:
                 raise ContractError(f"{context} must yield at least one incoming message")
             exercised.add(f"starlette.websocket.api.{method}.async-for")
+            descriptor_attribute = {
+                "iter_text": "receive_text",
+                "iter_bytes": "receive_bytes",
+                "iter_json": "receive_json",
+            }[method]
+            if descriptor_attribute in method_descriptors:
+                method_descriptors_used = True
+                if set(method_descriptors) != {descriptor_attribute}:
+                    raise ContractError(
+                        f"{context} iterator descriptor coverage requires only "
+                        f"{descriptor_attribute}"
+                    )
+                labels = method_descriptors[descriptor_attribute]["read_labels"]
+                if len(labels) != iterator_receive_count:
+                    raise ContractError(
+                        f"{context} descriptor read labels must match the number of iterator "
+                        "advances, including the disconnect advance"
+                    )
+                if WEBSOCKET_ITERATOR_RECEIVE_LOOKUP_REQUIREMENT not in case["covers"]:
+                    raise ContractError(
+                        f"{context} method descriptor must cover "
+                        f"{WEBSOCKET_ITERATOR_RECEIVE_LOOKUP_REQUIREMENT}"
+                    )
+                exercised.add(WEBSOCKET_ITERATOR_RECEIVE_LOOKUP_REQUIREMENT)
         elif method in {"send_text", "send_bytes", "send_json", "close"}:
             if method == "send_text":
                 _exact(arguments, {"data"}, f"{context}.arguments")

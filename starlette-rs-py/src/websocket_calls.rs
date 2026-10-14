@@ -355,36 +355,36 @@ impl PyWebSocketProtocol {
         )
     }
 
-    fn iter_text(
-        &self,
-        py: Python<'_>,
-        receive_callback: Py<PyAny>,
-    ) -> PyResult<Py<PyWebSocketIterator>> {
+    fn iter_text(&self, py: Python<'_>, receiver: Py<PyAny>) -> PyResult<Py<PyWebSocketIterator>> {
         Py::new(
             py,
-            PyWebSocketIterator::new(receive_callback, self.disconnect_error.clone_ref(py)),
+            PyWebSocketIterator::new(
+                receiver,
+                "receive_text",
+                self.disconnect_error.clone_ref(py),
+            ),
         )
     }
 
-    fn iter_bytes(
-        &self,
-        py: Python<'_>,
-        receive_callback: Py<PyAny>,
-    ) -> PyResult<Py<PyWebSocketIterator>> {
+    fn iter_bytes(&self, py: Python<'_>, receiver: Py<PyAny>) -> PyResult<Py<PyWebSocketIterator>> {
         Py::new(
             py,
-            PyWebSocketIterator::new(receive_callback, self.disconnect_error.clone_ref(py)),
+            PyWebSocketIterator::new(
+                receiver,
+                "receive_bytes",
+                self.disconnect_error.clone_ref(py),
+            ),
         )
     }
 
-    fn iter_json(
-        &self,
-        py: Python<'_>,
-        receive_callback: Py<PyAny>,
-    ) -> PyResult<Py<PyWebSocketIterator>> {
+    fn iter_json(&self, py: Python<'_>, receiver: Py<PyAny>) -> PyResult<Py<PyWebSocketIterator>> {
         Py::new(
             py,
-            PyWebSocketIterator::new(receive_callback, self.disconnect_error.clone_ref(py)),
+            PyWebSocketIterator::new(
+                receiver,
+                "receive_json",
+                self.disconnect_error.clone_ref(py),
+            ),
         )
     }
 
@@ -1148,7 +1148,8 @@ impl DenialResponseMachine {
 
 #[pyclass(name = "WebSocketIterator")]
 struct PyWebSocketIterator {
-    callback: Py<PyAny>,
+    receiver: Py<PyAny>,
+    method_name: &'static str,
     disconnect_error: Py<PyAny>,
     finished: SharedFlag,
     running: SharedFlag,
@@ -1156,9 +1157,10 @@ struct PyWebSocketIterator {
 }
 
 impl PyWebSocketIterator {
-    fn new(callback: Py<PyAny>, disconnect_error: Py<PyAny>) -> Self {
+    fn new(receiver: Py<PyAny>, method_name: &'static str, disconnect_error: Py<PyAny>) -> Self {
         Self {
-            callback,
+            receiver,
+            method_name,
             disconnect_error,
             finished: SharedFlag::new(false),
             running: SharedFlag::new(false),
@@ -1169,7 +1171,8 @@ impl PyWebSocketIterator {
 
 fn websocket_iterator_next(slf: Py<PyWebSocketIterator>, py: Python<'_>) -> PyResult<Py<PyAny>> {
     let borrowed = slf.borrow(py);
-    let callback = borrowed.callback.clone_ref(py);
+    let receiver = borrowed.receiver.clone_ref(py);
+    let method_name = borrowed.method_name;
     let disconnect_error = borrowed.disconnect_error.clone_ref(py);
     let finished = borrowed.finished.clone();
     let running = borrowed.running.clone();
@@ -1178,7 +1181,8 @@ fn websocket_iterator_next(slf: Py<PyWebSocketIterator>, py: Python<'_>) -> PyRe
     into_sendable_python_awaitable(
         py,
         WebSocketIteratorStep {
-            callback,
+            receiver,
+            method_name,
             disconnect_error,
             finished,
             running,
@@ -1192,11 +1196,11 @@ fn websocket_iterator_next(slf: Py<PyWebSocketIterator>, py: Python<'_>) -> PyRe
 #[pymethods]
 impl PyWebSocketIterator {
     fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
-        visit.call(&self.callback)?;
+        visit.call(&self.receiver)?;
         visit.call(&self.disconnect_error)
     }
     fn __clear__(&mut self, py: Python<'_>) {
-        self.callback = py.None();
+        self.receiver = py.None();
         self.disconnect_error = py.None();
     }
     fn __aiter__(slf: Py<Self>) -> Py<Self> {
@@ -1209,7 +1213,8 @@ impl PyWebSocketIterator {
 
     fn asend(slf: Py<Self>, py: Python<'_>, value: Py<PyAny>) -> PyResult<Py<PyAny>> {
         let borrowed = slf.borrow(py);
-        let callback = borrowed.callback.clone_ref(py);
+        let receiver = borrowed.receiver.clone_ref(py);
+        let method_name = borrowed.method_name;
         let disconnect_error = borrowed.disconnect_error.clone_ref(py);
         let finished = borrowed.finished.clone();
         let running = borrowed.running.clone();
@@ -1218,7 +1223,8 @@ impl PyWebSocketIterator {
         into_sendable_python_awaitable(
             py,
             WebSocketIteratorStep {
-                callback,
+                receiver,
+                method_name,
                 disconnect_error,
                 finished,
                 running,
@@ -1403,7 +1409,8 @@ impl AwaitableStateMachine for WebSocketIteratorClose {
 }
 
 struct WebSocketIteratorStep {
-    callback: Py<PyAny>,
+    receiver: Py<PyAny>,
+    method_name: &'static str,
     disconnect_error: Py<PyAny>,
     finished: SharedFlag,
     running: SharedFlag,
@@ -1414,7 +1421,7 @@ struct WebSocketIteratorStep {
 
 impl AwaitableStateMachine for WebSocketIteratorStep {
     fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
-        visit.call(&self.callback)?;
+        visit.call(&self.receiver)?;
         visit.call(&self.disconnect_error)?;
         visit.call(&self.send_value)
     }
@@ -1457,11 +1464,14 @@ impl WebSocketIteratorStep {
             ));
         }
         self.started.set(true);
-        match self.callback.bind(py).call0() {
-            Ok(awaitable) => {
-                self.pending = true;
-                Ok(MachineAction::Await(awaitable.unbind()))
-            }
+        match self.receiver.bind(py).getattr(self.method_name) {
+            Ok(callback) => match callback.call0() {
+                Ok(awaitable) => {
+                    self.pending = true;
+                    Ok(MachineAction::Await(awaitable.unbind()))
+                }
+                Err(error) => self.callback_error(py, error),
+            },
             Err(error) => self.callback_error(py, error),
         }
     }

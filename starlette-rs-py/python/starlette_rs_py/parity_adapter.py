@@ -6108,6 +6108,14 @@ def _run_websocket_convenience_case(case: dict[str, Any]) -> dict[str, Any]:
                 return WebSocket.receive.__get__(instance, type(instance))
 
             descriptor_members["receive"] = property(receive_descriptor)
+        for attribute in ("receive_text", "receive_bytes", "receive_json"):
+            if attribute in method_descriptors:
+
+                def typed_receive_descriptor(instance: Any, name: str = attribute) -> Any:
+                    record_descriptor_read(name, instance)
+                    return getattr(WebSocket, name).__get__(instance, type(instance))
+
+                descriptor_members[attribute] = property(typed_receive_descriptor)
         if "send" in method_descriptors:
 
             def send_descriptor(instance: Any) -> Any:

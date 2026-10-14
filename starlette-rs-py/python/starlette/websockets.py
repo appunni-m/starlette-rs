@@ -85,13 +85,13 @@ class WebSocket(HTTPConnection[StateT]):
         return await self._protocol.receive_json(self.receive, self._raise_on_disconnect, mode)
 
     def iter_text(self) -> AsyncIterator[str]:
-        return cast(AsyncIterator[str], self._protocol.iter_text(self.receive_text))
+        return cast(AsyncIterator[str], self._protocol.iter_text(self))
 
     def iter_bytes(self) -> AsyncIterator[bytes]:
-        return cast(AsyncIterator[bytes], self._protocol.iter_bytes(self.receive_bytes))
+        return cast(AsyncIterator[bytes], self._protocol.iter_bytes(self))
 
     def iter_json(self) -> AsyncIterator[Any]:
-        return cast(AsyncIterator[Any], self._protocol.iter_json(self.receive_json))
+        return cast(AsyncIterator[Any], self._protocol.iter_json(self))
 
     async def send_text(self, data: str) -> None:
         await self._protocol.send_text(self.send, data)
