@@ -32973,6 +32973,7 @@ def _validate_templating_public_case(case: dict[str, Any]) -> None:
     }:
         raise ContractError("Template consumer must select construction, rendering, or TestClient")
     coverage = {TEMPLATING_PUBLIC_REQUIREMENTS["construction"]}
+    preconfigured_url_for_global = False
     if "hooks" in case:
         hooks = _exact(
             case["hooks"],
@@ -33002,8 +33003,9 @@ def _validate_templating_public_case(case: dict[str, Any]) -> None:
                 _validate_threadpool_json(definition["globals"], "Template hook globals")
                 if not isinstance(definition["globals"], dict):
                     raise ContractError("Template hook globals require a mapping")
-                if "url_for" in definition["globals"]:
-                    coverage.add(TEMPLATING_PUBLIC_REQUIREMENTS["preconfigured-url-for-global"])
+                preconfigured_url_for_global = (
+                    definition["kind"] == "delegate" and "url_for" in definition["globals"]
+                )
         coverage.add(
             "starlette.templating.Jinja2Templates.template-public-workflow.subclass-hook-dispatch"
         )
@@ -33025,6 +33027,16 @@ def _validate_templating_public_case(case: dict[str, Any]) -> None:
             raise ContractError("Template context must be a mapping without a synthetic Request")
         if any(key not in text for key in context):
             raise ContractError("Template stimulus must render each supplied context key")
+        if (
+            preconfigured_url_for_global
+            and "url_for" not in context
+            and not any(
+                "url_for" in processor.get("additions", {})
+                for processor in normalized_processor_specs
+            )
+            and re.search(r"\{\{\s*url_for\b", text)
+        ):
+            coverage.add(TEMPLATING_PUBLIC_REQUIREMENTS["preconfigured-url-for-global"])
         if (
             environment is None
             and name.lower().endswith((".html", ".htm", ".xml"))

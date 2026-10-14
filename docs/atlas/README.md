@@ -25,11 +25,14 @@ with no conventional Python or Rust unit-test suite.
 ## Current implementation status
 
 Implementation remains active for the full Starlette 1.6.0 replacement. The
-working-tree `parity-input@55` contract indexes 2,408 cases across 355
+working-tree `parity-input@55` contract indexes 2,415 cases across 361
 parity input files and two benchmark files, with 144 Starlette compatibility
-operations, 13 native operations, and 1,316 parity requirements (1,274
+operations, 13 native operations, and 1,322 parity requirements (1,278
 compatibility and 42 native). The contract remains a slice and claims zero
-parity passes. The new application constructor input captures the state of
+parity passes. The latest batch adds a Rust-backed StaticFiles single-digit
+time-field normalization case and a Jinja caller-supplied `url_for` global
+case; both remain unexecuted until full parity. The new application
+constructor input captures the state of
 `exception_handlers`, `user_middleware`, and `middleware_stack` while its
 middleware Sequence is consumed; its comparison remains deferred until full
 parity. Rust now returns the completed no-op for thread-pool iterator
