@@ -354,6 +354,7 @@
       "build/parity/inputs/parity/asgi-request-cancellation.json",
       "build/parity/inputs/parity/asgi-call-boundary.json",
       "build/parity/inputs/parity/request-runtime.json",
+      "build/parity/inputs/parity/request-cookies-quoted-unrecognized-escapes.json",
       "build/parity/inputs/parity/request-stream-terminal-throw.json",
       "build/parity/inputs/parity/request-stream-receive-cancellation-retry.json",
       "build/parity/inputs/parity/request-stream-receive-error-retry.json",

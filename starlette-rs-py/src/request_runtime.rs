@@ -253,6 +253,7 @@ impl PyHTTPConnection {
             return Ok(cookies.clone_ref(py));
         }
         let native_headers = self.native_headers(py)?;
+        let native_headers = preserve_python_cookie_unquote(native_headers.bind(py), py)?;
         let cookies_type = py.import("starlette_rs_py._core")?.getattr("Cookies")?;
         let parsed_cookies = cookies_type
             .getattr("from_headers")?
@@ -509,6 +510,138 @@ impl PyHTTPConnection {
         self.request_headers = Some(headers.clone_ref(py));
         Ok(headers)
     }
+}
+
+/// Preserve quoted-cookie escapes that Python's http.cookies._unquote leaves
+/// untouched before passing the headers to the shared Rust parser.
+fn preserve_python_cookie_unquote(
+    headers: &Bound<'_, PyAny>,
+    py: Python<'_>,
+) -> PyResult<Py<PyAny>> {
+    let mut raw_headers = headers
+        .call_method0("raw")?
+        .extract::<Vec<(Vec<u8>, Vec<u8>)>>()?;
+    let mut changed = false;
+    for (name, value) in &mut raw_headers {
+        if name.eq_ignore_ascii_case(b"cookie") {
+            changed |= preserve_unrecognized_cookie_escapes(value);
+        }
+    }
+    if !changed {
+        return Ok(headers.clone().unbind());
+    }
+
+    let raw = PyList::empty(py);
+    for (name, value) in raw_headers {
+        raw.append((PyBytes::new(py, &name), PyBytes::new(py, &value)))?;
+    }
+    py.import("starlette_rs_py._core")?
+        .getattr("RequestHeaders")?
+        .call1((raw,))
+        .map(Bound::unbind)
+}
+
+fn preserve_unrecognized_cookie_escapes(header: &mut Vec<u8>) -> bool {
+    let mut normalized = Vec::with_capacity(header.len());
+    let mut segment_start = 0;
+    let mut changed = false;
+    for (index, byte) in header.iter().enumerate() {
+        if *byte == b';' {
+            changed |= preserve_cookie_segment_escapes(
+                header.get(segment_start..index).unwrap_or_default(),
+                &mut normalized,
+            );
+            normalized.push(b';');
+            segment_start = index.saturating_add(1);
+        }
+    }
+    changed |= preserve_cookie_segment_escapes(
+        header.get(segment_start..).unwrap_or_default(),
+        &mut normalized,
+    );
+    if changed {
+        *header = normalized;
+    }
+    changed
+}
+
+fn preserve_cookie_segment_escapes(segment: &[u8], output: &mut Vec<u8>) -> bool {
+    let Some(separator) = segment.iter().position(|byte| *byte == b'=') else {
+        output.extend_from_slice(segment);
+        return false;
+    };
+    let value_start = separator.saturating_add(1);
+    output.extend_from_slice(segment.get(..value_start).unwrap_or_default());
+    let raw_value = segment.get(value_start..).unwrap_or_default();
+    let trim_start = raw_value
+        .iter()
+        .position(|byte| !is_python_cookie_whitespace(*byte))
+        .unwrap_or(raw_value.len());
+    let trim_end = raw_value
+        .iter()
+        .rposition(|byte| !is_python_cookie_whitespace(*byte))
+        .map_or(trim_start, |index| index.saturating_add(1));
+    let Some(value) = raw_value.get(trim_start..trim_end) else {
+        output.extend_from_slice(raw_value);
+        return false;
+    };
+    if value.len() < 2 || value.first() != Some(&b'"') || value.last() != Some(&b'"') {
+        output.extend_from_slice(raw_value);
+        return false;
+    }
+
+    output.extend_from_slice(raw_value.get(..trim_start).unwrap_or_default());
+    output.push(b'"');
+    let inner = value
+        .get(1..value.len().saturating_sub(1))
+        .unwrap_or_default();
+    let changed = preserve_unrecognized_quoted_escapes(inner, output);
+    output.push(b'"');
+    output.extend_from_slice(raw_value.get(trim_end..).unwrap_or_default());
+    changed
+}
+
+fn preserve_unrecognized_quoted_escapes(value: &[u8], output: &mut Vec<u8>) -> bool {
+    let mut index = 0;
+    let mut changed = false;
+    while let Some(byte) = value.get(index).copied() {
+        if byte != b'\\' {
+            output.push(byte);
+            index = index.saturating_add(1);
+            continue;
+        }
+
+        let escaped_index = index.saturating_add(1);
+        let Some(escaped) = value.get(escaped_index).copied() else {
+            output.push(byte);
+            index = escaped_index;
+            continue;
+        };
+        let octal_end = index.saturating_add(4);
+        let valid_octal = value.get(escaped_index..octal_end).is_some_and(|digits| {
+            matches!(
+                digits,
+                [first, second, third]
+                    if (b'0'..=b'3').contains(first)
+                        && (b'0'..=b'7').contains(second)
+                        && (b'0'..=b'7').contains(third)
+            )
+        });
+        if matches!(escaped, b'"' | b'\\' | b'\n') || valid_octal {
+            output.push(byte);
+            index = index.saturating_add(1);
+            continue;
+        }
+
+        output.extend_from_slice(b"\\\\");
+        index = escaped_index;
+        changed = true;
+    }
+    changed
+}
+
+fn is_python_cookie_whitespace(byte: u8) -> bool {
+    byte.is_ascii_whitespace() || matches!(byte, 0x1c..=0x1f | 0x85 | 0xa0)
 }
 
 fn url_from_scope(py: Python<'_>, scope: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
