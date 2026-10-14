@@ -5,13 +5,14 @@ body/stream truthiness-failure order, TestClient lifespan startup-message type
 comparison, and WebSocket `receive_json` mode-comparison order. The cases pass
 contract validation and remain unexecuted until the grouped parity phase.
 
-The application typing consumer asserts `Request.cookies` and inherited
+The application typing consumer asserts `Request.headers` and inherited
+`WebSocket.headers` as `Headers`, `Request.cookies` and inherited
 `WebSocket.cookies` as `dict[str, str]`, `Request.url` and inherited
-`WebSocket.url` as `URL`, inherited `WebSocket.headers` as `Headers`, inherited
-`WebSocket.query_params` as `QueryParams`, and `Request.client` as
-`Address | None`. Pinned-source and rebuilt installed-wheel Mypy 1.19.1
-diagnostics and revealed types match; the registered consumer comparison
-remains deferred to full parity.
+`WebSocket.url` as `URL`, inherited `WebSocket.query_params` as `QueryParams`,
+and `Request.client` and inherited `WebSocket.client` as `Address | None`.
+Pinned-source and rebuilt installed-wheel Mypy 1.19.1 diagnostics and revealed
+types match; the registered consumer comparison remains deferred to full
+parity.
 
 The template input set now also observes an unsupported async context
 processor failing before template lookup. A raising lookup hook records the

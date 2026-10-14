@@ -25,10 +25,11 @@ both `await Request.form()` and `async with Request.form()`, and iterates
 `Request.stream()` to assert that each yielded chunk is `bytes`. It also checks
 `Request.body()` as `bytes`, `Request.json()` as `Any`, `Request.query_params`
 as `QueryParams`, `Request.path_params` as `dict[str, Any]`, and
-`Request.client` as `Address | None`. It now also asserts `Request.url` as
-`URL`, `Request.cookies` as `dict[str, str]`, and inherited
-`WebSocket.cookies` as `dict[str, str]`, `WebSocket.url` as `URL`, and the
-inherited `WebSocket.headers` and `WebSocket.query_params` as `Headers` and
+`Request.client` as `Address | None`. It also asserts `Request.headers` as
+`Headers`, `Request.url` as `URL`, `Request.cookies` as `dict[str, str]`, and
+inherited `WebSocket.client` as `Address | None`, `WebSocket.cookies` as
+`dict[str, str]`, `WebSocket.url` as `URL`, and the inherited
+`WebSocket.headers` and `WebSocket.query_params` as `Headers` and
 `QueryParams`. Pinned Mypy 1.19.1 produced identical output against Starlette
 1.6.0 and the rebuilt installed wheel for these assertions.
 A new multipart input covers repeated Content-Type `charset` parameters;
