@@ -359,6 +359,7 @@
       "build/parity/inputs/parity/request-stream-receive-error-retry.json",
       "build/parity/inputs/parity/request-client-address.json",
       "build/parity/inputs/parity/request-connection-properties-mapping-membership.json",
+      "build/parity/inputs/parity/authentication-http-connection-auth-user.json",
       "build/parity/inputs/parity/request-scope-interface.json",
       "build/parity/inputs/parity/request-push-promise-header-order.json",
       "build/parity/inputs/parity/request-constructor-stateful-scope-type.json",
@@ -443,6 +444,7 @@
       "build/parity/inputs/parity/streaming-response-lazy-iterator-start-send-failure.json",
       "build/parity/inputs/parity/streaming-response-final-send-disconnect.json",
       "build/parity/inputs/parity/streaming-response-backpressure.json",
+      "build/parity/inputs/parity/streaming-response-await-instance-shadow.json",
       "build/parity/inputs/parity/websocket-convenience.json",
       "build/parity/inputs/parity/websocket-disconnect-constructor.json",
       "build/parity/inputs/parity/websocket-json-mode-state-order.json",
@@ -17674,6 +17676,21 @@
                 "python-package-cpython313",
                 "python-package-cpython314"
               ]
+            },
+            {
+              "id": "starlette.requests.HTTPConnection.auth-user.present-null-scope-values",
+              "dimension": "boundary",
+              "description": "For present `auth` and `user` scope keys whose values are None, HTTPConnection.auth and HTTPConnection.user return those exact None values rather than treating the keys as absent. Pinned source: starlette/requests.py:178-186.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
             }
           ],
           "parity": {
@@ -22078,6 +22095,17 @@
               "id": "starlette.responses.StreamingResponse.asgi-call.async-iterator-await-factory-stop",
               "dimension": "protocol_variant",
               "description": "Return an input-selected awaitable from async __anext__ whose synchronous __await__ call raises StopAsyncIteration, then compare CPython's TypeError and its StopAsyncIteration context/cause. Starlette's async-for stream loop rejects this invalid awaitable result; the exception is not iterator exhaustion. Pinned source: starlette/responses.py::StreamingResponse.stream_response; CPython 3.12 GET_ANEXT async-for semantics.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.StreamingResponse.asgi-call.awaitable-instance-special-method-lookup",
+              "dimension": "protocol_variant",
+              "description": "For each awaitable returned by the streaming async iterator, resolve __await__ through its type so an instance-level __await__ attribute cannot shadow the protocol method; compare the resulting streamed chunk bytes. Pinned source: starlette/responses.py:248-255; CPython 3.12 GET_ANEXT/await protocol.",
               "lanes": [
                 "parity"
               ],

@@ -25,13 +25,15 @@ with no conventional Python or Rust unit-test suite.
 ## Current implementation status
 
 Implementation remains active for the full Starlette 1.6.0 replacement. The
-working-tree `parity-input@55` contract indexes 2,415 cases across 361
+working-tree `parity-input@55` contract indexes 2,417 cases across 363
 parity input files and two benchmark files, with 144 Starlette compatibility
-operations, 13 native operations, and 1,322 parity requirements (1,278
+operations, 13 native operations, and 1,324 parity requirements (1,280
 compatibility and 42 native). The contract remains a slice and claims zero
 parity passes. The latest batch adds a Rust-backed StaticFiles single-digit
 time-field normalization case and a Jinja caller-supplied `url_for` global
-case; both remain unexecuted until full parity. The new application
+case, plus an AuthenticationMiddleware scope case preserving present `None`
+values for `auth` and `user`, and a StreamingResponse awaitable case checking type-level `__await__` lookup; all four remain unexecuted until full parity. Rust now performs the awaitable lookup through the object's type.
+The new application
 constructor input captures the state of
 `exception_handlers`, `user_middleware`, and `middleware_stack` while its
 middleware Sequence is consumed; its comparison remains deferred until full

@@ -12,7 +12,7 @@ use pyo3::exceptions::{
     PyStopAsyncIteration, PyStopIteration, PyTypeError,
 };
 use pyo3::prelude::*;
-use pyo3::types::{PyAny, PyIterator, PyTraceback, PyType};
+use pyo3::types::{PyAny, PyIterator, PyTraceback, PyTuple, PyType};
 
 /// Input delivered to a Rust continuation when it starts or an awaited callback finishes.
 pub(crate) enum MachineResume {
@@ -444,11 +444,51 @@ fn await_iterator(py: Python<'_>, awaitable: Py<PyAny>) -> PyResult<Py<PyAny>> {
             "object {type_name} can't be used in 'await' expression"
         )));
     }
-    let iterator = awaitable.call_method0("__await__")?;
+    let iterator = call_await_special_method(py, awaitable)?;
     if !iterator.is_instance_of::<PyIterator>() {
         return Err(PyTypeError::new_err("__await__() returned a non-iterator"));
     }
     Ok(iterator.unbind())
+}
+
+/// Resolve `__await__` from the object's type, as CPython's `await` protocol
+/// does, so an instance attribute cannot shadow the awaitable's special method.
+fn call_await_special_method<'py>(
+    py: Python<'py>,
+    awaitable: &Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyAny>> {
+    let type_getattribute = py.get_type::<PyType>().getattr("__getattribute__")?;
+    let awaitable_type = awaitable.get_type();
+    let mro = type_getattribute
+        .call1((&awaitable_type, "__mro__"))?
+        .cast_into::<PyTuple>()?;
+
+    for base in mro.iter() {
+        let namespace = type_getattribute.call1((&base, "__dict__"))?;
+        if !namespace.contains("__await__")? {
+            continue;
+        }
+
+        let descriptor = namespace.get_item("__await__")?;
+        let descriptor_type = descriptor.get_type();
+        let descriptor_get = match type_getattribute.call1((&descriptor_type, "__get__")) {
+            Ok(descriptor_get) => Some(descriptor_get),
+            Err(error) if error.is_instance_of::<PyAttributeError>(py) => None,
+            Err(error) => return Err(error),
+        };
+        let method = match descriptor_get {
+            Some(descriptor_get) => {
+                descriptor_get.call1((&descriptor, awaitable, &awaitable_type))?
+            }
+            None => descriptor,
+        };
+        return method.call0();
+    }
+
+    Err(PyTypeError::new_err(format!(
+        "object {} can't be used in 'await' expression",
+        awaitable_type.name()?
+    )))
 }
 
 fn async_for_invalid_anext(

@@ -1,0 +1,41 @@
+{
+  "schema": "migration-parity/parity-input@55",
+  "cases": [
+    {
+      "case_id": "starlette.requests.Request.connection-properties.present-null-auth-user",
+      "surface": "starlette.requests.Request",
+      "operation": "connection-properties",
+      "covers": [
+        "starlette.requests.HTTPConnection.auth-user.present-null-scope-values"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "http",
+        "method": "GET",
+        "path": "/profile",
+        "session": {},
+        "auth": null,
+        "user": null
+      },
+      "scope_mapping": {
+        "container": "collections.UserDict",
+        "instance_contains_result": true
+      },
+      "properties": [
+        "session",
+        "auth",
+        "user"
+      ],
+      "observations": [
+        "connection-properties"
+      ]
+    }
+  ]
+}

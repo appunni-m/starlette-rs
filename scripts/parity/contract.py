@@ -653,6 +653,12 @@ REQUEST_CONNECTION_PROPERTIES_OPERATION = (
     "starlette.requests.Request",
     "connection-properties",
 )
+REQUEST_CONNECTION_PROPERTIES_REQUIREMENTS = {
+    "mapping_membership": (
+        "starlette.requests.Request.connection-properties.mapping-membership-protocol"
+    ),
+    "present_null": "starlette.requests.HTTPConnection.auth-user.present-null-scope-values",
+}
 REQUEST_HEADER_CACHE_SEQUENCE_OPERATION = ("starlette.requests.Request", "header-cache-sequence")
 REQUEST_COOKIE_CACHE_SEQUENCE_OPERATION = ("starlette.requests.Request", "cookie-cache-sequence")
 REQUEST_SCOPE_MAPPING_OPERATION = ("starlette.requests.Request", "scope-mapping")
@@ -1454,6 +1460,7 @@ STREAMING_RESPONSE_MUTABLE_STATUS_REQUIREMENT = (
 STREAMING_RESPONSE_AWAIT_FACTORY_STOP_REQUIREMENT = (
     f"{STREAMING_RESPONSE_SURFACE}.{STREAMING_RESPONSE_OPERATION}.async-iterator-await-factory-stop"
 )
+STREAMING_RESPONSE_AWAIT_INSTANCE_SHADOW_REQUIREMENT = f"{STREAMING_RESPONSE_SURFACE}.{STREAMING_RESPONSE_OPERATION}.awaitable-instance-special-method-lookup"
 STREAMING_RESPONSE_ASYNC_ITERATION_SPECIAL_METHOD_REQUIREMENT = (
     f"{STREAMING_RESPONSE_SURFACE}.consumer-construction.async-iteration-special-method-lookup"
 )
@@ -1472,6 +1479,7 @@ STREAMING_RESPONSE_EMPTY_SYNC_CHUNK_REQUIREMENT = (
     f"{STREAMING_RESPONSE_SURFACE}.{STREAMING_RESPONSE_OPERATION}.empty-sync-chunk-framing"
 )
 STREAMING_RESPONSE_AWAIT_FACTORY_STOP_MODE = "async-iterator-await-factory-stop"
+STREAMING_RESPONSE_AWAIT_INSTANCE_SHADOW_MODE = "async-iterator-await-instance-shadow"
 RESPONSE_OPERATION = "asgi-call"
 RESPONSE_PARTITIONED_COOKIE_REQUIREMENT = (
     f"{RESPONSE_SURFACE}.{RESPONSE_OPERATION}.partitioned-cookie-version-error"
@@ -9884,6 +9892,7 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
         "async-iterator",
         "async-iterable",
         STREAMING_RESPONSE_AWAIT_FACTORY_STOP_MODE,
+        STREAMING_RESPONSE_AWAIT_INSTANCE_SHADOW_MODE,
         "async-generator",
     }:
         raise ContractError("StreamingResponse streaming must select a declared iterator mode")
@@ -10239,6 +10248,26 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
         ):
             raise ContractError(
                 "StreamingResponse await-factory exhaustion input is limited to its declared Python-package case"
+            )
+    elif case["streaming"] == STREAMING_RESPONSE_AWAIT_INSTANCE_SHADOW_MODE:
+        if (
+            websocket_scope
+            or case["operation"] != STREAMING_RESPONSE_OPERATION
+            or case["target_profiles"] != ["python-package-cpython312"]
+            or len(chunks) != 2
+            or any(kind != "text" for kind, _value in chunks)
+            or repeating_chunks
+            or file_like_content is not None
+            or stimulus[1:] != ((), None)
+            or background is not None
+            or stream_lifecycle is not None
+            or receive_behavior is not None
+            or case.get("cookie_actions") is not None
+            or case["send"] != {"kind": "capture-asgi-send"}
+            or case["covers"] != [STREAMING_RESPONSE_AWAIT_INSTANCE_SHADOW_REQUIREMENT]
+        ):
+            raise ContractError(
+                "StreamingResponse instance-shadow await lookup is limited to two input text results on the direct Python-package profile"
             )
     elif send_uses_caller_cancellation:
         cancelled_send = _exact(
@@ -29194,12 +29223,17 @@ def _validate_request_connection_properties_case(case: dict[str, Any]) -> None:
         raise ContractError(
             "Request connection-properties input must select session, auth, and user once each"
         )
-    if case["covers"] != [
-        "starlette.requests.Request.connection-properties.mapping-membership-protocol"
-    ]:
-        raise ContractError(
-            "Request connection-properties case must cover its membership-protocol requirement"
-        )
+    if case["covers"] == [REQUEST_CONNECTION_PROPERTIES_REQUIREMENTS["mapping_membership"]]:
+        return
+    if case["covers"] == [REQUEST_CONNECTION_PROPERTIES_REQUIREMENTS["present_null"]]:
+        if scope["auth"] is not None or scope["user"] is not None:
+            raise ContractError(
+                "Request connection-properties present-null case requires null auth and user values"
+            )
+        return
+    raise ContractError(
+        "Request connection-properties case must cover a source-backed property requirement"
+    )
 
 
 def _validate_request_header_cache_sequence_case(case: dict[str, Any]) -> None:

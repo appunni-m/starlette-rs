@@ -126,6 +126,7 @@ STATIC_FILES_LOOKUP_PATH_OPERATION = "lookup-path"
 STATIC_FILES_ASYNC_BOUNDARY_OPERATION = "asgi-call-async-boundary"
 RESPONSE_OPERATION = "asgi-call"
 STREAMING_RESPONSE_TRACE_OPERATION = "asgi-call-with-execution-trace"
+STREAMING_RESPONSE_AWAIT_INSTANCE_SHADOW_MODE = "async-iterator-await-instance-shadow"
 BODY_LIMIT_SURFACE = "starlette.middleware.body_limit.RequestBodyLimitMiddleware"
 WSGI_SURFACE = "starlette.middleware.wsgi.WSGIMiddleware"
 CORS_SURFACE = "starlette.middleware.cors.CORSMiddleware"
@@ -11900,6 +11901,7 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
             "async-iterator",
             "async-iterable",
             "async-iterator-await-factory-stop",
+            STREAMING_RESPONSE_AWAIT_INSTANCE_SHADOW_MODE,
             "async-generator",
         }:
             raise ValueError("StreamingResponse streaming must select a supported iterator")
@@ -12216,6 +12218,43 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
                 return InputAwaitableStop()
 
         content = InputAsyncIteratorAwaitFactoryStop()
+    elif streaming == STREAMING_RESPONSE_AWAIT_INSTANCE_SHADOW_MODE:
+        if len(content) != 2:
+            raise ValueError("StreamingResponse awaitable lookup requires two input values")
+        await_results = content
+
+        def input_await_result(value: Any) -> Iterator[Any]:
+            yield from ()
+            return value
+
+        class InputAwaitableInstanceShadow:
+            def __init__(self, type_result: Any, instance_result: Any) -> None:
+                self.type_result = type_result
+                self.instance_result = instance_result
+
+            def __await__(self) -> Iterator[Any]:
+                return input_await_result(self.type_result)
+
+        class InputAsyncIteratorAwaitInstanceShadow:
+            def __init__(self) -> None:
+                self.returned_item = False
+
+            def __aiter__(self) -> InputAsyncIteratorAwaitInstanceShadow:
+                return self
+
+            def __anext__(self) -> Any:
+                if self.returned_item:
+
+                    async def exhausted() -> Any:
+                        raise StopAsyncIteration
+
+                    return exhausted()
+                self.returned_item = True
+                awaitable = InputAwaitableInstanceShadow(await_results[0], await_results[1])
+                awaitable.__await__ = lambda: input_await_result(awaitable.instance_result)
+                return awaitable
+
+        content = InputAsyncIteratorAwaitInstanceShadow()
     elif streaming == "async-generator":
         if repeating_stream:
             if execution_trace is None or stream_lifecycle is None:
