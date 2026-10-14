@@ -18258,9 +18258,13 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
             class_name = _string(text_object["class_name"], f"{context}.class_name")
             value = _string(text_object["value"], f"{context}.value")
             if not object_id or object_id in text_objects:
-                raise ContractError("TestClient WebSocket text object IDs must be non-empty and unique")
+                raise ContractError(
+                    "TestClient WebSocket text object IDs must be non-empty and unique"
+                )
             if not class_name.isidentifier() or class_name in class_names:
-                raise ContractError("TestClient WebSocket text class names must be unique identifiers")
+                raise ContractError(
+                    "TestClient WebSocket text class names must be unique identifiers"
+                )
             text_objects[object_id] = {"class_name": class_name, "value": value}
             class_names.add(class_name)
     websocket_url = _string(websocket["url"], "TestClient WebSocket url")
@@ -18387,7 +18391,9 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
                     "TestClient WebSocket send_text.text_object_id",
                 )
                 if object_id not in text_objects:
-                    raise ContractError("TestClient WebSocket send_text references an unknown object")
+                    raise ContractError(
+                        "TestClient WebSocket send_text references an unknown object"
+                    )
                 receive_action = _exact(
                     session_actions[1],
                     {"operation", "observe_text_object_id"},
@@ -18400,7 +18406,9 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
                     "TestClient WebSocket receive_text.observe_text_object_id",
                 )
                 if observed_id not in text_objects:
-                    raise ContractError("TestClient WebSocket receive_text references an unknown object")
+                    raise ContractError(
+                        "TestClient WebSocket receive_text references an unknown object"
+                    )
                 client_text_identity_workflow = True
             else:
                 send_action = _exact(
@@ -18701,7 +18709,9 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
             or len(app_actions) != 5
             or not {"type", "path"} <= set(scope_fields)
         ):
-            raise ContractError("WebSocket text-object preservation requires the declared ASGI3 exchange")
+            raise ContractError(
+                "WebSocket text-object preservation requires the declared ASGI3 exchange"
+            )
         client_send = _exact(
             session_actions[0],
             {"operation", "text_object_id"},
@@ -18753,7 +18763,9 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
             or app_disconnect["operation"] != "receive"
             or {client_object_id, app_object_id} != set(text_objects)
         ):
-            raise ContractError("WebSocket text-object exchange must preserve both input identities")
+            raise ContractError(
+                "WebSocket text-object exchange must preserve both input identities"
+            )
         expected_covers = {
             TESTCLIENT_WEBSOCKET_REQUIREMENTS["scope"],
             TESTCLIENT_WEBSOCKET_REQUIREMENTS["handshake"],
@@ -18762,10 +18774,14 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
             TESTCLIENT_WEBSOCKET_REQUIREMENTS["cleanup"],
         }
         if set(case["covers"]) != expected_covers:
-            raise ContractError("WebSocket text-object covers must match its exchange and identity probes")
+            raise ContractError(
+                "WebSocket text-object covers must match its exchange and identity probes"
+            )
         return
     if text_objects:
-        raise ContractError("TestClient WebSocket text_objects are reserved for the identity exchange")
+        raise ContractError(
+            "TestClient WebSocket text_objects are reserved for the identity exchange"
+        )
 
     if "session_entries" in websocket:
         _validate_testclient_websocket_mapping_reentry_case(
@@ -25436,10 +25452,7 @@ def _is_server_error_message_type_equality_probe(app: Any) -> bool:
 
 
 def _is_exception_message_type_equality_probe(app: Any) -> bool:
-    if (
-        not isinstance(app, dict)
-        or app.get("kind") != "asgi-response-sequence-then-http-exception"
-    ):
+    if not isinstance(app, dict) or app.get("kind") != "asgi-response-sequence-then-http-exception":
         return False
     messages = app.get("messages")
     if not isinstance(messages, list) or not messages or not isinstance(messages[0], dict):
@@ -26530,7 +26543,9 @@ def _validate_server_error_middleware_case(
         dispatch = _exact(
             case["dispatch"], {"scope", "receive", "send"}, "ServerErrorMiddleware dispatch input"
         )
-        raw_scope_type = dispatch["scope"].get("type") if isinstance(dispatch["scope"], dict) else None
+        raw_scope_type = (
+            dispatch["scope"].get("type") if isinstance(dispatch["scope"], dict) else None
+        )
         scope_type, scope_type_probe = _middleware_scope_type_value(
             raw_scope_type,
             "ServerErrorMiddleware scope.type",
@@ -26703,7 +26718,9 @@ def _validate_exception_middleware_case(
 
     assignments = case["assignments"]
     if not isinstance(assignments, list) or len(assignments) not in {0, 1}:
-        raise ContractError("ExceptionMiddleware calls permit zero assignments or one app assignment")
+        raise ContractError(
+            "ExceptionMiddleware calls permit zero assignments or one app assignment"
+        )
     if assignments:
         assignment = _exact(
             assignments[0],
@@ -26716,7 +26733,9 @@ def _validate_exception_middleware_case(
             assignment["value"], "ExceptionMiddleware replacement app"
         )
         if assignment["value"] == constructor["app"]:
-            raise ContractError("ExceptionMiddleware app replacement must change the input callable")
+            raise ContractError(
+                "ExceptionMiddleware app replacement must change the input callable"
+            )
 
     dispatch = _exact(
         case["dispatch"],
@@ -26755,11 +26774,11 @@ def _validate_exception_middleware_case(
             and raw_scope_type["str_subclass"]["equal_result"] is False
             and not _is_exception_message_type_equality_probe(constructor["app"])
         ):
-            requirement_ids = {
-                EXCEPTION_MIDDLEWARE_REQUIREMENTS["scope_type_python_membership"]
-            }
+            requirement_ids = {EXCEPTION_MIDDLEWARE_REQUIREMENTS["scope_type_python_membership"]}
         else:
-            raise ContractError("ExceptionMiddleware direct-call input must select a declared probe")
+            raise ContractError(
+                "ExceptionMiddleware direct-call input must select a declared probe"
+            )
         if set(case["covers"]) != requirement_ids:
             raise ContractError(
                 "ExceptionMiddleware direct-call covers must match its Python comparison probe"
@@ -31290,10 +31309,10 @@ def _validate_request_body_stream_json_case(case: dict[str, Any]) -> None:
             _validate_threadpool_json(raw_message["body_value"], f"{context}.body_value")
             if "type_lookup_values" in raw_message:
                 lookup_values = raw_message["type_lookup_values"]
-                if (
-                    not isinstance(lookup_values, list)
-                    or lookup_values != [raw_message["type"], "http.disconnect"]
-                ):
+                if not isinstance(lookup_values, list) or lookup_values != [
+                    raw_message["type"],
+                    "http.disconnect",
+                ]:
                     raise ContractError(
                         f"{context}.type_lookup_values must provide its original custom type, "
                         "then http.disconnect"

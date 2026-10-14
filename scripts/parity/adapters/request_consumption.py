@@ -124,9 +124,7 @@ async def _observe(case: dict[str, Any], request_type: Callable[..., Any]) -> di
     def make_receive(events: list[dict[str, Any]]) -> Callable[[], Any]:
         incoming = _decode_receive_tape(events)
         type_lookup_messages.extend(
-            message
-            for message in incoming
-            if isinstance(message, RequestTypeLookupMessage)
+            message for message in incoming if isinstance(message, RequestTypeLookupMessage)
         )
         tape_position = 0
 

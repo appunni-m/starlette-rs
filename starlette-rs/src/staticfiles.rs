@@ -609,7 +609,9 @@ pub fn is_not_modified_headers(
         parse_http_date_ignoring_weekday(&last_modified),
     ) {
         (Some(request_time), Some(modified_time)) => request_time >= modified_time,
-        _ => false,
+        _ => parse_email_date_fields(&if_modified_since)
+            .zip(parse_email_date_fields(&last_modified))
+            .is_some_and(|(request_date, modified_date)| request_date >= modified_date),
     }
 }
 
@@ -693,6 +695,121 @@ fn parse_http_date_ignoring_weekday(value: &str) -> Option<SystemTime> {
             .ok()
             .or_else(|| httpdate::parse_http_date(&format!("{normalized} GMT")).ok())
     })
+}
+
+// The pinned `email.utils.parsedate` returns its date tuple without validating
+// calendar or clock ranges, so retain that comparison when `httpdate` rejects
+// an otherwise parseable field sequence.
+fn parse_email_date_fields(value: &str) -> Option<(i64, i64, i64, i64, i64, i64)> {
+    let value = strip_trailing_email_comments(value.trim());
+    let normalized_comments = strip_email_comments_after_time(value);
+    let mut normalized = normalized_comments.as_deref().unwrap_or(value).to_owned();
+
+    if let Some(timezone) = normalize_email_timezone(&normalized) {
+        normalized = timezone;
+    }
+    if let Some(month) = normalize_email_month(&normalized) {
+        normalized = month;
+    }
+    if let Some(day) = normalize_email_day(&normalized) {
+        normalized = day;
+    }
+    if let Some(time) = normalize_email_time(&normalized) {
+        normalized = time;
+    }
+
+    let date = normalized
+        .split_once(',')
+        .map_or(normalized.as_str(), |(_, date)| date)
+        .trim();
+    let date = if date.split_whitespace().next().is_some_and(is_email_weekday) {
+        date.split_once(char::is_whitespace)?.1.trim_start()
+    } else {
+        date
+    };
+    let mut fields = date.split_whitespace();
+    let first = fields.next()?;
+    let second = fields.next()?;
+    let third = fields.next()?;
+    let fourth = fields.next()?;
+
+    let (year, month, day, time) = if let Some(month) = email_month_number(first) {
+        // The asctime form writes month, day, time, year.
+        (fourth, month, second, third)
+    } else if first.contains('-') {
+        // The RFC 850 form writes day-month-year as one field.
+        let mut date_fields = first.split('-');
+        let day = date_fields.next()?;
+        let month_name = date_fields.next()?;
+        let year = date_fields.next()?;
+        if date_fields.next().is_some() {
+            return None;
+        }
+        (year, email_month_number(month_name)?, day, second)
+    } else {
+        // The RFC 822/1123 form writes day, month, year, time.
+        (third, email_month_number(second)?, first, fourth)
+    };
+
+    let year = year.parse::<i64>().ok()?;
+    let year = match year {
+        0..=68 => year + 2000,
+        69..=99 => year + 1900,
+        _ => year,
+    };
+    let day = day.parse::<i64>().ok()?;
+    let mut time_fields = time.split(':');
+    let hour = time_fields.next()?.parse::<i64>().ok()?;
+    let minute = time_fields.next()?.parse::<i64>().ok()?;
+    let second = time_fields.next().unwrap_or("0").parse::<i64>().ok()?;
+    if time_fields.next().is_some() {
+        return None;
+    }
+
+    Some((year, month, day, hour, minute, second))
+}
+
+fn email_month_number(value: &str) -> Option<i64> {
+    const MONTHS: [(&str, i64); 12] = [
+        ("January", 1),
+        ("February", 2),
+        ("March", 3),
+        ("April", 4),
+        ("May", 5),
+        ("June", 6),
+        ("July", 7),
+        ("August", 8),
+        ("September", 9),
+        ("October", 10),
+        ("November", 11),
+        ("December", 12),
+    ];
+
+    MONTHS.iter().find_map(|(full, number)| {
+        (value.eq_ignore_ascii_case(full) || value.eq_ignore_ascii_case(&full[..3]))
+            .then_some(*number)
+    })
+}
+
+fn is_email_weekday(value: &str) -> bool {
+    [
+        "Mon",
+        "Tue",
+        "Wed",
+        "Thu",
+        "Fri",
+        "Sat",
+        "Sun",
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday",
+        "Sunday",
+    ]
+    .iter()
+    .any(|weekday| value.eq_ignore_ascii_case(weekday))
 }
 
 /// Removes balanced RFC comments after the time token, where `email.utils.parsedate`

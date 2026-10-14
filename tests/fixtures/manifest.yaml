@@ -700,6 +700,7 @@
       "build/parity/inputs/parity/static-files-if-modified-since-rfc-comment.json",
       "build/parity/inputs/parity/static-files-if-modified-since-internal-comment.json",
       "build/parity/inputs/parity/static-files-if-modified-since-unpadded-day.json",
+      "build/parity/inputs/parity/static-files-if-modified-since-overflow-day.json",
       "build/parity/inputs/parity/testclient-reentrant-lifespan-entry.json",
       "build/parity/inputs/parity/testclient-websocket-close-message-defaults.json",
       "build/parity/inputs/parity/testclient-debug-info-membership.json",

@@ -19,9 +19,7 @@ def _decoded_pairs(value: list[list[str]]) -> list[tuple[bytes, bytes]]:
     return [(base64.b64decode(key), base64.b64decode(item)) for key, item in value]
 
 
-def _message(
-    value: dict[str, Any], text_objects: dict[str, str] | None = None
-) -> dict[str, Any]:
+def _message(value: dict[str, Any], text_objects: dict[str, str] | None = None) -> dict[str, Any]:
     message = dict(value)
     type_spec = message.pop("type_spec", None)
     text_object_id = message.pop("text_object_id", None)
