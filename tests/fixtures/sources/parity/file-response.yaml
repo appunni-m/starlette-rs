@@ -824,7 +824,7 @@
       "surface": "starlette.responses.FileResponse",
       "operation": "asgi-call",
       "covers": [
-        "starlette.responses.FileResponse.asgi-call.range-bound-over-cpython-int-limit"
+        "starlette.responses.FileResponse.asgi-call.range-empty-header"
       ],
       "target_profiles": [
         "rust-native-local",
@@ -881,7 +881,7 @@
       "surface": "starlette.responses.FileResponse",
       "operation": "asgi-call",
       "covers": [
-        "starlette.responses.FileResponse.asgi-call.range-empty-header"
+        "starlette.responses.FileResponse.asgi-call.range-bound-over-cpython-int-limit"
       ],
       "target_profiles": [
         "rust-native-local",
