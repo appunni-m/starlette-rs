@@ -4008,9 +4008,30 @@ class _InputStringSubclass(str):
         return str.__hash__(self)
 
 
+class _InputTypeLookupTape(dict[str, Any]):
+    """A WebSocket message mapping whose type reads follow the supplied input tape."""
+
+    def __init__(self, message: dict[str, Any], lookup_tape: list[str]) -> None:
+        super().__init__(message)
+        self._lookup_tape = tuple(lookup_tape)
+        self._lookup_index = 0
+
+    def __getitem__(self, key: str) -> Any:
+        if key == "type":
+            index = self._lookup_index
+            self._lookup_index += 1
+            try:
+                return self._lookup_tape[index]
+            except IndexError:
+                raise IndexError("WebSocket message type lookup tape exhausted") from None
+        return super().__getitem__(key)
+
+
 def _materialize_websocket_message(spec: dict[str, Any]) -> dict[str, Any]:
     message: dict[str, Any] = {}
     for name, value in spec.items():
+        if name == "type_lookup_tape":
+            continue
         if name == "bytes_base64":
             message["bytes"] = _decode_base64(value, "WebSocket message.bytes_base64")
         elif name == "body_base64":
@@ -4056,6 +4077,8 @@ def _materialize_websocket_message(spec: dict[str, Any]) -> dict[str, Any]:
                 )
         else:
             message[name] = value
+    if "type_lookup_tape" in spec:
+        return _InputTypeLookupTape(message, spec["type_lookup_tape"])
     return message
 
 

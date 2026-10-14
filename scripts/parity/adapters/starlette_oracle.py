@@ -7167,9 +7167,30 @@ def _make_websocket_scope(spec: dict[str, Any]) -> dict[str, Any]:
     return scope
 
 
+class _InputTypeLookupTape(dict[str, Any]):
+    """A WebSocket message mapping whose type reads follow the supplied input tape."""
+
+    def __init__(self, message: dict[str, Any], lookup_tape: list[str]) -> None:
+        super().__init__(message)
+        self._lookup_tape = tuple(lookup_tape)
+        self._lookup_index = 0
+
+    def __getitem__(self, key: str) -> Any:
+        if key == "type":
+            index = self._lookup_index
+            self._lookup_index += 1
+            try:
+                return self._lookup_tape[index]
+            except IndexError:
+                raise IndexError("WebSocket message type lookup tape exhausted") from None
+        return super().__getitem__(key)
+
+
 def _materialize_websocket_message(spec: dict[str, Any]) -> dict[str, Any]:
     message: dict[str, Any] = {}
     for name, value in spec.items():
+        if name == "type_lookup_tape":
+            continue
         if name == "type" and isinstance(value, dict) and "str_subclass" in value:
             descriptor = _strict_object(value, {"str_subclass"}, "WebSocket message type")
             subclass_spec = descriptor["str_subclass"]
@@ -7226,6 +7247,8 @@ def _materialize_websocket_message(spec: dict[str, Any]) -> dict[str, Any]:
             ]
         else:
             message[name] = value
+    if "type_lookup_tape" in spec:
+        return _InputTypeLookupTape(message, spec["type_lookup_tape"])
     return message
 
 

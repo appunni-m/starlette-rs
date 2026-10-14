@@ -536,6 +536,7 @@
       "build/parity/inputs/parity/upload-file.json",
       "build/parity/inputs/parity/upload-file-rolled-write-error.json",
       "build/parity/inputs/parity/websocket-endpoint-dispatch.json",
+      "build/parity/inputs/parity/websocket-endpoint-type-lookup-tape.json",
       "build/parity/inputs/parity/websocket-endpoint-decode-stop-iteration.json",
       "build/parity/inputs/parity/websocket-endpoint-encoding-property.json",
       "build/parity/inputs/parity/websocket-endpoint-existing-disconnect-context.json",

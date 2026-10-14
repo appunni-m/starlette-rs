@@ -377,8 +377,7 @@ impl WebSocketEndpointCall {
     }
 
     fn process_message(&mut self, py: Python<'_>, message: Py<PyAny>) -> PyResult<MachineAction> {
-        let message_type = message.bind(py).get_item("type")?;
-        if message_type.eq("websocket.receive")? {
+        if message.bind(py).get_item("type")?.eq("websocket.receive")? {
             let websocket = self.websocket(py)?;
             let awaitable = self
                 .endpoint
@@ -388,7 +387,11 @@ impl WebSocketEndpointCall {
             self.pending = Some(WebSocketEndpointPending::Decode);
             return Ok(MachineAction::Await(awaitable.unbind()));
         }
-        if message_type.eq("websocket.disconnect")? {
+        if message
+            .bind(py)
+            .get_item("type")?
+            .eq("websocket.disconnect")?
+        {
             let code = message.bind(py).call_method1("get", ("code",))?;
             let code = if code.is_truthy()? {
                 code

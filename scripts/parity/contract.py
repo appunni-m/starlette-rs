@@ -3538,10 +3538,24 @@ def _validate_websocket_message(
     incoming: bool,
     allow_unhashable_type: bool = False,
     allow_string_subclass_hash_error: bool = False,
+    allow_type_lookup_tape: bool = False,
 ) -> Any:
     if not isinstance(message, dict):
         raise ContractError(f"{context} must be an ASGI message object")
     raw_type = message.get("type")
+    has_type_lookup_tape = "type_lookup_tape" in message
+    if has_type_lookup_tape:
+        if not incoming or not allow_type_lookup_tape:
+            raise ContractError(f"{context}.type_lookup_tape is unsupported here")
+        lookup_tape = message["type_lookup_tape"]
+        if not isinstance(lookup_tape, list) or len(lookup_tape) != 3:
+            raise ContractError(f"{context}.type_lookup_tape must provide three reads")
+        for index, value in enumerate(lookup_tape):
+            _string(value, f"{context}.type_lookup_tape[{index}]")
+        if raw_type != "websocket.receive" or lookup_tape[0] != "websocket.receive":
+            raise ContractError(
+                f"{context}.type_lookup_tape must begin with a websocket.receive read"
+            )
     message_type_value = raw_type
     if (
         isinstance(raw_type, dict)
@@ -3593,7 +3607,10 @@ def _validate_websocket_message(
             ):
                 raise ContractError(f"{context}.subprotocols must be an array of strings")
         elif message_type == "websocket.receive":
-            if set(message) not in ({"type", "text"}, {"type", "bytes_base64"}):
+            fields = set(message)
+            if has_type_lookup_tape:
+                fields.remove("type_lookup_tape")
+            if fields not in ({"type", "text"}, {"type", "bytes_base64"}):
                 raise ContractError(f"{context} must contain exactly type and text or bytes_base64")
             if "text" in message:
                 if not isinstance(message["text"], str):
@@ -3908,7 +3925,12 @@ def _validate_websocket_endpoint_case_stimulus(case: dict[str, Any]) -> None:
                 message_types.append(None)
             else:
                 message_types.append(
-                    _validate_websocket_message(message, message_context, incoming=True)
+                    _validate_websocket_message(
+                        message,
+                        message_context,
+                        incoming=True,
+                        allow_type_lookup_tape=True,
+                    )
                 )
         if message_types[0] != "websocket.connect":
             if (
@@ -3940,6 +3962,26 @@ def _validate_websocket_endpoint_case_stimulus(case: dict[str, Any]) -> None:
             exercised_requirements.add(WEBSOCKET_ENDPOINT_REQUIREMENTS["connect_error"])
             continue
         exercised_requirements.add(WEBSOCKET_ENDPOINT_REQUIREMENTS["lifecycle"])
+        lookup_tape_messages = [
+            message_index
+            for message_index, message in enumerate(incoming)
+            if isinstance(message, dict) and "type_lookup_tape" in message
+        ]
+        if lookup_tape_messages:
+            if (
+                lookup_tape_messages != [1]
+                or message_types != ["websocket.connect", "websocket.receive"]
+                or cancel_at is not None
+                or encoding is not None
+                or on_connect["kind"] != "default"
+                or on_receive["kind"] != "no-op"
+                or on_disconnect["kind"] != "record-and-close"
+            ):
+                raise ContractError(
+                    f"{context} type lookup tape requires a default connect, one receive, "
+                    "default decoding, no-op receive hook, and observed finalization"
+                )
+            continue
         if message_types == ["websocket.connect", None]:
             if (
                 cancel_at is not None
