@@ -2409,6 +2409,240 @@
           }
         ]
       }
+    },
+    {
+      "case_id": "starlette.websockets.WebSocket.convenience-sequence.docs-iter-text-async-for",
+      "surface": "starlette.websockets.WebSocket",
+      "operation": "convenience-sequence",
+      "covers": [
+        "starlette.websocket.api.iter_text.async-for"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "websocket",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.5"
+        },
+        "http_version": "1.1",
+        "scheme": "ws",
+        "path": "/chat",
+        "raw_path_base64": "L2NoYXQ=",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "ZXhhbXBsZS50ZXN0"
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ],
+        "subprotocols": [
+          "chat"
+        ]
+      },
+      "incoming": [
+        {
+          "type": "websocket.connect",
+          "subprotocols": [
+            "chat"
+          ]
+        },
+        {
+          "type": "websocket.receive",
+          "text": "one"
+        },
+        {
+          "type": "websocket.receive",
+          "text": "two"
+        },
+        {
+          "type": "websocket.disconnect",
+          "code": 1001,
+          "reason": "going away"
+        }
+      ],
+      "actions": [
+        {
+          "action_id": "accept",
+          "method": "accept",
+          "arguments": {}
+        },
+        {
+          "action_id": "iterate-text",
+          "method": "iter_text",
+          "arguments": {}
+        }
+      ],
+      "observations": [
+        "convenience-sequence"
+      ]
+    },
+    {
+      "case_id": "starlette.websockets.WebSocket.convenience-sequence.docs-iter-bytes-async-for",
+      "surface": "starlette.websockets.WebSocket",
+      "operation": "convenience-sequence",
+      "covers": [
+        "starlette.websocket.api.iter_bytes.async-for"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "websocket",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.5"
+        },
+        "http_version": "1.1",
+        "scheme": "ws",
+        "path": "/chat",
+        "raw_path_base64": "L2NoYXQ=",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "ZXhhbXBsZS50ZXN0"
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ],
+        "subprotocols": [
+          "chat"
+        ]
+      },
+      "incoming": [
+        {
+          "type": "websocket.connect",
+          "subprotocols": [
+            "chat"
+          ]
+        },
+        {
+          "type": "websocket.receive",
+          "bytes_base64": "AG9uZQ=="
+        },
+        {
+          "type": "websocket.receive",
+          "bytes_base64": "dHdv/w=="
+        },
+        {
+          "type": "websocket.disconnect",
+          "code": 1001,
+          "reason": "going away"
+        }
+      ],
+      "actions": [
+        {
+          "action_id": "accept",
+          "method": "accept",
+          "arguments": {}
+        },
+        {
+          "action_id": "iterate-bytes",
+          "method": "iter_bytes",
+          "arguments": {}
+        }
+      ],
+      "observations": [
+        "convenience-sequence"
+      ]
+    },
+    {
+      "case_id": "starlette.websockets.WebSocket.convenience-sequence.docs-iter-json-async-for",
+      "surface": "starlette.websockets.WebSocket",
+      "operation": "convenience-sequence",
+      "covers": [
+        "starlette.websocket.api.iter_json.async-for"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "websocket",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.5"
+        },
+        "http_version": "1.1",
+        "scheme": "ws",
+        "path": "/chat",
+        "raw_path_base64": "L2NoYXQ=",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "ZXhhbXBsZS50ZXN0"
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ],
+        "subprotocols": [
+          "chat"
+        ]
+      },
+      "incoming": [
+        {
+          "type": "websocket.connect",
+          "subprotocols": [
+            "chat"
+          ]
+        },
+        {
+          "type": "websocket.receive",
+          "text": "{\"n\":1}"
+        },
+        {
+          "type": "websocket.receive",
+          "text": "[\"next\",2]"
+        },
+        {
+          "type": "websocket.disconnect",
+          "code": 1001,
+          "reason": "going away"
+        }
+      ],
+      "actions": [
+        {
+          "action_id": "accept",
+          "method": "accept",
+          "arguments": {}
+        },
+        {
+          "action_id": "iterate-json",
+          "method": "iter_json",
+          "arguments": {}
+        }
+      ],
+      "observations": [
+        "convenience-sequence"
+      ]
     }
   ]
 }

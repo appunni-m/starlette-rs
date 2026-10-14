@@ -2153,7 +2153,8 @@
       "surface": "starlette.responses.FileResponse",
       "operation": "asgi-call",
       "covers": [
-        "starlette.responses.FileResponse.asgi-call.get"
+        "starlette.responses.FileResponse.asgi-call.get",
+        "starlette.responses.FileResponse.asgi-call.default-media-type"
       ],
       "target_profiles": [
         "rust-native-local",
@@ -2205,7 +2206,8 @@
       "surface": "starlette.responses.FileResponse",
       "operation": "asgi-call",
       "covers": [
-        "starlette.responses.FileResponse.asgi-call.get"
+        "starlette.responses.FileResponse.asgi-call.get",
+        "starlette.responses.FileResponse.asgi-call.set-media-type"
       ],
       "target_profiles": [
         "rust-native-local",

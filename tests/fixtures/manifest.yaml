@@ -19641,6 +19641,18 @@
               ]
             },
             {
+              "id": "starlette.responses.FileResponse.asgi-call.set-media-type",
+              "dimension": "boundary",
+              "description": "Use an input-defined explicit media_type and filename together and compare the emitted Content-Type, including the explicit type taking precedence over filename inference. Upstream: docs/responses.md:171; starlette/responses.py:313-316; tests/test_responses.py:322-349.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.responses.FileResponse.asgi-call.background-task",
               "dimension": "boundary",
               "description": "Invoke a FileResponse with an input-defined async background task and compare the complete response, accumulated callback value, and send-before-callback execution order. Upstream: tests/test_responses.py::test_file_response; starlette/background.py::BackgroundTask.__call__.",

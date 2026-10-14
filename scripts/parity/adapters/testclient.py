@@ -2162,6 +2162,86 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+class _LifespanStreamCloseObserver:
+    def __init__(self) -> None:
+        self._pair_count = 0
+        self._endpoint_pairs: dict[int, tuple[int, str]] = {}
+        self._pair_names: dict[int, str] = {}
+        self.close_order: list[str] = []
+
+    def create_memory_object_stream(self, streams: Any) -> None:
+        pair_index = self._pair_count
+        self._pair_count += 1
+        send_stream, receive_stream = streams
+        self._endpoint_pairs[id(send_stream)] = (pair_index, "send")
+        self._endpoint_pairs[id(receive_stream)] = (pair_index, "receive")
+
+    def bind_asgi_streams(self, receive: Any, send: Any) -> None:
+        receive_owner = getattr(receive, "__self__", None)
+        send_owner = getattr(send, "__self__", None)
+        receive_endpoint = getattr(receive_owner, "receive_stream", receive_owner)
+        send_endpoint = getattr(send_owner, "send_stream", send_owner)
+        receive_pair = self._endpoint_pairs.get(id(receive_endpoint))
+        send_pair = self._endpoint_pairs.get(id(send_endpoint))
+        if receive_pair is None or send_pair is None:
+            raise RuntimeError("TestClient lifespan streams were not captured")
+        self._pair_names[receive_pair[0]] = "client-to-app"
+        self._pair_names[send_pair[0]] = "app-to-client"
+
+    def record_close(self, endpoint: Any) -> None:
+        endpoint_pair = self._endpoint_pairs.get(id(endpoint))
+        if endpoint_pair is None:
+            return
+        pair_index, endpoint_name = endpoint_pair
+        pair_name = self._pair_names.get(pair_index)
+        if pair_name is not None:
+            self.close_order.append(f"{pair_name}.{endpoint_name}")
+
+
+class _ObservedMemoryStreamFactory:
+    def __init__(self, factory: Any, observer: _LifespanStreamCloseObserver) -> None:
+        self._factory = factory
+        self._observer = observer
+
+    def __getitem__(self, item: Any) -> _ObservedMemoryStreamFactory:
+        del item
+        return self
+
+    def __call__(self, *args: Any, **kwargs: Any) -> Any:
+        streams = self._factory(*args, **kwargs)
+        self._observer.create_memory_object_stream(streams)
+        return streams
+
+
+@contextlib.contextmanager
+def _observe_lifespan_stream_close_order() -> Any:
+    import anyio
+    from anyio.streams.memory import MemoryObjectReceiveStream, MemoryObjectSendStream
+
+    original_factory = anyio.create_memory_object_stream
+    original_send_close = MemoryObjectSendStream.close
+    original_receive_close = MemoryObjectReceiveStream.close
+    observer = _LifespanStreamCloseObserver()
+
+    def observed_send_close(stream: Any, *args: Any, **kwargs: Any) -> Any:
+        observer.record_close(stream)
+        return original_send_close(stream, *args, **kwargs)
+
+    def observed_receive_close(stream: Any, *args: Any, **kwargs: Any) -> Any:
+        observer.record_close(stream)
+        return original_receive_close(stream, *args, **kwargs)
+
+    try:
+        anyio.create_memory_object_stream = _ObservedMemoryStreamFactory(original_factory, observer)
+        MemoryObjectSendStream.close = observed_send_close
+        MemoryObjectReceiveStream.close = observed_receive_close
+        yield observer
+    finally:
+        anyio.create_memory_object_stream = original_factory
+        MemoryObjectSendStream.close = original_send_close
+        MemoryObjectReceiveStream.close = original_receive_close
+
+
 def _run_starlette_lifespan_case(case: dict[str, Any]) -> dict[str, Any]:
     from starlette.applications import Starlette
     from starlette.testclient import TestClient
@@ -2174,6 +2254,7 @@ def _run_starlette_lifespan_case(case: dict[str, Any]) -> dict[str, Any]:
     lifespan_send_messages: list[dict[str, Any]] = []
     scope_mutation_trace: list[dict[str, Any]] = []
     action_errors: list[dict[str, Any]] = []
+    stream_close_observer: _LifespanStreamCloseObserver | None = None
 
     @contextlib.asynccontextmanager
     async def lifespan(_app: Any) -> Any:
@@ -2235,6 +2316,9 @@ def _run_starlette_lifespan_case(case: dict[str, Any]) -> dict[str, Any]:
         return {field: _safe(scope.get(field)) for field in app_input["scope_fields"]}
 
     async def instrumented_app(scope: dict[str, Any], receive: Any, send: Any) -> None:
+        if stream_close_observer is not None and scope.get("type") == "lifespan":
+            stream_close_observer.bind_asgi_streams(receive, send)
+
         async def observed_receive() -> dict[str, Any]:
             message = await receive()
             lifespan_receive_messages.append(_safe(message))
@@ -2275,38 +2359,44 @@ def _run_starlette_lifespan_case(case: dict[str, Any]) -> dict[str, Any]:
     )
     lifecycle_trace_before_actions = list(lifecycle_trace)
     lifecycle_trace_after_actions: list[dict[str, Any]] = []
-    for action_index, action in enumerate(case["client_actions"]):
-        try:
-            if action["operation"] == "enter":
-                client.__enter__()
-            else:
-                client.__exit__(None, None, None)
-            lifecycle_trace_after_actions.append(
-                {
-                    "action_index": action_index,
-                    "operation": action["operation"],
-                    "trace": list(lifecycle_trace),
-                }
-            )
-        except Exception as error:
-            error_type = type(error)
-            action_errors.append(
-                {
-                    "action_index": action_index,
-                    "operation": action["operation"],
-                    "exception_type": f"{error_type.__module__}.{error_type.__qualname__}",
-                    "message": str(error),
-                }
-            )
-            lifecycle_trace_after_actions.append(
-                {
-                    "action_index": action_index,
-                    "operation": action["operation"],
-                    "trace": list(lifecycle_trace),
-                }
-            )
-            break
-    client.close()
+    observe_close_order = "task_group" in app_input.get("callback", {})
+    close_order_context = (
+        _observe_lifespan_stream_close_order() if observe_close_order else contextlib.nullcontext()
+    )
+    with close_order_context as observer:
+        stream_close_observer = observer
+        for action_index, action in enumerate(case["client_actions"]):
+            try:
+                if action["operation"] == "enter":
+                    client.__enter__()
+                else:
+                    client.__exit__(None, None, None)
+                lifecycle_trace_after_actions.append(
+                    {
+                        "action_index": action_index,
+                        "operation": action["operation"],
+                        "trace": list(lifecycle_trace),
+                    }
+                )
+            except Exception as error:
+                error_type = type(error)
+                action_errors.append(
+                    {
+                        "action_index": action_index,
+                        "operation": action["operation"],
+                        "exception_type": f"{error_type.__module__}.{error_type.__qualname__}",
+                        "message": str(error),
+                    }
+                )
+                lifecycle_trace_after_actions.append(
+                    {
+                        "action_index": action_index,
+                        "operation": action["operation"],
+                        "trace": list(lifecycle_trace),
+                    }
+                )
+                break
+        client.close()
     result = {
         "lifespan_scope": lifespan_scopes[0],
         "lifespan_receive_messages": lifespan_receive_messages,
@@ -2326,6 +2416,10 @@ def _run_starlette_lifespan_case(case: dict[str, Any]) -> dict[str, Any]:
     }
     if "scope_mutations" in app_input:
         result["scope_mutation_trace"] = scope_mutation_trace
+    if observe_close_order:
+        if stream_close_observer is None:
+            raise RuntimeError("TestClient lifespan stream-close observer is unavailable")
+        result["stream_close_order"] = stream_close_observer.close_order
     return {
         "case_id": case["case_id"],
         "status": "completed",

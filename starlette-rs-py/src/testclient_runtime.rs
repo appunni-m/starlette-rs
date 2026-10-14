@@ -510,12 +510,12 @@ impl TestClientLifespan {
     }
 
     fn cleanup(&mut self, py: Python<'_>, mut primary_error: Option<PyErr>) -> PyResult<()> {
-        // ExitStack closes the four streams in reverse registration order.
+        // ExitStack closes the last-registered client-to-app endpoints first.
         for stream in [
-            self.app_to_client_receive.take(),
-            self.app_to_client_send.take(),
             self.client_to_app_receive.take(),
             self.client_to_app_send.take(),
+            self.app_to_client_receive.take(),
+            self.app_to_client_send.take(),
         ]
         .into_iter()
         .flatten()
