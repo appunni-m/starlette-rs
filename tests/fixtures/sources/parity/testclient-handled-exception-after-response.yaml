@@ -1,0 +1,73 @@
+{
+  "schema": "migration-parity/parity-input@55",
+  "cases": [
+    {
+      "case_id": "starlette.testclient.TestClient.request-response.handled-http-exception-after-complete-response-propagates",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "request-response",
+      "covers": [
+        "starlette.testclient.TestClient.request-response.scope-projection",
+        "starlette.testclient.TestClient.request-response.exception-policy",
+        "starlette.testclient.TestClient.request-response.response-and-debug"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "request-response"
+      ],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": [
+          "testclient",
+          50000
+        ],
+        "headers": []
+      },
+      "request": {
+        "method": "GET",
+        "client_method": "get",
+        "url": "/handled_exc_after_response",
+        "headers_base64_pairs": [],
+        "body_base64": ""
+      },
+      "asgi_app": {
+        "kind": "asgi3",
+        "scope_fields": [
+          "type",
+          "method",
+          "path"
+        ],
+        "receive_count": 0,
+        "messages": [
+          {
+            "type": "http.response.start",
+            "status": 200,
+            "headers_base64_pairs": [
+              [
+                "Y29udGVudC1sZW5ndGg=",
+                "Mg=="
+              ],
+              [
+                "Y29udGVudC10eXBl",
+                "dGV4dC9wbGFpbjsgY2hhcnNldD11dGYtOA=="
+              ]
+            ]
+          },
+          {
+            "type": "http.response.body",
+            "body_base64": "T0s=",
+            "more_body": false
+          }
+        ],
+        "exception": {
+          "class": "RuntimeError",
+          "message": "Caught handled exception, but response already started."
+        }
+      }
+    }
+  ]
+}

@@ -1706,6 +1706,9 @@ STARLETTE_ROUTE_MIDDLEWARE_REQUIREMENTS = {
     "route": "starlette.applications.Starlette.__call__.route-middleware-response-header",
     "mount_routes": "starlette.applications.Starlette.__call__.mount-routes-middleware-response-header",
     "mount_app": "starlette.applications.Starlette.__call__.mount-app-middleware-response-header",
+    "route_stack": "starlette.routing.Route.route-dispatch.local-middleware-stack-order",
+    "router_stack": "starlette.routing.Router.route-dispatch.local-middleware-stack-order",
+    "mount_stack": "starlette.routing.Mount.route-dispatch.local-middleware-stack-order",
     "kwargs_mapping": "starlette.applications.Starlette.__call__.route-middleware-kwargs-mapping-expansion",
     "mount_exception": (
         "starlette.applications.Starlette.__call__.mount-middleware-http-exception-response"
@@ -26986,6 +26989,24 @@ def _route_middleware_topology(routes: list[dict[str, Any]]) -> str | None:
         return None
     if _routes_have_middleware_iterator_subclass(routes):
         return "kwargs_mapping"
+    if len(routes) == 1:
+        mount = routes[0]
+        app = mount.get("app")
+        child_routes = app.get("routes") if isinstance(app, dict) else None
+        if (
+            mount.get("kind") == "mount"
+            and isinstance(app, dict)
+            and app.get("kind") == "router"
+            and isinstance(child_routes, list)
+            and len(child_routes) == 1
+            and isinstance(child_routes[0], dict)
+            and child_routes[0].get("kind") == "http-route"
+            and all(
+                isinstance(node.get("middleware"), list) and node["middleware"]
+                for node in (mount, app, child_routes[0])
+            )
+        ):
+            return "local_stack_order"
     if (
         len(routes) == 2
         and routes[0].get("kind") == "mount"
@@ -27121,10 +27142,47 @@ def _validate_route_middleware_workflow(case: dict[str, Any]) -> None:
         "mounted_app_exception_propagation": 2,
         "placement_stack": 5,
         "kwargs_mapping": 2,
+        "local_stack_order": 2,
     }.get(topology, 3)
     if topology is None or len(case["steps"]) != expected_step_count:
         raise ContractError("route middleware workflow must exercise one declared route topology")
     root = routes[0]
+    if topology == "local_stack_order":
+        app = root["app"]
+        route = app["routes"][0]
+        if (
+            root.get("path") != "/group"
+            or route.get("path") != "/inside"
+            or route.get("methods") != ["GET"]
+            or route.get("endpoint")
+            != {
+                "kind": "plain-response",
+                "content": "ordered middleware",
+                "media_type": "text/plain",
+            }
+        ):
+            raise ContractError("local middleware stack input differs from its declared route tree")
+        names: list[str] = []
+        for node in (root, app, route):
+            middleware = node.get("middleware")
+            if not isinstance(middleware, list) or len(middleware) != 2:
+                raise ContractError("each local middleware stack must contain two input layers")
+            layer_names = [item.get("name") for item in middleware]
+            if any(item.get("kind") != "append-response-header" for item in middleware) or len(
+                set(layer_names)
+            ) != len(layer_names):
+                raise ContractError("local middleware layers must expose distinct input headers")
+            names.extend(layer_names)
+        if len(set(names)) != len(names):
+            raise ContractError("local middleware layers must expose distinct input headers")
+        dispatch = case["steps"][1]
+        if dispatch["step_id"] != "dispatch":
+            raise ContractError("local middleware stack workflow must dispatch the app once")
+        arguments = {key: item["value"] for key, item in dispatch["arguments"].items()}
+        scope = arguments["scope"]
+        if scope["type"] != "http" or scope["method"] != "GET" or scope["path"] != "/group/inside":
+            raise ContractError("local middleware stack dispatch must target the nested HTTP route")
+        return
     if topology == "kwargs_mapping":
         if (
             len(routes) != 1
@@ -39155,6 +39213,12 @@ def _semantic_coverage(case: dict[str, Any]) -> set[str]:
             "placement_stack": "route",
             "falsey_router_middleware": "router_middleware_truthiness",
         }.get(topology)
+        if topology == "local_stack_order":
+            return {
+                STARLETTE_ROUTE_MIDDLEWARE_REQUIREMENTS["route_stack"],
+                STARLETTE_ROUTE_MIDDLEWARE_REQUIREMENTS["router_stack"],
+                STARLETTE_ROUTE_MIDDLEWARE_REQUIREMENTS["mount_stack"],
+            }
         if topology == "kwargs_mapping":
             return {
                 STARLETTE_ROUTE_MIDDLEWARE_REQUIREMENTS["mount_app"],

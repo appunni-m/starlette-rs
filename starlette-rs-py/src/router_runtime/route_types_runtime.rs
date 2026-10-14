@@ -1543,6 +1543,7 @@ fn initialize_http_route(
         py,
         app.bind(py),
         middleware.as_ref().map(|item| item.bind(py)),
+        MiddlewareSelection::Supplied,
         max_body_size.as_ref().map(|item| item.bind(py)),
     )?;
 
@@ -1617,6 +1618,7 @@ fn initialize_websocket_route(
         py,
         app.bind(py),
         middleware.as_ref().map(|item| item.bind(py)),
+        MiddlewareSelection::Supplied,
         None,
     )?;
     let (regex, path_format, convertors, custom, has_surrogate) =
@@ -1735,6 +1737,7 @@ fn initialize_mount(
         py,
         base_app.bind(py),
         middleware.as_ref().map(|item| item.bind(py)),
+        MiddlewareSelection::Supplied,
         max_body_size.as_ref().map(|item| item.bind(py)),
     )?;
     let mut path_pattern = path.clone();
@@ -1780,6 +1783,14 @@ struct PathParameter {
     end: usize,
     name: String,
     convertor_name: String,
+}
+
+// Route, WebSocketRoute, and Mount test whether middleware was supplied;
+// Router alone tests its truth value before constructing the stack.
+#[derive(Clone, Copy)]
+enum MiddlewareSelection {
+    Supplied,
+    Truthy,
 }
 
 type CompiledCompatibilityPath<'py> = (
@@ -2226,9 +2237,17 @@ fn apply_middleware_inner(
     py: Python<'_>,
     app: &Bound<'_, PyAny>,
     middleware: Option<&Bound<'_, PyAny>>,
+    selection: MiddlewareSelection,
     max_body_size: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<Py<PyAny>> {
     let mut app = app.clone().unbind();
+    let middleware = match (selection, middleware) {
+        (MiddlewareSelection::Supplied, middleware) => middleware,
+        (MiddlewareSelection::Truthy, Some(middleware)) if middleware.is_truthy()? => {
+            Some(middleware)
+        }
+        (MiddlewareSelection::Truthy, _) => None,
+    };
     if let Some(middleware) = middleware {
         for item in py
             .import("builtins")?
@@ -2270,13 +2289,13 @@ fn apply_router_middleware_inner(
     middleware: Option<&Bound<'_, PyAny>>,
     max_body_size: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<Py<PyAny>> {
-    // Starlette Router uses `if middleware`, while Route, WebSocketRoute, and
-    // Mount use `if middleware is not None` before constructing their stacks.
-    let middleware = match middleware {
-        Some(middleware) if middleware.is_truthy()? => Some(middleware),
-        _ => None,
-    };
-    apply_middleware_inner(py, app, middleware, max_body_size)
+    apply_middleware_inner(
+        py,
+        app,
+        middleware,
+        MiddlewareSelection::Truthy,
+        max_body_size,
+    )
 }
 
 fn apply_body_limit(
@@ -2304,7 +2323,13 @@ fn apply_route_middleware(
     middleware: Option<&Bound<'_, PyAny>>,
     max_body_size: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<Py<PyAny>> {
-    apply_middleware_inner(py, app, middleware, max_body_size)
+    apply_middleware_inner(
+        py,
+        app,
+        middleware,
+        MiddlewareSelection::Supplied,
+        max_body_size,
+    )
 }
 
 #[pyfunction]

@@ -423,6 +423,7 @@
       "build/parity/inputs/parity/route-middleware-dispatch.json",
       "build/parity/inputs/parity/route-middleware-mapping-composition.json",
       "build/parity/inputs/parity/route-local-middleware-semantics.json",
+      "build/parity/inputs/parity/route-local-middleware-stack-order.json",
       "build/parity/inputs/parity/request-path-param-types.json",
       "build/parity/inputs/parity/request-cookies.json",
       "build/parity/inputs/parity/request-cookie-cache-sequence.json",
@@ -574,6 +575,7 @@
       "build/parity/inputs/parity/websocket-endpoint-docs-inputs.json",
       "build/parity/inputs/parity/http-endpoint-dispatch.json",
       "build/parity/inputs/parity/testclient-asgi-callable-protocol.json",
+      "build/parity/inputs/parity/testclient-handled-exception-after-response.json",
       "build/parity/inputs/parity/testclient-http.json",
       "build/parity/inputs/parity/testclient-asgi-message-mutable-mapping.json",
       "build/parity/inputs/parity/testclient-asgi-message-type-comparison-error.json",
@@ -23661,6 +23663,17 @@
               "target_profiles": [
                 "python-package-cpython312"
               ]
+            },
+            {
+              "id": "starlette.routing.Mount.route-dispatch.local-middleware-stack-order",
+              "dimension": "parameter_combination",
+              "description": "Apply two input-defined Mount middleware layers in declared wrapping order around a nested Router and Route. Pinned source: starlette/routing.py:382-385.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
             }
           ],
           "parity": {
@@ -24441,6 +24454,17 @@
               "id": "starlette.routing.Route.__call__.standalone-not-found",
               "dimension": "error_path",
               "description": "Calling a Route directly as an ASGI application for a nonmatching path sends Starlette's 404 response. Upstream: starlette/routing.py::BaseRoute.__call__; tests/test_routing.py::test_standalone_route_does_not_match.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Route.route-dispatch.local-middleware-stack-order",
+              "dimension": "parameter_combination",
+              "description": "Apply two input-defined Route middleware layers in declared wrapping order around its endpoint. Pinned source: starlette/routing.py:227-230.",
               "lanes": [
                 "parity"
               ],
@@ -25626,6 +25650,17 @@
               "id": "starlette.routing.Router.route-dispatch.middleware-truthiness",
               "dimension": "boundary",
               "description": "Router constructs its configured middleware stack only when the supplied middleware sequence is truthy; a nonempty falsey sequence therefore leaves its middleware unapplied. Pinned source: starlette/routing.py:609-614.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Router.route-dispatch.local-middleware-stack-order",
+              "dimension": "parameter_combination",
+              "description": "Apply two input-defined Router middleware layers in declared wrapping order around a nested Route. Pinned source: starlette/routing.py:609-614.",
               "lanes": [
                 "parity"
               ],
