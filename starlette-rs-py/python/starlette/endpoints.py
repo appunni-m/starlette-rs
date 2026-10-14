@@ -54,7 +54,7 @@ class WebSocketEndpoint:
 
     async def decode(self, websocket: WebSocket, message: Message) -> Any:
         return await _core._websocket_endpoint_decode(
-            self.encoding, websocket, message, json, status, __debug__
+            self, websocket, message, json, status, __debug__
         )
 
     async def on_connect(self, websocket: WebSocket) -> None:

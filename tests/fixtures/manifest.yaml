@@ -534,6 +534,7 @@
       "build/parity/inputs/parity/upload-file-rolled-write-error.json",
       "build/parity/inputs/parity/websocket-endpoint-dispatch.json",
       "build/parity/inputs/parity/websocket-endpoint-decode-stop-iteration.json",
+      "build/parity/inputs/parity/websocket-endpoint-encoding-property.json",
       "build/parity/inputs/parity/websocket-endpoint-existing-disconnect-context.json",
       "build/parity/inputs/parity/websocket-endpoint-cancellation-during-finalizer.json",
       "build/parity/inputs/parity/websocket-mutable-scope.json",
@@ -9523,6 +9524,17 @@
               "id": "starlette.endpoints.WebSocketEndpoint.dispatch.decode-json-text",
               "dimension": "protocol_variant",
               "description": "Decode JSON from a text frame, call on_receive with the parsed value, and compare the selected JSON response. Pinned source: starlette/endpoints.py:104-115; tests/test_endpoints.py::test_websocket_endpoint_on_receive_json.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.endpoints.WebSocketEndpoint.dispatch.decode-stateful-encoding-property-source-order",
+              "dimension": "boundary",
+              "description": "Read self.encoding separately for the text, bytes, and JSON comparisons so a Python descriptor returning changing values can select the later decode branch; compare the selected JSON result and hook/event behavior. Pinned source: starlette/endpoints.py:91-115.",
               "lanes": [
                 "parity"
               ],

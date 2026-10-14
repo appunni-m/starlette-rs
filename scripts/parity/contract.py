@@ -268,6 +268,9 @@ WEBSOCKET_ENDPOINT_REQUIREMENTS = {
     "decode_stop_iteration_pep479": (
         f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.decode-stop-iteration-pep479"
     ),
+    "stateful_encoding_property": (
+        f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.decode-stateful-encoding-property-source-order"
+    ),
     "cancellation": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.cancellation-finalization",
     "cancellation_disconnect_error": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.cancellation-finalizer-error-context",
     "cancellation_during_finalizer": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.cancellation-during-disconnect-finalizer",
@@ -3731,6 +3734,25 @@ def _validate_websocket_endpoint_case_stimulus(case: dict[str, Any]) -> None:
             _string(encoding["value"], "WebSocketEndpoint StopIteration encoding.value")
             _string(encoding["message"], "WebSocketEndpoint StopIteration encoding.message")
             encoding_supported = False
+        elif encoding_kind == "stateful-property":
+            encoding = _exact(
+                encoding,
+                {"kind", "values"},
+                "WebSocketEndpoint stateful encoding property",
+            )
+            values = encoding["values"]
+            if not isinstance(values, list) or len(values) != 3:
+                raise ContractError(
+                    "WebSocketEndpoint stateful encoding property must provide three reads"
+                )
+            for index, value in enumerate(values):
+                _string(value, f"WebSocketEndpoint stateful encoding values[{index}]")
+            if values[0] == "text" or values[1] == "bytes" or values[2] != "json":
+                raise ContractError(
+                    "WebSocketEndpoint stateful encoding values must select JSON on the third read"
+                )
+            encoding = "json"
+            encoding_supported = True
         else:
             raise ContractError("WebSocketEndpoint encoding record kind is unsupported")
     else:
@@ -4118,6 +4140,10 @@ def _validate_websocket_endpoint_case_stimulus(case: dict[str, Any]) -> None:
                 )
             exercised_requirements.add(WEBSOCKET_ENDPOINT_REQUIREMENTS["disconnect_error"])
         exercised_requirements.add(WEBSOCKET_ENDPOINT_REQUIREMENTS[requirement_name])
+        if encoding_kind == "stateful-property":
+            exercised_requirements.add(
+                WEBSOCKET_ENDPOINT_REQUIREMENTS["stateful_encoding_property"]
+            )
 
     if set(case["covers"]) != exercised_requirements:
         raise ContractError(

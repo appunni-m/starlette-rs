@@ -7646,6 +7646,17 @@ async def _await_cancelled_websocket_endpoint(
 def _websocket_endpoint_encoding(value: Any) -> Any:
     if not isinstance(value, dict):
         return value
+    if value.get("kind") == "stateful-property":
+        values = tuple(value["values"])
+        reads = 0
+
+        def get_encoding(_endpoint: Any) -> str:
+            nonlocal reads
+            index = reads
+            reads += 1
+            return values[min(index, len(values) - 1)]
+
+        return property(get_encoding)
     if value.get("kind") == "stop-iteration-str-subclass-equality":
         message = value["message"]
 

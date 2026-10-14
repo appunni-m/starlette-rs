@@ -508,7 +508,7 @@ impl WebSocketEndpointCall {
 #[pyfunction(name = "_websocket_endpoint_decode")]
 fn websocket_endpoint_decode(
     py: Python<'_>,
-    encoding: Py<PyAny>,
+    endpoint: Py<PyAny>,
     websocket: Py<PyAny>,
     message: Py<PyAny>,
     json_module: Py<PyAny>,
@@ -518,7 +518,7 @@ fn websocket_endpoint_decode(
     into_sendable_python_awaitable(
         py,
         WebSocketDecodeCall {
-            encoding,
+            endpoint,
             websocket,
             message,
             json_module,
@@ -531,7 +531,7 @@ fn websocket_endpoint_decode(
 }
 
 struct WebSocketDecodeCall {
-    encoding: Py<PyAny>,
+    endpoint: Py<PyAny>,
     websocket: Py<PyAny>,
     message: Py<PyAny>,
     json_module: Py<PyAny>,
@@ -543,7 +543,7 @@ struct WebSocketDecodeCall {
 
 impl AwaitableStateMachine for WebSocketDecodeCall {
     fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
-        visit.call(&self.encoding)?;
+        visit.call(&self.endpoint)?;
         visit.call(&self.websocket)?;
         visit.call(&self.message)?;
         visit.call(&self.json_module)?;
@@ -611,19 +611,22 @@ impl WebSocketDecodeCall {
     }
 
     fn start(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
-        let encoding = self.encoding.bind(py);
-        if encoding.eq("text")? {
+        let endpoint = self.endpoint.bind(py);
+        if endpoint.getattr("encoding")?.eq("text")? {
             return self.decode_text(py);
         }
-        if encoding.eq("bytes")? {
+        if endpoint.getattr("encoding")?.eq("bytes")? {
             return self.decode_bytes(py);
         }
-        if encoding.eq("json")? {
+        if endpoint.getattr("encoding")?.eq("json")? {
             return self.decode_json(py);
         }
-        if self.debug && !encoding.is_none() {
+        if self.debug && !endpoint.getattr("encoding")?.is_none() {
             // Match the pinned source's f-string formatting, which invokes
             // __format__ rather than str() on user-supplied encoding values.
+            // The source reads the attribute again while formatting the failed
+            // assertion, so preserve the descriptor lookup order here too.
+            let encoding = endpoint.getattr("encoding")?;
             let name = py
                 .import("builtins")?
                 .getattr("format")?
