@@ -281,9 +281,11 @@ also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
 The active parity contract is `parity-input@52`: the working tree currently
-indexes 2,365 input cases across 333 parity files, two benchmark files, 140
-Starlette compatibility operations, 13 Rust-native operations, and 1,280
-parity requirements (1,238 compatibility and 42 native). The latest clean full parity,
+indexes 2,367 input cases across 335 parity files, two benchmark files, 142
+Starlette compatibility operations, 13 Rust-native operations, and 1,287
+parity requirements (1,245 compatibility and 42 native). The Config typing
+consumer covers all nine pinned `Config.__call__` overload assertions and is
+deferred to full parity. The latest clean full parity,
 coverage, and benchmark receipts belong to the preceding 1,992-case, 140-file
 contract. The generated source-row,
 mapping, `not_applicable`, and backlog totals live in
