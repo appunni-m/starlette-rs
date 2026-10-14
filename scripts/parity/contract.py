@@ -805,6 +805,7 @@ TEMPLATING_PUBLIC_REQUIREMENTS = {
         "url-for-function-name",
         "url-for-function-metadata",
         "url-for-function-annotations",
+        "url-for-function-type",
         "directory-sequence",
         "client-debug-metadata",
     )
@@ -32061,6 +32062,8 @@ def _validate_templating_public_case(case: dict[str, Any]) -> None:
             coverage.add(TEMPLATING_PUBLIC_REQUIREMENTS["url-for-function-metadata"])
         if "url_for.__annotations__" in text:
             coverage.add(TEMPLATING_PUBLIC_REQUIREMENTS["url-for-function-annotations"])
+        if "url_for.__class__" in text or "url_for.__globals__" in text:
+            coverage.add(TEMPLATING_PUBLIC_REQUIREMENTS["url-for-function-type"])
         return text
 
     if consumer["kind"] == "construction":

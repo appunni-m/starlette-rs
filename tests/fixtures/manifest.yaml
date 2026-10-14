@@ -525,6 +525,7 @@
       "build/parity/inputs/parity/templating-docs-inputs.json",
       "build/parity/inputs/parity/templating-url-for-function-metadata.json",
       "build/parity/inputs/parity/templating-url-for-function-annotations.json",
+      "build/parity/inputs/parity/templating-url-for-function-type.json",
       "build/parity/inputs/parity/request-form-urlencoded.json",
       "build/parity/inputs/parity/request-form-large-part-size.json",
       "build/parity/inputs/parity/request-form-large-count-limits.json",
@@ -33337,6 +33338,17 @@
               "id": "starlette.templating.Jinja2Templates.template-public-workflow.url-for-function-annotations",
               "dimension": "boundary",
               "description": "Expose the default url_for Jinja global's annotations through an input-defined template that inspects url_for.__annotations__. Pinned source: starlette/templating.py:94-104.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.templating.Jinja2Templates.template-public-workflow.url-for-function-type",
+              "dimension": "boundary",
+              "description": "Preserve the default url_for Jinja global as a Python function, including its function type and function-only globals attribute, when inspected by an input-defined template. Pinned source: starlette/templating.py:101-115.",
               "lanes": [
                 "parity"
               ],

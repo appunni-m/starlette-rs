@@ -15,9 +15,9 @@ use crate::awaitable::{
 
 pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyJinja2Templates>()?;
-    module.add_class::<PyTemplateUrlFor>()?;
     module.add_function(wrap_pyfunction!(templating_require_jinja2, module)?)?;
     module.add_function(wrap_pyfunction!(templating_render, module)?)?;
+    module.add_function(wrap_pyfunction!(templating_url_for, module)?)?;
     module.add_function(wrap_pyfunction!(templating_context_decorator, module)?)?;
     module.add_function(wrap_pyfunction!(templating_response_call, module)?)?;
     Ok(())
@@ -62,30 +62,13 @@ fn jinja_import_error(py: Python<'_>, error: PyErr) -> PyResult<PyErr> {
     Ok(import_error)
 }
 
-// Templates are commonly configured on the caller thread and then used by
-// TestClient's portal. The fields are owned Python references; access remains
-// under Python attachment and PyO3's borrow checks rather than thread affinity.
+// The Python facade owns template instances and their Python references. This
+// class exposes Rust-owned operations without duplicating that state.
 #[pyclass(name = "_Jinja2Templates")]
-pub(crate) struct PyJinja2Templates {
-    env: Py<PyAny>,
-    context_processors: Py<PyAny>,
-}
+pub(crate) struct PyJinja2Templates;
 
 #[pymethods]
 impl PyJinja2Templates {
-    fn __traverse__(
-        &self,
-        visit: pyo3::class::gc::PyVisit<'_>,
-    ) -> Result<(), pyo3::class::gc::PyTraverseError> {
-        visit.call(&self.env)?;
-        visit.call(&self.context_processors)
-    }
-
-    fn __clear__(&mut self, py: Python<'_>) {
-        self.env = py.None();
-        self.context_processors = py.None();
-    }
-
     #[staticmethod]
     fn initialize_for(
         py: Python<'_>,
@@ -127,12 +110,7 @@ impl PyJinja2Templates {
     }
 
     #[staticmethod]
-    fn setup_for(
-        py: Python<'_>,
-        env: &Bound<'_, PyAny>,
-        decorator: &Bound<'_, PyAny>,
-    ) -> PyResult<()> {
-        let url_for = decorator.call1((new_template_url_for(py)?,))?;
+    fn setup_for(env: &Bound<'_, PyAny>, url_for: &Bound<'_, PyAny>) -> PyResult<()> {
         env.getattr("globals")?
             .call_method1("setdefault", ("url_for", url_for))?;
         Ok(())
@@ -179,187 +157,18 @@ impl PyJinja2Templates {
             .call((template, context), Some(&kwargs))
             .map(Bound::unbind)
     }
-
-    #[new]
-    #[pyo3(signature = (directory=None, *, context_processors=None, env=None))]
-    fn new(
-        py: Python<'_>,
-        directory: Option<Py<PyAny>>,
-        context_processors: Option<Py<PyAny>>,
-        env: Option<Py<PyAny>>,
-    ) -> PyResult<Self> {
-        let directory_truthy = directory
-            .as_ref()
-            .map(|value| value.bind(py).is_truthy())
-            .transpose()?
-            .unwrap_or(false);
-        let env_truthy = env
-            .as_ref()
-            .map(|value| value.bind(py).is_truthy())
-            .transpose()?
-            .unwrap_or(false);
-        if directory_truthy == env_truthy {
-            return Err(PyAssertionError::new_err(
-                "either 'directory' or 'env' arguments must be passed",
-            ));
-        }
-
-        let context_processors = match context_processors {
-            Some(processors) if processors.bind(py).is_truthy()? => processors,
-            _ => PyList::empty(py).into_any().unbind(),
-        };
-
-        let env = match directory {
-            Some(directory) => {
-                let jinja2 = py.import("jinja2")?;
-                let loader = jinja2
-                    .getattr("FileSystemLoader")?
-                    .call1((directory.bind(py),))?;
-                let kwargs = PyDict::new(py);
-                kwargs.set_item("loader", loader)?;
-                kwargs.set_item("autoescape", jinja2.getattr("select_autoescape")?.call0()?)?;
-                jinja2
-                    .getattr("Environment")?
-                    .call((), Some(&kwargs))?
-                    .unbind()
-            }
-            None => env.ok_or_else(|| {
-                PyAssertionError::new_err("either 'directory' or 'env' arguments must be passed")
-            })?,
-        };
-
-        let templates = Self {
-            env,
-            context_processors,
-        };
-        templates.setup_env_defaults(py, templates.env.bind(py))?;
-        Ok(templates)
-    }
-
-    #[getter]
-    fn env(&self, py: Python<'_>) -> Py<PyAny> {
-        self.env.clone_ref(py)
-    }
-
-    #[setter]
-    fn set_env(&mut self, env: Py<PyAny>) {
-        self.env = env;
-    }
-
-    #[getter]
-    fn context_processors(&self, py: Python<'_>) -> Py<PyAny> {
-        self.context_processors.clone_ref(py)
-    }
-
-    #[setter]
-    fn set_context_processors(&mut self, processors: Py<PyAny>) {
-        self.context_processors = processors;
-    }
-
-    fn get_template(&self, py: Python<'_>, name: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
-        self.env
-            .bind(py)
-            .call_method1("get_template", (name,))
-            .map(Bound::unbind)
-    }
-
-    #[pyo3(signature = (env))]
-    fn _setup_env_defaults(&self, py: Python<'_>, env: &Bound<'_, PyAny>) -> PyResult<()> {
-        self.setup_env_defaults(py, env)
-    }
-
-    fn _template_response(
-        &self,
-        py: Python<'_>,
-        arguments: &Bound<'_, PyTuple>,
-    ) -> PyResult<Py<PyAny>> {
-        let request = arguments.get_item(0)?;
-        let name = arguments.get_item(1)?;
-        let response_type = arguments.get_item(2)?;
-        let context = arguments.get_item(3)?;
-        let context = match (!context.is_none() && context.is_truthy()?).then(|| context.unbind()) {
-            Some(context) => context,
-            _ => PyDict::new(py).into_any().unbind(),
-        };
-        context
-            .bind(py)
-            .call_method1("setdefault", ("request", &request))?;
-
-        for processor in self.context_processors.bind(py).try_iter()? {
-            let processor = processor?;
-            let additions = processor.call1((&request,))?;
-            context.bind(py).call_method1("update", (additions,))?;
-        }
-
-        let template = self.get_template(py, &name)?;
-        let kwargs = PyDict::new(py);
-        kwargs.set_item("status_code", arguments.get_item(4)?)?;
-        kwargs.set_item("headers", arguments.get_item(5)?)?;
-        kwargs.set_item("media_type", arguments.get_item(6)?)?;
-        kwargs.set_item("background", arguments.get_item(7)?)?;
-        response_type
-            .call((template, context), Some(&kwargs))
-            .map(Bound::unbind)
-    }
 }
 
-impl PyJinja2Templates {
-    fn setup_env_defaults(&self, py: Python<'_>, env: &Bound<'_, PyAny>) -> PyResult<()> {
-        let jinja2 = py.import("jinja2")?;
-        let decorator = match jinja2.getattr("pass_context") {
-            Ok(decorator) => decorator,
-            Err(error) if error.is_instance_of::<PyAttributeError>(py) => {
-                jinja2.getattr("contextfunction")?
-            }
-            Err(error) => return Err(error),
-        };
-        let url_for = new_template_url_for(py)?;
-        let url_for = decorator.call1((url_for,))?;
-        let globals = env.getattr("globals")?;
-        globals.call_method1("setdefault", ("url_for", url_for))?;
-        Ok(())
-    }
-}
-
-fn new_template_url_for<'py>(py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
-    let url_for = Py::new(py, PyTemplateUrlFor)?.into_bound(py).into_any();
-    // Starlette installs a nested Python function; preserve its observable
-    // function metadata for templates that inspect the documented global.
-    // The source module uses postponed annotations, so its function exposes
-    // these exact strings through `url_for.__annotations__`.
-    let annotations = PyDict::new(py);
-    annotations.set_item("context", "dict[str, Any]")?;
-    annotations.set_item("name", "str")?;
-    annotations.set_item("path_params", "Any")?;
-    annotations.set_item("return", "URL")?;
-    url_for.setattr("__annotations__", annotations)?;
-    url_for.setattr("__name__", "url_for")?;
-    url_for.setattr("__module__", "starlette.templating")?;
-    url_for.setattr(
-        "__qualname__",
-        "Jinja2Templates._setup_env_defaults.<locals>.url_for",
-    )?;
-    Ok(url_for)
-}
-
-// The stateless global travels with its environment to the ASGI portal thread.
-#[pyclass(name = "_TemplateUrlFor", dict)]
-struct PyTemplateUrlFor;
-
-#[pymethods]
-impl PyTemplateUrlFor {
-    #[pyo3(signature = (context, name, /, **path_params))]
-    fn __call__(
-        &self,
-        context: &Bound<'_, PyAny>,
-        name: &Bound<'_, PyAny>,
-        path_params: Option<&Bound<'_, PyDict>>,
-    ) -> PyResult<Py<PyAny>> {
-        let request = context.get_item("request")?;
-        request
-            .call_method("url_for", (name,), path_params)
-            .map(Bound::unbind)
-    }
+#[pyfunction(name = "_templating_url_for")]
+fn templating_url_for(
+    context: &Bound<'_, PyAny>,
+    name: &Bound<'_, PyAny>,
+    path_params: &Bound<'_, PyDict>,
+) -> PyResult<Py<PyAny>> {
+    let request = context.get_item("request")?;
+    request
+        .call_method("url_for", (name,), Some(path_params))
+        .map(Bound::unbind)
 }
 
 #[pyfunction(name = "_templating_render")]

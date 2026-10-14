@@ -9,6 +9,7 @@ from typing import Any, overload
 from starlette_rs_py import _core
 
 from starlette.background import BackgroundTask
+from starlette.datastructures import URL
 from starlette.requests import Request
 from starlette.responses import HTMLResponse
 
@@ -76,7 +77,20 @@ class Jinja2Templates:
         _core._Jinja2Templates.initialize_for(self, (directory, context_processors, env))
 
     def _setup_env_defaults(self, env: Any) -> None:
-        _core._Jinja2Templates.setup_for(env, pass_context)
+        # The pinned API exposes a real Python function here. A PyO3 callable
+        # object cannot satisfy `inspect.isfunction` or `__class__ is FunctionType`,
+        # so this facade keeps only the function object in Python and delegates
+        # URL resolution to Rust.
+        @pass_context
+        def url_for(
+            context: dict[str, Any],
+            name: str,
+            /,
+            **path_params: Any,
+        ) -> URL:
+            return _core._templating_url_for(context, name, path_params)
+
+        _core._Jinja2Templates.setup_for(env, url_for)
 
     def get_template(self, name: str) -> Any:
         return _core._Jinja2Templates.template_for(self, name)
