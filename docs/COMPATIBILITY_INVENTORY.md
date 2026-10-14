@@ -7,9 +7,9 @@ contract validation and remain unexecuted until the grouped parity phase.
 
 The application typing consumer asserts `Request.cookies` and inherited
 `WebSocket.cookies` as `dict[str, str]`, alongside `Request.url` as `URL` and
-`Request.client` as `Address | None`. Pinned-source and installed-wheel Mypy
-1.19.1 diagnostics match; the registered consumer comparison remains
-deferred to full parity.
+`WebSocket.url` as `URL` and `Request.client` as `Address | None`. Pinned-source
+and installed-wheel Mypy 1.19.1 diagnostics match; the registered consumer
+comparison remains deferred to full parity.
 
 The template input set now also observes an unsupported async context
 processor failing before template lookup. A raising lookup hook records the
