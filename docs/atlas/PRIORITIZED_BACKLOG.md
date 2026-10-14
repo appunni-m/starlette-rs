@@ -9,10 +9,10 @@ incomplete.
 ## Current parity snapshot
 
 Implementation remains the active phase for the full Starlette replacement.
-The working-tree `parity-input@55` contract indexes 2,417 cases across 363
-parity inputs, two benchmark inputs, 144 Starlette compatibility operations,
-13 native operations, and 1,324 parity requirements (1,280 compatibility and
-42 native). The latest batch adds a Rust-backed StaticFiles single-digit
+The working-tree `parity-input@55` contract indexes 2,453 cases across 391
+parity inputs, two benchmark inputs, 150 Starlette compatibility operations,
+13 native operations, and 1,350 parity requirements (1,308 compatibility and
+42 native). The latest batch adds application attribute-read ordering, non-string scope dispatch in AuthenticationMiddleware, SessionMiddleware, and GZipMiddleware, ServerErrorMiddleware message-type equality, and pre-ASGI-2.4 StreamingResponse caller cancellation. These six new input-only comparisons remain unexecuted until the grouped full parity phase. The latest batch adds a Rust-backed StaticFiles single-digit
 time-field normalization case, a Jinja caller-supplied `url_for` global case,
 and an AuthenticationMiddleware scope case preserving present `None` values
 for `auth` and `user`, plus a StreamingResponse awaitable case checking type-level `__await__` lookup; all four comparisons remain deferred to full parity. Rust now performs the awaitable lookup through the object's type.
