@@ -564,6 +564,10 @@
           "source_path": "starlette.requests.HTTPConnection.__getitem__, HTTPConnection.__iter__, and HTTPConnection.__len__"
         },
         {
+          "operation_id": "scope-identity-hash-sequence",
+          "source_path": "starlette.requests.HTTPConnection.__eq__, HTTPConnection.__hash__, and Request.scope replacement"
+        },
+        {
           "operation_id": "state-setdefault-readback",
           "source_path": "starlette.requests.Request.state"
         },
@@ -906,6 +910,10 @@
         {
           "operation_id": "scope-mapping",
           "source_path": "starlette.requests.HTTPConnection.__getitem__, __iter__, __len__, __eq__, and __hash__ inherited by starlette.websockets.WebSocket"
+        },
+        {
+          "operation_id": "scope-identity-hash-sequence",
+          "source_path": "starlette.requests.HTTPConnection.__eq__ and __hash__ inherited by starlette.websockets.WebSocket across mutable scope changes"
         }
       ]
     },

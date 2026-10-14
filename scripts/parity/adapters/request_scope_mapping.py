@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import builtins
 import operator
 from collections import UserDict
 from collections.abc import Callable
@@ -229,6 +230,148 @@ def run_websocket_constructor_case(
                 "step_id": "constructor-contract",
                 "status": "ok",
                 "value": {"constructor_attempts": attempts},
+            }
+        ],
+    }
+
+
+def run_scope_identity_hash_sequence_case(
+    case: dict[str, Any],
+    connection_type: type[Any],
+) -> dict[str, Any]:
+    """Observe connection identity while input-defined mutable scopes change."""
+
+    hook_spec = case["scope_mapping"]
+
+    class RecordingScope(UserDict):
+        def __init__(self, scope_id: str, initialdata: dict[str, Any]) -> None:
+            super().__init__(initialdata)
+            self.scope_id = scope_id
+            self.hook_trace: list[str] = []
+
+        def __eq__(self, other: object) -> bool:
+            del other
+            self.hook_trace.append("equality")
+            hook = hook_spec["equality_hook"]
+            exception_type = getattr(builtins, hook["exception_type"])
+            raise exception_type(hook["message"])
+
+        def __hash__(self) -> int:
+            self.hook_trace.append("hash")
+            hook = hook_spec["hash_hook"]
+            exception_type = getattr(builtins, hook["exception_type"])
+            raise exception_type(hook["message"])
+
+    scopes = {
+        scope_id: RecordingScope(scope_id, scope_value)
+        for scope_id, scope_value in case["scopes"].items()
+    }
+
+    async def receive() -> dict[str, str]:
+        return {"type": "websocket.connect"}
+
+    async def send(_message: dict[str, Any]) -> None:
+        return None
+
+    connections: dict[str, Any] = {}
+    for definition in case["connections"]:
+        scope = scopes[definition["scope_id"]]
+        if case["surface"] == "starlette.websockets.WebSocket":
+            connection = connection_type(scope, receive=receive, send=send)
+        else:
+            connection = connection_type(scope)
+        connections[definition["connection_id"]] = connection
+    if hook_spec["reset_trace_after_construction"]:
+        for scope in scopes.values():
+            scope.hook_trace.clear()
+
+    stored_connections: dict[Any, str] = {}
+    connections_by_key_id: dict[str, Any] = {}
+
+    def run_actions(actions: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        results: list[dict[str, Any]] = []
+        for action_index, action in enumerate(actions):
+            operation = action["operation"]
+            if operation == "compare-connections":
+                result = _probe(
+                    lambda action=action: (
+                        connections[action["left"]] == connections[action["right"]]
+                    )
+                )
+            elif operation == "compare-scope-values":
+                result = _probe(
+                    lambda action=action: (
+                        connections[action["left"]].scope == connections[action["right"]].scope
+                    )
+                )
+            elif operation == "probe-hashability":
+
+                def probe_hashability(action: dict[str, Any] = action) -> bool:
+                    hash(connections[action["connection"]])
+                    return True
+
+                result = _probe(probe_hashability)
+            elif operation == "store-connection-key":
+
+                def store_connection_key(action: dict[str, Any] = action) -> None:
+                    connection = connections[action["connection"]]
+                    stored_connections[connection] = action["key_id"]
+                    connections_by_key_id[action["key_id"]] = connection
+
+                result = _probe(store_connection_key)
+            elif operation == "contains-connection-key":
+
+                def contains_connection_key(action: dict[str, Any] = action) -> bool:
+                    connection = connections[action["connection"]]
+                    key_id = action["key_id"]
+                    return (
+                        connection in stored_connections
+                        and stored_connections[connection] == key_id
+                        and connections_by_key_id[key_id] is connection
+                    )
+
+                result = _probe(contains_connection_key)
+            elif operation == "read-scope-hook-trace":
+                result = _probe(
+                    lambda: {scope_id: list(scope.hook_trace) for scope_id, scope in scopes.items()}
+                )
+            else:
+                result = {"outcome": "error", "message": f"Unsupported action: {operation}"}
+            results.append({"action_index": action_index, "operation": operation, **result})
+        return results
+
+    before = run_actions(case["actions_before_mutation"])
+    mutations: list[dict[str, Any]] = []
+    for mutation_index, mutation in enumerate(case["scope_mutations"]):
+        operation = mutation["operation"]
+        if operation == "set-scope-item":
+            result = _probe(
+                lambda mutation=mutation: operator.setitem(
+                    connections[mutation["connection"]].scope,
+                    mutation["key"],
+                    mutation["value"],
+                )
+            )
+        else:
+            result = _probe(
+                lambda mutation=mutation: setattr(
+                    connections[mutation["connection"]],
+                    "scope",
+                    scopes[mutation["scope_id"]],
+                )
+            )
+        mutations.append({"mutation_index": mutation_index, "operation": operation, **result})
+    after = run_actions(case["actions_after_mutation"])
+    value = {"before_mutation": before, "mutations": mutations, "after_mutation": after}
+
+    return {
+        "case_id": case["case_id"],
+        "status": "completed",
+        "observations": [
+            {
+                "step_id": "scope-identity-hash-sequence",
+                "status": "ok",
+                "value": {"scope-identity-hash-sequence": value},
             }
         ],
     }

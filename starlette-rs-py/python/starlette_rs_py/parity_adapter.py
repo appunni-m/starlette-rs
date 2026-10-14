@@ -126,11 +126,19 @@ VALUE_FORMATTING_OPERATION = "value-formatting"
 REQUEST_DEFAULT_RECEIVE_OPERATION = ("starlette.requests.Request", "default-receive")
 REQUEST_CLIENT_OPERATION = ("starlette.requests.Request", "client")
 REQUEST_SCOPE_MAPPING_OPERATION = ("starlette.requests.Request", "scope-mapping")
+REQUEST_IDENTITY_HASH_SEQUENCE_OPERATION = (
+    "starlette.requests.Request",
+    "scope-identity-hash-sequence",
+)
 REQUEST_STATE_READBACK_OPERATION = ("starlette.requests.Request", "state-setdefault-readback")
 REQUEST_HEADER_CACHE_SEQUENCE_OPERATION = ("starlette.requests.Request", "header-cache-sequence")
 REQUEST_COOKIE_CACHE_SEQUENCE_OPERATION = ("starlette.requests.Request", "cookie-cache-sequence")
 REQUEST_CONSTRUCTOR_OPERATION = ("starlette.requests.Request", "constructor-contract")
 WEBSOCKET_SCOPE_MAPPING_OPERATION = ("starlette.websockets.WebSocket", "scope-mapping")
+WEBSOCKET_IDENTITY_HASH_SEQUENCE_OPERATION = (
+    "starlette.websockets.WebSocket",
+    "scope-identity-hash-sequence",
+)
 WEBSOCKET_CONSTRUCTOR_OPERATION = ("starlette.websockets.WebSocket", "constructor-contract")
 WEBSOCKET_DISCONNECT_CONSTRUCTOR_OPERATION = (
     "starlette.websockets.WebSocketDisconnect",
@@ -16877,6 +16885,36 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         from scripts.parity.adapters.request_scope_mapping import run_websocket_scope_mapping_case
 
         return run_websocket_scope_mapping_case(case, WebSocket)
+    if (
+        isinstance(case, dict)
+        and (
+            case.get("surface"),
+            case.get("operation"),
+        )
+        == REQUEST_IDENTITY_HASH_SEQUENCE_OPERATION
+    ):
+        from starlette.requests import Request
+
+        from scripts.parity.adapters.request_scope_mapping import (
+            run_scope_identity_hash_sequence_case,
+        )
+
+        return run_scope_identity_hash_sequence_case(case, Request)
+    if (
+        isinstance(case, dict)
+        and (
+            case.get("surface"),
+            case.get("operation"),
+        )
+        == WEBSOCKET_IDENTITY_HASH_SEQUENCE_OPERATION
+    ):
+        from starlette.websockets import WebSocket
+
+        from scripts.parity.adapters.request_scope_mapping import (
+            run_scope_identity_hash_sequence_case,
+        )
+
+        return run_scope_identity_hash_sequence_case(case, WebSocket)
     if (
         isinstance(case, dict)
         and (case.get("surface"), case.get("operation")) == WEBSOCKET_CONSTRUCTOR_OPERATION

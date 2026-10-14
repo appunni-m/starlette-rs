@@ -677,6 +677,14 @@ REQUEST_CONNECTION_PROPERTIES_REQUIREMENTS = {
 REQUEST_HEADER_CACHE_SEQUENCE_OPERATION = ("starlette.requests.Request", "header-cache-sequence")
 REQUEST_COOKIE_CACHE_SEQUENCE_OPERATION = ("starlette.requests.Request", "cookie-cache-sequence")
 REQUEST_SCOPE_MAPPING_OPERATION = ("starlette.requests.Request", "scope-mapping")
+REQUEST_IDENTITY_HASH_SEQUENCE_OPERATION = (
+    "starlette.requests.Request",
+    "scope-identity-hash-sequence",
+)
+WEBSOCKET_IDENTITY_HASH_SEQUENCE_OPERATION = (
+    "starlette.websockets.WebSocket",
+    "scope-identity-hash-sequence",
+)
 REQUEST_STATE_READBACK_OPERATION = (
     "starlette.requests.Request",
     "state-setdefault-readback",
@@ -691,6 +699,14 @@ REQUEST_HEADER_CACHE_SEQUENCE_CASE_KEYS = (CASE_KEYS - {"steps", "execution_sche
     "scope",
     "replacement_scope",
     "actions",
+}
+SCOPE_IDENTITY_HASH_SEQUENCE_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
+    "scopes",
+    "scope_mapping",
+    "connections",
+    "actions_before_mutation",
+    "scope_mutations",
+    "actions_after_mutation",
 }
 REQUEST_COOKIE_CACHE_SEQUENCE_REQUIREMENT = "starlette.request.cookies-cache-semantics"
 REQUEST_COOKIE_CACHE_SEQUENCE_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
@@ -712,6 +728,14 @@ WEBSOCKET_SCOPE_MAPPING_OPERATION = ("starlette.websockets.WebSocket", "scope-ma
 WEBSOCKET_SCOPE_MAPPING_REQUIREMENTS = {
     "minimal_scope": "starlette.websockets.WebSocket.scope-mapping.minimal-websocket-scope",
     "identity": "starlette.websockets.WebSocket.scope-mapping.object-identity",
+}
+SCOPE_IDENTITY_HASH_SEQUENCE_REQUIREMENTS = {
+    REQUEST_IDENTITY_HASH_SEQUENCE_OPERATION: (
+        "starlette.requests.Request.scope-identity-hash-sequence.mutable-scope-identity"
+    ),
+    WEBSOCKET_IDENTITY_HASH_SEQUENCE_OPERATION: (
+        "starlette.websockets.WebSocket.scope-identity-hash-sequence.mutable-scope-identity"
+    ),
 }
 WEBSOCKET_HEADERS_REQUIREMENT = "starlette.websockets.WebSocket.headers.case-insensitive-multidict"
 WEBSOCKET_CONSTRUCTOR_OPERATION = (
@@ -842,6 +866,7 @@ WSGI_MODULE_IMPORT_OPERATION = (WSGI_BOUNDARY_SURFACE, "module-import-warning")
 WSGI_BOUNDARY_OPERATIONS = {WSGI_BUILD_ENVIRON_OPERATION, WSGI_MODULE_IMPORT_OPERATION}
 WSGI_BOUNDARY_REQUIREMENTS = {
     "scope-projection": f"{WSGI_BOUNDARY_SURFACE}.build-environ.scope-projection",
+    "query-string-ascii-decoding": f"{WSGI_BOUNDARY_SURFACE}.build-environ.query-string-ascii-decoding",
     "root-path-stripping": f"{WSGI_BOUNDARY_SURFACE}.build-environ.root-path-stripping",
     "header-projection": f"{WSGI_BOUNDARY_SURFACE}.build-environ.header-projection",
     "duplicate-header-joining": f"{WSGI_BOUNDARY_SURFACE}.build-environ.duplicate-header-joining",
@@ -972,6 +997,8 @@ PYTHON_VERSION_MATRIX_OPERATIONS = {
     URL_COMPONENTS_OPERATION,
     (EXCEPTION_VALUES_SURFACE, VALUE_FORMATTING_OPERATION),
     REQUEST_SCOPE_MAPPING_OPERATION,
+    REQUEST_IDENTITY_HASH_SEQUENCE_OPERATION,
+    WEBSOCKET_IDENTITY_HASH_SEQUENCE_OPERATION,
     REQUEST_STATE_READBACK_OPERATION,
     ("starlette.datastructures.FormData", "multidict-lookups"),
     ("starlette.datastructures.FormData", "close-lifecycle"),
@@ -3236,6 +3263,8 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                 or key == REQUEST_HEADER_CACHE_SEQUENCE_OPERATION
                 or key == REQUEST_COOKIE_CACHE_SEQUENCE_OPERATION
                 or key == REQUEST_SCOPE_MAPPING_OPERATION
+                or key == REQUEST_IDENTITY_HASH_SEQUENCE_OPERATION
+                or key == WEBSOCKET_IDENTITY_HASH_SEQUENCE_OPERATION
                 or key == REQUEST_STATE_READBACK_OPERATION
                 or key == REQUEST_CONSTRUCTOR_OPERATION
                 or key == WEBSOCKET_SCOPE_MAPPING_OPERATION
@@ -3523,6 +3552,8 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                                 REQUEST_HEADER_CACHE_SEQUENCE_OPERATION,
                                 REQUEST_COOKIE_CACHE_SEQUENCE_OPERATION,
                                 REQUEST_SCOPE_MAPPING_OPERATION,
+                                REQUEST_IDENTITY_HASH_SEQUENCE_OPERATION,
+                                WEBSOCKET_IDENTITY_HASH_SEQUENCE_OPERATION,
                                 REQUEST_STATE_READBACK_OPERATION,
                                 REQUEST_CONSTRUCTOR_OPERATION,
                                 WEBSOCKET_SCOPE_MAPPING_OPERATION,
@@ -22812,6 +22843,13 @@ def _validate_case_payload(
         isinstance(case, dict)
         and (case.get("surface"), case.get("operation")) == WEBSOCKET_SCOPE_MAPPING_OPERATION
     )
+    is_scope_identity_hash_sequence = isinstance(case, dict) and (
+        case.get("surface"),
+        case.get("operation"),
+    ) in {
+        REQUEST_IDENTITY_HASH_SEQUENCE_OPERATION,
+        WEBSOCKET_IDENTITY_HASH_SEQUENCE_OPERATION,
+    }
     is_websocket_constructor = (
         isinstance(case, dict)
         and (case.get("surface"), case.get("operation")) == WEBSOCKET_CONSTRUCTOR_OPERATION
@@ -22920,6 +22958,8 @@ def _validate_case_payload(
         if is_websocket_scope_mapping
         else (CASE_KEYS - {"steps", "execution_schedule"}) | {"scope", "constructor_probes"}
         if is_websocket_constructor
+        else SCOPE_IDENTITY_HASH_SEQUENCE_CASE_KEYS
+        if is_scope_identity_hash_sequence
         else WEBSOCKET_CASE_KEYS
         if is_websocket
         else HTTP_ENDPOINT_CASE_KEYS
@@ -23144,6 +23184,10 @@ def _validate_case_payload(
     if is_websocket_scope_mapping:
         _exact(case, expected_case_keys, "WebSocket scope-mapping case")
         _validate_websocket_scope_mapping_case(case)
+        return case
+    if is_scope_identity_hash_sequence:
+        _exact(case, expected_case_keys, "scope identity/hash sequence case")
+        _validate_scope_identity_hash_sequence_case(case)
         return case
     if is_websocket_constructor:
         _exact(case, expected_case_keys, "WebSocket constructor case")
@@ -30016,6 +30060,239 @@ def _validate_request_cookie_cache_sequence_case(case: dict[str, Any]) -> None:
         raise ContractError("Request cookie-cache covers must match the supplied action sequence")
 
 
+def _validate_scope_identity_hash_sequence_case(case: dict[str, Any]) -> None:
+    operation_key = (case["surface"], case["operation"])
+    if case["target_profiles"] != list(PYTHON_PROFILE_IDS):
+        raise ContractError("scope identity/hash parity targets all supported Python profiles")
+    if case["assets"] != [] or case["observations"] != ["scope-identity-hash-sequence"]:
+        raise ContractError(
+            "scope identity/hash cases select their declared sequence without assets"
+        )
+    expected_requirement = SCOPE_IDENTITY_HASH_SEQUENCE_REQUIREMENTS[operation_key]
+    if set(case["covers"]) != {expected_requirement}:
+        raise ContractError("scope identity/hash case must cover its declared identity requirement")
+    if not case["case_id"].startswith(f"{case['surface']}.scope-identity-hash-sequence."):
+        raise ContractError("scope identity/hash case ID must bind to its public operation")
+
+    scope_type = (
+        "http" if operation_key == REQUEST_IDENTITY_HASH_SEQUENCE_OPERATION else "websocket"
+    )
+    scopes = _exact(
+        case["scopes"],
+        {"primary", "peer", "replacement"},
+        "scope identity/hash scopes",
+    )
+    expected_scope_keys = (
+        {"type", "method", "path"}
+        if scope_type == "http"
+        else {
+            "type",
+            "path",
+            "headers",
+        }
+    )
+    for scope_id, scope_value in scopes.items():
+        scope = _exact(scope_value, expected_scope_keys, f"scope identity/hash {scope_id} scope")
+        if scope["type"] != scope_type:
+            raise ContractError("scope identity/hash input must match the public connection type")
+        path = _string(scope["path"], f"scope identity/hash {scope_id}.path")
+        if not path.startswith("/"):
+            raise ContractError("scope identity/hash paths must be absolute")
+        if scope_type == "http":
+            _string(scope["method"], f"scope identity/hash {scope_id}.method")
+        elif not isinstance(scope["headers"], list):
+            raise ContractError("WebSocket identity/hash headers must be an array")
+    if scopes["primary"]["path"] != scopes["peer"]["path"]:
+        raise ContractError("scope identity/hash primary and peer scopes must start equivalent")
+    if scopes["replacement"]["path"] == scopes["primary"]["path"]:
+        raise ContractError("scope identity/hash replacement must differ from the original scopes")
+
+    mapping_spec = _exact(
+        case["scope_mapping"],
+        {"container", "reset_trace_after_construction", "equality_hook", "hash_hook"},
+        "scope identity/hash mapping",
+    )
+    if (
+        mapping_spec["container"] != "recording-user-dict"
+        or mapping_spec["reset_trace_after_construction"] is not True
+    ):
+        raise ContractError("scope identity/hash cases require a trace-reset recording UserDict")
+    for hook_name in ("equality_hook", "hash_hook"):
+        hook = _exact(
+            mapping_spec[hook_name],
+            {"behavior", "exception_type", "message"},
+            f"scope identity/hash {hook_name}",
+        )
+        if hook["behavior"] != "raise" or hook["exception_type"] != "RuntimeError":
+            raise ContractError("scope mapping hooks must raise the declared RuntimeError")
+        _string(hook["message"], f"scope identity/hash {hook_name}.message")
+
+    connections: dict[str, str] = {}
+    raw_connections = case["connections"]
+    if not isinstance(raw_connections, list) or len(raw_connections) < 2:
+        raise ContractError("scope identity/hash input requires at least two connections")
+    for index, raw_connection in enumerate(raw_connections):
+        connection = _exact(
+            raw_connection,
+            {"connection_id", "scope_id"},
+            f"scope identity/hash connections[{index}]",
+        )
+        connection_id = _string(connection["connection_id"], "scope identity/hash connection ID")
+        scope_id = _string(connection["scope_id"], "scope identity/hash connection scope ID")
+        if connection_id in connections or scope_id not in scopes:
+            raise ContractError(
+                "scope identity/hash connections must use unique IDs and known scopes"
+            )
+        connections[connection_id] = scope_id
+    if set(connections) != {"primary", "peer"}:
+        raise ContractError("scope identity/hash inputs require primary and peer connections")
+
+    stored_key_ids: set[str] = set()
+
+    def validate_actions(actions: Any, *, phase: str) -> set[str]:
+        if not isinstance(actions, list) or not actions:
+            raise ContractError(f"scope identity/hash {phase} actions must be a non-empty array")
+        operations: set[str] = set()
+        for index, raw_action in enumerate(actions):
+            if not isinstance(raw_action, dict):
+                raise ContractError(f"scope identity/hash {phase} action must be a record")
+            operation = _string(raw_action.get("operation"), "scope identity/hash action.operation")
+            operations.add(operation)
+            action_context = f"scope identity/hash {phase} actions[{index}]"
+            if operation in {"compare-connections", "compare-scope-values"}:
+                action = _exact(raw_action, {"operation", "left", "right"}, action_context)
+                for name in ("left", "right"):
+                    if _string(action[name], f"{action_context}.{name}") not in connections:
+                        raise ContractError(
+                            "scope identity/hash comparisons must reference known connections"
+                        )
+                if operation == "compare-scope-values" and phase != "after mutation":
+                    raise ContractError(
+                        "scope values may only be compared after the declared mutation"
+                    )
+            elif operation == "probe-hashability":
+                action = _exact(raw_action, {"operation", "connection"}, action_context)
+                if _string(action["connection"], f"{action_context}.connection") not in connections:
+                    raise ContractError(
+                        "scope identity/hash probes must reference known connections"
+                    )
+            elif operation == "store-connection-key":
+                if phase != "before mutation":
+                    raise ContractError(
+                        "connection keys must be stored before the declared mutation"
+                    )
+                action = _exact(
+                    raw_action,
+                    {"operation", "connection", "key_id"},
+                    action_context,
+                )
+                if _string(action["connection"], f"{action_context}.connection") not in connections:
+                    raise ContractError(
+                        "scope identity/hash key stores must reference known connections"
+                    )
+                key_id = _string(action["key_id"], f"{action_context}.key_id")
+                if key_id in stored_key_ids:
+                    raise ContractError("scope identity/hash key IDs must be unique")
+                stored_key_ids.add(key_id)
+            elif operation == "contains-connection-key":
+                if phase != "after mutation":
+                    raise ContractError(
+                        "connection keys must be observed after the declared mutation"
+                    )
+                action = _exact(
+                    raw_action,
+                    {"operation", "connection", "key_id"},
+                    action_context,
+                )
+                if _string(action["connection"], f"{action_context}.connection") not in connections:
+                    raise ContractError(
+                        "scope identity/hash key probes must reference known connections"
+                    )
+                if _string(action["key_id"], f"{action_context}.key_id") not in stored_key_ids:
+                    raise ContractError(
+                        "scope identity/hash key probes must reference a stored key"
+                    )
+            elif operation == "read-scope-hook-trace":
+                _exact(raw_action, {"operation"}, action_context)
+                if phase != "after mutation":
+                    raise ContractError(
+                        "scope mapping hooks are observed after the declared mutation"
+                    )
+            else:
+                raise ContractError(
+                    f"scope identity/hash action operation {operation!r} is unsupported"
+                )
+        return operations
+
+    before_operations = validate_actions(case["actions_before_mutation"], phase="before mutation")
+    required_before = {"compare-connections", "probe-hashability", "store-connection-key"}
+    if not required_before <= before_operations:
+        raise ContractError(
+            "scope identity/hash pre-mutation actions must compare and store identity"
+        )
+
+    mutations = case["scope_mutations"]
+    if not isinstance(mutations, list) or not mutations:
+        raise ContractError("scope identity/hash mutations must be a non-empty array")
+    mutation_operations: set[str] = set()
+    for index, raw_mutation in enumerate(mutations):
+        if not isinstance(raw_mutation, dict):
+            raise ContractError("scope identity/hash mutation must be a record")
+        operation = _string(raw_mutation.get("operation"), "scope identity/hash mutation.operation")
+        mutation_context = f"scope identity/hash scope_mutations[{index}]"
+        mutation_operations.add(operation)
+        if operation == "set-scope-item":
+            mutation = _exact(
+                raw_mutation,
+                {"operation", "connection", "key", "value"},
+                mutation_context,
+            )
+            if _string(mutation["connection"], f"{mutation_context}.connection") not in connections:
+                raise ContractError(
+                    "scope identity/hash mutations must reference known connections"
+                )
+            _string(mutation["key"], f"{mutation_context}.key")
+            if mutation["key"] in {"type", "headers"}:
+                raise ContractError(
+                    "scope identity/hash mutation must preserve connection type and headers"
+                )
+            _string(mutation["value"], f"{mutation_context}.value")
+        elif operation == "replace-scope":
+            mutation = _exact(
+                raw_mutation,
+                {"operation", "connection", "scope_id"},
+                mutation_context,
+            )
+            if _string(mutation["connection"], f"{mutation_context}.connection") not in connections:
+                raise ContractError(
+                    "scope identity/hash mutations must reference known connections"
+                )
+            scope_id = _string(mutation["scope_id"], f"{mutation_context}.scope_id")
+            if scope_id not in scopes:
+                raise ContractError(
+                    "scope identity/hash replacement must reference a supplied scope"
+                )
+        else:
+            raise ContractError(
+                f"scope identity/hash mutation operation {operation!r} is unsupported"
+            )
+    if not {"set-scope-item", "replace-scope"} <= mutation_operations:
+        raise ContractError("scope identity/hash input must mutate and replace a connection scope")
+
+    after_operations = validate_actions(case["actions_after_mutation"], phase="after mutation")
+    required_after = {
+        "compare-scope-values",
+        "compare-connections",
+        "probe-hashability",
+        "contains-connection-key",
+        "read-scope-hook-trace",
+    }
+    if not required_after <= after_operations:
+        raise ContractError(
+            "scope identity/hash post-mutation actions must observe values and identity"
+        )
+
+
 def _validate_request_scope_mapping_case(case: dict[str, Any]) -> None:
     if case["target_profiles"] != list(PYTHON_PROFILE_IDS):
         raise ContractError("Request scope mapping parity targets all supported Python profiles")
@@ -31853,6 +32130,9 @@ def _wsgi_build_environ_semantic_coverage(case: dict[str, Any]) -> set[str]:
     }
     if core_fields <= set(probes):
         covered.add(WSGI_BOUNDARY_REQUIREMENTS["scope-projection"])
+    query_string = base64.b64decode(scope["query_string_base64"], validate=True)
+    if "QUERY_STRING" in probes and any(byte > 0x7F for byte in query_string):
+        covered.add(WSGI_BOUNDARY_REQUIREMENTS["query-string-ascii-decoding"])
     raw_headers = scope.get("headers_base64_pairs", [])
     headers = []
     for pair in raw_headers:
@@ -31925,12 +32205,10 @@ def _validate_wsgi_scope(scope_input: Any, body_base64: Any) -> dict[str, Any]:
     if "root_path" in scope:
         _string(scope["root_path"], "build_environ scope.root_path")
     try:
-        base64.b64decode(scope["query_string_base64"], validate=True).decode("ascii")
+        base64.b64decode(scope["query_string_base64"], validate=True)
         base64.b64decode(body_base64, validate=True)
     except (ValueError, TypeError, UnicodeDecodeError) as exc:
-        raise ContractError(
-            "build_environ body and query must be valid ASCII/base64 input"
-        ) from exc
+        raise ContractError("build_environ body and query must be valid base64 input") from exc
     raw_headers = scope.get("headers_base64_pairs", [])
     if not isinstance(raw_headers, list):
         raise ContractError("build_environ scope headers must be an array")

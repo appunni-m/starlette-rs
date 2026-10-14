@@ -399,6 +399,9 @@ fn unquote_cookie_value(value: &str) -> String {
         return value.to_owned();
     };
 
+    // Match Python 3.12's `http.cookies._unquote` substitution: valid three-digit
+    // octal escapes decode first; otherwise a backslash quotes one non-LF
+    // character, while a backslash before LF or at the end stays literal.
     let mut result = String::with_capacity(inner.len());
     let mut characters = inner.chars().peekable();
     while let Some(character) = characters.next() {

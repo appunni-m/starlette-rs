@@ -1,0 +1,263 @@
+{
+  "schema": "migration-parity/parity-input@55",
+  "cases": [
+    {
+      "case_id": "starlette.requests.Request.scope-identity-hash-sequence.mutable-scope",
+      "surface": "starlette.requests.Request",
+      "operation": "scope-identity-hash-sequence",
+      "covers": [
+        "starlette.requests.Request.scope-identity-hash-sequence.mutable-scope-identity"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "scopes": {
+        "primary": {
+          "type": "http",
+          "method": "GET",
+          "path": "/same"
+        },
+        "peer": {
+          "type": "http",
+          "method": "GET",
+          "path": "/same"
+        },
+        "replacement": {
+          "type": "http",
+          "method": "GET",
+          "path": "/mutated"
+        }
+      },
+      "scope_mapping": {
+        "container": "recording-user-dict",
+        "reset_trace_after_construction": true,
+        "equality_hook": {
+          "behavior": "raise",
+          "exception_type": "RuntimeError",
+          "message": "scope mapping equality hook invoked"
+        },
+        "hash_hook": {
+          "behavior": "raise",
+          "exception_type": "RuntimeError",
+          "message": "scope mapping hash hook invoked"
+        }
+      },
+      "connections": [
+        {
+          "connection_id": "primary",
+          "scope_id": "primary"
+        },
+        {
+          "connection_id": "peer",
+          "scope_id": "peer"
+        }
+      ],
+      "actions_before_mutation": [
+        {
+          "operation": "compare-connections",
+          "left": "primary",
+          "right": "primary"
+        },
+        {
+          "operation": "compare-connections",
+          "left": "primary",
+          "right": "peer"
+        },
+        {
+          "operation": "probe-hashability",
+          "connection": "primary"
+        },
+        {
+          "operation": "store-connection-key",
+          "connection": "primary",
+          "key_id": "primary"
+        }
+      ],
+      "scope_mutations": [
+        {
+          "operation": "set-scope-item",
+          "connection": "primary",
+          "key": "path",
+          "value": "/mutated"
+        },
+        {
+          "operation": "set-scope-item",
+          "connection": "peer",
+          "key": "path",
+          "value": "/mutated"
+        },
+        {
+          "operation": "replace-scope",
+          "connection": "primary",
+          "scope_id": "replacement"
+        }
+      ],
+      "actions_after_mutation": [
+        {
+          "operation": "compare-scope-values",
+          "left": "primary",
+          "right": "peer"
+        },
+        {
+          "operation": "compare-connections",
+          "left": "primary",
+          "right": "peer"
+        },
+        {
+          "operation": "probe-hashability",
+          "connection": "primary"
+        },
+        {
+          "operation": "contains-connection-key",
+          "connection": "primary",
+          "key_id": "primary"
+        },
+        {
+          "operation": "contains-connection-key",
+          "connection": "peer",
+          "key_id": "primary"
+        },
+        {
+          "operation": "read-scope-hook-trace"
+        }
+      ],
+      "observations": [
+        "scope-identity-hash-sequence"
+      ]
+    },
+    {
+      "case_id": "starlette.websockets.WebSocket.scope-identity-hash-sequence.mutable-scope",
+      "surface": "starlette.websockets.WebSocket",
+      "operation": "scope-identity-hash-sequence",
+      "covers": [
+        "starlette.websockets.WebSocket.scope-identity-hash-sequence.mutable-scope-identity"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "scopes": {
+        "primary": {
+          "type": "websocket",
+          "path": "/same",
+          "headers": []
+        },
+        "peer": {
+          "type": "websocket",
+          "path": "/same",
+          "headers": []
+        },
+        "replacement": {
+          "type": "websocket",
+          "path": "/mutated",
+          "headers": []
+        }
+      },
+      "scope_mapping": {
+        "container": "recording-user-dict",
+        "reset_trace_after_construction": true,
+        "equality_hook": {
+          "behavior": "raise",
+          "exception_type": "RuntimeError",
+          "message": "scope mapping equality hook invoked"
+        },
+        "hash_hook": {
+          "behavior": "raise",
+          "exception_type": "RuntimeError",
+          "message": "scope mapping hash hook invoked"
+        }
+      },
+      "connections": [
+        {
+          "connection_id": "primary",
+          "scope_id": "primary"
+        },
+        {
+          "connection_id": "peer",
+          "scope_id": "peer"
+        }
+      ],
+      "actions_before_mutation": [
+        {
+          "operation": "compare-connections",
+          "left": "primary",
+          "right": "primary"
+        },
+        {
+          "operation": "compare-connections",
+          "left": "primary",
+          "right": "peer"
+        },
+        {
+          "operation": "probe-hashability",
+          "connection": "primary"
+        },
+        {
+          "operation": "store-connection-key",
+          "connection": "primary",
+          "key_id": "primary"
+        }
+      ],
+      "scope_mutations": [
+        {
+          "operation": "set-scope-item",
+          "connection": "primary",
+          "key": "path",
+          "value": "/mutated"
+        },
+        {
+          "operation": "set-scope-item",
+          "connection": "peer",
+          "key": "path",
+          "value": "/mutated"
+        },
+        {
+          "operation": "replace-scope",
+          "connection": "primary",
+          "scope_id": "replacement"
+        }
+      ],
+      "actions_after_mutation": [
+        {
+          "operation": "compare-scope-values",
+          "left": "primary",
+          "right": "peer"
+        },
+        {
+          "operation": "compare-connections",
+          "left": "primary",
+          "right": "peer"
+        },
+        {
+          "operation": "probe-hashability",
+          "connection": "primary"
+        },
+        {
+          "operation": "contains-connection-key",
+          "connection": "primary",
+          "key_id": "primary"
+        },
+        {
+          "operation": "contains-connection-key",
+          "connection": "peer",
+          "key_id": "primary"
+        },
+        {
+          "operation": "read-scope-hook-trace"
+        }
+      ],
+      "observations": [
+        "scope-identity-hash-sequence"
+      ]
+    }
+  ]
+}

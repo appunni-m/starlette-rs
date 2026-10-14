@@ -355,6 +355,7 @@
       "build/parity/inputs/parity/asgi-call-boundary.json",
       "build/parity/inputs/parity/request-runtime.json",
       "build/parity/inputs/parity/request-cookies-quoted-unrecognized-escapes.json",
+      "build/parity/inputs/parity/connection-identity-hash-mutable-scope.json",
       "build/parity/inputs/parity/request-stream-terminal-throw.json",
       "build/parity/inputs/parity/request-stream-receive-cancellation-retry.json",
       "build/parity/inputs/parity/request-stream-receive-error-retry.json",
@@ -710,6 +711,7 @@
       "build/parity/inputs/parity/streaming-response-iterator-oserror-asgi24.json",
       "build/parity/inputs/parity/wsgi-build-environ-exact-root-path.json",
       "build/parity/inputs/parity/wsgi-build-environ-header-unpack-order.json",
+      "build/parity/inputs/parity/wsgi-build-environ-encoding-boundary.json",
       "build/parity/inputs/parity/wsgi-sender-protocols.json",
       "build/parity/inputs/parity/wsgi-empty-response-iterable.json",
       "build/parity/inputs/parity/asgi-http-exception-explicit-integer-status.json",
@@ -9336,20 +9338,36 @@
               {
                 "id": "path",
                 "style": "positional",
-                "value_types": ["string"],
-                "omission": {"kind": "required"}
+                "value_types": [
+                  "string"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
               },
               {
                 "id": "protocol",
                 "style": "positional_or_keyword",
-                "value_types": ["string", "null", "integer"],
-                "omission": {"kind": "literal", "value": ""}
+                "value_types": [
+                  "string",
+                  "null",
+                  "integer"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": ""
+                }
               },
               {
                 "id": "host",
                 "style": "positional_or_keyword",
-                "value_types": ["string"],
-                "omission": {"kind": "literal", "value": ""}
+                "value_types": [
+                  "string"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": ""
+                }
               }
             ],
             "result": {
@@ -9357,13 +9375,21 @@
               "observations": [
                 {
                   "path": "constructor-results",
-                  "value_types": ["sequence"],
-                  "comparison": {"kind": "ordered"}
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
                 }
               ],
               "error": {
                 "fields": [],
-                "message": {"mode": "exact", "transforms": [], "reason": null}
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
               }
             }
           },
@@ -9382,7 +9408,9 @@
               "target_id": "python-package",
               "path": "starlette.datastructures.URLPath.__new__",
               "signature": "__new__(cls, path, protocol='', host='') -> URLPath",
-              "support": {"status": "supported"}
+              "support": {
+                "status": "supported"
+              }
             }
           ],
           "requirements": [
@@ -9390,13 +9418,19 @@
               "id": "starlette.datastructures.URLPath.constructor.protocol-validation",
               "dimension": "boundary",
               "description": "Accept only the empty, http, and websocket protocol values and preserve the pinned assertion behavior for invalid protocol objects. Pinned source: starlette/datastructures.py:175-179.",
-              "lanes": ["parity"],
-              "target_profiles": ["python-package-cpython312"]
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
             }
           ],
           "parity": {
             "applicability": "required",
-            "target_profiles": ["python-package-cpython312"]
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
           },
           "coverage": {
             "applicability": "not_applicable",
@@ -15074,6 +15108,17 @@
               ]
             },
             {
+              "id": "starlette.middleware.wsgi.build-environ.query-string-ascii-decoding",
+              "dimension": "error_path",
+              "description": "Reject a query_string containing a non-ASCII byte while building QUERY_STRING. Pinned source: starlette/middleware/wsgi.py::build_environ decodes query_string as ASCII.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.middleware.wsgi.build-environ.root-path-stripping",
               "dimension": "parameter_combination",
               "description": "Remove the supplied root_path prefix from PATH_INFO while preserving SCRIPT_NAME; source: tests/middleware/test_wsgi.py::test_build_environ.",
@@ -18597,6 +18642,158 @@
           "benchmark": {
             "applicability": "not_applicable",
             "reason": "The Rust-native API does not expose a Python Request over an arbitrary mapping scope."
+          }
+        },
+        {
+          "id": "scope-identity-hash-sequence",
+          "kind": "protocol_operation",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.requests.HTTPConnection.__eq__, HTTPConnection.__hash__, and Request.scope replacement",
+            "signature": "Construct Request objects over input-defined mutable scope mappings, compare identity, store them as dictionary keys, mutate and replace their scopes, and observe identity/hash stability and scope-hook outcomes.",
+            "parameters": [
+              {
+                "id": "scopes",
+                "style": "keyword",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "scope_mapping",
+                "style": "keyword",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "connections",
+                "style": "keyword",
+                "value_types": [
+                  "sequence"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "actions_before_mutation",
+                "style": "keyword",
+                "value_types": [
+                  "sequence"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "scope_mutations",
+                "style": "keyword",
+                "value_types": [
+                  "sequence"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "actions_after_mutation",
+                "style": "keyword",
+                "value_types": [
+                  "sequence"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "scope-identity-hash-sequence",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "The Rust-native API does not expose the Python Request object or its mutable ASGI scope mapping.",
+                "blocker": "This operation compares Python object identity and Python scope mapping hooks through the compatibility surface."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.requests.Request and its inherited object identity methods",
+              "signature": "Request(scope) retains the supplied mapping and uses HTTPConnection object identity and hashing.",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.requests.Request.scope-identity-hash-sequence.mutable-scope-identity",
+              "dimension": "boundary",
+              "description": "Preserve Request object identity and hashing independently of mutable scope values, scope replacement, and scope equality/hash hooks. Pinned source: starlette/requests.py::HTTPConnection explicitly assigns object.__eq__ and object.__hash__; Request inherits those methods.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython310",
+              "python-package-cpython311",
+              "python-package-cpython312",
+              "python-package-cpython313",
+              "python-package-cpython314"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "Input-only Request identity comparisons make no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "Python Request object identity over mutable scopes is outside the active ASGI benchmark workloads."
           }
         },
         {
@@ -25818,14 +26015,22 @@
               {
                 "id": "actions",
                 "style": "positional",
-                "value_types": ["sequence"],
-                "omission": {"kind": "required"}
+                "value_types": [
+                  "sequence"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
               },
               {
                 "id": "lookups",
                 "style": "positional",
-                "value_types": ["sequence"],
-                "omission": {"kind": "required"}
+                "value_types": [
+                  "sequence"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
               }
             ],
             "result": {
@@ -25833,18 +26038,30 @@
               "observations": [
                 {
                   "path": "registration-state",
-                  "value_types": ["sequence"],
-                  "comparison": {"kind": "ordered"}
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
                 },
                 {
                   "path": "reverse-url-results",
-                  "value_types": ["sequence"],
-                  "comparison": {"kind": "ordered"}
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
                 }
               ],
               "error": {
                 "fields": [],
-                "message": {"mode": "exact", "transforms": [], "reason": null}
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
               }
             }
           },
@@ -25863,7 +26080,9 @@
               "target_id": "python-package",
               "path": "starlette.routing.Router.add_route and starlette.routing.Router.add_websocket_route",
               "signature": "add_route(path, route, methods=None, name=None, include_in_schema=True); add_websocket_route(path, route, name=None)",
-              "support": {"status": "supported"}
+              "support": {
+                "status": "supported"
+              }
             }
           ],
           "requirements": [
@@ -25871,27 +26090,41 @@
               "id": "starlette.routing.Router.add_route.registration",
               "dimension": "success_path",
               "description": "Append a named HTTP Route through Router.add_route and expose it through the Router route collection and reverse lookup. Pinned source: starlette/routing.py:733-746.",
-              "lanes": ["parity"],
-              "target_profiles": ["python-package-cpython312"]
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
             },
             {
               "id": "starlette.routing.Router.add_websocket_route.registration",
               "dimension": "success_path",
               "description": "Append a named WebSocketRoute through Router.add_websocket_route and expose its websocket URLPath through reverse lookup. Pinned source: starlette/routing.py:748-757.",
-              "lanes": ["parity"],
-              "target_profiles": ["python-package-cpython312"]
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
             },
             {
               "id": "starlette.routing.Router.registration-sequence.reverse-lookup-miss",
               "dimension": "error_path",
               "description": "Router.url_path_for raises NoMatchFound for an input name that no registered route accepts. Pinned source: starlette/routing.py:414-424; tests/test_routing.py::test_url_path_for.",
-              "lanes": ["parity"],
-              "target_profiles": ["python-package-cpython312"]
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
             }
           ],
           "parity": {
             "applicability": "required",
-            "target_profiles": ["python-package-cpython312"]
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
           },
           "coverage": {
             "applicability": "not_applicable",
@@ -30902,6 +31135,158 @@
           "benchmark": {
             "applicability": "not_applicable",
             "reason": "Python mapping protocol compatibility is outside the active ASGI benchmark workloads."
+          }
+        },
+        {
+          "id": "scope-identity-hash-sequence",
+          "kind": "protocol_operation",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.requests.HTTPConnection.__eq__ and __hash__ inherited by starlette.websockets.WebSocket across mutable scope changes",
+            "signature": "Construct WebSocket objects over input-defined mutable scope mappings, compare identity, store them as dictionary keys, mutate and replace their scopes, and observe identity/hash stability and scope-hook outcomes.",
+            "parameters": [
+              {
+                "id": "scopes",
+                "style": "keyword",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "scope_mapping",
+                "style": "keyword",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "connections",
+                "style": "keyword",
+                "value_types": [
+                  "sequence"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "actions_before_mutation",
+                "style": "keyword",
+                "value_types": [
+                  "sequence"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "scope_mutations",
+                "style": "keyword",
+                "value_types": [
+                  "sequence"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "actions_after_mutation",
+                "style": "keyword",
+                "value_types": [
+                  "sequence"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "scope-identity-hash-sequence",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "The Rust-native API does not expose the Python WebSocket object or its mutable ASGI scope mapping.",
+                "blocker": "This operation compares Python object identity and Python scope mapping hooks through the compatibility surface."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.websockets.WebSocket and inherited object identity methods",
+              "signature": "WebSocket(scope, receive, send) retains the supplied mapping and inherits HTTPConnection object identity and hashing.",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.websockets.WebSocket.scope-identity-hash-sequence.mutable-scope-identity",
+              "dimension": "boundary",
+              "description": "Preserve WebSocket object identity and hashing independently of mutable scope values, scope replacement, and scope equality/hash hooks. Pinned source: starlette/requests.py::HTTPConnection explicitly assigns object.__eq__ and object.__hash__; WebSocket inherits those methods.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython310",
+              "python-package-cpython311",
+              "python-package-cpython312",
+              "python-package-cpython313",
+              "python-package-cpython314"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "Input-only WebSocket identity comparisons make no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "Python WebSocket object identity over mutable scopes is outside the active ASGI benchmark workloads."
           }
         }
       ]
