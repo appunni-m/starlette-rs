@@ -12,6 +12,8 @@ from starlette.types import Scope
 
 MAX_BODY_SIZE_SCOPE_KEY = _core.MAX_BODY_SIZE_SCOPE_KEY
 _BODY_LIMIT_RESPONDER_SCOPE_KEY = _core.BODY_LIMIT_RESPONDER_SCOPE_KEY
+_Missing = _core._Missing
+_MISSING = _core.BODY_LIMIT_MISSING
 
 
 # Rust uses these Python marker types to preserve exception identity at the boundary.

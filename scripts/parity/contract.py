@@ -2101,6 +2101,8 @@ BODY_LIMIT_REQUIREMENTS = {
     "nested-limits": "starlette.middleware.body_limit.RequestBodyLimitMiddleware.nested-limits",
     "already-started-propagation": "starlette.middleware.body_limit.RequestBodyLimitMiddleware.already-started-propagation",
     "scope-restoration": "starlette.middleware.body_limit.RequestBodyLimitMiddleware.scope-restoration",
+    "scope-header-list-writeback": "starlette.middleware.body_limit.RequestBodyLimitMiddleware.scope-header-list-writeback",
+    "scope-type-python-inequality": "starlette.middleware.body_limit.RequestBodyLimitMiddleware.scope-type-python-inequality",
     "non-http-pass-through": "starlette.middleware.body_limit.RequestBodyLimitMiddleware.non-http-pass-through",
     "non-request-message-pass-through": "starlette.middleware.body_limit.RequestBodyLimitMiddleware.non-request-message-pass-through",
 }
@@ -23465,6 +23467,12 @@ def _validate_case_payload(
         else CASE_KEYS
     )
     if (
+        isinstance(case, dict)
+        and case.get("surface") == BODY_LIMIT_SURFACE
+        and "scope_headers_container" in case
+    ):
+        expected_case_keys = expected_case_keys | {"scope_headers_container"}
+    if (
         (is_testclient_lifespan or is_testclient_websocket)
         and isinstance(case, dict)
         and "environment" in case
@@ -30402,7 +30410,7 @@ def _validate_body_limit_action_sequence(value: Any, context: str, depth: int = 
         if not isinstance(raw_action, dict) or not isinstance(raw_action.get("action"), str):
             raise ContractError(f"{action_context} must declare an action")
         kind = raw_action["action"]
-        if kind in {"receive", "observe-scope"}:
+        if kind in {"receive", "observe-scope", "observe-scope-headers"}:
             _exact(raw_action, {"action"}, action_context)
         elif kind == "send":
             action = _exact(raw_action, {"action", "message"}, action_context)
@@ -38958,7 +38966,24 @@ def _validate_body_limit_case_stimulus(case: dict[str, Any]) -> None:
     scope_value = dispatch_args["scope"]["value"]
     if not isinstance(scope_value, dict):
         raise ContractError("body-limit scope input must be a record")
+    raw_scope_type = scope_value.get("type")
+    scope_type_probe = isinstance(raw_scope_type, dict)
+    if scope_type_probe:
+        scope_type_value, _ = _middleware_scope_type_value(
+            raw_scope_type,
+            "body-limit scope.type",
+            "not_equal_result",
+        )
+    else:
+        scope_type_value = raw_scope_type
+    scope_headers_container = case.get("scope_headers_container", "list")
+    if scope_headers_container not in {"list", "tuple"}:
+        raise ContractError("body-limit scope_headers_container must be list or tuple")
+    if scope_headers_container == "tuple" and scope_type_value != "http":
+        raise ContractError("body-limit tuple headers require an HTTP scope")
     scope_check = dict(scope_value)
+    if scope_type_probe:
+        scope_check["type"] = scope_type_value
     prior_scope_limit = scope_check.pop("preexisting_max_body_size", _BODY_LIMIT_MISSING)
     if prior_scope_limit is not _BODY_LIMIT_MISSING and (
         prior_scope_limit is not None
@@ -39001,10 +39026,19 @@ def _body_limit_semantic_coverage(case: dict[str, Any]) -> set[str]:
     }
     app_actions = constructor_args["app"]["actions"]
     scope = dispatch_args["scope"]
+    scope_headers_container = case.get("scope_headers_container", "list")
     coverage = {BODY_LIMIT_REQUIREMENT_CONSTRUCTION, BODY_LIMIT_REQUIREMENTS["scope-restoration"]}
     if case.get("scope_container") == "user-dict":
         coverage.add(MUTABLE_SCOPE_REQUIREMENTS[BODY_LIMIT_SURFACE])
-    if scope["type"] != "http":
+    raw_scope_type = scope["type"]
+    if isinstance(raw_scope_type, dict):
+        subclass = raw_scope_type["str_subclass"]
+        is_http = subclass["value"] == "http" and subclass["not_equal_result"] is False
+        if subclass["not_equal_result"] is True:
+            coverage.add(BODY_LIMIT_REQUIREMENTS["scope-type-python-inequality"])
+    else:
+        is_http = raw_scope_type == "http"
+    if not is_http:
         coverage.add(BODY_LIMIT_REQUIREMENTS["non-http-pass-through"])
         return coverage
 
@@ -39040,6 +39074,10 @@ def _body_limit_semantic_coverage(case: dict[str, Any]) -> set[str]:
         return flattened
 
     actions = flatten(app_actions, max_body_size)
+    if scope_headers_container == "tuple" and any(
+        action["action"] == "observe-scope-headers" for action, _limit in actions
+    ):
+        coverage.add(BODY_LIMIT_REQUIREMENTS["scope-header-list-writeback"])
     receive_actions = [action for action, _ in actions if action["action"] == "receive"]
     if declared_length is not None and declared_length > max_body_size and receive_actions:
         coverage.add(BODY_LIMIT_REQUIREMENTS["content-length-precheck"])

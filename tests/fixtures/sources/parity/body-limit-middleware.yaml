@@ -1569,6 +1569,115 @@
           "headers"
         ]
       }
+    },
+    {
+      "case_id": "starlette.middleware.body_limit.RequestBodyLimitMiddleware.__call__.scope-type-python-inequality",
+      "surface": "starlette.middleware.body_limit.RequestBodyLimitMiddleware",
+      "operation": "__call__",
+      "covers": [
+        "starlette.middleware.body_limit.RequestBodyLimitMiddleware.construct",
+        "starlette.middleware.body_limit.RequestBodyLimitMiddleware.scope-restoration",
+        "starlette.middleware.body_limit.RequestBodyLimitMiddleware.non-http-pass-through",
+        "starlette.middleware.body_limit.RequestBodyLimitMiddleware.scope-type-python-inequality"
+      ],
+      "execution_schedule": [
+        "dispatch"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "steps": [
+        {
+          "step_id": "middleware",
+          "surface": "starlette.middleware.body_limit.RequestBodyLimitMiddleware",
+          "operation": "__init__",
+          "receiver": null,
+          "arguments": {
+            "app": {
+              "kind": "literal",
+              "value": {
+                "kind": "asgi-body-limit-script",
+                "actions": [
+                  {
+                    "action": "observe-scope"
+                  }
+                ]
+              }
+            },
+            "max_body_size": {
+              "kind": "literal",
+              "value": 5
+            }
+          }
+        },
+        {
+          "step_id": "dispatch",
+          "surface": "starlette.middleware.body_limit.RequestBodyLimitMiddleware",
+          "operation": "__call__",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "middleware"
+          },
+          "arguments": {
+            "scope": {
+              "kind": "literal",
+              "value": {
+                "type": {
+                  "str_subclass": {
+                    "value": "http",
+                    "not_equal_result": true
+                  }
+                },
+                "asgi": {
+                  "version": "3.0",
+                  "spec_version": "2.4"
+                },
+                "http_version": "1.1",
+                "method": "POST",
+                "scheme": "http",
+                "path": "/upload",
+                "raw_path_base64": "L3VwbG9hZA==",
+                "query_string_base64": "",
+                "root_path": "",
+                "headers_base64_pairs": [
+                  [
+                    "Y29udGVudC1sZW5ndGg=",
+                    "Ng=="
+                  ]
+                ],
+                "client": [
+                  "127.0.0.1",
+                  12345
+                ],
+                "server": [
+                  "testserver",
+                  80
+                ]
+              }
+            },
+            "receive": {
+              "kind": "literal",
+              "value": [
+                {
+                  "type": "http.request",
+                  "body_base64": "",
+                  "more_body": false
+                }
+              ]
+            },
+            "send": {
+              "kind": "literal",
+              "value": {
+                "kind": "capture-asgi-send"
+              }
+            }
+          }
+        }
+      ],
+      "observations": [
+        "dispatch"
+      ]
     }
   ]
 }

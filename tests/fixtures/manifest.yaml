@@ -12422,6 +12422,28 @@
               ]
             },
             {
+              "id": "starlette.middleware.body_limit.RequestBodyLimitMiddleware.scope-header-list-writeback",
+              "dimension": "boundary",
+              "description": "Normalize tuple scope headers to a list during Content-Length lookup and expose the list to the downstream ASGI application. Pinned source: starlette/middleware/body_limit.py::_get_content_length; starlette/datastructures.py::Headers.__init__.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.body_limit.RequestBodyLimitMiddleware.scope-type-python-inequality",
+              "dimension": "boundary",
+              "description": "Select non-HTTP pass-through using Python's scope type inequality operation, including a string subclass whose __ne__ reports that its 'http' value is not HTTP. Pinned source: starlette/middleware/body_limit.py::RequestBodyLimitMiddleware.__call__.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.middleware.body_limit.RequestBodyLimitMiddleware.non-http-pass-through",
               "dimension": "protocol_variant",
               "description": "Forward non-HTTP scopes without inserting body-limit responder or maximum-size keys.",

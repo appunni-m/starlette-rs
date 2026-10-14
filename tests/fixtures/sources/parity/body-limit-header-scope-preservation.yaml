@@ -9,7 +9,8 @@
         "starlette.middleware.body_limit.RequestBodyLimitMiddleware.construct",
         "starlette.middleware.body_limit.RequestBodyLimitMiddleware.scope-restoration",
         "starlette.middleware.body_limit.RequestBodyLimitMiddleware.content-length-precheck",
-        "starlette.middleware.body_limit.RequestBodyLimitMiddleware.mutable-scope-mapping"
+        "starlette.middleware.body_limit.RequestBodyLimitMiddleware.mutable-scope-mapping",
+        "starlette.middleware.body_limit.RequestBodyLimitMiddleware.scope-header-list-writeback"
       ],
       "execution_schedule": [
         "dispatch"
@@ -32,6 +33,9 @@
                 "actions": [
                   {
                     "action": "observe-scope"
+                  },
+                  {
+                    "action": "observe-scope-headers"
                   },
                   {
                     "action": "receive"
@@ -107,6 +111,7 @@
       "observations": [
         "dispatch"
       ],
+      "scope_headers_container": "tuple",
       "scope_container": "user-dict",
       "scope_observation": {
         "keys": [

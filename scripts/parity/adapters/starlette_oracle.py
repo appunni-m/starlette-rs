@@ -7438,6 +7438,14 @@ def _materialize_body_limit_script(spec: dict[str, Any], trace: list[dict[str, A
                         "responder_present": _BODY_LIMIT_RESPONDER_SCOPE_KEY in scope,
                     }
                 )
+            elif kind == "observe-scope-headers":
+                _strict_object(action, {"action"}, f"body-limit action[{index}]")
+                trace.append(
+                    {
+                        "event": "scope-headers",
+                        "container": type(scope["headers"]).__name__,
+                    }
+                )
             elif kind in {"raise-http-exception", "raise-runtime-error"}:
                 operation, exception = _materialize_asgi_action(action, index)
                 if operation != "raise":
@@ -7481,6 +7489,8 @@ def _run_body_limit_case(case: dict[str, Any]) -> dict[str, Any]:
     scope_spec = dict(dispatch_arguments["scope"])
     prior_scope_limit = scope_spec.pop("preexisting_max_body_size", _MISSING)
     scope = _make_scope(scope_spec)
+    if case.get("scope_headers_container", "list") == "tuple":
+        scope["headers"] = tuple(scope["headers"])
     if prior_scope_limit is not _MISSING:
         scope[MAX_BODY_SIZE_SCOPE_KEY] = prior_scope_limit
     scope = _scope_container(scope, case.get("scope_container", "dict"))

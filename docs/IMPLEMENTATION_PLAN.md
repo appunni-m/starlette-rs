@@ -8,18 +8,22 @@ Pydantic are outside this project's scope.
 ## Execution order and current status
 
 Current implementation checkpoint (2026-10-15): the active manifest validates
-2,487 cases from 405 parity input sources and two benchmark inputs, with 150
-Starlette compatibility operations, 13 Rust-native operations, and 1,366
-parity requirements. `make source-inventory` passes; its generated atlas
+2,490 cases from 405 parity input sources and two benchmark inputs, with 150
+Starlette compatibility operations, 13 Rust-native operations, and 1,371
+parity requirements. `make source-inventory-check` passes; its generated atlas
 reports 861 upstream source rows, 807 input mappings, 54 source-backed
 `not_applicable` rows, and zero fixture-backlog rows. These are inventory
 counts, not parity results. The current input-only batch adds multipart
 context-manager cleanup for uploaded files and a precise unsupported-async
 Jinja context-processor contract, and maps Request.form, Request.state, client,
 exception-header, status, and body-limit source rows to exact active
-requirements. These comparisons remain unexecuted. An in-memory full-scope
-audit still reports 56 uncertain API candidates and 28 uncertain source rows;
-the generated fixture backlog is empty and no unmatched source mappings were
+requirements. The body-limit runtime now uses Python inequality for scope-type
+dispatch, calls the scope mapping's `get` with a Rust-backed missing sentinel,
+and writes normalized list headers back during Content-Length lookup. Inputs
+compare tuple-header coercion, UserDict operations, and a custom `__ne__` scope
+type against the pinned source. These comparisons remain unexecuted. An
+in-memory full-scope audit still reports 56 uncertain API
+candidates and 28 uncertain source rows; no unmatched source mappings were
 reported. Full parity, full-suite coverage, and the complete benchmark workload
 remain deferred until implementation across feature families is complete.
 

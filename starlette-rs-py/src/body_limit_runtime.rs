@@ -22,6 +22,11 @@ const REQUEST_BODY_LIMIT_STATUS_CODE: u16 = 413;
 const REQUEST_BODY_LIMIT_DETAIL: &str = "Content Too Large";
 
 pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
+    module.add_class::<PyBodyLimitMissing>()?;
+    module.add(
+        "BODY_LIMIT_MISSING",
+        Py::new(module.py(), PyBodyLimitMissing)?,
+    )?;
     module.add_class::<PyRequestBodyLimitResponder>()?;
     module.add_class::<PyRequestBodyLimitMiddlewareRuntime>()?;
     module.add("MAX_BODY_SIZE_SCOPE_KEY", MAX_BODY_SIZE_SCOPE_KEY)?;
@@ -30,6 +35,17 @@ pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
         BODY_LIMIT_RESPONDER_SCOPE_KEY,
     )?;
     Ok(())
+}
+
+#[pyclass(name = "_Missing", module = "starlette.middleware.body_limit")]
+struct PyBodyLimitMissing;
+
+#[pymethods]
+impl PyBodyLimitMissing {
+    #[new]
+    fn new() -> Self {
+        Self
+    }
 }
 
 /// The public responder type keeps the source-visible mutable state attributes.
@@ -336,8 +352,8 @@ impl AwaitableStateMachine for BodyLimitMiddlewareCall {
 impl BodyLimitMiddlewareCall {
     fn start(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
         let scope_type = self.scope.bind(py).get_item("type")?;
-        let is_http = scope_type
-            .rich_compare("http", CompareOp::Eq)?
+        let is_http = !scope_type
+            .rich_compare("http", CompareOp::Ne)?
             .is_truthy()?;
         let awaitable = if is_http {
             let responder_type = py
@@ -427,11 +443,14 @@ impl AwaitableStateMachine for BodyLimitCallMachine {
 impl BodyLimitCallMachine {
     fn start(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
         let scope = self.scope.bind(py);
-        let had_previous_scope_limit = scope
-            .call_method1("__contains__", (MAX_BODY_SIZE_SCOPE_KEY,))?
-            .is_truthy()?;
+        let missing = py
+            .import("starlette.middleware.body_limit")?
+            .getattr("_MISSING")?;
+        let previous_scope_limit =
+            scope.call_method1("get", (MAX_BODY_SIZE_SCOPE_KEY, &missing))?;
+        let had_previous_scope_limit = !previous_scope_limit.is(&missing);
         let previous_scope_limit = if had_previous_scope_limit {
-            Some(scope.get_item(MAX_BODY_SIZE_SCOPE_KEY)?.unbind())
+            Some(previous_scope_limit.unbind())
         } else {
             None
         };
@@ -691,6 +710,7 @@ impl BodyLimitSendMachine {
 fn get_content_length(py: Python<'_>, scope: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
     let headers = scope.get_item("headers")?;
     let headers_list = py.import("builtins")?.getattr("list")?.call1((headers,))?;
+    scope.set_item("headers", &headers_list)?;
     let int = py.import("builtins")?.getattr("int")?;
     for pair in headers_list.try_iter()? {
         let pair = pair?;
