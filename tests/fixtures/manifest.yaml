@@ -631,6 +631,7 @@
       "build/parity/inputs/parity/response-variants.json",
       "build/parity/inputs/parity/response-mutable-scope.json",
       "build/parity/inputs/parity/response-typing-consumer.json",
+      "build/parity/inputs/parity/response-content-length-status-304.json",
       "build/parity/inputs/parity/templating-protocols.json",
       "build/parity/inputs/parity/optional-imports.json",
       "build/parity/inputs/parity/optional-testclient-httpx-fallback.json",
@@ -20892,6 +20893,18 @@
               "id": "starlette.responses.Response.asgi-call.populate-headers",
               "dimension": "parameter_combination",
               "description": "Construct Response(content=\"hi\", headers={}, media_type=\"text/html\") and observe the direct HTTP ASGI call. Upstream: starlette/responses.py::Response.init_headers; tests/test_responses.py::test_populate_headers.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.Response.asgi-call.status-304-content-length-suppression",
+              "dimension": "parameter_combination",
+              "description": "Construct Response(content=\"not modified payload\", status_code=304, media_type=\"text/plain\") and observe its direct HTTP ASGI headers and body. Pinned source: starlette/responses.py:66-73.",
               "lanes": [
                 "parity"
               ],

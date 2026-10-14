@@ -6797,8 +6797,14 @@ def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
             )
         if case["target_profiles"] != ["python-package-cpython312"]:
             raise ContractError("Response background cancellation is Python-package-only")
-    if type(case["status_code"]) is not int or case["status_code"] not in {200, 204}:
-        raise ContractError("Response status_code must be 200 or 204 for this input slice")
+    if type(case["status_code"]) is not int or case["status_code"] not in {
+        200,
+        204,
+        304,
+    }:
+        raise ContractError(
+            "Response status_code must be 200, 204, or 304 for this input slice"
+        )
     header_pairs = case["header_pairs"]
     if not isinstance(header_pairs, list) or any(
         not isinstance(pair, list)
@@ -6872,6 +6878,7 @@ def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
                 ("hi", 200, None),
                 ("hi", 200, "text/html"),
                 ("hello, world", 200, "text/plain"),
+                ("not modified payload", 304, "text/plain"),
                 ("input", 200, "text/plain"),
                 ("task initiated", 200, "text/plain"),
             }
