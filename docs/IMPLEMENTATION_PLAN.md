@@ -7,6 +7,26 @@ Pydantic are outside this project's scope.
 
 ## Execution order and current status
 
+Current implementation checkpoint (2026-10-15): the active manifest validates
+2,468 cases from 403 parity input sources and two benchmark inputs, with 150
+Starlette compatibility operations, 13 Rust-native operations, and 1,359 parity
+requirements. `make source-inventory` passes; its generated atlas reports 861
+upstream source rows, 807 input mappings, 54 source-backed `not_applicable`
+rows, and zero fixture-backlog rows. These are inventory counts, not parity
+results. Full parity, full-suite coverage, and the complete benchmark workload
+remain deferred until implementation across feature families is complete.
+
+This checkpoint adds three implementation slices. Schema converter removal
+now preserves lone-surrogate paths while matching Python `str.isalnum()` for
+Unicode `\w`; its input-only schema case is registered. SessionMiddleware
+now compares response-start message types with Python equality, with a
+`str`-subclass stimulus registered in both live adapters. TestClient now
+exposes Rust-backed `lifespan`, `wait_startup`, and `wait_shutdown` methods,
+including startup/shutdown failure-message validation; an input-only public
+API inspection covers their signatures. All new comparisons remain unexecuted
+until the grouped parity phase. The pinned denominators remain 514 upstream
+test functions and 24 documented pages.
+
 The recent implementation checkpoint adds
 input-driven boundaries for `MultiDict.setlist` protocol order, synchronous
 `HTTPEndpoint` dispatch, direct `Router` route registration, and `URLPath`

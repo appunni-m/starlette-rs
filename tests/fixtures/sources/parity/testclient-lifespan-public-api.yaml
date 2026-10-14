@@ -1,0 +1,51 @@
+{
+  "schema": "migration-parity/parity-input@55",
+  "cases": [
+    {
+      "case_id": "starlette.public-api-inspection.testclient-lifespan-methods",
+      "surface": "starlette",
+      "operation": "public-api-inspection",
+      "covers": [
+        "starlette.compatibility.full-public-surface"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "public-api-inspection"
+      ],
+      "inspection": {
+        "modules": [
+          {
+            "name": "starlette.testclient",
+            "symbols": [
+              {
+                "name": "TestClient.lifespan",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "TestClient.wait_startup",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "TestClient.wait_shutdown",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              }
+            ]
+          }
+        ],
+        "identity_checks": []
+      }
+    }
+  ]
+}

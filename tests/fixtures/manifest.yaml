@@ -741,7 +741,10 @@
       "build/parity/inputs/parity/route-table-custom-converters.json",
       "build/parity/inputs/parity/native-service-custom-converters.json",
       "build/parity/inputs/parity/config-typing-consumer.json",
-      "build/parity/inputs/parity/request-state-setdefault-readback.json"
+      "build/parity/inputs/parity/request-state-setdefault-readback.json",
+      "build/parity/inputs/parity/schemas-lone-surrogate-boundary.json",
+      "build/parity/inputs/parity/session-response-start-type-python-equality.json",
+      "build/parity/inputs/parity/testclient-lifespan-public-api.json"
     ],
     "coverage": [],
     "benchmark": [
@@ -15757,6 +15760,17 @@
               ]
             },
             {
+              "id": "starlette.middleware.sessions.SessionMiddleware.session-workflow.response-start-message-type-python-equality",
+              "dimension": "boundary",
+              "description": "Use Python rich equality on the ASGI response-start message type before adding session headers, preserving `str` subclass behavior. Upstream: starlette/middleware/sessions.py:58-62.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.middleware.sessions.SessionMiddleware.session-workflow.no-access-no-vary",
               "dimension": "boundary",
               "description": "Do not add Vary: Cookie when the session is not accessed by the request action. Upstream: tests/middleware/test_session.py:227-248.",
@@ -27676,6 +27690,17 @@
               "id": "starlette.schemas.SchemaGenerator.get_schema",
               "dimension": "success_path",
               "description": "Copy the base schema, preserve existing paths, and insert documented route operations at converted paths. Upstream: starlette/schemas.py:128-148.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.schemas.BaseSchemaGenerator._remove_converter.unpaired-surrogate",
+              "dimension": "boundary",
+              "description": "Preserve lone-surrogate code points while removing a path converter with the pinned Unicode `\\w` semantics. Upstream: starlette/schemas.py:33,89-96.",
               "lanes": [
                 "parity"
               ],

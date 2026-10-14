@@ -6980,10 +6980,17 @@ def _run_session_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                 if response_start["headers_representation"] == "tuple"
                 else header_pairs
             )
+            response_message_type = (
+                _materialize_scope_type_spec(response_start["type"])[0]
+                if "type" in response_start
+                else None
+            )
 
             async def send_response_start_headers(message: dict[str, Any]) -> None:
                 if message["type"] == "http.response.start":
                     message["headers"] = response_headers
+                    if "type" in response_start:
+                        message["type"] = response_message_type
                 await send(message)
 
             response_send = send_response_start_headers
@@ -7070,7 +7077,13 @@ def _run_session_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                 if "response_start" in action:
                     response_start = _strict_object(
                         action["response_start"],
-                        {"headers_representation", "headers_base64_pairs"},
+                        {"headers_representation", "headers_base64_pairs"}
+                        | (
+                            {"type"}
+                            if isinstance(action["response_start"], dict)
+                            and "type" in action["response_start"]
+                            else set()
+                        ),
                         "SessionMiddleware response-start headers",
                     )
                     if response_start["headers_representation"] not in {"list", "tuple"}:

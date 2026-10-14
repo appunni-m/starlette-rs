@@ -16032,7 +16032,36 @@ def _run_session_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                 "mutation_result": current["mutation_result"],
             }
         )
-        await response(scope, receive, send)
+        response_send = send
+        if "response_start" in action:
+            response_start = action["response_start"]
+            header_pairs = [
+                (
+                    _decode_base64(pair[0], "SessionMiddleware response-start header name"),
+                    _decode_base64(pair[1], "SessionMiddleware response-start header value"),
+                )
+                for pair in response_start["headers_base64_pairs"]
+            ]
+            response_headers = (
+                tuple(header_pairs)
+                if response_start["headers_representation"] == "tuple"
+                else header_pairs
+            )
+            response_message_type = (
+                _materialize_scope_type_spec(response_start["type"])[0]
+                if "type" in response_start
+                else None
+            )
+
+            async def send_response_start_headers(message: dict[str, Any]) -> None:
+                if message["type"] == "http.response.start":
+                    message["headers"] = response_headers
+                    if "type" in response_start:
+                        message["type"] = response_message_type
+                await send(message)
+
+            response_send = send_response_start_headers
+        await response(scope, receive, response_send)
 
     middleware = SessionMiddleware(
         app,
@@ -16142,7 +16171,43 @@ def _run_session_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                     raise ValueError(
                         "session view, clear, and no-access actions require HTTP scopes"
                     )
-                _exact_object(action, {"kind"}, "SessionMiddleware action")
+                action_keys = (
+                    {"kind", "response_start"}
+                    if action["kind"] == "view" and "response_start" in action
+                    else {"kind"}
+                )
+                _exact_object(action, action_keys, "SessionMiddleware action")
+                if "response_start" in action:
+                    response_start = _exact_object(
+                        action["response_start"],
+                        {"headers_representation", "headers_base64_pairs"}
+                        | (
+                            {"type"}
+                            if isinstance(action["response_start"], dict)
+                            and "type" in action["response_start"]
+                            else set()
+                        ),
+                        "SessionMiddleware response-start headers",
+                    )
+                    if response_start["headers_representation"] not in {"list", "tuple"}:
+                        raise ValueError(
+                            "SessionMiddleware response-start headers representation must be list or tuple"
+                        )
+                    if not isinstance(response_start["headers_base64_pairs"], list):
+                        raise ValueError(
+                            "SessionMiddleware response-start headers must be an array"
+                        )
+                    for pair in response_start["headers_base64_pairs"]:
+                        if (
+                            not isinstance(pair, list)
+                            or len(pair) != 2
+                            or any(not isinstance(part, str) for part in pair)
+                        ):
+                            raise ValueError(
+                                "SessionMiddleware response-start headers must be base64 string pairs"
+                            )
+                        _decode_base64(pair[0], "SessionMiddleware response-start header name")
+                        _decode_base64(pair[1], "SessionMiddleware response-start header value")
             elif action["kind"] == "update":
                 if scope_type != "http":
                     raise ValueError("session update actions require HTTP scopes")

@@ -6,8 +6,8 @@ use pyo3::basic::CompareOp;
 use pyo3::class::gc::{PyTraverseError, PyVisit};
 use pyo3::create_exception;
 use pyo3::exceptions::{
-    PyAssertionError, PyException, PyKeyError, PyModuleNotFoundError, PyRuntimeError,
-    PyStopIteration, PyValueError,
+    PyAssertionError, PyAttributeError, PyException, PyKeyError, PyModuleNotFoundError,
+    PyRuntimeError, PyStopIteration, PyValueError,
 };
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyDict, PyInt, PyList, PyModule, PyString, PyTuple};
@@ -323,6 +323,94 @@ impl AwaitableStateMachine for LifespanTaskMachine {
     }
 }
 
+#[derive(Clone, Copy)]
+enum LifespanHandshakePhase {
+    SendRequest,
+    ReceiveResponse,
+    ReceiveFailureResponse,
+}
+
+struct LifespanHandshakeMachine {
+    startup: bool,
+    send: Py<PyAny>,
+    receive: Py<PyAny>,
+    task: Py<PyAny>,
+    phase: LifespanHandshakePhase,
+}
+
+impl AwaitableStateMachine for LifespanHandshakeMachine {
+    fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.send)?;
+        visit.call(&self.receive)?;
+        visit.call(&self.task)?;
+        Ok(())
+    }
+
+    fn finalize_on_drop(&self) -> bool {
+        true
+    }
+
+    fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
+        match (self.phase, input) {
+            (LifespanHandshakePhase::SendRequest, MachineResume::Start) => {
+                let request = PyDict::new(py);
+                request.set_item(
+                    "type",
+                    if self.startup {
+                        "lifespan.startup"
+                    } else {
+                        "lifespan.shutdown"
+                    },
+                )?;
+                let awaitable = self.send.bind(py).call1((request,))?;
+                self.phase = LifespanHandshakePhase::ReceiveResponse;
+                Ok(MachineAction::Await(awaitable.unbind()))
+            }
+            (LifespanHandshakePhase::ReceiveResponse, MachineResume::Value(message)) => {
+                if message.bind(py).is_none() {
+                    self.task.bind(py).call_method0("result")?;
+                }
+
+                let (complete_type, failed_type) = if self.startup {
+                    ("lifespan.startup.complete", "lifespan.startup.failed")
+                } else {
+                    ("lifespan.shutdown.complete", "lifespan.shutdown.failed")
+                };
+                let message_type = message.bind(py).get_item("type")?;
+                let accepted_types = PyTuple::new(py, [complete_type, failed_type])?;
+                if !accepted_types
+                    .call_method1("__contains__", (&message_type,))?
+                    .is_truthy()?
+                {
+                    return Err(PyAssertionError::new_err(()));
+                }
+                if message_type
+                    .rich_compare(failed_type, CompareOp::Eq)?
+                    .is_truthy()?
+                {
+                    let awaitable = self.receive.bind(py).call0()?;
+                    self.phase = LifespanHandshakePhase::ReceiveFailureResponse;
+                    Ok(MachineAction::Await(awaitable.unbind()))
+                } else {
+                    Ok(MachineAction::Complete(py.None()))
+                }
+            }
+            (LifespanHandshakePhase::ReceiveFailureResponse, MachineResume::Value(message)) => {
+                if message.bind(py).is_none() {
+                    self.task.bind(py).call_method0("result")?;
+                }
+                Ok(MachineAction::Complete(py.None()))
+            }
+            (_, MachineResume::AsyncIterationComplete(error) | MachineResume::Error(error)) => {
+                Err(error)
+            }
+            (_, MachineResume::Start | MachineResume::Value(_)) => Err(PyRuntimeError::new_err(
+                "TestClient lifespan handshake resumed in an invalid phase",
+            )),
+        }
+    }
+}
+
 impl TestClientLifespan {
     fn start(
         py: Python<'_>,
@@ -478,6 +566,30 @@ impl TestClientLifespan {
             let _ = self.receive_lifespan_message(py, portal.bind(py), receive_stream)?;
         }
         Ok(())
+    }
+
+    fn handshake_awaitable(&self, py: Python<'_>, startup: bool) -> PyResult<Py<PyAny>> {
+        let send_stream = self.client_to_app_send.as_ref().ok_or_else(|| {
+            PyAttributeError::new_err("'TestClient' object has no attribute 'stream_receive'")
+        })?;
+        let receive_stream = self.app_to_client_receive.as_ref().ok_or_else(|| {
+            PyAttributeError::new_err("'TestClient' object has no attribute 'stream_send'")
+        })?;
+        let task = self.task.as_ref().ok_or_else(|| {
+            PyAttributeError::new_err("'TestClient' object has no attribute 'task'")
+        })?;
+        let send = send_stream.bind(py).getattr("send")?.unbind();
+        let receive = receive_stream.bind(py).getattr("receive")?.unbind();
+        into_sendable_python_awaitable(
+            py,
+            LifespanHandshakeMachine {
+                startup,
+                send,
+                receive,
+                task: task.clone_ref(py),
+                phase: LifespanHandshakePhase::SendRequest,
+            },
+        )
     }
 
     fn receive_lifespan_message(
@@ -1369,6 +1481,58 @@ impl PyTestClientTransport {
     fn __exit__(slf: Py<Self>, py: Python<'_>, args: &Bound<'_, PyTuple>) -> PyResult<()> {
         let _ = args;
         slf.borrow_mut(py).stop_lifespan(py)
+    }
+
+    fn lifespan(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        let lifespan = self.lifespan.as_ref().ok_or_else(|| {
+            PyAttributeError::new_err("'TestClient' object has no attribute 'stream_receive'")
+        })?;
+        let runner = if is_asgi3(py, self.app.bind(py))? {
+            self.asgi3_runner.clone_ref(py)
+        } else {
+            self.asgi2_runner.clone_ref(py)
+        };
+        let scope = PyDict::new(py);
+        scope.set_item("type", "lifespan")?;
+        scope.set_item("state", self.app_state.bind(py))?;
+        let receive_stream = lifespan.client_to_app_receive.as_ref().ok_or_else(|| {
+            PyAttributeError::new_err("'TestClient' object has no attribute 'stream_receive'")
+        })?;
+        let send_stream = lifespan.app_to_client_send.as_ref().ok_or_else(|| {
+            PyAttributeError::new_err("'TestClient' object has no attribute 'stream_send'")
+        })?;
+        let receive = receive_stream.bind(py).getattr("receive")?.unbind();
+        let send = send_stream.bind(py).getattr("send")?.unbind();
+        let task_callable = Py::new(
+            py,
+            LifespanTaskCallable {
+                runner,
+                app: self.app.clone_ref(py),
+                scope: scope.unbind(),
+                receive,
+                send,
+                completion_send: send_stream.clone_ref(py),
+            },
+        )?;
+        Ok(task_callable.bind(py).call0()?.unbind())
+    }
+
+    fn wait_startup(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        self.lifespan
+            .as_ref()
+            .ok_or_else(|| {
+                PyAttributeError::new_err("'TestClient' object has no attribute 'stream_receive'")
+            })?
+            .handshake_awaitable(py, true)
+    }
+
+    fn wait_shutdown(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        self.lifespan
+            .as_ref()
+            .ok_or_else(|| {
+                PyAttributeError::new_err("'TestClient' object has no attribute 'stream_receive'")
+            })?
+            .handshake_awaitable(py, false)
     }
 
     #[getter]

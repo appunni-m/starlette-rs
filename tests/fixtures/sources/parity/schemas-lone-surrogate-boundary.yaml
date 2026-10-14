@@ -1,0 +1,119 @@
+{
+  "schema": "migration-parity/parity-input@55",
+  "cases": [
+    {
+      "case_id": "starlette.schemas.SchemaGenerator.schema-generation.lone-surrogate-path-preservation",
+      "surface": "starlette.schemas.SchemaGenerator",
+      "operation": "schema-generation",
+      "covers": [
+        "starlette.schemas.SchemaGenerator.get_schema",
+        "starlette.schemas.BaseSchemaGenerator.get_endpoints",
+        "starlette.schemas.BaseSchemaGenerator._remove_converter",
+        "starlette.schemas.BaseSchemaGenerator.parse_docstring.mapping",
+        "starlette.schemas.BaseSchemaGenerator.parse_docstring.delimited-section",
+        "starlette.schemas.BaseSchemaGenerator._remove_converter.unpaired-surrogate"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "base_schema": {
+        "openapi": "3.0.0",
+        "info": {"title": "Lone surrogate path parity", "version": "1.0"}
+      },
+      "routes": [
+        {
+          "kind": "route",
+          "path": "/users/{user_id:int}",
+          "methods": ["GET", "HEAD"],
+          "endpoint": {
+            "kind": "function",
+            "docstring": "Endpoint prose before schema.\n---\nresponses:\n  200:\n    description: User detail\n"
+          }
+        },
+        {
+          "kind": "route",
+          "path": "/head-only",
+          "methods": ["HEAD"],
+          "endpoint": {
+            "kind": "function",
+            "docstring": "responses:\n  200:\n    description: HEAD route\n"
+          }
+        },
+        {
+          "kind": "route",
+          "path": "/hidden",
+          "methods": ["GET"],
+          "include_in_schema": false,
+          "endpoint": {
+            "kind": "function",
+            "docstring": "responses:\n  200:\n    description: Hidden route\n"
+          }
+        },
+        {
+          "kind": "route",
+          "path": "/organizations",
+          "endpoint": {
+            "kind": "class",
+            "handlers": {
+              "get": "responses:\n  200:\n    description: Organization list\n"
+            }
+          }
+        },
+        {
+          "kind": "mount",
+          "path": "/api/{version:int}",
+          "routes": [
+            {
+              "kind": "route",
+              "path": "/status",
+              "methods": ["GET"],
+              "endpoint": {
+                "kind": "function",
+                "docstring": "responses:\n  200:\n    description: Mounted status\n"
+              }
+            }
+          ]
+        },
+        {
+          "kind": "host",
+          "host": "api.example.test",
+          "routes": [
+            {
+              "kind": "mount",
+              "path": "/tenant",
+              "routes": [
+                {
+                  "kind": "route",
+                  "path": "/health",
+                  "methods": ["GET"],
+                  "endpoint": {
+                    "kind": "function",
+                    "docstring": "responses:\n  200:\n    description: Host mounted health\n"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "route",
+          "path": "/literal:\ud87a\udff0}",
+          "methods": ["GET"],
+          "endpoint": {
+            "kind": "function",
+            "docstring": "responses:\n  200:\n    description: Literal Unicode word boundary\n"
+          }
+        },
+        {
+          "kind": "route",
+          "path": "/literal:\ud800}",
+          "methods": ["GET"],
+          "endpoint": {
+            "kind": "function",
+            "docstring": "responses:\n  200:\n    description: Lone surrogate path segment\n"
+          }
+        }
+      ],
+      "observations": ["endpoints", "schema"]
+    }
+  ]
+}

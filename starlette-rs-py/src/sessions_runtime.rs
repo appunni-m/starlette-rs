@@ -566,8 +566,8 @@ impl SessionSendCall {
     fn start(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
         let wrapper = self.wrapper.borrow(py);
         let message = self.message.bind(py);
-        let message_type = message.get_item("type")?.extract::<String>()?;
-        if message_type == "http.response.start" {
+        // Starlette uses Python equality here; preserve overrides on str subclasses.
+        if message.get_item("type")?.eq("http.response.start")? {
             self.apply_session_headers(py, &wrapper, message)?;
         }
         let awaitable = wrapper.send.bind(py).call1((message,))?;

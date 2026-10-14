@@ -8,6 +8,8 @@ use pyo3::exceptions::{PyAssertionError, PyModuleNotFoundError, PyNotImplemented
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList, PyModule, PyString};
 
+use crate::datastructure_runtime::{codepoints_to_python_string, python_string_to_codepoints};
+
 pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(schemas_optional_yaml_module, module)?)?;
     module.add_function(wrap_pyfunction!(schemas_openapi_render, module)?)?;
@@ -200,43 +202,42 @@ fn make_endpoint_info<'py>(
 
 #[pyfunction(name = "_schemas_remove_converter")]
 fn schemas_remove_converter(py: Python<'_>, path: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
-    let path = path.extract::<String>()?;
-    let characters = path.char_indices().collect::<Vec<_>>();
-    let mut normalized = String::with_capacity(path.len());
-    let mut last_copied = 0;
+    // Python strings may contain lone surrogates. Keep code points at the
+    // boundary so path normalization preserves those values instead of
+    // rejecting them while converting to Rust UTF-8.
+    let codepoints = python_string_to_codepoints(path)?;
+    let mut normalized = Vec::with_capacity(codepoints.len());
     let mut index = 0;
 
-    while index < characters.len() {
-        if characters[index].1 == ':' {
+    while index < codepoints.len() {
+        if codepoints[index] == u32::from(b':') {
             let mut end = index + 1;
-            while end < characters.len() && python_word_character(py, characters[end].1)? {
+            while end < codepoints.len() && python_word_codepoint(py, codepoints[end])? {
                 end += 1;
             }
-            if end > index + 1 && end < characters.len() && characters[end].1 == '}' {
-                let start_byte = characters[index].0;
-                let close_byte = characters[end].0;
-                normalized.push_str(&path[last_copied..start_byte]);
-                normalized.push('}');
-                last_copied = close_byte + 1;
+            if end > index + 1 && end < codepoints.len() && codepoints[end] == u32::from(b'}') {
+                normalized.push(u32::from(b'}'));
                 index = end + 1;
                 continue;
             }
         }
+        normalized.push(codepoints[index]);
         index += 1;
     }
-    normalized.push_str(&path[last_copied..]);
-    Ok(PyString::new(py, &normalized).into_any().unbind())
+    Ok(codepoints_to_python_string(py, &normalized)?
+        .into_any()
+        .unbind())
 }
 
-fn python_word_character(py: Python<'_>, character: char) -> PyResult<bool> {
-    if character == '_' || character.is_ascii_alphanumeric() {
+fn python_word_codepoint(py: Python<'_>, codepoint: u32) -> PyResult<bool> {
+    if matches!(codepoint, 0x5f | 0x30..=0x39 | 0x41..=0x5a | 0x61..=0x7a) {
         return Ok(true);
     }
 
     // Python's Unicode `re` defines `\w` using `str.isalnum()` plus `_`.
     // Query that primitive at the boundary because Rust's compiled Unicode
     // tables can classify code points added after the active Python version.
-    let python_character = PyString::new(py, &character.to_string());
+    let python_character = codepoints_to_python_string(py, &[codepoint])?;
     python_character.call_method0("isalnum")?.extract::<bool>()
 }
 

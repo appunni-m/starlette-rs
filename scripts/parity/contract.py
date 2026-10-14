@@ -589,6 +589,7 @@ SESSION_REQUIREMENTS = {
     "union_partial_pair_error": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.in-place-union-partial-pair-error",
     "vary_on_access": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.vary-cookie-on-access",
     "response_start_header_iterable": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.response-start-header-iterable",
+    "message_type_python_equality": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.response-start-message-type-python-equality",
     "no_access": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.no-access-no-vary",
     "set_cookie_modification": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.set-cookie-only-on-modification",
     "clear_existing": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.clear-existing-session",
@@ -13022,7 +13023,13 @@ def _validate_session_workflow_case(case: dict[str, Any]) -> None:
                 )
                 response_start = _exact(
                     action["response_start"],
-                    {"headers_representation", "headers_base64_pairs"},
+                    {"headers_representation", "headers_base64_pairs"}
+                    | (
+                        {"type"}
+                        if isinstance(action["response_start"], dict)
+                        and "type" in action["response_start"]
+                        else set()
+                    ),
                     f"{context}.action.response_start",
                 )
                 representation = _string(
@@ -13037,6 +13044,28 @@ def _validate_session_workflow_case(case: dict[str, Any]) -> None:
                     response_start["headers_base64_pairs"],
                     f"{context}.action.response_start.headers_base64_pairs",
                 )
+                if "type" in response_start:
+                    type_spec = _exact(
+                        response_start["type"],
+                        {"str_subclass"},
+                        f"{context}.action.response_start.type",
+                    )
+                    subclass = _exact(
+                        type_spec["str_subclass"],
+                        {"value", "equal_result"},
+                        f"{context}.action.response_start.type.str_subclass",
+                    )
+                    if (
+                        _string(
+                            subclass["value"],
+                            f"{context}.action.response_start.type.str_subclass.value",
+                        )
+                        != "http.response.start"
+                        or type(subclass["equal_result"]) is not bool
+                    ):
+                        raise ContractError(
+                            "SessionMiddleware response-start type subclass must declare a boolean equality result"
+                        )
             else:
                 action = _exact(action, {"kind"}, f"{context}.action")
         elif action_kind == "update":
@@ -13214,6 +13243,12 @@ def _validate_session_workflow_case(case: dict[str, Any]) -> None:
         for request in requests
     ):
         requirements.add(SESSION_REQUIREMENTS["response_start_header_iterable"])
+    if any(
+        request["action"]["kind"] == "view"
+        and "type" in request["action"].get("response_start", {})
+        for request in requests
+    ):
+        requirements.add(SESSION_REQUIREMENTS["message_type_python_equality"])
     if update_requests:
         requirements.add(SESSION_REQUIREMENTS["set_cookie_modification"])
         if constructor["max_age"] == 14 * 24 * 60 * 60:
@@ -33501,6 +33536,10 @@ def _validate_schema_route_input(
                 selected.add("starlette.schemas.BaseSchemaGenerator.parse_docstring")
             if ":" in item["path"]:
                 selected.add("starlette.schemas.BaseSchemaGenerator._remove_converter")
+            if any(0xD800 <= ord(character) <= 0xDFFF for character in item["path"]):
+                selected.add(
+                    "starlette.schemas.BaseSchemaGenerator._remove_converter.unpaired-surrogate"
+                )
         return selected, handler_count > 0
     if kind in {"mount", "host"}:
         allowed = {"kind", "routes", "path" if kind == "mount" else "host"}
@@ -33637,6 +33676,10 @@ def _validate_schema_case(case: dict[str, Any]) -> None:
             "starlette.schemas.BaseSchemaGenerator._remove_converter",
             "starlette.schemas.BaseSchemaGenerator.parse_docstring",
         }
+        if "starlette.schemas.BaseSchemaGenerator._remove_converter.unpaired-surrogate" in selected:
+            required.add(
+                "starlette.schemas.BaseSchemaGenerator._remove_converter.unpaired-surrogate"
+            )
         if selected != required or not all(
             [
                 has_route,
@@ -33656,6 +33699,10 @@ def _validate_schema_case(case: dict[str, Any]) -> None:
             "starlette.schemas.BaseSchemaGenerator.parse_docstring.mapping",
             "starlette.schemas.BaseSchemaGenerator.parse_docstring.delimited-section",
         }
+        if "starlette.schemas.BaseSchemaGenerator._remove_converter.unpaired-surrogate" in selected:
+            expected.add(
+                "starlette.schemas.BaseSchemaGenerator._remove_converter.unpaired-surrogate"
+            )
         if set(case["covers"]) != expected:
             raise ContractError("SchemaGenerator coverage must match its route input")
         return
