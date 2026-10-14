@@ -1,0 +1,27 @@
+{
+  "schema": "migration-parity/parity-input@52",
+  "cases": [
+    {
+      "case_id": "starlette.config.Config.typing-consumer.call-overloads",
+      "surface": "starlette.config.Config",
+      "operation": "typing-consumer",
+      "covers": [
+        "starlette.config.Config.python-typing-contract"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "observations": [
+        "typing_consumer"
+      ],
+      "typing_consumer": {
+        "source": "from typing_extensions import assert_type\n\nfrom starlette.config import Config\n\n\nconfig = Config(environ={\"STR\": \"some_str_value\", \"STR_CAST\": \"some_str_value\", \"BOOL\": \"true\"})\n\nassert_type(config(\"STR\"), str)\nassert_type(config(\"STR_DEFAULT\", default=\"\"), str)\nassert_type(config(\"STR_CAST\", cast=str), str)\nassert_type(config(\"STR_NONE\", default=None), str | None)\nassert_type(config(\"STR_CAST_NONE\", cast=str, default=None), str | None)\nassert_type(config(\"STR_CAST_STR\", cast=str, default=\"\"), str)\nassert_type(config(\"BOOL\", cast=bool), bool)\nassert_type(config(\"BOOL_DEFAULT\", cast=bool, default=False), bool)\nassert_type(config(\"BOOL_NONE\", cast=bool, default=None), bool | None)\n"
+      }
+    }
+  ]
+}

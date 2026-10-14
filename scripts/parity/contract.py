@@ -84,6 +84,8 @@ RESPONSE_TYPING_CONSUMER_OPERATION = ("starlette.responses.Response", "typing-co
 RESPONSE_TYPING_CONSUMER_REQUIREMENT = (
     "starlette.responses.Response.python-typing-contract.mutable-mapping-scope"
 )
+CONFIG_TYPING_CONSUMER_OPERATION = ("starlette.config.Config", "typing-consumer")
+CONFIG_TYPING_CONSUMER_REQUIREMENT = "starlette.config.Config.python-typing-contract"
 TYPING_CONSUMER_SPECS = {
     APPLICATION_TYPING_CONSUMER_OPERATION: (
         "starlette.applications.Starlette.typing-consumer.public-facade-aliases",
@@ -92,6 +94,10 @@ TYPING_CONSUMER_SPECS = {
     RESPONSE_TYPING_CONSUMER_OPERATION: (
         "starlette.responses.Response.typing-consumer.scope-mutable-mapping",
         RESPONSE_TYPING_CONSUMER_REQUIREMENT,
+    ),
+    CONFIG_TYPING_CONSUMER_OPERATION: (
+        "starlette.config.Config.typing-consumer.call-overloads",
+        CONFIG_TYPING_CONSUMER_REQUIREMENT,
     ),
 }
 TYPING_CONSUMER_OPERATIONS = frozenset(TYPING_CONSUMER_SPECS)

@@ -16,6 +16,7 @@ TYPING_OPERATION = "typing-consumer"
 TYPING_SURFACES = {
     "starlette.applications.Starlette",
     "starlette.responses.Response",
+    "starlette.config.Config",
 }
 TYPING_OBSERVATION = "typing_consumer"
 _DIAGNOSTIC = re.compile(

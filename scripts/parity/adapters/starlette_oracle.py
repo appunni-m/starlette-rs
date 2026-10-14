@@ -15606,6 +15606,7 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
     if (case.get("surface"), case.get("operation")) in {
         ("starlette.applications.Starlette", "typing-consumer"),
         ("starlette.responses.Response", "typing-consumer"),
+        ("starlette.config.Config", "typing-consumer"),
     }:
         from scripts.parity.adapters.application_typing import run_application_typing_case
 

@@ -675,7 +675,8 @@
       "build/parity/inputs/parity/native-service-host-routing.json",
       "build/parity/inputs/parity/native-streaming-response-source.json",
       "build/parity/inputs/parity/route-table-custom-converters.json",
-      "build/parity/inputs/parity/native-service-custom-converters.json"
+      "build/parity/inputs/parity/native-service-custom-converters.json",
+      "build/parity/inputs/parity/config-typing-consumer.json"
     ],
     "coverage": [],
     "benchmark": [
@@ -5705,6 +5706,108 @@
           "benchmark": {
             "applicability": "not_applicable",
             "reason": "This behavior is outside the declared benchmark workloads."
+          }
+        },
+        {
+          "id": "typing-consumer",
+          "kind": "value_operation",
+          "classification": "non_endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.config.Config.__call__ overload inference",
+            "signature": "Mypy consumer(source: str) -> normalized diagnostics",
+            "parameters": [
+              {
+                "id": "source",
+                "style": "option",
+                "value_types": [
+                  "string"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "typing_consumer",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "out_of_scope",
+                "reason": "Python static typing metadata is part of the starlette.* facade contract; the Rust-native API has independent Rust signatures.",
+                "authority": "AGENTS.md Python typing and Rust-native API rules"
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.config.Config.__call__ overloads",
+              "signature": "Pinned Mypy consumer against the source and installed package",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.config.Config.python-typing-contract",
+              "dimension": "type_contract",
+              "description": "Type-check the upstream Config.__call__ overload cases against pinned source and the installed package: inferred str and optional-str results for omitted casts and defaults, explicit str and bool casts, and typed defaults. The consumer uses typing_extensions.assert_type with no expected diagnostics embedded. Pinned source: starlette/config.py:66-92; tests/test_config.py:12-28.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython310",
+              "python-package-cpython311",
+              "python-package-cpython312",
+              "python-package-cpython313",
+              "python-package-cpython314"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "Static consumer type checking makes no runtime code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "Static consumer type checking has no runtime benchmark boundary."
           }
         }
       ]

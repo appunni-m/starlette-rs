@@ -126,6 +126,10 @@
         {
           "operation_id": "constructor-warning",
           "source_path": "starlette.config.Config.__init__"
+        },
+        {
+          "operation_id": "typing-consumer",
+          "source_path": "starlette.config.Config.__call__ overload inference"
         }
       ]
     },
