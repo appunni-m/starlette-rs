@@ -481,6 +481,8 @@
       "build/parity/inputs/parity/mutable-headers-add-vary-header.json",
       "build/parity/inputs/parity/datastructures-state.json",
       "build/parity/inputs/parity/datastructures-multidict.json",
+      "build/parity/inputs/parity/datastructures-multidict-setlist-sequence.json",
+      "build/parity/inputs/parity/routing-method-and-urlpath-boundaries.json",
       "build/parity/inputs/parity/query-params.json",
       "build/parity/inputs/parity/comma-separated-strings.json",
       "build/parity/inputs/parity/file-response.json",
@@ -8442,6 +8444,17 @@
               ]
             },
             {
+              "id": "starlette.datastructures.MultiDict.setlist-sequence-protocol-order",
+              "dimension": "protocol_variant",
+              "description": "Preserve pinned setlist callback order for a Python list subclass: query truthiness first, iterate to replace duplicate values, then separately index values[-1] for the mapping view. Pinned source: starlette/datastructures.py:355-362.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.datastructures.MultiDict.setdefault-and-append",
               "dimension": "parameter_combination",
               "description": "Keep an existing final value for setdefault, append duplicate values, and maintain mapping key insertion order. Pinned source: starlette/datastructures.py:348-365; tests/test_datastructures.py::test_multidict.",
@@ -9280,6 +9293,92 @@
           "benchmark": {
             "applicability": "not_applicable",
             "reason": "URLPath absolute URL construction is outside the declared benchmark workloads."
+          }
+        },
+        {
+          "id": "constructor-sequence",
+          "kind": "value_operation",
+          "classification": "non_endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.datastructures.URLPath.__new__",
+            "signature": "__new__(cls, path, protocol='', host='') -> URLPath",
+            "parameters": [
+              {
+                "id": "path",
+                "style": "positional",
+                "value_types": ["string"],
+                "omission": {"kind": "required"}
+              },
+              {
+                "id": "protocol",
+                "style": "positional_or_keyword",
+                "value_types": ["string", "null", "integer"],
+                "omission": {"kind": "literal", "value": ""}
+              },
+              {
+                "id": "host",
+                "style": "positional_or_keyword",
+                "value_types": ["string"],
+                "omission": {"kind": "literal", "value": ""}
+              }
+            ],
+            "result": {
+              "shape": "sequence",
+              "observations": [
+                {
+                  "path": "constructor-results",
+                  "value_types": ["sequence"],
+                  "comparison": {"kind": "ordered"}
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {"mode": "exact", "transforms": [], "reason": null}
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "out_of_scope",
+                "reason": "URLPath is part of the Python starlette.* compatibility surface and has no direct Rust-native object API.",
+                "authority": "AGENTS.md: preserve documented starlette.* imports and keep Rust-native APIs distinct from the compatibility surface."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.datastructures.URLPath.__new__",
+              "signature": "__new__(cls, path, protocol='', host='') -> URLPath",
+              "support": {"status": "supported"}
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.datastructures.URLPath.constructor.protocol-validation",
+              "dimension": "boundary",
+              "description": "Accept only the empty, http, and websocket protocol values and preserve the pinned assertion behavior for invalid protocol objects. Pinned source: starlette/datastructures.py:175-179.",
+              "lanes": ["parity"],
+              "target_profiles": ["python-package-cpython312"]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": ["python-package-cpython312"]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This input-only constructor comparison makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "URLPath constructor validation is outside the declared benchmark workloads."
           }
         }
       ]
@@ -25621,6 +25720,105 @@
           "benchmark": {
             "applicability": "not_applicable",
             "reason": "This input-only route-selection slice declares no benchmark workload."
+          }
+        },
+        {
+          "id": "registration-sequence",
+          "kind": "value_operation",
+          "classification": "non_endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.routing.Router.add_route and starlette.routing.Router.add_websocket_route",
+            "signature": "Apply an ordered input sequence of add_route and add_websocket_route calls, observe input-selected Route.methods membership probes without ordering the method set, and perform named reverse lookups.",
+            "parameters": [
+              {
+                "id": "actions",
+                "style": "positional",
+                "value_types": ["sequence"],
+                "omission": {"kind": "required"}
+              },
+              {
+                "id": "lookups",
+                "style": "positional",
+                "value_types": ["sequence"],
+                "omission": {"kind": "required"}
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "registration-state",
+                  "value_types": ["sequence"],
+                  "comparison": {"kind": "ordered"}
+                },
+                {
+                  "path": "reverse-url-results",
+                  "value_types": ["sequence"],
+                  "comparison": {"kind": "ordered"}
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {"mode": "exact", "transforms": [], "reason": null}
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "out_of_scope",
+                "reason": "The Rust-native API exposes route tables constructed from Rust route values, not Python Router.add_route or add_websocket_route compatibility methods.",
+                "authority": "AGENTS.md: preserve documented starlette.* imports and keep Rust-native APIs distinct from the compatibility surface."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.routing.Router.add_route and starlette.routing.Router.add_websocket_route",
+              "signature": "add_route(path, route, methods=None, name=None, include_in_schema=True); add_websocket_route(path, route, name=None)",
+              "support": {"status": "supported"}
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.routing.Router.add_route.registration",
+              "dimension": "success_path",
+              "description": "Append a named HTTP Route through Router.add_route and expose it through the Router route collection and reverse lookup. Pinned source: starlette/routing.py:733-746.",
+              "lanes": ["parity"],
+              "target_profiles": ["python-package-cpython312"]
+            },
+            {
+              "id": "starlette.routing.Router.add_websocket_route.registration",
+              "dimension": "success_path",
+              "description": "Append a named WebSocketRoute through Router.add_websocket_route and expose its websocket URLPath through reverse lookup. Pinned source: starlette/routing.py:748-757.",
+              "lanes": ["parity"],
+              "target_profiles": ["python-package-cpython312"]
+            },
+            {
+              "id": "starlette.routing.Router.registration-sequence.reverse-lookup-miss",
+              "dimension": "error_path",
+              "description": "Router.url_path_for raises NoMatchFound for an input name that no registered route accepts. Pinned source: starlette/routing.py:414-424; tests/test_routing.py::test_url_path_for.",
+              "lanes": ["parity"],
+              "target_profiles": ["python-package-cpython312"]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": ["python-package-cpython312"]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This input-only registration comparison makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "Dynamic Router registration is outside the declared benchmark workloads."
           }
         },
         {

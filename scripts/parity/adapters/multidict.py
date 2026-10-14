@@ -63,6 +63,33 @@ def _snapshot(value: Any, probe_keys: list[Any]) -> dict[str, Any]:
     }
 
 
+def _materialize_argument(value: Any) -> tuple[Any, list[str] | None]:
+    if not isinstance(value, dict) or value.get("kind") != "list-subclass":
+        return value, None
+
+    items = value["items"]
+    index_minus_one = value["index_minus_one"]
+    truthy = value["truthy"]
+    protocol_events: list[str] = []
+
+    class InputList(list[Any]):
+        def __bool__(self) -> bool:
+            protocol_events.append("truthiness")
+            return truthy
+
+        def __iter__(self) -> Any:
+            protocol_events.append("iteration")
+            return iter(items)
+
+        def __getitem__(self, index: Any) -> Any:
+            protocol_events.append(f"getitem:{index}")
+            if index == -1:
+                return index_minus_one
+            return super().__getitem__(index)
+
+    return InputList(items), protocol_events
+
+
 def _typecheck_consumer(contract: dict[str, Any]) -> dict[str, Any]:
     import starlette
 
@@ -225,13 +252,16 @@ def run_multidict_case(case: dict[str, Any], multidict_type: Any) -> dict[str, A
     trace: list[dict[str, Any]] = []
     for action in case["actions"]:
         result = {"action_id": action["action_id"], "method": action["method"]}
+        protocol_events = None
         try:
-            arguments = action.get("args", [])
+            arguments = list(action.get("args", []))
             if action["method"] == "update" and arguments:
                 if arguments[0] == {"kind": "receiver"}:
                     arguments = [value]
                 else:
                     arguments = [[tuple(pair) for pair in arguments[0]]]
+            elif action["method"] == "setlist" and len(arguments) == 2:
+                arguments[1], protocol_events = _materialize_argument(arguments[1])
             output = getattr(value, action["method"])(*arguments, **action.get("kwargs", {}))
         except Exception as error:
             result.update(
@@ -245,6 +275,8 @@ def run_multidict_case(case: dict[str, Any], multidict_type: Any) -> dict[str, A
             )
         else:
             result.update({"outcome": "value", "value": _json_value(output)})
+        if protocol_events is not None:
+            result["protocol_events"] = protocol_events
         result["snapshot"] = _snapshot(value, case["probe_keys"])
         trace.append(result)
     result = {

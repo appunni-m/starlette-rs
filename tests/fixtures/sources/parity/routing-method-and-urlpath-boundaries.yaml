@@ -1,0 +1,112 @@
+{
+  "schema": "migration-parity/parity-input@55",
+  "cases": [
+    {
+      "case_id": "starlette.routing.Router.registration-sequence.method-boundaries",
+      "surface": "starlette.routing.Router",
+      "operation": "registration-sequence",
+      "covers": [
+        "starlette.routing.Router.add_route.registration",
+        "starlette.routing.Router.add_websocket_route.registration",
+        "starlette.routing.Router.registration-sequence.reverse-lookup-miss"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "actions": [
+        {
+          "method": "add_route",
+          "path": "/health",
+          "endpoint": {
+            "kind": "function",
+            "name": "health_endpoint",
+            "async": false
+          },
+          "methods": [
+            "GET"
+          ],
+          "name": "health",
+          "include_in_schema": false
+        },
+        {
+          "method": "add_websocket_route",
+          "path": "/rooms/{room:str}",
+          "endpoint": {
+            "kind": "function",
+            "name": "room_endpoint",
+            "async": true
+          },
+          "name": "room"
+        }
+      ],
+      "lookups": [
+        {
+          "name": "health",
+          "path_params": {}
+        },
+        {
+          "name": "room",
+          "path_params": {
+            "room": "lobby"
+          }
+        },
+        {
+          "name": "missing",
+          "path_params": {}
+        }
+      ],
+      "observations": [
+        "registration-state",
+        "reverse-url-results"
+      ]
+    },
+    {
+      "case_id": "starlette.datastructures.URLPath.constructor-sequence.protocol-validation",
+      "surface": "starlette.datastructures.URLPath",
+      "operation": "constructor-sequence",
+      "covers": [
+        "starlette.datastructures.URLPath.constructor.protocol-validation"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "attempts": [
+        {
+          "path": "/resource",
+          "protocol": "",
+          "host": ""
+        },
+        {
+          "path": "/resource",
+          "protocol": "http",
+          "host": "example.org"
+        },
+        {
+          "path": "/resource",
+          "protocol": "websocket",
+          "host": "example.org"
+        },
+        {
+          "path": "/resource",
+          "protocol": "ftp",
+          "host": ""
+        },
+        {
+          "path": "/resource",
+          "protocol": null,
+          "host": ""
+        },
+        {
+          "path": "/resource",
+          "protocol": 17,
+          "host": ""
+        }
+      ],
+      "observations": [
+        "constructor-results"
+      ]
+    }
+  ]
+}

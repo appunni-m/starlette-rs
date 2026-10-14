@@ -6180,12 +6180,25 @@ def _run_http_endpoint_case(case: dict[str, Any]) -> dict[str, Any]:
     if response_spec["kind"] != "plain-text-response" or handler_spec["name"] != "get":
         raise ValueError("HTTPEndpoint direct input must select its GET plain-text handler")
 
-    async def get(_self: Any, _request: Any) -> Any:
+    caller_thread_id = threading.get_ident()
+    handler_thread_hops: list[bool] = []
+
+    def make_response() -> Any:
+        handler_thread_hops.append(threading.get_ident() != caller_thread_id)
         return PlainTextResponse(
             content=response_spec["content"],
             status_code=response_spec["status_code"],
             media_type=response_spec["media_type"],
         )
+
+    if handler_spec["call_style"] == "sync":
+
+        def get(_self: Any, _request: Any) -> Any:
+            return make_response()
+    else:
+
+        async def get(_self: Any, _request: Any) -> Any:
+            return make_response()
 
     endpoint_type = type("InputHTTPEndpoint", (HTTPEndpoint,), {"get": get})
     scope = _make_scope(case["scope"])
@@ -6242,6 +6255,7 @@ def _run_http_endpoint_case(case: dict[str, Any]) -> dict[str, Any]:
         ),
         "asgi_event_order": [event["type"] for event in events],
         "asgi_events": events,
+        "handler_thread_hops": handler_thread_hops,
     }
     if "method_reads" in endpoint_spec:
         observation["method_reads"] = method_trace
@@ -16931,6 +16945,26 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         from scripts.parity.adapters.urlpath_absolute import run_urlpath_absolute_case
 
         return run_urlpath_absolute_case(case)
+    if isinstance(case, dict) and (case.get("surface"), case.get("operation")) == (
+        "starlette.routing.Router",
+        "registration-sequence",
+    ):
+        from starlette.routing import Router
+
+        from scripts.parity.adapters.routing_registration import (
+            run_router_registration_case,
+        )
+
+        return run_router_registration_case(case, Router)
+    if isinstance(case, dict) and (case.get("surface"), case.get("operation")) == (
+        "starlette.datastructures.URLPath",
+        "constructor-sequence",
+    ):
+        from starlette.datastructures import URLPath
+
+        from scripts.parity.adapters.routing_registration import run_urlpath_constructor_case
+
+        return run_urlpath_constructor_case(case, URLPath)
     if isinstance(case, dict) and (case.get("surface"), case.get("operation")) in {
         ("starlette.datastructures.Headers", "consumer-sequence"),
         ("starlette.datastructures.MutableHeaders", "consumer-sequence"),

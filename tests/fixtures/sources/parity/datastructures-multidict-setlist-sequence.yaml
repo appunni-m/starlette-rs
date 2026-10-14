@@ -1,0 +1,61 @@
+{
+  "schema": "migration-parity/parity-input@55",
+  "cases": [
+    {
+      "case_id": "starlette.datastructures.MultiDict.mutation-sequence.setlist-list-subclass-protocol-order",
+      "surface": "starlette.datastructures.MultiDict",
+      "operation": "mutation-sequence",
+      "covers": [
+        "starlette.datastructures.MultiDict.constructor-input-forms",
+        "starlette.datastructures.MultiDict.duplicate-key-mapping-views",
+        "starlette.datastructures.MultiDict.setlist-sequence-protocol-order"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "source": {
+        "kind": "pairs",
+        "items": [
+          ["a", "old-first"],
+          ["a", "old-last"],
+          ["b", "kept"]
+        ],
+        "kwargs": []
+      },
+      "probe_keys": ["a", "b"],
+      "comparison": null,
+      "actions": [
+        {
+          "action_id": "false-truthiness-removes-key-before-iteration",
+          "method": "setlist",
+          "args": [
+            "a",
+            {
+              "kind": "list-subclass",
+              "truthy": false,
+              "items": ["ignored-by-false-truthiness"],
+              "index_minus_one": "unused"
+            }
+          ],
+          "kwargs": {}
+        },
+        {
+          "action_id": "mapping-uses-index-minus-one-after-iteration",
+          "method": "setlist",
+          "args": [
+            "b",
+            {
+              "kind": "list-subclass",
+              "truthy": true,
+              "items": ["iterated-first", "iterated-last"],
+              "index_minus_one": "indexed-value"
+            }
+          ],
+          "kwargs": {}
+        }
+      ],
+      "observations": ["mutation-sequence"]
+    }
+  ]
+}

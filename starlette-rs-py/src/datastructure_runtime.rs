@@ -274,27 +274,25 @@ impl PyMultiDictStore {
         key: &Bound<'_, PyAny>,
         values: &Bound<'_, PyAny>,
     ) -> PyResult<()> {
-        let values = values.try_iter()?.collect::<PyResult<Vec<_>>>()?;
-        if values.is_empty() {
+        if !values.is_truthy()? {
             self.pop(py, key, Some(py.None()))?;
             return Ok(());
         }
-        let mapping = self.mapping.bind(py);
         let mut retained = Vec::with_capacity(self.items.len());
         for (item_key, value) in &self.items {
             if !item_key.bind(py).eq(key)? {
                 retained.push((item_key.clone_ref(py), value.clone_ref(py)));
             }
         }
+        retained.extend(
+            values
+                .try_iter()?
+                .map(|value| value.map(|value| (key.clone().unbind(), value.unbind())))
+                .collect::<PyResult<Vec<_>>>()?,
+        );
         self.items = retained;
-        for value in &values {
-            self.items
-                .push((key.clone().unbind(), value.clone().unbind()));
-        }
-        match values.last() {
-            Some(value) => mapping.set_item(key, value),
-            None => Ok(()),
-        }
+        let last_value = values.get_item(-1)?;
+        self.mapping.bind(py).set_item(key, last_value)
     }
 
     fn append(&mut self, py: Python<'_>, key: Py<PyAny>, value: Py<PyAny>) -> PyResult<()> {

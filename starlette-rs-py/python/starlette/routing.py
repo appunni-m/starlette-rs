@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Collection, Iterable, Sequence
+from collections.abc import Awaitable, Callable, Collection, Sequence
 from enum import Enum
 from re import Pattern
 from typing import Any
@@ -15,7 +15,7 @@ from starlette.datastructures import URL, URLPath
 from starlette.exceptions import HTTPException, StarletteDeprecationWarning
 from starlette.middleware import Middleware
 from starlette.requests import Request
-from starlette.responses import PlainTextResponse, RedirectResponse
+from starlette.responses import PlainTextResponse, RedirectResponse, Response
 from starlette.types import ASGIApp, Lifespan, Receive, Scope, Send
 from starlette.websockets import WebSocket, WebSocketClose
 
@@ -607,15 +607,18 @@ class Router:
     def add_route(
         self,
         path: str,
-        endpoint: Callable[..., Any],
-        methods: Iterable[str] | None = None,
+        endpoint: Callable[[Request], Awaitable[Response] | Response],
+        methods: Collection[str] | None = None,
         name: str | None = None,
         include_in_schema: bool = True,
     ) -> None:
         _core.router_add_route(self.routes, Route, path, endpoint, methods, name, include_in_schema)
 
     def add_websocket_route(
-        self, path: str, endpoint: Callable[..., Any], name: str | None = None
+        self,
+        path: str,
+        endpoint: Callable[[WebSocket], Awaitable[None]],
+        name: str | None = None,
     ) -> None:
         _core.router_add_websocket_route(self.routes, WebSocketRoute, path, endpoint, name)
 

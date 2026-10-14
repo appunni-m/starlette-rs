@@ -970,6 +970,11 @@ URLPATH_ABSOLUTE_OPERATION = (
     "starlette.datastructures.URLPath",
     "make-absolute-url",
 )
+URLPATH_CONSTRUCTOR_OPERATION = (
+    "starlette.datastructures.URLPath",
+    "constructor-sequence",
+)
+URLPATH_CONSTRUCTOR_REQUIREMENT = "starlette.datastructures.URLPath.constructor.protocol-validation"
 URLPATH_ABSOLUTE_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
     "route_graph",
     "lookups",
@@ -1078,6 +1083,7 @@ MULTIDICT_REQUIREMENTS = {
     "item_mutation": "starlette.datastructures.MultiDict.item-set-and-delete",
     "pop_family": "starlette.datastructures.MultiDict.pop-family",
     "clear_setlist": "starlette.datastructures.MultiDict.clear-and-setlist",
+    "setlist_protocol_order": "starlette.datastructures.MultiDict.setlist-sequence-protocol-order",
     "setdefault_append": "starlette.datastructures.MultiDict.setdefault-and-append",
     "update": "starlette.datastructures.MultiDict.update",
     "repr_equality": "starlette.datastructures.MultiDict.repr-and-equality",
@@ -1223,6 +1229,7 @@ RUST_OWNED_PYTHON_OPERATIONS = (
         CONVERTOR_REGISTRY_SEQUENCE_OPERATION,
         BACKGROUND_ATTRIBUTES_OPERATION,
         URLPATH_ABSOLUTE_OPERATION,
+        URLPATH_CONSTRUCTOR_OPERATION,
         WEBSOCKET_DISCONNECT_CONSTRUCTOR_OPERATION,
         *HEADERS_OPERATIONS,
         STATE_OPERATION_KEY,
@@ -1291,6 +1298,13 @@ HTTP_ROUTE_CALL_REQUIREMENTS = {
 }
 ROUTER_SURFACE = "starlette.routing.Router"
 ROUTER_OPERATION = "route-dispatch"
+ROUTER_REGISTRATION_OPERATION = "registration-sequence"
+ROUTER_REGISTRATION_OPERATION_KEY = (ROUTER_SURFACE, ROUTER_REGISTRATION_OPERATION)
+ROUTER_REGISTRATION_REQUIREMENTS = {
+    "add_route": "starlette.routing.Router.add_route.registration",
+    "add_websocket_route": "starlette.routing.Router.add_websocket_route.registration",
+    "reverse_lookup_miss": "starlette.routing.Router.registration-sequence.reverse-lookup-miss",
+}
 ROUTER_URL_PATH_FOR_OPERATION = "url_path_for"
 ROUTER_URL_PATH_FOR_OPERATION_KEY = (ROUTER_SURFACE, ROUTER_URL_PATH_FOR_OPERATION)
 ROUTER_URL_PATH_FOR_NATIVE_GAP = (
@@ -3191,6 +3205,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                 or key == QUERY_PARAMS_OPERATION
                 or key == MULTIDICT_OPERATION
                 or key == COMMA_SEPARATED_STRINGS_OPERATION
+                or key == ROUTER_REGISTRATION_OPERATION_KEY
                 or key == REQUEST_DEFAULT_RECEIVE_OPERATION
                 or key == REQUEST_CLIENT_OPERATION
                 or key == REQUEST_CONNECTION_PROPERTIES_OPERATION
@@ -3441,6 +3456,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                                 RUN_UNTIL_FIRST_COMPLETE_OPERATION_KEY,
                                 THREADPOOL_OPERATION_KEY,
                                 ITERATE_THREADPOOL_OPERATION_KEY,
+                                ROUTER_REGISTRATION_OPERATION_KEY,
                                 STARLETTE_ADD_ROUTE_OPERATION_KEY,
                                 STARLETTE_ADD_MIDDLEWARE_OPERATION_KEY,
                                 STARLETTE_ADD_EXCEPTION_HANDLER_OPERATION_KEY,
@@ -5558,11 +5574,11 @@ def _validate_http_endpoint_case_stimulus(case: dict[str, Any]) -> None:
     if (
         len(handlers) != 1
         or handlers[0]["name"] != "get"
-        or handlers[0]["call_style"] != "async"
+        or handlers[0]["call_style"] not in {"async", "sync"}
         or handlers[0]["response"]["kind"] != "plain-text-response"
     ):
         raise ContractError(
-            "direct HTTPEndpoint input requires one asynchronous GET plain-text handler"
+            "direct HTTPEndpoint input requires one sync or async GET plain-text handler"
         )
 
     scope = case["scope"]
@@ -22494,6 +22510,10 @@ def _validate_case_payload(
         and case.get("surface") == ROUTER_SURFACE
         and case.get("operation") == ROUTER_OPERATION
     )
+    is_router_registration = (
+        isinstance(case, dict)
+        and (case.get("surface"), case.get("operation")) == ROUTER_REGISTRATION_OPERATION_KEY
+    )
     is_mount = (
         isinstance(case, dict)
         and case.get("surface") == MOUNT_SURFACE
@@ -22759,6 +22779,8 @@ def _validate_case_payload(
         if is_route_endpoint_name
         else WEBSOCKET_ROUTE_CASE_KEYS
         if is_websocket_route
+        else (CASE_KEYS - {"steps", "execution_schedule"}) | {"actions", "lookups"}
+        if is_router_registration
         else ROUTER_SEQUENCE_CASE_KEYS
         if is_router and isinstance(case, dict) and "steps" in case
         else ROUTER_CASE_KEYS
@@ -23082,6 +23104,7 @@ def _validate_case_payload(
             URL_SCOPE_OPERATION: {"scope"},
             URL_COMPONENTS_OPERATION: {"url", "actions"},
             URLPATH_ABSOLUTE_OPERATION: {"route_graph", "lookups", "base_urls"},
+            URLPATH_CONSTRUCTOR_OPERATION: {"attempts"},
             (HEADERS_SURFACE, HEADERS_CONSUMER_OPERATION): {"instances"},
             (MUTABLE_HEADERS_SURFACE, HEADERS_CONSUMER_OPERATION): {"instances"},
             STATE_OPERATION_KEY: {"instances", "actions"},
@@ -23381,6 +23404,9 @@ def _validate_case_payload(
     elif is_router:
         if case["operation"] != ROUTER_OPERATION:
             raise ContractError("Router cases must use the declared route-dispatch operation")
+    elif is_router_registration:
+        if case["operation"] != ROUTER_REGISTRATION_OPERATION:
+            raise ContractError("Router registration cases must use registration-sequence")
     elif is_mount:
         if case["operation"] != MOUNT_OPERATION:
             raise ContractError("Mount cases must use the declared route-dispatch operation")
@@ -23828,6 +23854,8 @@ def _validate_case_payload(
             _validate_convertor_direct_methods_case(case)
         elif (case["surface"], case["operation"]) == CONVERTOR_REGISTRY_SEQUENCE_OPERATION:
             _validate_convertor_registry_sequence_case(case)
+        elif (case["surface"], case["operation"]) == URLPATH_CONSTRUCTOR_OPERATION:
+            _validate_urlpath_constructor_case(case)
         elif (case["surface"], case["operation"]) == URLPATH_ABSOLUTE_OPERATION:
             _validate_urlpath_absolute_case(case)
         elif (case["surface"], case["operation"]) in HEADERS_OPERATIONS:
@@ -23892,6 +23920,9 @@ def _validate_case_payload(
         return case
     if is_websocket_route:
         _validate_websocket_route_case_stimulus(case)
+        return case
+    if is_router_registration:
+        _validate_router_registration_case(case)
         return case
     if is_router:
         _validate_router_case_stimulus(case)
@@ -33880,6 +33911,125 @@ def _validate_url_components_case(case: dict[str, Any]) -> None:
         )
 
 
+def _validate_router_registration_case(case: dict[str, Any]) -> None:
+    base_keys = (CASE_KEYS - {"steps", "execution_schedule"}) | {"actions", "lookups"}
+    _exact(case, base_keys, "Router registration case")
+    if (case["surface"], case["operation"]) != ROUTER_REGISTRATION_OPERATION_KEY:
+        raise ContractError("case is outside the declared Router registration operation")
+    if case["target_profiles"] != ["python-package-cpython312"]:
+        raise ContractError("Router registration parity currently targets the Python package")
+    if case["assets"] != [] or case["observations"] != [
+        "registration-state",
+        "reverse-url-results",
+    ]:
+        raise ContractError("Router registration cases select route state and reverse URL results")
+
+    actions = case["actions"]
+    if not isinstance(actions, list) or not actions:
+        raise ContractError("Router registration requires a non-empty action sequence")
+    route_names: set[str] = set()
+    action_methods: set[str] = set()
+    derived: set[str] = set()
+    for index, raw_action in enumerate(actions):
+        context = f"Router registration actions[{index}]"
+        if not isinstance(raw_action, dict):
+            raise ContractError(f"{context} must be an object")
+        method = raw_action.get("method")
+        if method not in {"add_route", "add_websocket_route"}:
+            raise ContractError(f"{context}.method is not a declared Router registration method")
+        action_methods.add(method)
+        allowed = (
+            {"method", "path", "endpoint", "methods", "name", "include_in_schema"}
+            if method == "add_route"
+            else {"method", "path", "endpoint", "name"}
+        )
+        action = _exact(raw_action, allowed, context)
+        _string(action["path"], f"{context}.path")
+        endpoint = _exact(action["endpoint"], {"kind", "name", "async"}, f"{context}.endpoint")
+        if endpoint["kind"] != "function":
+            raise ContractError(f"{context}.endpoint.kind must select a function")
+        endpoint_name = _string(endpoint["name"], f"{context}.endpoint.name")
+        if type(endpoint["async"]) is not bool:
+            raise ContractError(f"{context}.endpoint.async must be boolean")
+        if method == "add_websocket_route" and endpoint["async"] is not True:
+            raise ContractError(f"{context} requires an asynchronous WebSocket endpoint")
+        route_name = action.get("name", endpoint_name)
+        _string(route_name, f"{context}.name")
+        route_names.add(route_name)
+        if method == "add_route":
+            methods = action.get("methods")
+            if methods is not None:
+                if not isinstance(methods, list) or any(
+                    not isinstance(item, str) for item in methods
+                ):
+                    raise ContractError(f"{context}.methods must be null or an array of strings")
+            if "include_in_schema" in action and type(action["include_in_schema"]) is not bool:
+                raise ContractError(f"{context}.include_in_schema must be boolean")
+            derived.add(ROUTER_REGISTRATION_REQUIREMENTS["add_route"])
+        else:
+            derived.add(ROUTER_REGISTRATION_REQUIREMENTS["add_websocket_route"])
+
+    lookups = case["lookups"]
+    if not isinstance(lookups, list) or not lookups:
+        raise ContractError("Router registration requires a non-empty reverse lookup sequence")
+    reverse_miss = False
+    for index, raw_lookup in enumerate(lookups):
+        context = f"Router registration lookups[{index}]"
+        lookup = _exact(raw_lookup, {"name", "path_params"}, context)
+        name = _string(lookup["name"], f"{context}.name")
+        path_params = lookup["path_params"]
+        if not isinstance(path_params, dict):
+            raise ContractError(f"{context}.path_params must be an object")
+        for parameter_name, value in path_params.items():
+            _string(parameter_name, f"{context}.path parameter name")
+            _multidict_json_scalar(value, f"{context}.path parameter value")
+        if name not in route_names:
+            reverse_miss = True
+    if "add_route" not in action_methods or "add_websocket_route" not in action_methods:
+        raise ContractError("Router registration must exercise both add methods")
+    if not reverse_miss:
+        raise ContractError("Router registration must exercise an unmatched reverse lookup")
+    derived.add(ROUTER_REGISTRATION_REQUIREMENTS["reverse_lookup_miss"])
+    if set(case["covers"]) != derived:
+        raise ContractError(
+            "Router registration coverage must be derived from supplied methods and lookups: "
+            f"expected {sorted(derived)}"
+        )
+
+
+def _validate_urlpath_constructor_case(case: dict[str, Any]) -> None:
+    if case["target_profiles"] != ["python-package-cpython312"]:
+        raise ContractError("URLPath constructor parity currently targets the Python package")
+    if case["assets"] != [] or case["observations"] != ["constructor-results"]:
+        raise ContractError("URLPath constructor cases select constructor-results")
+
+    attempts = case["attempts"]
+    if not isinstance(attempts, list) or not attempts:
+        raise ContractError("URLPath constructor requires a non-empty attempt sequence")
+    protocols: list[Any] = []
+    for index, raw_attempt in enumerate(attempts):
+        context = f"URLPath constructor attempts[{index}]"
+        attempt = _exact(raw_attempt, {"path", "protocol", "host"}, context)
+        if not isinstance(attempt["path"], str):
+            raise ContractError(f"{context}.path must be a string")
+        if not isinstance(attempt["host"], str):
+            raise ContractError(f"{context}.host must be a string")
+        protocol = attempt["protocol"]
+        if protocol is not None and type(protocol) not in {str, int}:
+            raise ContractError(f"{context}.protocol must be a string, integer, or null")
+        protocols.append(protocol)
+    accepted = {protocol for protocol in protocols if isinstance(protocol, str)}
+    if not {"", "http", "websocket"} <= accepted:
+        raise ContractError("URLPath constructor input must include each accepted protocol")
+    if not any(
+        not (isinstance(protocol, str) and protocol in {"", "http", "websocket"})
+        for protocol in protocols
+    ):
+        raise ContractError("URLPath constructor input must include invalid protocol values")
+    if case["covers"] != [URLPATH_CONSTRUCTOR_REQUIREMENT]:
+        raise ContractError("URLPath constructor must cover the protocol validation boundary")
+
+
 def _validate_urlpath_absolute_case(case: dict[str, Any]) -> None:
     if case["target_profiles"] != ["python-package-cpython312"]:
         raise ContractError("URLPath absolute-URL parity currently targets the Python package")
@@ -35336,9 +35486,24 @@ def _validate_exception_middleware_typing_case(
 
 def _validate_multidict_case(case: dict[str, Any]) -> None:
     typing_contract = case.get("typing_contract")
+    actions_probe = case.get("actions")
+    has_list_subclass = isinstance(actions_probe, list) and any(
+        isinstance(action, dict)
+        and action.get("method") == "setlist"
+        and isinstance(action.get("args"), list)
+        and len(action["args"]) > 1
+        and isinstance(action["args"][1], dict)
+        and action["args"][1].get("kind") == "list-subclass"
+        for action in actions_probe
+    )
     if typing_contract is None:
-        if case["target_profiles"] != ["rust-native-local", "python-package-cpython312"]:
-            raise ContractError("MultiDict behavior cases require both declared target profiles")
+        required_profiles = (
+            ["python-package-cpython312"]
+            if has_list_subclass
+            else ["rust-native-local", "python-package-cpython312"]
+        )
+        if case["target_profiles"] != required_profiles:
+            raise ContractError("MultiDict behavior cases require their declared target profiles")
     elif case["target_profiles"] != ["python-package-cpython312"]:
         raise ContractError("MultiDict typing cases select only the Python-package profile")
     if case["assets"] != [] or case["observations"] != ["mutation-sequence"]:
@@ -35391,10 +35556,26 @@ def _validate_multidict_case(case: dict[str, Any]) -> None:
             raise ContractError(f"{context} does not accept keyword values")
         for argument_index, argument in enumerate(args):
             if method == "setlist" and argument_index == 1:
-                if not isinstance(argument, list):
-                    raise ContractError(f"{context}.args[1] must be an array")
-                for item_index, item in enumerate(argument):
-                    _multidict_json_scalar(item, f"{context}.args[1][{item_index}]")
+                if isinstance(argument, list):
+                    for item_index, item in enumerate(argument):
+                        _multidict_json_scalar(item, f"{context}.args[1][{item_index}]")
+                else:
+                    value = _exact(
+                        argument,
+                        {"kind", "truthy", "items", "index_minus_one"},
+                        f"{context}.args[1]",
+                    )
+                    if value["kind"] != "list-subclass":
+                        raise ContractError(f"{context}.args[1].kind must select list-subclass")
+                    if type(value["truthy"]) is not bool:
+                        raise ContractError(f"{context}.args[1].truthy must be boolean")
+                    if not isinstance(value["items"], list):
+                        raise ContractError(f"{context}.args[1].items must be an array")
+                    for item_index, item in enumerate(value["items"]):
+                        _multidict_json_scalar(item, f"{context}.args[1].items[{item_index}]")
+                    _multidict_json_scalar(
+                        value["index_minus_one"], f"{context}.args[1].index_minus_one"
+                    )
             elif method == "update" and argument_index == 0:
                 if isinstance(argument, dict):
                     _exact(argument, {"kind"}, f"{context}.args[0]")
@@ -35435,6 +35616,14 @@ def _validate_multidict_case(case: dict[str, Any]) -> None:
         expected_covers.add(MULTIDICT_REQUIREMENTS["pop_family"])
     if {"clear", "setlist"} <= methods:
         expected_covers.add(MULTIDICT_REQUIREMENTS["clear_setlist"])
+    if any(
+        action["method"] == "setlist"
+        and len(action["args"]) > 1
+        and isinstance(action["args"][1], dict)
+        and action["args"][1].get("kind") == "list-subclass"
+        for action in actions
+    ):
+        expected_covers.add(MULTIDICT_REQUIREMENTS["setlist_protocol_order"])
     if {"setdefault", "append"} <= methods:
         expected_covers.add(MULTIDICT_REQUIREMENTS["setdefault_append"])
     if "update" in methods:

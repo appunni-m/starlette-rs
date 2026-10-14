@@ -298,6 +298,10 @@
         {
           "operation_id": "make-absolute-url",
           "source_path": "starlette.datastructures.URLPath.make_absolute_url"
+        },
+        {
+          "operation_id": "constructor-sequence",
+          "source_path": "starlette.datastructures.URLPath.__new__"
         }
       ]
     },
@@ -724,6 +728,10 @@
         {
           "operation_id": "route-dispatch",
           "source_path": "starlette.routing.Router.app"
+        },
+        {
+          "operation_id": "registration-sequence",
+          "source_path": "starlette.routing.Router.add_route and starlette.routing.Router.add_websocket_route"
         },
         {
           "operation_id": "url_path_for",
