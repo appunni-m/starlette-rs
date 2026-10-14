@@ -16547,6 +16547,18 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
 
         return run_public_api_inspection_case(case)
     if (case.get("surface"), case.get("operation")) in {
+        ("starlette.convertors", "direct-method-calls"),
+        ("starlette.convertors", "registry-sequence"),
+    }:
+        from scripts.parity.adapters.convertors import (
+            run_convertor_direct_methods_case,
+            run_convertor_registry_sequence_case,
+        )
+
+        if case["operation"] == "direct-method-calls":
+            return run_convertor_direct_methods_case(case)
+        return run_convertor_registry_sequence_case(case)
+    if (case.get("surface"), case.get("operation")) in {
         ("starlette.applications.Starlette", "typing-consumer"),
         ("starlette.responses.Response", "typing-consumer"),
         ("starlette.config.Config", "typing-consumer"),

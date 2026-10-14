@@ -182,6 +182,9 @@ RUN_UNTIL_FIRST_COMPLETE_REQUIREMENTS = {
     "child_exception": (
         f"{THREADPOOL_SURFACE}.{RUN_UNTIL_FIRST_COMPLETE_OPERATION}.child-exception-propagation"
     ),
+    "base_exception_group": (
+        f"{THREADPOOL_SURFACE}.{RUN_UNTIL_FIRST_COMPLETE_OPERATION}.base-exception-group-propagation"
+    ),
     "external_cancellation": (
         f"{THREADPOOL_SURFACE}.{RUN_UNTIL_FIRST_COMPLETE_OPERATION}.external-cancellation-finalization"
     ),
@@ -923,10 +926,21 @@ BACKGROUND_ATTRIBUTES_REQUIREMENTS = {
     "background-tasks": (
         "starlette.background.BackgroundTasks.attribute-operations.inherited-attribute-lookup-and-deletion"
     ),
+    "background-tasks-tasks": (
+        "starlette.background.BackgroundTasks.attribute-operations.tasks-attribute-deletion-and-reassignment"
+    ),
 }
 URL_COMPONENTS_OPERATION = (
     "starlette.datastructures.URL",
     "component-and-replacement-sequence",
+)
+CONVERTOR_DIRECT_METHODS_OPERATION = ("starlette.convertors", "direct-method-calls")
+CONVERTOR_REGISTRY_SEQUENCE_OPERATION = ("starlette.convertors", "registry-sequence")
+CONVERTOR_DIRECT_METHODS_REQUIREMENT = (
+    "starlette.convertors.direct-method-calls.built-in-conversion-contracts"
+)
+CONVERTOR_REGISTRY_SEQUENCE_REQUIREMENT = (
+    "starlette.convertors.registry-sequence.registration-replacement-route-snapshot"
 )
 URL_COMPONENT_USERNAME_FORMAT_REQUIREMENT = (
     "starlette.datastructures.URL.component-replacement.username-format-coercion"
@@ -1205,6 +1219,8 @@ RUST_OWNED_PYTHON_OPERATIONS = (
         URL_QUERY_OPERATION,
         URL_SCOPE_OPERATION,
         URL_COMPONENTS_OPERATION,
+        CONVERTOR_DIRECT_METHODS_OPERATION,
+        CONVERTOR_REGISTRY_SEQUENCE_OPERATION,
         BACKGROUND_ATTRIBUTES_OPERATION,
         URLPATH_ABSOLUTE_OPERATION,
         WEBSOCKET_DISCONNECT_CONSTRUCTOR_OPERATION,
@@ -23030,6 +23046,8 @@ def _validate_case_payload(
             },
             ("starlette.config", "environ"): {"initial_environ", "actions"},
             BACKGROUND_ATTRIBUTES_OPERATION: {"task"},
+            CONVERTOR_DIRECT_METHODS_OPERATION: {"input_case"},
+            CONVERTOR_REGISTRY_SEQUENCE_OPERATION: {"input_case"},
             WEBSOCKET_DISCONNECT_CONSTRUCTOR_OPERATION: {"calls"},
             ("starlette.schemas.SchemaGenerator", "schema-generation"): {
                 "base_schema",
@@ -23806,6 +23824,10 @@ def _validate_case_payload(
             _validate_url_components_case(case)
         elif (case["surface"], case["operation"]) == BACKGROUND_ATTRIBUTES_OPERATION:
             _validate_background_attributes_case(case)
+        elif (case["surface"], case["operation"]) == CONVERTOR_DIRECT_METHODS_OPERATION:
+            _validate_convertor_direct_methods_case(case)
+        elif (case["surface"], case["operation"]) == CONVERTOR_REGISTRY_SEQUENCE_OPERATION:
+            _validate_convertor_registry_sequence_case(case)
         elif (case["surface"], case["operation"]) == URLPATH_ABSOLUTE_OPERATION:
             _validate_urlpath_absolute_case(case)
         elif (case["surface"], case["operation"]) in HEADERS_OPERATIONS:
@@ -24804,7 +24826,15 @@ def _validate_background_attributes_case(case: dict[str, Any]) -> None:
             raise ContractError("BackgroundTasks tasks must be an array")
         if task["tasks"]:
             raise ContractError("BackgroundTasks attribute workflow starts with an empty task list")
-        expected_requirement = BACKGROUND_ATTRIBUTES_REQUIREMENTS["background-tasks"]
+        if not isinstance(task["actions"], list):
+            raise ContractError("BackgroundTasks actions must be an array")
+        if any(
+            isinstance(action, dict) and action.get("attribute") == "tasks"
+            for action in task["actions"]
+        ):
+            expected_requirement = BACKGROUND_ATTRIBUTES_REQUIREMENTS["background-tasks-tasks"]
+        else:
+            expected_requirement = BACKGROUND_ATTRIBUTES_REQUIREMENTS["background-tasks"]
     else:
         raise ContractError("BackgroundTask task kind is unsupported")
 
@@ -24820,13 +24850,231 @@ def _validate_background_attributes_case(case: dict[str, Any]) -> None:
         action = _exact(raw_action, fields, context)
         if action_kind not in {"read", "set", "delete"}:
             raise ContractError(f"{context}.action must be read, set, or delete")
-        if action["attribute"] not in {"func", "args", "kwargs", "is_async"}:
+        valid_attributes = {"func", "args", "kwargs", "is_async"}
+        if kind == "background-tasks":
+            valid_attributes.add("tasks")
+        if action["attribute"] not in valid_attributes:
             raise ContractError(f"{context}.attribute is unsupported")
         if action_kind == "set":
             _validate_threadpool_json(action["value"], f"{context}.value")
 
+    if (
+        kind == "background-tasks"
+        and expected_requirement == BACKGROUND_ATTRIBUTES_REQUIREMENTS["background-tasks-tasks"]
+    ):
+        observed = {
+            action["action"]
+            for action in actions
+            if isinstance(action, dict) and action.get("attribute") == "tasks"
+        }
+        if not {"delete", "read", "set"}.issubset(observed):
+            raise ContractError(
+                "BackgroundTasks.tasks cases must input deletion, missing-attribute read, and reassignment"
+            )
+
     if case["covers"] != [expected_requirement]:
         raise ContractError("BackgroundTask case must cover its declared attribute requirement")
+
+
+def _validate_convertor_case_envelope(
+    case: dict[str, Any],
+    operation: tuple[str, str],
+    requirement: str,
+    observations: list[str],
+) -> dict[str, Any]:
+    expected_keys = (CASE_KEYS - {"steps", "execution_schedule"}) | {"input_case"}
+    _exact(case, expected_keys, f"{operation[1]} case")
+    if (case["surface"], case["operation"]) != operation:
+        raise ContractError("convertor case must bind to its declared operation")
+    case_id = _string(case["case_id"], f"{operation[1]} case_id")
+    if not case_id.startswith("starlette.convertors."):
+        raise ContractError("convertor case ID must identify the public convertors module")
+    if case["assets"] != []:
+        raise ContractError("convertor cases do not use assets")
+    if case["target_profiles"] != ["python-package-cpython312"]:
+        raise ContractError("convertor cases select the Python-package profile")
+    if case["covers"] != [requirement]:
+        raise ContractError("convertor case must cover its operation requirement")
+    if case["observations"] != observations:
+        raise ContractError("convertor case must select its declared observations in order")
+    return case["input_case"]
+
+
+def _validate_convertor_direct_methods_case(case: dict[str, Any]) -> None:
+    input_case = _validate_convertor_case_envelope(
+        case,
+        CONVERTOR_DIRECT_METHODS_OPERATION,
+        CONVERTOR_DIRECT_METHODS_REQUIREMENT,
+        ["call-results-in-order", "exception-class-and-message"],
+    )
+    input_case = _exact(input_case, {"classes", "calls"}, "convertor direct-method input")
+    supported_classes = {
+        "Convertor",
+        "StringConvertor",
+        "PathConvertor",
+        "IntegerConvertor",
+        "FloatConvertor",
+        "UUIDConvertor",
+    }
+    classes = input_case["classes"]
+    if (
+        not isinstance(classes, list)
+        or any(not isinstance(class_name, str) for class_name in classes)
+        or len(classes) != len(supported_classes)
+        or len(classes) != len(set(classes))
+        or set(classes) != supported_classes
+    ):
+        raise ContractError("convertor direct-method input must select each built-in class once")
+
+    calls = input_case["calls"]
+    if not isinstance(calls, list) or not calls or len(calls) > 256:
+        raise ContractError("convertor direct-method calls must be a bounded non-empty array")
+    methods_by_class: dict[str, set[str]] = {class_name: set() for class_name in classes}
+    for index, raw_call in enumerate(calls):
+        context = f"convertor direct-method calls[{index}]"
+        call = _exact(raw_call, {"class", "method", "arguments"}, context)
+        class_name = _string(call["class"], f"{context}.class")
+        method = _string(call["method"], f"{context}.method")
+        if class_name not in methods_by_class:
+            raise ContractError(f"{context}.class must be selected in classes")
+        if method not in {"convert", "to_string"}:
+            raise ContractError(f"{context}.method must select convert or to_string")
+        arguments = call["arguments"]
+        if not isinstance(arguments, list) or len(arguments) != 1:
+            raise ContractError(f"{context}.arguments must supply the single converter value")
+        value = arguments[0]
+        if isinstance(value, dict):
+            descriptor = _exact(value, {"type", "value"}, f"{context}.arguments[0]")
+            if descriptor["type"] != "uuid" or not isinstance(descriptor["value"], str):
+                raise ContractError(f"{context}.arguments[0] has an unsupported typed value")
+            try:
+                import uuid
+
+                uuid.UUID(descriptor["value"])
+            except (ValueError, AttributeError) as error:
+                raise ContractError(f"{context}.arguments[0] contains an invalid UUID") from error
+        else:
+            _validate_threadpool_json(arguments, f"{context}.arguments")
+        methods_by_class[class_name].add(method)
+
+    if any(methods != {"convert", "to_string"} for methods in methods_by_class.values()):
+        raise ContractError(
+            "direct-method input must call both public methods on every built-in class"
+        )
+
+
+def _validate_convertor_registry_sequence_case(case: dict[str, Any]) -> None:
+    input_case = _validate_convertor_case_envelope(
+        case,
+        CONVERTOR_REGISTRY_SEQUENCE_OPERATION,
+        CONVERTOR_REGISTRY_SEQUENCE_REQUIREMENT,
+        ["action-results-in-order", "route-snapshot-conversion-results"],
+    )
+    input_case = _exact(
+        input_case,
+        {"registry_key", "convertors", "actions"},
+        "convertor registry-sequence input",
+    )
+    registry_key = _string(input_case["registry_key"], "convertor registry_key")
+    if not registry_key.isidentifier():
+        raise ContractError("convertor registry_key must be an identifier")
+    convertors = input_case["convertors"]
+    if not isinstance(convertors, list) or not 2 <= len(convertors) <= 16:
+        raise ContractError("convertor registry-sequence requires two to sixteen converter values")
+    for index, raw_convertor in enumerate(convertors):
+        context = f"convertor registry-sequence convertors[{index}]"
+        convertor = _exact(raw_convertor, {"regex", "convert", "to_string"}, context)
+        _string(convertor["regex"], f"{context}.regex")
+        for field in ("convert", "to_string"):
+            if convertor[field] not in {"identity", "lowercase", "uppercase"}:
+                raise ContractError(f"{context}.{field} has an unsupported input mode")
+    if convertors[0] == convertors[1]:
+        raise ContractError("convertor registration replacement must change the converter value")
+
+    actions = input_case["actions"]
+    if not isinstance(actions, list) or not actions or len(actions) > 64:
+        raise ContractError("convertor registry-sequence actions must be a bounded non-empty array")
+    active_convertor: int | None = None
+    registrations: list[int] = []
+    routes: dict[str, dict[str, Any]] = {}
+    matches: set[str] = set()
+    reverse_lookups: set[str] = set()
+    for index, raw_action in enumerate(actions):
+        context = f"convertor registry-sequence actions[{index}]"
+        if not isinstance(raw_action, dict):
+            raise ContractError(f"{context} must be an object")
+        kind = raw_action.get("kind")
+        if kind == "register":
+            action = _exact(raw_action, {"kind", "convertor_index"}, context)
+            convertor_index = action["convertor_index"]
+            if type(convertor_index) is not int or not 0 <= convertor_index < len(convertors):
+                raise ContractError(f"{context}.convertor_index is outside the input registry")
+            active_convertor = convertor_index
+            registrations.append(convertor_index)
+        elif kind == "construct-route":
+            action = _exact(raw_action, {"kind", "route_id", "path", "name", "endpoint"}, context)
+            route_id = _string(action["route_id"], f"{context}.route_id")
+            path = _string(action["path"], f"{context}.path")
+            name = _string(action["name"], f"{context}.name")
+            endpoint = _exact(action["endpoint"], {"kind", "name", "async"}, f"{context}.endpoint")
+            if (
+                not route_id
+                or route_id in routes
+                or active_convertor is None
+                or not path.startswith("/")
+                or f":{registry_key}}}" not in path
+                or endpoint["kind"] != "function"
+                or not isinstance(endpoint["name"], str)
+                or type(endpoint["async"]) is not bool
+            ):
+                raise ContractError(f"{context} must construct a named route after registration")
+            routes[route_id] = {
+                "name": name,
+                "convertor_index": active_convertor,
+            }
+        elif kind == "route-matches":
+            action = _exact(raw_action, {"kind", "route_id", "scope"}, context)
+            route_id = _string(action["route_id"], f"{context}.route_id")
+            if route_id not in routes:
+                raise ContractError(f"{context}.route_id must reference an earlier route")
+            scope = _exact(
+                action["scope"],
+                {"type", "path", "root_path", "method", "path_params"},
+                f"{context}.scope",
+            )
+            if (
+                scope["type"] != "http"
+                or not isinstance(scope["path"], str)
+                or not isinstance(scope["root_path"], str)
+                or not isinstance(scope["method"], str)
+                or not isinstance(scope["path_params"], dict)
+            ):
+                raise ContractError(f"{context}.scope is not an HTTP route-matching input")
+            matches.add(route_id)
+        elif kind == "url-path-for":
+            action = _exact(raw_action, {"kind", "route_id", "name", "path_params"}, context)
+            route_id = _string(action["route_id"], f"{context}.route_id")
+            if route_id not in routes:
+                raise ContractError(f"{context}.route_id must reference an earlier route")
+            if action["name"] != routes[route_id]["name"] or not isinstance(
+                action["path_params"], dict
+            ):
+                raise ContractError(f"{context} must look up its input-defined route")
+            _validate_threadpool_json(action["path_params"], f"{context}.path_params")
+            reverse_lookups.add(route_id)
+        else:
+            raise ContractError(f"{context}.kind is unsupported")
+
+    converter_versions = set(registrations)
+    if (
+        len(converter_versions) < 2
+        or len({route["convertor_index"] for route in routes.values()}) < 2
+        or matches != set(routes)
+        or reverse_lookups != set(routes)
+    ):
+        raise ContractError(
+            "convertor registry-sequence must compare routes built before and after replacement"
+        )
 
 
 def _validate_threadpool_case(case: dict[str, Any]) -> None:
@@ -25067,6 +25315,7 @@ def _validate_run_until_first_complete_case(case: dict[str, Any]) -> None:
                 )
                 exception_type = action["exception_type"]
                 if not isinstance(exception_type, str) or exception_type not in {
+                    "BaseException",
                     "LookupError",
                     "RuntimeError",
                     "TypeError",
@@ -25134,7 +25383,12 @@ def _validate_run_until_first_complete_case(case: dict[str, Any]) -> None:
             raise ContractError(
                 "child-failure inputs must start an earlier peer waiting on an unset event"
             )
-        expected_requirements.add(RUN_UNTIL_FIRST_COMPLETE_REQUIREMENTS["child_exception"])
+        exception_type = action_rows[failing_index][2][raise_index]["exception_type"]
+        expected_requirements.add(
+            RUN_UNTIL_FIRST_COMPLETE_REQUIREMENTS[
+                "base_exception_group" if exception_type == "BaseException" else "child_exception"
+            ]
+        )
     elif external_cancel_event is not None:
         trigger_task = next(
             (

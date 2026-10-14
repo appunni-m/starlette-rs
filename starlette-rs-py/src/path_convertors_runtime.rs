@@ -2,7 +2,7 @@
 
 use pyo3::exceptions::{PyAssertionError, PyNotImplementedError, PyValueError};
 use pyo3::prelude::*;
-use pyo3::types::{PyDict, PyModule};
+use pyo3::types::{PyDict, PyModule, PyString};
 
 const STRING_CONVERTOR_REGEX: &str = "[^/]+";
 const PATH_CONVERTOR_REGEX: &str = ".*";
@@ -52,25 +52,21 @@ fn convert_builtin(py: Python<'_>, kind: &str, value: Py<PyAny>) -> PyResult<Py<
 }
 
 #[pyfunction(name = "_format_builtin_convertor")]
-fn format_builtin(py: Python<'_>, kind: &str, value: Py<PyAny>) -> PyResult<String> {
+fn format_builtin(py: Python<'_>, kind: &str, value: Py<PyAny>) -> PyResult<Py<PyAny>> {
     let value = value.bind(py);
     match kind {
         "base" => Err(PyNotImplementedError::new_err(())),
         "str" => {
             let value = python_str(py, value)?;
-            let value = value.extract::<String>()?;
-            if value.contains('/') {
+            if value.contains("/")? {
                 return Err(PyAssertionError::new_err("May not contain path separators"));
             }
-            if value.is_empty() {
+            if !value.is_truthy()? {
                 return Err(PyAssertionError::new_err("Must not be empty"));
             }
-            Ok(value)
+            Ok(value.unbind())
         }
-        "path" => {
-            let value = python_str(py, value)?;
-            value.extract::<String>()
-        }
+        "path" => python_str(py, value).map(Bound::unbind),
         "int" => {
             let value = py.import("builtins")?.getattr("int")?.call1((value,))?;
             if !value
@@ -81,7 +77,7 @@ fn format_builtin(py: Python<'_>, kind: &str, value: Py<PyAny>) -> PyResult<Stri
                     "Negative integers are not supported",
                 ));
             }
-            python_str(py, &value)?.extract::<String>()
+            python_str(py, &value).map(Bound::unbind)
         }
         "float" => {
             let value = py
@@ -110,15 +106,13 @@ fn format_builtin(py: Python<'_>, kind: &str, value: Py<PyAny>) -> PyResult<Stri
                 .getattr("format")?
                 .call1((value, "0.20f"))?
                 .extract::<String>()?;
-            Ok(formatted
+            let formatted = formatted
                 .trim_end_matches('0')
                 .trim_end_matches('.')
-                .to_owned())
+                .to_owned();
+            Ok(PyString::new(py, &formatted).into_any().unbind())
         }
-        "uuid" => {
-            let value = python_str(py, value)?;
-            value.extract::<String>()
-        }
+        "uuid" => python_str(py, value).map(Bound::unbind),
         _ => Err(PyValueError::new_err(format!(
             "unknown built-in path convertor '{kind}'"
         ))),

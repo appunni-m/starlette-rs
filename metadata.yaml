@@ -106,6 +106,20 @@
       ]
     },
     {
+      "surface_id": "starlette.convertors",
+      "source_path": "starlette/convertors.py:9",
+      "operations": [
+        {
+          "operation_id": "direct-method-calls",
+          "source_path": "starlette.convertors.Convertor and built-in converter methods"
+        },
+        {
+          "operation_id": "registry-sequence",
+          "source_path": "starlette.convertors.register_url_convertor and starlette.routing.Route"
+        }
+      ]
+    },
+    {
       "surface_id": "starlette.config",
       "source_path": "starlette/config.py:14",
       "operations": [

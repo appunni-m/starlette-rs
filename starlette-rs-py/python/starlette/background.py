@@ -82,6 +82,10 @@ class BackgroundTasks(BackgroundTask):
     def tasks(self, tasks: list[BackgroundTask]) -> None:
         self._inner.tasks = tasks
 
+    @tasks.deleter
+    def tasks(self) -> None:
+        self._inner.delete_tasks()
+
     def add_task(self, func: Callable[P, Any], *args: P.args, **kwargs: P.kwargs) -> None:
         self._inner.append_task(BackgroundTask(func, *args, **kwargs))
 

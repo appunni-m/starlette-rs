@@ -1,0 +1,45 @@
+{
+  "schema": "migration-parity/parity-input@55",
+  "cases": [
+    {
+      "case_id": "starlette.background.attribute-operations.BackgroundTasks.mutable-tasks-attribute-delete-and-reassign",
+      "surface": "starlette.background",
+      "operation": "attribute-operations",
+      "covers": [
+        "starlette.background.BackgroundTasks.attribute-operations.tasks-attribute-deletion-and-reassignment"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "background-task-attributes"
+      ],
+      "task": {
+        "kind": "background-tasks",
+        "tasks": [],
+        "actions": [
+          {
+            "action": "delete",
+            "attribute": "tasks"
+          },
+          {
+            "action": "read",
+            "attribute": "tasks"
+          },
+          {
+            "action": "set",
+            "attribute": "tasks",
+            "value": [
+              "replacement-task"
+            ]
+          },
+          {
+            "action": "read",
+            "attribute": "tasks"
+          }
+        ]
+      }
+    }
+  ]
+}

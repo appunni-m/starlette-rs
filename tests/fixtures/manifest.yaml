@@ -437,6 +437,7 @@
       "build/parity/inputs/parity/background-tasks.json",
       "build/parity/inputs/parity/background-task-list-sync-cancellation-worker-error.json",
       "build/parity/inputs/parity/background-task-attribute-deletion.json",
+      "build/parity/inputs/parity/background-task-tasks-attribute-deletion.json",
       "build/parity/inputs/parity/background-task-sync-kwargs-mapping.json",
       "build/parity/inputs/parity/streaming-response.json",
       "build/parity/inputs/parity/streaming-response-pre-asgi24-send-oserror.json",
@@ -614,6 +615,7 @@
       "build/parity/inputs/parity/concurrency-stop-async-iteration.json",
       "build/parity/inputs/parity/concurrency-run-in-threadpool-cancellation.json",
       "build/parity/inputs/parity/concurrency-run-until-first-complete-zero-callbacks.json",
+      "build/parity/inputs/parity/concurrency-run-until-first-complete-base-exception.json",
       "build/parity/inputs/parity/websocket-scope-interface.json",
       "build/parity/inputs/parity/exception-middleware-live-app.json",
       "build/parity/inputs/parity/exception-middleware-typing.json",
@@ -652,6 +654,7 @@
       "build/parity/inputs/parity/background-task-kwargs-duplicate-key.json",
       "build/parity/inputs/parity/websocket-thread-ownership.json",
       "build/parity/inputs/parity/public-api-inspection.json",
+      "build/parity/inputs/parity/convertor-public-api.json",
       "build/parity/inputs/parity/datastructures-public-inheritance.json",
       "build/parity/inputs/parity/public-exceptions-api.json",
       "build/parity/inputs/parity/application-typing-consumer.json",
@@ -841,6 +844,17 @@
               "target_profiles": [
                 "python-package-cpython312"
               ]
+            },
+            {
+              "id": "starlette.public-api-inspection.convertor-classes-and-registration",
+              "dimension": "feature",
+              "description": "Inspect the documented Convertor base, built-in converter classes, and register_url_convertor import path and signatures. Pinned source: starlette/convertors.py:9-89; docs/routing.md:42-82.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
             }
           ],
           "parity": {
@@ -856,6 +870,220 @@
           "benchmark": {
             "applicability": "not_applicable",
             "reason": "Python import and attribute inspection are outside runtime benchmark workloads."
+          }
+        }
+      ]
+    },
+    {
+      "id": "starlette.convertors",
+      "kind": "module",
+      "source_path": "starlette/convertors.py:9",
+      "storage_slug": "starlette-convertors-module",
+      "operations": [
+        {
+          "id": "direct-method-calls",
+          "kind": "value_operation",
+          "classification": "non_endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.convertors.Convertor and built-in converter methods",
+            "signature": "Invoke input-selected convert and to_string methods on the public converter classes.",
+            "parameters": [
+              {
+                "id": "input_case",
+                "style": "keyword",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "call-results-in-order",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "exception-class-and-message",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "out_of_scope",
+                "reason": "These methods are part of the starlette.* Python compatibility surface; Rust-native routing APIs remain distinct.",
+                "authority": "AGENTS.md: keep Rust-native APIs distinct from the compatibility surface."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.convertors.Convertor and built-in converter classes",
+              "signature": "Call the public convert(value) and to_string(value) methods selected by the input.",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.convertors.direct-method-calls.built-in-conversion-contracts",
+              "dimension": "input_family",
+              "description": "Compare direct public convert and to_string calls for the base class and every built-in converter, including value coercion, invalid values, UUID objects, and lone-surrogate strings. Pinned source: starlette/convertors.py:9-75; docs/routing.md:42-55.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "Direct converter behavior comparisons make no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "Direct converter calls are outside the declared benchmark workloads."
+          }
+        },
+        {
+          "id": "registry-sequence",
+          "kind": "protocol_operation",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.convertors.register_url_convertor and starlette.routing.Route",
+            "signature": "Apply input-defined converter registrations and route construction, matching, and reverse lookup actions in order.",
+            "parameters": [
+              {
+                "id": "input_case",
+                "style": "keyword",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "action-results-in-order",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "route-snapshot-conversion-results",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "out_of_scope",
+                "reason": "This operation exercises mutable Python registration and public Python Route objects.",
+                "authority": "AGENTS.md: keep Rust-native APIs distinct from the compatibility surface."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.convertors.register_url_convertor and starlette.routing.Route",
+              "signature": "Register an input-defined Convertor and observe route match and reverse-lookup behavior across a registration replacement.",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.convertors.registry-sequence.registration-replacement-route-snapshot",
+              "dimension": "boundary",
+              "description": "Register a converter, construct a route, replace the registry entry, and compare input-driven route matching and URL generation on routes created before and after replacement. Pinned source: starlette/convertors.py:79-89; starlette/routing.py:95-153,198-240,242-269; docs/routing.md:42-82.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "Converter registry sequence comparisons make no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "Converter registry mutation is outside the declared benchmark workloads."
           }
         }
       ]
@@ -4508,6 +4736,17 @@
               "target_profiles": [
                 "python-package-cpython312"
               ]
+            },
+            {
+              "id": "starlette.background.BackgroundTasks.attribute-operations.tasks-attribute-deletion-and-reassignment",
+              "dimension": "boundary",
+              "description": "Compare deletion of the instance-level BackgroundTasks.tasks list, the missing-attribute outcome, and reassignment to a new list. Pinned source: starlette/background.py:26-33; docs/background.md:1-78.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
             }
           ],
           "parity": {
@@ -4697,6 +4936,17 @@
               "id": "starlette.concurrency.run_until_first_complete.child-exception-propagation",
               "dimension": "error_path",
               "description": "Propagate an input-defined child exception while cancelling a peer blocked on an unset input event and finalizing entered callbacks. Pinned source: starlette/concurrency.py:20-27.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.concurrency.run_until_first_complete.base-exception-group-propagation",
+              "dimension": "boundary",
+              "description": "Propagate an input-defined BaseException subclass from one child through AnyIO task-group exception-group construction while cancelling and finalizing a blocked peer. Pinned source: starlette/concurrency.py:20-27; Python 3.12 task-group exception-group behavior.",
               "lanes": [
                 "parity"
               ],

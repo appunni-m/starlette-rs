@@ -1,0 +1,351 @@
+{
+  "schema": "migration-parity/parity-input@55",
+  "cases": [
+    {
+      "case_id": "starlette.public-api-inspection.documented-convertor-classes",
+      "surface": "starlette",
+      "operation": "public-api-inspection",
+      "covers": [
+        "starlette.public-api-inspection.convertor-classes-and-registration"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "public-api-inspection"
+      ],
+      "inspection": {
+        "modules": [
+          {
+            "name": "starlette.convertors",
+            "symbols": [
+              {
+                "name": "Convertor",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "StringConvertor",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "PathConvertor",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "IntegerConvertor",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "FloatConvertor",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "UUIDConvertor",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "register_url_convertor",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              }
+            ]
+          }
+        ],
+        "identity_checks": []
+      }
+    },
+    {
+      "case_id": "starlette.convertors.direct-method-calls.built-in-methods",
+      "surface": "starlette.convertors",
+      "operation": "direct-method-calls",
+      "covers": [
+        "starlette.convertors.direct-method-calls.built-in-conversion-contracts"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "input_case": {
+        "classes": [
+          "Convertor",
+          "StringConvertor",
+          "PathConvertor",
+          "IntegerConvertor",
+          "FloatConvertor",
+          "UUIDConvertor"
+        ],
+        "calls": [
+          {
+            "class": "Convertor",
+            "method": "convert",
+            "arguments": [
+              "value"
+            ]
+          },
+          {
+            "class": "Convertor",
+            "method": "to_string",
+            "arguments": [
+              "value"
+            ]
+          },
+          {
+            "class": "StringConvertor",
+            "method": "convert",
+            "arguments": [
+              "Ada"
+            ]
+          },
+          {
+            "class": "StringConvertor",
+            "method": "to_string",
+            "arguments": [
+              "Ada"
+            ]
+          },
+          {
+            "class": "StringConvertor",
+            "method": "to_string",
+            "arguments": [
+              ""
+            ]
+          },
+          {
+            "class": "StringConvertor",
+            "method": "to_string",
+            "arguments": [
+              "ada/lovelace"
+            ]
+          },
+          {
+            "class": "StringConvertor",
+            "method": "to_string",
+            "arguments": [
+              "\ud800"
+            ]
+          },
+          {
+            "class": "PathConvertor",
+            "method": "convert",
+            "arguments": [
+              "a/b"
+            ]
+          },
+          {
+            "class": "PathConvertor",
+            "method": "to_string",
+            "arguments": [
+              "a/\ud800"
+            ]
+          },
+          {
+            "class": "IntegerConvertor",
+            "method": "convert",
+            "arguments": [
+              "0007"
+            ]
+          },
+          {
+            "class": "IntegerConvertor",
+            "method": "to_string",
+            "arguments": [
+              7
+            ]
+          },
+          {
+            "class": "IntegerConvertor",
+            "method": "to_string",
+            "arguments": [
+              -1
+            ]
+          },
+          {
+            "class": "FloatConvertor",
+            "method": "convert",
+            "arguments": [
+              "1.25"
+            ]
+          },
+          {
+            "class": "FloatConvertor",
+            "method": "to_string",
+            "arguments": [
+              1.25
+            ]
+          },
+          {
+            "class": "FloatConvertor",
+            "method": "to_string",
+            "arguments": [
+              -0.0
+            ]
+          },
+          {
+            "class": "FloatConvertor",
+            "method": "to_string",
+            "arguments": [
+              -1.0
+            ]
+          },
+          {
+            "class": "FloatConvertor",
+            "method": "to_string",
+            "arguments": [
+              "nan"
+            ]
+          },
+          {
+            "class": "FloatConvertor",
+            "method": "to_string",
+            "arguments": [
+              "inf"
+            ]
+          },
+          {
+            "class": "UUIDConvertor",
+            "method": "convert",
+            "arguments": [
+              "00000000AAAAFFFF9999000000000000"
+            ]
+          },
+          {
+            "class": "UUIDConvertor",
+            "method": "to_string",
+            "arguments": [
+              {
+                "type": "uuid",
+                "value": "00000000-aaaa-ffff-9999-000000000000"
+              }
+            ]
+          }
+        ]
+      },
+      "observations": [
+        "call-results-in-order",
+        "exception-class-and-message"
+      ]
+    },
+    {
+      "case_id": "starlette.convertors.registry-sequence.replacement-route-snapshot",
+      "surface": "starlette.convertors",
+      "operation": "registry-sequence",
+      "covers": [
+        "starlette.convertors.registry-sequence.registration-replacement-route-snapshot"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "input_case": {
+        "registry_key": "stateful",
+        "convertors": [
+          {
+            "regex": "[A-Za-z]+",
+            "convert": "lowercase",
+            "to_string": "lowercase"
+          },
+          {
+            "regex": "[A-Za-z]+",
+            "convert": "uppercase",
+            "to_string": "uppercase"
+          }
+        ],
+        "actions": [
+          {
+            "kind": "register",
+            "convertor_index": 0
+          },
+          {
+            "kind": "construct-route",
+            "route_id": "before-replacement",
+            "path": "/records/{value:stateful}",
+            "name": "before-replacement",
+            "endpoint": {
+              "kind": "function",
+              "name": "converter_sequence_endpoint",
+              "async": false
+            }
+          },
+          {
+            "kind": "register",
+            "convertor_index": 1
+          },
+          {
+            "kind": "construct-route",
+            "route_id": "after-replacement",
+            "path": "/records/{value:stateful}",
+            "name": "after-replacement",
+            "endpoint": {
+              "kind": "function",
+              "name": "converter_sequence_endpoint",
+              "async": false
+            }
+          },
+          {
+            "kind": "route-matches",
+            "route_id": "before-replacement",
+            "scope": {
+              "type": "http",
+              "path": "/records/MiXeD",
+              "root_path": "",
+              "method": "GET",
+              "path_params": {}
+            }
+          },
+          {
+            "kind": "route-matches",
+            "route_id": "after-replacement",
+            "scope": {
+              "type": "http",
+              "path": "/records/MiXeD",
+              "root_path": "",
+              "method": "GET",
+              "path_params": {}
+            }
+          },
+          {
+            "kind": "url-path-for",
+            "route_id": "before-replacement",
+            "name": "before-replacement",
+            "path_params": {
+              "value": "MiXeD"
+            }
+          },
+          {
+            "kind": "url-path-for",
+            "route_id": "after-replacement",
+            "name": "after-replacement",
+            "path_params": {
+              "value": "MiXeD"
+            }
+          }
+        ]
+      },
+      "observations": [
+        "action-results-in-order",
+        "route-snapshot-conversion-results"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,62 @@
+{
+  "schema": "migration-parity/parity-input@55",
+  "cases": [
+    {
+      "case_id": "starlette.concurrency.run_until_first_complete.base-exception-cancels-peer",
+      "surface": "starlette.concurrency",
+      "operation": "run_until_first_complete",
+      "covers": [
+        "starlette.concurrency.run_until_first_complete.deprecation-warning",
+        "starlette.concurrency.run_until_first_complete.base-exception-group-propagation"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "run_until_first_complete"
+      ],
+      "events": [
+        "peer-ready",
+        "never-release",
+        "peer-would-finish"
+      ],
+      "tasks": [
+        {
+          "task_id": "blocked-peer",
+          "actions": [
+            {
+              "action": "set-event",
+              "event_id": "peer-ready"
+            },
+            {
+              "action": "wait-event",
+              "event_id": "never-release"
+            },
+            {
+              "action": "set-event",
+              "event_id": "peer-would-finish"
+            }
+          ]
+        },
+        {
+          "task_id": "base-exception-task",
+          "actions": [
+            {
+              "action": "wait-event",
+              "event_id": "peer-ready"
+            },
+            {
+              "action": "checkpoint"
+            },
+            {
+              "action": "raise-exception",
+              "exception_type": "BaseException",
+              "message": "input-defined base exception"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

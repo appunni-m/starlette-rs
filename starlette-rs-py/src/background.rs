@@ -157,7 +157,7 @@ impl PyBackgroundTask {
 
 #[pyclass(name = "BackgroundTasks")]
 struct PyBackgroundTasks {
-    tasks: Py<PyAny>,
+    tasks: Option<Py<PyAny>>,
     func: Option<Py<PyAny>>,
     args: Option<Py<PyAny>>,
     kwargs: Option<Py<PyAny>>,
@@ -179,7 +179,7 @@ impl PyBackgroundTasks {
             _ => PyList::empty(py).into_any().unbind(),
         };
         Ok(Self {
-            tasks,
+            tasks: Some(tasks),
             func: None,
             args: None,
             kwargs: None,
@@ -188,13 +188,17 @@ impl PyBackgroundTasks {
     }
 
     #[getter]
-    fn tasks(&self, py: Python<'_>) -> Py<PyAny> {
-        self.tasks.clone_ref(py)
+    fn tasks(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        task_attribute(py, "BackgroundTasks", "tasks", self.tasks.as_ref())
     }
 
     #[setter]
     fn set_tasks(&mut self, tasks: Py<PyAny>) {
-        self.tasks = tasks;
+        self.tasks = Some(tasks);
+    }
+
+    fn delete_tasks(&mut self) {
+        self.tasks = None;
     }
 
     #[getter]
@@ -254,7 +258,9 @@ impl PyBackgroundTasks {
     }
 
     fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
-        visit.call(&self.tasks)?;
+        if let Some(tasks) = self.tasks.as_ref() {
+            visit.call(tasks)?;
+        }
         if let Some(func) = self.func.as_ref() {
             visit.call(func)?;
         }
@@ -270,8 +276,8 @@ impl PyBackgroundTasks {
         Ok(())
     }
 
-    fn __clear__(&mut self, py: Python<'_>) {
-        self.tasks = py.None();
+    fn __clear__(&mut self, _py: Python<'_>) {
+        self.tasks = None;
         self.func = None;
         self.args = None;
         self.kwargs = None;
@@ -280,7 +286,8 @@ impl PyBackgroundTasks {
 
     /// Append a public Python task wrapper to the mutable task sequence.
     fn append_task(&self, py: Python<'_>, task: Py<PyAny>) -> PyResult<()> {
-        self.tasks.bind(py).call_method1("append", (task,))?;
+        let tasks = task_attribute(py, "BackgroundTasks", "tasks", self.tasks.as_ref())?;
+        tasks.bind(py).call_method1("append", (task,))?;
         Ok(())
     }
 
@@ -993,7 +1000,10 @@ impl AwaitableStateMachine for BackgroundTasksCall {
     fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
         match input {
             MachineResume::Start => {
-                let tasks = self.tasks.borrow(py).tasks.clone_ref(py);
+                let tasks = {
+                    let task = self.tasks.borrow(py);
+                    task_attribute(py, "BackgroundTasks", "tasks", task.tasks.as_ref())?
+                };
                 let iterator = py
                     .import("builtins")?
                     .getattr("iter")?
