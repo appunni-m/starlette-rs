@@ -248,7 +248,7 @@
   ],
   "interfaces": {
     "parity": {
-      "input_schema": "migration-parity/parity-input@52",
+      "input_schema": "migration-parity/parity-input@54",
       "result_schema": "migration-parity/parity-result@8",
       "command_id": "parity"
     },
@@ -398,6 +398,7 @@
       "build/parity/inputs/parity/http-route-call.json",
       "build/parity/inputs/parity/route-representations.json",
       "build/parity/inputs/parity/route-constructor-errors.json",
+      "build/parity/inputs/parity/route-lone-surrogate.json",
       "build/parity/inputs/parity/websocket-state-sequence.json",
       "build/parity/inputs/parity/websocket-accept-send-oserror.json",
       "build/parity/inputs/parity/websocket-raw-state-assignment.json",
@@ -23620,6 +23621,17 @@
               "target_profiles": [
                 "python-package-cpython312"
               ]
+            },
+            {
+              "id": "starlette.routing.Route.__init__.lone-surrogate-path",
+              "dimension": "input_family",
+              "description": "Construct Route with a static path prefix containing a lone surrogate while retaining its path converter. Pinned source: starlette/routing.py:198-240 and compile_path at 95-153.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
             }
           ],
           "parity": {
@@ -24019,6 +24031,17 @@
               "target_profiles": [
                 "python-package-cpython312"
               ]
+            },
+            {
+              "id": "starlette.routing.Route.url_path_for.lone-surrogate-path",
+              "dimension": "input_family",
+              "description": "Format an integer path parameter while preserving a lone surrogate in the named route's static prefix. Pinned source: starlette/routing.py:260-269 and replace_params at 34-44.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
             }
           ],
           "parity": {
@@ -24119,6 +24142,17 @@
               "id": "starlette.routing.Route.__repr__.class-endpoint-no-methods",
               "dimension": "parameter_combination",
               "description": "Construct Route from the pinned callable-class endpoint with methods omitted and observe the complete repr. Upstream: tests/test_routing.py::test_route_repr_without_methods; starlette/routing.py:290.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Route.__repr__.lone-surrogate-path",
+              "dimension": "input_family",
+              "description": "Observe the complete Route repr when its input path contains a lone surrogate. Pinned source: starlette/routing.py:290.",
               "lanes": [
                 "parity"
               ],
@@ -25001,6 +25035,50 @@
               "target_profiles": [
                 "python-package-cpython312"
               ]
+            },
+            {
+              "id": "starlette.routing.Route.matches.lone-surrogate-path",
+              "dimension": "input_family",
+              "description": "Match a path containing a lone surrogate and convert its integer capture before returning the Route child scope. Pinned source: starlette/routing.py:242-258.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Router.route-dispatch.lone-surrogate-path",
+              "dimension": "input_family",
+              "description": "Dispatch an ASGI request whose path contains a lone surrogate through an input-defined Route and preserve its converted path parameter. Pinned source: starlette/routing.py:242-258,672-704.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Router.route-dispatch.surrogate-redirect-encoding-error",
+              "dimension": "error_path",
+              "description": "Match the slash-corrected candidate for a lone-surrogate path, then preserve the pinned RedirectResponse URL quoting error when the redirect location cannot be encoded. Pinned source: starlette/routing.py::Router.app and starlette/responses.py::RedirectResponse.__init__.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Router.route-dispatch.opposite-scope-match-error",
+              "dimension": "error_path",
+              "description": "Call every declared route's public matches(scope) in order during surrogate fallback, including an HTTP Route on a WebSocket scope, and propagate its instance matcher error. Pinned source: starlette/routing.py::Router.app.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
             }
           ],
           "parity": {
@@ -25443,6 +25521,17 @@
               "id": "starlette.routing.WebSocketRoute.route-dispatch.middleware-exception-order",
               "dimension": "error_path",
               "description": "Raise WebSocketException from a route endpoint behind middleware that would catch it, and observe Starlette's inner websocket_session exception handler close the socket before the middleware can replace the close. Pinned source: starlette/routing.py::websocket_session and WebSocketRoute.__init__; starlette/middleware/exceptions.py::ExceptionMiddleware.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.WebSocketRoute.route-dispatch.lone-surrogate-path",
+              "dimension": "input_family",
+              "description": "Match a WebSocketRoute whose path and root_path contain a surrogateescaped code point, preserving the child scope and WebSocket endpoint dispatch. Pinned source: starlette/routing.py::WebSocketRoute.matches and Router.app.",
               "lanes": [
                 "parity"
               ],
@@ -33636,6 +33725,17 @@
               "id": "starlette.templating.Jinja2Templates.template-public-workflow.context-processors",
               "dimension": "success_path",
               "description": "Render through a named route and TestClient after synchronous processors supply input mappings; compare processor calls, merged context, metadata, and response events. Pinned source: tests/test_templates.py:49-74; starlette/templating.py:142-151.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.templating.Jinja2Templates.template-public-workflow.processor-exception-before-template-lookup",
+              "dimension": "error_path",
+              "description": "Propagate an input-defined synchronous context-processor exception before template lookup and observe the lookup hook order. Pinned source: starlette/templating.py:142-148.",
               "lanes": [
                 "parity"
               ],

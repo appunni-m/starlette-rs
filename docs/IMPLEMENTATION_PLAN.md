@@ -13,9 +13,9 @@ implementation closes, run the complete source/package and Rust-native parity
 matrix, repair mismatches across families, measure coverage from that full
 matrix, reconcile the source atlas, then run all correctness-gated benchmarks.
 
-The active contract currently declares 2,377 input cases across 341
+The active contract currently declares 2,391 input cases across 342
 parity inputs and two benchmark inputs, 142 Starlette compatibility
-operations, 13 Rust-native operations, and 1,293 parity requirements (1,251
+operations, 13 Rust-native operations, and 1,302 parity requirements (1,260
 compatibility and 42 native). Its scope mode is still `slice`. A new Config
 typing consumer covers all nine pinned `Config.__call__` overload assertions;
 its input-derived source/package Mypy 1.19.1 comparison passes with identical
@@ -39,6 +39,9 @@ A further Jinja2Templates input observes an unsupported async context
 processor failing before template lookup, using a raising template hook to
 make callback order visible. Pinned source and Rust ordering agree; the new
 comparison remains deferred to full parity.
+A synchronous context-processor input observes a built-in exception before
+template lookup and records the processor and template-hook order; its
+source/package comparison remains deferred to full parity.
 The deprecated `run_until_first_complete` helper is implemented through a
 Rust-owned task-group state machine with AnyIO retaining backend scheduling.
 Four input-only cases cover first-completion cancellation, zero callbacks,
@@ -254,7 +257,7 @@ representation, and dynamic `FormData.close()` dispatch remain Rust-backed.
 
 | Phase | State | Evidence |
 | --- | --- | --- |
-| Implementation | In progress. | `make contract-check PARITY_PYTHON=python3.12` validates 2,377 cases across 341 parity inputs, 142 compatibility operations, 13 native operations, and 1,293 parity requirements (1,251 compatibility / 42 native), with zero parity passes claimed. The Host→WebSocketRoute and TestClient cleanup-context inputs remain unexecuted until full parity. The new direct `run_in_threadpool` cancellation input observes AnyIO-scope cancellation while the worker is gated and remains unexecuted until full parity. The Config typing consumer covers all nine pinned `Config.__call__` overload assertions and passed direct Mypy 1.19.1 checks against the pinned source and installed wheel with identical diagnostics and revealed types; its registered parity case remains unexecuted. The application typing consumer checks `Request.form()` await/async-with, `Request.stream()` chunks as `bytes`, `Request.body()` as `bytes`, `Request.json()` as `Any`, `Request.query_params` as `QueryParams`, and `Request.path_params` as `dict[str, Any]`; pinned-source and installed-wheel Mypy 1.19.1 output matches for the existing assertions. Mypy 1.19.1 against the pinned source and rebuilt wheel now confirms the `ASGIInstance` and `QueryParams` item, `getlist()`, and `multi_items()` value types match. The Mount `routes: null` input and Rust truthiness fix are authored but unexecuted. `Request.client` is now asserted as `Address | None`; pinned-source and installed-wheel Mypy 1.19.1 output matches, and its registered consumer comparison remains deferred to full parity. A new direct `WebSocketDisconnect` constructor input covers supplied/default fields, inherited exception arguments, reason truthiness, and call-binding errors; its comparison remains unexecuted. A new FormData consumer contract preserves the pinned `UploadFile | str` types for indexing, `getlist()`, and `multi_items()`; the input comparison remains unexecuted. Two new Request.form inputs cover positive
+| Implementation | In progress. | `make contract-check PARITY_PYTHON=python3.12` validates 2,391 cases across 342 parity inputs, 142 compatibility operations, 13 native operations, and 1,302 parity requirements (1,260 compatibility / 42 native), with zero parity passes claimed. The Host→WebSocketRoute and TestClient cleanup-context inputs remain unexecuted until full parity. The new direct `run_in_threadpool` cancellation input observes AnyIO-scope cancellation while the worker is gated and remains unexecuted until full parity. The Config typing consumer covers all nine pinned `Config.__call__` overload assertions and passed direct Mypy 1.19.1 checks against the pinned source and installed wheel with identical diagnostics and revealed types; its registered parity case remains unexecuted. The application typing consumer checks `Request.form()` await/async-with, `Request.stream()` chunks as `bytes`, `Request.body()` as `bytes`, `Request.json()` as `Any`, `Request.query_params` as `QueryParams`, and `Request.path_params` as `dict[str, Any]`; pinned-source and installed-wheel Mypy 1.19.1 output matches for the existing assertions. Mypy 1.19.1 against the pinned source and rebuilt wheel now confirms the `ASGIInstance` and `QueryParams` item, `getlist()`, and `multi_items()` value types match. The Mount `routes: null` input and Rust truthiness fix are authored but unexecuted. `Request.client` is now asserted as `Address | None`; pinned-source and installed-wheel Mypy 1.19.1 output matches, and its registered consumer comparison remains deferred to full parity. A new direct `WebSocketDisconnect` constructor input covers supplied/default fields, inherited exception arguments, reason truthiness, and call-binding errors; its comparison remains unexecuted. A new FormData consumer contract preserves the pinned `UploadFile | str` types for indexing, `getlist()`, and `multi_items()`; the input comparison remains unexecuted. Two new Request.form inputs cover positive
 arbitrary-precision max_fields and max_files limits; these comparisons remain
 unexecuted. A new body-limit input checks that the Content-Length precheck
 preserves the original scope headers mapping; both behavior and comparison
@@ -327,10 +330,10 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The active parity contract is `parity-input@52`: the working tree currently
-indexes 2,377 input cases across 341 parity files, two benchmark files, 142
-Starlette compatibility operations, 13 Rust-native operations, and 1,293
-parity requirements (1,251 compatibility and 42 native). The Config typing
+The active parity contract is `parity-input@54`: the working tree currently
+indexes 2,391 input cases across 342 parity files, two benchmark files, 142
+Starlette compatibility operations, 13 Rust-native operations, and 1,302
+parity requirements (1,260 compatibility and 42 native). The Config typing
 consumer covers all nine pinned `Config.__call__` overload assertions and is
 deferred to full parity. The latest clean full parity,
 coverage, and benchmark receipts belong to the preceding 1,992-case, 140-file

@@ -1,0 +1,431 @@
+{
+  "schema": "migration-parity/parity-input@54",
+  "cases": [
+    {
+      "case_id": "starlette.routing.Route.__init__.lone-surrogate-path",
+      "surface": "starlette.routing.Route",
+      "operation": "__init__",
+      "covers": [
+        "starlette.routing.Route.__init__.lone-surrogate-path",
+        "starlette.routing.Route.endpoint-name.function"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "path": "/\uD800/{item_id:int}",
+      "methods": null,
+      "name": null,
+      "endpoints": [
+        {
+          "kind": "function",
+          "name": "surrogate_route",
+          "async": false
+        }
+      ],
+      "observations": [
+        "constructor_results"
+      ]
+    },
+    {
+      "case_id": "starlette.routing.Route.value-formatting.lone-surrogate-path",
+      "surface": "starlette.routing.Route",
+      "operation": "value-formatting",
+      "covers": [
+        "starlette.routing.Route.__repr__.with-inferred-methods",
+        "starlette.routing.Route.__repr__.lone-surrogate-path"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "route": {
+        "path": "/\uD800/{item_id:int}",
+        "endpoint": {
+          "kind": "function",
+          "name": "surrogate_route",
+          "async": false
+        },
+        "methods": null,
+        "name": null
+      },
+      "observations": [
+        "representation"
+      ]
+    },
+    {
+      "case_id": "starlette.routing.Route.url_path_for.lone-surrogate-path",
+      "surface": "starlette.routing.Route",
+      "operation": "url_path_for",
+      "covers": [
+        "starlette.routing.Route.url_path_for.lone-surrogate-path"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "route_graph": {
+        "kind": "http-route",
+        "path": "/\uD800/{item_id:int}",
+        "name": "surrogate-item",
+        "methods": [
+          "GET"
+        ],
+        "observer": null
+      },
+      "lookup": {
+        "name": "surrogate-item",
+        "path_params": {
+          "item_id": 7
+        }
+      },
+      "request_scope": null,
+      "custom_convertors": [],
+      "observations": [
+        "reverse-url"
+      ]
+    },
+    {
+      "case_id": "starlette.routing.Router.route-dispatch.lone-surrogate-path",
+      "surface": "starlette.routing.Router",
+      "operation": "route-dispatch",
+      "covers": [
+        "starlette.routing.Route.matches.lone-surrogate-path",
+        "starlette.routing.Router.route-dispatch.lone-surrogate-path"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "routes": [
+        {
+          "kind": "http-route",
+          "path": "/\uDC80/{item_id:int}",
+          "methods": [
+            "GET"
+          ],
+          "endpoint": {
+            "kind": "plain-text-response",
+            "content": "selected-surrogate-route",
+            "status_code": 200,
+            "media_type": "text/plain",
+            "cookies": []
+          }
+        }
+      ],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/\uDC80/7",
+        "raw_path_base64": "L4AvNw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "route-dispatch"
+      ],
+      "custom_convertors": [],
+      "redirect_slashes": true,
+      "observe_router_scope": true
+    },
+    {
+      "case_id": "starlette.routing.Router.route-dispatch.lone-surrogate-root-path",
+      "surface": "starlette.routing.Router",
+      "operation": "route-dispatch",
+      "covers": [
+        "starlette.routing.Route.matches.lone-surrogate-path",
+        "starlette.routing.Router.route-dispatch.lone-surrogate-path",
+        "starlette.routing.Router.route-dispatch.root-path-match"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "routes": [
+        {
+          "kind": "http-route",
+          "path": "/items/{item_id:int}",
+          "methods": [
+            "GET"
+          ],
+          "endpoint": {
+            "kind": "plain-text-response",
+            "content": "surrogate-root-path",
+            "status_code": 200,
+            "media_type": "text/plain",
+            "cookies": []
+          }
+        }
+      ],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/\uDC80/gateway/items/7",
+        "raw_path_base64": "L4AvZ2F0ZXdheS9pdGVtcy83",
+        "query_string_base64": "",
+        "root_path": "/\uDC80/gateway",
+        "headers_base64_pairs": [],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "route-dispatch"
+      ],
+      "custom_convertors": [],
+      "redirect_slashes": true,
+      "observe_router_scope": true
+    },
+    {
+      "case_id": "starlette.routing.Router.route-dispatch.lone-surrogate-custom-regex",
+      "surface": "starlette.routing.Router",
+      "operation": "route-dispatch",
+      "covers": [
+        "starlette.routing.Route.matches.lone-surrogate-path",
+        "starlette.routing.Router.route-dispatch.lone-surrogate-path",
+        "starlette.routing.Router.route-dispatch.custom-converter-override"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "routes": [
+        {
+          "kind": "http-route",
+          "path": "/items/{token:surrogate}",
+          "methods": [
+            "GET"
+          ],
+          "endpoint": {
+            "kind": "plain-text-response",
+            "content": "surrogate-regex",
+            "status_code": 200,
+            "media_type": "text/plain",
+            "cookies": []
+          }
+        }
+      ],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/items/\uDC80\uDC80",
+        "raw_path_base64": "L2l0ZW1zL4CA",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "route-dispatch"
+      ],
+      "custom_convertors": [
+        {
+          "name": "surrogate",
+          "regex": "\uDC80+",
+          "lowercase": false
+        }
+      ],
+      "redirect_slashes": true,
+      "observe_router_scope": true
+    },
+    {
+      "case_id": "starlette.routing.Router.route-dispatch.surrogate-redirect-slash-error",
+      "surface": "starlette.routing.Router",
+      "operation": "route-dispatch",
+      "covers": [
+        "starlette.routing.Route.matches.lone-surrogate-path",
+        "starlette.routing.Router.route-dispatch.lone-surrogate-path",
+        "starlette.routing.Router.route-dispatch.surrogate-redirect-encoding-error"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "routes": [
+        {
+          "kind": "http-route",
+          "path": "/\uDC80/items/",
+          "methods": [
+            "GET"
+          ],
+          "endpoint": {
+            "kind": "plain-text-response",
+            "content": "slash-target",
+            "status_code": 200,
+            "media_type": "text/plain",
+            "cookies": []
+          }
+        }
+      ],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/\uDC80/items",
+        "raw_path_base64": "L4AvaXRlbXM=",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "route-dispatch"
+      ],
+      "custom_convertors": [],
+      "redirect_slashes": true,
+      "observe_dispatch_error": true
+    },
+    {
+      "case_id": "starlette.routing.Router.route-dispatch.opposite-scope-match-error",
+      "surface": "starlette.routing.Router",
+      "operation": "route-dispatch",
+      "covers": [
+        "starlette.routing.Route.matches.lone-surrogate-path",
+        "starlette.routing.Router.route-dispatch.lone-surrogate-path",
+        "starlette.routing.Router.route-dispatch.opposite-scope-match-error"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "routes": [
+        {
+          "kind": "http-route",
+          "path": "/ordinary",
+          "methods": [
+            "GET"
+          ],
+          "endpoint": {
+            "kind": "plain-text-response",
+            "content": "earlier-route-does-not-match",
+            "status_code": 200,
+            "media_type": "text/plain",
+            "cookies": []
+          }
+        },
+        {
+          "kind": "http-route",
+          "path": "/\uDC80/socket",
+          "methods": [
+            "GET"
+          ],
+          "endpoint": {
+            "kind": "plain-text-response",
+            "content": "unreachable",
+            "status_code": 200,
+            "media_type": "text/plain",
+            "cookies": []
+          },
+          "instance_match_override": {
+            "kind": "raise-runtime-error",
+            "message": "HTTP route matcher called for websocket scope"
+          }
+        }
+      ],
+      "scope": {
+        "type": "websocket",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.5"
+        },
+        "http_version": "1.1",
+        "scheme": "ws",
+        "path": "/\uDC80/socket",
+        "raw_path_base64": "L4Avc29ja2V0",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ],
+        "subprotocols": []
+      },
+      "incoming": [
+        {
+          "type": "websocket.connect"
+        }
+      ],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "route-dispatch"
+      ],
+      "custom_convertors": [],
+      "redirect_slashes": true,
+      "observe_dispatch_error": true
+    }
+  ]
+}

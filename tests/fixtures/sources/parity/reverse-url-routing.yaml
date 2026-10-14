@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@52",
+  "schema": "migration-parity/parity-input@54",
   "cases": [
     {
       "case_id": "starlette.routing.Route.url_path_for.static-route",
@@ -588,6 +588,46 @@
         "name": "static",
         "path_params": {
           "path": "/css/base.css"
+        }
+      },
+      "request_scope": null,
+      "custom_convertors": [],
+      "observations": [
+        "reverse-url"
+      ]
+    },
+    {
+      "case_id": "starlette.routing.Mount.url_path_for.lone-surrogate-prefix",
+      "surface": "starlette.routing.Mount",
+      "operation": "url_path_for",
+      "covers": [
+        "starlette.routing.Mount.url_path_for.nested-route"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "route_graph": {
+        "kind": "mount",
+        "path": "/\uDC80/{tenant:str}/api",
+        "name": "api",
+        "routes": [
+          {
+            "kind": "http-route",
+            "path": "/users/{user_id:int}",
+            "name": "user",
+            "methods": [
+              "GET"
+            ],
+            "observer": null
+          }
+        ]
+      },
+      "lookup": {
+        "name": "api:user",
+        "path_params": {
+          "tenant": "acme",
+          "user_id": 7
         }
       },
       "request_scope": null,

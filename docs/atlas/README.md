@@ -25,9 +25,9 @@ with no conventional Python or Rust unit-test suite.
 ## Current implementation status
 
 Implementation remains active for the full Starlette 1.6.0 replacement. The
-working-tree `parity-input@52` contract indexes 2,376 cases across 341
+working-tree `parity-input@54` contract indexes 2,391 cases across 342
 parity input files and two benchmark files, with 142 Starlette compatibility
-operations, 13 native operations, and 1,293 parity requirements (1,251
+operations, 13 native operations, and 1,302 parity requirements (1,260
 compatibility and 42 native). The contract remains a slice and claims zero
 parity passes. Rust now returns the completed no-op for thread-pool iterator
 `athrow` calls after normal exhaustion; the new input covers `StopIteration`,
@@ -35,9 +35,9 @@ parity passes. Rust now returns the completed no-op for thread-pool iterator
 parity. `make contract-check` passed on the current input set; the
 static source-inventory check found 999 dispositioned API candidates and
 851 source rows: 797 input mappings, 54 reasoned `not_applicable` rows, and
-zero backlog. The Request.client typing consumer and overlapping template
-processor input are authored; both comparisons remain deferred to the full
-parity phase.
+zero backlog. The Request.client typing consumer and ordered-overlap plus
+synchronous processor-exception-before-template-lookup template inputs are
+authored; their comparisons remain deferred to the full parity phase.
 The newest request-dispatch input supplies a preexisting true `scope.app`
 marker and observes `Request.app` after application dispatch; it remains
 unexecuted until the full parity phase. The latest batch adds input-only cases

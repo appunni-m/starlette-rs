@@ -13,6 +13,7 @@ use starlette_rs::{DispatchPlanError, HttpDispatchPlan, RouteTable, Supplemental
 use crate::awaitable::{
     AwaitableStateMachine, MachineAction, MachineResume, into_sendable_python_awaitable,
 };
+use crate::datastructure_runtime::{codepoints_to_python_string, python_string_to_codepoints};
 
 #[path = "router_runtime/route_types_runtime.rs"]
 mod route_types_runtime;
@@ -78,6 +79,12 @@ struct RouterRoutes {
     websocket_indexes: Vec<usize>,
     custom_websocket_indexes: Vec<usize>,
 }
+
+type RouterPlanResult = (
+    HttpDispatchPlan,
+    HashMap<usize, Py<PyAny>>,
+    Option<Py<PyAny>>,
+);
 
 struct RouteSignature {
     identity: usize,
@@ -431,20 +438,26 @@ impl RouteTypes {
             RouteKind::Host => route.getattr("host")?,
             RouteKind::Http | RouteKind::WebSocket | RouteKind::Mount => route.getattr("path")?,
         };
-        let uses_custom_convertors = if matches!(kind, RouteKind::Custom) {
+        let uses_compatibility_matcher = if matches!(kind, RouteKind::Custom) {
             false
         } else {
             route
-                .getattr("_uses_custom_convertors")?
+                .getattr("_uses_compatibility_matcher")?
                 .extract::<bool>()?
         };
         let mut custom = matches!(kind, RouteKind::Custom)
-            || uses_custom_convertors
+            || uses_compatibility_matcher
             || self.uses_custom_matcher(py, &route, kind)?;
         let path = if matches!(kind, RouteKind::Custom) {
             None
         } else {
-            Some(path_value.extract::<String>()?)
+            let has_lone_surrogate = python_string_has_lone_surrogate(&path_value)?;
+            custom |= has_lone_surrogate;
+            if has_lone_surrogate {
+                None
+            } else {
+                Some(path_value.extract::<String>()?)
+            }
         };
         if matches!(
             kind,
@@ -534,6 +547,7 @@ impl RouteTypes {
         let path = match (kind, path) {
             (RouteKind::Custom, _) => String::new(),
             (_, Some(path)) => path,
+            (_, None) if custom => String::new(),
             (_, None) => cached
                 .ok_or_else(|| PyRuntimeError::new_err("changed route is missing its cached path"))?
                 .path
@@ -800,11 +814,23 @@ impl RouterDispatchMachine {
             self.route_types
                 .routes_for(py, self.routes_source.bind(py), &cache.cached)?
         };
-        let (plan, custom_child_scopes) = if scope_type == "http" {
+        let (plan, custom_child_scopes, compatibility_redirect_scope) = if scope_type == "http" {
             self.http_plan(py, scope, &routes)?
         } else {
             self.websocket_plan(py, scope, &routes)?
         };
+
+        if let Some(redirect_scope) = compatibility_redirect_scope {
+            let url_kwargs = PyDict::new(py);
+            url_kwargs.set_item("scope", redirect_scope.bind(py))?;
+            let url = self.url_type.bind(py).call((), Some(&url_kwargs))?;
+            let url = py.import("builtins")?.getattr("str")?.call1((url,))?;
+            let response = self.redirect_response_type.bind(py).call1((url,))?;
+            self.pending = Some(RouterPending::Callback);
+            return response
+                .call1((scope, &self.receive, &self.send))
+                .map(Bound::unbind);
+        }
 
         match plan {
             HttpDispatchPlan::Matched {
@@ -941,7 +967,16 @@ impl RouterDispatchMachine {
         py: Python<'_>,
         scope: &Bound<'_, PyAny>,
         routes: &RouterRoutes,
-    ) -> PyResult<(HttpDispatchPlan, HashMap<usize, Py<PyAny>>)> {
+    ) -> PyResult<RouterPlanResult> {
+        if scope_has_lone_surrogate_path(scope)? {
+            let (plan, child_scopes) = ordered_compatibility_match(py, scope, routes)?;
+            let redirect_scope = if matches!(&plan, HttpDispatchPlan::NotFound) {
+                compatibility_slash_redirect_scope(py, scope, routes, self.redirect_slashes)?
+            } else {
+                None
+            };
+            return Ok((plan, child_scopes, redirect_scope));
+        }
         let path = required_scope_value(scope, "path")?.extract::<String>()?;
         let root_path = optional_scope_string(scope, "root_path", "")?;
         let method = required_scope_value(scope, "method")?.extract::<String>()?;
@@ -1007,7 +1042,7 @@ impl RouterDispatchMachine {
                 HttpDispatchPlan::NotFound | HttpDispatchPlan::Redirect { .. } => {}
             }
         }
-        Ok((plan, child_scopes))
+        Ok((plan, child_scopes, None))
     }
 
     fn websocket_plan(
@@ -1015,7 +1050,11 @@ impl RouterDispatchMachine {
         py: Python<'_>,
         scope: &Bound<'_, PyAny>,
         routes: &RouterRoutes,
-    ) -> PyResult<(HttpDispatchPlan, HashMap<usize, Py<PyAny>>)> {
+    ) -> PyResult<RouterPlanResult> {
+        if scope_has_lone_surrogate_path(scope)? {
+            let (plan, child_scopes) = ordered_compatibility_match(py, scope, routes)?;
+            return Ok((plan, child_scopes, None));
+        }
         let path = required_scope_value(scope, "path")?.extract::<String>()?;
         let root_path = optional_scope_string(scope, "root_path", "")?;
         let mut child_scopes = HashMap::new();
@@ -1056,8 +1095,124 @@ impl RouterDispatchMachine {
         if let Some(error) = callback_error {
             return Err(error);
         }
-        Ok((plan, child_scopes))
+        Ok((plan, child_scopes, None))
     }
+}
+
+fn scope_has_lone_surrogate_path(scope: &Bound<'_, PyAny>) -> PyResult<bool> {
+    let path = required_scope_value(scope, "path")?;
+    if python_string_has_lone_surrogate(&path)? {
+        return Ok(true);
+    }
+    let root_path = scope.call_method1("get", ("root_path", ""))?;
+    python_string_has_lone_surrogate(&root_path)
+}
+
+fn python_string_has_lone_surrogate(value: &Bound<'_, PyAny>) -> PyResult<bool> {
+    if value.cast::<PyString>().is_ok() && value.extract::<String>().is_ok() {
+        return Ok(false);
+    }
+    Ok(python_string_to_codepoints(value)?
+        .iter()
+        .any(|codepoint| (0xD800..=0xDFFF).contains(codepoint)))
+}
+
+fn ordered_compatibility_match(
+    py: Python<'_>,
+    scope: &Bound<'_, PyAny>,
+    routes: &RouterRoutes,
+) -> PyResult<(HttpDispatchPlan, HashMap<usize, Py<PyAny>>)> {
+    if routes.kinds.len() != routes.routes.len() {
+        return Err(PyRuntimeError::new_err(
+            "router route kinds do not match the route list",
+        ));
+    }
+    let mut child_scopes = HashMap::new();
+    let mut first_partial = None;
+    for (route_index, route) in routes.routes.iter().enumerate() {
+        let route_match = route.bind(py).call_method1("matches", (scope,))?;
+        let route_match = route_match.cast::<PyTuple>()?;
+        let match_kind = route_match.get_item(0)?.getattr("value")?.extract::<u8>()?;
+        let child_scope = route_match.get_item(1)?;
+        match match_kind {
+            2 => {
+                child_scopes.insert(route_index, child_scope.unbind());
+                return Ok((
+                    HttpDispatchPlan::Matched {
+                        route_index,
+                        path_params: Vec::new(),
+                    },
+                    child_scopes,
+                ));
+            }
+            1 if first_partial.is_none() => {
+                first_partial = Some(route_index);
+                child_scopes.insert(route_index, child_scope.unbind());
+            }
+            _ => {}
+        }
+    }
+    match first_partial {
+        Some(route_index) => Ok((
+            HttpDispatchPlan::MethodNotAllowed {
+                route_index,
+                allowed_methods: Vec::new(),
+                path_params: Vec::new(),
+            },
+            child_scopes,
+        )),
+        None => Ok((HttpDispatchPlan::NotFound, child_scopes)),
+    }
+}
+
+fn compatibility_slash_redirect_scope(
+    py: Python<'_>,
+    scope: &Bound<'_, PyAny>,
+    routes: &RouterRoutes,
+    redirect_slashes: bool,
+) -> PyResult<Option<Py<PyAny>>> {
+    if !redirect_slashes {
+        return Ok(None);
+    }
+    let path = python_string_to_codepoints(&required_scope_value(scope, "path")?)?;
+    let root_path = python_string_to_codepoints(&scope.call_method1("get", ("root_path", ""))?)?;
+    let route_path = if root_path.is_empty() || !path.starts_with(&root_path) {
+        path.clone()
+    } else if path == root_path {
+        Vec::new()
+    } else {
+        let remaining = &path[root_path.len()..];
+        if remaining.first().copied() == Some(u32::from(b'/')) {
+            remaining.to_vec()
+        } else {
+            path.clone()
+        }
+    };
+    if route_path.as_slice() == [u32::from(b'/')] {
+        return Ok(None);
+    }
+
+    let mut candidate_path = path;
+    if route_path.last().copied() == Some(u32::from(b'/')) {
+        while candidate_path.last().copied() == Some(u32::from(b'/')) {
+            candidate_path.pop();
+        }
+    } else {
+        candidate_path.push(u32::from(b'/'));
+    }
+    let redirect_scope = crate::scope_mapping::mapping_copy(scope)?.into_any();
+    redirect_scope.set_item("path", codepoints_to_python_string(py, &candidate_path)?)?;
+    for route in &routes.routes {
+        let route_match = route
+            .bind(py)
+            .call_method1("matches", (redirect_scope.clone(),))?;
+        let route_match = route_match.cast::<PyTuple>()?;
+        let match_kind = route_match.get_item(0)?.getattr("value")?.extract::<u8>()?;
+        if match_kind != 0 {
+            return Ok(Some(redirect_scope.unbind()));
+        }
+    }
+    Ok(None)
 }
 
 fn validate_native_http_route_conversion_order(

@@ -127,7 +127,7 @@ class BaseRoute:
     path: str
     name: str | None
     param_convertors: dict[str, Convertor[Any]]
-    _uses_custom_convertors: bool
+    _uses_compatibility_matcher: bool
 
     def matches(self, scope: Scope) -> tuple[Match, Scope]:
         return _core.base_route_unimplemented("matches")
@@ -155,7 +155,7 @@ class Route(BaseRoute):
         "path_regex",
         "path_format",
         "param_convertors",
-        "_uses_custom_convertors",
+        "_uses_compatibility_matcher",
         "_route_table",
     )
 
@@ -181,7 +181,7 @@ class Route(BaseRoute):
             self.path_regex,
             self.path_format,
             self.param_convertors,
-            self._uses_custom_convertors,
+            self._uses_compatibility_matcher,
             self._route_table,
         ) = _core.initialize_route(
             "http",
@@ -240,7 +240,7 @@ class WebSocketRoute(BaseRoute):
         "path_regex",
         "path_format",
         "param_convertors",
-        "_uses_custom_convertors",
+        "_uses_compatibility_matcher",
         "_route_table",
     )
 
@@ -263,7 +263,7 @@ class WebSocketRoute(BaseRoute):
             self.path_regex,
             self.path_format,
             self.param_convertors,
-            self._uses_custom_convertors,
+            self._uses_compatibility_matcher,
             self._route_table,
         ) = _core.initialize_route(
             "websocket",
@@ -322,7 +322,7 @@ class Mount(BaseRoute):
         "path_regex",
         "path_format",
         "param_convertors",
-        "_uses_custom_convertors",
+        "_uses_compatibility_matcher",
         "_route_table",
     )
 
@@ -347,7 +347,7 @@ class Mount(BaseRoute):
             self.path_regex,
             self.path_format,
             self.param_convertors,
-            self._uses_custom_convertors,
+            self._uses_compatibility_matcher,
             self._route_table,
         ) = _core.initialize_route(
             "mount",
@@ -409,7 +409,7 @@ class Host(BaseRoute):
         "host_regex",
         "host_format",
         "param_convertors",
-        "_uses_custom_convertors",
+        "_uses_compatibility_matcher",
         "_route_table",
     )
 
@@ -425,7 +425,7 @@ class Host(BaseRoute):
             self.host_regex,
             self.host_format,
             self.param_convertors,
-            self._uses_custom_convertors,
+            self._uses_compatibility_matcher,
             self._route_table,
         ) = _core.initialize_route(
             "host",

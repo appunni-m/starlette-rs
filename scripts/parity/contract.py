@@ -43,8 +43,10 @@ INPUT_SCHEMA_V48 = "migration-parity/parity-input@48"
 INPUT_SCHEMA_V49 = "migration-parity/parity-input@49"
 INPUT_SCHEMA_V50 = "migration-parity/parity-input@50"
 INPUT_SCHEMA_V51 = "migration-parity/parity-input@51"
+INPUT_SCHEMA_V52 = "migration-parity/parity-input@52"
+INPUT_SCHEMA_V53 = "migration-parity/parity-input@53"
 PREVIOUS_INPUT_SCHEMA = INPUT_SCHEMA_V50
-INPUT_SCHEMA = "migration-parity/parity-input@52"
+INPUT_SCHEMA = "migration-parity/parity-input@54"
 BENCHMARK_INPUT_SCHEMA = "migration-parity/benchmark-input@1"
 RESULT_SCHEMA = "migration-parity/parity-result@8"
 BENCHMARK_RESULT_SCHEMA = "migration-parity/benchmark-result@1"
@@ -837,6 +839,7 @@ TEMPLATING_PUBLIC_REQUIREMENTS = {
         "default-autoescape",
         "supplied-environment",
         "context-processors",
+        "processor-exception-before-template-lookup",
         "base-http-middleware",
         "url-for",
         "url-for-function-name",
@@ -1257,6 +1260,19 @@ ROUTER_HOST_IPV6_REQUIREMENT = "starlette.routing.Router.route-dispatch.host-ipv
 ROUTER_CACHE_GC_REQUIREMENT = (
     "starlette.routing.Router.route-dispatch.cached-route-cycle-garbage-collection"
 )
+ROUTE_LONE_SURROGATE_MATCH_REQUIREMENT = "starlette.routing.Route.matches.lone-surrogate-path"
+ROUTER_LONE_SURROGATE_PATH_REQUIREMENT = (
+    "starlette.routing.Router.route-dispatch.lone-surrogate-path"
+)
+ROUTER_SURROGATE_REDIRECT_ERROR_REQUIREMENT = (
+    "starlette.routing.Router.route-dispatch.surrogate-redirect-encoding-error"
+)
+ROUTER_OPPOSITE_SCOPE_MATCH_ERROR_REQUIREMENT = (
+    "starlette.routing.Router.route-dispatch.opposite-scope-match-error"
+)
+WEBSOCKET_ROUTE_LONE_SURROGATE_REQUIREMENT = (
+    "starlette.routing.WebSocketRoute.route-dispatch.lone-surrogate-path"
+)
 ROUTER_MIXED_MATCH_ORDER_REQUIREMENT = (
     "starlette.routing.Router.route-dispatch.native-partial-converter-error-before-custom-match"
 )
@@ -1299,6 +1315,7 @@ ROUTE_REPRESENTATION_REQUIREMENTS = {
     HTTP_ROUTE_SURFACE: {
         "inferred-methods": f"{HTTP_ROUTE_SURFACE}.__repr__.with-inferred-methods",
         "class-endpoint-no-methods": f"{HTTP_ROUTE_SURFACE}.__repr__.class-endpoint-no-methods",
+        "lone-surrogate-path": f"{HTTP_ROUTE_SURFACE}.__repr__.lone-surrogate-path",
     },
     WEBSOCKET_ROUTE_SURFACE: {
         "function-endpoint": f"{WEBSOCKET_ROUTE_SURFACE}.__repr__.function-endpoint",
@@ -1324,6 +1341,7 @@ ROUTE_CONSTRUCTOR_ERROR_REQUIREMENTS = {
     "single": f"{HTTP_ROUTE_SURFACE}.__init__.duplicate-parameter-name-single",
     "multiple": f"{HTTP_ROUTE_SURFACE}.__init__.duplicate-parameter-name-multiple",
 }
+ROUTE_LONE_SURROGATE_PATH_REQUIREMENT = f"{HTTP_ROUTE_SURFACE}.__init__.lone-surrogate-path"
 ROUTE_ENDPOINT_NAME_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
     "path",
     "methods",
@@ -3539,8 +3557,12 @@ def _validate_websocket_scope(scope: Any) -> None:
     if scheme not in {"ws", "wss"}:
         raise ContractError("WebSocket scope.scheme must be ws or wss")
     path = _string(scope["path"], "WebSocket scope.path")
-    if scope["raw_path_base64"] != base64.b64encode(path.encode("ascii")).decode("ascii"):
-        raise ContractError("WebSocket raw_path bytes must match the declared ASCII path")
+    try:
+        expected_raw_path = path.encode("utf-8", errors="surrogateescape")
+    except UnicodeEncodeError as exc:
+        raise ContractError("WebSocket path must be UTF-8 or surrogateescape encodable") from exc
+    if scope["raw_path_base64"] != base64.b64encode(expected_raw_path).decode("ascii"):
+        raise ContractError("WebSocket raw_path bytes must match the declared path")
     if not isinstance(scope["root_path"], str):
         raise ContractError("WebSocket scope.root_path must be a string")
     for key in ("raw_path_base64", "query_string_base64"):
@@ -5511,8 +5533,14 @@ def _validate_websocket_route_scope(scope: Any) -> None:
     if scope["method"] != "GET" or scope["scheme"] != "http":
         raise ContractError("WebSocketRoute HTTP mismatch scope must be GET over http")
     path = _string(scope["path"], "WebSocketRoute HTTP scope.path")
-    if scope["raw_path_base64"] != base64.b64encode(path.encode("ascii")).decode("ascii"):
-        raise ContractError("WebSocketRoute HTTP raw_path bytes must match the ASCII path")
+    try:
+        expected_raw_path = path.encode("utf-8", errors="surrogateescape")
+    except UnicodeEncodeError as exc:
+        raise ContractError(
+            "WebSocketRoute HTTP path must be UTF-8 or surrogateescape encodable"
+        ) from exc
+    if scope["raw_path_base64"] != base64.b64encode(expected_raw_path).decode("ascii"):
+        raise ContractError("WebSocketRoute HTTP raw_path bytes must match the declared path")
     if not isinstance(scope["root_path"], str):
         raise ContractError("WebSocketRoute HTTP scope.root_path must be a string")
     for key in ("raw_path_base64", "query_string_base64"):
@@ -5699,6 +5727,21 @@ def _validate_websocket_route_case_stimulus(case: dict[str, Any]) -> None:
         and not actions
     ):
         coverage.add("starlette.routing.WebSocketRoute.route-dispatch.standalone-miss-close")
+    if (
+        case["dispatch"] == "application"
+        and scope["type"] == "websocket"
+        and any(
+            0xD800 <= ord(character) <= 0xDFFF
+            for text in (expected_route, scope["path"], scope["root_path"])
+            for character in text
+        )
+        and _route_template_matches(
+            expected_route,
+            _route_path_after_root(scope["path"], scope["root_path"]),
+        )
+        and [message["type"] for message in incoming] == ["websocket.connect"]
+    ):
+        coverage.add(WEBSOCKET_ROUTE_LONE_SURROGATE_REQUIREMENT)
     unexercised = set(case["covers"]) - coverage
     if unexercised:
         raise ContractError(
@@ -5847,13 +5890,18 @@ def _validate_http_route_input(
         route_keys.add("instance_match_override")
     route = _exact(route, route_keys, context)
     if "instance_match_override" in route:
-        override = _exact(
-            route["instance_match_override"],
-            {"kind"},
-            f"{context}.instance_match_override",
-        )
-        if override["kind"] != "none":
-            raise ContractError(f"{context}.instance_match_override.kind must be none")
+        raw_override = route["instance_match_override"]
+        if not isinstance(raw_override, dict):
+            raise ContractError(f"{context}.instance_match_override must be an object")
+        override_kind = raw_override.get("kind")
+        override_keys = {"kind", "message"} if override_kind == "raise-runtime-error" else {"kind"}
+        override = _exact(raw_override, override_keys, f"{context}.instance_match_override")
+        if override["kind"] == "raise-runtime-error":
+            _string(override["message"], f"{context}.instance_match_override.message")
+        elif override["kind"] != "none":
+            raise ContractError(
+                f"{context}.instance_match_override.kind must be none or raise-runtime-error"
+            )
     if (
         route["kind"] != "http-route"
         or not isinstance(route["path"], str)
@@ -10521,16 +10569,52 @@ def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
     websocket_dispatch = case["scope"].get("type") == "websocket"
     path = case["scope"].get("path")
     root_path = case["scope"].get("root_path")
+    opposite_scope_match_error = (
+        websocket_dispatch
+        and case.get("observe_dispatch_error") is True
+        and len(routes) >= 2
+        and routes[-1]["kind"] == "http-route"
+        and routes[-1].get("instance_match_override", {}).get("kind") == "raise-runtime-error"
+        and isinstance(path, str)
+        and isinstance(root_path, str)
+        and all(
+            route["kind"] == "http-route"
+            and route.get("instance_match_override", {}).get("kind") != "raise-runtime-error"
+            and not _route_template_matches(
+                route["path"], _route_path_after_root(path, root_path), custom_convertors
+            )
+            for route in routes[:-1]
+        )
+        and _route_template_matches(
+            routes[-1]["path"], _route_path_after_root(path, root_path), custom_convertors
+        )
+        and any(
+            0xD800 <= ord(character) <= 0xDFFF
+            for text in (routes[-1]["path"], path, root_path)
+            for character in text
+        )
+    )
+    has_runtime_error_override = any(
+        route.get("instance_match_override", {}).get("kind") == "raise-runtime-error"
+        for route in routes
+        if route["kind"] == "http-route"
+    )
+    if has_runtime_error_override and not opposite_scope_match_error:
+        raise ContractError(
+            "raise-runtime-error matcher overrides require a surrogate-path WebSocket Router input"
+        )
     if websocket_dispatch:
-        if (
-            len(routes) != 1
-            or routes[0]["kind"] != "host-route"
-            or routes[0]["app"]["kind"] != "router"
-            or not routes[0]["app"]["routes"]
-            or any(child["kind"] != "websocket-route" for child in routes[0]["app"]["routes"])
-        ):
+        host_websocket_dispatch = (
+            len(routes) == 1
+            and routes[0]["kind"] == "host-route"
+            and routes[0]["app"]["kind"] == "router"
+            and bool(routes[0]["app"]["routes"])
+            and all(child["kind"] == "websocket-route" for child in routes[0]["app"]["routes"])
+        )
+        if not host_websocket_dispatch and not opposite_scope_match_error:
             raise ContractError(
-                "Router WebSocket dispatch is limited to a Host route with nested WebSocketRoute children"
+                "Router WebSocket dispatch requires a Host with WebSocketRoute children or "
+                "a surrogate-path HTTP Route matcher-error override"
             )
         method = ""
         if case["incoming"] != [{"type": "websocket.connect"}]:
@@ -10552,6 +10636,11 @@ def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
         allow_websocket=websocket_dispatch,
     )
     route_path = _route_path_after_root(path, root_path)
+    has_surrogate_path = any(
+        0xD800 <= ord(character) <= 0xDFFF
+        for text in (path, root_path, *(route["path"] for route in routes if "path" in route))
+        for character in text
+    )
     http_routes = [route for route in routes if route["kind"] == "http-route"]
     matched = [
         route
@@ -10593,38 +10682,71 @@ def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
         )
     ]
     derived: set[str] = set()
+    original_http_path_matches = [
+        route
+        for route in http_routes
+        if _route_template_matches(route["path"], route_path, custom_convertors)
+    ]
+    redirect_candidate = _router_redirect_candidate(path, route_path)
+    redirect_candidate_route_path = (
+        _route_path_after_root(redirect_candidate, root_path)
+        if redirect_candidate is not None
+        else None
+    )
+    surrogate_redirect_error = (
+        not websocket_dispatch
+        and case.get("observe_dispatch_error") is True
+        and case["redirect_slashes"]
+        and has_surrogate_path
+        and not original_http_path_matches
+        and redirect_candidate_route_path is not None
+        and any(
+            _route_template_matches(route["path"], redirect_candidate_route_path, custom_convertors)
+            and _route_method_matches(route, method)
+            for route in http_routes
+        )
+    )
     if case.get("observe_dispatch_error") is True:
-        digit_limit = sys.get_int_max_str_digits()
-        ordered_converter_error = False
-        for index, route in enumerate(routes):
-            if route["kind"] != "http-route" or _route_method_matches(route, method):
-                continue
-            captures = _route_template_capture(route["path"], route_path, custom_convertors)
-            if captures is None:
-                continue
-            exceeds_digit_limit = digit_limit > 0 and any(
-                converter == "int"
-                and converter not in custom_convertors
-                and len(captures[name]) > digit_limit
-                for name, converter in _route_template_parameters(route["path"])
-            )
-            if not exceeds_digit_limit:
-                continue
-            if any(
-                later_route["kind"] == "base-route-subclass"
-                and later_route["match_scope_path"] == path
-                and "match_error" in later_route
-                for later_route in routes[index + 1 :]
-            ):
-                ordered_converter_error = True
-                break
-        if not ordered_converter_error:
-            raise ContractError(
-                "Router dispatch-error observation requires an earlier method-partial int route "
-                "that exceeds the Python conversion digit limit before a later raising "
-                "BaseRoute matcher"
-            )
-        derived.add(ROUTER_MIXED_MATCH_ORDER_REQUIREMENT)
+        if opposite_scope_match_error:
+            derived.add(ROUTER_OPPOSITE_SCOPE_MATCH_ERROR_REQUIREMENT)
+            derived.add(ROUTE_LONE_SURROGATE_MATCH_REQUIREMENT)
+            derived.add(ROUTER_LONE_SURROGATE_PATH_REQUIREMENT)
+        elif surrogate_redirect_error:
+            derived.add(ROUTER_SURROGATE_REDIRECT_ERROR_REQUIREMENT)
+            derived.add(ROUTE_LONE_SURROGATE_MATCH_REQUIREMENT)
+            derived.add(ROUTER_LONE_SURROGATE_PATH_REQUIREMENT)
+        else:
+            digit_limit = sys.get_int_max_str_digits()
+            ordered_converter_error = False
+            for index, route in enumerate(routes):
+                if route["kind"] != "http-route" or _route_method_matches(route, method):
+                    continue
+                captures = _route_template_capture(route["path"], route_path, custom_convertors)
+                if captures is None:
+                    continue
+                exceeds_digit_limit = digit_limit > 0 and any(
+                    converter == "int"
+                    and converter not in custom_convertors
+                    and len(captures[name]) > digit_limit
+                    for name, converter in _route_template_parameters(route["path"])
+                )
+                if not exceeds_digit_limit:
+                    continue
+                if any(
+                    later_route["kind"] == "base-route-subclass"
+                    and later_route["match_scope_path"] == path
+                    and "match_error" in later_route
+                    for later_route in routes[index + 1 :]
+                ):
+                    ordered_converter_error = True
+                    break
+            if not ordered_converter_error:
+                raise ContractError(
+                    "Router dispatch-error observation requires an earlier method-partial int route "
+                    "that exceeds the Python conversion digit limit before a later raising "
+                    "BaseRoute matcher, or one of the declared surrogate error inputs"
+                )
+            derived.add(ROUTER_MIXED_MATCH_ORDER_REQUIREMENT)
     if "garbage_collection" in case:
         derived.add(ROUTER_CACHE_GC_REQUIREMENT)
     mount_requirements, selected_route = _router_mount_requirements(
@@ -10648,6 +10770,13 @@ def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
         )
     )
     for route in matched:
+        if any(
+            0xD800 <= ord(character) <= 0xDFFF
+            for text in (route["path"], path, root_path)
+            for character in text
+        ):
+            derived.add(ROUTE_LONE_SURROGATE_MATCH_REQUIREMENT)
+            derived.add(ROUTER_LONE_SURROGATE_PATH_REQUIREMENT)
         if not _route_template_parameters(route["path"]) and route["path"] == route_path:
             derived.add("starlette.routing.Router.route-dispatch.literal-path-match")
         for _name, converter in _route_template_parameters(route["path"]):
@@ -10927,6 +11056,12 @@ def _validate_router_sequence_case_stimulus(case: dict[str, Any]) -> None:
     ]
     if any(route["kind"] == "host-route" for route in routes):
         raise ContractError("Router mutation sequences do not declare Host routes")
+    if any(
+        route.get("instance_match_override", {}).get("kind") == "raise-runtime-error"
+        for route in routes
+        if route["kind"] == "http-route"
+    ):
+        raise ContractError("Router mutation sequences do not declare raising matcher overrides")
     if "observe_router_scope" in case and (
         case["observe_router_scope"] is not True
         or not any(route["kind"] == "mount" for route in routes)
@@ -11099,6 +11234,17 @@ def _validate_router_sequence_case_stimulus(case: dict[str, Any]) -> None:
             derived.update(
                 _router_http_endpoint_requirements(routes[selected_index].get("endpoint"), method)
             )
+            if any(
+                0xD800 <= ord(character) <= 0xDFFF
+                for text in (
+                    routes[selected_index].get("path", ""),
+                    path,
+                    root_path,
+                )
+                for character in text
+            ):
+                derived.add(ROUTE_LONE_SURROGATE_MATCH_REQUIREMENT)
+                derived.add(ROUTER_LONE_SURROGATE_PATH_REQUIREMENT)
         if (
             root_path
             and path.startswith(root_path)
@@ -11847,6 +11993,8 @@ def _reverse_input_requirements(case: dict[str, Any]) -> set[str]:
         route = graph
         expected = _validate_reverse_path(route["path"], custom, "Route.path")
         if route["name"] == lookup["name"] and {name for name, _ in expected} == set(params):
+            if any(0xD800 <= ord(character) <= 0xDFFF for character in route["path"]):
+                derived.add(rid("lone-surrogate-path"))
             if not expected:
                 derived.add(rid("static-path"))
             converter_suffixes = {
@@ -32350,22 +32498,51 @@ def _validate_templating_public_case(case: dict[str, Any]) -> None:
             raise ContractError("Explicit template processor specs require empty legacy additions")
         normalized_processor_specs = []
         for index, item in enumerate(processor_specs):
-            item = _exact(
-                item,
-                {"kind", "additions"},
-                f"Template processor specs[{index}]",
-            )
+            context = f"Template processor specs[{index}]"
+            if not isinstance(item, dict):
+                raise ContractError(f"{context} must be an object")
+            if "kind" not in item:
+                raise ContractError(f"{context}.kind is required")
             kind = _string(item["kind"], "Template processor kind")
-            if kind not in {"sync", "async"}:
-                raise ContractError("Template processor kind must be sync or async")
-            values = item["additions"]
-            if not isinstance(values, dict) or not values or "request" in values:
-                raise ContractError("Template processor specs require non-empty context mappings")
-            normalized_processor_specs.append({"kind": kind, "additions": values})
+            if kind in {"sync", "async"}:
+                item = _exact(item, {"kind", "additions"}, context)
+                values = item["additions"]
+                if not isinstance(values, dict) or not values or "request" in values:
+                    raise ContractError(
+                        "Template processor specs require non-empty context mappings"
+                    )
+                normalized_processor_specs.append({"kind": kind, "additions": values})
+            elif kind == "sync-raise":
+                item = _exact(item, {"kind", "exception_class", "message"}, context)
+                exception_class = _string(item["exception_class"], f"{context}.exception_class")
+                exception_type = getattr(builtins, exception_class, None)
+                if not isinstance(exception_type, type) or not issubclass(
+                    exception_type, Exception
+                ):
+                    raise ContractError(f"{context}.exception_class must name a built-in Exception")
+                message = _string(item["message"], f"{context}.message")
+                try:
+                    exception_type(message)
+                except Exception as error:
+                    raise ContractError(
+                        f"{context}.exception_class must accept one message argument"
+                    ) from error
+                normalized_processor_specs.append(
+                    {
+                        "kind": kind,
+                        "exception_class": exception_class,
+                        "message": message,
+                    }
+                )
+            else:
+                raise ContractError("Template processor kind must be sync, async, or sync-raise")
     else:
         normalized_processor_specs = [{"kind": "sync", "additions": item} for item in additions]
     has_processors = bool(normalized_processor_specs)
     has_async_processors = any(item["kind"] == "async" for item in normalized_processor_specs)
+    has_sync_raising_processors = any(
+        item["kind"] == "sync-raise" for item in normalized_processor_specs
+    )
     consumer = case["consumer"]
     if not isinstance(consumer, dict) or consumer.get("kind") not in {
         "construction",
@@ -32505,16 +32682,20 @@ def _validate_templating_public_case(case: dict[str, Any]) -> None:
         if any(
             key not in text
             for processor in normalized_processor_specs
-            for key in processor["additions"]
+            for key in processor.get("additions", {})
             for text in used_texts
         ):
             raise ContractError("Template response inputs must render each processor context key")
-        if not has_async_processors:
+        if not has_async_processors and not has_sync_raising_processors:
             coverage.add(TEMPLATING_PUBLIC_REQUIREMENTS["client-debug-metadata"])
         if len(selected_roots) > 1:
             coverage.add(TEMPLATING_PUBLIC_REQUIREMENTS["directory-sequence"])
         if has_processors:
             coverage.add(TEMPLATING_PUBLIC_REQUIREMENTS["context-processors"])
+        if has_sync_raising_processors:
+            coverage.add(
+                TEMPLATING_PUBLIC_REQUIREMENTS["processor-exception-before-template-lookup"]
+            )
         if consumer["middleware"]:
             coverage.add(TEMPLATING_PUBLIC_REQUIREMENTS["base-http-middleware"])
         if any("url_for" in text for text in used_texts):
@@ -35383,6 +35564,8 @@ def _validate_route_name_case(case: dict[str, Any]) -> None:
     for index, endpoint in enumerate(endpoints):
         kind = _validate_route_endpoint_spec(endpoint, f"Route endpoint-name endpoints[{index}]")
         exercised.add(ROUTE_ENDPOINT_NAME_REQUIREMENTS[kind])
+    if any(0xD800 <= ord(character) <= 0xDFFF for character in case["path"]):
+        exercised.add(ROUTE_LONE_SURROGATE_PATH_REQUIREMENT)
     if set(case["covers"]) != exercised:
         raise ContractError(
             "Route endpoint-name requirements must derive from the supplied callables"
@@ -35521,7 +35704,12 @@ def _validate_route_repr_case(case: dict[str, Any]) -> None:
         requirement = ROUTE_REPRESENTATION_REQUIREMENTS[surface][
             "named" if spec["name"] else "unnamed"
         ]
-    if set(case["covers"]) != {requirement}:
+    exercised = {requirement}
+    if surface == HTTP_ROUTE_SURFACE and any(
+        0xD800 <= ord(character) <= 0xDFFF for character in spec["path"]
+    ):
+        exercised.add(ROUTE_REPRESENTATION_REQUIREMENTS[surface]["lone-surrogate-path"])
+    if set(case["covers"]) != exercised:
         raise ContractError(
             "routing representation coverage must derive from its constructor input"
         )
@@ -38626,7 +38814,34 @@ def migrate_input_document_v51(document: Any) -> dict[str, Any]:
                 )
 
     migrated = dict(document)
-    migrated["schema"] = INPUT_SCHEMA
+    migrated["schema"] = INPUT_SCHEMA_V52
+    return migrated
+
+
+def migrate_input_document_v52(document: Any) -> dict[str, Any]:
+    """Advance @52 inputs to @53 while rejecting the @53-only sync-raise shape."""
+    _exact(document, {"schema", "cases"}, "parity input")
+    if document["schema"] != INPUT_SCHEMA_V52:
+        raise ContractError(f"unsupported @52 parity input schema: {document['schema']!r}")
+    if not isinstance(document["cases"], list) or not document["cases"]:
+        raise ContractError("parity input must select at least one case")
+
+    for case_index, case in enumerate(document["cases"]):
+        if not isinstance(case, dict) or (case.get("surface"), case.get("operation")) != (
+            "starlette.templating.Jinja2Templates",
+            "template-public-workflow",
+        ):
+            continue
+        processor_specs = case.get("processor_specs")
+        if isinstance(processor_specs, list) and any(
+            isinstance(item, dict) and item.get("kind") == "sync-raise" for item in processor_specs
+        ):
+            raise ContractError(
+                f"parity case {case_index} cannot use sync-raise processors in @52 input"
+            )
+
+    migrated = dict(document)
+    migrated["schema"] = INPUT_SCHEMA_V53
     return migrated
 
 
@@ -38638,7 +38853,58 @@ def validate_input_document_v51(
 ) -> list[dict[str, Any]]:
     """Validate @51 inputs before their deterministic @52 schema-header migration."""
     migrated = migrate_input_document_v51(document)
+    return validate_input_document_v52(migrated, manifest, public_modules=public_modules)
+
+
+def migrate_input_document_v53(document: Any) -> dict[str, Any]:
+    """Advance @53 inputs to @54, which adds a route matcher error override."""
+    _exact(document, {"schema", "cases"}, "parity input")
+    if document["schema"] != INPUT_SCHEMA_V53:
+        raise ContractError(f"unsupported @53 parity input schema: {document['schema']!r}")
+    if not isinstance(document["cases"], list) or not document["cases"]:
+        raise ContractError("parity input must select at least one case")
+
+    for case_index, case in enumerate(document["cases"]):
+        if not isinstance(case, dict):
+            continue
+        routes = case.get("routes")
+        if not isinstance(routes, list):
+            continue
+        for route_index, route in enumerate(routes):
+            if not isinstance(route, dict):
+                continue
+            override = route.get("instance_match_override")
+            if isinstance(override, dict) and override.get("kind") == "raise-runtime-error":
+                raise ContractError(
+                    f"parity case {case_index} route {route_index} cannot use the @54 "
+                    "raise-runtime-error matcher override in @53 input"
+                )
+
+    migrated = dict(document)
+    migrated["schema"] = INPUT_SCHEMA
+    return migrated
+
+
+def validate_input_document_v53(
+    document: Any,
+    manifest: dict[str, Any],
+    *,
+    public_modules: frozenset[str] | None = None,
+) -> list[dict[str, Any]]:
+    """Validate @53 inputs before their deterministic @54 schema-header migration."""
+    migrated = migrate_input_document_v53(document)
     return validate_input_document(migrated, manifest, public_modules=public_modules)
+
+
+def validate_input_document_v52(
+    document: Any,
+    manifest: dict[str, Any],
+    *,
+    public_modules: frozenset[str] | None = None,
+) -> list[dict[str, Any]]:
+    """Validate @52 inputs before their deterministic @53 and @54 migrations."""
+    migrated = migrate_input_document_v52(document)
+    return validate_input_document_v53(migrated, manifest, public_modules=public_modules)
 
 
 def validate_input_document_v50(
@@ -38647,7 +38913,7 @@ def validate_input_document_v50(
     *,
     public_modules: frozenset[str] | None = None,
 ) -> list[dict[str, Any]]:
-    """Validate @50 inputs after the deterministic @51 and @52 migrations."""
+    """Validate @50 inputs after the deterministic @51, @52, and @53 migrations."""
     migrated_v51 = migrate_input_document_v50(document)
     return validate_input_document_v51(
         migrated_v51,
@@ -38662,7 +38928,7 @@ def validate_previous_input_document(
     *,
     public_modules: frozenset[str] | None = None,
 ) -> list[dict[str, Any]]:
-    """Validate @50 inputs before migrating them through the active @52 contract."""
+    """Validate @50 inputs before migrating them through the active @53 contract."""
     return validate_input_document_v50(document, manifest, public_modules=public_modules)
 
 

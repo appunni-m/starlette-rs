@@ -9,12 +9,14 @@ incomplete.
 ## Current parity snapshot
 
 Implementation remains the active phase for the full Starlette replacement.
-The working-tree `parity-input@52` contract indexes 2,373 cases across 340
+The working-tree `parity-input@54` contract indexes 2,391 cases across 342
 parity inputs, two benchmark inputs, 142 Starlette compatibility operations,
-13 native operations, and 1,290 parity requirements (1,248 compatibility and
-42 native).
+13 native operations, and 1,302 parity requirements (1,260 compatibility and
+42 native). The synchronous template processor exception-before-lookup
+case has its own derived parity requirement; both template processor
+comparisons remain unexecuted until full parity.
 The latest static inventory reports 999/999 API candidates dispositioned and
-850 source rows: 796 input mappings, 54 source-backed `not_applicable` rows,
+851 source rows: 797 input mappings, 54 source-backed `not_applicable` rows,
 and zero fixture backlog. A new `iterate_in_threadpool` input observes
 empty-iterable exhaustion alongside its async iterator protocol outcomes; a
 new `run_in_threadpool` cancellation input observes whether an AnyIO cancel

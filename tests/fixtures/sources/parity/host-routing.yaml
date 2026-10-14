@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@52",
+  "schema": "migration-parity/parity-input@54",
   "cases": [
     {
       "case_id": "starlette.routing.Router.route-dispatch.host-route-match",
@@ -219,6 +219,36 @@
       "route_graph": {
         "kind": "host-route",
         "host": "{tenant}.example.test:3600",
+        "name": "tenant",
+        "routes": []
+      },
+      "lookup": {
+        "name": "tenant",
+        "path_params": {
+          "tenant": "acme",
+          "path": "/health"
+        }
+      },
+      "request_scope": null,
+      "custom_convertors": [],
+      "observations": [
+        "reverse-url"
+      ]
+    },
+    {
+      "case_id": "starlette.routing.Host.url_path_for.lone-surrogate-host-literal",
+      "surface": "starlette.routing.Host",
+      "operation": "url_path_for",
+      "covers": [
+        "starlette.routing.Host.url_path_for.direct-path"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "route_graph": {
+        "kind": "host-route",
+        "host": "\uDC80.{tenant}.example.test",
         "name": "tenant",
         "routes": []
       },

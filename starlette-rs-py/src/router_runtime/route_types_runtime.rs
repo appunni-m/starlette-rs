@@ -21,6 +21,7 @@ use crate::application_runtime::exception_send_proxy;
 use crate::awaitable::{
     AwaitableStateMachine, MachineAction, MachineResume, into_sendable_python_awaitable,
 };
+use crate::datastructure_runtime::{codepoints_to_python_string, python_string_to_codepoints};
 use crate::middleware_config_runtime::middleware_kwargs_to_dict;
 
 pub(super) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
@@ -973,12 +974,16 @@ fn traceback_text(py: Python<'_>, error: &PyErr) -> PyResult<String> {
 #[pyfunction]
 fn compile_route_path(
     py: Python<'_>,
-    path: &str,
+    path: &Bound<'_, PyAny>,
     convertor_types: &Bound<'_, PyDict>,
-) -> PyResult<(Py<PyAny>, String, Py<PyDict>)> {
-    let (pattern, path_format, convertors, _) =
-        compile_path_parts(py, path, convertor_types, None)?;
-    Ok((pattern.unbind(), path_format, convertors.unbind()))
+) -> PyResult<(Py<PyAny>, Py<PyAny>, Py<PyDict>)> {
+    let (pattern, path_format, convertors, _, _) =
+        compile_path_parts_compat(py, path, convertor_types, None)?;
+    Ok((
+        pattern.unbind(),
+        path_format.into_any().unbind(),
+        convertors.unbind(),
+    ))
 }
 
 #[pyfunction]
@@ -988,7 +993,7 @@ fn compile_route_path(
 fn initialize_route(
     py: Python<'_>,
     kind: &str,
-    path: &str,
+    path: &Bound<'_, PyAny>,
     endpoint: Option<Py<PyAny>>,
     methods: Option<Py<PyAny>>,
     name: Option<Py<PyAny>>,
@@ -1441,7 +1446,7 @@ type RouteInitValues = (
 #[allow(clippy::too_many_arguments)]
 fn initialize_http_route(
     py: Python<'_>,
-    path: &str,
+    path: &Bound<'_, PyAny>,
     endpoint: Option<Py<PyAny>>,
     methods: Option<Py<PyAny>>,
     name: Option<Py<PyAny>>,
@@ -1453,7 +1458,7 @@ fn initialize_http_route(
     request_response_factory: &Bound<'_, PyAny>,
     route_table_type: &Bound<'_, PyAny>,
 ) -> PyResult<RouteInitValues> {
-    if !path.starts_with('/') {
+    if !path.call_method1("startswith", ("/",))?.is_truthy()? {
         return Err(PyAssertionError::new_err(
             "Routed paths must start with '/'",
         ));
@@ -1489,18 +1494,19 @@ fn initialize_http_route(
 
     let normalized_methods =
         normalize_methods(py, effective_methods.as_ref().map(|item| item.bind(py)))?;
-    let (regex, path_format, convertors, custom) =
-        compile_path_parts(py, path, convertor_types, Some(builtin_convertors))?;
-    let route_table = make_route_table(
+    let (regex, path_format, convertors, custom, has_surrogate) =
+        compile_path_parts_compat(py, path, convertor_types, Some(builtin_convertors))?;
+    let route_table = make_route_table_compat(
         py,
         route_table_type,
         path,
         custom,
+        has_surrogate,
         normalized_methods.as_ref().map(|item| item.bind(py)),
     )?;
 
     Ok((
-        PyString::new(py, path).into_any().unbind(),
+        path.clone().unbind(),
         endpoint,
         route_name,
         normalized_methods.map_or_else(|| py.None(), |methods| methods.into_any()),
@@ -1511,9 +1517,12 @@ fn initialize_http_route(
         py.None(),
         app,
         regex.unbind(),
-        PyString::new(py, &path_format).into_any().unbind(),
+        path_format.into_any().unbind(),
         convertors.into_any().unbind(),
-        PyBool::new(py, custom).to_owned().into_any().unbind(),
+        PyBool::new(py, custom || has_surrogate)
+            .to_owned()
+            .into_any()
+            .unbind(),
         route_table,
     ))
 }
@@ -1522,7 +1531,7 @@ fn initialize_http_route(
 #[allow(clippy::too_many_arguments)]
 fn initialize_websocket_route(
     py: Python<'_>,
-    path: &str,
+    path: &Bound<'_, PyAny>,
     endpoint: Option<Py<PyAny>>,
     name: Option<Py<PyAny>>,
     middleware: Option<Py<PyAny>>,
@@ -1531,7 +1540,7 @@ fn initialize_websocket_route(
     websocket_endpoint_factory: &Bound<'_, PyAny>,
     route_table_type: &Bound<'_, PyAny>,
 ) -> PyResult<RouteInitValues> {
-    if !path.starts_with('/') {
+    if !path.call_method1("startswith", ("/",))?.is_truthy()? {
         return Err(PyAssertionError::new_err(
             "Routed paths must start with '/'",
         ));
@@ -1556,12 +1565,13 @@ fn initialize_websocket_route(
         middleware.as_ref().map(|item| item.bind(py)),
         None,
     )?;
-    let (regex, path_format, convertors, custom) =
-        compile_path_parts(py, path, convertor_types, Some(builtin_convertors))?;
-    let route_table = make_route_table(py, route_table_type, path, custom, None)?;
+    let (regex, path_format, convertors, custom, has_surrogate) =
+        compile_path_parts_compat(py, path, convertor_types, Some(builtin_convertors))?;
+    let route_table =
+        make_route_table_compat(py, route_table_type, path, custom, has_surrogate, None)?;
 
     Ok((
-        PyString::new(py, path).into_any().unbind(),
+        path.clone().unbind(),
         endpoint,
         route_name,
         py.None(),
@@ -1569,9 +1579,12 @@ fn initialize_websocket_route(
         py.None(),
         app,
         regex.unbind(),
-        PyString::new(py, &path_format).into_any().unbind(),
+        path_format.into_any().unbind(),
         convertors.into_any().unbind(),
-        PyBool::new(py, custom).to_owned().into_any().unbind(),
+        PyBool::new(py, custom || has_surrogate)
+            .to_owned()
+            .into_any()
+            .unbind(),
         route_table,
     ))
 }
@@ -1580,23 +1593,33 @@ fn initialize_websocket_route(
 #[allow(clippy::too_many_arguments)]
 fn initialize_host_route(
     py: Python<'_>,
-    host: &str,
+    host: &Bound<'_, PyAny>,
     app: Option<Py<PyAny>>,
     name: Option<Py<PyAny>>,
     convertor_types: &Bound<'_, PyDict>,
     builtin_convertors: &Bound<'_, PyDict>,
     route_table_type: &Bound<'_, PyAny>,
 ) -> PyResult<RouteInitValues> {
-    if host.starts_with('/') {
+    if host.call_method1("startswith", ("/",))?.is_truthy()? {
         return Err(PyAssertionError::new_err("Host must not start with '/'"));
     }
     let app = app.unwrap_or_else(|| py.None());
-    let (regex, host_format, convertors, custom) =
-        compile_path_parts(py, host, convertor_types, Some(builtin_convertors))?;
-    let route_table_path = format!("/{}", host_format_without_port(&host_format));
-    let route_table = make_route_table(py, route_table_type, &route_table_path, custom, None)?;
+    let (regex, host_format, convertors, custom, has_surrogate) =
+        compile_path_parts_compat(py, host, convertor_types, Some(builtin_convertors))?;
+    let route_table = if has_surrogate {
+        py.None()
+    } else {
+        let host_format_codepoints = CompatibilityPath::from_python(host_format.as_any())?;
+        let host_format_codepoints = host_format_without_port(&host_format_codepoints);
+        let mut route_table_path = vec![u32::from(b'/')];
+        route_table_path.extend_from_slice(&host_format_codepoints.0);
+        let route_table_path = CompatibilityPath(route_table_path)
+            .to_utf8()
+            .ok_or_else(|| PyValueError::new_err("host route table path is not UTF-8"))?;
+        make_route_table(py, route_table_type, &route_table_path, custom, None)?
+    };
     Ok((
-        PyString::new(py, host).into_any().unbind(),
+        host.clone().unbind(),
         app.clone_ref(py),
         name.unwrap_or_else(|| py.None()),
         py.None(),
@@ -1604,9 +1627,12 @@ fn initialize_host_route(
         py.None(),
         app,
         regex.unbind(),
-        PyString::new(py, &host_format).into_any().unbind(),
+        host_format.into_any().unbind(),
         convertors.into_any().unbind(),
-        PyBool::new(py, custom).to_owned().into_any().unbind(),
+        PyBool::new(py, custom || has_surrogate)
+            .to_owned()
+            .into_any()
+            .unbind(),
         route_table,
     ))
 }
@@ -1615,7 +1641,7 @@ fn initialize_host_route(
 #[allow(clippy::too_many_arguments)]
 fn initialize_mount(
     py: Python<'_>,
-    path: &str,
+    path: &Bound<'_, PyAny>,
     app: Option<Py<PyAny>>,
     routes: Option<Py<PyAny>>,
     name: Option<Py<PyAny>>,
@@ -1626,7 +1652,8 @@ fn initialize_mount(
     route_table_type: &Bound<'_, PyAny>,
     router_type: &Bound<'_, PyAny>,
 ) -> PyResult<RouteInitValues> {
-    if !path.is_empty() && !path.starts_with('/') {
+    let is_empty = path.rich_compare("", CompareOp::Eq)?.is_truthy()?;
+    if !is_empty && !path.call_method1("startswith", ("/",))?.is_truthy()? {
         return Err(PyAssertionError::new_err(
             "Routed paths must start with '/'",
         ));
@@ -1638,7 +1665,8 @@ fn initialize_mount(
             "Either 'app=...', or 'routes=' must be specified",
         ));
     }
-    let path = path.trim_end_matches('/').to_owned();
+    let mut path = CompatibilityPath::from_python(path)?;
+    path.trim_end_ascii(b'/');
     let base_app = match app {
         Some(app) if !app.bind(py).is_none() => app,
         _ => {
@@ -1655,13 +1683,26 @@ fn initialize_mount(
         middleware.as_ref().map(|item| item.bind(py)),
         max_body_size.as_ref().map(|item| item.bind(py)),
     )?;
-    let path_pattern = format!("{path}/{{path:path}}");
-    let (regex, path_format, convertors, custom) =
-        compile_path_parts(py, &path_pattern, convertor_types, Some(builtin_convertors))?;
-    let route_table = make_route_table(py, route_table_type, &path_pattern, custom, None)?;
+    let mut path_pattern = path.clone();
+    append_utf8_codepoints(&mut path_pattern.0, "/{path:path}");
+    let path_pattern = path_pattern.to_python(py)?;
+    let (regex, path_format, convertors, custom, has_surrogate) = compile_path_parts_compat(
+        py,
+        path_pattern.as_any(),
+        convertor_types,
+        Some(builtin_convertors),
+    )?;
+    let route_table = make_route_table_compat(
+        py,
+        route_table_type,
+        path_pattern.as_any(),
+        custom,
+        has_surrogate,
+        None,
+    )?;
 
     Ok((
-        PyString::new(py, &path).into_any().unbind(),
+        path.to_python(py)?.into_any().unbind(),
         py.None(),
         name.unwrap_or_else(|| py.None()),
         py.None(),
@@ -1669,9 +1710,13 @@ fn initialize_mount(
         base_app,
         app,
         regex.unbind(),
-        PyString::new(py, &path_format).into_any().unbind(),
+        path_format.into_any().unbind(),
         convertors.into_any().unbind(),
-        custom.into_pyobject(py)?.to_owned().into_any().unbind(),
+        (custom || has_surrogate)
+            .into_pyobject(py)?
+            .to_owned()
+            .into_any()
+            .unbind(),
         route_table,
     ))
 }
@@ -1683,22 +1728,236 @@ struct PathParameter {
     convertor_name: String,
 }
 
-fn compile_path_parts<'py>(
+type CompiledCompatibilityPath<'py> = (
+    Bound<'py, PyAny>,
+    Bound<'py, PyString>,
+    Bound<'py, PyDict>,
+    bool,
+    bool,
+);
+
+/// A Python path kept as Unicode code points so compatibility routes can retain lone surrogates.
+/// The Rust-native RouteTable continues to use UTF-8 `String` paths.
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct CompatibilityPath(Vec<u32>);
+
+impl CompatibilityPath {
+    fn from_python(value: &Bound<'_, PyAny>) -> PyResult<Self> {
+        if value.cast::<PyString>().is_ok() {
+            if let Ok(path) = value.extract::<String>() {
+                return Ok(Self::from_utf8(&path));
+            }
+        }
+        python_string_to_codepoints(value).map(Self)
+    }
+
+    fn from_utf8(value: &str) -> Self {
+        Self(value.chars().map(u32::from).collect())
+    }
+
+    fn has_lone_surrogate(&self) -> bool {
+        self.0
+            .iter()
+            .any(|codepoint| (0xD800..=0xDFFF).contains(codepoint))
+    }
+
+    fn starts_with_ascii(&self, character: u8) -> bool {
+        self.0.first().copied() == Some(u32::from(character))
+    }
+
+    fn trim_end_ascii(&mut self, character: u8) {
+        while self.0.last().copied() == Some(u32::from(character)) {
+            self.0.pop();
+        }
+    }
+
+    fn contains(&self, value: &[u32]) -> bool {
+        !value.is_empty() && self.0.windows(value.len()).any(|window| window == value)
+    }
+
+    fn replace_all(&mut self, from: &[u32], to: &[u32]) {
+        if from.is_empty() {
+            return;
+        }
+        let mut result = Vec::with_capacity(self.0.len());
+        let mut cursor = 0;
+        while cursor < self.0.len() {
+            if self.0[cursor..].starts_with(from) {
+                result.extend_from_slice(to);
+                cursor += from.len();
+            } else {
+                result.push(self.0[cursor]);
+                cursor += 1;
+            }
+        }
+        self.0 = result;
+    }
+
+    fn to_python<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyString>> {
+        codepoints_to_python_string(py, &self.0)
+    }
+
+    fn to_utf8(&self) -> Option<String> {
+        self.0
+            .iter()
+            .try_fold(String::new(), |mut value, codepoint| {
+                value.push(char::from_u32(*codepoint)?);
+                Some(value)
+            })
+    }
+}
+
+fn append_utf8_codepoints(output: &mut Vec<u32>, value: &str) {
+    output.extend(value.chars().map(u32::from));
+}
+
+fn path_parameters_codepoints(path: &[u32]) -> Vec<PathParameter> {
+    let mut parameters = Vec::new();
+    let mut search_from = 0;
+    while search_from < path.len() {
+        let Some(offset) = path[search_from..]
+            .iter()
+            .position(|codepoint| *codepoint == u32::from(b'{'))
+        else {
+            break;
+        };
+        let start = search_from + offset;
+        let mut index = start + 1;
+        if !path
+            .get(index)
+            .copied()
+            .is_some_and(is_identifier_codepoint_start)
+        {
+            search_from = start + 1;
+            continue;
+        }
+        let name_start = index;
+        index += 1;
+        while path
+            .get(index)
+            .copied()
+            .is_some_and(is_identifier_codepoint_continue)
+        {
+            index += 1;
+        }
+        let name = codepoints_ascii_string(&path[name_start..index]);
+        let convertor_name = if path.get(index).copied() == Some(u32::from(b':')) {
+            index += 1;
+            let convertor_start = index;
+            if !path
+                .get(index)
+                .copied()
+                .is_some_and(is_identifier_codepoint_start)
+            {
+                search_from = start + 1;
+                continue;
+            }
+            index += 1;
+            while path
+                .get(index)
+                .copied()
+                .is_some_and(is_identifier_codepoint_continue)
+            {
+                index += 1;
+            }
+            codepoints_ascii_string(&path[convertor_start..index])
+        } else {
+            "str".to_owned()
+        };
+        if path.get(index).copied() != Some(u32::from(b'}')) {
+            search_from = start + 1;
+            continue;
+        }
+        parameters.push(PathParameter {
+            start,
+            end: index + 1,
+            name,
+            convertor_name,
+        });
+        search_from = index + 1;
+    }
+    parameters
+}
+
+fn is_identifier_codepoint_start(codepoint: u32) -> bool {
+    u8::try_from(codepoint).is_ok_and(is_identifier_start)
+}
+
+fn is_identifier_codepoint_continue(codepoint: u32) -> bool {
+    u8::try_from(codepoint).is_ok_and(is_identifier_continue)
+}
+
+fn codepoints_ascii_string(codepoints: &[u32]) -> String {
+    codepoints
+        .iter()
+        .filter_map(|codepoint| u8::try_from(*codepoint).ok())
+        .map(char::from)
+        .collect()
+}
+
+fn escape_regex_codepoints(text: &[u32]) -> Vec<u32> {
+    let mut escaped = Vec::with_capacity(text.len());
+    for codepoint in text {
+        if matches!(
+            *codepoint,
+            40 | 41
+                | 91
+                | 93
+                | 123
+                | 125
+                | 63
+                | 42
+                | 43
+                | 45
+                | 124
+                | 94
+                | 36
+                | 92
+                | 46
+                | 38
+                | 126
+                | 35
+                | 32
+                | 9
+                | 10
+                | 13
+                | 11
+                | 12
+        ) {
+            escaped.push(u32::from(b'\\'));
+        }
+        escaped.push(*codepoint);
+    }
+    escaped
+}
+
+fn compile_path_parts_compat<'py>(
     py: Python<'py>,
-    path: &str,
+    path: &Bound<'_, PyAny>,
     convertor_types: &Bound<'py, PyDict>,
     builtin_convertors: Option<&Bound<'py, PyDict>>,
-) -> PyResult<(Bound<'py, PyAny>, String, Bound<'py, PyDict>, bool)> {
-    let is_host = !path.starts_with('/');
-    let mut path_regex = String::from("^");
-    let mut path_format = String::new();
+) -> PyResult<CompiledCompatibilityPath<'py>> {
+    let codepoints = CompatibilityPath::from_python(path)?;
+    compile_path_parts_codepoints(py, &codepoints, convertor_types, builtin_convertors)
+}
+
+fn compile_path_parts_codepoints<'py>(
+    py: Python<'py>,
+    path: &CompatibilityPath,
+    convertor_types: &Bound<'py, PyDict>,
+    builtin_convertors: Option<&Bound<'py, PyDict>>,
+) -> PyResult<CompiledCompatibilityPath<'py>> {
+    let is_host = !path.starts_with_ascii(b'/');
+    let mut path_regex = vec![u32::from(b'^')];
+    let mut path_format = Vec::new();
     let mut duplicated_params = HashSet::new();
     let mut parameter_names = HashSet::new();
     let mut index = 0;
     let convertors = PyDict::new(py);
     let mut has_custom = false;
+    let mut has_surrogate = path.has_lone_surrogate();
 
-    for parameter in path_parameters(path) {
+    for parameter in path_parameters_codepoints(&path.0) {
         let convertor = convertor_types
             .get_item(&parameter.convertor_name)?
             .ok_or_else(|| {
@@ -1708,19 +1967,19 @@ fn compile_path_parts<'py>(
                 ))
             })?;
 
-        let static_text = &path[index..parameter.start];
-        let escaped = escape_regex_text(static_text);
-        let converter_regex = convertor.getattr("regex")?.extract::<String>()?;
-        path_regex.push_str(&escaped);
-        path_regex.push_str("(?P<");
-        path_regex.push_str(&parameter.name);
-        path_regex.push('>');
-        path_regex.push_str(&converter_regex);
-        path_regex.push(')');
-        path_format.push_str(static_text);
-        path_format.push('{');
-        path_format.push_str(&parameter.name);
-        path_format.push('}');
+        let static_text = &path.0[index..parameter.start];
+        path_regex.extend(escape_regex_codepoints(static_text));
+        let converter_regex = CompatibilityPath::from_python(&convertor.getattr("regex")?)?;
+        has_surrogate |= converter_regex.has_lone_surrogate();
+        append_utf8_codepoints(&mut path_regex, "(?P<");
+        append_utf8_codepoints(&mut path_regex, &parameter.name);
+        path_regex.push(u32::from(b'>'));
+        path_regex.extend_from_slice(&converter_regex.0);
+        path_regex.push(u32::from(b')'));
+        path_format.extend_from_slice(static_text);
+        path_format.push(u32::from(b'{'));
+        append_utf8_codepoints(&mut path_format, &parameter.name);
+        path_format.push(u32::from(b'}'));
         if !parameter_names.insert(parameter.name.clone()) {
             duplicated_params.insert(parameter.name.clone());
         }
@@ -1736,108 +1995,34 @@ fn compile_path_parts<'py>(
         let mut names = duplicated_params.into_iter().collect::<Vec<_>>();
         names.sort();
         let ending = if names.len() > 1 { "s" } else { "" };
-        return Err(PyValueError::new_err(format!(
-            "Duplicated param name{ending} {} at path {path}",
-            names.join(", ")
-        )));
+        let mut message = Vec::new();
+        append_utf8_codepoints(&mut message, "Duplicated param name");
+        append_utf8_codepoints(&mut message, ending);
+        message.push(u32::from(b' '));
+        append_utf8_codepoints(&mut message, &names.join(", "));
+        append_utf8_codepoints(&mut message, " at path ");
+        message.extend_from_slice(&path.0);
+        let message = codepoints_to_python_string(py, &message)?;
+        let error = py.get_type::<PyValueError>().call1((message,))?;
+        return Err(PyErr::from_value(error));
     }
 
-    let tail = &path[index..];
-    if is_host {
-        let hostname = tail.split(':').next().unwrap_or_default();
-        path_regex.push_str(&escape_regex_text(hostname));
+    let tail = &path.0[index..];
+    let regex_tail = if is_host {
+        &tail[..tail
+            .iter()
+            .position(|codepoint| *codepoint == u32::from(b':'))
+            .unwrap_or(tail.len())]
     } else {
-        path_regex.push_str(&escape_regex_text(tail));
-    }
-    path_regex.push('$');
-    path_format.push_str(tail);
-    let pattern = py
-        .import("re")?
-        .getattr("compile")?
-        .call1((path_regex.as_str(),))?;
-    Ok((pattern, path_format, convertors, has_custom))
-}
-
-fn host_format_without_port(host_format: &str) -> &str {
-    let suffix_start = host_format
-        .rfind('}')
-        .map_or(0, |index| index.saturating_add(1));
-    let suffix = &host_format[suffix_start..];
-    let suffix_end = suffix
-        .find(':')
-        .map_or(host_format.len(), |index| suffix_start + index);
-    &host_format[..suffix_end]
-}
-
-fn path_parameters(path: &str) -> Vec<PathParameter> {
-    let bytes = path.as_bytes();
-    let mut parameters = Vec::new();
-    let mut search_from = 0;
-
-    while search_from < bytes.len() {
-        let Some(offset) = bytes[search_from..].iter().position(|byte| *byte == b'{') else {
-            break;
-        };
-        let start = search_from + offset;
-        let Some(parameter) = path_parameter_at(path, start) else {
-            search_from = start + 1;
-            continue;
-        };
-        search_from = parameter.end;
-        parameters.push(parameter);
-    }
-
-    parameters
-}
-
-// Parameter markers use the pinned ASCII identifier grammar. Scanning UTF-8
-// bytes is safe here because every accepted boundary is an ASCII delimiter.
-fn path_parameter_at(path: &str, start: usize) -> Option<PathParameter> {
-    let bytes = path.as_bytes();
-    let mut index = start + 1;
-    let name_start = index;
-    if !bytes.get(index).copied().is_some_and(is_identifier_start) {
-        return None;
-    }
-    index += 1;
-    while bytes
-        .get(index)
-        .copied()
-        .is_some_and(is_identifier_continue)
-    {
-        index += 1;
-    }
-    let name = path[name_start..index].to_owned();
-
-    let convertor_name = if bytes.get(index).copied() == Some(b':') {
-        index += 1;
-        let convertor_start = index;
-        if !bytes.get(index).copied().is_some_and(is_identifier_start) {
-            return None;
-        }
-        index += 1;
-        while bytes
-            .get(index)
-            .copied()
-            .is_some_and(is_identifier_continue)
-        {
-            index += 1;
-        }
-        path[convertor_start..index].to_owned()
-    } else {
-        "str".to_owned()
+        tail
     };
-
-    if bytes.get(index).copied() != Some(b'}') {
-        return None;
-    }
-
-    Some(PathParameter {
-        start,
-        end: index + 1,
-        name,
-        convertor_name,
-    })
+    path_regex.extend(escape_regex_codepoints(regex_tail));
+    path_regex.push(u32::from(b'$'));
+    path_format.extend_from_slice(tail);
+    let path_regex = codepoints_to_python_string(py, &path_regex)?;
+    let path_format = codepoints_to_python_string(py, &path_format)?;
+    let pattern = py.import("re")?.getattr("compile")?.call1((path_regex,))?;
+    Ok((pattern, path_format, convertors, has_custom, has_surrogate))
 }
 
 fn is_identifier_start(byte: u8) -> bool {
@@ -1848,42 +2033,18 @@ fn is_identifier_continue(byte: u8) -> bool {
     is_identifier_start(byte) || byte.is_ascii_digit()
 }
 
-fn escape_regex_text(text: &str) -> String {
-    // Keep the pattern string identical to Python's re.escape output without
-    // delegating path-template construction back to Python.
-    let mut escaped = String::with_capacity(text.len());
-    for character in text.chars() {
-        if matches!(
-            character,
-            '(' | ')'
-                | '['
-                | ']'
-                | '{'
-                | '}'
-                | '?'
-                | '*'
-                | '+'
-                | '-'
-                | '|'
-                | '^'
-                | '$'
-                | '\\'
-                | '.'
-                | '&'
-                | '~'
-                | '#'
-                | ' '
-                | '\t'
-                | '\n'
-                | '\r'
-                | '\u{000b}'
-                | '\u{000c}'
-        ) {
-            escaped.push('\\');
-        }
-        escaped.push(character);
-    }
-    escaped
+fn host_format_without_port(host_format: &CompatibilityPath) -> CompatibilityPath {
+    let suffix_start = host_format
+        .0
+        .iter()
+        .rposition(|codepoint| *codepoint == u32::from(b'}'))
+        .map_or(0, |index| index.saturating_add(1));
+    let suffix = &host_format.0[suffix_start..];
+    let suffix_end = suffix
+        .iter()
+        .position(|codepoint| *codepoint == u32::from(b':'))
+        .map_or(host_format.0.len(), |index| suffix_start + index);
+    CompatibilityPath(host_format.0[..suffix_end].to_vec())
 }
 
 fn normalize_methods(
@@ -1927,6 +2088,21 @@ fn make_route_table(
     table.call_method1("add_route", (path, methods))?;
     table.call_method1("_set_compiled_path", (path,))?;
     Ok(table.unbind())
+}
+
+fn make_route_table_compat(
+    py: Python<'_>,
+    route_table_type: &Bound<'_, PyAny>,
+    path: &Bound<'_, PyAny>,
+    custom: bool,
+    has_surrogate: bool,
+    methods: Option<&Bound<'_, PySet>>,
+) -> PyResult<Py<PyAny>> {
+    if has_surrogate {
+        return Ok(py.None());
+    }
+    let path = path.extract::<String>()?;
+    make_route_table(py, route_table_type, &path, custom, methods)
 }
 
 fn endpoint_name(py: Python<'_>, endpoint: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
@@ -2078,10 +2254,10 @@ fn apply_route_middleware(
 }
 
 #[pyfunction]
-fn route_path(scope: &Bound<'_, PyAny>) -> PyResult<String> {
-    let path = required_string(scope, "path")?;
-    let root_path = optional_string(scope, "root_path", "")?;
-    Ok(route_path_from_parts(&path, &root_path).to_owned())
+fn route_path(scope: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+    route_path_from_scope(scope)
+        .map(Bound::into_any)
+        .map(Bound::unbind)
 }
 
 #[pyfunction]
@@ -2113,7 +2289,7 @@ fn route_matches(
     }
 
     let path = route_path_from_scope(scope)?;
-    let mut matched = python_regex_match(py, route, &path, "path_regex")?;
+    let mut matched = python_regex_match(py, route, path.as_any(), "path_regex")?;
     let Some(matched_params) = matched.take() else {
         return match_result(py, match_type, "NONE", PyDict::new(py));
     };
@@ -2151,7 +2327,8 @@ fn host_route_child_scope(
 ) -> PyResult<Option<Py<PyDict>>> {
     let host = host_header_value(py, scope)?;
     let hostname = host.split(':').next().unwrap_or_default();
-    let matched_params = python_regex_match(py, route, hostname, "host_regex")?;
+    let hostname = PyString::new(py, hostname);
+    let matched_params = python_regex_match(py, route, hostname.as_any(), "host_regex")?;
     let Some(converted) = matched_params else {
         return Ok(None);
     };
@@ -2201,7 +2378,7 @@ fn match_result(
 fn python_regex_match(
     py: Python<'_>,
     route: &Bound<'_, PyAny>,
-    path: &str,
+    path: &Bound<'_, PyAny>,
     regex_attribute: &str,
 ) -> PyResult<Option<Py<PyDict>>> {
     let pattern = route.getattr(regex_attribute)?;
@@ -2247,31 +2424,35 @@ fn mount_match_result(
     route: &Bound<'_, PyAny>,
     scope: &Bound<'_, PyAny>,
     match_type: &Bound<'_, PyAny>,
-    route_path: &str,
+    route_path: &Bound<'_, PyString>,
     converted: Py<PyDict>,
 ) -> PyResult<Py<PyAny>> {
     let params = converted.bind(py);
     let remainder = params
         .get_item("path")?
-        .ok_or_else(|| PyRuntimeError::new_err("Mount converter omitted its path parameter"))?
-        .extract::<String>()?;
+        .ok_or_else(|| PyRuntimeError::new_err("Mount converter omitted its path parameter"))?;
     params.del_item("path")?;
-    let remaining_path = format!("/{remainder}");
-    let remaining_chars = remaining_path.chars().count();
-    let route_chars = route_path.chars().count();
+    let remainder = CompatibilityPath::from_python(&remainder)?;
+    let route_path = CompatibilityPath::from_python(route_path.as_any())?;
+    let mut remaining_path = vec![u32::from(b'/')];
+    remaining_path.extend_from_slice(&remainder.0);
+    let remaining_chars = remaining_path.len();
+    let route_chars = route_path.0.len();
     let matched_chars = route_chars.saturating_sub(remaining_chars);
-    let matched_path = route_path
-        .char_indices()
-        .nth(matched_chars)
-        .map_or(route_path, |(byte_index, _)| &route_path[..byte_index]);
+    let matched_path = &route_path.0[..matched_chars];
     let path_params = merged_path_params(py, scope, params)?;
-    let root_path = optional_string(scope, "root_path", "")?;
+    let root_path = CompatibilityPath::from_python(&scope.call_method1("get", ("root_path", ""))?)?;
     let app_root_path = crate::scope_mapping::optional_item(scope, "app_root_path")?
-        .unwrap_or_else(|| PyString::new(py, &root_path).into_any());
+        .unwrap_or(root_path.to_python(py)?.into_any());
     let child_scope = PyDict::new(py);
     child_scope.set_item("path_params", path_params.bind(py))?;
     child_scope.set_item("app_root_path", app_root_path)?;
-    child_scope.set_item("root_path", format!("{root_path}{matched_path}"))?;
+    let mut child_root_path = root_path.0;
+    child_root_path.extend_from_slice(matched_path);
+    child_scope.set_item(
+        "root_path",
+        codepoints_to_python_string(py, &child_root_path)?,
+    )?;
     child_scope.set_item("endpoint", route.getattr("app")?)?;
     match_result(py, match_type, "FULL", child_scope)
 }
@@ -2289,24 +2470,28 @@ fn merged_path_params(
     Ok(path_params.unbind())
 }
 
-fn route_path_from_scope(scope: &Bound<'_, PyAny>) -> PyResult<String> {
-    let path = required_string(scope, "path")?;
-    let root_path = optional_string(scope, "root_path", "")?;
-    Ok(route_path_from_parts(&path, &root_path).to_owned())
+fn route_path_from_scope<'py>(scope: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyString>> {
+    let py = scope.py();
+    let path = CompatibilityPath::from_python(&scope.get_item("path")?)?;
+    let root_path = CompatibilityPath::from_python(&scope.call_method1("get", ("root_path", ""))?)?;
+    route_path_from_parts(&path, &root_path).to_python(py)
 }
 
-fn route_path_from_parts<'a>(path: &'a str, root_path: &str) -> &'a str {
-    if root_path.is_empty() || !path.starts_with(root_path) {
-        return path;
+fn route_path_from_parts(
+    path: &CompatibilityPath,
+    root_path: &CompatibilityPath,
+) -> CompatibilityPath {
+    if root_path.0.is_empty() || !path.0.starts_with(&root_path.0) {
+        return path.clone();
     }
-    if path == root_path {
-        return "";
+    if path.0 == root_path.0 {
+        return CompatibilityPath(Vec::new());
     }
-    let remaining = &path[root_path.len()..];
-    if remaining.starts_with('/') {
-        remaining
+    let remaining = &path.0[root_path.0.len()..];
+    if remaining.first().copied() == Some(u32::from(b'/')) {
+        CompatibilityPath(remaining.to_vec())
     } else {
-        path
+        path.clone()
     }
 }
 
@@ -2501,49 +2686,51 @@ fn route_format_path_params(
     route: &Bound<'_, PyAny>,
     path_params: &Bound<'_, PyDict>,
     partial: bool,
-) -> PyResult<(String, Py<PyDict>)> {
-    format_path_params(py, route, path_params, partial)
+) -> PyResult<(Py<PyAny>, Py<PyDict>)> {
+    let (path, remaining) = format_route_path_params(py, route, path_params, partial)?;
+    Ok((path.into_any().unbind(), remaining))
 }
 
-fn format_path_params(
-    py: Python<'_>,
-    route: &Bound<'_, PyAny>,
-    path_params: &Bound<'_, PyDict>,
+fn format_route_path_params<'py>(
+    py: Python<'py>,
+    route: &Bound<'py, PyAny>,
+    path_params: &Bound<'py, PyDict>,
     partial: bool,
-) -> PyResult<(String, Py<PyDict>)> {
+) -> PyResult<(Bound<'py, PyString>, Py<PyDict>)> {
     let table = route.getattr("_route_table")?;
-    let mut path = route.getattr("path_format")?.extract::<String>()?;
+    let mut path = CompatibilityPath::from_python(&route.getattr("path_format")?)?;
     let mut formatted = Vec::new();
+    let mut all_formatted_values_are_utf8 = true;
     let mut consumed = HashSet::new();
     let convertors = route.getattr("param_convertors")?.cast_into::<PyDict>()?;
     for (name, value) in dict_items_as_py(path_params)? {
-        let placeholder = format!("{{{name}}}");
-        if !partial || path.contains(&placeholder) {
+        let placeholder = CompatibilityPath::from_utf8(&format!("{{{name}}}"));
+        if !partial || path.contains(&placeholder.0) {
             let convertor = convertors
                 .get_item(&name)?
                 .ok_or_else(|| PyKeyError::new_err(name.clone()))?;
-            let formatted_value = convertor
-                .call_method1("to_string", (value.bind(py),))?
-                .extract::<String>()?;
-            formatted.push((name.clone(), formatted_value.clone()));
-            if path.contains(&placeholder) {
-                path = path.replace(&placeholder, &formatted_value);
+            let formatted_value = convertor.call_method1("to_string", (value.bind(py),))?;
+            let formatted_path = CompatibilityPath::from_python(&formatted_value)?;
+            if let Some(formatted_value) = formatted_path.to_utf8() {
+                formatted.push((name.clone(), formatted_value));
+            } else {
+                all_formatted_values_are_utf8 = false;
+            }
+            if path.contains(&placeholder.0) {
+                path.replace_all(&placeholder.0, &formatted_path.0);
                 consumed.insert(name);
             }
         }
     }
 
-    if !table.is_none() {
+    if !table.is_none() && !path.has_lone_surrogate() && all_formatted_values_are_utf8 {
         let built = if partial {
             table.call_method1("build_path_partial", (0, formatted))?
         } else {
             table.call_method1("build_path", (0, formatted))?
         };
-        if partial {
-            path = built.get_item(0)?.extract::<String>()?;
-        } else {
-            path = built.extract::<String>()?;
-        }
+        let built = if partial { built.get_item(0)? } else { built };
+        path = CompatibilityPath::from_python(&built)?;
     }
 
     let remaining = PyDict::new(py);
@@ -2552,32 +2739,31 @@ fn format_path_params(
             remaining.set_item(name, value.bind(py))?;
         }
     }
-    Ok((path, remaining.unbind()))
+    Ok((path.to_python(py)?, remaining.unbind()))
 }
 
-fn format_host_path_params(
-    py: Python<'_>,
-    host: &Bound<'_, PyAny>,
-    path_params: &Bound<'_, PyDict>,
-) -> PyResult<(String, Py<PyDict>)> {
-    let mut formatted_host = host.getattr("host_format")?.extract::<String>()?;
+fn format_host_path_params<'py>(
+    py: Python<'py>,
+    host: &Bound<'py, PyAny>,
+    path_params: &Bound<'py, PyDict>,
+) -> PyResult<(Bound<'py, PyString>, Py<PyDict>)> {
+    let mut formatted_host = CompatibilityPath::from_python(&host.getattr("host_format")?)?;
     let convertors = host.getattr("param_convertors")?.cast_into::<PyDict>()?;
     let remaining = PyDict::new(py);
     for (name, value) in dict_items_as_py(path_params)? {
-        let placeholder = format!("{{{name}}}");
-        if formatted_host.contains(&placeholder) {
+        let placeholder = CompatibilityPath::from_utf8(&format!("{{{name}}}"));
+        if formatted_host.contains(&placeholder.0) {
             let convertor = convertors
                 .get_item(&name)?
                 .ok_or_else(|| PyKeyError::new_err(name.clone()))?;
-            let value = convertor
-                .call_method1("to_string", (value.bind(py),))?
-                .extract::<String>()?;
-            formatted_host = formatted_host.replace(&placeholder, &value);
+            let value = convertor.call_method1("to_string", (value.bind(py),))?;
+            let value = CompatibilityPath::from_python(&value)?;
+            formatted_host.replace_all(&placeholder.0, &value.0);
         } else {
             remaining.set_item(name, value.bind(py))?;
         }
     }
-    Ok((formatted_host, remaining.unbind()))
+    Ok((formatted_host.to_python(py)?, remaining.unbind()))
 }
 
 #[pyfunction]
@@ -2603,7 +2789,7 @@ fn route_url_path_for(
     if !route_name.rich_compare(name, CompareOp::Eq)?.is_truthy()? || expected != provided {
         return raise_no_match(no_match_type, name, path_params);
     }
-    let (path, remaining) = format_path_params(py, route, path_params, false)?;
+    let (path, remaining) = format_route_path_params(py, route, path_params, false)?;
     if !remaining.bind(py).is_empty() {
         return Err(PyAssertionError::new_err(
             "route path parameters were not fully formatted",
@@ -2634,7 +2820,7 @@ fn mount_url_path_for(
             .get_item("path")?
             .ok_or_else(|| PyKeyError::new_err("path"))?;
         current_params.set_item("path", path_value.call_method1("lstrip", ("/",))?)?;
-        let (path, remaining) = format_path_params(py, mount, &current_params, true)?;
+        let (path, remaining) = format_route_path_params(py, mount, &current_params, true)?;
         current_params = remaining.into_bound(py);
         if current_params.is_empty() {
             let kwargs = PyDict::new(py);
@@ -2653,7 +2839,8 @@ fn mount_url_path_for(
             .get_item("path")?
             .filter(|value| !value.is_none());
         current_params.set_item("path", "")?;
-        let (path_prefix, remaining_params) = format_path_params(py, mount, &current_params, true)?;
+        let (path_prefix, remaining_params) =
+            format_route_path_params(py, mount, &current_params, true)?;
         if let Some(path_kwarg) = path_kwarg {
             remaining_params.bind(py).set_item("path", path_kwarg)?;
         }
@@ -2668,8 +2855,12 @@ fn mount_url_path_for(
                 ) {
                     Ok(url) => {
                         let url_text = py.import("builtins")?.getattr("str")?.call1((&url,))?;
-                        let prefix = path_prefix.trim_end_matches('/');
-                        let full_path = format!("{prefix}{url_text}");
+                        let mut full_path = CompatibilityPath::from_python(path_prefix.as_any())?;
+                        full_path.trim_end_ascii(b'/');
+                        full_path
+                            .0
+                            .extend_from_slice(&CompatibilityPath::from_python(&url_text)?.0);
+                        let full_path = full_path.to_python(py)?;
                         let kwargs = PyDict::new(py);
                         kwargs.set_item("path", full_path)?;
                         kwargs.set_item("protocol", url.getattr("protocol")?)?;

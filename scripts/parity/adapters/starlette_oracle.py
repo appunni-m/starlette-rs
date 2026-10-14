@@ -9171,12 +9171,14 @@ def _run_route_dispatch_case(case: dict[str, Any]) -> dict[str, Any]:
                     raise ValueError("route input must be a declared http-route record")
                 instance_match_override = route_spec.get("instance_match_override")
                 if instance_match_override is not None:
-                    _strict_object(
-                        instance_match_override,
-                        {"kind"},
-                        "route instance matcher override",
+                    override_kind = instance_match_override.get("kind")
+                    override_keys = (
+                        {"kind", "message"} if override_kind == "raise-runtime-error" else {"kind"}
                     )
-                    if instance_match_override["kind"] != "none":
+                    _strict_object(
+                        instance_match_override, override_keys, "route instance matcher override"
+                    )
+                    if override_kind not in {"none", "raise-runtime-error"}:
                         raise ValueError("route instance matcher override kind is unsupported")
 
                     class InputRoute(Route):
@@ -9192,9 +9194,18 @@ def _run_route_dispatch_case(case: dict[str, Any]) -> dict[str, Any]:
                     max_body_size=route_spec.get("max_body_size"),
                 )
                 if instance_match_override is not None:
+                    if override_kind == "none":
 
-                    def instance_matches(_scope: dict[str, Any]) -> tuple[Any, dict[str, Any]]:
-                        return Match.NONE, {}
+                        def instance_matches(_scope: dict[str, Any]) -> tuple[Any, dict[str, Any]]:
+                            return Match.NONE, {}
+
+                    else:
+                        error_message = instance_match_override["message"]
+
+                        def instance_matches(
+                            _scope: dict[str, Any], message: str = error_message
+                        ) -> tuple[Any, dict[str, Any]]:
+                            raise RuntimeError(message)
 
                     route.matches = instance_matches
                 route_objects.append(route)
@@ -9268,7 +9279,17 @@ def _run_route_dispatch_case(case: dict[str, Any]) -> dict[str, Any]:
                 and isinstance(case.get("max_body_size"), int)
                 and any(length > case["max_body_size"] for length in declared_limits)
             )
-            if incoming_index != len(incoming) and not content_length_precheck_left_body:
+            websocket_closed_before_receive = (
+                scope_spec["type"] == "websocket"
+                and incoming_index == 0
+                and any(message["type"] == "websocket.close" for message in sent)
+            )
+            if (
+                dispatch_error is None
+                and incoming_index != len(incoming)
+                and not content_length_precheck_left_body
+                and not websocket_closed_before_receive
+            ):
                 raise ValueError("route-dispatch left incoming messages unconsumed")
 
             events = [_canonical_message(message) for message in sent]

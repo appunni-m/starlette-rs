@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@52",
+  "schema": "migration-parity/parity-input@54",
   "cases": [
     {
       "case_id": "starlette.endpoints.WebSocketEndpoint.dispatch.cancellation-during-disconnect-finalizer",

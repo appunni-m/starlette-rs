@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@52",
+  "schema": "migration-parity/parity-input@54",
   "cases": [
     {
       "case_id": "starlette.templating.Jinja2Templates.template-public-workflow.neither-directory-nor-environment",
@@ -458,6 +458,86 @@
               "shared": "route context",
               "route_only": "from route context"
             }
+          }
+        ],
+        "middleware": [],
+        "requests": [
+          {
+            "method": "GET",
+            "url": "/"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.templating.Jinja2Templates.template-public-workflow.sync-processor-fails-before-template-lookup",
+      "surface": "starlette.templating.Jinja2Templates",
+      "operation": "template-public-workflow",
+      "covers": [
+        "starlette.templating.Jinja2Templates.template-public-workflow.construction",
+        "starlette.templating.Jinja2Templates.template-public-workflow.subclass-hook-dispatch",
+        "starlette.templating.Jinja2Templates.template-public-workflow.context-processors",
+        "starlette.templating.Jinja2Templates.template-public-workflow.processor-exception-before-template-lookup"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "template-public-workflow"
+      ],
+      "template_directories": [
+        {
+          "id": "templates",
+          "path": "templates"
+        }
+      ],
+      "template_files": [
+        {
+          "directory_id": "templates",
+          "path": "greeting.html",
+          "text": "{{ marker }}"
+        }
+      ],
+      "constructor": {
+        "directory": {
+          "kind": "path",
+          "directory_ids": [
+            "templates"
+          ]
+        },
+        "environment": null
+      },
+      "hooks": {
+        "setup": {
+          "kind": "delegate",
+          "failure": null,
+          "globals": {}
+        },
+        "template": {
+          "kind": "raise",
+          "failure": "template lookup reached first"
+        },
+        "get_watch": [],
+        "set_watch": []
+      },
+      "processor_additions": [],
+      "processor_specs": [
+        {
+          "kind": "sync-raise",
+          "exception_class": "RuntimeError",
+          "message": "processor callback failed"
+        }
+      ],
+      "consumer": {
+        "kind": "testclient",
+        "debug": false,
+        "routes": [
+          {
+            "path": "/",
+            "name": "homepage",
+            "template_name": "greeting.html",
+            "context": {}
           }
         ],
         "middleware": [],

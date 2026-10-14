@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import builtins
 import tempfile
 import warnings
 from pathlib import Path
@@ -113,13 +114,40 @@ def run_template_public_case(case: dict[str, Any]) -> dict[str, Any]:
 
         return processor
 
-    processor_factories = {"async": async_processor, "sync": sync_processor}
+    def sync_raising_processor(exception_class: str, message: str) -> Any:
+        exception_type = getattr(builtins, exception_class)
+
+        def processor(request: Any) -> dict[str, Any]:
+            observed["processor_trace"].append(
+                {
+                    "request_path": request.url.path,
+                    "outcome": "raise",
+                    "exception_class": f"{exception_type.__module__}.{exception_type.__qualname__}",
+                    "exception_message": message,
+                }
+            )
+            raise exception_type(message)
+
+        return processor
+
+    processor_factories = {
+        "async": async_processor,
+        "sync": sync_processor,
+        "sync-raise": sync_raising_processor,
+    }
     processor_specs = case.get("processor_specs")
     if processor_specs is None:
         processor_specs = [
             {"kind": "sync", "additions": additions} for additions in case["processor_additions"]
         ]
-    processors = [processor_factories[spec["kind"]](spec["additions"]) for spec in processor_specs]
+    processors = [
+        (
+            processor_factories[spec["kind"]](spec["exception_class"], spec["message"])
+            if spec["kind"] == "sync-raise"
+            else processor_factories[spec["kind"]](spec["additions"])
+        )
+        for spec in processor_specs
+    ]
 
     with tempfile.TemporaryDirectory(prefix="starlette-template-public-parity-") as temporary:
         roots = {

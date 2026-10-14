@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@52",
+  "schema": "migration-parity/parity-input@54",
   "cases": [
     {
       "case_id": "starlette.routing.WebSocketRoute.route-dispatch.matched-root-path",
@@ -361,6 +361,68 @@
       },
       "incoming": [],
       "endpoint_actions": [],
+      "observations": [
+        "route-dispatch"
+      ]
+    },
+    {
+      "case_id": "starlette.routing.WebSocketRoute.route-dispatch.lone-surrogate-path",
+      "surface": "starlette.routing.WebSocketRoute",
+      "operation": "route-dispatch",
+      "covers": [
+        "starlette.routing.WebSocketRoute.route-dispatch.lone-surrogate-path"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "dispatch": "application",
+      "route": {
+        "path": "/\uDC80/rooms/{room:str}"
+      },
+      "scope": {
+        "type": "websocket",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.5"
+        },
+        "http_version": "1.1",
+        "scheme": "ws",
+        "path": "/\uDC80/edge/\uDC80/rooms/blue",
+        "raw_path_base64": "L4AvZWRnZS+AL3Jvb21zL2JsdWU=",
+        "query_string_base64": "",
+        "root_path": "/\uDC80/edge",
+        "headers_base64_pairs": [],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ],
+        "subprotocols": []
+      },
+      "incoming": [
+        {
+          "type": "websocket.connect"
+        }
+      ],
+      "endpoint_actions": [
+        {
+          "action": "accept",
+          "subprotocol": null
+        },
+        {
+          "action": "send_text",
+          "text": "surrogate-room:blue"
+        },
+        {
+          "action": "close",
+          "code": 1000,
+          "reason": "done"
+        }
+      ],
       "observations": [
         "route-dispatch"
       ]
