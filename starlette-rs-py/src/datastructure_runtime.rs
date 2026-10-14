@@ -29,9 +29,6 @@ pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyMultiDictStore>()?;
     module.add_function(wrap_pyfunction!(multidict_update, module)?)?;
     module.add_class::<PyFormData>()?;
-    module
-        .getattr("FormData")?
-        .setattr("__module__", "starlette.datastructures")?;
     module.add_class::<PyUploadFile>()?;
     module
         .getattr("UploadFile")?
@@ -189,8 +186,8 @@ impl PyMultiDictStore {
             .ok_or_else(|| PyKeyError::new_err(key.clone().unbind()))
     }
 
-    fn repr(&self, py: Python<'_>, class_name: &str) -> PyResult<String> {
-        let values = PyList::new(py, self.multi_items(py))?;
+    fn repr(&self, class_name: &str, owner: &Bound<'_, PyAny>) -> PyResult<String> {
+        let values = owner.call_method0("multi_items")?;
         Ok(format!("{class_name}({})", values.repr()?.to_str()?))
     }
 
@@ -570,7 +567,7 @@ fn python_item_reprs(py: Python<'_>, items: &[Py<PyAny>]) -> PyResult<Vec<Vec<u3
 }
 
 /// Immutable ordered form fields backed by Rust's multi-dict semantics.
-#[pyclass(name = "FormData", subclass)]
+#[pyclass(name = "_FormDataStore")]
 pub(crate) struct PyFormData {
     // Keep keys as Python objects; Starlette's constructor stores supplied
     // keys without coercing them, despite the public string-key annotations.
@@ -680,12 +677,20 @@ impl PyFormData {
             .map(Bound::unbind)
     }
 
+    fn items_view(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        self.items(py)
+    }
+
     fn len(&self, py: Python<'_>) -> usize {
         self.mapping.bind(py).len()
     }
 
     fn is_empty(&self, py: Python<'_>) -> bool {
         self.mapping.bind(py).is_empty()
+    }
+
+    fn __bool__(&self, py: Python<'_>) -> bool {
+        !self.mapping.bind(py).is_empty()
     }
 
     fn __len__(&self, py: Python<'_>) -> usize {
@@ -722,23 +727,34 @@ impl PyFormData {
         Ok(format!("{class_name}({items_repr})"))
     }
 
-    fn __eq__(slf: PyRef<'_, Self>, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<bool> {
-        let instance = slf.into_pyobject(py)?;
-        if !other.is_instance(&instance.get_type())? {
+    fn repr(
+        &self,
+        _py: Python<'_>,
+        class_name: &str,
+        owner: &Bound<'_, PyAny>,
+    ) -> PyResult<String> {
+        let items = owner.call_method0("multi_items")?;
+        Ok(format!("{class_name}({})", items.repr()?.to_str()?))
+    }
+
+    fn equals(
+        &self,
+        py: Python<'_>,
+        class_type: &Bound<'_, PyAny>,
+        other: &Bound<'_, PyAny>,
+    ) -> PyResult<bool> {
+        if !other.is_instance(class_type)? {
             return Ok(false);
         }
-        let other = other.extract::<PyRef<'_, PyFormData>>()?;
-        let left = PyList::new(
-            py,
-            instance.extract::<PyRef<'_, PyFormData>>()?.multi_items(py),
-        )?;
+        let other = other.getattr("_inner")?.extract::<PyRef<'_, Self>>()?;
+        let left = PyList::new(py, self.multi_items(py))?;
         let right = PyList::new(py, other.multi_items(py))?;
         let sorted = py.import("builtins")?.getattr("sorted")?;
         sorted.call1((left,))?.eq(sorted.call1((right,))?)
     }
 
-    fn _close(slf: PyRef<'_, Self>, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        let iterable = slf.into_pyobject(py)?.call_method0("multi_items")?;
+    fn _close(&self, py: Python<'_>, owner: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+        let iterable = owner.call_method0("multi_items")?;
         let iterator = iterable.try_iter()?.into_any().unbind();
         crate::awaitable::into_sendable_python_awaitable(
             py,

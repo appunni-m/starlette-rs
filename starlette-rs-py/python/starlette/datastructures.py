@@ -76,7 +76,7 @@ class ImmutableMultiDict(Mapping[_KeyType, _CovariantValueType]):
         return self._inner.equals(self.__class__, other)
 
     def __repr__(self) -> str:
-        return self._inner.repr(self.__class__.__name__)
+        return self._inner.repr(self.__class__.__name__, self)
 
 
 class MultiDict(ImmutableMultiDict[Any, Any]):
@@ -238,8 +238,17 @@ class MutableHeaders(Headers):
         self._inner.add_vary_header(vary)
 
 
-class QueryParams(_core.QueryParams, Mapping[str, str]):
+class QueryParams(ImmutableMultiDict[str, str]):
     """Immutable query parameters with Rust-owned parsing and lookup behavior."""
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        self._inner = _core._QueryParamsStore(*args, **kwargs)
+
+    def __repr__(self) -> str:
+        return self._inner.repr(self.__class__.__name__, self)
+
+    def __str__(self) -> str:
+        return str(self._inner)
 
 
 class UploadFile(_core.UploadFile):
@@ -258,7 +267,7 @@ class UploadFile(_core.UploadFile):
         await self._close()
 
 
-class FormData(_core.FormData, Mapping[str, UploadFile | str]):
+class FormData(ImmutableMultiDict[str, UploadFile | str]):
     """Immutable ordered form values backed by Rust-owned multi-dict semantics."""
 
     def __init__(
@@ -266,7 +275,7 @@ class FormData(_core.FormData, Mapping[str, UploadFile | str]):
         *args: FormData | Mapping[str, str | UploadFile] | list[tuple[str, str | UploadFile]],
         **kwargs: str | UploadFile,
     ) -> None:
-        super().__init__(*args, **kwargs)
+        self._inner = _core._FormDataStore(*args, **kwargs)
 
     def getlist(self, key: str) -> list[UploadFile | str]:
         return super().getlist(key)
@@ -275,7 +284,7 @@ class FormData(_core.FormData, Mapping[str, UploadFile | str]):
         return super().multi_items()
 
     async def close(self) -> None:
-        await self._close()
+        await self._inner._close(self)
 
 
 class Address(NamedTuple):

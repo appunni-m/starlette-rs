@@ -1,0 +1,54 @@
+{
+  "schema": "migration-parity/parity-input@52",
+  "cases": [
+    {
+      "case_id": "starlette.public-api-inspection.datastructures-immutable-multidict-inheritance",
+      "surface": "starlette",
+      "operation": "public-api-inspection",
+      "covers": [
+        "starlette.public-api-inspection.datastructures-immutable-multidict-inheritance"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "public-api-inspection"
+      ],
+      "inspection": {
+        "modules": [
+          {
+            "name": "starlette.datastructures",
+            "symbols": [
+              {
+                "name": "QueryParams.__bases__",
+                "observe": [
+                  "value"
+                ]
+              },
+              {
+                "name": "QueryParams.__mro__",
+                "observe": [
+                  "value"
+                ]
+              },
+              {
+                "name": "FormData.__bases__",
+                "observe": [
+                  "value"
+                ]
+              },
+              {
+                "name": "FormData.__mro__",
+                "observe": [
+                  "value"
+                ]
+              }
+            ]
+          }
+        ],
+        "identity_checks": []
+      }
+    }
+  ]
+}

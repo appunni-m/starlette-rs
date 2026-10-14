@@ -632,6 +632,7 @@
       "build/parity/inputs/parity/background-task-kwargs-duplicate-key.json",
       "build/parity/inputs/parity/websocket-thread-ownership.json",
       "build/parity/inputs/parity/public-api-inspection.json",
+      "build/parity/inputs/parity/datastructures-public-inheritance.json",
       "build/parity/inputs/parity/public-exceptions-api.json",
       "build/parity/inputs/parity/application-typing-consumer.json",
       "build/parity/inputs/parity/application-exception-bool-int-key.json",
@@ -790,6 +791,17 @@
               "id": "starlette.public-api-inspection.exceptions-signatures",
               "dimension": "parameter",
               "description": "Inspect the documented HTTPException and WebSocketException constructor signatures through their starlette.exceptions import path. Upstream: starlette/exceptions.py and docs/exceptions.md.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.public-api-inspection.datastructures-immutable-multidict-inheritance",
+              "dimension": "type_contract",
+              "description": "Inspect the public QueryParams and FormData base tuples and MRO against their pinned ImmutableMultiDict declarations. Upstream: starlette/datastructures.py and docs/requests.md.",
               "lanes": [
                 "parity"
               ],

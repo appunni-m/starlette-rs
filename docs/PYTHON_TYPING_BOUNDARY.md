@@ -7,20 +7,24 @@ in `tests/fixtures/sources/parity/application-typing-consumer.yaml`,
 `config-typing-consumer.yaml`, `formdata-generic-typing.yaml`, and
 `response-typing-consumer.yaml`.
 
-The consumer assertions present at the previous check were checked against the pinned checkout with
-`MYPYPATH=../starlette` and against the current wheel installed in
-`build/parity/envs/cpython312/python-package`. Both Mypy runs exited 0 and
-produced identical diagnostics and revealed types. The latest addition of the
-`ASGIInstance` import and return-annotation assertion has not yet been rechecked
-against either target; include it in the grouped type-consumer comparison. The checks cover:
+The consumer assertions were checked against the pinned checkout with
+`MYPYPATH=../starlette` and against the rebuilt wheel installed in
+`build/parity/envs/cpython312/python-package`. Mypy 1.19.1 exited 0 for both
+targets with identical diagnostics and revealed types, including the latest
+`ASGIInstance` assertion and `QueryParams` item, `getlist()`, and
+`multi_items()` value types. A separate input-derived consumer check also
+confirmed that `FormData` generic value types match on both targets. These
+typing checks do not execute the deferred behavioral parity matrix. The checks
+cover:
 
 - `Request[State]`, `WebSocket[State]`, and default `HTTPConnection[State]`
   typing, including the typed state access.
 - `Request.form()` works through both `await` and `async with`; each result is
   asserted and revealed as `FormData`.
 - Iterating `Request.stream()` yields values asserted and revealed as `bytes`.
-- `Request.query_params` is asserted and revealed as `QueryParams`, and
-  `Request.path_params` is asserted and revealed as `dict[str, Any]`.
+- `Request.query_params` is asserted and revealed as `QueryParams`; its item
+  lookup is `str`, `getlist()` is `list[str]`, and `multi_items()` is
+  `list[tuple[str, str]]`. `Request.path_params` is `dict[str, Any]`.
 - `await request.body()` is asserted and revealed as `bytes`, and
   `await request.json()` is asserted and revealed as `Any`.
 - `WebSocketClose` construction and its `(Scope, Receive, Send) -> Awaitable[None]`

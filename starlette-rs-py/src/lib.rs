@@ -397,7 +397,7 @@ impl PyRequestHeaders {
     }
 }
 
-#[pyclass(name = "QueryParams", subclass)]
+#[pyclass(name = "_QueryParamsStore")]
 struct PyQueryParams {
     inner: NativeQueryParams,
     lookup: Py<PyDict>,
@@ -468,6 +468,24 @@ impl PyQueryParams {
         self.get_list(py, key)
     }
 
+    fn keys(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        self.lookup.bind(py).call_method0("keys").map(Bound::unbind)
+    }
+
+    fn values(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        self.lookup
+            .bind(py)
+            .call_method0("values")
+            .map(Bound::unbind)
+    }
+
+    fn items_view(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        self.lookup
+            .bind(py)
+            .call_method0("items")
+            .map(Bound::unbind)
+    }
+
     fn multi_items(&self) -> Vec<(String, String)> {
         self.inner.multi_items().to_vec()
     }
@@ -480,8 +498,16 @@ impl PyQueryParams {
         self.inner.is_empty()
     }
 
+    fn contains(&self, key: &Bound<'_, PyAny>) -> PyResult<bool> {
+        self.lookup.bind(key.py()).contains(key)
+    }
+
     fn __len__(&self) -> usize {
         self.inner.len()
+    }
+
+    fn __bool__(&self) -> bool {
+        !self.inner.is_empty()
     }
 
     fn __iter__(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
@@ -506,6 +532,24 @@ impl PyQueryParams {
 
     fn __str__(&self) -> String {
         self.inner.query_string()
+    }
+
+    fn repr(
+        &self,
+        _py: Python<'_>,
+        class_name: &str,
+        owner: &Bound<'_, PyAny>,
+    ) -> PyResult<String> {
+        let query = owner.str()?.repr()?;
+        Ok(format!("{class_name}({})", query.to_str()?))
+    }
+
+    fn equals(&self, class_type: &Bound<'_, PyAny>, other: &Bound<'_, PyAny>) -> PyResult<bool> {
+        if !other.is_instance(class_type)? {
+            return Ok(false);
+        }
+        let other = other.getattr("_inner")?.extract::<PyRef<'_, Self>>()?;
+        Ok(self.inner == other.inner)
     }
 
     fn __repr__(slf: PyRef<'_, Self>) -> PyResult<String> {
