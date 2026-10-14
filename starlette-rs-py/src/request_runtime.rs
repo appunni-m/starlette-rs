@@ -300,10 +300,9 @@ impl PyHTTPConnection {
     #[getter]
     fn session(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let scope = self.scope.bind(py);
-        if !scope
-            .call_method1("__contains__", ("session",))?
-            .is_truthy()?
-        {
+        // Match `"session" in self.scope`, including type-level special
+        // method lookup and the iterable fallback for mapping scopes.
+        if !scope.contains("session")? {
             return Err(PyAssertionError::new_err(
                 "SessionMiddleware must be installed to access request.session",
             ));
@@ -318,7 +317,7 @@ impl PyHTTPConnection {
     #[getter]
     fn auth(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let scope = self.scope.bind(py);
-        if !scope.call_method1("__contains__", ("auth",))?.is_truthy()? {
+        if !scope.contains("auth")? {
             return Err(PyAssertionError::new_err(
                 "AuthenticationMiddleware must be installed to access request.auth",
             ));
@@ -329,7 +328,7 @@ impl PyHTTPConnection {
     #[getter]
     fn user(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let scope = self.scope.bind(py);
-        if !scope.call_method1("__contains__", ("user",))?.is_truthy()? {
+        if !scope.contains("user")? {
             return Err(PyAssertionError::new_err(
                 "AuthenticationMiddleware must be installed to access request.user",
             ));

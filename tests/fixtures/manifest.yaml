@@ -357,6 +357,7 @@
       "build/parity/inputs/parity/request-stream-terminal-throw.json",
       "build/parity/inputs/parity/request-stream-receive-cancellation-retry.json",
       "build/parity/inputs/parity/request-client-address.json",
+      "build/parity/inputs/parity/request-connection-properties-mapping-membership.json",
       "build/parity/inputs/parity/request-scope-interface.json",
       "build/parity/inputs/parity/request-push-promise-header-order.json",
       "build/parity/inputs/parity/request-constructor-stateful-scope-type.json",
@@ -423,6 +424,7 @@
       "build/parity/inputs/parity/reverse-url-routing.json",
       "build/parity/inputs/parity/host-reverse-nested-miss-parameters.json",
       "build/parity/inputs/parity/route-url-path-native.json",
+      "build/parity/inputs/parity/route-url-path-float-negative-zero.json",
       "build/parity/inputs/parity/redirect-response.json",
       "build/parity/inputs/parity/responses-basic.json",
       "build/parity/inputs/parity/background-tasks.json",
@@ -17239,6 +17241,108 @@
           "benchmark": {
             "applicability": "not_applicable",
             "reason": "The Python Address compatibility value is outside the Rust-native request primitives."
+          }
+        },
+        {
+          "id": "connection-properties",
+          "kind": "protocol_operation",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.requests.HTTPConnection.session, HTTPConnection.auth, and HTTPConnection.user",
+            "signature": "Request(scope).session, Request(scope).auth, and Request(scope).user",
+            "parameters": [
+              {
+                "id": "scope",
+                "style": "positional",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "connection-properties",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "The Rust-native API does not expose Request session, authentication, or user scope properties.",
+                "blocker": "These properties are part of the Python compatibility surface over an arbitrary ASGI scope mapping."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.requests.HTTPConnection.session, HTTPConnection.auth, and HTTPConnection.user",
+              "signature": "Read the session, auth, and user values from the supplied scope.",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.requests.Request.connection-properties.mapping-membership-protocol",
+              "dimension": "boundary",
+              "description": "For session, auth, and user property reads, preserve Python membership semantics when the supplied scope is a collections.UserDict with an instance-level __contains__ override. Starlette uses `key in self.scope`, whose special-method lookup is type-level. Pinned source: starlette/requests.py:169-186; docs/middleware.md:135; docs/authentication.md:57-78.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython310",
+              "python-package-cpython311",
+              "python-package-cpython312",
+              "python-package-cpython313",
+              "python-package-cpython314"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This input-only comparison makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "Request session, auth, and user property lookup is outside the declared benchmark workloads."
           }
         },
         {

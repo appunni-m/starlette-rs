@@ -145,6 +145,10 @@ MIDDLEWARE_CONFIG_SURFACE = "starlette.middleware.Middleware"
 VALUE_FORMATTING_OPERATION = "value-formatting"
 REQUEST_DEFAULT_RECEIVE_OPERATION = ("starlette.requests.Request", "default-receive")
 REQUEST_CLIENT_OPERATION = ("starlette.requests.Request", "client")
+REQUEST_CONNECTION_PROPERTIES_OPERATION = (
+    "starlette.requests.Request",
+    "connection-properties",
+)
 REQUEST_SCOPE_MAPPING_OPERATION = ("starlette.requests.Request", "scope-mapping")
 REQUEST_HEADER_CACHE_SEQUENCE_OPERATION = ("starlette.requests.Request", "header-cache-sequence")
 REQUEST_CONSTRUCTOR_OPERATION = ("starlette.requests.Request", "constructor-contract")
@@ -15587,6 +15591,18 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         from scripts.parity.adapters.request_client import run_request_client_case
 
         return run_request_client_case(case, Request)
+    if (
+        isinstance(case, dict)
+        and (case.get("surface"), case.get("operation"))
+        == REQUEST_CONNECTION_PROPERTIES_OPERATION
+    ):
+        from starlette.requests import Request
+
+        from scripts.parity.adapters.request_connection_properties import (
+            run_request_connection_properties_case,
+        )
+
+        return run_request_connection_properties_case(case, Request)
     if (
         isinstance(case, dict)
         and (

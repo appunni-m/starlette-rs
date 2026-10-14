@@ -568,6 +568,10 @@ VALUE_FORMATTING_OPERATIONS = {
 }
 REQUEST_DEFAULT_RECEIVE_OPERATION = ("starlette.requests.Request", "default-receive")
 REQUEST_CLIENT_OPERATION = ("starlette.requests.Request", "client")
+REQUEST_CONNECTION_PROPERTIES_OPERATION = (
+    "starlette.requests.Request",
+    "connection-properties",
+)
 REQUEST_HEADER_CACHE_SEQUENCE_OPERATION = ("starlette.requests.Request", "header-cache-sequence")
 REQUEST_SCOPE_MAPPING_OPERATION = ("starlette.requests.Request", "scope-mapping")
 REQUEST_CONSTRUCTOR_OPERATION = ("starlette.requests.Request", "constructor-contract")
@@ -824,6 +828,7 @@ PYTHON_VERSION_MATRIX_OPERATIONS = {
     THREADPOOL_OPERATION_KEY,
     TESTCLIENT_LIFESPAN_OPERATION_KEY,
     ("starlette.requests.Request", "client"),
+    REQUEST_CONNECTION_PROPERTIES_OPERATION,
     REQUEST_HEADER_CACHE_SEQUENCE_OPERATION,
     REQUEST_BODY_STREAM_JSON_OPERATION,
     REQUEST_FORM_OPERATION,
@@ -3042,6 +3047,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                 or key == COMMA_SEPARATED_STRINGS_OPERATION
                 or key == REQUEST_DEFAULT_RECEIVE_OPERATION
                 or key == REQUEST_CLIENT_OPERATION
+                or key == REQUEST_CONNECTION_PROPERTIES_OPERATION
                 or key == REQUEST_HEADER_CACHE_SEQUENCE_OPERATION
                 or key == REQUEST_SCOPE_MAPPING_OPERATION
                 or key == REQUEST_CONSTRUCTOR_OPERATION
@@ -3321,6 +3327,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                             in {
                                 REQUEST_DEFAULT_RECEIVE_OPERATION,
                                 REQUEST_CLIENT_OPERATION,
+                                REQUEST_CONNECTION_PROPERTIES_OPERATION,
                                 REQUEST_HEADER_CACHE_SEQUENCE_OPERATION,
                                 REQUEST_SCOPE_MAPPING_OPERATION,
                                 REQUEST_CONSTRUCTOR_OPERATION,
@@ -21701,6 +21708,11 @@ def _validate_case_payload(
         isinstance(case, dict)
         and (case.get("surface"), case.get("operation")) == REQUEST_CLIENT_OPERATION
     )
+    is_request_connection_properties = (
+        isinstance(case, dict)
+        and (case.get("surface"), case.get("operation"))
+        == REQUEST_CONNECTION_PROPERTIES_OPERATION
+    )
     is_request_header_cache_sequence = (
         isinstance(case, dict)
         and (case.get("surface"), case.get("operation")) == REQUEST_HEADER_CACHE_SEQUENCE_OPERATION
@@ -21878,6 +21890,9 @@ def _validate_case_payload(
         if is_request_body_stream_json
         else (CASE_KEYS - {"steps", "execution_schedule"}) | {"scope_cases"}
         if is_request_client
+        else (CASE_KEYS - {"steps", "execution_schedule"})
+        | {"scope", "scope_mapping", "properties"}
+        if is_request_connection_properties
         else REQUEST_HEADER_CACHE_SEQUENCE_CASE_KEYS
         if is_request_header_cache_sequence
         else REQUEST_CONSTRUCTOR_CASE_KEYS
@@ -21994,6 +22009,10 @@ def _validate_case_payload(
     if is_request_client:
         _exact(case, expected_case_keys, "Request.client case")
         _validate_request_client_case(case)
+        return case
+    if is_request_connection_properties:
+        _exact(case, expected_case_keys, "Request connection-properties case")
+        _validate_request_connection_properties_case(case)
         return case
     if is_request_header_cache_sequence:
         _exact(case, expected_case_keys, "Request header-cache sequence case")
@@ -28073,6 +28092,63 @@ def _validate_request_client_case(case: dict[str, Any]) -> None:
                 raise ContractError(f"{context}.scope.client must be a host/port pair or null")
     if case["covers"] != [REQUEST_CLIENT_REQUIREMENT]:
         raise ContractError("Request.client case must cover the client-address requirement")
+
+
+def _validate_request_connection_properties_case(case: dict[str, Any]) -> None:
+    if case["target_profiles"] != list(PYTHON_PROFILE_IDS):
+        raise ContractError(
+            "Request connection-properties parity targets all supported Python profiles"
+        )
+    if case["assets"] != [] or case["observations"] != ["connection-properties"]:
+        raise ContractError(
+            "Request connection-properties cases select connection-properties without assets"
+        )
+    if not case["case_id"].startswith(
+        "starlette.requests.Request.connection-properties."
+    ):
+        raise ContractError(
+            "Request connection-properties case ID must bind to its public properties"
+        )
+
+    scope = _exact(
+        case["scope"],
+        {"type", "method", "path", "session", "auth", "user"},
+        "Request connection-properties scope",
+    )
+    if scope["type"] != "http":
+        raise ContractError("Request connection-properties scope must be HTTP")
+    _string(scope["method"], "Request connection-properties scope.method")
+    _string(scope["path"], "Request connection-properties scope.path")
+
+    mapping = _exact(
+        case["scope_mapping"],
+        {"container", "instance_contains_result"},
+        "Request connection-properties scope mapping",
+    )
+    if mapping["container"] != "collections.UserDict":
+        raise ContractError(
+            "Request connection-properties scope mapping must use collections.UserDict"
+        )
+    if type(mapping["instance_contains_result"]) is not bool:
+        raise ContractError(
+            "Request connection-properties instance_contains_result must be boolean"
+        )
+
+    properties = case["properties"]
+    allowed_properties = {"session", "auth", "user"}
+    if (
+        not isinstance(properties, list)
+        or any(value not in allowed_properties for value in properties)
+        or len(properties) != len(allowed_properties)
+        or set(properties) != allowed_properties
+    ):
+        raise ContractError(
+            "Request connection-properties input must select session, auth, and user once each"
+        )
+    if case["covers"] != ["starlette.requests.Request.connection-properties.mapping-membership-protocol"]:
+        raise ContractError(
+            "Request connection-properties case must cover its membership-protocol requirement"
+        )
 
 
 def _validate_request_header_cache_sequence_case(case: dict[str, Any]) -> None:

@@ -534,6 +534,10 @@
           "source_path": "starlette.requests.HTTPConnection.client"
         },
         {
+          "operation_id": "connection-properties",
+          "source_path": "starlette.requests.HTTPConnection.session, HTTPConnection.auth, and HTTPConnection.user"
+        },
+        {
           "operation_id": "scope-mapping",
           "source_path": "starlette.requests.HTTPConnection.__getitem__, HTTPConnection.__iter__, and HTTPConnection.__len__"
         },

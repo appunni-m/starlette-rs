@@ -1142,6 +1142,9 @@ fn format_path_parameter(
             ))
         }
         RoutePathConverter::Builtin(PathConverter::Integer) => Ok(canonical_integer(value)),
+        RoutePathConverter::Builtin(PathConverter::Float) if value == "-0.0" => {
+            Ok(String::from("-0"))
+        }
         RoutePathConverter::Builtin(PathConverter::Float) if !valid_float_lexeme(value) => Err(
             invalid("float converter values must use non-negative decimal notation"),
         ),
