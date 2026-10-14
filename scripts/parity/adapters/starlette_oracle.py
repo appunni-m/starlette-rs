@@ -7952,10 +7952,17 @@ class _WebSocketEndpointJSONDecoderLookupFailure:
 
 
 class _WebSocketEndpointCaptureSend:
-    def __init__(self, messages: list[dict[str, Any]]) -> None:
+    def __init__(
+        self,
+        messages: list[dict[str, Any]],
+        failure: dict[str, Any] | None = None,
+    ) -> None:
         self.messages = messages
+        self.failure = failure
 
     async def __call__(self, message: dict[str, Any]) -> None:
+        if self.failure is not None and message.get("type") == self.failure["message_type"]:
+            raise OSError(self.failure["message"])
         self.messages.append(dict(message))
 
 
@@ -8051,7 +8058,11 @@ def _websocket_endpoint_disconnect_hook(
     return on_disconnect
 
 
-def _websocket_endpoint_error(exc: BaseException) -> dict[str, Any]:
+def _websocket_endpoint_error(
+    exc: BaseException,
+    *,
+    include_context_chain: bool = False,
+) -> dict[str, Any]:
     result = _dispatch_error(exc)
     context = exc.__context__
     result["context"] = (
@@ -8062,6 +8073,19 @@ def _websocket_endpoint_error(exc: BaseException) -> dict[str, Any]:
         if context is not None
         else None
     )
+    if include_context_chain:
+        context_chain: list[dict[str, str]] = []
+        seen: set[int] = set()
+        while context is not None and id(context) not in seen:
+            seen.add(id(context))
+            context_chain.append(
+                {
+                    "class": f"{type(context).__module__}.{type(context).__qualname__}",
+                    "message": str(context),
+                }
+            )
+            context = context.__context__
+        result["context_chain"] = context_chain
     return result
 
 
@@ -8133,19 +8157,22 @@ def _websocket_endpoint_encoding(value: Any) -> Any:
 
 
 def _run_websocket_endpoint_case(case: dict[str, Any]) -> dict[str, Any]:
+    case_fields = {
+        "case_id",
+        "surface",
+        "operation",
+        "covers",
+        "target_profiles",
+        "assets",
+        "endpoint",
+        "sessions",
+        "observations",
+    }
+    if "send" in case:
+        case_fields.add("send")
     _strict_object(
         case,
-        {
-            "case_id",
-            "surface",
-            "operation",
-            "covers",
-            "target_profiles",
-            "assets",
-            "endpoint",
-            "sessions",
-            "observations",
-        },
+        case_fields,
         "WebSocketEndpoint dispatch case",
     )
     if (
@@ -8160,6 +8187,18 @@ def _run_websocket_endpoint_case(case: dict[str, Any]) -> dict[str, Any]:
 
     endpoint_module = sys.modules[WebSocketEndpoint.__module__]
     internal_error_close_code = status.WS_1011_INTERNAL_ERROR
+    send_failure = case.get("send")
+    if send_failure is not None:
+        _strict_object(
+            send_failure,
+            {"kind", "message_type", "message"},
+            "WebSocketEndpoint send input",
+        )
+        if (
+            send_failure["kind"] != "raise-oserror"
+            or send_failure["message_type"] != "websocket.close"
+        ):
+            raise ValueError("WebSocketEndpoint send kind is unsupported")
 
     endpoint_spec = case["endpoint"]
     connection_results: list[dict[str, Any]] = []
@@ -8205,7 +8244,7 @@ def _run_websocket_endpoint_case(case: dict[str, Any]) -> dict[str, Any]:
         )
         if session_spec.get("cancel_at") == "receive":
             receive.waiting = cancellation_ready
-        send = _WebSocketEndpointCaptureSend(sent_messages)
+        send = _WebSocketEndpointCaptureSend(sent_messages, send_failure)
         json_module: Any | None = None
         original_json_decoder: Any = None
 
@@ -8228,7 +8267,10 @@ def _run_websocket_endpoint_case(case: dict[str, Any]) -> dict[str, Any]:
                 try:
                     asyncio.run(_await_websocket_endpoint(endpoint_type, scope, receive, send))
                 except Exception as exc:
-                    error = _websocket_endpoint_error(exc)
+                    error = _websocket_endpoint_error(
+                        exc,
+                        include_context_chain=send_failure is not None,
+                    )
         finally:
             if json_module is not None:
                 json_module.decoder = original_json_decoder

@@ -605,8 +605,8 @@ impl WebSocketDecodeCall {
         if let Some(pending) = self.pending_error.take() {
             let context = pending.bind(py).getattr("__context__");
             if let Ok(context) = context {
-                if !context.is_none() && !error.value(py).is(&context) {
-                    error.set_context(py, Some(PyErr::from_value(context)));
+                if !context.is_none() {
+                    attach_exception_context_at_chain_tail(py, &error, context);
                 }
             }
         }
@@ -758,6 +758,33 @@ impl WebSocketDecodeCall {
         );
         self.pending = true;
         Ok(MachineAction::Await(close.unbind()))
+    }
+}
+
+fn attach_exception_context_at_chain_tail(
+    py: Python<'_>,
+    error: &PyErr,
+    context: Bound<'_, PyAny>,
+) {
+    // If an awaited close operation raised from an inner exception, preserve
+    // that direct context and add the decode error at the end of the chain.
+    // Replacing __context__ here would discard e.g. WebSocketDisconnect's
+    // OSError cause from WebSocket.send.
+    let mut current = error.value(py).clone().into_any();
+    let mut visited: Vec<Py<PyAny>> = Vec::new();
+    loop {
+        if current.is(&context) || visited.iter().any(|seen| seen.bind(py).is(&current)) {
+            return;
+        }
+        visited.push(current.clone().unbind());
+        match current.getattr("__context__") {
+            Ok(next) if next.is_none() => {
+                PyErr::from_value(current).set_context(py, Some(PyErr::from_value(context)));
+                return;
+            }
+            Ok(next) => current = next,
+            Err(_) => return,
+        }
     }
 }
 

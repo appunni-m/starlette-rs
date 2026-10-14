@@ -1,9 +1,10 @@
 //! Rust-owned FileResponse range policy and multipart header construction.
 //! Source: pinned Starlette responses.py, under the upstream BSD-3-Clause notice.
 
-use pyo3::exceptions::{PyRuntimeError, PyValueError};
+use pyo3::basic::CompareOp;
+use pyo3::exceptions::{PyRuntimeError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
-use pyo3::types::{PyBytes, PyList, PyString};
+use pyo3::types::{PyBytes, PyInt, PyList, PyString};
 
 pub(crate) fn should_use_range(
     response: &Bound<'_, PyAny>,
@@ -95,14 +96,20 @@ pub(crate) fn parse_header(
         )?);
     }
     for range in ranges.try_iter()? {
-        let start = range?.get_item(0)?;
-        if start.lt(0)? || !start.lt(size)? {
+        let (start, _) = unpack_range(py, &range?)?;
+        // Match the source expression `0 <= start < file_size`, including
+        // reflected comparison dispatch for values returned by an override.
+        let valid_lower_bound = PyInt::new(py, 0)
+            .as_any()
+            .rich_compare(&start, CompareOp::Le)?
+            .is_truthy()?;
+        if !valid_lower_bound || !start.rich_compare(size, CompareOp::Lt)?.is_truthy()? {
             return Err(range_error(py, "RangeNotSatisfiable", Some(size.clone()))?);
         }
     }
     for range in ranges.try_iter()? {
-        let range = range?;
-        if range.get_item(0)?.ge(range.get_item(1)?)? {
+        let (start, end) = unpack_range(py, &range?)?;
+        if start.rich_compare(&end, CompareOp::Ge)?.is_truthy()? {
             return Err(range_error(
                 py,
                 "MalformedRangeHeader",
@@ -133,6 +140,50 @@ pub(crate) fn parse_header(
         }
     }
     Ok(result.into_any().unbind())
+}
+
+fn unpack_range<'py>(
+    py: Python<'py>,
+    range: &Bound<'py, PyAny>,
+) -> PyResult<(Bound<'py, PyAny>, Bound<'py, PyAny>)> {
+    let range_type = range.get_type();
+    let mut values = match range.try_iter() {
+        Ok(values) => values,
+        Err(error)
+            if error.is_instance_of::<PyTypeError>(py)
+                && !range_type.hasattr("__iter__")?
+                && !range_type.hasattr("__getitem__")? =>
+        {
+            let type_name = range_type.name()?.to_string();
+            return Err(PyTypeError::new_err(format!(
+                "cannot unpack non-iterable {type_name} object"
+            )));
+        }
+        Err(error) => return Err(error),
+    };
+    let start = match values.next() {
+        Some(value) => value?,
+        None => {
+            return Err(PyValueError::new_err(
+                "not enough values to unpack (expected 2, got 0)",
+            ));
+        }
+    };
+    let end = match values.next() {
+        Some(value) => value?,
+        None => {
+            return Err(PyValueError::new_err(
+                "not enough values to unpack (expected 2, got 1)",
+            ));
+        }
+    };
+    if let Some(extra) = values.next() {
+        extra?;
+        return Err(PyValueError::new_err(
+            "too many values to unpack (expected 2)",
+        ));
+    }
+    Ok((start, end))
 }
 
 fn range_error(py: Python<'_>, name: &str, value: Option<Bound<'_, PyAny>>) -> PyResult<PyErr> {

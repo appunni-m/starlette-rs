@@ -4196,6 +4196,19 @@ def _validate_websocket_endpoint_case_stimulus(case: dict[str, Any]) -> None:
             "raise-runtime-error-synchronously, or wait-for-cancellation"
         )
 
+    send_failure = None
+    if "send" in case:
+        send_failure = _exact(
+            case["send"],
+            {"kind", "message_type", "message"},
+            "WebSocketEndpoint send input",
+        )
+        if send_failure["kind"] != "raise-oserror":
+            raise ContractError("WebSocketEndpoint send.kind must be raise-oserror")
+        if send_failure["message_type"] != "websocket.close":
+            raise ContractError("WebSocketEndpoint send.message_type must be websocket.close")
+        _string(send_failure["message"], "WebSocketEndpoint send.message")
+
     sessions = case["sessions"]
     if not isinstance(sessions, list) or not sessions:
         raise ContractError("WebSocketEndpoint.sessions must be a non-empty array")
@@ -4244,6 +4257,20 @@ def _validate_websocket_endpoint_case_stimulus(case: dict[str, Any]) -> None:
             raise ContractError(
                 f"{context} JSON decoder lookup fault requires one ordinary malformed receive "
                 "with default connect, no-op receive, and observed finalization"
+            )
+        if send_failure is not None and (
+            len(sessions) != 1
+            or cancel_at is not None
+            or session["scope"]["type"] != "websocket"
+            or message_types != ["websocket.connect", "websocket.receive"]
+            or encoding != "json"
+            or encoding_kind is not None
+            or on_connect["kind"] != "default"
+            or on_receive["kind"] != "no-op"
+            or on_disconnect["kind"] != "default"
+        ):
+            raise ContractError(
+                f"{context} send failure requires one malformed JSON receive with default hooks"
             )
         if session["scope"]["type"] != "websocket":
             if (
@@ -4470,6 +4497,8 @@ def _validate_websocket_endpoint_case_stimulus(case: dict[str, Any]) -> None:
             raise ContractError(
                 f"{context} JSON decoder lookup fault requires malformed JSON input"
             )
+        if send_failure is not None and requirement_name != "json_malformed":
+            raise ContractError(f"{context} send failure requires malformed JSON input")
 
         decode_succeeds = requirement_name not in {
             "text_rejects_bytes",
@@ -23472,6 +23501,8 @@ def _validate_case_payload(
         and "scope_headers_container" in case
     ):
         expected_case_keys = expected_case_keys | {"scope_headers_container"}
+    if is_websocket_endpoint and isinstance(case, dict) and "send" in case:
+        expected_case_keys = expected_case_keys | {"send"}
     if (
         (is_testclient_lifespan or is_testclient_websocket)
         and isinstance(case, dict)
@@ -45827,12 +45858,13 @@ def _validate_response_user_protocols(case: dict[str, Any]) -> None:
                 not isinstance(hook["ranges"], list)
                 or any(
                     not isinstance(pair, list)
-                    or len(pair) != 2
                     or any(type(value) is not int or value < 0 for value in pair)
                     for pair in hook["ranges"]
                 )
             ):
-                raise ContractError("Range hook requires integer range pairs")
+                # User overrides may return malformed ranges; the source then
+                # exposes Python's tuple-unpacking error from its call protocol.
+                raise ContractError("Range hook requires integer range values")
         for pair in case["scope"]["headers"]:
             if not isinstance(pair, list) or len(pair) != 2:
                 raise ContractError("File scope headers require byte pairs")
