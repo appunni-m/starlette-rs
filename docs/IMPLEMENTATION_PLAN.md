@@ -25,8 +25,10 @@ both `await Request.form()` and `async with Request.form()`, and iterates
 `Request.stream()` to assert that each yielded chunk is `bytes`. It also checks
 `Request.body()` as `bytes`, `Request.json()` as `Any`, `Request.query_params`
 as `QueryParams`, `Request.path_params` as `dict[str, Any]`, and
-`Request.client` as `Address | None`. Pinned Mypy 1.19.1 produced identical
-output against Starlette 1.6.0 and the rebuilt installed wheel.
+`Request.client` as `Address | None`. It now also asserts `Request.url` as
+`URL` and `Request.cookies` as `dict[str, str]`. Pinned Mypy 1.19.1 produced
+identical output against Starlette 1.6.0 and the rebuilt installed wheel for
+these assertions.
 A new WebSocketEndpoint input covers exception-context propagation when
 resolving `json.decoder.JSONDecodeError` raises; its comparison remains
 deferred to full parity. A new Jinja2Templates input observes two ordered

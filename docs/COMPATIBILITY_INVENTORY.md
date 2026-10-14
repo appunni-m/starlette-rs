@@ -5,6 +5,11 @@ body/stream truthiness-failure order, TestClient lifespan startup-message type
 comparison, and WebSocket `receive_json` mode-comparison order. The cases pass
 contract validation and remain unexecuted until the grouped parity phase.
 
+The application typing consumer asserts `Request.cookies` as
+`dict[str, str]`, alongside `Request.url` as `URL` and `Request.client` as
+`Address | None`. Pinned-source and installed-wheel Mypy 1.19.1 diagnostics
+match; the registered consumer comparison remains deferred to full parity.
+
 WebSocket async iterators now resolve the corresponding typed receive method
 through Python descriptor lookup at each Rust iterator advance, matching the
 pinned async-generator body including its final disconnect advance. Three
