@@ -13,12 +13,15 @@ implementation closes, run the complete source/package and Rust-native parity
 matrix, repair mismatches across families, measure coverage from that full
 matrix, reconcile the source atlas, then run all correctness-gated benchmarks.
 
-The active contract currently declares 2,367 input cases across 335
+The active contract currently declares 2,368 input cases across 336
 parity inputs and two benchmark inputs, 142 Starlette compatibility
-operations, 13 Rust-native operations, and 1,287 parity requirements (1,245
+operations, 13 Rust-native operations, and 1,288 parity requirements (1,246
 compatibility and 42 native). Its scope mode is still `slice`. A new Config
 typing consumer covers all nine pinned `Config.__call__` overload assertions;
 its source/package Mypy comparison remains deferred to the full parity phase.
+A direct `run_in_threadpool` input observes whether AnyIO scope cancellation
+waits for its gated synchronous worker; its source/package comparison remains
+deferred to full parity.
 A new direct
 `WebSocketDisconnect` constructor input compares field assignment, inherited
 exception arguments, Python truthiness, and call-binding errors; the Rust
@@ -207,7 +210,7 @@ until the grouped parity phase.
 
 | Phase | State | Evidence |
 | --- | --- | --- |
-| Implementation | In progress. | `make contract-check PARITY_PYTHON=python3.12` validates 2,367 cases across 335 parity inputs, 142 compatibility operations, 13 native operations, and 1,287 parity requirements (1,245 compatibility / 42 native), with zero parity passes claimed. The Config typing consumer covers all nine pinned `Config.__call__` overload assertions and remains unexecuted against the source and installed package. A new direct `WebSocketDisconnect` constructor input covers supplied/default fields, inherited exception arguments, reason truthiness, and call-binding errors; its comparison remains unexecuted. A new FormData consumer contract preserves the pinned `UploadFile | str` types for indexing, `getlist()`, and `multi_items()`; the input comparison remains unexecuted. Two new Request.form inputs cover positive
+| Implementation | In progress. | `make contract-check PARITY_PYTHON=python3.12` validates 2,368 cases across 336 parity inputs, 142 compatibility operations, 13 native operations, and 1,288 parity requirements (1,246 compatibility / 42 native), with zero parity passes claimed. The new direct `run_in_threadpool` cancellation input observes AnyIO-scope cancellation while the worker is gated and remains unexecuted until full parity. The Config typing consumer covers all nine pinned `Config.__call__` overload assertions and remains unexecuted against the source and installed package. A new direct `WebSocketDisconnect` constructor input covers supplied/default fields, inherited exception arguments, reason truthiness, and call-binding errors; its comparison remains unexecuted. A new FormData consumer contract preserves the pinned `UploadFile | str` types for indexing, `getlist()`, and `multi_items()`; the input comparison remains unexecuted. Two new Request.form inputs cover positive
 arbitrary-precision max_fields and max_files limits; these comparisons remain
 unexecuted. A new body-limit input checks that the Content-Length precheck
 preserves the original scope headers mapping; both behavior and comparison
@@ -281,9 +284,9 @@ also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
 The active parity contract is `parity-input@52`: the working tree currently
-indexes 2,367 input cases across 335 parity files, two benchmark files, 142
-Starlette compatibility operations, 13 Rust-native operations, and 1,287
-parity requirements (1,245 compatibility and 42 native). The Config typing
+indexes 2,368 input cases across 336 parity files, two benchmark files, 142
+Starlette compatibility operations, 13 Rust-native operations, and 1,288
+parity requirements (1,246 compatibility and 42 native). The Config typing
 consumer covers all nine pinned `Config.__call__` overload assertions and is
 deferred to full parity. The latest clean full parity,
 coverage, and benchmark receipts belong to the preceding 1,992-case, 140-file

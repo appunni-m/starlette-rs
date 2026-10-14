@@ -175,6 +175,9 @@ THREADPOOL_REQUIREMENTS = {
     "exception_identity": f"{THREADPOOL_SURFACE}.{THREADPOOL_OPERATION}.exception-identity",
     "worker_thread": f"{THREADPOOL_SURFACE}.{THREADPOOL_OPERATION}.worker-thread",
     "event_loop_progress": f"{THREADPOOL_SURFACE}.{THREADPOOL_OPERATION}.event-loop-progress",
+    "cancellation_observation": (
+        f"{THREADPOOL_SURFACE}.{THREADPOOL_OPERATION}.cancellation-worker-completion-observation"
+    ),
     "contextvar_propagation": (
         f"{THREADPOOL_SURFACE}.{THREADPOOL_OPERATION}.contextvar-propagation"
     ),
@@ -24170,17 +24173,21 @@ def _validate_background_attributes_case(case: dict[str, Any]) -> None:
 
 
 def _validate_threadpool_case(case: dict[str, Any]) -> None:
+    call_value = case["call"]
+    call_keys = {
+        "call_id",
+        "args",
+        "kwargs",
+        "callable_behavior",
+        "event_loop_checkpoints",
+        "start_timeout_ms",
+        "release_timeout_ms",
+    }
+    if isinstance(call_value, dict) and "cancellation" in call_value:
+        call_keys.add("cancellation")
     call = _exact(
-        case["call"],
-        {
-            "call_id",
-            "args",
-            "kwargs",
-            "callable_behavior",
-            "event_loop_checkpoints",
-            "start_timeout_ms",
-            "release_timeout_ms",
-        },
+        call_value,
+        call_keys,
         "run_in_threadpool call input",
     )
     _string(call["call_id"], "run_in_threadpool call_id")
@@ -24310,6 +24317,19 @@ def _validate_threadpool_case(case: dict[str, Any]) -> None:
             "run_in_threadpool callable behavior kind must be return, raise, contextvar, or limiter-workload"
         )
 
+    cancellation_enabled = "cancellation" in call
+    if cancellation_enabled:
+        cancellation = _exact(
+            call["cancellation"],
+            {"kind"},
+            "run_in_threadpool cancellation input",
+        )
+        if cancellation["kind"] != "anyio-scope":
+            raise ContractError("run_in_threadpool cancellation kind must be anyio-scope")
+        if behavior_kind != "return":
+            raise ContractError("run_in_threadpool cancellation requires a returning callback")
+        expected_requirements.add(THREADPOOL_REQUIREMENTS["cancellation_observation"])
+
     checkpoints = call["event_loop_checkpoints"]
     if behavior_kind == "limiter-workload":
         if checkpoints != []:
@@ -24322,6 +24342,10 @@ def _validate_threadpool_case(case: dict[str, Any]) -> None:
     ):
         raise ContractError(
             "run_in_threadpool event_loop_checkpoints must be unique non-empty strings"
+        )
+    if cancellation_enabled and len(checkpoints) > 8:
+        raise ContractError(
+            "run_in_threadpool cancellation supports at most 8 event-loop checkpoints"
         )
     for timeout_key in ("start_timeout_ms", "release_timeout_ms"):
         timeout = call[timeout_key]

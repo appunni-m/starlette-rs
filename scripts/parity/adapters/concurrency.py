@@ -69,6 +69,19 @@ def run_threadpool_case(
             "contextvar_worker_initial": None,
             "contextvar_worker_after_write": None,
         }
+        cancellation_enabled = "cancellation" in spec
+        cancellation_scope: Any = None
+        cancellation_state: dict[str, Any] | None = None
+        if cancellation_enabled:
+            import anyio
+
+            cancellation_scope = anyio.CancelScope()
+            cancellation_state = {
+                "outcome": "pending",
+                "exception": None,
+                "exception_type": None,
+                "scope_cancelled_caught": False,
+            }
 
         def callback(*args: Any, **kwargs: Any) -> Any:
             callback_state["invocation_count"] += 1
@@ -81,27 +94,55 @@ def run_threadpool_case(
                 callback_state["contextvar_worker_initial"] = _json_safe(context_variable.get())
                 context_variable.set(contextvar_behavior["worker_value"])
                 callback_state["contextvar_worker_after_write"] = _json_safe(context_variable.get())
-            trace.append({"call_id": spec["call_id"], "event": "callback-start"})
-            trace.append({"call_id": spec["call_id"], "event": "worker-gate-held"})
-            loop.call_soon_threadsafe(callback_entered.set)
-            if not callback_released.wait(spec["release_timeout_ms"] / 1000):
-                trace.append({"call_id": spec["call_id"], "event": "worker-gate-timeout"})
+            try:
+                trace.append({"call_id": spec["call_id"], "event": "callback-start"})
+                trace.append({"call_id": spec["call_id"], "event": "worker-gate-held"})
+                loop.call_soon_threadsafe(callback_entered.set)
+                if not callback_released.wait(spec["release_timeout_ms"] / 1000):
+                    trace.append({"call_id": spec["call_id"], "event": "worker-gate-timeout"})
+                    raise TimeoutError("input-defined worker gate timed out")
+                callback_state["release_observed"] = True
+                if callable_behavior["kind"] == "raise":
+                    trace.append({"call_id": spec["call_id"], "event": "callback-raise"})
+                    if exception_instance is None:
+                        raise RuntimeError("missing input-defined callback exception")
+                    raise exception_instance
+                trace.append({"call_id": spec["call_id"], "event": "callback-return"})
+                return returned_value
+            finally:
+                if cancellation_enabled:
+                    trace.append({"call_id": spec["call_id"], "event": "worker-complete"})
                 callback_exited.set()
-                raise TimeoutError("input-defined worker gate timed out")
-            callback_state["release_observed"] = True
-            if callable_behavior["kind"] == "raise":
-                trace.append({"call_id": spec["call_id"], "event": "callback-raise"})
-                callback_exited.set()
-                if exception_instance is None:
-                    raise RuntimeError("missing input-defined callback exception")
-                raise exception_instance
-            trace.append({"call_id": spec["call_id"], "event": "callback-return"})
-            callback_exited.set()
-            return returned_value
+
+        async def call_with_scope() -> Any:
+            if cancellation_scope is None or cancellation_state is None:
+                return await run_in_threadpool(callback, *spec["args"], **spec["kwargs"])
+
+            try:
+                with cancellation_scope:
+                    try:
+                        result = await run_in_threadpool(callback, *spec["args"], **spec["kwargs"])
+                    except BaseException as error:
+                        cancellation_state["outcome"] = "raise"
+                        cancellation_state["exception"] = error
+                        cancellation_state["exception_type"] = (
+                            f"{type(error).__module__}.{type(error).__qualname__}"
+                        )
+                        trace.append({"call_id": spec["call_id"], "event": "await-raise"})
+                        raise
+                    else:
+                        cancellation_state["outcome"] = "return"
+                        trace.append({"call_id": spec["call_id"], "event": "await-return"})
+                        return result
+            finally:
+                cancellation_state["scope_cancelled_caught"] = cancellation_scope.cancelled_caught
+                trace.append({"call_id": spec["call_id"], "event": "call-task-finished"})
 
         trace.append({"call_id": spec["call_id"], "event": "call-start"})
         call_task = asyncio.create_task(
-            run_in_threadpool(callback, *spec["args"], **spec["kwargs"])
+            call_with_scope()
+            if cancellation_enabled
+            else run_in_threadpool(callback, *spec["args"], **spec["kwargs"])
         )
         try:
             await asyncio.wait_for(callback_entered.wait(), spec["start_timeout_ms"] / 1000)
@@ -114,12 +155,19 @@ def run_threadpool_case(
 
         checkpoints: list[dict[str, Any]] = []
         trace.append({"call_id": spec["call_id"], "event": "event-loop-observed-entry"})
+        if cancellation_enabled:
+            if cancellation_scope is None:
+                raise RuntimeError("input-defined cancellation scope was not created")
+            trace.append({"call_id": spec["call_id"], "event": "cancellation-request"})
+            cancellation_scope.cancel()
         for marker in spec["event_loop_checkpoints"]:
             await asyncio.sleep(0)
             checkpoint = {
                 "marker": marker,
                 "callback_held": not callback_exited.is_set(),
             }
+            if cancellation_enabled:
+                checkpoint["call_task_done"] = call_task.done()
             checkpoints.append(checkpoint)
             trace.append(
                 {
@@ -133,12 +181,84 @@ def run_threadpool_case(
         callback_released.set()
         result: Any = None
         propagated_exception: BaseException | None = None
-        try:
-            result = await call_task
-            trace.append({"call_id": spec["call_id"], "event": "await-return"})
-        except Exception as error:
-            propagated_exception = error
-            trace.append({"call_id": spec["call_id"], "event": "await-raise"})
+        cancellation_observation: dict[str, Any] | None = None
+        if cancellation_enabled:
+            try:
+                result = await asyncio.wait_for(
+                    asyncio.shield(call_task), spec["release_timeout_ms"] / 1000 + 5
+                )
+                call_task_outcome = "return"
+            except asyncio.TimeoutError as error:
+                await asyncio.gather(call_task, return_exceptions=True)
+                raise RuntimeError(
+                    "input-defined cancellation call did not complete after worker release"
+                ) from error
+            except Exception as error:
+                call_task_outcome = "raise"
+                propagated_exception = error
+                if cancellation_state is not None and cancellation_state["exception"] is None:
+                    cancellation_state["outcome"] = "raise"
+                    cancellation_state["exception"] = error
+                    cancellation_state["exception_type"] = (
+                        f"{type(error).__module__}.{type(error).__qualname__}"
+                    )
+
+            if cancellation_state is not None:
+                helper_cancellation_caught = cancellation_state["scope_cancelled_caught"]
+                helper_outcome = (
+                    "cancelled" if helper_cancellation_caught else cancellation_state["outcome"]
+                )
+                worker_complete_index = next(
+                    (
+                        index
+                        for index, event in enumerate(trace)
+                        if event["event"] == "worker-complete"
+                    ),
+                    None,
+                )
+                call_finished_index = next(
+                    (
+                        index
+                        for index, event in enumerate(trace)
+                        if event["event"] == "call-task-finished"
+                    ),
+                    None,
+                )
+                worker_completed_before_call_task = (
+                    worker_complete_index is not None
+                    and call_finished_index is not None
+                    and worker_complete_index < call_finished_index
+                )
+                worker_held_through_checkpoints = all(
+                    checkpoint["callback_held"] for checkpoint in checkpoints
+                )
+                call_task_completed_while_worker_held = any(
+                    checkpoint["call_task_done"] and checkpoint["callback_held"]
+                    for checkpoint in checkpoints
+                )
+                cancellation_observation = {
+                    "cancel_scope_cancelled_caught": helper_cancellation_caught,
+                    "helper_outcome": helper_outcome,
+                    "helper_exception_type": cancellation_state["exception_type"],
+                    "call_task_outcome": call_task_outcome,
+                    "worker_held_through_checkpoints": worker_held_through_checkpoints,
+                    "call_task_completed_while_worker_held": (
+                        call_task_completed_while_worker_held
+                    ),
+                    "worker_completed_before_call_task": (worker_completed_before_call_task),
+                    "cancellation_waited_for_worker_completion": (
+                        worker_held_through_checkpoints
+                        and not call_task_completed_while_worker_held
+                        and worker_completed_before_call_task
+                    ),
+                }
+        else:
+            try:
+                result = await call_task
+                trace.append({"call_id": spec["call_id"], "event": "await-return"})
+            except Exception as error:
+                propagated_exception = error
+                trace.append({"call_id": spec["call_id"], "event": "await-raise"})
 
         return {
             "call": {
@@ -182,8 +302,13 @@ def run_threadpool_case(
                             propagated_exception is exception_instance
                         ),
                     }
-                    if propagated_exception is not None
+                    if propagated_exception is not None and not cancellation_enabled
                     else None
+                ),
+                **(
+                    {"cancellation_observation": cancellation_observation}
+                    if cancellation_observation is not None
+                    else {}
                 ),
             },
             "execution_trace": trace,
