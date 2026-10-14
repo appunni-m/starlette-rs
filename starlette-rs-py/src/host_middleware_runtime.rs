@@ -214,7 +214,6 @@ fn trusted_host_middleware_call(py: Python<'_>, args: TrustedHostCallArgs) -> Py
             scope: args.scope,
             receive: args.receive,
             send: args.send,
-            connection_type: args.connection_type,
             url_type: args.url_type,
             redirect_response_type: args.redirect_response_type,
             plain_text_response_type: args.plain_text_response_type,
@@ -233,7 +232,6 @@ struct TrustedHostCallArgs {
     scope: Py<PyAny>,
     receive: Py<PyAny>,
     send: Py<PyAny>,
-    connection_type: Py<PyAny>,
     url_type: Py<PyAny>,
     redirect_response_type: Py<PyAny>,
     plain_text_response_type: Py<PyAny>,
@@ -247,7 +245,6 @@ struct TrustedHostCall {
     scope: Py<PyAny>,
     receive: Py<PyAny>,
     send: Py<PyAny>,
-    connection_type: Py<PyAny>,
     url_type: Py<PyAny>,
     redirect_response_type: Py<PyAny>,
     plain_text_response_type: Py<PyAny>,
@@ -263,7 +260,6 @@ impl AwaitableStateMachine for TrustedHostCall {
         visit.call(&self.scope)?;
         visit.call(&self.receive)?;
         visit.call(&self.send)?;
-        visit.call(&self.connection_type)?;
         visit.call(&self.url_type)?;
         visit.call(&self.redirect_response_type)?;
         visit.call(&self.plain_text_response_type)?;
@@ -304,11 +300,13 @@ impl TrustedHostCall {
             return self.call_app(py);
         }
 
-        let connection = self
-            .connection_type
-            .bind(py)
-            .call1((self.scope.bind(py),))?;
-        let headers = connection.getattr("headers")?;
+        // TrustedHostMiddleware constructs Headers(scope=scope) directly.
+        // Routing this through HTTPConnection would read scope["type"] again,
+        // which is observable for valid stateful MutableMapping scopes.
+        let headers_type = py.import("starlette.datastructures")?.getattr("Headers")?;
+        let header_arguments = PyDict::new(py);
+        header_arguments.set_item("scope", self.scope.bind(py))?;
+        let headers = headers_type.call((), Some(&header_arguments))?;
         let host = headers
             .call_method1("get", ("host", ""))?
             .call_method1("split", (":",))?

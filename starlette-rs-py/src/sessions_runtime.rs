@@ -198,7 +198,7 @@ impl PySessionState {
 pub(crate) struct PySessionMiddlewareRuntime {
     app: Py<PyAny>,
     secret_key: String,
-    session_cookie: String,
+    session_cookie: Py<PyAny>,
     max_age: Py<PyAny>,
     path: String,
     security_flags: String,
@@ -215,7 +215,7 @@ impl PySessionMiddlewareRuntime {
         py: Python<'_>,
         app: Py<PyAny>,
         secret_key: Py<PyAny>,
-        session_cookie: &str,
+        session_cookie: Py<PyAny>,
         max_age: Py<PyAny>,
         path: &str,
         same_site: &str,
@@ -238,7 +238,7 @@ impl PySessionMiddlewareRuntime {
         Ok(Self {
             app,
             secret_key,
-            session_cookie: session_cookie.to_owned(),
+            session_cookie,
             max_age,
             path: path.to_owned(),
             security_flags,
@@ -257,12 +257,12 @@ impl PySessionMiddlewareRuntime {
     }
 
     #[getter]
-    fn session_cookie(&self) -> String {
-        self.session_cookie.clone()
+    fn session_cookie(&self, py: Python<'_>) -> Py<PyAny> {
+        self.session_cookie.clone_ref(py)
     }
 
     #[setter]
-    fn set_session_cookie(&mut self, session_cookie: String) {
+    fn set_session_cookie(&mut self, session_cookie: Py<PyAny>) {
         self.session_cookie = session_cookie;
     }
 
@@ -322,11 +322,13 @@ impl PySessionMiddlewareRuntime {
 
     fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
         visit.call(&self.app)?;
+        visit.call(&self.session_cookie)?;
         visit.call(&self.max_age)
     }
 
     fn __clear__(&mut self, py: Python<'_>) {
         self.app = py.None();
+        self.session_cookie = py.None();
         self.max_age = py.None();
     }
 }
@@ -388,7 +390,7 @@ impl SessionMiddlewareCall {
         let connection_type = py.import("starlette.requests")?.getattr("HTTPConnection")?;
         let connection = connection_type.call1((self.scope.bind(py),))?;
         let cookies = connection.getattr("cookies")?;
-        let cookie_value = cookies.call_method1("get", (runtime.session_cookie.as_str(),))?;
+        let cookie_value = cookies.call_method1("get", (runtime.session_cookie.bind(py),))?;
         let now = match runtime.clock_override {
             Some(value) => value,
             None => system_time_seconds()?,
@@ -613,25 +615,36 @@ impl SessionSendCall {
             let signed = String::from_utf8(signed).map_err(|_| {
                 PyRuntimeError::new_err("session signer returned a non-UTF-8 cookie value")
             })?;
-            let mut value = format!(
-                "{}={}; path={}; ",
-                runtime.session_cookie, signed, runtime.path
-            );
-            if runtime.max_age.bind(py).is_truthy()? {
+            let max_age = if runtime.max_age.bind(py).is_truthy()? {
                 let max_age = py
                     .import("builtins")?
                     .getattr("str")?
                     .call1((runtime.max_age.bind(py),))?
                     .extract::<String>()?;
-                value.push_str(&format!("Max-Age={max_age}; "));
-            }
-            value.push_str(&runtime.security_flags);
+                format!("Max-Age={max_age}; ")
+            } else {
+                String::new()
+            };
+            let value = format_cookie_header(
+                py,
+                "{session_cookie}={data}; path={path}; {max_age}{security_flags}",
+                runtime.session_cookie.bind(py),
+                &signed,
+                &runtime.path,
+                &max_age,
+                &runtime.security_flags,
+            )?;
             append_header(py, &headers, "set-cookie", &value)?;
         } else if modified && !nonempty && !wrapper.initial_session_was_empty {
-            let value = format!(
-                "{}=null; path={}; expires=Thu, 01 Jan 1970 00:00:00 GMT; {}",
-                runtime.session_cookie, runtime.path, runtime.security_flags
-            );
+            let value = format_cookie_header(
+                py,
+                "{session_cookie}=null; path={path}; expires=Thu, 01 Jan 1970 00:00:00 GMT; {security_flags}",
+                runtime.session_cookie.bind(py),
+                "",
+                &runtime.path,
+                "",
+                &runtime.security_flags,
+            )?;
             append_header(py, &headers, "set-cookie", &value)?;
         }
         Ok(())
@@ -679,11 +692,31 @@ fn append_header(
     py: Python<'_>,
     headers: &Bound<'_, PyList>,
     name: &str,
-    value: &str,
+    value: &Bound<'_, PyAny>,
 ) -> PyResult<()> {
     let name = latin1_bytes(py, name)?;
-    let value = latin1_bytes(py, value)?;
+    let value = value
+        .call_method1("encode", ("latin-1",))?
+        .cast_into::<PyBytes>()?;
     headers.append(PyTuple::new(py, [name, value])?)
+}
+
+fn format_cookie_header<'py>(
+    py: Python<'py>,
+    template: &str,
+    session_cookie: &Bound<'py, PyAny>,
+    data: &str,
+    path: &str,
+    max_age: &str,
+    security_flags: &str,
+) -> PyResult<Bound<'py, PyAny>> {
+    let fields = PyDict::new(py);
+    fields.set_item("session_cookie", session_cookie)?;
+    fields.set_item("data", data)?;
+    fields.set_item("path", path)?;
+    fields.set_item("max_age", max_age)?;
+    fields.set_item("security_flags", security_flags)?;
+    PyString::new(py, template).call_method("format", (), Some(&fields))
 }
 
 fn latin1_bytes<'py>(py: Python<'py>, value: &str) -> PyResult<Bound<'py, PyBytes>> {

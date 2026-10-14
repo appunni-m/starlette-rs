@@ -23033,6 +23033,17 @@ def _validate_case_payload(
     ):
         expected_case_keys = expected_case_keys | {"constructor_probes"}
     if (
+        isinstance(case, dict)
+        and case.get("surface") == TRUSTED_HOST_SURFACE
+        and case.get("operation") == "__call__"
+        and "scope_mapping" in case
+    ):
+        expected_case_keys = expected_case_keys | {"scope_mapping"}
+        if case["target_profiles"] != ["python-package-cpython312"]:
+            raise ContractError(
+                "TrustedHostMiddleware stateful scope mappings require the Python-package profile"
+            )
+    if (
         is_static_files
         and isinstance(case, dict)
         and case.get("operation") == RESPONSE_OPERATION
@@ -24475,7 +24486,9 @@ def _validate_case_payload(
             if is_gzip or is_gzip_responder:
                 _validate_dispatch_stimulus(step_args, request_dispatch=True)
             else:
-                _validate_asgi_middleware_dispatch(case["surface"], step_args)
+                _validate_asgi_middleware_dispatch(
+                    case["surface"], step_args, scope_mapping=case.get("scope_mapping")
+                )
         else:
             _validate_dispatch_stimulus(
                 step_args,
@@ -38181,9 +38194,43 @@ def _validate_wsgi_app(value: Any) -> None:
             raise ContractError("WSGIMiddleware report selectors must be unique and boolean")
 
 
-def _validate_asgi_middleware_dispatch(surface: str, args: dict[str, Any]) -> None:
+def _validate_asgi_middleware_dispatch(
+    surface: str,
+    args: dict[str, Any],
+    *,
+    scope_mapping: dict[str, Any] | None = None,
+) -> None:
     args = _exact(args, {"scope", "receive", "send"}, f"{surface} dispatch")
     scope = args["scope"]
+    if scope_mapping is not None:
+        if (
+            surface != TRUSTED_HOST_SURFACE
+            or not isinstance(scope, dict)
+            or scope.get("type") != "http"
+        ):
+            raise ContractError(
+                "stateful ASGI middleware scope type reads require an HTTP TrustedHostMiddleware input"
+            )
+        mapping = _exact(
+            scope_mapping,
+            {"container", "type_reads"},
+            "TrustedHostMiddleware scope mapping",
+        )
+        if mapping["container"] != "collections.UserDict":
+            raise ContractError(
+                "TrustedHostMiddleware stateful scope must use collections.UserDict"
+            )
+        type_reads = mapping["type_reads"]
+        if (
+            not isinstance(type_reads, list)
+            or len(type_reads) != 2
+            or any(not isinstance(value, str) or not value for value in type_reads)
+            or type_reads[0] != scope["type"]
+            or type_reads[1] == type_reads[0]
+        ):
+            raise ContractError(
+                "TrustedHostMiddleware type_reads must provide two distinct scope type values in lookup order"
+            )
     if surface == WSGI_SURFACE:
         if not isinstance(scope, dict) or scope.get("type") != "http":
             raise ContractError("WSGIMiddleware dispatch must use an HTTP scope")

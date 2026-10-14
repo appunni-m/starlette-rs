@@ -886,9 +886,15 @@ def _decode_b64(value: str, context: str) -> bytes:
 
 
 class _ObservedScopeUserDict(UserDict):
-    def __init__(self, scope: dict[str, Any], fault: dict[str, Any] | None = None) -> None:
+    def __init__(
+        self,
+        scope: dict[str, Any],
+        fault: dict[str, Any] | None = None,
+        type_reads: list[str] | None = None,
+    ) -> None:
         self.parity_operations: list[dict[str, Any]] = []
         self.parity_fault = fault
+        self.parity_type_reads = list(type_reads or [])
         super().__init__(scope)
         self.parity_operations.clear()
 
@@ -898,6 +904,8 @@ class _ObservedScopeUserDict(UserDict):
         if fault is not None and key == fault["key"]:
             exception_type = getattr(builtins, fault["exception"]["class"])
             raise exception_type(fault["exception"]["message"])
+        if key == "type" and self.parity_type_reads:
+            return self.parity_type_reads.pop(0)
         return super().__getitem__(key)
 
     def __setitem__(self, key: Any, value: Any) -> None:
@@ -930,6 +938,8 @@ def _scope_container(
         if fault["method"] != "__getitem__":
             raise ValueError("ASGI scope lookup fault must select __getitem__")
         return _ObservedScopeUserDict(scope, fault)
+    if isinstance(container, dict) and container.get("kind") == "user-dict-type-reads":
+        return _ObservedScopeUserDict(scope, type_reads=container["type_reads"])
     if container == "dict":
         return scope
     raise ValueError(f"unsupported ASGI scope container: {container!r}")
@@ -4116,7 +4126,14 @@ def _run_protocol_middleware_case(case: dict[str, Any]) -> dict[str, Any]:
                 False,
                 capture_dispatch_error=case["surface"] == CORS_SURFACE,
                 capture_dispatch_error_as_observation=case["surface"] == CORS_SURFACE,
-                scope_container=case.get("scope_container", "dict"),
+                scope_container=(
+                    {
+                        "kind": "user-dict-type-reads",
+                        "type_reads": case["scope_mapping"]["type_reads"],
+                    }
+                    if "scope_mapping" in case
+                    else case.get("scope_container", "dict")
+                ),
                 scope_observation=case.get("scope_observation"),
             )
             if isinstance(value, _CapturedDispatchError):
