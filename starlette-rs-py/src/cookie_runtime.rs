@@ -89,14 +89,14 @@ pub(crate) fn header_from_arguments<'py>(
     // Source SimpleCookie first looks up the original key, then validates it.
     let storage = PyDict::new(py);
     let _ = storage.get_item(&key)?;
-    let reserved = PyDict::new(py);
-    for name in [
-        "expires", "path", "comment", "domain", "max-age", "secure", "httponly", "version",
-        "samesite",
-    ] {
-        reserved.set_item(name, true)?;
-    }
-    if reserved.contains(key.call_method0("lower")?)? {
+    // Morsel.set evaluates key.lower() before resolving its _reserved attribute.
+    // A Python key override can rebind that class attribute during lower().
+    let lowered_key = key.call_method0("lower")?;
+    let reserved = py
+        .import("http.cookies")?
+        .getattr("Morsel")?
+        .getattr("_reserved")?;
+    if reserved.contains(&lowered_key)? {
         return Err(cookie_error(
             py,
             format!("Attempt to set a reserved key {}", key.repr()?),

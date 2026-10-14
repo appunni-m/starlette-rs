@@ -17,6 +17,8 @@ def apply_cookie_protocol(
     owned_refs: list[Any] = []
     tables: list[Any] = []
     table_originals: list[tuple[Any, dict[Any, Any]]] = []
+    morsel_reserved_original: Any = None
+    morsel_reserved_rebound = False
 
     def argument(spec: dict[str, Any]) -> Any:
         if spec["kind"] == "literal":
@@ -116,7 +118,26 @@ def apply_cookie_protocol(
                 return type(self).__bases__[1].__eq__(self, other)
 
             def lower(self) -> Any:
+                nonlocal morsel_reserved_original, morsel_reserved_rebound
                 visit("lower")
+                reserved_add = spec.get("lower_reserved_add")
+                if reserved_add is not None:
+                    from http.cookies import Morsel
+
+                    if not morsel_reserved_rebound:
+                        morsel_reserved_original = Morsel._reserved
+                        morsel_reserved_rebound = True
+                    updated_reserved = dict(Morsel._reserved)
+                    updated_reserved[reserved_add["key"]] = reserved_add["label"]
+                    Morsel._reserved = updated_reserved
+                    trace.append(
+                        {
+                            "event": "cookie-morsel-reserved-rebind",
+                            "label": spec["label"],
+                            "key": reserved_add["key"],
+                            "value": reserved_add["label"],
+                        }
+                    )
                 return spec["lower"]
 
             def translate(self, table: Any) -> str:
@@ -222,6 +243,10 @@ def apply_cookie_protocol(
                 trace.append({"event": "cookie-headers", "raw": _observe(response.raw_headers)})
     finally:
         sys.unraisablehook = original_hook
+        if morsel_reserved_rebound:
+            from http.cookies import Morsel
+
+            Morsel._reserved = morsel_reserved_original
         for table, original in table_originals:
             table.clear()
             table.update(original)

@@ -11824,6 +11824,68 @@ def _query_params_from_input(query_params_type: Any, source: dict[str, Any]) -> 
     return query_params_type(original)
 
 
+def _query_params_probe_from_input(source: str | dict[str, Any]) -> str:
+    if isinstance(source, str):
+        return source
+
+    if source["kind"] == "str-subclass-hash-keyerror":
+
+        class InputHashErrorString(str):
+            def __new__(cls, text: str, message: str) -> InputHashErrorString:
+                instance = super().__new__(cls, text)
+                instance.hash_error_message = message
+                return instance
+
+            def __hash__(self) -> int:
+                raise KeyError(self.hash_error_message)
+
+        return InputHashErrorString(source["text"], source["message"])
+
+    class InputStringSubclass(str):
+        def __new__(cls, text: str, hash_from_text: str, equals_text: str) -> InputStringSubclass:
+            instance = super().__new__(cls, text)
+            instance.hash_from_text = hash_from_text
+            instance.equals_text = equals_text
+            return instance
+
+        def __hash__(self) -> int:
+            return hash(self.hash_from_text)
+
+        def __eq__(self, other: object) -> bool:
+            return other == self.equals_text
+
+    return InputStringSubclass(source["text"], source["hash_from_text"], source["equals_text"])
+
+
+def _query_params_probe_result(
+    params: Any, key: str, probe_input: str | dict[str, Any]
+) -> dict[str, Any]:
+    if not isinstance(probe_input, dict) or "methods" not in probe_input:
+        contains = key in params
+        return {
+            "key": str(key),
+            "contains": contains,
+            "get": params.get(key),
+            "get_with_default": params.get(key, "__starlette_rs_default__"),
+            "getlist": params.getlist(key),
+            "getitem": params[key] if contains else None,
+        }
+
+    result: dict[str, Any] = {"key": str(key)}
+    for method in probe_input["methods"]:
+        if method == "contains":
+            result[method] = key in params
+        elif method == "get":
+            result[method] = params.get(key)
+        elif method == "get_with_default":
+            result[method] = params.get(key, "__starlette_rs_default__")
+        elif method == "getlist":
+            result[method] = params.getlist(key)
+        elif method == "getitem":
+            result[method] = params[key] if key in params else None
+    return result
+
+
 def _run_query_params_case(case: dict[str, Any]) -> dict[str, Any]:
     _exact_object(
         case,
@@ -11851,17 +11913,10 @@ def _run_query_params_case(case: dict[str, Any]) -> dict[str, Any]:
         comparison = comparison_input["value"]
     else:
         comparison = _query_params_from_input(QueryParams, comparison_input)
-    lookups = [
-        {
-            "key": key,
-            "contains": key in params,
-            "get": params.get(key),
-            "get_with_default": params.get(key, "__starlette_rs_default__"),
-            "getlist": params.getlist(key),
-            "getitem": params[key] if key in params else None,
-        }
-        for key in case["probe_keys"]
-    ]
+    lookups = []
+    for probe_input in case["probe_keys"]:
+        key = _query_params_probe_from_input(probe_input)
+        lookups.append(_query_params_probe_result(params, key, probe_input))
     snapshot = {
         "str": str(params),
         "repr": repr(params),

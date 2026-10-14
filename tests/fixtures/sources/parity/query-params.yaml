@@ -598,6 +598,65 @@
       "observations": [
         "snapshot"
       ]
+    },
+    {
+      "case_id": "starlette.datastructures.QueryParams.construction-and-mapping-sequence.python-str-subclass-hash-equality",
+      "surface": "starlette.datastructures.QueryParams",
+      "operation": "construction-and-mapping-sequence",
+      "covers": [
+        "starlette.datastructures.QueryParams.immutable-multidict-lookup-and-iteration"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "source": {
+        "kind": "string",
+        "value": "tag=first&tag=last"
+      },
+      "probe_keys": [
+        {
+          "kind": "str-subclass",
+          "text": "probe text differs from the stored key",
+          "hash_from_text": "tag",
+          "equals_text": "tag"
+        }
+      ],
+      "comparison": null,
+      "observations": [
+        "snapshot"
+      ]
+    },
+    {
+      "case_id": "starlette.datastructures.QueryParams.construction-and-mapping-sequence.python-mapping-get-catches-keyerror-from-hash",
+      "surface": "starlette.datastructures.QueryParams",
+      "operation": "construction-and-mapping-sequence",
+      "covers": [
+        "starlette.datastructures.QueryParams.immutable-multidict-lookup-and-iteration"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "source": {
+        "kind": "string",
+        "value": "tag=first&tag=last"
+      },
+      "probe_keys": [
+        {
+          "kind": "str-subclass-hash-keyerror",
+          "text": "unrelated probe key",
+          "message": "query key hashing failed",
+          "methods": [
+            "get",
+            "get_with_default"
+          ]
+        }
+      ],
+      "comparison": null,
+      "observations": [
+        "snapshot"
+      ]
     }
   ]
 }

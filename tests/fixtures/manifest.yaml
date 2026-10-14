@@ -20903,7 +20903,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -21026,12 +21030,31 @@
               "target_profiles": [
                 "python-package-cpython312"
               ]
+            },
+            {
+              "id": "starlette.responses.Response.consumer-construction.cookie-morsel-reserved-name-version-boundary",
+              "dimension": "runtime",
+              "description": "Compare Response.set_cookie when the cookie name is reserved by the active stdlib Morsel. CPython 3.14 adds 'partitioned' to Morsel._reserved; earlier supported versions do not. The literal name and all live response/error observations come from the input. Sources: pinned starlette/responses.py:102-129 and the selected CPython http.cookies.Morsel.set implementation.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
             }
           ],
           "parity": {
             "applicability": "required",
             "target_profiles": [
-              "python-package-cpython312"
+              "python-package-cpython310",
+              "python-package-cpython311",
+              "python-package-cpython312",
+              "python-package-cpython313",
+              "python-package-cpython314"
             ]
           },
           "coverage": {

@@ -11032,6 +11032,130 @@
           "observe_raw_reads": true
         }
       ]
+    },
+    {
+      "case_id": "starlette.responses.Response.consumer-construction.cookie-boundary-partitioned-reserved-key",
+      "surface": "starlette.responses.Response",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.Response.consumer-construction.public-render-and-asgi",
+        "starlette.responses.Response.consumer-construction.cookie-morsel-reserved-name-version-boundary"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "body"
+        },
+        "omit_content": false,
+        "kwargs": {},
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/cookie-boundary"
+      },
+      "send_failure": null,
+      "background_label": null,
+      "cookie_protocol": [
+        {
+          "operation": "set_cookie",
+          "arguments": {
+            "key": {
+              "kind": "literal",
+              "value": "partitioned"
+            },
+            "value": {
+              "kind": "literal",
+              "value": "v"
+            }
+          },
+          "clock_unix_seconds": 1700000000,
+          "observe_raw_reads": true
+        }
+      ]
+    },
+    {
+      "case_id": "starlette.responses.Response.consumer-construction.cookie-boundary-lower-rebind-reserved",
+      "surface": "starlette.responses.Response",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.Response.consumer-construction.public-render-and-asgi",
+        "starlette.responses.Response.consumer-construction.cookie-argument-protocols"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "body"
+        },
+        "omit_content": false,
+        "kwargs": {},
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/cookie-boundary"
+      },
+      "send_failure": null,
+      "background_label": null,
+      "cookie_protocol": [
+        {
+          "operation": "set_cookie",
+          "arguments": {
+            "key": {
+              "kind": "text",
+              "value": "late-reserved",
+              "label": "key",
+              "str_text": "late-reserved",
+              "str_self": true,
+              "truth": true,
+              "lower": "late-reserved",
+              "eq_empty": false,
+              "failure": null,
+              "reentry": null,
+              "translation": null,
+              "owned_result": null,
+              "table_callback": null,
+              "hash_result": null,
+              "lower_reserved_add": {
+                "key": "late-reserved",
+                "label": "Late-Reserved"
+              }
+            },
+            "value": {
+              "kind": "literal",
+              "value": "v"
+            }
+          },
+          "clock_unix_seconds": 1700000000,
+          "observe_raw_reads": true
+        }
+      ]
     }
   ]
 }

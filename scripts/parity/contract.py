@@ -3251,6 +3251,12 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         }
                     elif operation_key == (RESPONSE_SURFACE, RESPONSE_OPERATION):
                         expected_parity_profiles = python_profile_ids | {"rust-native-local"}
+                    elif operation_key == (RESPONSE_SURFACE, "consumer-construction"):
+                        # Response's cookie reserved-name input is explicitly
+                        # version-scoped across supported CPython releases.
+                        # Other consumer-construction requirements retain
+                        # their narrower per-requirement applicability.
+                        expected_parity_profiles = python_profile_ids
                     else:
                         package_only_operation = (
                             operation_key
@@ -32946,6 +32952,48 @@ def _validate_query_params_case(case: dict[str, Any]) -> None:
     if case["assets"] != [] or case["observations"] != ["snapshot"]:
         raise ContractError("QueryParams cases use no assets and select the snapshot")
     _validate_query_params_source(case["source"], "QueryParams source")
+    probe_keys = case["probe_keys"]
+    if not isinstance(probe_keys, list):
+        raise ContractError("QueryParams probe_keys must be an array")
+    has_str_subclass_probe = False
+    for index, key in enumerate(probe_keys):
+        if isinstance(key, str):
+            continue
+        context = f"QueryParams probe_keys[{index}] string subclass"
+        if not isinstance(key, dict):
+            _exact(key, set(), context)
+        probe_kind = key.get("kind")
+        if probe_kind == "str-subclass":
+            probe = _exact(
+                key,
+                {"kind", "text", "hash_from_text", "equals_text"},
+                context,
+            )
+            string_fields = ("text", "hash_from_text", "equals_text")
+        elif probe_kind == "str-subclass-hash-keyerror":
+            probe = _exact(key, {"kind", "text", "message", "methods"}, context)
+            string_fields = ("text", "message")
+            methods = probe["methods"]
+            allowed_methods = {"contains", "get", "get_with_default", "getlist", "getitem"}
+            if (
+                not isinstance(methods, list)
+                or not methods
+                or any(
+                    not isinstance(method, str) or method not in allowed_methods
+                    for method in methods
+                )
+                or len(methods) != len(set(methods))
+            ):
+                raise ContractError(
+                    f"{context} methods must be a non-empty unique list of supported lookups"
+                )
+        else:
+            raise ContractError(f"{context} has an unsupported kind")
+        if any(not isinstance(probe[field], str) for field in string_fields):
+            raise ContractError(f"{context} fields must be strings")
+        has_str_subclass_probe = True
+    if has_str_subclass_probe and case["target_profiles"] != ["python-package-cpython312"]:
+        raise ContractError("QueryParams string-subclass probes require the Python package profile")
     comparison = case["comparison"]
     literal_comparison = isinstance(comparison, dict) and comparison.get("kind") == "literal"
     if literal_comparison:
@@ -32961,13 +33009,16 @@ def _validate_query_params_case(case: dict[str, Any]) -> None:
                 "QueryParams comparisons against non-QueryParams values select the Python package"
             )
     else:
-        if case["target_profiles"] != ["rust-native-local", "python-package-cpython312"]:
+        python_only_string_probe = has_str_subclass_probe and case["target_profiles"] == [
+            "python-package-cpython312"
+        ]
+        if (
+            case["target_profiles"] != ["rust-native-local", "python-package-cpython312"]
+            and not python_only_string_probe
+        ):
             raise ContractError("QueryParams parity requires both declared targets")
         if comparison is not None:
             _validate_query_params_source(comparison, "QueryParams comparison")
-    probe_keys = case["probe_keys"]
-    if not isinstance(probe_keys, list) or any(not isinstance(key, str) for key in probe_keys):
-        raise ContractError("QueryParams probe_keys must contain strings")
 
 
 def _validate_multidict_source(value: Any, context: str) -> dict[str, Any]:
@@ -41216,7 +41267,8 @@ def _validate_response_consumer_attributes(
 
 
 def _validate_response_consumer_case(case: dict[str, Any]) -> None:
-    if case["target_profiles"] != ["python-package-cpython312"] or case["assets"]:
+    case_profiles = case["target_profiles"]
+    if not case_profiles or not set(case_profiles).issubset(PYTHON_PROFILE_IDS) or case["assets"]:
         raise ContractError(
             "Response consumers require the installed Python package without assets"
         )
@@ -41295,9 +41347,15 @@ def _validate_response_consumer_case(case: dict[str, Any]) -> None:
             raise ContractError("Response attribute protocols require their own input workflow")
         _validate_response_attribute_protocol(case["subclass_protocol"])
     if "cookie_protocol" in case:
-        expected_requirements.append(
-            case["surface"] + ".consumer-construction.cookie-argument-protocols"
-        )
+        cookie_values = [
+            spec for action in case["cookie_protocol"] for spec in action["arguments"].values()
+        ]
+        if case["target_profiles"] == ["python-package-cpython312"] or any(
+            spec.get("kind") != "literal" for spec in cookie_values
+        ):
+            expected_requirements.append(
+                case["surface"] + ".consumer-construction.cookie-argument-protocols"
+            )
         if {"callbacks", "ownership", "construction_boundary", "subclass_protocol"} & case.keys():
             raise ContractError("Response cookie protocols require their own input workflow")
         _validate_response_cookie_protocol(case["cookie_protocol"])
@@ -41831,6 +41889,13 @@ def _validate_response_attribute_error(value: Any) -> None:
 def _response_cookie_boundaries(actions: list[Any]) -> list[str]:
     values = [spec for action in actions for spec in action["arguments"].values()]
     boundaries = []
+    if any(
+        action["operation"] == "set_cookie"
+        and action["arguments"].get("key", {}).get("kind") == "literal"
+        and action["arguments"]["key"].get("value") == "partitioned"
+        for action in actions
+    ):
+        boundaries.append("cookie-morsel-reserved-name-version-boundary")
     if any(spec.get("owned_result") for spec in values):
         boundaries.append("cookie-owned-result-lifetimes")
     if any(spec.get("table_callback") for spec in values):
@@ -41921,26 +41986,25 @@ def _validate_response_cookie_protocol(value: Any) -> None:
                     )
                 _validate_threadpool_json(spec["attributes"], "Supplied Morsel attributes")
                 continue
-            _exact(
-                spec,
-                {
-                    "kind",
-                    "value",
-                    "label",
-                    "str_text",
-                    "str_self",
-                    "truth",
-                    "lower",
-                    "eq_empty",
-                    "failure",
-                    "reentry",
-                    "translation",
-                    "owned_result",
-                    "table_callback",
-                    "hash_result",
-                },
-                "Response cookie protocol value",
-            )
+            value_fields = {
+                "kind",
+                "value",
+                "label",
+                "str_text",
+                "str_self",
+                "truth",
+                "lower",
+                "eq_empty",
+                "failure",
+                "reentry",
+                "translation",
+                "owned_result",
+                "table_callback",
+                "hash_result",
+            }
+            if "lower_reserved_add" in spec:
+                value_fields.add("lower_reserved_add")
+            _exact(spec, value_fields, "Response cookie protocol value")
             if spec["kind"] not in {"object", "text", "integer"}:
                 raise ContractError("Response cookie protocol value kind is unsupported")
             if (
@@ -41962,6 +42026,19 @@ def _validate_response_cookie_protocol(value: Any) -> None:
                 raise ContractError("Response cookie translation requires text or delegation")
             if spec["hash_result"] is not None and type(spec["hash_result"]) is not int:
                 raise ContractError("Response cookie hash result requires an integer or null")
+            reserved_add = spec.get("lower_reserved_add")
+            if reserved_add is not None:
+                _exact(
+                    reserved_add,
+                    {"key", "label"},
+                    "Morsel reserved-name mutation",
+                )
+                if spec["kind"] != "text" or any(
+                    not isinstance(reserved_add[field], str) for field in ("key", "label")
+                ):
+                    raise ContractError(
+                        "Morsel reserved-name mutation requires a text key and label"
+                    )
             owned = spec["owned_result"]
             if owned is not None:
                 _exact(owned, {"text", "label", "reentry", "failure"}, "Cookie owned text")

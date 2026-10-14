@@ -400,6 +400,7 @@ impl PyRequestHeaders {
 #[pyclass(name = "QueryParams", subclass)]
 struct PyQueryParams {
     inner: NativeQueryParams,
+    lookup: Py<PyDict>,
 }
 
 #[pymethods]
@@ -418,34 +419,53 @@ impl PyQueryParams {
         if let Some(kwargs) = kwargs {
             items.extend(query_params_from_mapping(kwargs)?);
         }
+        let py = args.py();
+        let inner = NativeQueryParams::from_pairs(items);
+        // QueryParams lookup accepts arbitrary Python keys. Keep a Rust-owned
+        // snapshot of Starlette's exact-str mapping so Python key hashing and
+        // equality (including overridden methods on str subclasses) run at
+        // this boundary instead of being erased by String extraction.
+        let lookup = PyDict::new(py);
+        for (key, value) in inner.items() {
+            lookup.set_item(PyString::new(py, key), PyString::new(py, value))?;
+        }
         Ok(Self {
-            inner: NativeQueryParams::from_pairs(items),
+            inner,
+            lookup: lookup.unbind(),
         })
     }
 
     #[pyo3(signature = (key, default=None))]
-    fn get(&self, py: Python<'_>, key: &Bound<'_, PyAny>, default: Option<Py<PyAny>>) -> Py<PyAny> {
-        query_params_key(key)
-            .as_deref()
-            .and_then(|query_key| self.inner.get(query_key))
-            .map(|value| PyString::new(py, value).into_any().unbind())
-            .or(default)
-            .unwrap_or_else(|| py.None())
-    }
-
-    fn get_list(&self, key: &Bound<'_, PyAny>) -> Vec<String> {
-        let Some(key) = query_params_key(key) else {
-            return Vec::new();
+    fn get(
+        &self,
+        py: Python<'_>,
+        key: &Bound<'_, PyAny>,
+        default: Option<Py<PyAny>>,
+    ) -> PyResult<Py<PyAny>> {
+        let value = self.lookup.bind(py).get_item(key);
+        // QueryParams inherits Mapping.get, which catches KeyError from
+        // `self[key]`, including errors raised by Python key hashing/equality.
+        let value = match value {
+            Ok(Some(value)) => Some(value.unbind()),
+            Ok(None) => None,
+            Err(error) if error.is_instance_of::<PyKeyError>(py) => None,
+            Err(error) => return Err(error),
         };
-        self.inner
-            .get_list(&key)
-            .into_iter()
-            .map(str::to_owned)
-            .collect()
+        Ok(value.or(default).unwrap_or_else(|| py.None()))
     }
 
-    fn getlist(&self, key: &Bound<'_, PyAny>) -> Vec<String> {
-        self.get_list(key)
+    fn get_list(&self, py: Python<'_>, key: &Bound<'_, PyAny>) -> PyResult<Vec<String>> {
+        let mut values = Vec::new();
+        for (item_key, value) in self.inner.multi_items() {
+            if PyString::new(py, item_key).as_any().eq(key)? {
+                values.push(value.clone());
+            }
+        }
+        Ok(values)
+    }
+
+    fn getlist(&self, py: Python<'_>, key: &Bound<'_, PyAny>) -> PyResult<Vec<String>> {
+        self.get_list(py, key)
     }
 
     fn multi_items(&self) -> Vec<(String, String)> {
@@ -471,16 +491,16 @@ impl PyQueryParams {
             .map(Bound::unbind)
     }
 
-    fn __contains__(&self, key: &Bound<'_, PyAny>) -> bool {
-        query_params_key(key).is_some_and(|key| self.inner.get(&key).is_some())
+    fn __contains__(&self, key: &Bound<'_, PyAny>) -> PyResult<bool> {
+        self.lookup.bind(key.py()).contains(key)
     }
 
     fn __getitem__(&self, key: &Bound<'_, PyAny>) -> PyResult<String> {
-        let query_key = query_params_key(key);
-        query_key
-            .as_deref()
-            .and_then(|query_key| self.inner.get(query_key))
-            .map(str::to_owned)
+        self.lookup
+            .bind(key.py())
+            .get_item(key)?
+            .map(|value| value.extract::<String>())
+            .transpose()?
             .ok_or_else(|| PyKeyError::new_err(key.clone().unbind()))
     }
 
@@ -501,13 +521,6 @@ impl PyQueryParams {
             .extract::<PyRef<'_, PyQueryParams>>()
             .is_ok_and(|other| self.inner == other.inner)
     }
-}
-
-fn query_params_key(value: &Bound<'_, PyAny>) -> Option<String> {
-    value
-        .is_instance_of::<PyString>()
-        .then(|| value.extract::<String>().ok())
-        .flatten()
 }
 
 fn query_params_from_python(value: &Bound<'_, PyAny>) -> PyResult<Vec<(String, String)>> {
