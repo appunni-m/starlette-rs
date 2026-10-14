@@ -9,18 +9,30 @@ incomplete.
 ## Current parity snapshot
 
 Implementation remains the active phase for the full Starlette replacement.
-The working-tree `parity-input@52` contract indexes 2,324 cases across 306
-parity inputs, two benchmark inputs, 138 Starlette compatibility operations,
-13 native operations, and 1,256 parity requirements (1,214 compatibility and
+The working-tree `parity-input@52` contract indexes 2,369 cases across 336
+parity inputs, two benchmark inputs, 142 Starlette compatibility operations,
+13 native operations, and 1,288 parity requirements (1,246 compatibility and
 42 native).
 The latest static inventory reports 999/999 API candidates dispositioned and
-846 source rows: 791 input mappings, 55 source-backed `not_applicable` rows,
-and zero fixture backlog. The latest Response header-pair, StaticFiles direct and ASGI surrogateescape, and WebSocketEndpoint context comparisons remain unexecuted until the full parity phase. The newest Request.app input seeds a preexisting
-true `scope.app` marker and observes the public property after dispatch; it
-remains unexecuted. The latest batch adds input-only cases for `run_in_threadpool`
-ContextVar propagation/isolation, WebSocket callback descriptor timing, and
-StaticFiles root-path prefix-boundary preservation; all remain unexecuted. Fixed source denominators are 514 upstream test
-functions and 24 documentation pages. The newest six inputs compare Request receive replacement, BackgroundTasks worker failure after cancellation, empty synchronous StreamingResponse framing, BaseHTTPMiddleware wide status pass-through, StaticFiles root_path/query redirect behavior, and WebSocket accept-send OSError propagation; all remain unexecuted.
+850 source rows: 796 input mappings, 54 source-backed `not_applicable` rows,
+and zero fixture backlog. A new `iterate_in_threadpool` input observes
+empty-iterable exhaustion alongside its async iterator protocol outcomes; a
+new `run_in_threadpool` cancellation input observes whether an AnyIO cancel
+scope waits for its gated worker to finish. Both comparisons remain unexecuted
+until full parity. The latest Response
+header-pair, StaticFiles direct and ASGI surrogateescape, and WebSocketEndpoint
+context comparisons also remain unexecuted until the full parity phase. The
+newest Request.app input seeds a preexisting true `scope.app` marker and
+observes the public property after dispatch; it remains unexecuted. The latest
+batch adds input-only cases for `run_in_threadpool` ContextVar
+propagation/isolation, WebSocket callback descriptor timing, and StaticFiles
+root-path prefix-boundary preservation; all remain unexecuted. Fixed source
+denominators are 514 upstream test functions and 24 documentation pages. The
+newest six inputs compare Request receive replacement, BackgroundTasks worker
+failure after cancellation, empty synchronous StreamingResponse framing,
+BaseHTTPMiddleware wide status pass-through, StaticFiles root_path/query
+redirect behavior, and WebSocket accept-send OSError propagation; all remain
+unexecuted.
 
 The latest routing correction matches Host header names using the same exact raw
 byte lookup as pinned Starlette. Its input supplies only `b"Host"` and observes
