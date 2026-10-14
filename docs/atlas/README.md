@@ -25,9 +25,9 @@ with no conventional Python or Rust unit-test suite.
 ## Current implementation status
 
 Implementation remains active for the full Starlette 1.6.0 replacement. The
-working-tree `parity-input@54` contract indexes 2,391 cases across 342
+working-tree `parity-input@54` contract indexes 2,394 cases across 344
 parity input files and two benchmark files, with 142 Starlette compatibility
-operations, 13 native operations, and 1,302 parity requirements (1,260
+operations, 13 native operations, and 1,303 parity requirements (1,261
 compatibility and 42 native). The contract remains a slice and claims zero
 parity passes. Rust now returns the completed no-op for thread-pool iterator
 `athrow` calls after normal exhaustion; the new input covers `StopIteration`,

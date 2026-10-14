@@ -490,11 +490,14 @@ fn split_disposition_parameters(header: &str) -> Vec<&str> {
 }
 
 fn request_charset(content_type: &str) -> String {
+    // `parse_options_header` stores parameters in a dict, so a later charset
+    // replaces an earlier one when the header repeats this parameter.
     content_type
         .split(';')
         .skip(1)
         .filter_map(|parameter| parameter.split_once('='))
-        .find(|(name, _)| name.trim().eq_ignore_ascii_case("charset"))
+        .filter(|(name, _)| name.trim().eq_ignore_ascii_case("charset"))
+        .last()
         .map(|(_, value)| value.trim().trim_matches(['"', '\'']).to_owned())
         .filter(|charset| !charset.is_empty())
         .unwrap_or_else(|| "utf-8".to_owned())

@@ -422,6 +422,7 @@ TESTCLIENT_LIFESPAN_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | 
 TESTCLIENT_WEBSOCKET_REQUIREMENTS = {
     "scope": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.scope-projection",
     "application_exception": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.application-exception-propagation",
+    "error_policy_independent": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.error-propagation-independent-of-http-policy",
     "entry_cleanup_error_precedence": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.entry-cleanup-error-precedence",
     "portal_exit_error_context": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.portal-exit-error-context",
     "body_exception_context": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.exit-body-exception-context-chain",
@@ -18737,6 +18738,15 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
         or app_entry_cleanup_error_precedence_workflow
         or portal_exit_error_workflow
     )
+    error_policy_independent_workflow = (
+        application_exception_workflow
+        and settings["raise_server_exceptions"] is False
+        and isinstance(app_actions, list)
+        and len(app_actions) == 1
+        and isinstance(app_actions[0], dict)
+        and app_actions[0].get("operation") == "raise"
+        and no_client_actions
+    )
     if no_client_actions and (accepted_flow_workflow or application_exception_workflow):
         denial_workflow = False
     if post_accept_denial_workflow:
@@ -18876,7 +18886,10 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
         return
     if application_exception_workflow:
         if (
-            settings["raise_server_exceptions"] is not True
+            (
+                settings["raise_server_exceptions"] is not True
+                and not error_policy_independent_workflow
+            )
             or (
                 app_error_stream_closure_workflow
                 and not app_error_cleanup_close_error_workflow
@@ -19041,6 +19054,8 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
             )
         else:
             expected_covers.add(TESTCLIENT_WEBSOCKET_REQUIREMENTS["application_exception"])
+        if error_policy_independent_workflow:
+            expected_covers.add(TESTCLIENT_WEBSOCKET_REQUIREMENTS["error_policy_independent"])
         if app_error_stream_closure_workflow and not app_error_cleanup_close_error_workflow:
             expected_covers.update(
                 {

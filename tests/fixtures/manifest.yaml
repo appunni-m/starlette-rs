@@ -534,6 +534,7 @@
       "build/parity/inputs/parity/request-form-large-part-size.json",
       "build/parity/inputs/parity/request-form-large-count-limits.json",
       "build/parity/inputs/parity/request-form-multipart.json",
+      "build/parity/inputs/parity/request-form-multipart-duplicate-charset.json",
       "build/parity/inputs/parity/request-form-multipart-iso-8859-1.json",
       "build/parity/inputs/parity/formdata-constructor.json",
       "build/parity/inputs/parity/formdata-generic-typing.json",
@@ -575,6 +576,7 @@
       "build/parity/inputs/parity/testclient-websocket-entry-cleanup-error.json",
       "build/parity/inputs/parity/testclient-websocket-denial-body-error.json",
       "build/parity/inputs/parity/testclient-websocket-denial-after-accept.json",
+      "build/parity/inputs/parity/testclient-websocket-error-policy.json",
       "build/parity/inputs/parity/testclient-websocket-server-port-preservation.json",
       "build/parity/inputs/parity/testclient-websocket-routing.json",
       "build/parity/inputs/parity/testclient-websocket-subprotocol-value.json",
@@ -31987,6 +31989,17 @@
               "id": "starlette.testclient.TestClient.websocket-session.application-exception-propagation",
               "dimension": "error_path",
               "description": "When the input ASGI app raises before sending a WebSocket handshake, websocket_connect propagates the original application exception during session entry and closes the portal thread. Pinned source: tests/test_websockets.py::test_websocket_exception; starlette/testclient.py:102-125.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.websocket-session.error-propagation-independent-of-http-policy",
+              "dimension": "error_path",
+              "description": "When an input ASGI app raises before WebSocket acceptance, propagate the original application exception during session entry even when TestClient.raise_server_exceptions is false; the HTTP response suppression policy does not apply to WebSocket sessions. Pinned source: docs/testclient.md WebSocket exceptions section; starlette/testclient.py:102-125.",
               "lanes": [
                 "parity"
               ],
