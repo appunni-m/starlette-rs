@@ -10,15 +10,15 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use pyo3::class::gc::{PyTraverseError, PyVisit};
 use pyo3::exceptions::{
-    PyAssertionError, PyAttributeError, PyException, PyRuntimeError, PyStopAsyncIteration,
-    PyTypeError, PyValueError,
+    PyAssertionError, PyException, PyRuntimeError, PyStopAsyncIteration, PyValueError,
 };
 use pyo3::prelude::*;
-use pyo3::types::{PyDict, PyInt, PyList, PyModule, PySet, PyString, PyTuple};
+use pyo3::types::{PyDict, PyInt, PyList, PyModule, PySet, PyTuple};
 
 use crate::awaitable::{
     AwaitableStateMachine, MachineAction, MachineResume, into_sendable_python_awaitable,
 };
+use crate::middleware_config_runtime::middleware_kwargs_to_dict;
 
 pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyStarletteRuntime>()?;
@@ -323,42 +323,6 @@ fn collect_iterable(iterable: &Bound<'_, PyAny>, limit: Option<usize>) -> PyResu
 }
 
 /// Materialize Python's `**mapping` expansion as keyword arguments.
-fn middleware_kwargs_to_dict<'py>(
-    py: Python<'py>,
-    mapping: &Bound<'py, PyAny>,
-    callable: &Bound<'py, PyAny>,
-) -> PyResult<Bound<'py, PyDict>> {
-    let keys = match mapping.getattr("keys") {
-        Ok(keys) => keys.call0()?,
-        Err(error) if error.is_instance_of::<PyAttributeError>(py) => {
-            let type_name = mapping.get_type().name()?.to_string();
-            return Err(PyTypeError::new_err(format!(
-                "argument after ** must be a mapping, not {type_name}"
-            )));
-        }
-        Err(error) => return Err(error),
-    };
-    let result = PyDict::new(py);
-    for key in keys.try_iter()? {
-        let key = key?;
-        if !key.is_instance_of::<PyString>() {
-            return Err(PyTypeError::new_err("keywords must be strings"));
-        }
-        if result.contains(&key)? {
-            let key_repr = key.repr()?.extract::<String>()?;
-            let callable_name = callable
-                .getattr("__qualname__")
-                .and_then(|name| name.extract::<String>())
-                .unwrap_or_else(|_| "middleware".to_owned());
-            return Err(PyTypeError::new_err(format!(
-                "{callable_name}() got multiple values for keyword argument {key_repr}"
-            )));
-        }
-        result.set_item(&key, mapping.get_item(&key)?)?;
-    }
-    Ok(result)
-}
-
 fn make_middleware_config<'py>(
     py: Python<'py>,
     middleware_type: &Bound<'py, PyAny>,

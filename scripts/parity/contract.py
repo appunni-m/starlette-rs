@@ -300,6 +300,9 @@ TESTCLIENT_REQUIREMENTS = {
     "request_body_lazy_read": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.request-body-read-on-receive",
     "request_body_generator_buffering": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.request-body-generator-buffering",
     "response": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.response-and-debug",
+    "debug_info_key_membership_before_index": (
+        f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.debug-info-key-membership-before-index"
+    ),
     "response_body_buffer_protocol": (
         f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.response-body-buffer-protocol"
     ),
@@ -1522,6 +1525,7 @@ STARLETTE_ROUTE_MIDDLEWARE_REQUIREMENTS = {
     "route": "starlette.applications.Starlette.__call__.route-middleware-response-header",
     "mount_routes": "starlette.applications.Starlette.__call__.mount-routes-middleware-response-header",
     "mount_app": "starlette.applications.Starlette.__call__.mount-app-middleware-response-header",
+    "kwargs_mapping": "starlette.applications.Starlette.__call__.route-middleware-kwargs-mapping-expansion",
     "mount_exception": (
         "starlette.applications.Starlette.__call__.mount-middleware-http-exception-response"
     ),
@@ -11584,6 +11588,19 @@ def _reverse_input_requirements(case: dict[str, Any]) -> set[str]:
             derived.add(rid("direct-path"))
         else:
             derived.add(rid("nested-route"))
+    elif (
+        surface == HOST_SURFACE
+        and not found
+        and graph["name"] is not None
+        and lookup["name"].startswith(graph["name"] + ":")
+        and graph["routes"]
+    ):
+        host_parameters = _validate_reverse_path("/" + graph["host"], custom, "Host.host")
+        if all(
+            name in params and _reverse_parameter_value_fits_builtin_converter(params[name], conv)
+            for name, conv in host_parameters
+        ):
+            derived.add(rid("nested-miss-remaining-parameters"))
     return derived
 
 
@@ -16085,6 +16102,13 @@ def _validate_testclient_case(
         and isinstance(messages[0], dict)
         and "type_spec" in messages[0]
     )
+    response_debug_key_membership_error = any(
+        isinstance(message, dict)
+        and message.get("type") == "http.response.debug"
+        and type(message.get("info")) is str
+        and "template" in message["info"]
+        for message in messages
+    )
     if has_message_type_spec and not message_type_comparison_error:
         raise ContractError(
             "TestClient message type comparison errors must occur on the first and only send"
@@ -16233,6 +16257,8 @@ def _validate_testclient_case(
     ):
         raise ContractError("TestClient file uploads require the multipart-form request consumer")
     expected_covers = {TESTCLIENT_REQUIREMENTS["scope"]}
+    if response_debug_key_membership_error:
+        expected_covers.add(TESTCLIENT_REQUIREMENTS["debug_info_key_membership_before_index"])
     if response_body_buffer_protocol:
         expected_covers.add(TESTCLIENT_REQUIREMENTS["response_body_buffer_protocol"])
     if message_type_comparison_error:
@@ -16575,7 +16601,9 @@ def _validate_testclient_case(
                     {"type_spec", "info"},
                     f"TestClient response message[{index}]",
                 )
-                if not isinstance(message["info"], dict):
+                if not isinstance(message["info"], dict) and not (
+                    type(message["info"]) is str and "template" in message["info"]
+                ):
                     raise ContractError("TestClient response debug info must be a record")
             else:
                 message = _exact(
@@ -16607,7 +16635,9 @@ def _validate_testclient_case(
                 {"type", "info"},
                 f"TestClient response message[{index}]",
             )
-            if not isinstance(message["info"], dict):
+            if not isinstance(message["info"], dict) and not (
+                type(message["info"]) is str and "template" in message["info"]
+            ):
                 raise ContractError("TestClient response debug info must be a record")
         elif message_type == "http.response.body":
             response_body_fields = {"type", "body_base64", "more_body"}
@@ -25174,6 +25204,34 @@ def _validate_route_middleware_spec(spec: Any, context: str) -> dict[str, Any]:
         ):
             raise ContractError(f"{context}.name must produce a valid HTTP header token")
         return spec
+    if spec["kind"] == "middleware-iterator-subclass":
+        spec = _exact(spec, {"kind", "iterated"}, context)
+        iterated = _exact(
+            spec["iterated"],
+            {"kind", "name", "value"},
+            f"{context}.iterated",
+        )
+        if iterated["kind"] != "append-response-header":
+            raise ContractError(f"{context}.iterated.kind must append a response header")
+        name = _string(iterated["name"], f"{context}.iterated.name")
+        value = _string(iterated["value"], f"{context}.iterated.value")
+        try:
+            header_name = f"X-{name}".encode("ascii")
+            value.encode("latin-1")
+        except UnicodeEncodeError as exc:
+            raise ContractError(f"{context}.iterated header must be ASGI-compatible") from exc
+        valid_token_characters = (
+            "!#$%&'*+-.^_`|~0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+        )
+        if (
+            any(
+                character not in valid_token_characters for character in header_name.decode("ascii")
+            )
+            or "\r" in value
+            or "\n" in value
+        ):
+            raise ContractError(f"{context}.iterated header must be valid")
+        return spec
     spec = _exact(spec, {"kind", "scope_key", "scope_value", "response_header"}, context)
     if spec["kind"] != "scope-and-response-header":
         raise ContractError(f"{context}.kind is unsupported")
@@ -25327,6 +25385,8 @@ def _validate_route_middleware_node(node: Any, context: str) -> dict[str, Any]:
 def _route_middleware_topology(routes: list[dict[str, Any]]) -> str | None:
     if not isinstance(routes, list) or any(not isinstance(route, dict) for route in routes):
         return None
+    if _routes_have_middleware_iterator_subclass(routes):
+        return "kwargs_mapping"
     if (
         len(routes) == 2
         and routes[0].get("kind") == "mount"
@@ -25404,6 +25464,26 @@ def _route_middleware_topology(routes: list[dict[str, Any]]) -> str | None:
     return None
 
 
+def _routes_have_middleware_iterator_subclass(routes: Any) -> bool:
+    if not isinstance(routes, list):
+        return False
+    for route in routes:
+        if not isinstance(route, dict):
+            continue
+        middleware = route.get("middleware", [])
+        if isinstance(middleware, list) and any(
+            isinstance(spec, dict) and spec.get("kind") == "middleware-iterator-subclass"
+            for spec in middleware
+        ):
+            return True
+        if _routes_have_middleware_iterator_subclass(route.get("routes")):
+            return True
+        app = route.get("app")
+        if isinstance(app, dict) and _routes_have_middleware_iterator_subclass([app]):
+            return True
+    return False
+
+
 def _validate_route_middleware_application(args: dict[str, Any]) -> None:
     if not isinstance(args["routes"], list) or not args["routes"]:
         raise ContractError("route middleware app requires a non-empty route tree")
@@ -25441,10 +25521,45 @@ def _validate_route_middleware_workflow(case: dict[str, Any]) -> None:
         "mount_exception": 5,
         "mounted_app_exception_propagation": 2,
         "placement_stack": 5,
+        "kwargs_mapping": 2,
     }.get(topology, 3)
     if topology is None or len(case["steps"]) != expected_step_count:
         raise ContractError("route middleware workflow must exercise one declared route topology")
     root = routes[0]
+    if topology == "kwargs_mapping":
+        if (
+            len(routes) != 1
+            or root.get("kind") != "mount"
+            or not root.get("middleware")
+            or not isinstance(root.get("app"), dict)
+            or root["app"].get("kind") != "router"
+            or not root["app"].get("middleware")
+            or len(root["app"].get("routes", [])) != 1
+        ):
+            raise ContractError(
+                "middleware kwargs mapping input must use one Mount with a one-route Router app"
+            )
+        route = root["app"]["routes"][0]
+        if route.get("kind") != "http-route" or not route.get("middleware"):
+            raise ContractError(
+                "middleware kwargs mapping input must attach its iterable middleware to an HTTP Route"
+            )
+        middleware = route["middleware"]
+        if len(middleware) != 1 or middleware[0].get("kind") != "middleware-iterator-subclass":
+            raise ContractError(
+                "middleware kwargs mapping input must use one iterator-overridden middleware"
+            )
+        dispatch = case["steps"][1]
+        if dispatch["step_id"] != "dispatch":
+            raise ContractError("middleware kwargs mapping workflow must dispatch the app once")
+        arguments = {key: item["value"] for key, item in dispatch["arguments"].items()}
+        scope = arguments["scope"]
+        expected_path = root["path"].rstrip("/") + route["path"]
+        if scope["type"] != "http" or scope["method"] != "GET" or scope["path"] != expected_path:
+            raise ContractError(
+                "middleware kwargs mapping dispatch must target the mounted HTTP route"
+            )
+        return
     if topology == "falsey_router_middleware":
         expected_router = {
             "kind": "router",
@@ -36422,11 +36537,17 @@ def _semantic_coverage(case: dict[str, Any]) -> set[str]:
             "route": "route",
             "mount_routes": "mount_routes",
             "mount_app": "mount_app",
+            "kwargs_mapping": "kwargs_mapping",
             "mount_exception": "mount_exception",
             "mounted_app_exception_propagation": "mounted_app_exception_propagation",
             "placement_stack": "route",
             "falsey_router_middleware": "router_middleware_truthiness",
         }.get(topology)
+        if topology == "kwargs_mapping":
+            return {
+                STARLETTE_ROUTE_MIDDLEWARE_REQUIREMENTS["mount_app"],
+                STARLETTE_ROUTE_MIDDLEWARE_REQUIREMENTS["kwargs_mapping"],
+            }
         return (
             {STARLETTE_ROUTE_MIDDLEWARE_REQUIREMENTS[requirement_key]}
             if requirement_key is not None

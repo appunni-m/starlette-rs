@@ -1,0 +1,45 @@
+{
+  "schema": "migration-parity/parity-input@52",
+  "cases": [
+    {
+      "case_id": "starlette.routing.Host.url_path_for.nested-miss-consumed-host-parameters",
+      "surface": "starlette.routing.Host",
+      "operation": "url_path_for",
+      "covers": [
+        "starlette.routing.Host.url_path_for.nested-miss-remaining-parameters"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "route_graph": {
+        "kind": "host-route",
+        "host": "{subdomain}.example.org",
+        "name": "tenant",
+        "routes": [
+          {
+            "kind": "http-route",
+            "path": "/users/{user_id:int}",
+            "name": "user",
+            "methods": [
+              "GET"
+            ],
+            "observer": null
+          }
+        ]
+      },
+      "lookup": {
+        "name": "tenant:missing",
+        "path_params": {
+          "subdomain": "acme",
+          "unused": "value"
+        }
+      },
+      "request_scope": null,
+      "custom_convertors": [],
+      "observations": [
+        "reverse-url"
+      ]
+    }
+  ]
+}

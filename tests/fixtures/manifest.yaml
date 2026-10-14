@@ -412,12 +412,14 @@
       "build/parity/inputs/parity/router-default-mutation.json",
       "build/parity/inputs/parity/router-class-based-endpoints.json",
       "build/parity/inputs/parity/route-middleware-dispatch.json",
+      "build/parity/inputs/parity/route-middleware-mapping-composition.json",
       "build/parity/inputs/parity/route-local-middleware-semantics.json",
       "build/parity/inputs/parity/request-path-param-types.json",
       "build/parity/inputs/parity/request-cookies.json",
       "build/parity/inputs/parity/mount-route-dispatch.json",
       "build/parity/inputs/parity/mount-router-scope-composition.json",
       "build/parity/inputs/parity/reverse-url-routing.json",
+      "build/parity/inputs/parity/host-reverse-nested-miss-parameters.json",
       "build/parity/inputs/parity/route-url-path-native.json",
       "build/parity/inputs/parity/redirect-response.json",
       "build/parity/inputs/parity/responses-basic.json",
@@ -618,6 +620,7 @@
       "build/parity/inputs/parity/static-files-if-modified-since-unpadded-day.json",
       "build/parity/inputs/parity/testclient-reentrant-lifespan-entry.json",
       "build/parity/inputs/parity/testclient-websocket-close-message-defaults.json",
+      "build/parity/inputs/parity/testclient-debug-info-membership.json",
       "build/parity/inputs/parity/native-service-streaming.json",
       "build/parity/inputs/parity/native-service-error-boundaries.json",
       "build/parity/inputs/parity/native-service-middleware.json",
@@ -2185,6 +2188,17 @@
               "id": "starlette.applications.Starlette.__call__.mount-app-middleware-response-header",
               "dimension": "protocol_variant",
               "description": "Middleware on a Mount wrapping an input-provided Route mutates request scope and adds a response header only for that mounted route, while a sibling response remains unmodified. Upstream: tests/test_routing.py::test_base_route_middleware[mounted_app_with_middleware].",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.applications.Starlette.__call__.route-middleware-kwargs-mapping-expansion",
+              "dimension": "boundary",
+              "description": "Expand an input-defined non-dict Mapping yielded by route-local Middleware.__iter__ as middleware keyword arguments through nested Mount and Router composition. Compare the live response headers and ASGI dispatch outcome. Pinned source: starlette/middleware/__init__.py:21-29; starlette/routing.py:228-229.",
               "lanes": [
                 "parity"
               ],
@@ -22134,6 +22148,17 @@
               "target_profiles": [
                 "python-package-cpython312"
               ]
+            },
+            {
+              "id": "starlette.routing.Host.url_path_for.nested-miss-remaining-parameters",
+              "dimension": "error_path",
+              "description": "When a named Host prefix matches and its host parameters format successfully, preserve Starlette's mutation of the parameter mapping before a nested child-name miss; the resulting NoMatchFound reports only remaining parameters. Pinned source: starlette/routing.py:493-514; tests/test_routing.py::test_host_reverse_urls.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
             }
           ],
           "parity": {
@@ -30008,6 +30033,17 @@
               "id": "starlette.testclient.TestClient.request-response.template-response-debug-extension",
               "dimension": "feature",
               "description": "Return the public Jinja2 TemplateResponse from a routed endpoint through TestClient and preserve its http.response.debug extension, template object, and context on the HTTPX response. Pinned source: starlette/testclient.py:327-367; starlette/templating.py:61-120; tests/test_testclient.py::test_debug_info_in_response_extensions_with_template.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.request-response.debug-info-key-membership-before-index",
+              "dimension": "error_path",
+              "description": "For an input-defined http.response.debug message whose string info contains template, preserve TestClient's key-membership check before indexing so the source TypeError propagates instead of being suppressed. Pinned source: starlette/testclient.py:339-344; tests/test_testclient.py::test_debug_info_in_response_extensions_with_template.",
               "lanes": [
                 "parity"
               ],

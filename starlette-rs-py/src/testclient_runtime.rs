@@ -1566,10 +1566,12 @@ impl PyTestClientTransport {
         if let Some(debug_info) = debug_info {
             let extensions = response.getattr("extensions")?;
             extensions.set_item("http.response.debug", debug_info.bind(py))?;
-            if let Ok(template) = debug_info.bind(py).get_item("template") {
+            if debug_info.bind(py).contains("template")? {
+                let template = debug_info.bind(py).get_item("template")?;
                 response.setattr("template", template)?;
             }
-            if let Ok(context) = debug_info.bind(py).get_item("context") {
+            if debug_info.bind(py).contains("context")? {
+                let context = debug_info.bind(py).get_item("context")?;
                 response.setattr("context", context)?;
             }
         }

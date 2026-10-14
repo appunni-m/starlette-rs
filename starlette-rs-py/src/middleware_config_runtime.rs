@@ -1,12 +1,54 @@
 //! Rust-backed representation for Starlette middleware configuration values.
 
+use pyo3::exceptions::{PyAttributeError, PyTypeError};
 use pyo3::prelude::*;
-use pyo3::types::{PyModule, PyTuple};
+use pyo3::types::{PyDict, PyModule, PyString, PyTuple};
 
 pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(middleware_repr, module)?)?;
     module.add_function(wrap_pyfunction!(middleware_iter, module)?)?;
     Ok(())
+}
+
+/// Expand the mapping used by Python's `**kwargs` call syntax.
+///
+/// Route-local and application middleware both accept custom Middleware
+/// iterators, whose third yielded value can be any mapping rather than only a
+/// `dict`.
+pub(crate) fn middleware_kwargs_to_dict<'py>(
+    py: Python<'py>,
+    mapping: &Bound<'py, PyAny>,
+    callable: &Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyDict>> {
+    let keys = match mapping.getattr("keys") {
+        Ok(keys) => keys.call0()?,
+        Err(error) if error.is_instance_of::<PyAttributeError>(py) => {
+            let type_name = mapping.get_type().name()?.to_string();
+            return Err(PyTypeError::new_err(format!(
+                "argument after ** must be a mapping, not {type_name}"
+            )));
+        }
+        Err(error) => return Err(error),
+    };
+    let result = PyDict::new(py);
+    for key in keys.try_iter()? {
+        let key = key?;
+        if !key.is_instance_of::<PyString>() {
+            return Err(PyTypeError::new_err("keywords must be strings"));
+        }
+        if result.contains(&key)? {
+            let key_repr = key.repr()?.extract::<String>()?;
+            let callable_name = callable
+                .getattr("__qualname__")
+                .and_then(|name| name.extract::<String>())
+                .unwrap_or_else(|_| "middleware".to_owned());
+            return Err(PyTypeError::new_err(format!(
+                "{callable_name}() got multiple values for keyword argument {key_repr}"
+            )));
+        }
+        result.set_item(&key, mapping.get_item(&key)?)?;
+    }
+    Ok(result)
 }
 
 #[pyfunction(name = "_middleware_iter")]

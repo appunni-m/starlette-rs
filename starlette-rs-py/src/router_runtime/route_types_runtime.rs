@@ -21,6 +21,7 @@ use crate::application_runtime::exception_send_proxy;
 use crate::awaitable::{
     AwaitableStateMachine, MachineAction, MachineResume, into_sendable_python_awaitable,
 };
+use crate::middleware_config_runtime::middleware_kwargs_to_dict;
 
 pub(super) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(compile_route_path, module)?)?;
@@ -2021,13 +2022,13 @@ fn apply_middleware_inner(
                     "too many values to unpack (expected 3)",
                 ));
             }
-            let keyword = keyword_object.cast::<PyDict>()?;
             let mut arguments = vec![app];
             for value in positional.try_iter()? {
                 arguments.push(value?.unbind());
             }
             let arguments = PyTuple::new(py, arguments.iter().map(|value| value.bind(py)))?;
-            app = middleware_type.call(&arguments, Some(keyword))?.unbind();
+            let keyword = middleware_kwargs_to_dict(py, &keyword_object, &middleware_type)?;
+            app = middleware_type.call(&arguments, Some(&keyword))?.unbind();
         }
     }
     apply_body_limit(py, app, max_body_size)
@@ -2691,7 +2692,7 @@ fn host_url_path_for(
     no_match_type: &Bound<'_, PyAny>,
     url_path_type: &Bound<'_, PyAny>,
 ) -> PyResult<Py<PyAny>> {
-    let failure_params = path_params.copy()?.cast_into::<PyDict>()?;
+    let mut failure_params = path_params.copy()?.cast_into::<PyDict>()?;
     let host_name = host.getattr("name")?;
     if !host_name.is_none()
         && host_name.rich_compare(name, CompareOp::Eq)?.is_truthy()?
@@ -2702,7 +2703,11 @@ fn host_url_path_for(
             .ok_or_else(|| PyKeyError::new_err("path"))?;
         failure_params.del_item("path")?;
         let (host_value, remaining) = format_host_path_params(py, host, &failure_params)?;
-        if remaining.bind(py).is_empty() {
+        let no_parameters_remain = remaining.bind(py).is_empty();
+        // Starlette's replace_params mutates the kwargs dict as host parameters
+        // are consumed, so a failed direct Host lookup reports only leftovers.
+        failure_params = remaining.into_bound(py);
+        if no_parameters_remain {
             let kwargs = PyDict::new(py);
             kwargs.set_item("path", path_value)?;
             kwargs.set_item("host", host_value)?;
@@ -2748,6 +2753,9 @@ fn host_url_path_for(
                 Err(error) => return Err(error),
             }
         }
+        // Match the mutated kwargs passed to the final NoMatchFound in
+        // Starlette Host.url_path_for after prefix parameters were formatted.
+        failure_params = remaining_params.into_bound(py);
     }
     raise_no_match(no_match_type, name, &failure_params)
 }

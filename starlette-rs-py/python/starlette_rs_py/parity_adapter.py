@@ -35,9 +35,14 @@ from collections.abc import AsyncIterator, Callable, Iterator, Mapping
 from dataclasses import dataclass
 from html.parser import HTMLParser
 from pathlib import Path
+from types import MappingProxyType
 from typing import Any
 
-from scripts.parity.adapters.application_inputs import ObservableMapping, ObservableSequence
+from scripts.parity.adapters.application_inputs import (
+    ObservableMapping,
+    ObservableSequence,
+    middleware_with_iterator_override,
+)
 from scripts.parity.adapters.input_pathlike import InputSequencePathLike
 from scripts.parity.adapters.staticfiles_config import (
     STATIC_FILES_CONFIGURATION_OPERATION,
@@ -10023,6 +10028,40 @@ def _build_reverse_route_middleware(specs: list[dict[str, Any]]) -> list[Any]:
 
     configurations = []
     for spec in specs:
+        if spec["kind"] == "middleware-iterator-subclass":
+            iterated = spec["iterated"]
+            if iterated["kind"] != "append-response-header":
+                raise ValueError(
+                    "route middleware iterator subclass must yield a declared middleware factory"
+                )
+
+            class InputAppendResponseHeaderMiddleware:
+                def __init__(self, app: Any, *, name: str, value: str) -> None:
+                    self.app = app
+                    self.response_header = (
+                        f"X-{name}".encode("ascii"),
+                        value.encode("latin-1"),
+                    )
+
+                async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
+                    async def modified_send(message: Any) -> None:
+                        if message["type"] == "http.response.start":
+                            message["headers"].append(self.response_header)
+                        await send(message)
+
+                    await self.app(scope, receive, modified_send)
+
+            configurations.append(
+                middleware_with_iterator_override(
+                    Middleware,
+                    InputAppendResponseHeaderMiddleware,
+                    InputAppendResponseHeaderMiddleware,
+                    [],
+                    MappingProxyType({"name": iterated["name"], "value": iterated["value"]}),
+                )
+            )
+            continue
+
         if spec["kind"] == "append-response-header":
 
             class InputAppendResponseHeaderMiddleware:
