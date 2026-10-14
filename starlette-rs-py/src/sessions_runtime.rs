@@ -376,8 +376,10 @@ impl AwaitableStateMachine for SessionMiddlewareCall {
 impl SessionMiddlewareCall {
     fn start(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
         let runtime = self.runtime.borrow(py);
-        let scope_type = self.scope.bind(py).get_item("type")?.extract::<String>()?;
-        if scope_type != "http" && scope_type != "websocket" {
+        let scope_type = self.scope.bind(py).get_item("type")?;
+        let supported_scope_types = PyTuple::new(py, ["http", "websocket"])?;
+        // Keep Python's tuple-membership behavior for arbitrary ASGI scope values.
+        if !supported_scope_types.contains(&scope_type)? {
             let awaitable = runtime.app.bind(py).call1((
                 self.scope.bind(py),
                 self.receive.bind(py),

@@ -188,9 +188,10 @@ impl AwaitableStateMachine for GzipMiddlewareCall {
 impl GzipMiddlewareCall {
     fn start(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
         let scope = self.scope.bind(py);
-        let scope_type = scope.get_item("type")?.extract::<String>()?;
-
-        let send = if scope_type == "http" || self.gzip_always {
+        // Starlette compares the original value with Python's `!=` operator.
+        // Keep that comparison at the boundary so non-string scope types take
+        // the non-HTTP pass-through path instead of failing String extraction.
+        let send = if self.gzip_always || !scope.get_item("type")?.ne("http")? {
             let config = self.config.bind(py);
             let responder = if self.gzip_always {
                 config.call_method0("gzip_responder")?.unbind()

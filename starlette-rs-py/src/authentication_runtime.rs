@@ -763,9 +763,12 @@ impl AwaitableStateMachine for AuthenticationMiddlewareCall {
 impl AuthenticationMiddlewareCall {
     fn start(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
         let scope = self.scope.bind(py);
-        let scope_type = scope.get_item("type")?.extract::<String>()?;
+        let scope_type = scope.get_item("type")?;
+        let supported_scope_types = PyList::new(py, ["http", "websocket"])?;
         let runtime = authentication_runtime_values(py, &self.runtime);
-        if scope_type != "http" && scope_type != "websocket" {
+        // Match Starlette's list-membership expression exactly. Extracting a
+        // String here rejects values that Python would compare and bypass.
+        if !supported_scope_types.contains(&scope_type)? {
             let application = runtime.app.bind(py).call1((
                 self.scope.bind(py),
                 self.receive.bind(py),
@@ -836,8 +839,9 @@ impl AuthenticationMiddlewareCall {
             .bind(py)
             .call1((connection.bind(py), error.value(py)))?;
         let scope = self.scope.bind(py);
-        let scope_type = scope.get_item("type")?.extract::<String>()?;
-        let operation = if scope_type == "websocket" {
+        let scope_type = scope.get_item("type")?;
+        let websocket_scope = scope_type.eq("websocket")?;
+        let operation = if websocket_scope {
             let close_message = PyDict::new(py);
             close_message.set_item("type", "websocket.close")?;
             close_message.set_item("code", 1000)?;
@@ -849,7 +853,7 @@ impl AuthenticationMiddlewareCall {
                 self.send.bind(py),
             ))?
         };
-        self.pending = Some(if scope_type == "websocket" {
+        self.pending = Some(if websocket_scope {
             AuthenticationPending::WebSocketClose
         } else {
             AuthenticationPending::ErrorResponse

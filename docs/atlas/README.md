@@ -25,14 +25,15 @@ with no conventional Python or Rust unit-test suite.
 ## Current implementation status
 
 Implementation remains active for the full Starlette 1.6.0 replacement. The
-working-tree `parity-input@55` contract indexes 2,417 cases across 363
-parity input files and two benchmark files, with 144 Starlette compatibility
-operations, 13 native operations, and 1,324 parity requirements (1,280
+working-tree `parity-input@55` contract indexes 2,453 cases across 391
+parity input files and two benchmark files, with 150 Starlette compatibility
+operations, 13 native operations, and 1,350 parity requirements (1,308
 compatibility and 42 native). The contract remains a slice and claims zero
-parity passes. The latest batch adds a Rust-backed StaticFiles single-digit
-time-field normalization case and a Jinja caller-supplied `url_for` global
-case, plus an AuthenticationMiddleware scope case preserving present `None`
-values for `auth` and `user`, and a StreamingResponse awaitable case checking type-level `__await__` lookup; all four remain unexecuted until full parity. Rust now performs the awaitable lookup through the object's type.
+parity passes. The latest batch adds Python membership/equality dispatch for non-string ASGI scope types in authentication, sessions, and GZip middleware, ServerErrorMiddleware message-type equality, plus application middleware lookup-order and pre-ASGI-2.4 cancellation inputs; all remain deferred to grouped parity. Commit `63271da0` adds input-only cases for mutable Request and
+WebSocket scope identity, WSGI query-string ASCII decoding and Latin-1 header
+encoding, and quoted Request cookie escapes. The Rust cookie parser now matches
+CPython's quoted-cookie unescaping. These comparisons remain deferred to the
+grouped full parity phase.
 The new application
 constructor input captures the state of
 `exception_handlers`, `user_middleware`, and `middleware_stack` while its

@@ -1,0 +1,29 @@
+{
+  "schema": "migration-parity/parity-input@55",
+  "cases": [
+    {
+      "case_id": "starlette.middleware.authentication.AuthenticationMiddleware.dispatch.non-string-scope-type-bypass",
+      "surface": "starlette.middleware.authentication.AuthenticationMiddleware",
+      "operation": "dispatch",
+      "covers": [
+        "starlette.middleware.authentication.AuthenticationMiddleware.non-http-bypass"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scenarios": [
+        {
+          "scope_type": 7,
+          "backend": {
+            "outcome": "must-not-run"
+          },
+          "error_handler": "default"
+        }
+      ],
+      "observations": [
+        "scenarios"
+      ]
+    }
+  ]
+}

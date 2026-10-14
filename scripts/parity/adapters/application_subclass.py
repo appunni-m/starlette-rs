@@ -5,6 +5,16 @@ from __future__ import annotations
 import base64
 from typing import Any
 
+STARLETTE_ATTRIBUTE_READ_PLAN_KIND = "build-middleware-stack-observe-attribute-reads"
+
+
+def _summarize_attribute_value(value: Any) -> Any:
+    if value is None or type(value) in (bool, int, float, str):
+        return value
+    if isinstance(value, (dict, list, tuple, set, frozenset)):
+        return {"type": type(value).__name__, "length": len(value)}
+    return {"type": type(value).__name__}
+
 
 def materialize_starlette_subclass(
     base_type: type[Any],
@@ -59,6 +69,92 @@ def materialize_starlette_subclass(
             "MappingExceptionHandlersStarletteSubclass",
             (base_type,),
             {"build_middleware_stack": build_middleware_stack},
+        )
+
+    if specification["kind"] == STARLETTE_ATTRIBUTE_READ_PLAN_KIND:
+        if set(specification) != {"kind", "access_plan"}:
+            raise ValueError("application attribute access subclass input has unexpected fields")
+        if captured_application is None:
+            raise ValueError("application attribute access requires a trace capture")
+        raw_plan = specification["access_plan"]
+        if not isinstance(raw_plan, list) or not raw_plan:
+            raise ValueError("application attribute access plan must be a non-empty list")
+
+        access_plan: dict[tuple[str, int], dict[str, Any]] = {}
+        for index, raw_entry in enumerate(raw_plan):
+            if not isinstance(raw_entry, dict):
+                raise ValueError(f"application attribute access plan[{index}] must be an object")
+            fields = {"attribute", "read_index"}
+            if "return_value" in raw_entry:
+                fields.add("return_value")
+            if set(raw_entry) != fields:
+                raise ValueError(
+                    f"application attribute access plan[{index}] has unexpected fields"
+                )
+            attribute = raw_entry["attribute"]
+            read_index = raw_entry["read_index"]
+            if not isinstance(attribute, str) or not attribute:
+                raise ValueError(
+                    f"application attribute access plan[{index}].attribute must be text"
+                )
+            if type(read_index) is not int or read_index < 1:
+                raise ValueError(
+                    f"application attribute access plan[{index}].read_index must be positive"
+                )
+            if "return_value" in raw_entry and type(raw_entry["return_value"]) not in (
+                type(None),
+                bool,
+                int,
+                float,
+                str,
+            ):
+                raise ValueError(
+                    f"application attribute access plan[{index}].return_value must be scalar"
+                )
+            key = (attribute, read_index)
+            if key in access_plan:
+                raise ValueError("application attribute access plan repeats an attribute read")
+            access_plan[key] = raw_entry
+
+        observed_attributes = {attribute for attribute, _read_index in access_plan}
+        access_counts: dict[str, int] = {}
+        access_state = {"active": False}
+
+        def observe_attribute(self: Any, attribute: str) -> Any:
+            value = object.__getattribute__(self, attribute)
+            if access_state["active"] and attribute in observed_attributes:
+                read_index = access_counts.get(attribute, 0) + 1
+                access_counts[attribute] = read_index
+                plan_entry = access_plan.get((attribute, read_index))
+                if plan_entry is not None and "return_value" in plan_entry:
+                    value = plan_entry["return_value"]
+                trace = captured_application.get("attribute_trace")
+                if not isinstance(trace, list):
+                    raise RuntimeError("application attribute access trace was not bound")
+                trace.append(
+                    {
+                        "event": "starlette.application.attribute-read",
+                        "attribute": attribute,
+                        "read_index": read_index,
+                        "value": _summarize_attribute_value(value),
+                    }
+                )
+            return value
+
+        def build_middleware_stack(self: Any) -> Any:
+            access_state["active"] = True
+            try:
+                return super(type(self), self).build_middleware_stack()
+            finally:
+                access_state["active"] = False
+
+        return type(
+            "AttributeReadPlanStarletteSubclass",
+            (base_type,),
+            {
+                "__getattribute__": observe_attribute,
+                "build_middleware_stack": build_middleware_stack,
+            },
         )
 
     if set(specification) != {"kind", "response_header_base64"}:

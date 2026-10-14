@@ -132,6 +132,10 @@ STARLETTE_EXCEPTION_HANDLERS_USERDICT_KIND = (
 STARLETTE_EXCEPTION_HANDLERS_MAPPING_REQUIREMENT = (
     "starlette.applications.Starlette.build_middleware_stack.exception-handlers-mapping-protocol"
 )
+STARLETTE_ATTRIBUTE_READ_ORDER_REQUIREMENT = (
+    "starlette.applications.Starlette.build_middleware_stack.attribute-read-order"
+)
+STARLETTE_ATTRIBUTE_READ_PLAN_KIND = "build-middleware-stack-observe-attribute-reads"
 STARLETTE_CONSTRUCTOR_INPUT_ORDER_REQUIREMENT = (
     "starlette.applications.Starlette.__init__.constructor-input-copy-order"
 )
@@ -1550,6 +1554,7 @@ STREAMING_RESPONSE_BACKPRESSURE_REQUIREMENT = (
 STREAMING_RESPONSE_CALLER_CANCELLATION_REQUIREMENT = (
     f"{STREAMING_RESPONSE_SURFACE}.{STREAMING_RESPONSE_OPERATION}.caller-cancellation-during-send"
 )
+STREAMING_RESPONSE_PRE_ASGI24_CANCELLATION_REQUIREMENT = f"{STREAMING_RESPONSE_SURFACE}.{STREAMING_RESPONSE_OPERATION}.pre-asgi24-caller-cancellation-during-receive"
 STREAMING_RESPONSE_EMPTY_SYNC_CHUNK_REQUIREMENT = (
     f"{STREAMING_RESPONSE_SURFACE}.{STREAMING_RESPONSE_OPERATION}.empty-sync-chunk-framing"
 )
@@ -2023,6 +2028,9 @@ SERVER_ERROR_MIDDLEWARE_REQUIREMENTS = {
     "mutable-app": f"{SERVER_ERROR_MIDDLEWARE_SURFACE}.mutable-app",
     "mutable-handler": f"{SERVER_ERROR_MIDDLEWARE_SURFACE}.mutable-handler",
     "mutable-debug": f"{SERVER_ERROR_MIDDLEWARE_SURFACE}.mutable-debug",
+    "message-type-python-equality": (
+        f"{SERVER_ERROR_MIDDLEWARE_SURFACE}.asgi-send.message-type-python-equality"
+    ),
 }
 ASGI_MIDDLEWARE_SURFACES = {
     GZIP_SURFACE,
@@ -2090,6 +2098,9 @@ GZIP_REQUIREMENTS = {
     "thread-minimum-size": "starlette.middleware.gzip.GZipMiddleware.thread-minimum-size",
     "pathsend": "starlette.middleware.gzip.GZipMiddleware.pathsend",
     "case-insensitive-header-names": "starlette.middleware.gzip.GZipMiddleware.case-insensitive-header-names",
+    "non-http-scope-type-bypass": (
+        "starlette.middleware.gzip.GZipMiddleware.non-http-scope-type-bypass"
+    ),
 }
 MUTABLE_SCOPE_REQUIREMENTS = {
     GZIP_SURFACE: GZIP_REQUIREMENTS["mutable-scope-mapping"],
@@ -10174,6 +10185,16 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
                 {"kind"},
                 "StreamingResponse receive behavior",
             )
+        elif receive_behavior.get("kind") == "block-until-cancelled":
+            receive_behavior = _exact(
+                receive_behavior,
+                {"kind", "finally_marker"},
+                "StreamingResponse receive behavior",
+            )
+            _string(
+                receive_behavior["finally_marker"],
+                "StreamingResponse receive behavior.finally_marker",
+            )
         else:
             raise ContractError("StreamingResponse receive behavior kind is unsupported")
 
@@ -10375,31 +10396,44 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
             {"kind", "event_index"},
             "StreamingResponse caller-cancelled send",
         )
+        blocked_receive_cancellation = (
+            receive_behavior is not None and receive_behavior["kind"] == "block-until-cancelled"
+        )
         if (
             case["streaming"] != "async-generator"
             or case["operation"] != STREAMING_RESPONSE_TRACE_OPERATION
             or repeating_chunks
             or file_like_content is not None
-            or len(chunks) < 2
+            or len(chunks) < (1 if blocked_receive_cancellation else 2)
             or stream_lifecycle is None
             or stream_lifecycle["kind"] != "finally-recorder"
-            or receive_behavior is not None
+            or (receive_behavior is not None and not blocked_receive_cancellation)
             or background is None
             or background.get("kind") != "async-values-recorder"
             or case["target_profiles"] != ["python-package-cpython312"]
             or type(cancelled_send["event_index"]) is not int
             or cancelled_send["event_index"] != 1
-            or case["covers"] != [STREAMING_RESPONSE_CALLER_CANCELLATION_REQUIREMENT]
+            or case["covers"]
+            != [
+                STREAMING_RESPONSE_PRE_ASGI24_CANCELLATION_REQUIREMENT
+                if blocked_receive_cancellation
+                else STREAMING_RESPONSE_CALLER_CANCELLATION_REQUIREMENT
+            ]
         ):
             raise ContractError(
-                "StreamingResponse caller cancellation must cancel the first blocked async-generator body send and observe finalization/background behavior"
+                "StreamingResponse caller cancellation must follow the input-declared body-send and optional receive gates and observe cancellation, cleanup, and background behavior"
             )
         try:
             asgi = case["scope"].get("asgi", {})
             spec_version = tuple(int(part) for part in asgi.get("spec_version", "2.0").split("."))
         except (AttributeError, KeyError, TypeError, ValueError) as exc:
             raise ContractError("StreamingResponse ASGI spec_version must be numeric") from exc
-        if spec_version < (2, 4):
+        if blocked_receive_cancellation:
+            if spec_version >= (2, 4):
+                raise ContractError(
+                    "pre-ASGI-2.4 receive cancellation requires a legacy ASGI specification"
+                )
+        elif spec_version < (2, 4):
             raise ContractError("StreamingResponse caller-cancellation input requires ASGI 2.4")
         first_chunk_kind, first_chunk_value = chunks[0]
         first_chunk_bytes = (
@@ -10659,7 +10693,7 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
         allow_oserror_send=send_raises_oserror,
         allow_pre_asgi24_disconnect=(
             receive_behavior is not None
-            and receive_behavior["kind"] == "disconnect-after-body-bytes"
+            and receive_behavior["kind"] in {"disconnect-after-body-bytes", "block-until-cancelled"}
         ),
         allow_minimal_http_scope=repeating_chunks,
     )
@@ -12817,12 +12851,16 @@ def _validate_session_workflow_case(case: dict[str, Any]) -> None:
             request_dispatch=True,
             allow_headers=True,
             allow_host=True,
+            allow_non_http_scope_passthrough=(
+                type(request["scope"].get("type")) in (bool, int, float)
+                and request["scope"]["type"] not in ("http", "websocket")
+            ),
         )
         scope = request["scope"]
         scope_type = scope["type"]
-        if scope_type == "lifespan" and request["cookie_source"] is not None:
-            raise ContractError("lifespan pass-through cannot receive a session cookie")
-        if scope_type in {"http", "websocket"}:
+        if scope_type not in ("http", "websocket") and request["cookie_source"] is not None:
+            raise ContractError("non-HTTP pass-through cannot receive a session cookie")
+        if scope_type in ("http", "websocket"):
             header_names = {
                 base64.b64decode(pair[0], validate=True).decode("latin-1").casefold()
                 for pair in scope["headers_base64_pairs"]
@@ -13019,8 +13057,8 @@ def _validate_session_workflow_case(case: dict[str, Any]) -> None:
                 ):
                     raise ContractError("WebSocket close code and reason are invalid")
             elif action_kind == "passthrough":
-                if scope_type != "lifespan":
-                    raise ContractError("passthrough actions require lifespan scopes")
+                if scope_type in ("http", "websocket"):
+                    raise ContractError("passthrough actions require non-HTTP scopes")
                 action = _exact(
                     action,
                     {"kind", "outbound"},
@@ -13203,7 +13241,8 @@ def _validate_session_workflow_case(case: dict[str, Any]) -> None:
     ):
         requirements.add(SESSION_REQUIREMENTS["websocket_cookie_loading"])
     if any(
-        request["scope"]["type"] == "lifespan" and request["action"]["kind"] == "passthrough"
+        request["scope"]["type"] not in ("http", "websocket")
+        and request["action"]["kind"] == "passthrough"
         for request in requests
     ):
         requirements.add(SESSION_REQUIREMENTS["non_http_pass_through"])
@@ -21578,6 +21617,88 @@ def _validate_application_subclass_builder_case(
                 "constructor observation requires input-defined handler and middleware callbacks"
             )
         expected_requirement = STARLETTE_CONSTRUCTOR_INPUT_ORDER_REQUIREMENT
+    elif kind == STARLETTE_ATTRIBUTE_READ_PLAN_KIND:
+        specification = _exact(
+            raw_specification,
+            {"kind", "access_plan"},
+            "Starlette application attribute access input",
+        )
+        access_plan = specification["access_plan"]
+        if not isinstance(access_plan, list) or len(access_plan) != 6:
+            raise ContractError("application attribute access plan must cover six source reads")
+        expected_accesses = [
+            ("debug", 1, False),
+            ("exception_handlers", 1, False),
+            ("max_body_size", 1, True),
+            ("max_body_size", 2, True),
+            ("user_middleware", 1, False),
+            ("router", 1, False),
+        ]
+        for index, (raw_entry, expected) in enumerate(
+            zip(access_plan, expected_accesses, strict=True)
+        ):
+            attribute, read_index, has_return_value = expected
+            fields = {"attribute", "read_index"}
+            if has_return_value:
+                fields.add("return_value")
+            entry = _exact(raw_entry, fields, f"application attribute access plan[{index}]")
+            if (
+                entry["attribute"] != attribute
+                or type(entry["read_index"]) is not int
+                or entry["read_index"] != read_index
+            ):
+                raise ContractError("application attribute access plan must follow source reads")
+        first_limit = access_plan[2]["return_value"]
+        second_limit = access_plan[3]["return_value"]
+        if (
+            type(first_limit) is not int
+            or type(second_limit) is not int
+            or first_limit < 0
+            or second_limit < 0
+            or first_limit <= second_limit
+        ):
+            raise ContractError(
+                "application attribute access plan must return distinct non-negative body limits"
+            )
+        dispatch_arguments = steps[1]["arguments"]
+        receive = _exact(
+            dispatch_arguments["receive"],
+            {"kind", "value"},
+            "application attribute access request input",
+        )
+        if receive["kind"] != "literal" or not isinstance(receive["value"], list):
+            raise ContractError("application attribute access requires a literal request body")
+        messages = receive["value"]
+        if len(messages) != 1:
+            raise ContractError("application attribute access requires one complete request body")
+        message = _exact(
+            messages[0],
+            {"type", "body_base64", "more_body"},
+            "application attribute access request event",
+        )
+        if message["type"] != "http.request" or message["more_body"] is not False:
+            raise ContractError("application attribute access request body must be complete")
+        try:
+            request_body = base64.b64decode(message["body_base64"], validate=True)
+        except (ValueError, TypeError) as exc:
+            raise ContractError("application attribute access request body must be base64") from exc
+        content_lengths = [
+            value
+            for name, value in _validate_header_pairs(
+                scope["headers_base64_pairs"], "application attribute access HTTP headers"
+            )
+            if name.lower() == b"content-length"
+        ]
+        if (
+            not request_body
+            or len(request_body) <= second_limit
+            or len(request_body) > first_limit
+            or content_lengths != [str(len(request_body)).encode("ascii")]
+        ):
+            raise ContractError(
+                "application attribute access body must distinguish the second max_body_size read"
+            )
+        expected_requirement = STARLETTE_ATTRIBUTE_READ_ORDER_REQUIREMENT
     else:
         raise ContractError("Starlette application subclass hook kind is unsupported")
     if case["covers"] != [expected_requirement]:
@@ -24528,7 +24649,19 @@ def _validate_case_payload(
             continue
         if is_protocol_middleware:
             if is_gzip or is_gzip_responder:
-                _validate_dispatch_stimulus(step_args, request_dispatch=True)
+                scope_type = step_args.get("scope", {}).get("type")
+                non_http_scope_type = (
+                    is_gzip and type(scope_type) in (bool, int, float) and scope_type != "http"
+                )
+                _validate_dispatch_stimulus(
+                    step_args,
+                    request_dispatch=True,
+                    allow_non_http_scope_passthrough=non_http_scope_type,
+                )
+                if non_http_scope_type and step_args["receive"] != []:
+                    raise ContractError(
+                        "non-HTTP GZipMiddleware pass-through must not consume receive input"
+                    )
             else:
                 _validate_asgi_middleware_dispatch(
                     case["surface"], step_args, scope_mapping=case.get("scope_mapping")
@@ -24537,10 +24670,23 @@ def _validate_case_payload(
             _validate_dispatch_stimulus(
                 step_args,
                 case["operation"] == "request-dispatch",
-                allow_nonempty_body=body_reuse or is_route_body_limit_workflow,
+                allow_nonempty_body=(
+                    body_reuse
+                    or is_route_body_limit_workflow
+                    or (
+                        isinstance(case.get("application_subclass"), dict)
+                        and case["application_subclass"].get("kind")
+                        == STARLETTE_ATTRIBUTE_READ_PLAN_KIND
+                    )
+                ),
                 allow_headers=(
                     server_error_case
                     or is_route_body_limit_workflow
+                    or (
+                        isinstance(case.get("application_subclass"), dict)
+                        and case["application_subclass"].get("kind")
+                        == STARLETTE_ATTRIBUTE_READ_PLAN_KIND
+                    )
                     or _is_authentication_user_interface_application(app_args)
                     or _is_authentication_login_next_application(app_args)
                     or _is_authentication_required_route_application(app_args)
@@ -24656,11 +24802,14 @@ def _validate_case_payload(
         expected_protocol_schedule = (
             step_ids[1:] if is_cors_state_sequence or is_gzip else ["dispatch"]
         )
-        if (
-            dispatch_args["scope"]["type"] not in {"http", "websocket"}
-            or schedule != expected_protocol_schedule
-        ):
-            raise ContractError("ASGI middleware cases must dispatch one HTTP or WebSocket scope")
+        scope_type = dispatch_args["scope"]["type"]
+        valid_scope_type = scope_type in ("http", "websocket") or (
+            is_gzip and type(scope_type) in (bool, int, float)
+        )
+        if not valid_scope_type or schedule != expected_protocol_schedule:
+            raise ContractError(
+                "ASGI middleware cases must dispatch one supported HTTP, WebSocket, or GZip pass-through scope"
+            )
         expected_schedule = expected_protocol_schedule
     elif step_ids == ["application", "lifecycle"]:
         if dispatch_args["scope"]["type"] != "lifespan":
@@ -25000,6 +25149,7 @@ def _validate_server_error_middleware_app(value: Any, context: str) -> None:
         _string(app["label"], f"{context}.label")
         _string(app["message"], f"{context}.message")
         messages = app["messages"]
+        shape_messages = _server_error_message_type_shape(messages, context)
         normalized_messages = (
             [
                 (
@@ -25009,25 +25159,73 @@ def _validate_server_error_middleware_app(value: Any, context: str) -> None:
                     and "more_body" not in message
                     else message
                 )
-                for message in messages
+                for message in shape_messages
             ]
-            if isinstance(messages, list)
-            else messages
+            if isinstance(shape_messages, list)
+            else shape_messages
         )
         _validate_asgi_middleware_app(
             {"kind": "asgi-response-sequence", "messages": normalized_messages}
         )
         if (
-            len(messages) != 2
-            or messages[0]
+            len(shape_messages) != 2
+            or shape_messages[0]
             != {"type": "http.response.start", "status": 204, "headers_base64_pairs": []}
-            or messages[1] != {"type": "http.response.body", "body_base64": ""}
+            or shape_messages[1] != {"type": "http.response.body", "body_base64": ""}
         ):
             raise ContractError(
                 f"{context} must model the pinned empty 204 response before raising"
             )
         return
     raise ContractError(f"{context} must use a declared ASGI app kind")
+
+
+def _server_error_message_type_shape(messages: Any, context: str) -> Any:
+    if not isinstance(messages, list):
+        return messages
+    result = []
+    for index, raw_message in enumerate(messages):
+        if not isinstance(raw_message, dict):
+            result.append(raw_message)
+            continue
+        raw_type = raw_message.get("type")
+        if not isinstance(raw_type, dict) or "str_subclass" not in raw_type:
+            result.append(raw_message)
+            continue
+        descriptor = _exact(
+            raw_type,
+            {"str_subclass"},
+            f"{context}.messages[{index}].type descriptor",
+        )
+        subclass = _exact(
+            descriptor["str_subclass"],
+            {"value", "equal_result"},
+            f"{context}.messages[{index}].type.str_subclass",
+        )
+        value = _string(subclass["value"], f"{context}.messages[{index}].type.str_subclass.value")
+        if value != "http.response.start" or type(subclass["equal_result"]) is not bool:
+            raise ContractError(
+                f"{context} message type subclass must define boolean equality for response start"
+            )
+        result.append({**raw_message, "type": value})
+    return result
+
+
+def _is_server_error_message_type_equality_probe(app: Any) -> bool:
+    if not isinstance(app, dict) or app.get("kind") != "asgi-response-sequence-then-raise":
+        return False
+    messages = app.get("messages")
+    if not isinstance(messages, list) or not messages or not isinstance(messages[0], dict):
+        return False
+    message_type = messages[0].get("type")
+    if not isinstance(message_type, dict) or set(message_type) != {"str_subclass"}:
+        return False
+    subclass = message_type["str_subclass"]
+    return (
+        isinstance(subclass, dict)
+        and subclass.get("value") == "http.response.start"
+        and subclass.get("equal_result") is False
+    )
 
 
 def _validate_server_error_middleware_handler(value: Any, context: str) -> None:
@@ -26106,6 +26304,16 @@ def _validate_server_error_middleware_case(
                         "non-HTTP passthrough input must raise with debug and handler disabled"
                     )
                 requirement_key = "non-http-passthrough"
+            elif _is_server_error_message_type_equality_probe(constructor["app"]):
+                if (
+                    scope_type != "http"
+                    or constructor["handler"] is not None
+                    or constructor["debug"]
+                ):
+                    raise ContractError(
+                        "message type equality input must use an HTTP scope without handler or debug mode"
+                    )
+                requirement_key = "message-type-python-equality"
             elif constructor["debug"]:
                 if app_kind == "raise-runtime-error" and constructor["handler"] is None:
                     headers = dispatch["scope"]["headers_base64_pairs"]
@@ -29252,6 +29460,7 @@ def _validate_dispatch_stimulus(
     allow_minimal_http_scope: bool = False,
     allow_caller_cancellation_send: bool = False,
     allow_non_string_scope_type: bool = False,
+    allow_non_http_scope_passthrough: bool = False,
 ) -> None:
     if set(args) != {"scope", "receive", "send"}:
         raise ContractError(
@@ -29260,6 +29469,12 @@ def _validate_dispatch_stimulus(
     scope = args["scope"]
     if not isinstance(scope, dict):
         raise ContractError("scope input must be an object")
+    scope_type = scope.get("type")
+    if allow_non_http_scope_passthrough and type(scope_type) in (bool, int, float):
+        _exact(scope, {"type"}, "non-HTTP pass-through scope input")
+        if args["send"] != {"kind": "capture-asgi-send"}:
+            raise ContractError("send input must contain the fixed ASGI capture selector")
+        return
     if allow_non_string_scope_type and not isinstance(scope.get("type"), str):
         scope = {**scope, "type": "http"}
     if scope.get("type") == "lifespan":
@@ -36827,11 +37042,8 @@ def _validate_authentication_case(case: dict[str, Any]) -> None:
             if isinstance(raw_scenario, dict) and "application_response" in raw_scenario:
                 scenario_keys.add("application_response")
             scenario = _exact(raw_scenario, scenario_keys, context)
-            if not isinstance(scenario["scope_type"], str) or scenario["scope_type"] not in {
-                "http",
-                "websocket",
-                "lifespan",
-            }:
+            scope_type = scenario["scope_type"]
+            if type(scope_type) not in {type(None), bool, int, float, str}:
                 raise ContractError(f"{context}.scope_type is unsupported")
             if not isinstance(scenario["error_handler"], str) or scenario["error_handler"] not in {
                 "default",
@@ -36879,16 +37091,20 @@ def _validate_authentication_case(case: dict[str, Any]) -> None:
             elif error_response is not None:
                 raise ContractError(f"{context}.error_response requires a custom response handler")
             backend = scenario["backend"]
+            backend_is_dispatched = scope_type in {"http", "websocket"}
             if isinstance(backend, dict) and set(backend) == {"error"}:
                 error = _exact(backend["error"], {"type", "message"}, f"{context}.backend.error")
                 if error["type"] != "AuthenticationError":
                     raise ContractError(f"{context}.backend.error.type is unsupported")
                 _string(error["message"], f"{context}.backend.error.message")
-                exercised.add(
-                    "starlette.middleware.authentication.AuthenticationMiddleware.http-error-handler"
-                    if scenario["scope_type"] == "http"
-                    else "starlette.middleware.authentication.AuthenticationMiddleware.websocket-error-close"
-                )
+                if scope_type == "http":
+                    exercised.add(
+                        "starlette.middleware.authentication.AuthenticationMiddleware.http-error-handler"
+                    )
+                elif scope_type == "websocket":
+                    exercised.add(
+                        "starlette.middleware.authentication.AuthenticationMiddleware.websocket-error-close"
+                    )
             elif isinstance(backend, dict) and set(backend) == {"outcome"}:
                 outcome = backend["outcome"]
                 if isinstance(outcome, dict):
@@ -36935,20 +37151,21 @@ def _validate_authentication_case(case: dict[str, Any]) -> None:
                                 raises_during_iteration = True
                             else:
                                 raise ContractError(f"{item_context}.kind is unsupported")
-                        if raises_during_iteration:
+                        if raises_during_iteration and backend_is_dispatched:
                             exercised.add(
                                 "starlette.middleware.authentication.AuthenticationMiddleware.backend-result-iteration-error"
                             )
                         elif len(result["items"]) == 2:
-                            exercised.add(
-                                "starlette.middleware.authentication.AuthenticationMiddleware.scope-user-install"
-                            )
-                            exercised.add(
-                                "starlette.middleware.authentication.AuthenticationMiddleware.iterable-backend-result"
-                            )
-                            if scenario["scope_type"] == "websocket":
+                            if backend_is_dispatched:
+                                exercised.add(
+                                    "starlette.middleware.authentication.AuthenticationMiddleware.scope-user-install"
+                                )
+                                exercised.add(
+                                    "starlette.middleware.authentication.AuthenticationMiddleware.iterable-backend-result"
+                                )
+                            if scope_type == "websocket":
                                 exercised.add(AUTHENTICATION_WEBSOCKET_SUCCESS_REQUIREMENT)
-                        else:
+                        elif backend_is_dispatched:
                             exercised.add(
                                 "starlette.middleware.authentication.AuthenticationMiddleware.backend-result-arity-error"
                             )
@@ -36965,13 +37182,14 @@ def _validate_authentication_case(case: dict[str, Any]) -> None:
                                 f"{context}.backend credentials must be a string array"
                             )
                         _string(result["user"], f"{context}.backend user")
-                        exercised.add(
-                            "starlette.middleware.authentication.AuthenticationMiddleware.scope-user-install"
-                        )
-                        if scenario["scope_type"] == "websocket":
+                        if backend_is_dispatched:
+                            exercised.add(
+                                "starlette.middleware.authentication.AuthenticationMiddleware.scope-user-install"
+                            )
+                        if scope_type == "websocket":
                             exercised.add(AUTHENTICATION_WEBSOCKET_SUCCESS_REQUIREMENT)
                 elif isinstance(outcome, str) and outcome in {"none", "must-not-run"}:
-                    if outcome == "none":
+                    if outcome == "none" and backend_is_dispatched:
                         exercised.add(
                             "starlette.middleware.authentication.AuthenticationMiddleware.unauthenticated-default"
                         )
@@ -37030,7 +37248,7 @@ def _validate_authentication_case(case: dict[str, Any]) -> None:
                     raise ContractError(
                         f"{context}.application_response requires an HTTP backend result"
                     )
-            if scenario["scope_type"] == "lifespan":
+            if scope_type != "http" and scope_type != "websocket":
                 exercised.add(
                     "starlette.middleware.authentication.AuthenticationMiddleware.non-http-bypass"
                 )
@@ -39215,6 +39433,12 @@ def _gzip_single_dispatch_semantic_coverage(case: dict[str, Any]) -> set[str]:
     dispatch_args = {
         key: descriptor["value"] for key, descriptor in case["steps"][1]["arguments"].items()
     }
+    scope_type = dispatch_args["scope"].get("type")
+    if type(scope_type) in (bool, int, float) and scope_type != "http":
+        return {
+            GZIP_REQUIREMENT_CONSTRUCTION,
+            GZIP_REQUIREMENTS["non-http-scope-type-bypass"],
+        }
     app = constructor_args["app"]
     messages = app["messages"]
     response_start = messages[0]
@@ -39680,6 +39904,8 @@ def _semantic_coverage(case: dict[str, Any]) -> set[str]:
             coverage.add(STARLETTE_USER_MIDDLEWARE_ITERABLE_REQUIREMENT)
         elif case["application_subclass"].get("kind") == STARLETTE_EXCEPTION_HANDLERS_USERDICT_KIND:
             coverage.add(STARLETTE_EXCEPTION_HANDLERS_MAPPING_REQUIREMENT)
+        elif case["application_subclass"].get("kind") == STARLETTE_ATTRIBUTE_READ_PLAN_KIND:
+            coverage.add(STARLETTE_ATTRIBUTE_READ_ORDER_REQUIREMENT)
         elif (
             case["application_subclass"].get("kind")
             == STARLETTE_CONSTRUCTOR_VISIBILITY_SUBCLASS_KIND

@@ -1,0 +1,59 @@
+{
+  "schema": "migration-parity/parity-input@55",
+  "cases": [
+    {
+      "case_id": "starlette.middleware.sessions.SessionMiddleware.session-workflow.non-string-scope-type-pass-through",
+      "surface": "starlette.middleware.sessions.SessionMiddleware",
+      "operation": "session-workflow",
+      "covers": [
+        "starlette.middleware.sessions.SessionMiddleware.session-workflow.construct",
+        "starlette.middleware.sessions.SessionMiddleware.session-workflow.non-http-pass-through"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "constructor": {
+        "secret_key": "session-parity-secret",
+        "session_cookie": "session",
+        "max_age": 1209600,
+        "path": "/",
+        "same_site": "lax",
+        "https_only": false,
+        "domain": null,
+        "clock_epoch": 1700000000
+      },
+      "requests": [
+        {
+          "request_id": "non-string-type-pass-through",
+          "scope": {
+            "type": 7
+          },
+          "receive": [
+            {
+              "type": "lifespan.startup"
+            },
+            {
+              "type": "lifespan.shutdown"
+            }
+          ],
+          "cookie_source": null,
+          "action": {
+            "kind": "passthrough",
+            "outbound": [
+              {
+                "type": "lifespan.startup.complete"
+              },
+              {
+                "type": "lifespan.shutdown.complete"
+              }
+            ]
+          }
+        }
+      ],
+      "observations": [
+        "session-workflow"
+      ]
+    }
+  ]
+}

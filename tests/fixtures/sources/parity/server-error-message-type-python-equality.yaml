@@ -1,0 +1,81 @@
+{
+  "schema": "migration-parity/parity-input@55",
+  "cases": [
+    {
+      "case_id": "starlette.middleware.errors.ServerErrorMiddleware.__call__.message-type-string-subclass-equality",
+      "surface": "starlette.middleware.errors.ServerErrorMiddleware",
+      "operation": "__call__",
+      "covers": [
+        "starlette.middleware.errors.ServerErrorMiddleware.asgi-send.message-type-python-equality"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "constructor": {
+        "app": {
+          "kind": "asgi-response-sequence-then-raise",
+          "label": "subclass-message-type-app",
+          "messages": [
+            {
+              "type": {
+                "str_subclass": {
+                  "value": "http.response.start",
+                  "equal_result": false
+                }
+              },
+              "status": 204,
+              "headers_base64_pairs": []
+            },
+            {
+              "type": "http.response.body",
+              "body_base64": ""
+            }
+          ],
+          "message": "message type equality probe"
+        },
+        "handler": null,
+        "debug": false
+      },
+      "assignments": [],
+      "dispatch": {
+        "scope": {
+          "type": "http",
+          "asgi": {
+            "version": "3.0",
+            "spec_version": "2.4"
+          },
+          "http_version": "1.1",
+          "method": "GET",
+          "scheme": "http",
+          "path": "/",
+          "raw_path_base64": "Lw==",
+          "query_string_base64": "",
+          "root_path": "",
+          "headers_base64_pairs": [],
+          "client": [
+            "127.0.0.1",
+            12345
+          ],
+          "server": [
+            "testserver",
+            80
+          ]
+        },
+        "receive": [
+          {
+            "type": "http.request",
+            "body_base64": "",
+            "more_body": false
+          }
+        ],
+        "send": {
+          "kind": "capture-asgi-send"
+        }
+      },
+      "observations": [
+        "dispatch"
+      ]
+    }
+  ]
+}

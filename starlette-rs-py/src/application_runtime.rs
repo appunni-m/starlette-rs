@@ -186,13 +186,11 @@ impl PyStarletteRuntime {
 impl PyStarletteRuntime {
     fn build_stack(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let app = self.app.bind(py);
-        let router = app.getattr("router")?;
+        // Preserve Starlette's source-order attribute reads. Subclasses may
+        // expose descriptors or override __getattribute__, making each read
+        // observable and allowing successive max_body_size reads to differ.
         let debug = app.getattr("debug")?;
-        let max_body_size = app.getattr("max_body_size")?;
         let handlers = app.getattr("exception_handlers")?;
-        // Starlette appends `user_middleware` to a local list, so the public
-        // attribute may be any iterable when the stack is built.
-        let middleware = app.getattr("user_middleware")?;
         let user_exception_handlers = PyDict::new(py);
         let mut server_error_handler: Option<Py<PyAny>> = None;
         let exception_type = py.get_type::<PyException>();
@@ -225,12 +223,13 @@ impl PyStarletteRuntime {
             .unbind(),
         );
 
+        let max_body_size = app.getattr("max_body_size")?;
         if !max_body_size.is_none() {
             let body_limit_type = py
                 .import("starlette.middleware.body_limit")?
                 .getattr("RequestBodyLimitMiddleware")?;
             let kwargs = PyDict::new(py);
-            kwargs.set_item("max_body_size", max_body_size)?;
+            kwargs.set_item("max_body_size", app.getattr("max_body_size")?)?;
             middleware_configs.push(
                 make_middleware_config(
                     py,
@@ -243,6 +242,9 @@ impl PyStarletteRuntime {
             );
         }
 
+        // Starlette appends `user_middleware` to a local list, so the public
+        // attribute may be any iterable when the stack is built.
+        let middleware = app.getattr("user_middleware")?;
         middleware_configs.extend(
             middleware
                 .try_iter()?
@@ -264,6 +266,7 @@ impl PyStarletteRuntime {
             .unbind(),
         );
 
+        let router = app.getattr("router")?;
         let mut asgi_app = router.unbind();
         for config in middleware_configs.into_iter().rev() {
             let config = config.bind(py);

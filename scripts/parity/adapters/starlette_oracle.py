@@ -1189,6 +1189,8 @@ def _materialize_asgi_action(action: Any, index: int) -> tuple[str, Any]:
 
 def _canonical_message(message: dict[str, Any]) -> dict[str, Any]:
     kind = message["type"]
+    if isinstance(kind, str):
+        kind = str.__str__(kind)
     if kind.startswith("lifespan."):
         return {"type": kind}
     if kind.startswith("websocket."):
@@ -1778,6 +1780,7 @@ def _materialize_application(
         raise ValueError("Starlette.__init__ arguments do not match the declared workflow")
     lifespan_spec = app_spec["lifespan"]
     lifecycle_trace: list[Any] = []
+    captured_application["attribute_trace"] = lifecycle_trace
     if lifespan_spec is None:
         lifespan = None
     elif lifespan_spec == {
@@ -3538,10 +3541,31 @@ def _materialize_asgi_sequence_app(app_spec: dict[str, Any]) -> Any:
 
     async def response_app(_scope: Any, _receive: Any, send: Any) -> None:
         for index, spec in enumerate(response_messages):
-            if not isinstance(spec, dict) or not isinstance(spec.get("type"), str):
+            if not isinstance(spec, dict):
                 raise ValueError(f"inner response message[{index}] must declare its ASGI type")
-            message_type = spec["type"]
-            if message_type == "http.response.start":
+            raw_message_type = spec.get("type")
+            if isinstance(raw_message_type, str):
+                message_type = raw_message_type
+            elif isinstance(raw_message_type, dict) and "str_subclass" in raw_message_type:
+                descriptor = _strict_object(raw_message_type, {"str_subclass"}, "ASGI message type")
+                subclass_spec = _strict_object(
+                    descriptor["str_subclass"],
+                    {"value", "equal_result"},
+                    "ASGI message type str_subclass",
+                )
+                equal_result = subclass_spec["equal_result"]
+                if not isinstance(subclass_spec["value"], str) or type(equal_result) is not bool:
+                    raise ValueError("ASGI message type str_subclass has invalid fields")
+
+                class InputStringSubclass(str):
+                    def __eq__(self, _other: object, result: bool = equal_result) -> bool:
+                        return result
+
+                message_type = InputStringSubclass(subclass_spec["value"])
+            else:
+                raise ValueError(f"inner response message[{index}] must declare its ASGI type")
+            message_kind = str.__str__(message_type)
+            if message_kind == "http.response.start":
                 header_keys = {"type", "status", "headers_base64_pairs"}
                 if "headers_representation" in spec:
                     header_keys.add("headers_representation")
@@ -3565,7 +3589,7 @@ def _materialize_asgi_sequence_app(app_spec: dict[str, Any]) -> Any:
                     "status": spec["status"],
                     "headers": headers,
                 }
-            elif message_type == "http.response.body":
+            elif message_kind == "http.response.body":
                 expected_body_keys = {"type", "body_base64"}
                 if "more_body" in spec:
                     expected_body_keys.add("more_body")
@@ -3578,14 +3602,14 @@ def _materialize_asgi_sequence_app(app_spec: dict[str, Any]) -> Any:
                 }
                 if "more_body" in spec:
                     message["more_body"] = spec["more_body"]
-            elif message_type == "http.response.pathsend":
+            elif message_kind == "http.response.pathsend":
                 _strict_object(
                     spec,
                     {"type", "path"},
                     f"inner response message[{index}]",
                 )
                 message = {"type": message_type, "path": spec["path"]}
-            elif message_type == "websocket.close":
+            elif message_kind == "websocket.close":
                 _strict_object(
                     spec,
                     {"type", "code"},
@@ -7130,7 +7154,7 @@ def _run_session_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                             "SessionMiddleware passthrough output type must be a string"
                         )
                 if request_spec["cookie_source"] is not None:
-                    raise ValueError("SessionMiddleware lifespan passthrough has no cookie source")
+                    raise ValueError("SessionMiddleware non-HTTP passthrough has no cookie source")
                 if request_spec["receive"] != [
                     {"type": "lifespan.startup"},
                     {"type": "lifespan.shutdown"},
@@ -7154,12 +7178,13 @@ def _run_session_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                 "session-mutation": "http",
                 "session-operation": "http",
                 "websocket-view": "websocket",
-                "passthrough": "lifespan",
-            }[action["kind"]]
-            if scope["type"] != expected_scope_type:
-                raise ValueError(
-                    f"SessionMiddleware {action['kind']} requires a {expected_scope_type} scope"
-                )
+            }
+            if action["kind"] == "passthrough":
+                if scope["type"] in ("http", "websocket"):
+                    raise ValueError("passthrough actions require non-HTTP scopes")
+            elif scope["type"] != expected_scope_type[action["kind"]]:
+                expected = expected_scope_type[action["kind"]]
+                raise ValueError(f"SessionMiddleware {action['kind']} requires a {expected} scope")
             if action["kind"] == "websocket-view":
                 if (
                     not isinstance(cookie_source, dict)
@@ -12187,6 +12212,17 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
                 {"kind"},
                 "Response receive behavior",
             )
+        elif receive_behavior_value.get("kind") == "block-until-cancelled":
+            receive_behavior = _strict_object(
+                receive_behavior_value,
+                {"kind", "finally_marker"},
+                "Response receive behavior",
+            )
+            if (
+                not isinstance(receive_behavior["finally_marker"], str)
+                or not receive_behavior["finally_marker"]
+            ):
+                raise ValueError("Response receive behavior finally_marker is invalid")
         else:
             raise ValueError("Response receive behavior input is invalid")
 
@@ -12406,7 +12442,12 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
     receive_gate = (
         asyncio.Event()
         if receive_behavior is not None
-        and receive_behavior["kind"] == "disconnect-after-body-bytes"
+        and receive_behavior["kind"] in {"disconnect-after-body-bytes", "block-until-cancelled"}
+        else None
+    )
+    receive_entered = (
+        asyncio.Event()
+        if receive_behavior is not None and receive_behavior["kind"] == "block-until-cancelled"
         else None
     )
     sent_body_bytes = 0
@@ -12414,6 +12455,21 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
     async def receive() -> dict[str, Any]:
         if receive_behavior is not None and receive_behavior["kind"] == "raise-not-implemented":
             raise NotImplementedError
+        if receive_entered is not None:
+            if execution_trace is None or receive_gate is None:
+                raise RuntimeError("blocked receive behavior requires its execution trace")
+            execution_trace.append({"event": "asgi-receive-enter"})
+            receive_entered.set()
+            try:
+                await receive_gate.wait()
+            finally:
+                execution_trace.append(
+                    {
+                        "event": "asgi-receive-finally",
+                        "marker": receive_behavior["finally_marker"],
+                    }
+                )
+            return {"type": "http.disconnect"}
         if receive_gate is not None:
             await receive_gate.wait()
         message = {"type": "http.disconnect"}
@@ -12491,6 +12547,8 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
                 response_task = asyncio.create_task(response(scope, receive, send))
                 try:
                     await asyncio.wait_for(send_gate_entered.wait(), timeout=5.0)
+                    if receive_entered is not None:
+                        await asyncio.wait_for(receive_entered.wait(), timeout=5.0)
                     execution_trace.append({"event": "response-cancellation-requested"})
                     response_task.cancel()
                     try:

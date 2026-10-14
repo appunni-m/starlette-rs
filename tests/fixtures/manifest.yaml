@@ -380,6 +380,7 @@
       "build/parity/inputs/parity/request-concurrent-body-disconnect-recovery.json",
       "build/parity/inputs/parity/request-stream-after-concurrent-body-completion.json",
       "build/parity/inputs/parity/gzip-middleware.json",
+      "build/parity/inputs/parity/gzip-non-string-scope-type-bypass.json",
       "build/parity/inputs/parity/gzip-python-bigint-threshold.json",
       "build/parity/inputs/parity/gzip-python-bigint-compresslevel.json",
       "build/parity/inputs/parity/gzip-header-case-insensitive.json",
@@ -395,6 +396,7 @@
       "build/parity/inputs/parity/exception-handler-mro-order.json",
       "build/parity/inputs/parity/asgi-server-errors.json",
       "build/parity/inputs/parity/server-error-middleware.json",
+      "build/parity/inputs/parity/server-error-message-type-python-equality.json",
       "build/parity/inputs/parity/websocket-protocol.json",
       "build/parity/inputs/parity/websocket-route-dispatch.json",
       "build/parity/inputs/parity/websocket-route-middleware-exception-order.json",
@@ -449,6 +451,7 @@
       "build/parity/inputs/parity/streaming-response-lazy-iterator-start-send-failure.json",
       "build/parity/inputs/parity/streaming-response-final-send-disconnect.json",
       "build/parity/inputs/parity/streaming-response-backpressure.json",
+      "build/parity/inputs/parity/streaming-response-pre-asgi24-caller-cancellation.json",
       "build/parity/inputs/parity/streaming-response-await-instance-shadow.json",
       "build/parity/inputs/parity/websocket-convenience.json",
       "build/parity/inputs/parity/websocket-disconnect-constructor.json",
@@ -508,6 +511,7 @@
       "build/parity/inputs/parity/router-lifespan-exception-class-identity.json",
       "build/parity/inputs/parity/lifespan-native-failure-transitions.json",
       "build/parity/inputs/parity/authentication-runtime.json",
+      "build/parity/inputs/parity/authentication-non-string-scope-type-dispatch.json",
       "build/parity/inputs/parity/authentication-websocket-success.json",
       "build/parity/inputs/parity/authentication-user-interface.json",
       "build/parity/inputs/parity/authentication-required-routes.json",
@@ -539,6 +543,7 @@
       "build/parity/inputs/parity/session-future-timestamp.json",
       "build/parity/inputs/parity/session-expired-timestamp-out-of-range.json",
       "build/parity/inputs/parity/session-middleware-arbitrary-max-age.json",
+      "build/parity/inputs/parity/session-non-string-scope-type-pass-through.json",
       "build/parity/inputs/parity/base-http-middleware.json",
       "build/parity/inputs/parity/base-http-wide-status-pass-through.json",
       "build/parity/inputs/parity/base-http-return-closed-body-iterator.json",
@@ -624,6 +629,7 @@
       "build/parity/inputs/parity/application-routes.json",
       "build/parity/inputs/parity/asgi-app-streaming-response.json",
       "build/parity/inputs/parity/asgi-app-streaming-response-caller-cancellation.json",
+      "build/parity/inputs/parity/application-subclass-attribute-read-order.json",
       "build/parity/inputs/parity/router-converter-ordering.json",
       "build/parity/inputs/parity/router-mixed-route-ordering.json",
       "build/parity/inputs/parity/application-subclass-builder.json",
@@ -1612,6 +1618,17 @@
               "id": "starlette.applications.Starlette.build_middleware_stack.exception-handlers-mapping-protocol",
               "dimension": "boundary",
               "description": "Replace Starlette.exception_handlers with an input-initialized UserDict from a build_middleware_stack subclass hook, then dispatch an ordinary route while constructing the handler stack. The builder must consume the mapping's items protocol. Pinned source: starlette/applications.py:62-66.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.applications.Starlette.build_middleware_stack.attribute-read-order",
+              "dimension": "boundary",
+              "description": "Use an input-defined Starlette __getattribute__ access plan to observe debug, exception_handlers, max_body_size twice, user_middleware, and router during stack construction. Return distinct non-negative limits on the two max_body_size reads and supply a request body between them so the middleware outcome observes the second value. Pinned source: starlette/applications.py:63-82.",
               "lanes": [
                 "parity"
               ],
@@ -13805,6 +13822,17 @@
               "target_profiles": [
                 "python-package-cpython312"
               ]
+            },
+            {
+              "id": "starlette.middleware.gzip.GZipMiddleware.non-http-scope-type-bypass",
+              "dimension": "boundary",
+              "description": "Forward an input-defined non-string scope type unchanged through the middleware and compare the downstream response events. Pinned source: starlette/middleware/gzip.py:60-63.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
             }
           ],
           "parity": {
@@ -14606,6 +14634,17 @@
               "id": "starlette.middleware.errors.ServerErrorMiddleware.mutable-debug",
               "dimension": "boundary",
               "description": "Select debug traceback behavior from the public debug field value present when __call__ begins, ahead of a configured handler.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.errors.ServerErrorMiddleware.asgi-send.message-type-python-equality",
+              "dimension": "boundary",
+              "description": "Use Python rich equality and truth testing on an input-defined ASGI message type subclass when deciding whether an HTTP response start has been sent. Pinned source: starlette/middleware/errors.py:156-161.",
               "lanes": [
                 "parity"
               ],
@@ -15722,7 +15761,7 @@
             {
               "id": "starlette.middleware.sessions.SessionMiddleware.session-workflow.non-http-pass-through",
               "dimension": "boundary",
-              "description": "Forward a lifespan scope and its input-defined startup/shutdown events to the downstream ASGI application without adding session state or changing event order. Upstream: starlette/middleware/sessions.py:39-42.",
+              "description": "Forward a non-HTTP/non-WebSocket scope and its input-defined ASGI events to the downstream application without adding session state or changing event order. Upstream: starlette/middleware/sessions.py:39-42.",
               "lanes": [
                 "parity"
               ],
@@ -22979,7 +23018,8 @@
                   "starlette.responses.StreamingResponse.asgi-call.websocket-scope-background",
                   "starlette.responses.StreamingResponse.asgi-call.client-disconnect-final-send-oserror",
                   "starlette.responses.StreamingResponse.asgi-call.send-backpressure",
-                  "starlette.responses.StreamingResponse.asgi-call.caller-cancellation-during-send"
+                  "starlette.responses.StreamingResponse.asgi-call.caller-cancellation-during-send",
+                  "starlette.responses.StreamingResponse.asgi-call.pre-asgi24-caller-cancellation-during-receive"
                 ]
               }
             },
@@ -23085,6 +23125,17 @@
               "id": "starlette.responses.StreamingResponse.asgi-call.caller-cancellation-during-send",
               "dimension": "protocol_variant",
               "description": "Under ASGI 2.4, block the first async-generator body send, cancel the caller awaiting StreamingResponse.__call__, and observe the propagated cancellation, partial event tape, iterator finalization, and that the supplied background callback is skipped. Pinned source: starlette/responses.py:248-283.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.StreamingResponse.asgi-call.pre-asgi24-caller-cancellation-during-receive",
+              "dimension": "protocol_variant",
+              "description": "Under ASGI 2.3, hold the disconnect listener inside the input-defined receive callback while the first async-generator body send is gated. Cancel the outer StreamingResponse.__call__ task after both gates are entered and compare propagated cancellation, listener finalization, iterator finalization, partial ASGI events, and skipped background callback. Pinned source: starlette/responses.py:242-283.",
               "lanes": [
                 "parity"
               ],

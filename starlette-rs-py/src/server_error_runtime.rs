@@ -7,6 +7,7 @@
 
 use std::sync::{Arc, Mutex, MutexGuard};
 
+use pyo3::class::basic::CompareOp;
 use pyo3::class::gc::{PyTraverseError, PyVisit};
 use pyo3::exceptions::{PyAttributeError, PyException, PyRuntimeError, PyStopAsyncIteration};
 use pyo3::prelude::*;
@@ -196,12 +197,16 @@ impl AwaitableStateMachine for ServerErrorSendCall {
     fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
         match input {
             MachineResume::Start if !self.pending => {
-                let message_type = self
-                    .message
-                    .bind(py)
-                    .get_item("type")?
-                    .extract::<String>()?;
-                error_state(&self.state)?.observe_send(&message_type);
+                let message_type = self.message.bind(py).get_item("type")?;
+                // Starlette compares the ASGI message type with Python `==`.
+                // Preserve str-subclass equality and truth-testing behavior at
+                // this boundary instead of reducing the value to its contents.
+                let is_response_start = message_type
+                    .rich_compare("http.response.start", CompareOp::Eq)?
+                    .is_truthy()?;
+                if is_response_start {
+                    error_state(&self.state)?.observe_send("http.response.start");
+                }
                 let awaitable = self.send.bind(py).call1((self.message.bind(py),))?;
                 self.pending = true;
                 Ok(MachineAction::Await(awaitable.unbind()))

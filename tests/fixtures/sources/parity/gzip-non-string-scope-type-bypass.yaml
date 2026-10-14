@@ -1,0 +1,84 @@
+{
+  "schema": "migration-parity/parity-input@55",
+  "cases": [
+    {
+      "case_id": "starlette.middleware.gzip.GZipMiddleware.__call__.non-string-scope-type-bypass",
+      "surface": "starlette.middleware.gzip.GZipMiddleware",
+      "operation": "__call__",
+      "covers": [
+        "starlette.middleware.gzip.GZipMiddleware.construct",
+        "starlette.middleware.gzip.GZipMiddleware.non-http-scope-type-bypass"
+      ],
+      "execution_schedule": [
+        "dispatch"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "steps": [
+        {
+          "step_id": "middleware",
+          "surface": "starlette.middleware.gzip.GZipMiddleware",
+          "operation": "__init__",
+          "receiver": null,
+          "arguments": {
+            "app": {
+              "kind": "literal",
+              "value": {
+                "kind": "asgi-response-sequence",
+                "messages": [
+                  {
+                    "type": "http.response.start",
+                    "status": 200,
+                    "headers_base64_pairs": [
+                      [
+                        "Y29udGVudC10eXBl",
+                        "dGV4dC9wbGFpbg=="
+                      ]
+                    ]
+                  },
+                  {
+                    "type": "http.response.body",
+                    "body_base64": "cGFzc3Rocm91Z2g=",
+                    "more_body": false
+                  }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "step_id": "dispatch",
+          "surface": "starlette.middleware.gzip.GZipMiddleware",
+          "operation": "__call__",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "middleware"
+          },
+          "arguments": {
+            "scope": {
+              "kind": "literal",
+              "value": {
+                "type": 7
+              }
+            },
+            "receive": {
+              "kind": "literal",
+              "value": []
+            },
+            "send": {
+              "kind": "literal",
+              "value": {
+                "kind": "capture-asgi-send"
+              }
+            }
+          }
+        }
+      ],
+      "observations": [
+        "dispatch"
+      ]
+    }
+  ]
+}
