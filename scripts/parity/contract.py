@@ -17245,16 +17245,22 @@ def _validate_testclient_websocket_flow(app_actions: Any) -> str:
     application_query_params_flow = len(actions) == 4 and [
         action.get("operation") for action in actions
     ] == ["observe_query_params", "accept", "send_query_params_json", "close"]
+    scope_bytes_with_query_params_flow = len(actions) == 3 and [
+        action.get("operation") for action in actions
+    ] == ["observe_query_params", "accept", "send_scope_bytes"]
     application_url_flow = len(actions) == 3 and [
         action.get("operation") for action in actions
     ] == ["accept", "send_url_json", "close"]
     if (
         actions[0].get("operation") != "accept"
         and not application_query_params_flow
+        and not scope_bytes_with_query_params_flow
         and not rejected_connection_flow
     ):
         raise ContractError("TestClient WebSocket flow must accept before other actions")
-    if "accept" in operations[1:] and not application_query_params_flow:
+    if "accept" in operations[1:] and not (
+        application_query_params_flow or scope_bytes_with_query_params_flow
+    ):
         raise ContractError("TestClient WebSocket flow may accept only once")
     if (
         len(actions) == 2
@@ -17314,10 +17320,10 @@ def _validate_testclient_websocket_flow(app_actions: Any) -> str:
         return "client-close-then-application-close"
     if len(actions) == 2 and actions[1].get("operation") == "wait_forever":
         return "cancellation"
-    if len(actions) == 2 and [action.get("operation") for action in actions] == [
-        "accept",
-        "send_scope_bytes",
-    ]:
+    if (
+        len(actions) == 2
+        and [action.get("operation") for action in actions] == ["accept", "send_scope_bytes"]
+    ) or scope_bytes_with_query_params_flow:
         return "scope-bytes"
     raise ContractError(
         "TestClient WebSocket flow must model concurrent send/receive or close-triggered cancellation"

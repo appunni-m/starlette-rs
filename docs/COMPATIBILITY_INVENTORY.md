@@ -942,9 +942,6 @@ and the legacy `httpx` TestClient backend.
   not resolve the static distinction. Keep this candidate uncertain unless
   stronger public typing evidence appears; see `docs/api-surface.csv` and Kata
   audit `d2c1`.
-- The WebSocket guide says query parameters are unsupported while a pinned test
-  exercises them; both inputs remain separate in
-  `doc.testclient.websocket-query-params` until the mismatch is reconciled.
 - Jinja2 has no declared minimum version although templating selects between
   context decorator names; see `optional.jinja2-version-compatibility`.
 - The GZip module has a TODO for a future `DEFAULT_EXCLUDED_CONTENT_TYPE`

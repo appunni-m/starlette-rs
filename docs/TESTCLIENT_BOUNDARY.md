@@ -83,6 +83,31 @@ Python branch, loop, `raise`, or `assert` implements TestClient policy. Any
 additional Python-only behavior must have a pinned-source rationale here and
 an input-only oracle comparison before it is accepted.
 
+### WebSocket query parameters and the guide note
+
+The pinned TestClient guide says that `websocket_connect` does not support a
+`params` argument (`docs/testclient.md:209-215`). In the pinned implementation,
+`websocket_connect(url, **kwargs)` forwards those keyword arguments to
+`super().request("GET", url, **kwargs)` (`starlette/testclient.py:656-677`),
+and `tests/test_testclient.py::test_websocket_raw_path_without_params` passes
+`params={"foo": "bar"}` at lines 453-464. The source transport puts the
+request URL's query in WebSocket `scope["query_string"]` and strips the query
+from `scope["raw_path"]` (`starlette/testclient.py:230-266`). The source test
+checks the query-free raw path; it does not inspect the query string or
+`WebSocket.query_params` for that params mapping.
+
+The current compatibility facade forwards `**kwargs` to Rust, which calls
+HTTPX's `Client.request`; Rust projects the resulting URL query and query-free
+raw path into the WebSocket scope (`starlette-rs-py/python/starlette/testclient.py:177-190`,
+`starlette-rs-py/src/testclient_runtime.rs:1606-1647,1969-2034`). The active
+`params-query-raw-path` input now observes `scope.query_string`, the public
+`WebSocket.query_params` mapping, and the raw-path frame from the same
+`params` mapping. This records the source behavior without prescribing an
+expected result; the comparison remains unexecuted until the grouped parity
+phase. The source and target call/projection paths agree, so the guide note is
+tracked as an upstream documentation discrepancy rather than a target behavior
+to emulate.
+
 ## Template objects across the portal boundary
 
 The pinned `tests/test_templates.py` constructs `Jinja2Templates` on the

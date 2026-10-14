@@ -776,6 +776,9 @@
             "operation": "websocket_flow",
             "actions": [
               {
+                "operation": "observe_query_params"
+              },
+              {
                 "operation": "accept"
               },
               {
