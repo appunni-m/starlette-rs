@@ -2114,6 +2114,7 @@ GZIP_REQUIREMENTS = {
     "thread-minimum-size": "starlette.middleware.gzip.GZipMiddleware.thread-minimum-size",
     "pathsend": "starlette.middleware.gzip.GZipMiddleware.pathsend",
     "case-insensitive-header-names": "starlette.middleware.gzip.GZipMiddleware.case-insensitive-header-names",
+    "message-type-python-equality": "starlette.middleware.gzip.GZipMiddleware.message-type-python-equality",
     "non-http-scope-type-bypass": (
         "starlette.middleware.gzip.GZipMiddleware.non-http-scope-type-bypass"
     ),
@@ -24784,6 +24785,13 @@ def _validate_case_payload(
         _validate_lifespan_only_case(case, app_args)
     if is_gzip or is_gzip_responder:
         _validate_gzip_constructor_stimulus(app_args)
+        start_type = app_args["app"]["messages"][0]["type"]
+        if isinstance(start_type, dict) and (
+            is_gzip_responder or case["target_profiles"] != ["python-package-cpython312"]
+        ):
+            raise ContractError(
+                "GZip response-start string-subclass equality cases require the Python package profile"
+            )
     elif is_protocol_middleware:
         _validate_asgi_middleware_constructor(case["surface"], app_args)
         if "constructor_probes" in case:
@@ -39726,8 +39734,27 @@ def _validate_gzip_constructor_stimulus(args: dict[str, Any]) -> None:
     if isinstance(messages[0], dict) and "message_mapping" in messages[0]:
         start_keys.add("message_mapping")
     start = _exact(messages[0], start_keys, "inner ASGI response start")
+    raw_start_type = start["type"]
+    if isinstance(raw_start_type, dict):
+        descriptor = _exact(
+            raw_start_type,
+            {"str_subclass"},
+            "GZipMiddleware response-start type descriptor",
+        )
+        subclass = _exact(
+            descriptor["str_subclass"],
+            {"value", "equal_result"},
+            "GZipMiddleware response-start type str_subclass",
+        )
+        if subclass["value"] != "http.response.start" or type(subclass["equal_result"]) is not bool:
+            raise ContractError(
+                "GZipMiddleware response-start type subclass must define boolean equality for response start"
+            )
+        response_start_type = subclass["value"]
+    else:
+        response_start_type = raw_start_type
     if (
-        start["type"] != "http.response.start"
+        response_start_type != "http.response.start"
         or not isinstance(start["status"], int)
         or isinstance(start["status"], bool)
         or not 100 <= start["status"] <= 599
@@ -39904,6 +39931,8 @@ def _gzip_single_dispatch_semantic_coverage(case: dict[str, Any]) -> set[str]:
     compresslevel_overflows_c_int = compresslevel < c_int_min or compresslevel > c_int_max
     compressible = not content_encoded and not partial_response and not excluded
     coverage = {GZIP_REQUIREMENT_CONSTRUCTION}
+    if isinstance(response_start.get("type"), dict):
+        coverage.add(GZIP_REQUIREMENTS["message-type-python-equality"])
     if any(name != name.lower() for name, _value in [*response_headers, *request_headers]):
         coverage.add(GZIP_REQUIREMENTS["case-insensitive-header-names"])
 

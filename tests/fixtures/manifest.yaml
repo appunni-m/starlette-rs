@@ -381,6 +381,7 @@
       "build/parity/inputs/parity/request-concurrent-body-disconnect-recovery.json",
       "build/parity/inputs/parity/request-stream-after-concurrent-body-completion.json",
       "build/parity/inputs/parity/gzip-middleware.json",
+      "build/parity/inputs/parity/gzip-message-type-python-equality.json",
       "build/parity/inputs/parity/gzip-non-string-scope-type-bypass.json",
       "build/parity/inputs/parity/gzip-python-bigint-threshold.json",
       "build/parity/inputs/parity/gzip-python-bigint-compresslevel.json",
@@ -13846,6 +13847,17 @@
               "id": "starlette.middleware.gzip.GZipMiddleware.mutable-scope-mapping",
               "dimension": "boundary",
               "description": "Pass an input-defined collections.UserDict through GZipMiddleware.__call__ and compare its live mapping-operation trace and selected final scope keys together with the exact emitted ASGI response events. Scope is declared as a mutable mapping. Pinned source: starlette/types.py::Scope; starlette/middleware/gzip.py:60-65.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.gzip.GZipMiddleware.message-type-python-equality",
+              "dimension": "boundary",
+              "description": "Compare Python rich equality for an input-defined string-subclass ASGI response-start type against the pinned GZipMiddleware source. Pinned source: starlette/middleware/gzip.py:94-95.",
               "lanes": [
                 "parity"
               ],

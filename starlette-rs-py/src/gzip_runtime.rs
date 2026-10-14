@@ -277,6 +277,7 @@ struct GzipSendState {
 #[derive(Clone, Copy)]
 enum BufferedFollowup {
     Body,
+    BodyMessage,
     Pathsend,
 }
 
@@ -323,6 +324,12 @@ impl AwaitableStateMachine for GzipSendMessage {
                         GzipSendPending::FinalMessage,
                     )
                 }
+                Some(GzipSendPending::BufferedStart(BufferedFollowup::BodyMessage)) => self
+                    .send_message(
+                        py,
+                        self.message.clone_ref(py),
+                        GzipSendPending::FinalMessage,
+                    ),
                 Some(GzipSendPending::BufferedStart(BufferedFollowup::Pathsend)) => self
                     .send_message(
                         py,
@@ -350,27 +357,27 @@ impl AwaitableStateMachine for GzipSendMessage {
 
 impl GzipSendMessage {
     fn process_message(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
-        let message_type = {
-            let message = self.message.bind(py);
-            message.get_item("type")?.extract::<String>()?
-        };
+        let message_type = self.message.bind(py).get_item("type")?;
 
-        match message_type.as_str() {
-            "http.response.start" => {
-                let message = self.message.bind(py);
-                let status = message.get_item("status")?.extract::<u16>()?;
-                let headers = message.get_item("headers")?.extract::<Vec<GzipHeader>>()?;
-                let responder = self.responder(py);
-                self.state.borrow_mut(py).initial_message = self.message.clone_ref(py);
-                responder.bind(py).call_method1(
-                    "response_start",
-                    (status, gzip_headers_to_python(py, &headers)?),
-                )?;
-                Ok(MachineAction::Complete(py.None()))
-            }
-            "http.response.body" => self.start_body(py),
-            "http.response.pathsend" => self.start_pathsend(py),
-            _ => Ok(MachineAction::Complete(py.None())),
+        // Starlette compares ASGI message types with Python `==`. Preserve
+        // custom str-subclass equality instead of dispatching on its contents.
+        if message_type.eq("http.response.start")? {
+            let message = self.message.bind(py);
+            let status = message.get_item("status")?.extract::<u16>()?;
+            let headers = message.get_item("headers")?.extract::<Vec<GzipHeader>>()?;
+            let responder = self.responder(py);
+            self.state.borrow_mut(py).initial_message = self.message.clone_ref(py);
+            responder.bind(py).call_method1(
+                "response_start",
+                (status, gzip_headers_to_python(py, &headers)?),
+            )?;
+            Ok(MachineAction::Complete(py.None()))
+        } else if message_type.eq("http.response.body")? {
+            self.start_body(py)
+        } else if message_type.eq("http.response.pathsend")? {
+            self.start_pathsend(py)
+        } else {
+            Ok(MachineAction::Complete(py.None()))
         }
     }
 
@@ -419,6 +426,14 @@ impl GzipSendMessage {
         }
 
         self.replace_body_if_changed(py, &output_body)?;
+        let initial_message = self.initial_message(py);
+        if initial_message.bind(py).len()? == 0 {
+            return self.send_message(
+                py,
+                initial_message,
+                GzipSendPending::BufferedStart(BufferedFollowup::BodyMessage),
+            );
+        }
         self.send_message(
             py,
             self.message.clone_ref(py),
