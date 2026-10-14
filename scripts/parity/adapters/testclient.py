@@ -2743,6 +2743,41 @@ def _run_starlette_lifespan_backend_probe_case(case: dict[str, Any]) -> dict[str
     }
 
 
+def _testclient_with_method_overrides(
+    testclient_type: type[Any],
+    case: dict[str, Any],
+    method_trace: list[dict[str, str]],
+) -> type[Any]:
+    overrides = case.get("client_method_overrides")
+    if overrides is None:
+        return testclient_type
+
+    class InputOverrideTestClient(testclient_type):
+        pass
+
+    def traced_method(method_name: str) -> Any:
+        async def override(self: Any) -> None:
+            method_trace.append({"method": method_name, "phase": "call"})
+            try:
+                await getattr(super(InputOverrideTestClient, self), method_name)()
+            except BaseException as error:
+                method_trace.append(
+                    {
+                        "method": method_name,
+                        "phase": "raise",
+                        "exception_type": f"{type(error).__module__}.{type(error).__qualname__}",
+                    }
+                )
+                raise
+            method_trace.append({"method": method_name, "phase": "return"})
+
+        return override
+
+    for method_name in overrides:
+        setattr(InputOverrideTestClient, method_name, traced_method(method_name))
+    return InputOverrideTestClient
+
+
 def run_testclient_lifespan_case(case: dict[str, Any]) -> dict[str, Any]:
     if case["asgi_app"]["kind"] == "starlette-lifespan-backend-probe":
         return _run_starlette_lifespan_backend_probe_case(case)
@@ -2815,7 +2850,9 @@ def run_testclient_lifespan_case(case: dict[str, Any]) -> dict[str, Any]:
             http_send_messages.append(_safe(message))
             await send(message)
 
-    client = TestClient(
+    client_method_trace: list[dict[str, str]] = []
+    client_type = _testclient_with_method_overrides(TestClient, case, client_method_trace)
+    client = client_type(
         app,
         base_url=settings["base_url"],
         raise_server_exceptions=settings["raise_server_exceptions"],
@@ -2865,7 +2902,7 @@ def run_testclient_lifespan_case(case: dict[str, Any]) -> dict[str, Any]:
     portal_exit_restore()
     client.close()
     result = {
-        "lifespan_scope": lifespan_scope[0],
+        "lifespan_scope": lifespan_scope[0] if lifespan_scope else None,
         "lifespan_receive_messages": lifespan_receive_messages,
         "lifespan_send_messages": lifespan_send_messages,
         "http_scopes": http_scopes,
@@ -2879,6 +2916,8 @@ def run_testclient_lifespan_case(case: dict[str, Any]) -> dict[str, Any]:
         "action_errors": action_errors,
         "loop_relations": loop_relations,
     }
+    if "client_method_overrides" in case:
+        result["client_method_trace"] = client_method_trace
     return {
         "case_id": case["case_id"],
         "status": "completed",

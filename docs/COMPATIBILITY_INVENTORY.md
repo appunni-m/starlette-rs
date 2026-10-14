@@ -1,5 +1,11 @@
 # Compatibility inventory
 
+TestClient's managed lifespan now resolves the client's bound `lifespan`,
+`wait_startup`, and `wait_shutdown` methods through the AnyIO portal, matching
+the pinned source's Python subclass dispatch. Input-only cases also observe
+record-and-delegate overrides and the `AttributeError` from `__exit__` before
+`__enter__`; both comparisons remain deferred until the grouped parity phase.
+
 A new Request.state input distinguishes the return of `scope.setdefault("state", {})` from the subsequent `scope["state"]` read using an input-defined custom mapping; Rust preserves the pinned call/read ordering. A TemplateResponse input also checks that Rust resolves `HTMLResponse.__call__` after awaiting the optional debug send callback. Both comparisons remain deferred until the full parity phase.
 
 A direct Response input supplies an explicit Content-Type header alongside `media_type="text/plain"`; the comparison observes constructor header precedence and automatic Content-Length and remains deferred to full parity.

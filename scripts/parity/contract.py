@@ -449,6 +449,10 @@ TESTCLIENT_LIFESPAN_REQUIREMENTS = {
     "task_runvar_context": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.same-task-and-runvar-context-continuity",
     "backend_loop_selection": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.backend-loop-selection",
     "reentrant_context_entry": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.reentrant-context-entry",
+    "python_subclass_method_dispatch": (
+        f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.python-subclass-method-dispatch"
+    ),
+    "exit_before_enter": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.exit-before-enter",
 }
 ASGI_LIFESPAN_SCOPE_STATE_REQUIRED_REQUIREMENT = "starlette.asgi.lifespan.scope-state-required"
 ASGI_LIFESPAN_CLASSMETHOD_BINDING_REQUIREMENT = (
@@ -3017,6 +3021,11 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                             "request_results",
                         }
                     )
+                    testclient_lifespan_client_method_trace = (
+                        condition["input_key"] == "client_method_overrides"
+                        and key == TESTCLIENT_LIFESPAN_OPERATION_KEY
+                        and observation["path"] == "client_method_trace"
+                    )
                     if (
                         not response_header_probe
                         and not file_response_scheduling_probe
@@ -3046,6 +3055,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         and not middleware_asgi_workflow
                         and not testclient_lifespan_other_app_kind
                         and not testclient_lifespan_backend_probe
+                        and not testclient_lifespan_client_method_trace
                     ):
                         raise ContractError(
                             f"{octx}.condition is not a supported input-gated observation"
@@ -20469,6 +20479,7 @@ def _validate_testclient_lifespan_case(case: dict[str, Any]) -> None:
         ["request", "enter", "request", "request", "exit", "request"],
         ["enter"],
         ["enter", "exit"],
+        ["exit"],
         ["enter", "request", "exit"],
         ["enter", "request", "request", "websocket", "exit"],
         ["enter", "request", "request", "exit"],
@@ -20487,6 +20498,18 @@ def _validate_testclient_lifespan_case(case: dict[str, Any]) -> None:
         ],
     ):
         raise ContractError("TestClient lifespan actions do not match a declared lifecycle path")
+    if "client_method_overrides" in case:
+        method_overrides = case["client_method_overrides"]
+        if not isinstance(method_overrides, dict) or not method_overrides:
+            raise ContractError("TestClient method overrides must be a nonempty mapping")
+        if set(method_overrides) != {"lifespan", "wait_startup", "wait_shutdown"}:
+            raise ContractError(
+                "TestClient method overrides must cover all public lifespan methods"
+            )
+        if any(value != "record-and-delegate" for value in method_overrides.values()):
+            raise ContractError("TestClient lifespan method overrides must record and delegate")
+        if client_operations != ["enter", "exit"]:
+            raise ContractError("TestClient lifecycle method overrides require one managed cycle")
     for index, operation in enumerate(client_operations):
         if operation not in {"request", "websocket"}:
             _exact(client_actions[index], {"operation"}, "TestClient context action")
@@ -20526,6 +20549,10 @@ def _validate_testclient_lifespan_case(case: dict[str, Any]) -> None:
             raise ContractError("TestClient WebSocket subprotocols must be strings")
 
     asgi_app_value = case["asgi_app"]
+    if "client_method_overrides" in case and (
+        not isinstance(asgi_app_value, dict) or asgi_app_value.get("kind") != "asgi3"
+    ):
+        raise ContractError("TestClient public method overrides require an ASGI3 app")
     if (
         isinstance(asgi_app_value, dict)
         and asgi_app_value.get("kind") == "starlette-lifespan-backend-probe"
@@ -21283,7 +21310,9 @@ def _validate_testclient_lifespan_case(case: dict[str, Any]) -> None:
     lifespan_operations = [
         action.get("operation") for action in lifespan_actions if isinstance(action, dict)
     ]
-    if lifespan_operations == ["receive", "send", "receive", "send"]:
+    if lifespan_operations == [] and client_operations == ["exit"]:
+        pass
+    elif lifespan_operations == ["receive", "send", "receive", "send"]:
         expected_lifespan_messages = [
             "lifespan.startup.complete",
             "lifespan.shutdown.complete",
@@ -21371,6 +21400,19 @@ def _validate_testclient_lifespan_case(case: dict[str, Any]) -> None:
         raise ContractError("TestClient lifespan app actions do not match a declared protocol path")
 
     if (client_operations, lifespan_operations) == (
+        ["enter", "exit"],
+        ["receive", "send", "receive", "send"],
+    ):
+        if "client_method_overrides" in case:
+            expected_covers = {TESTCLIENT_LIFESPAN_REQUIREMENTS["python_subclass_method_dispatch"]}
+        else:
+            expected_covers = {
+                TESTCLIENT_LIFESPAN_REQUIREMENTS["startup"],
+                TESTCLIENT_LIFESPAN_REQUIREMENTS["shutdown"],
+            }
+    elif (client_operations, lifespan_operations) == (["exit"], []):
+        expected_covers = {TESTCLIENT_LIFESPAN_REQUIREMENTS["exit_before_enter"]}
+    elif (client_operations, lifespan_operations) == (
         ["request", "enter", "request", "request", "exit", "request"],
         ["receive", "send", "receive", "send"],
     ):
@@ -21393,6 +21435,8 @@ def _validate_testclient_lifespan_case(case: dict[str, Any]) -> None:
             TESTCLIENT_LIFESPAN_REQUIREMENTS["task_runvar_context"],
             TESTCLIENT_LIFESPAN_REQUIREMENTS["backend_loop_selection"],
             TESTCLIENT_LIFESPAN_REQUIREMENTS["reentrant_context_entry"],
+            TESTCLIENT_LIFESPAN_REQUIREMENTS["python_subclass_method_dispatch"],
+            TESTCLIENT_LIFESPAN_REQUIREMENTS["exit_before_enter"],
         }
     elif (client_operations, lifespan_operations) == (["enter"], ["receive", "raise"]):
         expected_covers = {TESTCLIENT_LIFESPAN_REQUIREMENTS["startup_error"]}
@@ -23408,6 +23452,8 @@ def _validate_case_payload(
         and "environment" in case
     ):
         expected_case_keys = expected_case_keys | {"environment"}
+    if is_testclient_lifespan and isinstance(case, dict) and "client_method_overrides" in case:
+        expected_case_keys = expected_case_keys | {"client_method_overrides"}
     if is_upload_file:
         expected_case_keys = (CASE_KEYS - {"steps", "execution_schedule"}) | {
             "scenarios",

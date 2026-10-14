@@ -29,6 +29,18 @@ in the compatibility backlog. The public HTTPX2 generator-content path is
 covered separately: `Request.read()` aggregates its chunks, and the ASGI
 transport must not consume that generator before the app calls `receive`.
 
+The managed lifespan path also resolves `self.lifespan` and
+`self.wait_startup` while entering, then resolves `self.wait_shutdown` when
+the exit callback runs (`testclient.py:679-749`). Rust must invoke those bound
+Python methods through the selected AnyIO portal so a `TestClient` subclass can
+override them and retain normal Python method lookup. Rust still owns portal and
+stream construction, lifecycle state, handshake outcomes, and cleanup; the
+facade methods only await their Rust-backed operations. The input-only
+`testclient-lifespan-context.yaml` case supplies input-defined record-and-
+delegate overrides for all three methods, and a companion case records the
+source `AttributeError` when `__exit__` is called before `__enter__`. Both
+comparisons remain deferred to the grouped parity phase.
+
 ## Source-backed Python boundary
 
 The source client subclasses its selected HTTPX implementation, uses that

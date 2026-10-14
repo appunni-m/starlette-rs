@@ -1549,6 +1549,135 @@
           ]
         }
       }
+    },
+    {
+      "case_id": "starlette.testclient.TestClient.lifespan-context.subclass-method-dispatch",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "lifespan-context",
+      "covers": [
+        "starlette.testclient.TestClient.lifespan-context.python-subclass-method-dispatch"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "observations": [
+        "lifespan-context"
+      ],
+      "client_method_overrides": {
+        "lifespan": "record-and-delegate",
+        "wait_startup": "record-and-delegate",
+        "wait_shutdown": "record-and-delegate"
+      },
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": [
+          "testclient",
+          50000
+        ],
+        "headers": [],
+        "backend": "asyncio",
+        "backend_options": {}
+      },
+      "client_actions": [
+        {
+          "operation": "enter"
+        },
+        {
+          "operation": "exit"
+        }
+      ],
+      "asgi_app": {
+        "kind": "asgi3",
+        "scope_fields": [
+          "type"
+        ],
+        "loop_relations": [
+          "active_lifespan",
+          "previous_http_request"
+        ],
+        "lifespan_actions": [
+          {
+            "operation": "receive"
+          },
+          {
+            "operation": "send",
+            "message": {
+              "type": "lifespan.startup.complete"
+            }
+          },
+          {
+            "operation": "receive"
+          },
+          {
+            "operation": "send",
+            "message": {
+              "type": "lifespan.shutdown.complete"
+            }
+          }
+        ],
+        "http": {
+          "receive_count": 0,
+          "messages": []
+        }
+      }
+    },
+    {
+      "case_id": "starlette.testclient.TestClient.lifespan-context.exit-before-enter",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "lifespan-context",
+      "covers": [
+        "starlette.testclient.TestClient.lifespan-context.exit-before-enter"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "observations": [
+        "lifespan-context"
+      ],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": [
+          "testclient",
+          50000
+        ],
+        "headers": [],
+        "backend": "asyncio",
+        "backend_options": {}
+      },
+      "client_actions": [
+        {
+          "operation": "exit"
+        }
+      ],
+      "asgi_app": {
+        "kind": "asgi3",
+        "scope_fields": [
+          "type"
+        ],
+        "loop_relations": [
+          "active_lifespan",
+          "previous_http_request"
+        ],
+        "lifespan_actions": [],
+        "http": {
+          "receive_count": 0,
+          "messages": []
+        }
+      }
     }
   ]
 }

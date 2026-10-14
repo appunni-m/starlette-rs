@@ -178,6 +178,7 @@ pub(crate) struct PyTestClientTransport {
     client: Py<PyAny>,
     app_state: Py<PyDict>,
     lifespan: Option<TestClientLifespan>,
+    context_entered: bool,
 }
 
 #[derive(Default)]
@@ -412,19 +413,35 @@ impl AwaitableStateMachine for LifespanHandshakeMachine {
 }
 
 impl TestClientLifespan {
-    fn start(
-        py: Python<'_>,
-        app: Py<PyAny>,
-        runner: Py<PyAny>,
-        app_state: Py<PyDict>,
-        backend: &str,
-        backend_options: &Py<PyDict>,
-    ) -> PyResult<Self> {
+    fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
+        if let Some(value) = self.portal_manager.as_ref() {
+            visit.call(value)?;
+        }
+        if let Some(value) = self.portal.as_ref() {
+            visit.call(value)?;
+        }
+        if let Some(value) = self.client_to_app_send.as_ref() {
+            visit.call(value)?;
+        }
+        if let Some(value) = self.app_to_client_receive.as_ref() {
+            visit.call(value)?;
+        }
+        if let Some(value) = self.app_to_client_send.as_ref() {
+            visit.call(value)?;
+        }
+        if let Some(value) = self.client_to_app_receive.as_ref() {
+            visit.call(value)?;
+        }
+        if let Some(value) = self.task.as_ref() {
+            visit.call(value)?;
+        }
+        Ok(())
+    }
+
+    fn start(py: Python<'_>, backend: &str, backend_options: &Py<PyDict>) -> PyResult<Self> {
         let mut lifespan = Self::default();
-        if let Err(error) =
-            lifespan.start_inner(py, app, runner, app_state, backend, backend_options)
-        {
-            return match lifespan.cleanup(py, false, Some(error.clone_ref(py))) {
+        if let Err(error) = lifespan.start_inner(py, backend, backend_options) {
+            return match lifespan.cleanup(py, Some(error.clone_ref(py))) {
                 Ok(()) => Err(error),
                 Err(cleanup_error) => Err(cleanup_error),
             };
@@ -435,9 +452,6 @@ impl TestClientLifespan {
     fn start_inner(
         &mut self,
         py: Python<'_>,
-        app: Py<PyAny>,
-        runner: Py<PyAny>,
-        app_state: Py<PyDict>,
         backend: &str,
         backend_options: &Py<PyDict>,
     ) -> PyResult<()> {
@@ -468,103 +482,6 @@ impl TestClientLifespan {
         let app_to_client = stream_factory.call1((capacity,))?.cast_into::<PyTuple>()?;
         self.app_to_client_send = Some(app_to_client.get_item(0)?.unbind());
         self.app_to_client_receive = Some(app_to_client.get_item(1)?.unbind());
-
-        let scope = PyDict::new(py);
-        scope.set_item("type", "lifespan")?;
-        scope.set_item("state", app_state.bind(py))?;
-        let receive = self
-            .client_to_app_receive
-            .as_ref()
-            .ok_or_else(|| {
-                PyRuntimeError::new_err("TestClient lifespan receive stream is unavailable")
-            })?
-            .bind(py)
-            .getattr("receive")?
-            .unbind();
-        let send = self
-            .app_to_client_send
-            .as_ref()
-            .ok_or_else(|| {
-                PyRuntimeError::new_err("TestClient lifespan send stream is unavailable")
-            })?
-            .bind(py)
-            .getattr("send")?
-            .unbind();
-        let completion_send = self
-            .app_to_client_send
-            .as_ref()
-            .ok_or_else(|| {
-                PyRuntimeError::new_err("TestClient lifespan completion stream is unavailable")
-            })?
-            .clone_ref(py);
-        let task_callable = Py::new(
-            py,
-            LifespanTaskCallable {
-                runner,
-                app,
-                scope: scope.unbind(),
-                receive,
-                send,
-                completion_send,
-            },
-        )?;
-        let portal = self
-            .portal
-            .as_ref()
-            .ok_or_else(|| PyRuntimeError::new_err("TestClient portal is unavailable"))?;
-        let task = portal
-            .bind(py)
-            .call_method1("start_task_soon", (task_callable,))?;
-        self.task = Some(task.unbind());
-        self.handshake(py, true)
-    }
-
-    fn handshake(&self, py: Python<'_>, startup: bool) -> PyResult<()> {
-        let portal = self
-            .portal
-            .as_ref()
-            .ok_or_else(|| PyRuntimeError::new_err("TestClient portal is unavailable"))?;
-        let (event, complete, failed) = if startup {
-            (
-                "lifespan.startup",
-                "lifespan.startup.complete",
-                "lifespan.startup.failed",
-            )
-        } else {
-            (
-                "lifespan.shutdown",
-                "lifespan.shutdown.complete",
-                "lifespan.shutdown.failed",
-            )
-        };
-        let send_stream = self.client_to_app_send.as_ref().ok_or_else(|| {
-            PyRuntimeError::new_err("TestClient lifespan send stream is unavailable")
-        })?;
-        let receive_stream = self.app_to_client_receive.as_ref().ok_or_else(|| {
-            PyRuntimeError::new_err("TestClient lifespan receive stream is unavailable")
-        })?;
-        let message = PyDict::new(py);
-        message.set_item("type", event)?;
-        let send = send_stream.bind(py).getattr("send")?;
-        portal.bind(py).call_method1("call", (send, message))?;
-
-        let response = self.receive_lifespan_message(py, portal.bind(py), receive_stream)?;
-        let response_type = response.bind(py).get_item("type")?;
-        // The pinned client uses tuple membership on the original Python value.
-        // Keep its equality hooks and any comparison exception observable.
-        let accepted_types = PyTuple::new(py, [complete, failed])?;
-        let accepted = accepted_types
-            .call_method1("__contains__", (&response_type,))?
-            .is_truthy()?;
-        if !accepted {
-            return Err(PyAssertionError::new_err(()));
-        }
-        if response_type
-            .rich_compare(failed, CompareOp::Eq)?
-            .is_truthy()?
-        {
-            let _ = self.receive_lifespan_message(py, portal.bind(py), receive_stream)?;
-        }
         Ok(())
     }
 
@@ -592,36 +509,7 @@ impl TestClientLifespan {
         )
     }
 
-    fn receive_lifespan_message(
-        &self,
-        py: Python<'_>,
-        portal: &Bound<'_, PyAny>,
-        receive_stream: &Py<PyAny>,
-    ) -> PyResult<Py<PyAny>> {
-        let receive = receive_stream.bind(py).getattr("receive")?;
-        let message = portal.call_method1("call", (receive,))?;
-        if message.is_none() {
-            self.task
-                .as_ref()
-                .ok_or_else(|| PyRuntimeError::new_err("TestClient lifespan task is unavailable"))?
-                .bind(py)
-                .call_method0("result")?;
-        }
-        Ok(message.unbind())
-    }
-
-    fn cleanup(
-        &mut self,
-        py: Python<'_>,
-        wait_shutdown: bool,
-        mut primary_error: Option<PyErr>,
-    ) -> PyResult<()> {
-        if wait_shutdown && self.portal.is_some() {
-            if let Err(error) = self.handshake(py, false) {
-                replace_cleanup_error(py, &mut primary_error, error)?;
-            }
-        }
-
+    fn cleanup(&mut self, py: Python<'_>, mut primary_error: Option<PyErr>) -> PyResult<()> {
         // ExitStack closes the four streams in reverse registration order.
         for stream in [
             self.app_to_client_receive.take(),
@@ -659,29 +547,44 @@ impl TestClientLifespan {
 }
 
 impl PyTestClientTransport {
-    fn start_lifespan(&mut self, py: Python<'_>) -> PyResult<()> {
-        let runner = if is_asgi3(py, self.app.bind(py))? {
-            self.asgi3_runner.clone_ref(py)
-        } else {
-            self.asgi2_runner.clone_ref(py)
+    fn start_lifespan(&mut self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        let mut lifespan = TestClientLifespan::start(py, &self.backend, &self.backend_options)?;
+        let portal = match lifespan.portal.as_ref() {
+            Some(portal) => portal.clone_ref(py),
+            None => {
+                let error = PyRuntimeError::new_err("TestClient portal is unavailable");
+                return match lifespan.cleanup(py, Some(error.clone_ref(py))) {
+                    Ok(()) => Err(error),
+                    Err(cleanup_error) => Err(cleanup_error),
+                };
+            }
         };
-        let lifespan = TestClientLifespan::start(
-            py,
-            self.app.clone_ref(py),
-            runner,
-            self.app_state.clone_ref(py),
-            &self.backend,
-            &self.backend_options,
-        )?;
         self.lifespan = Some(lifespan);
-        Ok(())
+        Ok(portal)
     }
 
-    fn stop_lifespan(&mut self, py: Python<'_>) -> PyResult<()> {
-        match self.lifespan.take() {
-            Some(mut lifespan) => lifespan.cleanup(py, true, None),
-            None => Ok(()),
-        }
+    fn set_lifespan_task(&mut self, task: Py<PyAny>) -> PyResult<()> {
+        let lifespan = self
+            .lifespan
+            .as_mut()
+            .ok_or_else(|| PyRuntimeError::new_err("TestClient lifespan is unavailable"))?;
+        lifespan.task = Some(task);
+        Ok(())
+    }
+}
+
+fn cleanup_failed_testclient_enter(
+    slf: &Py<PyTestClientTransport>,
+    py: Python<'_>,
+    primary_error: PyErr,
+) -> PyErr {
+    let lifespan = slf.borrow_mut(py).lifespan.take();
+    match lifespan {
+        Some(mut lifespan) => match lifespan.cleanup(py, Some(primary_error.clone_ref(py))) {
+            Ok(()) => primary_error,
+            Err(cleanup_error) => cleanup_error,
+        },
+        None => primary_error,
     }
 }
 
@@ -1412,6 +1315,9 @@ impl PyTestClientTransport {
         visit.call(&self.backend_options)?;
         visit.call(&self.client)?;
         visit.call(&self.app_state)?;
+        if let Some(lifespan) = self.lifespan.as_ref() {
+            lifespan.traverse(&visit)?;
+        }
         Ok(())
     }
 
@@ -1421,6 +1327,7 @@ impl PyTestClientTransport {
         self.asgi3_runner = py.None();
         self.asgi2_runner = py.None();
         self.client = py.None();
+        self.lifespan = None;
     }
 
     #[new]
@@ -1469,18 +1376,74 @@ impl PyTestClientTransport {
             client,
             app_state: PyDict::new(py).unbind(),
             lifespan: None,
+            context_entered: false,
         })
     }
 
     fn __enter__(slf: Py<Self>, py: Python<'_>, client: Py<PyAny>) -> PyResult<Py<PyAny>> {
-        slf.borrow_mut(py).start_lifespan(py)?;
+        let portal = slf.borrow_mut(py).start_lifespan(py)?;
+        let setup_result = (|| {
+            let lifespan = client.bind(py).getattr("lifespan")?;
+            let task = portal
+                .bind(py)
+                .call_method1("start_task_soon", (lifespan,))?;
+            slf.borrow_mut(py).set_lifespan_task(task.unbind())?;
+
+            let wait_startup = client.bind(py).getattr("wait_startup")?;
+            portal.bind(py).call_method1("call", (wait_startup,))?;
+            Ok(())
+        })();
+        if let Err(error) = setup_result {
+            return Err(cleanup_failed_testclient_enter(&slf, py, error));
+        }
+        slf.borrow_mut(py).context_entered = true;
         Ok(client)
     }
 
-    #[pyo3(signature = (*args))]
-    fn __exit__(slf: Py<Self>, py: Python<'_>, args: &Bound<'_, PyTuple>) -> PyResult<()> {
+    #[pyo3(signature = (client, *args))]
+    fn __exit__(
+        slf: Py<Self>,
+        py: Python<'_>,
+        client: Py<PyAny>,
+        args: &Bound<'_, PyTuple>,
+    ) -> PyResult<()> {
         let _ = args;
-        slf.borrow_mut(py).stop_lifespan(py)
+        let portal = slf
+            .borrow(py)
+            .lifespan
+            .as_ref()
+            .and_then(|lifespan| lifespan.portal.as_ref())
+            .map(|portal| portal.clone_ref(py));
+        let mut primary_error = None;
+        if let Some(portal) = portal {
+            let shutdown_result =
+                client
+                    .bind(py)
+                    .getattr("wait_shutdown")
+                    .and_then(|wait_shutdown| {
+                        portal
+                            .bind(py)
+                            .call_method1("call", (wait_shutdown,))
+                            .map(|_| ())
+                    });
+            if let Err(error) = shutdown_result {
+                primary_error = Some(error);
+            }
+        }
+
+        let lifespan = { slf.borrow_mut(py).lifespan.take() };
+        match lifespan {
+            Some(mut lifespan) => lifespan.cleanup(py, primary_error),
+            None => match primary_error {
+                Some(error) => Err(error),
+                None if slf.borrow(py).context_entered => Ok(()),
+                None => client
+                    .bind(py)
+                    .getattr("exit_stack")?
+                    .call_method0("close")
+                    .map(|_| ()),
+            },
+        }
     }
 
     fn lifespan(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {

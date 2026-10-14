@@ -139,7 +139,7 @@ class TestClient(_httpx.Client):
         return self._testclient_runtime.__enter__(self)
 
     def __exit__(self, *args: Any) -> None:
-        return self._testclient_runtime.__exit__(*args)
+        return self._testclient_runtime.__exit__(self, *args)
 
     async def lifespan(self) -> None:
         await self._testclient_runtime.lifespan()

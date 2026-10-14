@@ -33625,7 +33625,8 @@
                 {
                   "path": "lifespan_scope",
                   "value_types": [
-                    "record"
+                    "record",
+                    "null"
                   ],
                   "comparison": {
                     "kind": "exact"
@@ -33779,6 +33780,18 @@
                   ],
                   "comparison": {
                     "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "client_method_trace",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  },
+                  "condition": {
+                    "input_key": "client_method_overrides"
                   }
                 },
                 {
@@ -34250,6 +34263,36 @@
               "id": "starlette.testclient.TestClient.lifespan-context.reentrant-context-entry",
               "dimension": "boundary",
               "description": "Enter one TestClient context twice before exiting twice and compare the live lifespan handshakes and context-manager behavior. Pinned source: starlette/testclient.py::TestClient.__enter__ and TestClient.__exit__.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.lifespan-context.python-subclass-method-dispatch",
+              "dimension": "boundary",
+              "description": "TestClient context entry and exit dynamically dispatch to subclass overrides of lifespan, wait_startup, and wait_shutdown in lifecycle order. Pinned source: starlette/testclient.py:679-749.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.lifespan-context.exit-before-enter",
+              "dimension": "error_path",
+              "description": "Calling TestClient.__exit__ before TestClient.__enter__ follows the public method path and raises AttributeError because exit_stack has not been created. Pinned source: starlette/testclient.py:708-709.",
               "lanes": [
                 "parity"
               ],
