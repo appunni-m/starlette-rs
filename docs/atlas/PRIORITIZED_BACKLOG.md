@@ -9,9 +9,9 @@ incomplete.
 ## Current parity snapshot
 
 Implementation remains the active phase for the full Starlette replacement.
-The working-tree `parity-input@55` contract indexes 2,453 cases across 391
+The working-tree `parity-input@55` contract indexes 2,470 cases across 403
 parity inputs, two benchmark inputs, 150 Starlette compatibility operations,
-13 native operations, and 1,350 parity requirements (1,308 compatibility and
+13 native operations, and 1,361 parity requirements (1,319 compatibility and
 42 native). The latest batch adds application attribute-read ordering, non-string scope dispatch in AuthenticationMiddleware, SessionMiddleware, and GZipMiddleware, ServerErrorMiddleware message-type equality, and pre-ASGI-2.4 StreamingResponse caller cancellation. These six new input-only comparisons remain unexecuted until the grouped full parity phase. The latest batch adds a Rust-backed StaticFiles single-digit
 time-field normalization case, a Jinja caller-supplied `url_for` global case,
 and an AuthenticationMiddleware scope case preserving present `None` values
@@ -21,7 +21,7 @@ template processor exception-before-lookup
 case has its own derived parity requirement; both template processor
 comparisons remain unexecuted until full parity.
 The latest static inventory reports 999/999 API candidates dispositioned and
-856 source rows: 802 input mappings, 54 source-backed `not_applicable` rows,
+861 source rows: 807 input mappings, 54 source-backed `not_applicable` rows,
 and zero fixture backlog. A new `iterate_in_threadpool` input observes
 empty-iterable exhaustion alongside its async iterator protocol outcomes; a
 new `run_in_threadpool` cancellation input observes whether an AnyIO cancel

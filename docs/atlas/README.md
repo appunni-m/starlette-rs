@@ -25,9 +25,9 @@ with no conventional Python or Rust unit-test suite.
 ## Current implementation status
 
 Implementation remains active for the full Starlette 1.6.0 replacement. The
-working-tree `parity-input@55` contract indexes 2,453 cases across 391
+working-tree `parity-input@55` contract indexes 2,470 cases across 403
 parity input files and two benchmark files, with 150 Starlette compatibility
-operations, 13 native operations, and 1,350 parity requirements (1,308
+operations, 13 native operations, and 1,361 parity requirements (1,319
 compatibility and 42 native). The contract remains a slice and claims zero
 parity passes. The latest batch adds Python membership/equality dispatch for non-string ASGI scope types in authentication, sessions, and GZip middleware, ServerErrorMiddleware message-type equality, plus application middleware lookup-order and pre-ASGI-2.4 cancellation inputs; all remain deferred to grouped parity. Commit `63271da0` adds input-only cases for mutable Request and
 WebSocket scope identity, WSGI query-string ASCII decoding and Latin-1 header
@@ -43,7 +43,7 @@ parity. Rust now returns the completed no-op for thread-pool iterator
 `ValueError`, and subsequent exhaustion, with comparison deferred until full
 parity. `make contract-check` passed on the current input set; the
 static source-inventory check found 999 dispositioned API candidates and
-856 source rows: 802 input mappings, 54 reasoned `not_applicable` rows, and
+861 source rows: 807 input mappings, 54 reasoned `not_applicable` rows, and
 zero backlog. The Request.client typing consumer and ordered-overlap plus
 synchronous processor-exception-before-template-lookup template inputs are
 authored; their comparisons remain deferred to the full parity phase.
@@ -263,8 +263,8 @@ selector. A related route or response example is not enough to claim coverage
 for a different public invocation shape.
 
 The crosswalk maps each source behavior only when an input directly stimulates
-and observes it. The checked-in generated `coverage-matrix.csv` has 856 source rows:
-802 `existing` mappings, zero `backlog` rows, and 54 reasoned `not_applicable`
+and observes it. The checked-in generated `coverage-matrix.csv` has 861 source rows:
+807 `existing` mappings, zero `backlog` rows, and 54 reasoned `not_applicable`
 rows. It maps exception, registered-handler, and direct
 `ServerErrorMiddleware` custom-handler behavior to input-only fixtures; the
 matrix is not a one-to-one index of active parity

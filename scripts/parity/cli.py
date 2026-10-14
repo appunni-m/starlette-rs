@@ -32,6 +32,7 @@ from .contract import (
 )
 from .envs import prepare_environments, validate_runtime_lock
 from .runner import ROOT, run_parity
+from .scope_completeness import validate_full_scope_completeness
 from .upstream_benchmark import UPSTREAM_RESULT_RELATIVE, run_upstream_benchmark
 
 MANIFEST_RELATIVE = Path("tests/fixtures/manifest.yaml")
@@ -77,6 +78,7 @@ def _parser() -> argparse.ArgumentParser:
     )
     inventory.add_argument("--root", type=Path, default=ROOT)
     inventory.add_argument("--manifest", type=Path, default=None)
+    inventory.add_argument("--upstream", type=Path, default=None)
 
     for command_name, help_text in (
         ("run", "execute the isolated source oracle and target adapters"),
@@ -275,8 +277,8 @@ def validate_repository(
 ) -> dict[str, Any]:
     root = root.resolve()
     manifest_path = _manifest_path(root, manifest_override)
-    report = validate_contract_repository(root, manifest_path)
     upstream = _upstream_path(upstream_override)
+    report = validate_contract_repository(root, manifest_path, upstream)
     commit, package = _source_identity(upstream)
     runtime_lock_sha256 = validate_runtime_lock(root, upstream)
     return {
@@ -289,7 +291,7 @@ def validate_repository(
 
 
 def validate_contract_repository(
-    root: Path, manifest_override: Path | None = None
+    root: Path, manifest_override: Path | None = None, upstream: Path | None = None
 ) -> dict[str, Any]:
     """Validate the repository-local parity contract without an upstream checkout."""
     root = root.resolve()
@@ -299,6 +301,9 @@ def validate_contract_repository(
     metadata = load_api_metadata(root)
     validate_api_sources(manifest, metadata)
     indexed_inputs, cases = validate_inputs(root, manifest)
+    scope_completeness = validate_full_scope_completeness(
+        root, manifest, indexed_inputs, cases, upstream
+    )
     benchmark_inputs = validate_benchmark_inputs(root, manifest, cases)
     _validate_schema(root)
     source_count = _validate_python_sources(root)
@@ -323,7 +328,7 @@ def validate_contract_repository(
             f"non-JSON files remain in the active parity input tree: {[path.relative_to(root).as_posix() for path in non_json]}"
         )
 
-    return {
+    report = {
         "schema": MANIFEST_SCHEMA,
         "scope_mode": manifest["scope"]["mode"],
         "scope_id": manifest["scope"]["id"],
@@ -346,6 +351,9 @@ def validate_contract_repository(
         "source_checkout_checked": False,
         "parity_passes_claimed": 0,
     }
+    if scope_completeness is not None:
+        report["full_scope_completeness"] = scope_completeness
+    return report
 
 
 def _find_case(cases: list[dict[str, Any]], case_id: str) -> dict[str, Any]:
@@ -419,13 +427,18 @@ def main(argv: list[str] | None = None) -> int:
             root = args.root.resolve()
             manifest = load_manifest(_manifest_path(root, args.manifest))
             validate_manifest(manifest)
-            print(
-                json.dumps(
-                    {"scope": manifest["scope"], "surfaces": manifest["surfaces"]},
-                    indent=2,
-                    sort_keys=True,
+            scope_completeness = None
+            if manifest["scope"]["mode"] == "full":
+                metadata = load_api_metadata(root)
+                validate_api_sources(manifest, metadata)
+                indexed_inputs, cases = validate_inputs(root, manifest)
+                scope_completeness = validate_full_scope_completeness(
+                    root, manifest, indexed_inputs, cases, _upstream_path(args.upstream)
                 )
-            )
+            report = {"scope": manifest["scope"], "surfaces": manifest["surfaces"]}
+            if scope_completeness is not None:
+                report["full_scope_completeness"] = scope_completeness
+            print(json.dumps(report, indent=2, sort_keys=True))
             return 0
         if args.command in {"run", "oracle-only"}:
             root = args.root.resolve()

@@ -752,6 +752,20 @@
                 ]
               },
               {
+                "name": "Config.get",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "Environ",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
                 "name": "Environ.__delitem__",
                 "observe": [
                   "presence",
@@ -760,6 +774,13 @@
               },
               {
                 "name": "Environ.__getitem__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "Environ.__init__",
                 "observe": [
                   "presence",
                   "signature"
@@ -781,6 +802,13 @@
               },
               {
                 "name": "Environ.__setitem__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "EnvironError",
                 "observe": [
                   "presence",
                   "signature"
@@ -1661,6 +1689,13 @@
                 ]
               },
               {
+                "name": "StarletteDeprecationWarning",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
                 "name": "WebSocketException",
                 "observe": [
                   "presence",
@@ -1679,6 +1714,17 @@
                 "observe": [
                   "presence",
                   "signature"
+                ]
+              }
+            ]
+          },
+          {
+            "name": "starlette.formparsers",
+            "symbols": [
+              {
+                "name": "__name__",
+                "observe": [
+                  "presence"
                 ]
               }
             ]
@@ -2006,6 +2052,20 @@
             "name": "starlette.requests",
             "symbols": [
               {
+                "name": "ClientDisconnect",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "HTTPConnection",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
                 "name": "HTTPConnection.__getitem__",
                 "observe": [
                   "presence",
@@ -2076,6 +2136,13 @@
                 ]
               },
               {
+                "name": "HTTPConnection.session",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
                 "name": "HTTPConnection.state",
                 "observe": [
                   "presence",
@@ -2084,6 +2151,20 @@
               },
               {
                 "name": "HTTPConnection.url",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "HTTPConnection.url_for",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "HTTPConnection.user",
                 "observe": [
                   "presence",
                   "signature"
@@ -2303,6 +2384,13 @@
             "name": "starlette.routing",
             "symbols": [
               {
+                "name": "BaseRoute.__call__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
                 "name": "Host",
                 "observe": [
                   "presence",
@@ -2325,6 +2413,13 @@
               },
               {
                 "name": "Mount.__init__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "NoMatchFound",
                 "observe": [
                   "presence",
                   "signature"
@@ -2440,6 +2535,13 @@
               },
               {
                 "name": "StaticFiles.__init__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "StaticFiles.lookup_path",
                 "observe": [
                   "presence",
                   "signature"
@@ -3021,6 +3123,13 @@
                   "presence",
                   "signature"
                 ]
+              },
+              {
+                "name": "Jinja2Templates.get_template",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
               }
             ]
           },
@@ -3083,6 +3192,13 @@
                 ]
               },
               {
+                "name": "TestClient.lifespan",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
                 "name": "TestClient.options",
                 "observe": [
                   "presence",
@@ -3112,6 +3228,20 @@
               },
               {
                 "name": "TestClient.request",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "TestClient.wait_shutdown",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "TestClient.wait_startup",
                 "observe": [
                   "presence",
                   "signature"
@@ -3222,6 +3352,12 @@
             "symbols": [
               {
                 "name": "ASGIApp",
+                "observe": [
+                  "presence"
+                ]
+              },
+              {
+                "name": "ExceptionHandler",
                 "observe": [
                   "presence"
                 ]
