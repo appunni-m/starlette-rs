@@ -248,7 +248,7 @@
   ],
   "interfaces": {
     "parity": {
-      "input_schema": "migration-parity/parity-input@54",
+      "input_schema": "migration-parity/parity-input@55",
       "result_schema": "migration-parity/parity-result@8",
       "command_id": "parity"
     },
@@ -1009,7 +1009,7 @@
             {
               "id": "starlette.applications.Starlette.__init__.constructor-input-copy-order",
               "dimension": "boundary",
-              "description": "Compare the observable order in which Starlette copies an input-defined exception-handler Mapping and consumes an input-defined middleware Sequence. Pinned source: starlette/applications.py:59-60. Both callback traces derive from input containers.",
+              "description": "Compare the order in which Starlette copies an input-defined exception-handler Mapping and consumes an input-defined middleware Sequence, including which app attributes the Sequence callback can observe while it is consumed. Pinned source: starlette/applications.py:59-61. Callback events and observed state derive from input containers and the live application.",
               "lanes": [
                 "parity"
               ],

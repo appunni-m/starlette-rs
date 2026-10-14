@@ -6,10 +6,31 @@ import base64
 from typing import Any
 
 
-def materialize_starlette_subclass(base_type: type[Any], specification: Any) -> type[Any]:
+def materialize_starlette_subclass(
+    base_type: type[Any],
+    specification: Any,
+    captured_application: dict[str, Any] | None = None,
+) -> type[Any]:
     """Build the input-defined subclass used to exercise Starlette extension hooks."""
     if not isinstance(specification, dict) or not isinstance(specification.get("kind"), str):
         raise ValueError("application_subclass must define its kind")
+    if specification["kind"] == "capture-instance-during-construction":
+        if set(specification) != {"kind", "observe_attributes"}:
+            raise ValueError("constructor observation subclass input has unexpected fields")
+        if captured_application is None:
+            raise ValueError("constructor observation requires an application capture")
+
+        def capture_instance(cls: type[Any], *_args: Any, **_kwargs: Any) -> Any:
+            instance = object.__new__(cls)
+            captured_application["application"] = instance
+            return instance
+
+        return type(
+            "ConstructorObservationStarletteSubclass",
+            (base_type,),
+            {"__new__": capture_instance},
+        )
+
     if specification["kind"] == "build-middleware-stack-set-user-middleware-tuple":
         if set(specification) != {"kind"}:
             raise ValueError("tuple user_middleware subclass input has unexpected fields")

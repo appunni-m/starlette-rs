@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@54",
+  "schema": "migration-parity/parity-input@55",
   "cases": [
     {
       "case_id": "starlette.staticfiles.StaticFiles.asgi-call.if-modified-since-omitted-timezone",

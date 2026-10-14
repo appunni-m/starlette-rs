@@ -42,6 +42,7 @@ from scripts.parity.adapters.application_inputs import (
     ObservableMapping,
     ObservableSequence,
     middleware_with_iterator_override,
+    snapshot_application_attributes,
 )
 from scripts.parity.adapters.input_pathlike import InputSequencePathLike
 from scripts.parity.adapters.staticfiles_config import (
@@ -1681,7 +1682,7 @@ def _has_mounted_app_exception_route(routes: Any) -> bool:
 def _materialize_application(
     app_spec: dict[str, Any],
     application_subclass: dict[str, Any] | None = None,
-) -> tuple[Any, list[str], list[dict[str, Any]], Any, list[dict[str, Any]]]:
+) -> tuple[Any, list[Any], list[dict[str, Any]], Any, list[dict[str, Any]]]:
     from starlette.applications import Starlette
     from starlette.background import BackgroundTask
     from starlette.exceptions import HTTPException, WebSocketException
@@ -1689,10 +1690,15 @@ def _materialize_application(
     from starlette.routing import Mount, Route, Router, WebSocketRoute
 
     application_type = Starlette
+    captured_application: dict[str, Any] = {}
     if application_subclass is not None:
         from scripts.parity.adapters.application_subclass import materialize_starlette_subclass
 
-        application_type = materialize_starlette_subclass(Starlette, application_subclass)
+        application_type = materialize_starlette_subclass(
+            Starlette,
+            application_subclass,
+            captured_application,
+        )
 
     required_arguments = {
         "debug",
@@ -1704,7 +1710,7 @@ def _materialize_application(
     }
     if set(app_spec) != required_arguments:
         raise ValueError("Starlette.__init__ arguments do not match the declared workflow")
-    lifecycle_trace: list[str] = []
+    lifecycle_trace: list[Any] = []
     lifespan_spec = app_spec["lifespan"]
     if lifespan_spec is None:
         lifespan = None
@@ -1878,10 +1884,27 @@ def _materialize_application(
             or not isinstance(middleware_spec["items"], list)
         ):
             raise ValueError("observable application middleware Sequence input is malformed")
+        application_state_observer = None
+        if (
+            application_subclass is not None
+            and application_subclass["kind"] == "capture-instance-during-construction"
+        ):
+
+            def application_state_observer() -> dict[str, dict[str, Any]]:
+                try:
+                    application = captured_application["application"]
+                except KeyError as exc:
+                    raise ValueError("Starlette subclass did not capture its instance") from exc
+                return snapshot_application_attributes(
+                    application,
+                    application_subclass["observe_attributes"],
+                )
+
         middleware_input = ObservableSequence(
             _materialize_application_middleware(middleware_spec["items"]),
             lifecycle_trace,
             middleware_spec["event"],
+            application_state_observer,
         )
     else:
         middleware_input = _materialize_application_middleware(middleware_spec)

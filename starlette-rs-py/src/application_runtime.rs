@@ -63,6 +63,9 @@ impl PyStarletteRuntime {
                 .unbind(),
             None => PyDict::new(py).into_any().unbind(),
         };
+        app.bind(py)
+            .setattr("exception_handlers", exception_handlers)?;
+
         let middleware = match middleware {
             Some(middleware) => py
                 .import("builtins")?
@@ -72,8 +75,6 @@ impl PyStarletteRuntime {
             None => PyList::empty(py).into_any().unbind(),
         };
 
-        app.bind(py)
-            .setattr("exception_handlers", exception_handlers)?;
         app.bind(py).setattr("user_middleware", middleware)?;
         app.bind(py).setattr("middleware_stack", py.None())?;
 

@@ -46,8 +46,9 @@ INPUT_SCHEMA_V50 = "migration-parity/parity-input@50"
 INPUT_SCHEMA_V51 = "migration-parity/parity-input@51"
 INPUT_SCHEMA_V52 = "migration-parity/parity-input@52"
 INPUT_SCHEMA_V53 = "migration-parity/parity-input@53"
+INPUT_SCHEMA_V54 = "migration-parity/parity-input@54"
 PREVIOUS_INPUT_SCHEMA = INPUT_SCHEMA_V50
-INPUT_SCHEMA = "migration-parity/parity-input@54"
+INPUT_SCHEMA = "migration-parity/parity-input@55"
 BENCHMARK_INPUT_SCHEMA = "migration-parity/benchmark-input@1"
 RESULT_SCHEMA = "migration-parity/parity-result@8"
 BENCHMARK_RESULT_SCHEMA = "migration-parity/benchmark-result@1"
@@ -125,6 +126,10 @@ STARLETTE_USER_MIDDLEWARE_ITERABLE_REQUIREMENT = (
     "starlette.applications.Starlette.build_middleware_stack.user-middleware-iterable"
 )
 STARLETTE_SUBCLASS_USER_MIDDLEWARE_KIND = "build-middleware-stack-set-user-middleware-tuple"
+STARLETTE_CONSTRUCTOR_INPUT_ORDER_REQUIREMENT = (
+    "starlette.applications.Starlette.__init__.constructor-input-copy-order"
+)
+STARLETTE_CONSTRUCTOR_VISIBILITY_SUBCLASS_KIND = "capture-instance-during-construction"
 REQUEST_PUSH_PROMISE_HEADER_ORDER_REQUIREMENT = (
     "starlette.request.send-push-promise.header-iteration-order"
 )
@@ -21254,6 +21259,33 @@ def _validate_application_subclass_builder_case(
     elif kind == STARLETTE_SUBCLASS_USER_MIDDLEWARE_KIND:
         _exact(raw_specification, {"kind"}, "Starlette application subclass input")
         expected_requirement = STARLETTE_USER_MIDDLEWARE_ITERABLE_REQUIREMENT
+    elif kind == STARLETTE_CONSTRUCTOR_VISIBILITY_SUBCLASS_KIND:
+        specification = _exact(
+            raw_specification,
+            {"kind", "observe_attributes"},
+            "Starlette application constructor observation input",
+        )
+        if specification["observe_attributes"] != [
+            "exception_handlers",
+            "user_middleware",
+            "middleware_stack",
+        ]:
+            raise ContractError(
+                "constructor observation must inspect handler assignment before later middleware fields"
+            )
+        application_arguments = steps[0]["arguments"]
+        middleware_input = application_arguments["middleware"]["value"]
+        handler_input = application_arguments["exception_handlers"]["value"]
+        if (
+            not isinstance(middleware_input, dict)
+            or middleware_input.get("kind") != "observable-sequence"
+            or not isinstance(handler_input, dict)
+            or handler_input.get("kind") != "observable-mapping"
+        ):
+            raise ContractError(
+                "constructor observation requires input-defined handler and middleware callbacks"
+            )
+        expected_requirement = STARLETTE_CONSTRUCTOR_INPUT_ORDER_REQUIREMENT
     else:
         raise ContractError("Starlette application subclass hook kind is unsupported")
     if case["covers"] != [expected_requirement]:
@@ -38362,7 +38394,6 @@ def _semantic_coverage(case: dict[str, Any]) -> set[str]:
         methods.add("HEAD")
     method_matches = method in methods
     coverage: set[str] = set()
-    exception_handlers = app_arguments["exception_handlers"]
     middleware_input = app_arguments["middleware"]
     if (
         case["operation"] == "__call__"
@@ -38376,13 +38407,6 @@ def _semantic_coverage(case: dict[str, Any]) -> set[str]:
     ):
         coverage.add(STARLETTE_MIDDLEWARE_ITERATOR_REQUIREMENT)
     if (
-        isinstance(exception_handlers, dict)
-        and exception_handlers.get("kind") == "observable-mapping"
-        and isinstance(middleware_input, dict)
-        and middleware_input.get("kind") == "observable-sequence"
-    ):
-        coverage.add("starlette.applications.Starlette.__init__.constructor-input-copy-order")
-    if (
         "application_subclass" in case
         and case["operation"] == "__call__"
         and case["target_profiles"] == ["python-package-cpython312"]
@@ -38394,6 +38418,11 @@ def _semantic_coverage(case: dict[str, Any]) -> set[str]:
     ):
         if case["application_subclass"].get("kind") == STARLETTE_SUBCLASS_USER_MIDDLEWARE_KIND:
             coverage.add(STARLETTE_USER_MIDDLEWARE_ITERABLE_REQUIREMENT)
+        elif (
+            case["application_subclass"].get("kind")
+            == STARLETTE_CONSTRUCTOR_VISIBILITY_SUBCLASS_KIND
+        ):
+            coverage.add(STARLETTE_CONSTRUCTOR_INPUT_ORDER_REQUIREMENT)
         else:
             coverage.add(STARLETTE_SUBCLASS_BUILDER_REQUIREMENT)
     if endpoint["kind"] == "authentication-login-next-redirect":
@@ -39215,6 +39244,31 @@ def migrate_input_document_v53(document: Any) -> dict[str, Any]:
                 )
 
     migrated = dict(document)
+    migrated["schema"] = INPUT_SCHEMA_V54
+    return migrated
+
+
+def migrate_input_document_v54(document: Any) -> dict[str, Any]:
+    """Advance @54 inputs to @55, which adds constructor-time app observation."""
+    _exact(document, {"schema", "cases"}, "parity input")
+    if document["schema"] != INPUT_SCHEMA_V54:
+        raise ContractError(f"unsupported @54 parity input schema: {document['schema']!r}")
+    if not isinstance(document["cases"], list) or not document["cases"]:
+        raise ContractError("parity input must select at least one case")
+
+    for case_index, case in enumerate(document["cases"]):
+        if not isinstance(case, dict):
+            continue
+        subclass = case.get("application_subclass")
+        if (
+            isinstance(subclass, dict)
+            and subclass.get("kind") == STARLETTE_CONSTRUCTOR_VISIBILITY_SUBCLASS_KIND
+        ):
+            raise ContractError(
+                f"parity case {case_index} cannot use constructor-time app observation in @54 input"
+            )
+
+    migrated = dict(document)
     migrated["schema"] = INPUT_SCHEMA
     return migrated
 
@@ -39225,8 +39279,19 @@ def validate_input_document_v53(
     *,
     public_modules: frozenset[str] | None = None,
 ) -> list[dict[str, Any]]:
-    """Validate @53 inputs before their deterministic @54 schema-header migration."""
+    """Validate @53 inputs before their deterministic @54 and @55 migrations."""
     migrated = migrate_input_document_v53(document)
+    return validate_input_document_v54(migrated, manifest, public_modules=public_modules)
+
+
+def validate_input_document_v54(
+    document: Any,
+    manifest: dict[str, Any],
+    *,
+    public_modules: frozenset[str] | None = None,
+) -> list[dict[str, Any]]:
+    """Validate @54 inputs before their deterministic @55 schema-header migration."""
+    migrated = migrate_input_document_v54(document)
     return validate_input_document(migrated, manifest, public_modules=public_modules)
 
 
@@ -39236,7 +39301,7 @@ def validate_input_document_v52(
     *,
     public_modules: frozenset[str] | None = None,
 ) -> list[dict[str, Any]]:
-    """Validate @52 inputs before their deterministic @53 and @54 migrations."""
+    """Validate @52 inputs before their deterministic @53, @54, and @55 migrations."""
     migrated = migrate_input_document_v52(document)
     return validate_input_document_v53(migrated, manifest, public_modules=public_modules)
 
@@ -39262,7 +39327,7 @@ def validate_previous_input_document(
     *,
     public_modules: frozenset[str] | None = None,
 ) -> list[dict[str, Any]]:
-    """Validate @50 inputs before migrating them through the active @53 contract."""
+    """Validate @50 inputs before migrating them through the active @55 contract."""
     return validate_input_document_v50(document, manifest, public_modules=public_modules)
 
 

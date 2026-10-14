@@ -25,16 +25,19 @@ with no conventional Python or Rust unit-test suite.
 ## Current implementation status
 
 Implementation remains active for the full Starlette 1.6.0 replacement. The
-working-tree `parity-input@54` contract indexes 2,394 cases across 344
-parity input files and two benchmark files, with 142 Starlette compatibility
-operations, 13 native operations, and 1,303 parity requirements (1,261
+working-tree `parity-input@55` contract indexes 2,408 cases across 355
+parity input files and two benchmark files, with 144 Starlette compatibility
+operations, 13 native operations, and 1,316 parity requirements (1,274
 compatibility and 42 native). The contract remains a slice and claims zero
-parity passes. Rust now returns the completed no-op for thread-pool iterator
+parity passes. The new application constructor input captures the state of
+`exception_handlers`, `user_middleware`, and `middleware_stack` while its
+middleware Sequence is consumed; its comparison remains deferred until full
+parity. Rust now returns the completed no-op for thread-pool iterator
 `athrow` calls after normal exhaustion; the new input covers `StopIteration`,
 `ValueError`, and subsequent exhaustion, with comparison deferred until full
 parity. `make contract-check` passed on the current input set; the
 static source-inventory check found 999 dispositioned API candidates and
-851 source rows: 797 input mappings, 54 reasoned `not_applicable` rows, and
+856 source rows: 802 input mappings, 54 reasoned `not_applicable` rows, and
 zero backlog. The Request.client typing consumer and ordered-overlap plus
 synchronous processor-exception-before-template-lookup template inputs are
 authored; their comparisons remain deferred to the full parity phase.
@@ -254,8 +257,8 @@ selector. A related route or response example is not enough to claim coverage
 for a different public invocation shape.
 
 The crosswalk maps each source behavior only when an input directly stimulates
-and observes it. The checked-in generated `coverage-matrix.csv` has 806 source rows:
-679 `existing` mappings, 75 `backlog` rows, and 52 reasoned `not_applicable`
+and observes it. The checked-in generated `coverage-matrix.csv` has 856 source rows:
+802 `existing` mappings, zero `backlog` rows, and 54 reasoned `not_applicable`
 rows. It maps exception, registered-handler, and direct
 `ServerErrorMiddleware` custom-handler behavior to input-only fixtures; the
 matrix is not a one-to-one index of active parity

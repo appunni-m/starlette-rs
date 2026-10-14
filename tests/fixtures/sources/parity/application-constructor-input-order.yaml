@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@54",
+  "schema": "migration-parity/parity-input@55",
   "cases": [
     {
       "case_id": "starlette.applications.Starlette.__call__.constructor-input-conversion-order",
@@ -131,7 +131,15 @@
       ],
       "observations": [
         "dispatch"
-      ]
+      ],
+      "application_subclass": {
+        "kind": "capture-instance-during-construction",
+        "observe_attributes": [
+          "exception_handlers",
+          "user_middleware",
+          "middleware_stack"
+        ]
+      }
     }
   ]
 }
