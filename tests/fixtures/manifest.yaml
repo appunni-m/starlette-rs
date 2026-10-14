@@ -606,6 +606,7 @@
       "build/parity/inputs/parity/testclient-websocket-bytes.json",
       "build/parity/inputs/parity/testclient-websocket-public.json",
       "build/parity/inputs/parity/testclient-websocket-endpoint-path-params.json",
+      "build/parity/inputs/parity/testclient-websocket-query-encoding.json",
       "build/parity/inputs/parity/testclient-docs-inputs.json",
       "build/parity/inputs/parity/testclient-lifespan-context.json",
       "build/parity/inputs/parity/testclient-lifespan-message-type-comparison-error.json",
