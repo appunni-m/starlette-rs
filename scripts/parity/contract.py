@@ -267,6 +267,7 @@ HTTP_ENDPOINT_REQUIREMENTS = {
     "direct_asgi": f"{HTTP_ENDPOINT_SURFACE}.{HTTP_ENDPOINT_OPERATION}.direct-asgi-application",
 }
 WEBSOCKET_ENDPOINT_REQUIREMENTS = {
+    "scope_type_validation": f"{WEBSOCKET_ENDPOINT_SURFACE}.__init__.scope-type-validation",
     "lifecycle": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.lifecycle",
     "connect": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.on-connect-subprotocols",
     "connect_error": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.on-connect-error-skips-disconnect",
@@ -3545,7 +3546,7 @@ def _descriptor(value: Any, previous_steps: set[str], context: str) -> Any:
     raise ContractError(f"{context} uses an unknown value descriptor kind: {kind!r}")
 
 
-def _validate_websocket_scope(scope: Any) -> None:
+def _validate_websocket_scope(scope: Any, *, allow_non_websocket_type: bool = False) -> None:
     scope_keys = {
         "type",
         "asgi",
@@ -3567,7 +3568,8 @@ def _validate_websocket_scope(scope: Any) -> None:
         scope_keys,
         "WebSocket scope",
     )
-    if scope["type"] != "websocket":
+    scope_type = _string(scope["type"], "WebSocket scope.type")
+    if not allow_non_websocket_type and scope_type != "websocket":
         raise ContractError("WebSocket scope.type must be websocket")
     asgi = _exact(scope["asgi"], {"version", "spec_version"}, "WebSocket scope.asgi")
     if asgi != {"version": "3.0", "spec_version": "2.5"}:
@@ -4037,7 +4039,7 @@ def _validate_websocket_endpoint_case_stimulus(case: dict[str, Any]) -> None:
             {"scope", "incoming"} | ({"cancel_at"} if "cancel_at" in raw_session else set()),
             context,
         )
-        _validate_websocket_scope(session["scope"])
+        _validate_websocket_scope(session["scope"], allow_non_websocket_type=True)
         cancel_at = session.get("cancel_at")
         if cancel_at is not None and cancel_at not in {"receive", "disconnect"}:
             raise ContractError(f"{context}.cancel_at must be receive or disconnect")
@@ -4073,6 +4075,26 @@ def _validate_websocket_endpoint_case_stimulus(case: dict[str, Any]) -> None:
                 f"{context} JSON decoder lookup fault requires one ordinary malformed receive "
                 "with default connect, no-op receive, and observed finalization"
             )
+        if session["scope"]["type"] != "websocket":
+            if (
+                len(sessions) != 1
+                or cancel_at is not None
+                or message_types != ["websocket.connect"]
+                or encoding is not None
+                or on_connect["kind"] != "default"
+                or on_receive["kind"] != "no-op"
+                or on_disconnect["kind"] != "default"
+            ):
+                raise ContractError(
+                    f"{context} non-WebSocket scope type requires a single constructor-only "
+                    "validation input with default endpoint hooks"
+                )
+            if incoming[0]["subprotocols"] != session["scope"]["subprotocols"]:
+                raise ContractError(
+                    f"{context} incoming connect subprotocols must match the scope offer"
+                )
+            exercised_requirements.add(WEBSOCKET_ENDPOINT_REQUIREMENTS["scope_type_validation"])
+            continue
         if message_types[0] != "websocket.connect":
             if (
                 message_types == ["websocket.receive"]

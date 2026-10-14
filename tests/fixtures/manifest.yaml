@@ -546,6 +546,7 @@
       "build/parity/inputs/parity/upload-file.json",
       "build/parity/inputs/parity/upload-file-rolled-write-error.json",
       "build/parity/inputs/parity/websocket-endpoint-dispatch.json",
+      "build/parity/inputs/parity/websocket-endpoint-scope-type-validation.json",
       "build/parity/inputs/parity/websocket-endpoint-json-exception-type-lookup.json",
       "build/parity/inputs/parity/websocket-endpoint-type-lookup-tape.json",
       "build/parity/inputs/parity/websocket-endpoint-decode-stop-iteration.json",
@@ -9646,6 +9647,17 @@
             }
           ],
           "requirements": [
+            {
+              "id": "starlette.endpoints.WebSocketEndpoint.__init__.scope-type-validation",
+              "dimension": "error_path",
+              "description": "Raise the source assertion when the supplied ASGI scope type is not websocket, before dispatch hooks or receive/send callbacks run. Pinned source: starlette/endpoints.py:61-62.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
             {
               "id": "starlette.endpoints.WebSocketEndpoint.dispatch.lifecycle",
               "dimension": "success_path",

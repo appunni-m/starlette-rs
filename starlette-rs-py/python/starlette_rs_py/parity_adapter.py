@@ -3970,7 +3970,7 @@ def _run_body_limit_case(case: dict[str, Any]) -> dict[str, Any]:
 
 def _make_websocket_scope(spec: dict[str, Any]) -> dict[str, Any]:
     scope = {
-        "type": "websocket",
+        "type": spec["type"],
         "asgi": dict(spec["asgi"]),
         "http_version": spec["http_version"],
         "scheme": spec["scheme"],
@@ -5730,8 +5730,12 @@ async def _await_websocket_endpoint(
     scope: dict[str, Any],
     receive: Any,
     send: Any,
+    endpoint_constructed: list[bool] | None = None,
 ) -> None:
-    await endpoint_type(scope, receive, send)
+    endpoint = endpoint_type(scope, receive, send)
+    if endpoint_constructed is not None:
+        endpoint_constructed.append(True)
+    await endpoint
 
 
 async def _await_cancelled_websocket_endpoint(
@@ -5740,8 +5744,11 @@ async def _await_cancelled_websocket_endpoint(
     receive: _WebSocketEndpointInputReceive,
     send: Any,
     cancellation_ready: asyncio.Event,
+    endpoint_constructed: list[bool],
 ) -> dict[str, Any] | None:
-    task = asyncio.create_task(_await_websocket_endpoint(endpoint_type, scope, receive, send))
+    task = asyncio.create_task(
+        _await_websocket_endpoint(endpoint_type, scope, receive, send, endpoint_constructed)
+    )
     await cancellation_ready.wait()
     task.cancel()
     try:
@@ -5858,6 +5865,7 @@ def _run_websocket_endpoint_case(case: dict[str, Any]) -> dict[str, Any]:
             )
 
         endpoint_type = type("InputWebSocketEndpoint", (WebSocketEndpoint,), methods)
+        endpoint_constructed: list[bool] = []
         receive = _WebSocketEndpointInputReceive(
             incoming, cancel_on_exhaustion=session_spec.get("cancel_at") == "receive"
         )
@@ -5869,20 +5877,30 @@ def _run_websocket_endpoint_case(case: dict[str, Any]) -> dict[str, Any]:
             if session_spec.get("cancel_at") in {"receive", "disconnect"}:
                 error = asyncio.run(
                     _await_cancelled_websocket_endpoint(
-                        endpoint_type, scope, receive, send, cancellation_ready
+                        endpoint_type,
+                        scope,
+                        receive,
+                        send,
+                        cancellation_ready,
+                        endpoint_constructed,
                     )
                 )
             else:
                 error: dict[str, Any] | None = None
                 try:
-                    asyncio.run(_await_websocket_endpoint(endpoint_type, scope, receive, send))
+                    asyncio.run(
+                        _await_websocket_endpoint(
+                            endpoint_type, scope, receive, send, endpoint_constructed
+                        )
+                    )
                 except Exception as exc:
                     error = _websocket_endpoint_error(exc)
         finally:
             if on_receive_spec["kind"] == "delete-internal-error-close-code-and-raise-value-error":
                 status.WS_1011_INTERNAL_ERROR = internal_error_close_code
         if (
-            receive.index != len(incoming)
+            endpoint_constructed
+            and receive.index != len(incoming)
             and endpoint_spec["on_connect"]["kind"] != "raise-value-error"
         ):
             raise ValueError("WebSocketEndpoint dispatch left supplied ASGI input unconsumed")
