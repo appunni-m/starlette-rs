@@ -210,6 +210,60 @@
       ]
     },
     {
+      "case_id": "starlette.middleware.wsgi.build-environ.integer-http-version-formatting",
+      "surface": "starlette.middleware.wsgi",
+      "operation": "build-environ",
+      "covers": [
+        "starlette.middleware.wsgi.build-environ.scope-projection"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "http",
+        "http_version": 11,
+        "method": "GET",
+        "scheme": "http",
+        "path": "/",
+        "query_string_base64": ""
+      },
+      "body_base64": "",
+      "environ_probes": [
+        {
+          "key": "REQUEST_METHOD",
+          "kind": "value"
+        },
+        {
+          "key": "SCRIPT_NAME",
+          "kind": "value"
+        },
+        {
+          "key": "PATH_INFO",
+          "kind": "value"
+        },
+        {
+          "key": "QUERY_STRING",
+          "kind": "value"
+        },
+        {
+          "key": "SERVER_PROTOCOL",
+          "kind": "value"
+        },
+        {
+          "key": "wsgi.version",
+          "kind": "value"
+        },
+        {
+          "key": "wsgi.url_scheme",
+          "kind": "value"
+        }
+      ],
+      "observations": [
+        "environ-results"
+      ]
+    },
+    {
       "case_id": "starlette.middleware.wsgi.module-import-warning.deprecation",
       "surface": "starlette.middleware.wsgi",
       "operation": "module-import-warning",

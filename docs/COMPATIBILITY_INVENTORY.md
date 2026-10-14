@@ -992,11 +992,18 @@ async-generator lifespan callables, `TestClient(timeout=...)`, and the legacy
 - `Router.add_route` is documented in the source and implemented by both
   packages, but the pinned API documentation does not establish a public
   method-level typing contract. Starlette 1.6.0 annotates `methods` as
-  `Collection[str] | None`; the facade currently accepts `Iterable[str] | None`.
-  The upstream test passes a list and checks runtime route addition, so it does
-  not resolve the static distinction. Keep this candidate uncertain unless
-  stronger public typing evidence appears; see `docs/api-surface.csv` and Kata
-  audit `d2c1`.
+  `Collection[str] | None`, and the facade now matches that source annotation.
+  The new application typing consumer checks valid sync/async endpoints and
+  rejects an invalid method collection through the pinned type checker in the
+  grouped parity phase. The upstream runtime test passes a list and checks
+  route addition, so it does not settle the broader public typing status. Keep
+  this candidate uncertain unless stronger public evidence appears; see
+  `docs/api-surface.csv` and Kata audit `d2c1`.
+- `Router.add_websocket_route` is implemented in both packages and now has a
+  direct input-driven consumer comparison, but the pinned docs and named
+  upstream test do not establish a method-level public contract or call the
+  method directly. Keep its public status uncertain in the generated source
+  catalog until stronger documentation or test evidence appears.
 - Jinja2 has no declared minimum version although templating selects between
   context decorator names; see `optional.jinja2-version-compatibility`.
 - The GZip module has a TODO for a future `DEFAULT_EXCLUDED_CONTENT_TYPE`

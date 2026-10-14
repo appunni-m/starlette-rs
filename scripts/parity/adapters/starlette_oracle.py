@@ -14995,6 +14995,20 @@ def _config_cast(cast_spec: Any) -> Any:
     return getattr(builtins, cast_spec)
 
 
+def _config_lookup_key(key_spec: Any) -> tuple[Any, str]:
+    if isinstance(key_spec, str):
+        return key_spec, key_spec
+
+    key_value = key_spec["value"]
+    radd_result = key_spec["radd_result"]
+
+    class InputConfigKey(str):
+        def __radd__(self, _left: Any) -> str:
+            return radd_result
+
+    return InputConfigKey(key_value), key_value
+
+
 def _config_value_inspections(value: Any, selectors: list[str]) -> dict[str, Any]:
     inspections = {}
     for selector in selectors:
@@ -15104,19 +15118,20 @@ def _run_config_case(case: dict[str, Any]) -> dict[str, Any]:
                 results = []
                 for lookup in case["lookups"]:
                     cast = _config_cast(lookup["cast"]) if "cast" in lookup else None
-                    arguments = [lookup["key"], cast]
+                    key, key_label = _config_lookup_key(lookup["key"])
+                    arguments = [key, cast]
                     if "default" in lookup:
                         arguments.append(lookup["default"])
                     try:
                         value = config(*arguments)
                     except Exception as exc:
                         result = {
-                            "key": lookup["key"],
+                            "key": key_label,
                             "outcome": "error",
                             "error": _config_error_snapshot(exc, lookup.get("inspect", [])),
                         }
                     else:
-                        result = {"key": lookup["key"], "outcome": "value"}
+                        result = {"key": key_label, "outcome": "value"}
                         try:
                             result["value"] = _json_safe(value)
                         except Exception as exc:

@@ -194,10 +194,7 @@ impl PyConfig {
         cast: Py<PyAny>,
         default: Py<PyAny>,
     ) -> PyResult<Py<PyAny>> {
-        let key = self
-            .env_prefix
-            .bind(py)
-            .call_method1("__add__", (key.bind(py),))?;
+        let key = self.env_prefix.bind(py).add(key.bind(py))?;
         let key_text = key.str()?.extract::<String>()?;
         let value = if self.environ.bind(py).contains(&key)? {
             Some(self.environ.bind(py).get_item(&key)?)

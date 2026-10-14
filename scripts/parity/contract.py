@@ -31667,7 +31667,9 @@ def _validate_wsgi_scope(scope_input: Any, body_base64: Any) -> dict[str, Any]:
     )
     if "type" in scope and scope["type"] != "http":
         raise ContractError("build_environ scope type must be HTTP when supplied")
-    for name in ("http_version", "method", "path"):
+    if type(scope["http_version"]) is not int:
+        _string(scope["http_version"], "build_environ scope.http_version")
+    for name in ("method", "path"):
         _string(scope[name], f"build_environ scope.{name}")
     if "scheme" in scope:
         _string(scope["scheme"], "build_environ scope.scheme")
@@ -31956,7 +31958,24 @@ def _validate_config_case(case: dict[str, Any]) -> None:
             lookup_keys = {"key"}
             lookup_keys.update(field for field in ("cast", "default", "inspect") if field in raw)
             lookup = _exact(raw, lookup_keys, f"Config lookups[{index}]")
-            key = _string(lookup["key"], f"Config lookups[{index}].key")
+            key_spec = lookup["key"]
+            if isinstance(key_spec, str):
+                key = _string(key_spec, f"Config lookups[{index}].key")
+                prefixed = config["env_prefix"] + key
+            else:
+                key_spec = _exact(
+                    key_spec,
+                    {"kind", "value", "radd_result"},
+                    f"Config lookups[{index}].key",
+                )
+                if key_spec["kind"] != "str-subclass-right-add":
+                    raise ContractError(f"Config lookups[{index}].key kind is unsupported")
+                key = _string(key_spec["value"], f"Config lookups[{index}].key.value")
+                radd_result = _string(
+                    key_spec["radd_result"],
+                    f"Config lookups[{index}].key.radd_result",
+                )
+                prefixed = radd_result if config["env_prefix"] else key
             cast = lookup.get("cast")
             public_class: str | None = None
             if isinstance(cast, str):
@@ -32050,7 +32069,6 @@ def _validate_config_case(case: dict[str, Any]) -> None:
                 raise ContractError(
                     f"Config lookups[{index}].inspect selectors do not match its public cast class"
                 )
-            prefixed = config["env_prefix"] + key
             has_default = "default" in lookup
             if cast is not None and has_default and lookup["default"] is None:
                 selected.add("starlette.config.Config.cast-skips-null-default")

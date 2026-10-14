@@ -1,0 +1,40 @@
+{
+  "schema": "migration-parity/parity-input@55",
+  "cases": [
+    {
+      "case_id": "starlette.config.Config.value-resolution.str-subclass-reflected-add-prefix-lookup",
+      "surface": "starlette.config.Config",
+      "operation": "value-resolution",
+      "covers": [
+        "starlette.config.Config.env-prefix"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "config": {
+        "env_prefix": "APP_",
+        "environ": {
+          "APP_REFLECTED": "selected-by-reflected-add",
+          "APP_NAME": "selected-by-left-add"
+        },
+        "env_file_lines": []
+      },
+      "lookups": [
+        {
+          "key": {
+            "kind": "str-subclass-right-add",
+            "value": "NAME",
+            "radd_result": "APP_REFLECTED"
+          },
+          "cast": "str"
+        }
+      ],
+      "observations": ["lookup-results"]
+    }
+  ]
+}

@@ -78,7 +78,11 @@ fn build_environ_inner<'py>(
         .get_item("query_string")?
         .call_method1("decode", ("ascii",))?;
     let http_version = scope.get_item("http_version")?;
-    let protocol = PyString::new(py, "HTTP/").call_method1("__add__", (http_version,))?;
+    let protocol_version = py
+        .import("builtins")?
+        .getattr("format")?
+        .call1((http_version, ""))?;
+    let protocol = PyString::new(py, "HTTP/").call_method1("__add__", (protocol_version,))?;
 
     let environ = PyDict::new(py);
     environ.set_item("REQUEST_METHOD", scope.get_item("method")?)?;
