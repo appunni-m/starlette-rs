@@ -10374,15 +10374,29 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
             else len(base64.b64decode(value, validate=True))
             for kind, value in chunks
         )
-        if (
-            spec_version >= (2, 4)
-            or receive_behavior["kind"] != "disconnect-after-body-bytes"
-            or send_raises_oserror
-            or receive_behavior["minimum_body_bytes"] <= streamed_body_bytes
-        ):
+        if spec_version >= (2, 4) or receive_behavior["kind"] != "disconnect-after-body-bytes":
             raise ContractError(
-                "finite StreamingResponse generators require a pre-ASGI-2.4 receive gate "
-                "that stays closed until stream completion"
+                "finite StreamingResponse generators require a pre-ASGI-2.4 disconnect gate"
+            )
+        if send_raises_oserror:
+            send_event_index = send.get("event_index")
+            if type(send_event_index) is not int or not 0 < send_event_index <= len(chunks):
+                raise ContractError(
+                    "pre-ASGI-2.4 finite stream OSError must occur on a nonterminal body send"
+                )
+            prior_body_bytes = sum(
+                len(value.encode("utf-8"))
+                if kind == "text"
+                else len(base64.b64decode(value, validate=True))
+                for kind, value in chunks[: send_event_index - 1]
+            )
+            if receive_behavior["minimum_body_bytes"] <= prior_body_bytes:
+                raise ContractError(
+                    "pre-ASGI-2.4 finite stream OSError must occur before the receive gate opens"
+                )
+        elif receive_behavior["minimum_body_bytes"] <= streamed_body_bytes:
+            raise ContractError(
+                "finite StreamingResponse receive gate must stay closed until stream completion"
             )
     if case["streaming"] != "async-generator" and case["operation"] != STREAMING_RESPONSE_OPERATION:
         raise ContractError(
@@ -10423,6 +10437,25 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
             if case["covers"] != [disconnect_requirement]:
                 raise ContractError(
                     "repeating StreamingResponse OSError coverage must match the failing send position"
+                )
+        elif receive_behavior is not None:
+            try:
+                spec_version = tuple(
+                    int(part)
+                    for part in case["scope"].get("asgi", {}).get("spec_version", "2.0").split(".")
+                )
+            except (AttributeError, TypeError, ValueError) as exc:
+                raise ContractError("StreamingResponse ASGI spec_version must be numeric") from exc
+            if (
+                case["streaming"] != "async-generator"
+                or case["operation"] != STREAMING_RESPONSE_TRACE_OPERATION
+                or background is None
+                or spec_version >= (2, 4)
+                or receive_behavior["kind"] != "disconnect-after-body-bytes"
+                or not 0 < send["event_index"] <= len(chunks)
+            ):
+                raise ContractError(
+                    "finite pre-ASGI-2.4 StreamingResponse OSError input must fail a nonterminal body send while receive is gated"
                 )
         else:
             terminal_send_index = len(chunks) + 1

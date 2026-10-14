@@ -1,0 +1,62 @@
+{
+  "schema": "migration-parity/parity-input@55",
+  "cases": [
+    {
+      "case_id": "starlette.responses.StreamingResponse.asgi-call.pre-asgi24-send-oserror-propagation",
+      "surface": "starlette.responses.StreamingResponse",
+      "operation": "asgi-call-with-execution-trace",
+      "covers": [
+        "starlette.responses.StreamingResponse.asgi-call.pre-asgi24-send-oserror-propagation"
+      ],
+      "target_profiles": ["python-package-cpython312"],
+      "assets": [],
+      "content": {
+        "kind": "chunks",
+        "value": [
+          {"kind": "text", "value": "1"},
+          {"kind": "text", "value": ", "},
+          {"kind": "text", "value": "2"},
+          {"kind": "text", "value": ", "},
+          {"kind": "text", "value": "3"},
+          {"kind": "text", "value": ", "},
+          {"kind": "text", "value": "4"},
+          {"kind": "text", "value": ", "},
+          {"kind": "text", "value": "5"}
+        ]
+      },
+      "status_code": 200,
+      "header_pairs": [],
+      "media_type": "text/plain",
+      "background": {
+        "kind": "async-values-recorder",
+        "values": ["must-not-run"]
+      },
+      "scope": {
+        "type": "http",
+        "asgi": {"version": "3.0", "spec_version": "2.3"},
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [],
+        "client": ["127.0.0.1", 12345],
+        "server": ["testserver", 80]
+      },
+      "incoming": [],
+      "receive_behavior": {
+        "kind": "disconnect-after-body-bytes",
+        "minimum_body_bytes": 64
+      },
+      "send": {
+        "kind": "capture-asgi-send-until-oserror",
+        "event_index": 2,
+        "message": "legacy ASGI stream send failed"
+      },
+      "observations": ["asgi-call"],
+      "streaming": "async-generator"
+    }
+  ]
+}

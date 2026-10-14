@@ -437,6 +437,7 @@
       "build/parity/inputs/parity/background-task-attribute-deletion.json",
       "build/parity/inputs/parity/background-task-sync-kwargs-mapping.json",
       "build/parity/inputs/parity/streaming-response.json",
+      "build/parity/inputs/parity/streaming-response-pre-asgi24-send-oserror.json",
       "build/parity/inputs/parity/streaming-response-empty-sync-chunk.json",
       "build/parity/inputs/parity/streaming-response-lazy-iterator-start-send-failure.json",
       "build/parity/inputs/parity/streaming-response-final-send-disconnect.json",
@@ -22354,6 +22355,17 @@
               "id": "starlette.responses.StreamingResponse.asgi-call.pre-asgi24-stream-completes-first",
               "dimension": "protocol_variant",
               "description": "Invoke a finite input-defined async generator under ASGI 2.3 while receive remains behind a body-byte threshold greater than the encoded stream length. The stream must finish first, cancel the still-waiting disconnect listener, exit the concurrent task group, then run the background callback; capture the full send and background trace through the public ASGI call. Pinned source: starlette/responses.py:257-283; tests/test_responses.py:605-632 demonstrates the same task-group race with the listener finishing first.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.StreamingResponse.asgi-call.pre-asgi24-send-oserror-propagation",
+              "dimension": "error_path",
+              "description": "Under ASGI spec 2.3, stream a finite input-defined async generator while receive stays gated beyond the body bytes sent before an input-defined OSError at a nonterminal send event. Compare the partial ASGI event tape, error details, stream progress, receive activity, and background-task trace. Pinned source: starlette/responses.py:257-283 and starlette/_utils.py:82-93; tests/test_responses.py:604-632 exercises the same legacy task-group race with a disconnect listener.",
               "lanes": [
                 "parity"
               ],
