@@ -766,6 +766,51 @@
           "user"
         ]
       }
+    },
+    {
+      "case_id": "starlette.authentication.decorator-dispatch.mixed-positional-keyword-arguments",
+      "surface": "starlette.authentication",
+      "operation": "decorator-dispatch",
+      "covers": [
+        "starlette.authentication.requires.sync-authorized-call",
+        "starlette.authentication.requires.signature-index-keyword-connection-binding"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scenarios": [
+        {
+          "callable": {
+            "kind": "endpoint",
+            "mode": "sync",
+            "parameter": "request",
+            "result": "mixed-arguments-authorized",
+            "signature": [
+              "tenant",
+              "request"
+            ]
+          },
+          "required_scopes": [
+            "read"
+          ],
+          "connection": {
+            "kind": "request",
+            "auth_scopes": [
+              "read"
+            ]
+          },
+          "invocation": {
+            "positional": [
+              "tenant-42"
+            ],
+            "connection_binding": "keyword"
+          }
+        }
+      ],
+      "observations": [
+        "scenarios"
+      ]
     }
   ]
 }

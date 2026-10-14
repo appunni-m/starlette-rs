@@ -420,6 +420,7 @@
       "build/parity/inputs/parity/route-local-middleware-semantics.json",
       "build/parity/inputs/parity/request-path-param-types.json",
       "build/parity/inputs/parity/request-cookies.json",
+      "build/parity/inputs/parity/request-cookie-cache-sequence.json",
       "build/parity/inputs/parity/mount-route-dispatch.json",
       "build/parity/inputs/parity/mount-router-scope-composition.json",
       "build/parity/inputs/parity/reverse-url-routing.json",
@@ -574,6 +575,7 @@
       "build/parity/inputs/parity/testclient-lifespan-message-type-comparison-error.json",
       "build/parity/inputs/parity/testclient-websocket-exit-cleanup-error.json",
       "build/parity/inputs/parity/testclient-startup-cleanup-error.json",
+      "build/parity/inputs/parity/testclient-shutdown-cleanup-error.json",
       "build/parity/inputs/parity/application-routes.json",
       "build/parity/inputs/parity/router-converter-ordering.json",
       "build/parity/inputs/parity/router-mixed-route-ordering.json",
@@ -4272,6 +4274,17 @@
               "id": "starlette.authentication.requires.connection-type-validation",
               "dimension": "error_path",
               "description": "A requires wrapper raises AssertionError when its named request or websocket argument is not the corresponding Request or WebSocket instance, before scope checks or endpoint invocation. Upstream: starlette/authentication.py:43-51, 60-67, 79-86; docs/release-notes.md:75-80.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.authentication.requires.signature-index-keyword-connection-binding",
+              "dimension": "boundary",
+              "description": "Bind a Request supplied by keyword to its named position in an endpoint signature when earlier parameters are supplied positionally. Pinned source: starlette/authentication.py:32-43,57-60,74-77; release-notes.md:841-845.",
               "lanes": [
                 "parity"
               ],
@@ -17513,6 +17526,110 @@
           "benchmark": {
             "applicability": "not_applicable",
             "reason": "This Request cache-semantics sequence declares no benchmark workload."
+          }
+        },
+        {
+          "id": "cookie-cache-sequence",
+          "kind": "protocol_operation",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.requests.Request.cookies",
+            "signature": "Request(scope); cache cookies on first access and preserve the cached dict across header mutation.",
+            "parameters": [
+              {
+                "id": "scope",
+                "style": "positional",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "actions",
+                "style": "positional",
+                "value_types": [
+                  "sequence"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "cookie-cache-sequence",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "The Rust-native API has no Request object that retains a mutable ASGI scope and exposes a cached cookies dictionary.",
+                "blocker": "No public Rust-native Request compatibility object exposes this cache and mutation boundary."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.requests.Request.cookies",
+              "signature": "Request(scope); cached cookies property returns the same mutable dict.",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.request.cookies-cache-semantics",
+              "dimension": "boundary",
+              "description": "Cache the first Request.cookies dictionary and preserve it after in-place mutation or replacement of scope.headers. Pinned source: starlette/requests.py:149-159.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This input-only Request cache comparison makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "Request cookie-cache mutation is outside the declared benchmark workloads."
           }
         },
         {
@@ -32223,6 +32340,21 @@
               "id": "starlette.testclient.TestClient.lifespan-context.reentrant-context-entry",
               "dimension": "boundary",
               "description": "Enter one TestClient context twice before exiting twice and compare the live lifespan handshakes and context-manager behavior. Pinned source: starlette/testclient.py::TestClient.__enter__ and TestClient.__exit__.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.lifespan-context.shutdown-cleanup-error-precedence",
+              "dimension": "error_path",
+              "description": "When lifespan shutdown fails and portal cleanup also raises, propagate the later cleanup error with the shutdown failure retained in its exception context. Pinned source: starlette/testclient.py:679-709,735-749 and contextlib.ExitStack cleanup behavior.",
               "lanes": [
                 "parity"
               ],

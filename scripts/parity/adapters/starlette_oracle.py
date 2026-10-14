@@ -152,6 +152,7 @@ REQUEST_CONNECTION_PROPERTIES_OPERATION = (
 )
 REQUEST_SCOPE_MAPPING_OPERATION = ("starlette.requests.Request", "scope-mapping")
 REQUEST_HEADER_CACHE_SEQUENCE_OPERATION = ("starlette.requests.Request", "header-cache-sequence")
+REQUEST_COOKIE_CACHE_SEQUENCE_OPERATION = ("starlette.requests.Request", "cookie-cache-sequence")
 REQUEST_CONSTRUCTOR_OPERATION = ("starlette.requests.Request", "constructor-contract")
 WEBSOCKET_SCOPE_MAPPING_OPERATION = ("starlette.websockets.WebSocket", "scope-mapping")
 WEBSOCKET_CONSTRUCTOR_OPERATION = ("starlette.websockets.WebSocket", "constructor-contract")
@@ -13697,7 +13698,31 @@ AUTHENTICATION_OPERATIONS = {
 }
 
 
-def _make_auth_endpoint(mode: str, parameter_name: str, calls: list[Any], result: Any) -> Any:
+def _make_auth_endpoint(
+    mode: str,
+    parameter_name: str,
+    calls: list[Any],
+    result: Any,
+    signature: list[str] | None = None,
+) -> Any:
+    if signature is not None:
+        parameters = [
+            inspect.Parameter(name, inspect.Parameter.POSITIONAL_OR_KEYWORD) for name in signature
+        ]
+        if mode == "sync":
+
+            def endpoint(*args: Any, **kwargs: Any) -> Any:
+                calls.append(result)
+                return result
+        else:
+
+            async def endpoint(*args: Any, **kwargs: Any) -> Any:
+                calls.append(result)
+                return result
+
+        endpoint.__signature__ = inspect.Signature(parameters)
+        return endpoint
+
     if mode == "sync" and parameter_name == "request":
 
         def endpoint(request: Any, _calls: list[Any] = calls, _result: Any = result) -> Any:
@@ -13953,6 +13978,7 @@ def _run_authentication_case(case: dict[str, Any]) -> dict[str, Any]:
                 callable_spec["parameter"],
                 endpoint_calls,
                 result_value,
+                signature=callable_spec.get("signature"),
             )
             redirect = scenario.get("redirect")
             wrapped = requires(
@@ -13961,10 +13987,23 @@ def _run_authentication_case(case: dict[str, Any]) -> dict[str, Any]:
                 redirect=redirect,
             )(endpoint)
             try:
+                invocation = scenario.get("invocation")
+                if invocation is None:
+                    args = (connection,)
+                    kwargs = {}
+                else:
+                    args = tuple(invocation["positional"])
+                    kwargs = (
+                        {callable_spec["parameter"]: connection}
+                        if invocation["connection_binding"] == "keyword"
+                        else {}
+                    )
+                    if invocation["connection_binding"] == "positional":
+                        args = (*args, connection)
                 value = (
-                    wrapped(connection)
+                    wrapped(*args, **kwargs)
                     if callable_spec["mode"] == "sync"
-                    else asyncio.run(wrapped(connection))
+                    else asyncio.run(wrapped(*args, **kwargs))
                 )
             except Exception as exc:
                 outcome = {"outcome": "error", "error": _error_snapshot(exc)}
@@ -15583,6 +15622,17 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         )
 
         return run_request_header_cache_sequence_case(case, Request)
+    if (
+        isinstance(case, dict)
+        and (case.get("surface"), case.get("operation")) == REQUEST_COOKIE_CACHE_SEQUENCE_OPERATION
+    ):
+        from starlette.requests import Request
+
+        from scripts.parity.adapters.request_cookie_cache_sequence import (
+            run_request_cookie_cache_sequence_case,
+        )
+
+        return run_request_cookie_cache_sequence_case(case, Request)
     if (
         isinstance(case, dict)
         and (

@@ -378,6 +378,7 @@ TESTCLIENT_LIFESPAN_REQUIREMENTS = {
     "startup_message_type_comparison_error": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.startup-message-type-comparison-error",
     "startup_cleanup_error_precedence": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.startup-cleanup-error-precedence",
     "shutdown_error": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.shutdown-error-propagation",
+    "shutdown_cleanup_error_precedence": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.shutdown-cleanup-error-precedence",
     "http_state": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.http-lifespan-state",
     "shallow_copy": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.request-state-shallow-copy",
     "app_state": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.app-state-separation",
@@ -575,6 +576,7 @@ REQUEST_CONNECTION_PROPERTIES_OPERATION = (
     "connection-properties",
 )
 REQUEST_HEADER_CACHE_SEQUENCE_OPERATION = ("starlette.requests.Request", "header-cache-sequence")
+REQUEST_COOKIE_CACHE_SEQUENCE_OPERATION = ("starlette.requests.Request", "cookie-cache-sequence")
 REQUEST_SCOPE_MAPPING_OPERATION = ("starlette.requests.Request", "scope-mapping")
 REQUEST_CONSTRUCTOR_OPERATION = ("starlette.requests.Request", "constructor-contract")
 REQUEST_CLIENT_REQUIREMENT = "starlette.request.client-address"
@@ -585,6 +587,11 @@ REQUEST_HEADER_CACHE_SEQUENCE_REQUIREMENTS = {
 REQUEST_HEADER_CACHE_SEQUENCE_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
     "scope",
     "replacement_scope",
+    "actions",
+}
+REQUEST_COOKIE_CACHE_SEQUENCE_REQUIREMENT = "starlette.request.cookies-cache-semantics"
+REQUEST_COOKIE_CACHE_SEQUENCE_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
+    "scope",
     "actions",
 }
 REQUEST_SCOPE_MAPPING_REQUIREMENT = "starlette.requests.Request.scope-mapping.minimal-http-scope"
@@ -3052,6 +3059,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                 or key == REQUEST_CLIENT_OPERATION
                 or key == REQUEST_CONNECTION_PROPERTIES_OPERATION
                 or key == REQUEST_HEADER_CACHE_SEQUENCE_OPERATION
+                or key == REQUEST_COOKIE_CACHE_SEQUENCE_OPERATION
                 or key == REQUEST_SCOPE_MAPPING_OPERATION
                 or key == REQUEST_CONSTRUCTOR_OPERATION
                 or key == WEBSOCKET_SCOPE_MAPPING_OPERATION
@@ -3332,6 +3340,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                                 REQUEST_CLIENT_OPERATION,
                                 REQUEST_CONNECTION_PROPERTIES_OPERATION,
                                 REQUEST_HEADER_CACHE_SEQUENCE_OPERATION,
+                                REQUEST_COOKIE_CACHE_SEQUENCE_OPERATION,
                                 REQUEST_SCOPE_MAPPING_OPERATION,
                                 REQUEST_CONSTRUCTOR_OPERATION,
                                 WEBSOCKET_SCOPE_MAPPING_OPERATION,
@@ -20093,6 +20102,33 @@ def _validate_testclient_lifespan_case(case: dict[str, Any]) -> None:
         if error["exception_type"] != "RuntimeError":
             raise ContractError("TestClient lifespan error inputs currently use RuntimeError")
         _string(error["message"], "TestClient shutdown error message")
+    elif lifespan_operations == ["receive", "send", "receive", "send", "raise"]:
+        _exact(lifespan_actions[0], {"operation"}, "TestClient lifespan receive action")
+        startup = _exact(
+            lifespan_actions[1], {"operation", "message"}, "TestClient startup message action"
+        )
+        if _exact(startup["message"], {"type"}, "TestClient startup message")["type"] != (
+            "lifespan.startup.complete"
+        ):
+            raise ContractError("TestClient shutdown cleanup input must complete startup first")
+        _exact(lifespan_actions[2], {"operation"}, "TestClient lifespan receive action")
+        shutdown = _exact(
+            lifespan_actions[3], {"operation", "message"}, "TestClient shutdown failure message"
+        )
+        failure_message = _exact(
+            shutdown["message"], {"type", "message"}, "TestClient shutdown failure message"
+        )
+        if failure_message["type"] != "lifespan.shutdown.failed":
+            raise ContractError("TestClient shutdown cleanup input must send shutdown.failed")
+        _string(failure_message["message"], "TestClient shutdown failure message text")
+        error = _exact(
+            lifespan_actions[4],
+            {"operation", "exception_type", "message"},
+            "TestClient shutdown exception action",
+        )
+        if error["exception_type"] != "RuntimeError":
+            raise ContractError("TestClient lifespan error inputs currently use RuntimeError")
+        _string(error["message"], "TestClient shutdown error message")
     else:
         raise ContractError("TestClient lifespan app actions do not match a declared protocol path")
 
@@ -20105,6 +20141,7 @@ def _validate_testclient_lifespan_case(case: dict[str, Any]) -> None:
             TESTCLIENT_LIFESPAN_REQUIREMENTS["startup_message_type_comparison_error"],
             TESTCLIENT_LIFESPAN_REQUIREMENTS["startup_cleanup_error_precedence"],
             TESTCLIENT_LIFESPAN_REQUIREMENTS["shutdown_error"],
+            TESTCLIENT_LIFESPAN_REQUIREMENTS["shutdown_cleanup_error_precedence"],
             TESTCLIENT_LIFESPAN_REQUIREMENTS["http_state"],
             TESTCLIENT_LIFESPAN_REQUIREMENTS["shallow_copy"],
             TESTCLIENT_LIFESPAN_REQUIREMENTS["app_state"],
@@ -20135,6 +20172,14 @@ def _validate_testclient_lifespan_case(case: dict[str, Any]) -> None:
             TESTCLIENT_LIFESPAN_REQUIREMENTS["shutdown_error"],
         }
     elif (client_operations, lifespan_operations) == (
+        ["enter", "exit"],
+        ["receive", "send", "receive", "send", "raise"],
+    ):
+        expected_covers = {
+            TESTCLIENT_LIFESPAN_REQUIREMENTS["startup"],
+            TESTCLIENT_LIFESPAN_REQUIREMENTS["shutdown_error"],
+        }
+    elif (client_operations, lifespan_operations) == (
         ["enter", "enter", "exit", "exit"],
         ["receive", "send", "receive", "send"],
     ):
@@ -20147,18 +20192,29 @@ def _validate_testclient_lifespan_case(case: dict[str, Any]) -> None:
         raise ContractError("TestClient client actions and lifespan app actions do not align")
 
     if portal_exit_error is not None:
-        if (client_operations, lifespan_operations) != (["enter"], ["receive", "raise"]):
-            raise ContractError(
-                "TestClient portal-exit error input requires a startup failure during context entry"
+        if (client_operations, lifespan_operations) == (["enter"], ["receive", "raise"]):
+            expected_covers.add(
+                TESTCLIENT_LIFESPAN_REQUIREMENTS["startup_cleanup_error_precedence"]
             )
-        expected_covers.add(TESTCLIENT_LIFESPAN_REQUIREMENTS["startup_cleanup_error_precedence"])
+        elif (client_operations, lifespan_operations) == (
+            ["enter", "exit"],
+            ["receive", "send", "receive", "send", "raise"],
+        ):
+            expected_covers.add(
+                TESTCLIENT_LIFESPAN_REQUIREMENTS["shutdown_cleanup_error_precedence"]
+            )
+        else:
+            raise ContractError(
+                "TestClient portal-exit error input requires a startup or shutdown failure during context cleanup"
+            )
+    elif (client_operations, lifespan_operations) == (
+        ["enter", "exit"],
+        ["receive", "send", "receive", "send", "raise"],
+    ):
+        raise ContractError("TestClient shutdown cleanup precedence requires a portal-exit error")
 
     http = _exact(asgi_app["http"], {"receive_count", "messages"}, "TestClient lifespan HTTP app")
-    if "request" not in client_operations and lifespan_operations == ["receive", "send"]:
-        if type(http["receive_count"]) is not int or http["receive_count"] != 0:
-            raise ContractError("TestClient lifespan without HTTP requests has no HTTP receives")
-        if http["messages"] != []:
-            raise ContractError("TestClient lifespan without HTTP requests has no HTTP messages")
+    if "request" not in client_operations and http == {"receive_count": 0, "messages": []}:
         return
     if type(http["receive_count"]) is not int or http["receive_count"] != 1:
         raise ContractError("TestClient lifespan HTTP app consumes one request message")
@@ -21761,6 +21817,10 @@ def _validate_case_payload(
         isinstance(case, dict)
         and (case.get("surface"), case.get("operation")) == REQUEST_HEADER_CACHE_SEQUENCE_OPERATION
     )
+    is_request_cookie_cache_sequence = (
+        isinstance(case, dict)
+        and (case.get("surface"), case.get("operation")) == REQUEST_COOKIE_CACHE_SEQUENCE_OPERATION
+    )
     is_request_scope_mapping = (
         isinstance(case, dict)
         and (case.get("surface"), case.get("operation")) == REQUEST_SCOPE_MAPPING_OPERATION
@@ -21939,6 +21999,8 @@ def _validate_case_payload(
         if is_request_connection_properties
         else REQUEST_HEADER_CACHE_SEQUENCE_CASE_KEYS
         if is_request_header_cache_sequence
+        else REQUEST_COOKIE_CACHE_SEQUENCE_CASE_KEYS
+        if is_request_cookie_cache_sequence
         else REQUEST_CONSTRUCTOR_CASE_KEYS
         if is_request_constructor
         else (CASE_KEYS - {"steps", "execution_schedule"}) | {"scope"}
@@ -22061,6 +22123,10 @@ def _validate_case_payload(
     if is_request_header_cache_sequence:
         _exact(case, expected_case_keys, "Request header-cache sequence case")
         _validate_request_header_cache_sequence_case(case)
+        return case
+    if is_request_cookie_cache_sequence:
+        _exact(case, expected_case_keys, "Request cookie-cache sequence case")
+        _validate_request_cookie_cache_sequence_case(case)
         return case
     if is_request_scope_mapping:
         _exact(case, expected_case_keys, "Request scope-mapping case")
@@ -28316,6 +28382,131 @@ def _validate_request_header_cache_sequence_case(case: dict[str, Any]) -> None:
         raise ContractError("Request header-cache covers must match the supplied scope sequence")
 
 
+def _validate_request_cookie_cache_sequence_case(case: dict[str, Any]) -> None:
+    if case["target_profiles"] != ["python-package-cpython312"]:
+        raise ContractError("Request cookie-cache sequence parity targets CPython 3.12")
+    if case["assets"] != [] or case["observations"] != ["cookie-cache-sequence"]:
+        raise ContractError("Request cookie-cache sequence selects one observation without assets")
+    if not case["case_id"].startswith("starlette.requests.Request.cookie-cache-sequence."):
+        raise ContractError("Request cookie-cache sequence case ID must bind to its operation")
+
+    scope = _exact(
+        case["scope"],
+        {
+            "type",
+            "asgi",
+            "http_version",
+            "method",
+            "scheme",
+            "path",
+            "raw_path_base64",
+            "query_string_base64",
+            "root_path",
+            "headers_base64_pairs",
+            "client",
+            "server",
+            "extensions",
+        },
+        "Request cookie-cache scope",
+    )
+    if scope["type"] != "http" or scope["extensions"] != {}:
+        raise ContractError("Request cookie-cache scope requires HTTP and no extensions")
+    _validate_dispatch_stimulus(
+        {
+            "scope": {key: value for key, value in scope.items() if key != "extensions"},
+            "receive": [],
+            "send": {"kind": "capture-asgi-send"},
+        },
+        request_dispatch=True,
+        allow_headers=True,
+    )
+
+    def decode_pairs(value: Any, context: str) -> list[tuple[bytes, bytes]]:
+        if not isinstance(value, list):
+            raise ContractError(f"{context} must be an array")
+        pairs: list[tuple[bytes, bytes]] = []
+        for index, raw_pair in enumerate(value):
+            if not isinstance(raw_pair, list) or len(raw_pair) != 2:
+                raise ContractError(f"{context}[{index}] must contain two base64 strings")
+            decoded_pair = []
+            for label, encoded in zip(("name", "value"), raw_pair, strict=True):
+                if not isinstance(encoded, str):
+                    raise ContractError(f"{context}[{index}].{label} must be a base64 string")
+                try:
+                    decoded = base64.b64decode(encoded, validate=True)
+                except (TypeError, ValueError) as exc:
+                    raise ContractError(f"{context}[{index}].{label} is invalid base64") from exc
+                if base64.b64encode(decoded).decode("ascii") != encoded:
+                    raise ContractError(f"{context}[{index}].{label} must use canonical base64")
+                decoded_pair.append(decoded)
+            pairs.append((decoded_pair[0], decoded_pair[1]))
+        return pairs
+
+    def cookie_values(pairs: list[tuple[bytes, bytes]]) -> list[bytes]:
+        return [value for name, value in pairs if name.lower() == b"cookie"]
+
+    original_pairs = decode_pairs(scope["headers_base64_pairs"], "Request cookie-cache headers")
+    actions = case["actions"]
+    if not isinstance(actions, list) or len(actions) != 8:
+        raise ContractError("Request cookie-cache sequence requires eight ordered actions")
+    operations = [
+        "read-cookies",
+        "mutate-headers-in-place",
+        "read-cookies",
+        "replace-headers",
+        "read-cookies",
+        "set-cookie",
+        "delete-cookie",
+        "read-cookies",
+    ]
+    if any(
+        not isinstance(action, dict) or action.get("operation") != operation
+        for action, operation in zip(actions, operations, strict=True)
+    ):
+        raise ContractError(
+            "Request cookie-cache actions must exercise the declared mutation order"
+        )
+    _exact(actions[0], {"operation"}, "Request initial cookie read")
+    in_place_action = _exact(
+        actions[1],
+        {"operation", "headers_base64_pairs"},
+        "Request in-place header mutation",
+    )
+    _exact(actions[2], {"operation"}, "Request cookie read after in-place mutation")
+    replacement_action = _exact(
+        actions[3],
+        {"operation", "headers_base64_pairs"},
+        "Request header replacement",
+    )
+    _exact(actions[4], {"operation"}, "Request cookie read after header replacement")
+    set_cookie = _exact(actions[5], {"operation", "key", "value"}, "Request cookie assignment")
+    _string(set_cookie["key"], "Request cookie assignment key")
+    _string(set_cookie["value"], "Request cookie assignment value")
+    delete_cookie = _exact(actions[6], {"operation", "key"}, "Request cookie deletion")
+    _string(delete_cookie["key"], "Request cookie deletion key")
+    _exact(actions[7], {"operation"}, "Request final cookie read")
+
+    in_place_pairs = decode_pairs(
+        in_place_action["headers_base64_pairs"], "Request in-place header mutation pairs"
+    )
+    replacement_pairs = decode_pairs(
+        replacement_action["headers_base64_pairs"], "Request replacement header pairs"
+    )
+    original_cookies = cookie_values(original_pairs)
+    in_place_cookies = cookie_values(in_place_pairs)
+    replacement_cookies = cookie_values(replacement_pairs)
+    if not original_cookies or original_cookies == in_place_cookies:
+        raise ContractError("Request in-place mutation must change supplied Cookie header values")
+    if in_place_cookies == replacement_cookies:
+        raise ContractError("Request replacement must change supplied Cookie header values")
+    expected_covers = {
+        REQUEST_COOKIE_CACHE_SEQUENCE_REQUIREMENT,
+        "starlette.request.cookies-dict-semantics",
+    }
+    if set(case["covers"]) != expected_covers:
+        raise ContractError("Request cookie-cache covers must match the supplied action sequence")
+
+
 def _validate_request_scope_mapping_case(case: dict[str, Any]) -> None:
     if case["target_profiles"] != list(PYTHON_PROFILE_IDS):
         raise ContractError("Request scope mapping parity targets all supported Python profiles")
@@ -34221,12 +34412,14 @@ def _validate_authentication_case(case: dict[str, Any]) -> None:
                 raw_scenario,
                 {"callable", "required_scopes", "connection"}
                 | ({"status_code"} if "status_code" in raw_scenario else set())
-                | ({"redirect"} if "redirect" in raw_scenario else set()),
+                | ({"redirect"} if "redirect" in raw_scenario else set())
+                | ({"invocation"} if "invocation" in raw_scenario else set()),
                 context,
             )
             callable_spec = _exact(
                 scenario["callable"],
-                {"kind", "mode", "parameter", "result"},
+                {"kind", "mode", "parameter", "result"}
+                | ({"signature"} if "signature" in scenario["callable"] else set()),
                 f"{context}.callable",
             )
             if (
@@ -34238,6 +34431,57 @@ def _validate_authentication_case(case: dict[str, Any]) -> None:
                 or not isinstance(callable_spec["result"], (str, int, float, bool, type(None)))
             ):
                 raise ContractError(f"{context}.callable is outside the declared endpoint forms")
+            signature = callable_spec.get("signature")
+            parameter_index = 0
+            if signature is not None:
+                if (
+                    not isinstance(signature, list)
+                    or not signature
+                    or any(
+                        not isinstance(name, str)
+                        or not name.isidentifier()
+                        or keyword.iskeyword(name)
+                        for name in signature
+                    )
+                    or len(signature) != len(set(signature))
+                    or callable_spec["parameter"] not in signature
+                ):
+                    raise ContractError(
+                        f"{context}.callable.signature must contain unique parameter names including its connection parameter"
+                    )
+                parameter_index = signature.index(callable_spec["parameter"])
+            invocation = scenario.get("invocation")
+            if invocation is not None:
+                if signature is None:
+                    raise ContractError(
+                        f"{context}.invocation requires an input-defined callable signature"
+                    )
+                invocation = _exact(
+                    invocation,
+                    {"positional", "connection_binding"},
+                    f"{context}.invocation",
+                )
+                positional = invocation["positional"]
+                if not isinstance(positional, list) or any(
+                    type(value) not in (str, int, float, bool, type(None)) for value in positional
+                ):
+                    raise ContractError(f"{context}.invocation.positional must be JSON scalars")
+                if invocation["connection_binding"] not in {"keyword", "positional"}:
+                    raise ContractError(
+                        f"{context}.invocation.connection_binding must be keyword or positional"
+                    )
+                if len(positional) != parameter_index:
+                    raise ContractError(
+                        f"{context}.invocation positional values must precede the declared connection parameter"
+                    )
+                if invocation["connection_binding"] == "keyword" and parameter_index > 0:
+                    exercised.add(
+                        "starlette.authentication.requires.signature-index-keyword-connection-binding"
+                    )
+            elif parameter_index != 0:
+                raise ContractError(
+                    f"{context}.callable.signature requires an invocation for a non-first connection parameter"
+                )
             raw_connection = scenario["connection"]
             if not isinstance(raw_connection, dict):
                 raise ContractError(f"{context}.connection must be an object")

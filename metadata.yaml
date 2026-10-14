@@ -556,6 +556,10 @@
         {
           "operation_id": "header-cache-sequence",
           "source_path": "starlette.requests.HTTPConnection.headers, Request.cookies, and Request.send_push_promise"
+        },
+        {
+          "operation_id": "cookie-cache-sequence",
+          "source_path": "starlette.requests.Request.cookies"
         }
       ]
     },
