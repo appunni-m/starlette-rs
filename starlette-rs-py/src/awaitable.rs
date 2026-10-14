@@ -428,8 +428,8 @@ impl SendablePythonAwaitable {
 
 fn await_iterator(py: Python<'_>, awaitable: Py<PyAny>) -> PyResult<Py<PyAny>> {
     let awaitable = awaitable.bind(py);
-    let is_awaitable = py
-        .import("inspect")?
+    let inspect = py.import("inspect")?;
+    let is_awaitable = inspect
         .getattr("isawaitable")?
         .call1((awaitable,))?
         .extract::<bool>()?;
@@ -444,6 +444,28 @@ fn await_iterator(py: Python<'_>, awaitable: Py<PyAny>) -> PyResult<Py<PyAny>> {
             "object {type_name} can't be used in 'await' expression"
         )));
     }
+
+    // CPython's await protocol also accepts generator-based coroutines made
+    // with `types.coroutine`. They are awaitable through the
+    // CO_ITERABLE_COROUTINE code flag even though generator objects do not
+    // expose a type-level `__await__` method. Starlette awaits ASGI callables
+    // directly, so preserve this public Python awaitable shape at the Rust
+    // boundary and delegate to the generator itself.
+    let is_generator = inspect
+        .getattr("isgenerator")?
+        .call1((awaitable,))?
+        .extract::<bool>()?;
+    if is_generator {
+        let code_flags = awaitable
+            .getattr("gi_code")?
+            .getattr("co_flags")?
+            .extract::<u32>()?;
+        let iterable_coroutine_flag = inspect.getattr("CO_ITERABLE_COROUTINE")?.extract::<u32>()?;
+        if code_flags & iterable_coroutine_flag != 0 {
+            return Ok(awaitable.clone().unbind());
+        }
+    }
+
     let iterator = call_await_special_method(py, awaitable)?;
     if !iterator.is_instance_of::<PyIterator>() {
         return Err(PyTypeError::new_err("__await__() returned a non-iterator"));

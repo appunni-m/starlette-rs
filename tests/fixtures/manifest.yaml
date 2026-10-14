@@ -1607,6 +1607,17 @@
               ]
             },
             {
+              "id": "starlette.applications.Starlette.__call__.generator-based-coroutine-await",
+              "dimension": "boundary",
+              "description": "When Starlette.__call__ awaits its middleware stack, accept an input-defined middleware-stack override returning a generator-based coroutine created with types.coroutine and compare the complete streaming ASGI response. Pinned source: starlette/applications.py:92-96; Python generator-based coroutine await protocol.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.applications.Starlette.__call__.middleware-config-subclass-iteration",
               "dimension": "boundary",
               "description": "Construct a public Middleware subclass whose __iter__ yields a different middleware factory, then dispatch through Starlette.__call__; middleware stack construction must honor Python special-method dispatch and expand the yielded constructor values. Pinned source: starlette/applications.py::Starlette.build_middleware_stack and starlette/middleware/__init__.py::Middleware.__iter__.",
@@ -11865,6 +11876,17 @@
               "id": "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.call-next-response-body-iterator-replacement",
               "dimension": "protocol_variant",
               "description": "After call_next returns, replace the response's body_iterator with an input-defined async iterator and return that same response. Compare the yielded chunks, including an empty chunk, and terminal ASGI body behavior from the live source and target. Pinned source: starlette/middleware/base.py:220-244.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.mutable-downstream-response-messages",
+              "dimension": "boundary",
+              "description": "Pass input-defined collections.UserDict ASGI response.start and response.body messages through BaseHTTPMiddleware and compare the complete response. Starlette types ASGI Message as MutableMapping and reads message fields with get and indexing. Pinned sources: starlette/types.py::Message; starlette/middleware/base.py::BaseHTTPMiddleware.call_next and BaseHTTPMiddleware.__call__.",
               "lanes": [
                 "parity"
               ],

@@ -9,7 +9,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use pyo3::class::gc::{PyTraverseError, PyVisit};
-use pyo3::exceptions::{PyAssertionError, PyKeyError, PyRuntimeError, PyStopAsyncIteration};
+use pyo3::exceptions::{PyAssertionError, PyRuntimeError, PyStopAsyncIteration};
 use pyo3::prelude::*;
 use pyo3::sync::PyOnceLock;
 use pyo3::types::{PyBytes, PyDict, PyList, PyString, PyTuple};
@@ -762,15 +762,14 @@ impl CallNextMachine {
     }
 
     fn make_response(&mut self, py: Python<'_>, message: Py<PyAny>) -> PyResult<MachineAction> {
-        let message_bound = message.bind(py).cast::<PyDict>()?;
-        let info = match message_bound.get_item("info")? {
-            Some(info) if !info.is_none() => Some(info.unbind()),
-            _ => None,
+        let message_bound = message.bind(py);
+        let info = message_bound.call_method1("get", ("info", py.None()))?;
+        let info = if info.is_none() {
+            None
+        } else {
+            Some(info.unbind())
         };
-        let message_type = message_bound
-            .get_item("type")?
-            .ok_or_else(|| PyKeyError::new_err("type"))?
-            .extract::<String>()?;
+        let message_type = message_bound.get_item("type")?.extract::<String>()?;
         if message_type == "http.response.debug" && info.is_some() && !self.debug_skipped {
             self.info = info;
             self.debug_skipped = true;
@@ -782,13 +781,9 @@ impl CallNextMachine {
                 message_bound.repr()?.extract::<String>()?
             )));
         }
-        let status_code = message_bound
-            .get_item("status")?
-            .ok_or_else(|| PyKeyError::new_err("status"))?
-            .unbind();
+        let status_code = message_bound.get_item("status")?.unbind();
         let raw_headers = message_bound
             .get_item("headers")?
-            .ok_or_else(|| PyKeyError::new_err("headers"))?
             .extract::<Vec<(Vec<u8>, Vec<u8>)>>()?;
         let stream = self.shared.try_borrow(py)?.clone_receive_stream(py);
         let response_info = self.info.take().or(info);
@@ -1617,29 +1612,22 @@ impl BodyIteratorMachine {
     }
 
     fn process_message(&mut self, py: Python<'_>, message: Py<PyAny>) -> PyResult<MachineAction> {
-        let message = message.bind(py).cast::<PyDict>()?;
-        let message_type = message
-            .get_item("type")?
-            .ok_or_else(|| PyKeyError::new_err("type"))?
-            .extract::<String>()?;
+        let message_bound = message.bind(py);
+        let message_type = message_bound.get_item("type")?.extract::<String>()?;
         if message_type == "http.response.pathsend" {
             self.finished.store(true, Ordering::SeqCst);
-            return Ok(MachineAction::Complete(message.clone().into_any().unbind()));
+            return Ok(MachineAction::Complete(message));
         }
         if message_type != "http.response.body" {
             return Err(PyAssertionError::new_err(format!(
                 "Unexpected message: {}",
-                message.repr()?.extract::<String>()?
+                message_bound.str()?.extract::<String>()?
             )));
         }
-        let body = message
-            .get_item("body")?
-            .unwrap_or_else(|| PyBytes::new(py, b"").into_any());
-        let more_body = message
-            .get_item("more_body")?
-            .map(|value| value.extract::<bool>())
-            .transpose()?
-            .unwrap_or(false);
+        let body = message_bound.call_method1("get", ("body", PyBytes::new(py, b"")))?;
+        let more_body = message_bound
+            .call_method1("get", ("more_body", false))?
+            .is_truthy()?;
         if !more_body {
             self.finished.store(true, Ordering::SeqCst);
         }

@@ -4933,13 +4933,22 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
             response_started = False
             body_send_count = 0
             for step_index, raw_step in enumerate(steps[:-1]):
+                send_step_fields = {"kind", "message"}
+                if isinstance(raw_step, dict) and "message_mapping" in raw_step:
+                    send_step_fields.add("message_mapping")
                 send_step = _strict_object(
                     raw_step,
-                    {"kind", "message"},
+                    send_step_fields,
                     f"downstream ASGI send step[{step_index}]",
                 )
                 if send_step["kind"] != "send":
                     raise ValueError("downstream ASGI steps before final receive must send")
+                message_mapping = send_step.get("message_mapping", "dict")
+                if not isinstance(message_mapping, str) or message_mapping not in {
+                    "dict",
+                    "user-dict",
+                }:
+                    raise ValueError("downstream ASGI message mapping must be dict or user-dict")
                 message_spec = send_step["message"]
                 if not isinstance(message_spec, dict) or not isinstance(
                     message_spec.get("type"), str
@@ -5170,6 +5179,18 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
     required_covers = {
         f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.construct-configured-middleware"
     }
+    if (
+        downstream_spec is not None
+        and downstream_spec["kind"] == "asgi-sequence"
+        and any(
+            step.get("message_mapping") == "user-dict"
+            for step in downstream_spec["steps"][:-1]
+            if isinstance(step, dict) and step.get("kind") == "send"
+        )
+    ):
+        required_covers.add(
+            f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.mutable-downstream-response-messages"
+        )
     if saw_header_mutation or stacked_state_header_mutation:
         required_covers.add(
             f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.await-call-next-header-mutation"
@@ -6377,6 +6398,8 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                             ),
                             "more_body": message_spec["more_body"],
                         }
+                    if step.get("message_mapping", "dict") == "user-dict":
+                        message = UserDict(message)
                     execution_trace.append(
                         {
                             "event": "downstream-send",

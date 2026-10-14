@@ -55,6 +55,27 @@ def materialize_starlette_subclass(
             {"build_middleware_stack": build_middleware_stack},
         )
 
+    if specification["kind"] == "build-middleware-stack-delegate-through-generator-coroutine":
+        if set(specification) != {"kind"}:
+            raise ValueError("generator-coroutine subclass input has unexpected fields")
+
+        import types
+
+        def build_middleware_stack(self: Any) -> Any:
+            application = super(type(self), self).build_middleware_stack()
+
+            @types.coroutine
+            def wrapped_application(scope: Any, receive: Any, send: Any) -> Any:
+                return (yield from application(scope, receive, send).__await__())
+
+            return wrapped_application
+
+        return type(
+            "GeneratorCoroutineStarletteSubclass",
+            (base_type,),
+            {"build_middleware_stack": build_middleware_stack},
+        )
+
     if specification["kind"] == "build-middleware-stack-wrap-exception-handlers-userdict":
         if set(specification) != {"kind"}:
             raise ValueError("UserDict exception-handler subclass input has unexpected fields")

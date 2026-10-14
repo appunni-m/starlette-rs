@@ -119,6 +119,9 @@ TYPING_CONSUMER_OPERATIONS = frozenset(TYPING_CONSUMER_SPECS)
 STARLETTE_SUBCLASS_BUILDER_REQUIREMENT = (
     "starlette.applications.Starlette.__call__.middleware-stack-subclass-override"
 )
+STARLETTE_GENERATOR_COROUTINE_AWAIT_REQUIREMENT = (
+    "starlette.applications.Starlette.__call__.generator-based-coroutine-await"
+)
 STARLETTE_MIDDLEWARE_ITERATOR_REQUIREMENT = (
     "starlette.applications.Starlette.__call__.middleware-config-subclass-iteration"
 )
@@ -572,6 +575,7 @@ BASE_HTTP_REQUIREMENTS = {
     "response_header_get_missing": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.call-next-response-headers-mapping-get",
     "return_call_next_response_with_closed_body_iterator": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.return-call-next-response-with-closed-body-iterator",
     "body_iterator_replacement": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.call-next-response-body-iterator-replacement",
+    "mutable_downstream_response_messages": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.mutable-downstream-response-messages",
 }
 SESSION_REQUIREMENTS = {
     "construct": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.construct",
@@ -14319,13 +14323,22 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
                             "downstream receive before completion is supported only while an overlapping response body read is pending"
                         )
                     continue
+                send_step_fields = {"kind", "message"}
+                if isinstance(raw_step, dict) and "message_mapping" in raw_step:
+                    send_step_fields.add("message_mapping")
                 send_step = _exact(
                     raw_step,
-                    {"kind", "message"},
+                    send_step_fields,
                     f"downstream ASGI send step[{step_index}]",
                 )
                 if send_step["kind"] != "send":
                     raise ContractError("downstream ASGI steps before final receive must send")
+                message_mapping = send_step.get("message_mapping", "dict")
+                if not isinstance(message_mapping, str) or message_mapping not in {
+                    "dict",
+                    "user-dict",
+                }:
+                    raise ContractError("downstream ASGI message_mapping must be dict or user-dict")
                 message_spec = send_step["message"]
                 if not isinstance(message_spec, dict) or not isinstance(
                     message_spec.get("type"), str
@@ -14848,6 +14861,16 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
         raise ContractError("middleware lifecycle stack requires one initial http.disconnect event")
 
     requirements = {BASE_HTTP_REQUIREMENTS["construct"]}
+    if (
+        downstream is not None
+        and downstream["kind"] == "asgi-sequence"
+        and any(
+            step.get("message_mapping") == "user-dict"
+            for step in downstream["steps"][:-1]
+            if isinstance(step, dict) and step.get("kind") == "send"
+        )
+    ):
+        requirements.add(BASE_HTTP_REQUIREMENTS["mutable_downstream_response_messages"])
     if case.get("scope_container") == "user-dict":
         requirements.add(MUTABLE_SCOPE_REQUIREMENTS[BASE_HTTP_SURFACE])
     elif (
@@ -21926,12 +21949,20 @@ def _validate_application_subclass_builder_case(
 
     application_arguments = steps[0]["arguments"]
     routes = application_arguments["routes"]["value"]
+    route_endpoint_kind = (
+        routes[0].get("endpoint", {}).get("kind")
+        if isinstance(routes, list)
+        and routes
+        and isinstance(routes[0], dict)
+        and isinstance(routes[0].get("endpoint"), dict)
+        else None
+    )
     if (
         not isinstance(routes, list)
         or len(routes) != 1
         or not isinstance(routes[0], dict)
         or routes[0].get("kind") != "http-route"
-        or routes[0].get("endpoint", {}).get("kind") not in {"plain-text-response", "json-response"}
+        or route_endpoint_kind not in {"plain-text-response", "json-response", "streaming-response"}
     ):
         raise ContractError("Starlette subclass-builder case must dispatch one response route")
     route = routes[0]
@@ -21950,7 +21981,18 @@ def _validate_application_subclass_builder_case(
     ):
         raise ContractError("Starlette application subclass hook kind is unsupported")
     kind = raw_specification["kind"]
-    if kind == "build-middleware-stack-delegate-and-append-header":
+    if kind == "build-middleware-stack-delegate-through-generator-coroutine":
+        _exact(
+            raw_specification,
+            {"kind"},
+            "Starlette generator-coroutine application subclass input",
+        )
+        if route_endpoint_kind != "streaming-response":
+            raise ContractError(
+                "generator-coroutine middleware-stack input must dispatch a streaming response"
+            )
+        expected_requirement = STARLETTE_GENERATOR_COROUTINE_AWAIT_REQUIREMENT
+    elif kind == "build-middleware-stack-delegate-and-append-header":
         specification = _exact(
             raw_specification,
             {"kind", "response_header_base64"},
@@ -22093,6 +22135,12 @@ def _validate_application_subclass_builder_case(
         expected_requirement = STARLETTE_ATTRIBUTE_READ_ORDER_REQUIREMENT
     else:
         raise ContractError("Starlette application subclass hook kind is unsupported")
+    if kind != "build-middleware-stack-delegate-through-generator-coroutine" and (
+        route_endpoint_kind == "streaming-response"
+    ):
+        raise ContractError(
+            "Starlette streaming subclass-builder routes require a generator-coroutine hook"
+        )
     if case["covers"] != [expected_requirement]:
         raise ContractError("Starlette subclass-builder case must cover its input-defined behavior")
 
@@ -40732,12 +40780,17 @@ def _semantic_coverage(case: dict[str, Any]) -> set[str]:
         and case["operation"] == "__call__"
         and case["target_profiles"] == ["python-package-cpython312"]
         and route["kind"] == "http-route"
-        and endpoint["kind"] in {"plain-text-response", "json-response"}
+        and endpoint["kind"] in {"plain-text-response", "json-response", "streaming-response"}
         and path_matches
         and method_matches
         and scope.get("type") == "http"
     ):
-        if case["application_subclass"].get("kind") == STARLETTE_SUBCLASS_USER_MIDDLEWARE_KIND:
+        if (
+            case["application_subclass"].get("kind")
+            == "build-middleware-stack-delegate-through-generator-coroutine"
+        ):
+            coverage.add(STARLETTE_GENERATOR_COROUTINE_AWAIT_REQUIREMENT)
+        elif case["application_subclass"].get("kind") == STARLETTE_SUBCLASS_USER_MIDDLEWARE_KIND:
             coverage.add(STARLETTE_USER_MIDDLEWARE_ITERABLE_REQUIREMENT)
         elif case["application_subclass"].get("kind") == STARLETTE_EXCEPTION_HANDLERS_USERDICT_KIND:
             coverage.add(STARLETTE_EXCEPTION_HANDLERS_MAPPING_REQUIREMENT)
