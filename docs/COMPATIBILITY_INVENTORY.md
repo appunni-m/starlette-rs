@@ -492,6 +492,27 @@ Clean commit `807a41bd79f0d6f9b99a9c73f9b07449f5020880` passed preflight `a1a668
 
 Benchmark `69c5837b-24df-4708-8fee-ad27ed75049f` matched and timed all 74 source/package workloads. Native timings remain not_run for all 74. Median source/package latency ratios were 0.750 for Router and 0.967 for GZip; the source was faster in 5/6 Router and 57/68 GZip workloads. Result SHA-256: `817e7aca984eb015a7cd27fbcdd0f8b7c1e72e84842192292cd098045eae52de`. See [benchmark evidence](BENCHMARKS.md). This is the active bounded contract; complete Starlette parity remains unproven.
 
+## FileResponse stateful PathLike boundary
+
+Starlette retains the caller's `FileResponse.path` object and uses it at two
+separate operations while serving the response: `os.stat` before response
+headers are sent and `anyio.open_file` after the response-start event. A valid
+`os.PathLike.__fspath__` can be stateful, so the two protocol calls may return
+different paths or raise different exceptions. Converting once to a Rust
+`PathBuf` would erase those Python callbacks and change which metadata and file
+body the public response observes. The Rust response state therefore retains
+the original Python object and requests metadata and opening at their separate
+source-ordered boundaries; AnyIO performs the file operations on its worker
+thread. This is Python protocol interoperability at the boundary, while Rust
+owns response state and the event ordering.
+
+The active input-only `file-response-stateful-pathlike` case supplies two
+equal-length files and observes conversion count/order, worker context, the
+selected response body, and opening after response-start. Its contract and
+manifest entry are present, but the source/package comparison remains
+unexecuted until the grouped full-parity phase. This targeted case does not
+establish complete `FileResponse` parity.
+
 ## StaticFiles runtime boundary
 
 The public `starlette.staticfiles.StaticFiles` facade now delegates path
