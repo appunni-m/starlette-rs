@@ -287,10 +287,11 @@ impl PyHTTPConnection {
             return Ok(state.clone_ref(py));
         }
         let empty = PyDict::new(py);
-        let state_value = self
-            .scope
-            .bind(py)
-            .call_method1("setdefault", ("state", empty))?;
+        let scope = self.scope.bind(py);
+        // Starlette reads the mapping again after setdefault; a custom ASGI
+        // scope can expose a different value through __getitem__.
+        scope.call_method1("setdefault", ("state", empty))?;
+        let state_value = scope.get_item("state")?;
         let state_type = py.import("starlette.datastructures")?.getattr("State")?;
         let state = state_type.call1((state_value,))?.unbind();
         self.state = Some(state.clone_ref(py));

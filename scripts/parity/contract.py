@@ -89,6 +89,13 @@ RESPONSE_TYPING_CONSUMER_REQUIREMENT = (
 )
 CONFIG_TYPING_CONSUMER_OPERATION = ("starlette.config.Config", "typing-consumer")
 CONFIG_TYPING_CONSUMER_REQUIREMENT = "starlette.config.Config.python-typing-contract"
+TEMPLATING_TYPING_CONSUMER_OPERATION = (
+    "starlette.templating.Jinja2Templates",
+    "typing-consumer",
+)
+TEMPLATING_TYPING_CONSUMER_REQUIREMENT = (
+    "starlette.templating.Jinja2Templates.python-typing-contract"
+)
 TYPING_CONSUMER_SPECS = {
     APPLICATION_TYPING_CONSUMER_OPERATION: (
         "starlette.applications.Starlette.typing-consumer.public-facade-aliases",
@@ -101,6 +108,10 @@ TYPING_CONSUMER_SPECS = {
     CONFIG_TYPING_CONSUMER_OPERATION: (
         "starlette.config.Config.typing-consumer.call-overloads",
         CONFIG_TYPING_CONSUMER_REQUIREMENT,
+    ),
+    TEMPLATING_TYPING_CONSUMER_OPERATION: (
+        "starlette.templating.Jinja2Templates.typing-consumer.get-template-render",
+        TEMPLATING_TYPING_CONSUMER_REQUIREMENT,
     ),
 }
 TYPING_CONSUMER_OPERATIONS = frozenset(TYPING_CONSUMER_SPECS)
@@ -640,6 +651,10 @@ REQUEST_CONNECTION_PROPERTIES_OPERATION = (
 REQUEST_HEADER_CACHE_SEQUENCE_OPERATION = ("starlette.requests.Request", "header-cache-sequence")
 REQUEST_COOKIE_CACHE_SEQUENCE_OPERATION = ("starlette.requests.Request", "cookie-cache-sequence")
 REQUEST_SCOPE_MAPPING_OPERATION = ("starlette.requests.Request", "scope-mapping")
+REQUEST_STATE_READBACK_OPERATION = (
+    "starlette.requests.Request",
+    "state-setdefault-readback",
+)
 REQUEST_CONSTRUCTOR_OPERATION = ("starlette.requests.Request", "constructor-contract")
 REQUEST_CLIENT_REQUIREMENT = "starlette.request.client-address"
 REQUEST_HEADER_CACHE_SEQUENCE_REQUIREMENTS = {
@@ -661,6 +676,7 @@ REQUEST_SCOPE_IDENTITY_REQUIREMENT = "starlette.requests.Request.scope-mapping.o
 REQUEST_SCOPE_INSTANCE_ITER_REQUIREMENT = (
     "starlette.requests.Request.scope-mapping.instance-iter-override"
 )
+REQUEST_STATE_READBACK_REQUIREMENT = "starlette.requests.Request.state.setdefault-readback"
 CONFIG_SECRET_DEFAULT_OBJECT_REQUIREMENT = (
     "starlette.config.Config.secret-cast-preserves-default-object"
 )
@@ -874,6 +890,9 @@ TEMPLATING_REQUIREMENTS = {
     "starlette.templating.Jinja2Templates.url-for-global",
     "starlette.templating._TemplateResponse.template-context-metadata",
     "starlette.templating._TemplateResponse.debug-extension",
+    "starlette.templating.Jinja2Templates.TemplateResponse.deferred-response-call-lookup",
+    "starlette.templating.Jinja2Templates.TemplateResponse.base-response-init-lookup-after-render",
+    "starlette.templating.Jinja2Templates.TemplateResponse.context-update-lookup-before-processor-call",
 }
 TEMPLATING_DIRECTORY_SEQUENCE_REQUIREMENT = (
     "starlette.templating.Jinja2Templates.constructor-directory-sequence"
@@ -915,6 +934,7 @@ PYTHON_VERSION_MATRIX_OPERATIONS = {
     URL_COMPONENTS_OPERATION,
     (EXCEPTION_VALUES_SURFACE, VALUE_FORMATTING_OPERATION),
     REQUEST_SCOPE_MAPPING_OPERATION,
+    REQUEST_STATE_READBACK_OPERATION,
     ("starlette.datastructures.FormData", "multidict-lookups"),
     ("starlette.datastructures.FormData", "close-lifecycle"),
     UPLOAD_FILE_OPERATION,
@@ -3146,6 +3166,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                 or key == REQUEST_HEADER_CACHE_SEQUENCE_OPERATION
                 or key == REQUEST_COOKIE_CACHE_SEQUENCE_OPERATION
                 or key == REQUEST_SCOPE_MAPPING_OPERATION
+                or key == REQUEST_STATE_READBACK_OPERATION
                 or key == REQUEST_CONSTRUCTOR_OPERATION
                 or key == WEBSOCKET_SCOPE_MAPPING_OPERATION
                 or key == WEBSOCKET_CONSTRUCTOR_OPERATION
@@ -3431,6 +3452,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                                 REQUEST_HEADER_CACHE_SEQUENCE_OPERATION,
                                 REQUEST_COOKIE_CACHE_SEQUENCE_OPERATION,
                                 REQUEST_SCOPE_MAPPING_OPERATION,
+                                REQUEST_STATE_READBACK_OPERATION,
                                 REQUEST_CONSTRUCTOR_OPERATION,
                                 WEBSOCKET_SCOPE_MAPPING_OPERATION,
                                 WEBSOCKET_CONSTRUCTOR_OPERATION,
@@ -6802,9 +6824,7 @@ def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
         204,
         304,
     }:
-        raise ContractError(
-            "Response status_code must be 200, 204, or 304 for this input slice"
-        )
+        raise ContractError("Response status_code must be 200, 204, or 304 for this input slice")
     header_pairs = case["header_pairs"]
     if not isinstance(header_pairs, list) or any(
         not isinstance(pair, list)
@@ -6882,7 +6902,17 @@ def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
                 ("input", 200, "text/plain"),
                 ("task initiated", 200, "text/plain"),
             }
-            if (value, case["status_code"], case["media_type"]) not in allowed:
+            explicit_content_type = any(
+                name.lower() == "content-type" for name, _value in header_pairs
+            )
+            supported_explicit_content_type = (
+                case["status_code"] == 200
+                and case["media_type"] == "text/plain"
+                and explicit_content_type
+            )
+            if (value, case["status_code"], case["media_type"]) not in allowed and not (
+                supported_explicit_content_type
+            ):
                 raise ContractError(
                     "Response text, status_code, and media_type combination is unsupported"
                 )
@@ -22473,6 +22503,10 @@ def _validate_case_payload(
         isinstance(case, dict)
         and (case.get("surface"), case.get("operation")) == REQUEST_SCOPE_MAPPING_OPERATION
     )
+    is_request_state_readback = (
+        isinstance(case, dict)
+        and (case.get("surface"), case.get("operation")) == REQUEST_STATE_READBACK_OPERATION
+    )
     is_request_constructor = (
         isinstance(case, dict)
         and (case.get("surface"), case.get("operation")) == REQUEST_CONSTRUCTOR_OPERATION
@@ -22656,6 +22690,8 @@ def _validate_case_payload(
         if is_request_cookie_cache_sequence
         else REQUEST_CONSTRUCTOR_CASE_KEYS
         if is_request_constructor
+        else (CASE_KEYS - {"steps", "execution_schedule"}) | {"scope", "scope_mapping"}
+        if is_request_state_readback
         else (CASE_KEYS - {"steps", "execution_schedule"}) | {"scope"}
         if is_request_scope_mapping
         else (CASE_KEYS - {"steps", "execution_schedule"}) | {"routes"}
@@ -22786,6 +22822,10 @@ def _validate_case_payload(
     if is_request_scope_mapping:
         _exact(case, expected_case_keys, "Request scope-mapping case")
         _validate_request_scope_mapping_case(case)
+        return case
+    if is_request_state_readback:
+        _exact(case, expected_case_keys, "Request state-readback case")
+        _validate_request_state_readback_case(case)
         return case
     if is_request_constructor:
         _exact(case, expected_case_keys, "Request constructor case")
@@ -22944,6 +22984,16 @@ def _validate_case_payload(
             ("starlette.templating.Jinja2Templates", "module-import-policy"): {"imports"},
         }[(case["surface"], case["operation"])]
         expected_case_keys = (CASE_KEYS - {"steps", "execution_schedule"}) | input_keys
+        if (
+            case["surface"],
+            case["operation"],
+        ) == TEMPLATING_OPERATION and "send_mutations" in case:
+            expected_case_keys = expected_case_keys | {"send_mutations"}
+        if (
+            case["surface"],
+            case["operation"],
+        ) == TEMPLATING_OPERATION and "render_mutations" in case:
+            expected_case_keys = expected_case_keys | {"render_mutations"}
         if (
             (case["surface"], case["operation"]) == ("starlette.config.Config", "value-resolution")
             and isinstance(case, dict)
@@ -29297,6 +29347,51 @@ def _validate_request_scope_mapping_case(case: dict[str, Any]) -> None:
         raise ContractError("Request iterator override coverage requires a custom scope mapping")
 
 
+def _validate_request_state_readback_case(case: dict[str, Any]) -> None:
+    if case["target_profiles"] != list(PYTHON_PROFILE_IDS):
+        raise ContractError("Request state-readback parity targets all supported Python profiles")
+    if case["assets"] != [] or case["observations"] != ["state-readback"]:
+        raise ContractError("Request state-readback cases select state-readback without assets")
+    if case["case_id"] != REQUEST_STATE_READBACK_REQUIREMENT:
+        raise ContractError("Request state-readback case ID must bind to Request.state")
+
+    scope = _exact(case["scope"], {"type", "method", "path"}, "Request state-readback scope")
+    if scope["type"] != "http":
+        raise ContractError("Request state-readback requires an HTTP scope")
+    _string(scope["method"], "Request state-readback scope.method")
+    path = _string(scope["path"], "Request state-readback scope.path")
+    if not path.startswith("/"):
+        raise ContractError("Request state-readback scope.path must be absolute")
+
+    mapping_spec = _exact(
+        case["scope_mapping"],
+        {"container", "state"},
+        "Request state-readback scope mapping",
+    )
+    if mapping_spec["container"] != "collections.UserDict":
+        raise ContractError("Request state-readback scope mapping must use collections.UserDict")
+    state_values = _exact(
+        mapping_spec["state"],
+        {"setdefault_value", "getitem_value_after_setdefault"},
+        "Request state-readback state values",
+    )
+    for name, value in state_values.items():
+        if (
+            not isinstance(value, dict)
+            or not value
+            or any(not isinstance(key, str) or not key for key in value)
+        ):
+            raise ContractError(
+                f"Request state-readback {name} must be a non-empty string-keyed mapping"
+            )
+    if state_values["setdefault_value"] == state_values["getitem_value_after_setdefault"]:
+        raise ContractError(
+            "Request state-readback values must distinguish setdefault from item readback"
+        )
+    if set(case["covers"]) != {REQUEST_STATE_READBACK_REQUIREMENT}:
+        raise ContractError("Request state-readback covers must select its declared requirement")
+
+
 def _validate_request_constructor_case(case: dict[str, Any]) -> None:
     if case["target_profiles"] != ["python-package-cpython312"]:
         raise ContractError("Request constructor parity targets the Python package profile")
@@ -32937,9 +33032,12 @@ def _validate_templating_case(case: dict[str, Any]) -> None:
         raise ContractError("Jinja2Templates requests must be a non-empty array")
     request_template_texts: list[tuple[str, dict[str, Any], str]] = []
     for index, item in enumerate(requests):
+        request_keys = {"scope", "template_name", "context", "status_code", "headers", "media_type"}
+        if isinstance(item, dict) and "context_mapping" in item:
+            request_keys.add("context_mapping")
         item = _exact(
             item,
-            {"scope", "template_name", "context", "status_code", "headers", "media_type"},
+            request_keys,
             f"Jinja2Templates requests[{index}]",
         )
         template_name = _string(
@@ -32970,6 +33068,26 @@ def _validate_templating_case(case: dict[str, Any]) -> None:
             raise ContractError("Jinja2Templates request context must be a string-keyed mapping")
         if not all(key in selected_template for key in context):
             raise ContractError("Jinja2Templates template must render every supplied context key")
+        context_mapping = item.get("context_mapping")
+        if "context_mapping" in item:
+            context_mapping = _exact(
+                context_mapping,
+                {"kind", "trace_attribute_lookups"},
+                f"Jinja2Templates requests[{index}].context_mapping",
+            )
+            if context_mapping["kind"] != "dict-subclass":
+                raise ContractError("Jinja2Templates context mapping must select dict-subclass")
+            watched_attributes = context_mapping["trace_attribute_lookups"]
+            if (
+                not isinstance(watched_attributes, list)
+                or not watched_attributes
+                or any(not isinstance(name, str) or not name for name in watched_attributes)
+                or len(watched_attributes) != len(set(watched_attributes))
+                or "update" not in watched_attributes
+            ):
+                raise ContractError(
+                    "Jinja2Templates context mapping must uniquely trace the update lookup"
+                )
 
         scope = _exact(
             item["scope"],
@@ -33060,6 +33178,55 @@ def _validate_templating_case(case: dict[str, Any]) -> None:
         not isinstance(item, dict) or not item for item in additions
     ):
         raise ContractError("Jinja2Templates processor_additions must contain non-empty records")
+    send_mutations = case.get("send_mutations", [])
+    if not isinstance(send_mutations, list):
+        raise ContractError("Jinja2Templates send_mutations must be an array")
+    for index, mutation in enumerate(send_mutations):
+        mutation = _exact(
+            mutation,
+            {"trigger_type", "target_class", "target_method", "replacement"},
+            f"Jinja2Templates send_mutations[{index}]",
+        )
+        if mutation != {
+            "trigger_type": "http.response.debug",
+            "target_class": "starlette.responses.HTMLResponse",
+            "target_method": "__call__",
+            "replacement": "record-and-forward",
+        }:
+            raise ContractError(
+                "Jinja2Templates send mutations must replace HTMLResponse.__call__ "
+                "with the input-defined record-and-forward callback on a debug send"
+            )
+    render_mutations = case.get("render_mutations", [])
+    if not isinstance(render_mutations, list):
+        raise ContractError("Jinja2Templates render_mutations must be an array")
+    render_filter_names: set[str] = set()
+    for index, mutation in enumerate(render_mutations):
+        mutation = _exact(
+            mutation,
+            {"filter_name", "target_class", "target_method", "replacement"},
+            f"Jinja2Templates render_mutations[{index}]",
+        )
+        filter_name = _string(
+            mutation["filter_name"], f"Jinja2Templates render_mutations[{index}].filter_name"
+        )
+        if filter_name in render_filter_names:
+            raise ContractError("Jinja2Templates render mutation filter names must be unique")
+        render_filter_names.add(filter_name)
+        if mutation != {
+            "filter_name": filter_name,
+            "target_class": "starlette.responses.HTMLResponse",
+            "target_method": "__init__",
+            "replacement": "record-and-forward",
+        }:
+            raise ContractError(
+                "Jinja2Templates render mutations must select an input-named filter that "
+                "replaces HTMLResponse.__init__ with a record-and-forward callback"
+            )
+        if not any(f"| {filter_name}" in text for text in source_by_root_and_path.values()):
+            raise ContractError(
+                "Jinja2Templates render mutation filters must be used by an input template"
+            )
     if additions and not any(
         key in template_text
         for processor in additions
@@ -33080,6 +33247,20 @@ def _validate_templating_case(case: dict[str, Any]) -> None:
         for _text, _context, extensions in request_template_texts
     ):
         expected_coverage.add("starlette.templating._TemplateResponse.debug-extension")
+    if send_mutations:
+        expected_coverage.add(
+            "starlette.templating.Jinja2Templates.TemplateResponse.deferred-response-call-lookup"
+        )
+    if render_mutations:
+        expected_coverage.add(
+            "starlette.templating.Jinja2Templates.TemplateResponse."
+            "base-response-init-lookup-after-render"
+        )
+    if any("context_mapping" in item for item in requests):
+        expected_coverage.add(
+            "starlette.templating.Jinja2Templates.TemplateResponse."
+            "context-update-lookup-before-processor-call"
+        )
     if any(
         isinstance(value, str) and ("<" in value or ">" in value) and key in text
         for text, context, _extensions in request_template_texts

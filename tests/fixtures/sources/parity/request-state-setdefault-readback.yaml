@@ -1,0 +1,40 @@
+{
+  "schema": "migration-parity/parity-input@54",
+  "cases": [
+    {
+      "case_id": "starlette.requests.Request.state.setdefault-readback",
+      "surface": "starlette.requests.Request",
+      "operation": "state-setdefault-readback",
+      "covers": [
+        "starlette.requests.Request.state.setdefault-readback"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "http",
+        "method": "GET",
+        "path": "/state"
+      },
+      "scope_mapping": {
+        "container": "collections.UserDict",
+        "state": {
+          "setdefault_value": {
+            "selected": "setdefault-return"
+          },
+          "getitem_value_after_setdefault": {
+            "selected": "getitem-readback"
+          }
+        }
+      },
+      "observations": [
+        "state-readback"
+      ]
+    }
+  ]
+}

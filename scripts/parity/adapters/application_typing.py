@@ -17,6 +17,7 @@ TYPING_SURFACES = {
     "starlette.applications.Starlette",
     "starlette.responses.Response",
     "starlette.config.Config",
+    "starlette.templating.Jinja2Templates",
 }
 TYPING_OBSERVATION = "typing_consumer"
 _DIAGNOSTIC = re.compile(

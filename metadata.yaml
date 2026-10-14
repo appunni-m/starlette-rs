@@ -546,6 +546,10 @@
           "source_path": "starlette.requests.HTTPConnection.__getitem__, HTTPConnection.__iter__, and HTTPConnection.__len__"
         },
         {
+          "operation_id": "state-setdefault-readback",
+          "source_path": "starlette.requests.Request.state"
+        },
+        {
           "operation_id": "constructor-contract",
           "source_path": "starlette.requests.Request.__init__ and HTTPConnection.__init__"
         },
@@ -788,6 +792,10 @@
         {
           "operation_id": "template-public-workflow",
           "source_path": "starlette.templating.Jinja2Templates.__init__, get_template, TemplateResponse; starlette.testclient.TestClient"
+        },
+        {
+          "operation_id": "typing-consumer",
+          "source_path": "starlette.templating.Jinja2Templates.get_template and Jinja2 Template.render typing contract"
         },
         {
           "operation_id": "module-import-policy",

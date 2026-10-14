@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import builtins
+import importlib
 import tempfile
 import warnings
 from pathlib import Path
@@ -45,6 +46,83 @@ def _template_event(message: dict[str, Any]) -> dict[str, Any]:
 
 def run_template_response_case(case: dict[str, Any]) -> dict[str, Any]:
     return asyncio.run(_run_template_response_case(case))
+
+
+def _install_template_send_mutation(
+    mutation: dict[str, str],
+    mutation_trace: list[dict[str, str]],
+    response_call_trace: list[dict[str, str]],
+) -> tuple[type[Any], str, bool, Any]:
+    module_name, class_name = mutation["target_class"].rsplit(".", 1)
+    target_class = getattr(importlib.import_module(module_name), class_name)
+    target_method = mutation["target_method"]
+    previous = getattr(target_class, target_method)
+    had_own_method = target_method in target_class.__dict__
+    own_method = target_class.__dict__.get(target_method)
+
+    async def record_and_forward(response: Any, scope: Any, receive: Any, send: Any) -> None:
+        response_call_trace.append(
+            {
+                "target_class": mutation["target_class"],
+                "target_method": target_method,
+                "replacement": mutation["replacement"],
+            }
+        )
+        await previous(response, scope, receive, send)
+
+    setattr(target_class, target_method, record_and_forward)
+    mutation_trace.append(dict(mutation))
+    return target_class, target_method, had_own_method, own_method
+
+
+def _install_template_render_mutation(
+    mutation: dict[str, str],
+    mutation_trace: list[dict[str, str]],
+    constructor_trace: list[dict[str, str]],
+) -> tuple[type[Any], str, bool, Any]:
+    module_name, class_name = mutation["target_class"].rsplit(".", 1)
+    target_class = getattr(importlib.import_module(module_name), class_name)
+    target_method = mutation["target_method"]
+    previous = getattr(target_class, target_method)
+    had_own_method = target_method in target_class.__dict__
+    own_method = target_class.__dict__.get(target_method)
+
+    def record_and_forward(response: Any, *args: Any, **kwargs: Any) -> Any:
+        constructor_trace.append(
+            {
+                "target_class": mutation["target_class"],
+                "target_method": target_method,
+                "replacement": mutation["replacement"],
+            }
+        )
+        return previous(response, *args, **kwargs)
+
+    setattr(target_class, target_method, record_and_forward)
+    mutation_trace.append(dict(mutation))
+    return target_class, target_method, had_own_method, own_method
+
+
+class _InputTracingContext(dict[str, Any]):
+    """Dictionary context whose input-selected method lookups are observable."""
+
+    def __init__(
+        self,
+        initial: dict[str, Any],
+        trace: list[dict[str, str]],
+        watched_attributes: list[str],
+    ) -> None:
+        super().__init__(initial)
+        self._trace = trace
+        self._watched_attributes = set(watched_attributes)
+
+    def __getattribute__(self, name: str) -> Any:
+        if name not in {"_trace", "_watched_attributes"}:
+            watched = object.__getattribute__(self, "_watched_attributes")
+            if name in watched:
+                object.__getattribute__(self, "_trace").append(
+                    {"operation": "attribute-lookup", "name": name}
+                )
+        return object.__getattribute__(self, name)
 
 
 def run_template_public_case(case: dict[str, Any]) -> dict[str, Any]:
@@ -401,12 +479,17 @@ async def _run_template_response_case(case: dict[str, Any]) -> dict[str, Any]:
         ]
     )
     processor_trace: list[dict[str, Any]] = []
+    active_context_order_trace: list[dict[str, Any]] | None = None
     processors = []
     for additions in case["processor_additions"]:
 
         def context_processor(
             active_request: Any, values: dict[str, Any] = additions
         ) -> dict[str, Any]:
+            if active_context_order_trace is not None:
+                active_context_order_trace.append(
+                    {"operation": "processor-call", "request_path": str(active_request.url.path)}
+                )
             processor_trace.append(
                 {
                     "request_path": str(active_request.url.path),
@@ -436,30 +519,118 @@ async def _run_template_response_case(case: dict[str, Any]) -> dict[str, Any]:
             context_processors=processors,
         )
         response_values: list[dict[str, Any]] = []
+        send_mutations = case.get("send_mutations", [])
+        render_mutations = case.get("render_mutations", [])
 
         for request_spec in case["requests"]:
             scope = _make_scope(request_spec["scope"])
             scope["router"] = router
             request = Request(scope)
-            response = templates.TemplateResponse(
-                request,
-                request_spec["template_name"],
-                context=dict(request_spec["context"]),
-                status_code=request_spec["status_code"],
-                headers=request_spec["headers"],
-                media_type=request_spec["media_type"],
-            )
+            mutation_trace: list[dict[str, str]] = []
+            response_call_trace: list[dict[str, str]] = []
+            restorations: list[tuple[type[Any], str, bool, Any]] = []
+            pending_mutations = set(range(len(send_mutations)))
+            render_mutation_trace: list[dict[str, str]] = []
+            constructor_trace: list[dict[str, str]] = []
+            render_restorations: list[tuple[type[Any], str, bool, Any]] = []
+            pending_render_mutations = set(range(len(render_mutations)))
+            context_mapping = request_spec.get("context_mapping")
+            if context_mapping is None:
+                active_context_order_trace = None
+                context_value = dict(request_spec["context"])
+                context_order_trace: list[dict[str, Any]] = []
+            else:
+                context_order_trace = []
+                active_context_order_trace = context_order_trace
+                context_value = _InputTracingContext(
+                    dict(request_spec["context"]),
+                    context_order_trace,
+                    context_mapping["trace_attribute_lookups"],
+                )
+
+            for mutation_index, mutation in enumerate(render_mutations):
+
+                def install_during_render(
+                    value: Any,
+                    selected_index: int = mutation_index,
+                    selected_mutation: dict[str, str] = mutation,
+                    pending: set[int] = pending_render_mutations,
+                    restorations_for_request: list[tuple[type[Any], str, bool, Any]] = (
+                        render_restorations
+                    ),
+                    mutation_trace_for_request: list[dict[str, str]] = render_mutation_trace,
+                    constructor_trace_for_request: list[dict[str, str]] = constructor_trace,
+                ) -> Any:
+                    if selected_index in pending:
+                        restorations_for_request.append(
+                            _install_template_render_mutation(
+                                selected_mutation,
+                                mutation_trace_for_request,
+                                constructor_trace_for_request,
+                            )
+                        )
+                        pending.remove(selected_index)
+                    return value
+
+                templates.env.filters[mutation["filter_name"]] = install_during_render
+
+            try:
+                response = templates.TemplateResponse(
+                    request,
+                    request_spec["template_name"],
+                    context=context_value,
+                    status_code=request_spec["status_code"],
+                    headers=request_spec["headers"],
+                    media_type=request_spec["media_type"],
+                )
+            finally:
+                for (
+                    target_class,
+                    target_method,
+                    had_own_method,
+                    own_method,
+                ) in reversed(render_restorations):
+                    if had_own_method:
+                        setattr(target_class, target_method, own_method)
+                    else:
+                        delattr(target_class, target_method)
             events: list[dict[str, Any]] = []
 
             async def receive() -> dict[str, Any]:
                 return {"type": "http.request", "body": b"", "more_body": False}
 
             async def send(
-                message: dict[str, Any], event_target: list[dict[str, Any]] = events
+                message: dict[str, Any],
+                event_target: list[dict[str, Any]] = events,
+                pending_for_request: set[int] = pending_mutations,
+                restorations_for_request: list[tuple[type[Any], str, bool, Any]] = restorations,
+                mutation_trace_for_request: list[dict[str, str]] = mutation_trace,
+                call_trace_for_request: list[dict[str, str]] = response_call_trace,
             ) -> None:
+                for mutation_index in tuple(pending_for_request):
+                    mutation = send_mutations[mutation_index]
+                    if message.get("type") != mutation["trigger_type"]:
+                        continue
+                    restorations_for_request.append(
+                        _install_template_send_mutation(
+                            mutation,
+                            mutation_trace_for_request,
+                            call_trace_for_request,
+                        )
+                    )
+                    pending_for_request.remove(mutation_index)
                 event_target.append(message)
 
-            await response(scope, receive, send)
+            try:
+                await response(scope, receive, send)
+            finally:
+                for target_class, target_method, had_own_method, own_method in reversed(
+                    restorations
+                ):
+                    if had_own_method:
+                        setattr(target_class, target_method, own_method)
+                    else:
+                        delattr(target_class, target_method)
             response_events = [_template_event(event) for event in events]
             response_bodies = [
                 event.get("body", b"") for event in events if event["type"] == "http.response.body"
@@ -467,28 +638,35 @@ async def _run_template_response_case(case: dict[str, Any]) -> dict[str, Any]:
             response_start = next(
                 event for event in events if event["type"] == "http.response.start"
             )
-            response_values.append(
-                {
-                    "request_path": request.url.path,
-                    "response_status": response_start["status"],
-                    "ordered_repeated_headers": response_events[
-                        next(
-                            index
-                            for index, event in enumerate(response_events)
-                            if event["type"] == "http.response.start"
-                        )
-                    ]["headers"],
-                    "response_bytes": {
-                        "encoding": "base64",
-                        "data": base64.b64encode(b"".join(response_bodies)).decode("ascii"),
-                    },
-                    "asgi_event_order": [event["type"] for event in response_events],
-                    "asgi_events": response_events,
-                    "template_name": response.template.name,
-                    "template_context_keys": sorted(response.context),
-                    "request_attached": response.context["request"] is request,
-                }
-            )
+            response_value = {
+                "request_path": request.url.path,
+                "response_status": response_start["status"],
+                "ordered_repeated_headers": response_events[
+                    next(
+                        index
+                        for index, event in enumerate(response_events)
+                        if event["type"] == "http.response.start"
+                    )
+                ]["headers"],
+                "response_bytes": {
+                    "encoding": "base64",
+                    "data": base64.b64encode(b"".join(response_bodies)).decode("ascii"),
+                },
+                "asgi_event_order": [event["type"] for event in response_events],
+                "asgi_events": response_events,
+                "template_name": response.template.name,
+                "template_context_keys": sorted(response.context),
+                "request_attached": response.context["request"] is request,
+            }
+            if render_mutations:
+                response_value["render_mutation_trace"] = render_mutation_trace
+                response_value["constructor_trace"] = constructor_trace
+            if context_mapping is not None:
+                response_value["context_mapping_trace"] = context_order_trace
+            if send_mutations:
+                response_value["send_mutation_trace"] = mutation_trace
+                response_value["response_call_trace"] = response_call_trace
+            response_values.append(response_value)
     return {
         "case_id": case["case_id"],
         "status": "completed",

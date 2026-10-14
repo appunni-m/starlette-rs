@@ -125,6 +125,7 @@ VALUE_FORMATTING_OPERATION = "value-formatting"
 REQUEST_DEFAULT_RECEIVE_OPERATION = ("starlette.requests.Request", "default-receive")
 REQUEST_CLIENT_OPERATION = ("starlette.requests.Request", "client")
 REQUEST_SCOPE_MAPPING_OPERATION = ("starlette.requests.Request", "scope-mapping")
+REQUEST_STATE_READBACK_OPERATION = ("starlette.requests.Request", "state-setdefault-readback")
 REQUEST_HEADER_CACHE_SEQUENCE_OPERATION = ("starlette.requests.Request", "header-cache-sequence")
 REQUEST_COOKIE_CACHE_SEQUENCE_OPERATION = ("starlette.requests.Request", "cookie-cache-sequence")
 REQUEST_CONSTRUCTOR_OPERATION = ("starlette.requests.Request", "constructor-contract")
@@ -16346,10 +16347,12 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         from scripts.parity.adapters.public_api_inspection import run_public_api_inspection_case
 
         return run_public_api_inspection_case(case)
-    if (case.get("surface"), case.get("operation")) == (
-        "starlette.applications.Starlette",
-        "typing-consumer",
-    ):
+    if (case.get("surface"), case.get("operation")) in {
+        ("starlette.applications.Starlette", "typing-consumer"),
+        ("starlette.responses.Response", "typing-consumer"),
+        ("starlette.config.Config", "typing-consumer"),
+        ("starlette.templating.Jinja2Templates", "typing-consumer"),
+    }:
         from scripts.parity.adapters.application_typing import run_application_typing_case
 
         return run_application_typing_case(case)
@@ -16552,6 +16555,17 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         from scripts.parity.adapters.request_scope_mapping import run_request_scope_mapping_case
 
         return run_request_scope_mapping_case(case, Request)
+    if (
+        isinstance(case, dict)
+        and (case.get("surface"), case.get("operation")) == REQUEST_STATE_READBACK_OPERATION
+    ):
+        from starlette.requests import Request
+
+        from scripts.parity.adapters.request_scope_mapping import (
+            run_request_state_readback_case,
+        )
+
+        return run_request_state_readback_case(case, Request)
     if (
         isinstance(case, dict)
         and (case.get("surface"), case.get("operation")) == REQUEST_CONSTRUCTOR_OPERATION

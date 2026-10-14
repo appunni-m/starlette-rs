@@ -532,6 +532,10 @@
       "build/parity/inputs/parity/templating-url-for-function-metadata.json",
       "build/parity/inputs/parity/templating-url-for-function-annotations.json",
       "build/parity/inputs/parity/templating-url-for-function-type.json",
+      "build/parity/inputs/parity/templating-response-call-lookup.json",
+      "build/parity/inputs/parity/templating-response-init-lookup.json",
+      "build/parity/inputs/parity/templating-context-update-lookup.json",
+      "build/parity/inputs/parity/templating-typing-consumer.json",
       "build/parity/inputs/parity/request-form-urlencoded.json",
       "build/parity/inputs/parity/request-form-call-await-header-snapshot.json",
       "build/parity/inputs/parity/request-form-large-part-size.json",
@@ -690,7 +694,8 @@
       "build/parity/inputs/parity/native-streaming-response-source.json",
       "build/parity/inputs/parity/route-table-custom-converters.json",
       "build/parity/inputs/parity/native-service-custom-converters.json",
-      "build/parity/inputs/parity/config-typing-consumer.json"
+      "build/parity/inputs/parity/config-typing-consumer.json",
+      "build/parity/inputs/parity/request-state-setdefault-readback.json"
     ],
     "coverage": [],
     "benchmark": [
@@ -17903,6 +17908,108 @@
           }
         },
         {
+          "id": "state-setdefault-readback",
+          "kind": "property_get",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.requests.Request.state",
+            "signature": "@property state(self) -> StateT",
+            "parameters": [
+              {
+                "id": "self",
+                "style": "receiver",
+                "value_types": [
+                  "handle"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "state-readback",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "The Rust-native API does not expose a Python Request.state view over an arbitrary ASGI scope mapping.",
+                "blocker": "The native Request API does not retain a Python ASGI scope mapping or expose Starlette State compatibility semantics."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.requests.Request.state",
+              "signature": "@property state(self) -> StateT",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.requests.Request.state.setdefault-readback",
+              "dimension": "boundary",
+              "description": "Call scope.setdefault(\"state\", {}) and then read scope[\"state\"] to construct State, preserving the observable distinction when a custom mapping returns different values from those operations. Pinned source: starlette/requests.py:189-196; tests/test_requests.py::test_request_state; docs/requests.md:176-183.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython310",
+              "python-package-cpython311",
+              "python-package-cpython312",
+              "python-package-cpython313",
+              "python-package-cpython314"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "This input-only Request compatibility comparison makes no code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "Custom ASGI scope-mapping state readback is outside the declared benchmark workloads."
+          }
+        },
+        {
           "id": "scope-mapping",
           "kind": "protocol_operation",
           "classification": "endpoint",
@@ -21236,6 +21343,18 @@
                 "parity"
               ],
               "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.Response.asgi-call.explicit-content-type-header",
+              "dimension": "parameter_combination",
+              "description": "Construct Response(content=\"explicit content type\", headers={\"Content-Type\": \"application/vnd.example\"}, media_type=\"text/plain\") and observe direct HTTP ASGI headers and body. The explicit Content-Type suppresses automatic media-type and charset insertion while automatic Content-Length remains derived from the body. Pinned source: starlette/responses.py:60-64, 75-79; tests/test_responses.py:188-198, 515-562.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
                 "python-package-cpython312"
               ]
             }
@@ -33562,6 +33681,39 @@
               "target_profiles": [
                 "python-package-cpython312"
               ]
+            },
+            {
+              "id": "starlette.templating.Jinja2Templates.TemplateResponse.deferred-response-call-lookup",
+              "dimension": "protocol_variant",
+              "description": "Resolve the base response __call__ after awaiting the optional http.response.debug send callback, preserving mutations made by that callback. Pinned source: starlette/templating.py:46-51; starlette/responses.py:163-171; ASGI response-call interoperability.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.templating.Jinja2Templates.TemplateResponse.base-response-init-lookup-after-render",
+              "dimension": "protocol_variant",
+              "description": "Render the template before resolving the dynamic HTMLResponse.__init__ descriptor so mutations made by an input-defined render filter affect construction. Pinned source: starlette/templating.py:40-41; tests/test_templates.py.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.templating.Jinja2Templates.TemplateResponse.context-update-lookup-before-processor-call",
+              "dimension": "boundary",
+              "description": "Resolve context.update before invoking the context processor, preserving custom dict-subclass attribute lookup order. Pinned source: starlette/templating.py:133-136; docs/templates.md:84-119.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
             }
           ],
           "parity": {
@@ -33953,6 +34105,108 @@
           "benchmark": {
             "applicability": "not_applicable",
             "reason": "This Jinja2 behavior is outside the declared benchmark workloads."
+          }
+        },
+        {
+          "id": "typing-consumer",
+          "kind": "value_operation",
+          "classification": "non_endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.templating.Jinja2Templates.get_template and Jinja2 Template.render typing contract",
+            "signature": "Mypy consumer(source: str) -> normalized diagnostics",
+            "parameters": [
+              {
+                "id": "source",
+                "style": "option",
+                "value_types": [
+                  "string"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "typing_consumer",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "out_of_scope",
+                "reason": "Python static typing metadata is part of the starlette.* facade contract; the Rust-native API has independent Rust signatures.",
+                "authority": "AGENTS.md Python typing and Rust-native API rules"
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.templating.Jinja2Templates.get_template",
+              "signature": "Pinned Mypy consumer against the source and installed package",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.templating.Jinja2Templates.python-typing-contract",
+              "dimension": "type_contract",
+              "description": "Type-check the input-derived consumer against pinned Starlette source and the installed package: Jinja2Templates.get_template returns jinja2.Template, and Template.render returns str. Pinned source: starlette/templating.py:114-115; tests/test_templates.py.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython310",
+              "python-package-cpython311",
+              "python-package-cpython312",
+              "python-package-cpython313",
+              "python-package-cpython314"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "Static consumer type checking makes no runtime code-coverage claim."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "Static consumer type checking has no runtime benchmark boundary."
           }
         },
         {

@@ -17,6 +17,7 @@ pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyJinja2Templates>()?;
     module.add_function(wrap_pyfunction!(templating_require_jinja2, module)?)?;
     module.add_function(wrap_pyfunction!(templating_render, module)?)?;
+    module.add_function(wrap_pyfunction!(templating_response_init, module)?)?;
     module.add_function(wrap_pyfunction!(templating_url_for, module)?)?;
     module.add_function(wrap_pyfunction!(templating_context_decorator, module)?)?;
     module.add_function(wrap_pyfunction!(templating_response_call, module)?)?;
@@ -141,7 +142,13 @@ impl PyJinja2Templates {
         };
         context.call_method1("setdefault", ("request", &request))?;
         for processor in templates.getattr("context_processors")?.try_iter()? {
-            context.call_method1("update", (processor?.call1((&request,))?,))?;
+            let processor = processor?;
+            // Python evaluates `context.update` before invoking the processor
+            // argument. Resolve the possibly overridden method first so a
+            // dict subclass can observe the same callback order.
+            let update = context.getattr("update")?;
+            let additions = processor.call1((&request,))?;
+            update.call1((additions,))?;
         }
         let template = templates.call_method1("get_template", (name,))?;
         let kwargs = PyDict::new(py);
@@ -181,10 +188,30 @@ fn templating_render(
         .map(Bound::unbind)
 }
 
+#[pyfunction(name = "_templating_response_init")]
+fn templating_response_init(
+    response_super: &Bound<'_, PyAny>,
+    template: &Bound<'_, PyAny>,
+    context: &Bound<'_, PyAny>,
+    status_code: &Bound<'_, PyAny>,
+    headers: &Bound<'_, PyAny>,
+    media_type: &Bound<'_, PyAny>,
+    background: &Bound<'_, PyAny>,
+) -> PyResult<()> {
+    let content = template.call_method1("render", (context,))?;
+    // The pinned implementation resolves `super().__init__` after rendering,
+    // so filters can change the base initializer observed by this lookup.
+    response_super.call_method1(
+        "__init__",
+        (content, status_code, headers, media_type, background),
+    )?;
+    Ok(())
+}
+
 #[pyfunction(name = "_templating_response_call")]
 fn templating_response_call(
     py: Python<'_>,
-    response_call: Py<PyAny>,
+    response_super: Py<PyAny>,
     template: Py<PyAny>,
     context: Py<PyAny>,
     scope: Py<PyAny>,
@@ -194,7 +221,7 @@ fn templating_response_call(
     into_sendable_python_awaitable(
         py,
         TemplateResponseCall {
-            response_call,
+            response_super,
             template,
             context,
             scope,
@@ -206,7 +233,7 @@ fn templating_response_call(
 }
 
 struct TemplateResponseCall {
-    response_call: Py<PyAny>,
+    response_super: Py<PyAny>,
     template: Py<PyAny>,
     context: Py<PyAny>,
     scope: Py<PyAny>,
@@ -226,7 +253,7 @@ impl AwaitableStateMachine for TemplateResponseCall {
         &self,
         visit: &pyo3::class::gc::PyVisit<'_>,
     ) -> Result<(), pyo3::class::gc::PyTraverseError> {
-        visit.call(&self.response_call)?;
+        visit.call(&self.response_super)?;
         visit.call(&self.template)?;
         visit.call(&self.context)?;
         visit.call(&self.scope)?;
@@ -289,7 +316,11 @@ impl TemplateResponseCall {
     }
 
     fn call_response(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
-        let awaitable = self.response_call.bind(py).call1((
+        // Resolve the base response method here, after the optional debug send
+        // has completed. The pinned Python method evaluates `super().__call__`
+        // only after that await, so the ASGI callback can affect lookup.
+        let response_call = self.response_super.bind(py).getattr("__call__")?;
+        let awaitable = response_call.call1((
             self.scope.bind(py),
             self.receive.bind(py),
             self.send.bind(py),

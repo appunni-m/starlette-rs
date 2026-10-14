@@ -1,0 +1,84 @@
+{
+  "schema": "migration-parity/parity-input@54",
+  "cases": [
+    {
+      "case_id": "starlette.templating.Jinja2Templates.template-response.base-response-init-lookup-after-render",
+      "surface": "starlette.templating.Jinja2Templates",
+      "operation": "template-response",
+      "covers": [
+        "starlette.templating._TemplateResponse.template-context-metadata",
+        "starlette.templating.Jinja2Templates.TemplateResponse.base-response-init-lookup-after-render"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "template-response"
+      ],
+      "template_directories": [
+        {
+          "id": "templates",
+          "path": "templates"
+        }
+      ],
+      "template_files": [
+        {
+          "directory_id": "templates",
+          "path": "index.html",
+          "text": "<main>{{ 'rendered by input' | install_html_response_init }}</main>"
+        }
+      ],
+      "routes": [
+        {
+          "path": "/",
+          "name": "homepage"
+        }
+      ],
+      "requests": [
+        {
+          "scope": {
+            "type": "http",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.4"
+            },
+            "http_version": "1.1",
+            "scheme": "http",
+            "path": "/",
+            "raw_path_base64": "Lw==",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [],
+            "client": [
+              "testclient",
+              50000
+            ],
+            "server": [
+              "testserver",
+              80
+            ],
+            "method": "GET",
+            "extensions": {}
+          },
+          "template_name": "index.html",
+          "context": {},
+          "status_code": 201,
+          "headers": {
+            "x-template-source": "input-defined"
+          },
+          "media_type": null
+        }
+      ],
+      "processor_additions": [],
+      "render_mutations": [
+        {
+          "filter_name": "install_html_response_init",
+          "target_class": "starlette.responses.HTMLResponse",
+          "target_method": "__init__",
+          "replacement": "record-and-forward"
+        }
+      ]
+    }
+  ]
+}

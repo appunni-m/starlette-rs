@@ -98,6 +98,57 @@ def run_request_scope_mapping_case(
     }
 
 
+class _StateReadbackUserDict(UserDict):
+    """Return separate input-selected values from Request.state's mapping reads."""
+
+    def __init__(self, initialdata: dict[str, Any], state_values: dict[str, Any]) -> None:
+        super().__init__(initialdata)
+        self._setdefault_value = state_values["setdefault_value"]
+        self._getitem_value = state_values["getitem_value_after_setdefault"]
+        self._state_readback_armed = False
+        self.state_operation_trace: list[str] = []
+
+    def setdefault(self, key: Any, default: Any = None) -> Any:
+        if key != "state":
+            return super().setdefault(key, default)
+        self.state_operation_trace.append("setdefault")
+        self.data.setdefault(key, self._setdefault_value)
+        self._state_readback_armed = True
+        return self._setdefault_value
+
+    def __getitem__(self, key: Any) -> Any:
+        if key == "state" and self._state_readback_armed:
+            self.state_operation_trace.append("getitem")
+            return self._getitem_value
+        return super().__getitem__(key)
+
+
+def run_request_state_readback_case(
+    case: dict[str, Any],
+    request_type: type[Any],
+) -> dict[str, Any]:
+    """Observe the public Request.state value and its supplied scope lookups."""
+    scope = _StateReadbackUserDict(case["scope"], case["scope_mapping"]["state"])
+    request = request_type(scope)
+    state = request.state
+    selected_values = case["scope_mapping"]["state"]["getitem_value_after_setdefault"]
+    state_attributes = {key: _safe(getattr(state, key)) for key in selected_values}
+    return {
+        "case_id": case["case_id"],
+        "status": "completed",
+        "observations": [
+            {
+                "step_id": "state-readback",
+                "status": "ok",
+                "value": {
+                    "state_attributes": state_attributes,
+                    "scope_operation_trace": scope.state_operation_trace,
+                },
+            }
+        ],
+    }
+
+
 def run_request_constructor_case(
     case: dict[str, Any],
     request_type: type[Any],

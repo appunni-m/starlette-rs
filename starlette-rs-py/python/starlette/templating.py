@@ -14,6 +14,10 @@ from starlette.requests import Request
 from starlette.responses import HTMLResponse
 
 jinja2 = _core._templating_require_jinja2()
+# Jinja's Python class must appear in the facade annotation for static consumers;
+# load its alias after Rust preserves Starlette's missing-extra error.
+from jinja2 import Template as _JinjaTemplate  # noqa: E402
+
 pass_context = _core._templating_context_decorator(jinja2)
 
 
@@ -31,8 +35,10 @@ class _TemplateResponse(HTMLResponse):
     ) -> None:
         self.template = template
         self.context = context
-        super().__init__(
-            _core._templating_render(template, context),
+        _core._templating_response_init(
+            super(),
+            template,
+            context,
             status_code,
             headers,
             media_type,
@@ -41,7 +47,7 @@ class _TemplateResponse(HTMLResponse):
 
     async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
         await _core._templating_response_call(
-            super().__call__, self.template, self.context, scope, receive, send
+            super(), self.template, self.context, scope, receive, send
         )
 
 
@@ -92,7 +98,7 @@ class Jinja2Templates:
 
         _core._Jinja2Templates.setup_for(env, url_for)
 
-    def get_template(self, name: str) -> Any:
+    def get_template(self, name: str) -> _JinjaTemplate:
         return _core._Jinja2Templates.template_for(self, name)
 
     def TemplateResponse(
