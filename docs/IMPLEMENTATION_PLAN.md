@@ -55,6 +55,15 @@ and the yielded values from `WebSocket.iter_text()`, `iter_bytes()`, and
 `WebSocket.receive_text()` and `receive_bytes()` return `str` and `bytes`.
 Pinned Mypy 1.19.1 produced identical output against Starlette 1.6.0 and the
 rebuilt installed wheel for these checks.
+The response typing input now asserts `Response.headers` is `MutableHeaders`
+and compares the documented `Response.set_cookie` argument and return types,
+including rejection of an unsupported SameSite literal. The application
+typing input also asserts `UploadFile.read()` returns `bytes` and checks
+`Mount` and `Host` ASGI callback parameters and `app` attributes. Their facade
+annotations now retain `ASGIApp` instead of widening to `Callable[..., Any]`
+or leaking `Any` from Rust initialization. Pinned Mypy 1.19.1 diagnostics are
+byte-identical between the Starlette source and package consumer inputs; the
+registered parity comparisons remain deferred to the full parity phase.
 The latest audit batch fixes Python `repr` formatting for Unicode format
 characters in invalid WebSocket event types, preserves arbitrary-precision
 itsdangerous timestamps when SessionMiddleware has no expiry, and binds
