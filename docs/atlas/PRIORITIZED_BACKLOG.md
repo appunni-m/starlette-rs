@@ -9,10 +9,9 @@ incomplete.
 ## Current parity snapshot
 
 Implementation remains the active phase for the full Starlette replacement.
-The working-tree `parity-input@55` contract indexes 2,470 cases across 403
-parity inputs, two benchmark inputs, 150 Starlette compatibility operations,
-13 native operations, and 1,361 parity requirements (1,319 compatibility and
-42 native). The latest batch adds application attribute-read ordering, non-string scope dispatch in AuthenticationMiddleware, SessionMiddleware, and GZipMiddleware, ServerErrorMiddleware message-type equality, and pre-ASGI-2.4 StreamingResponse caller cancellation. These six new input-only comparisons remain unexecuted until the grouped full parity phase. The latest batch adds a Rust-backed StaticFiles single-digit
+The working-tree `parity-input@56` contract indexes 2,515 cases across 413
+parity inputs, two benchmark inputs, 151 Starlette compatibility operations,
+13 native operations, and 1,385 parity requirements. The latest batch adds application attribute-read ordering, non-string scope dispatch in AuthenticationMiddleware, SessionMiddleware, and GZipMiddleware, ServerErrorMiddleware message-type equality, and pre-ASGI-2.4 StreamingResponse caller cancellation. These six new input-only comparisons remain unexecuted until the grouped full parity phase. The Request.stream body-object and TestClient noncanonical JSON-mode comparisons also remain unexecuted until grouped parity. The latest batch adds a Rust-backed StaticFiles single-digit
 time-field normalization case, a Jinja caller-supplied `url_for` global case,
 and an AuthenticationMiddleware scope case preserving present `None` values
 for `auth` and `user`, plus a StreamingResponse awaitable case checking type-level `__await__` lookup; all four comparisons remain deferred to full parity. Rust now performs the awaitable lookup through the object's type.
@@ -21,7 +20,7 @@ template processor exception-before-lookup
 case has its own derived parity requirement; both template processor
 comparisons remain unexecuted until full parity.
 The latest static inventory reports 999/999 API candidates dispositioned and
-861 source rows: 807 input mappings, 54 source-backed `not_applicable` rows,
+866 source rows: 810 input mappings, 56 source-backed `not_applicable` rows,
 and zero fixture backlog. A new `iterate_in_threadpool` input observes
 empty-iterable exhaustion alongside its async iterator protocol outcomes; a
 new `run_in_threadpool` cancellation input observes whether an AnyIO cancel

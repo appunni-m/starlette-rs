@@ -1018,7 +1018,7 @@ impl AwaitableStateMachine for BodyMachine {
                     ));
                 }
                 self.pending_receive = false;
-                let message = match request_message(py, &self.shared, message) {
+                let message = match request_message(py, &self.shared, message, false) {
                     Ok(message) => message,
                     Err(error) => {
                         self.abort_collection(py);
@@ -1176,7 +1176,7 @@ impl AwaitableStateMachine for StreamMachine {
                     ));
                 }
                 self.pending_receive = false;
-                let message = match request_message(py, &self.shared, message) {
+                let message = match request_message(py, &self.shared, message, true) {
                     Ok(message) => message,
                     Err(error) => {
                         self.fail_stream();
@@ -1616,7 +1616,7 @@ impl FormMachine {
             MachineResume::Value(message) => {
                 if self.pending_receive {
                     self.pending_receive = false;
-                    let message = request_message(py, &self.shared, message)?;
+                    let message = request_message(py, &self.shared, message, false)?;
                     let progress = {
                         let mut runtime = borrow_runtime_mut(py, &self.shared)?;
                         if message.kind == RequestMessageKind::Disconnect {
@@ -2331,6 +2331,7 @@ fn request_message(
     py: Python<'_>,
     shared: &SharedRequestBody,
     message: Py<PyAny>,
+    preserve_stream_body: bool,
 ) -> PyResult<ParsedRequestMessage> {
     let message = message.bind(py);
     // Match Request.stream()'s branch order: only http.request reads body and
@@ -2358,10 +2359,20 @@ fn request_message(
         }
 
         let (body, body_object) = if body_object.is_truthy()? {
-            (
-                body_object.extract::<Vec<u8>>()?,
-                Some(body_object.unbind()),
-            )
+            let body = if preserve_stream_body {
+                if body_object.is_instance_of::<PyBytes>() {
+                    body_object.extract::<Vec<u8>>()?
+                } else {
+                    // Request.stream() yields a truthy ASGI body object as-is.
+                    // Keep a non-empty marker for the Rust iterator state; the
+                    // original Python value is delivered below without byte
+                    // conversion.
+                    vec![0]
+                }
+            } else {
+                body_object.extract::<Vec<u8>>()?
+            };
+            (body, Some(body_object.unbind()))
         } else {
             (Vec::new(), None)
         };

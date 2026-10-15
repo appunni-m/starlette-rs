@@ -1050,8 +1050,7 @@ impl PyWebSocketTestSession {
         self.send_bytes_inner(py, data.bind(py))
     }
 
-    #[pyo3(signature = (data, mode="text"))]
-    fn send_json(&self, py: Python<'_>, data: Py<PyAny>, mode: &str) -> PyResult<()> {
+    fn send_json(&self, py: Python<'_>, data: Py<PyAny>, mode: Py<PyAny>) -> PyResult<()> {
         let json = py.import("json")?;
         let kwargs = PyDict::new(py);
         kwargs.set_item("separators", (",", ":"))?;
@@ -1061,7 +1060,7 @@ impl PyWebSocketTestSession {
             .call((data.bind(py),), Some(&kwargs))?;
         let message = PyDict::new(py);
         message.set_item("type", "websocket.receive")?;
-        if mode == "text" {
+        if is_text_json_mode(mode.bind(py))? {
             message.set_item("text", serialized)?;
         } else {
             let encoded = serialized.call_method1("encode", ("utf-8",))?;
@@ -1077,12 +1076,11 @@ impl PyWebSocketTestSession {
         message.get_item("bytes").map(Bound::unbind)
     }
 
-    #[pyo3(signature = (mode="text"))]
-    fn receive_json(&self, py: Python<'_>, mode: &str) -> PyResult<Py<PyAny>> {
+    fn receive_json(&self, py: Python<'_>, mode: Py<PyAny>) -> PyResult<Py<PyAny>> {
         let message = self.receive_app_message(py)?;
         let message = message.bind(py);
         self.raise_on_close(py, message)?;
-        let value = if mode == "text" {
+        let value = if is_text_json_mode(mode.bind(py))? {
             message.get_item("text")?
         } else {
             message
@@ -2017,6 +2015,10 @@ fn response_body_bytes(py: Python<'_>, body: &Bound<'_, PyAny>) -> PyResult<Vec<
     stream.call_method1("write", (body,))?;
     let value = stream.call_method0("getvalue")?;
     Ok(value.cast::<PyBytes>()?.as_bytes().to_vec())
+}
+
+fn is_text_json_mode(mode: &Bound<'_, PyAny>) -> PyResult<bool> {
+    mode.rich_compare("text", CompareOp::Eq)?.is_truthy()
 }
 
 fn decode_response_headers(

@@ -248,7 +248,7 @@
   ],
   "interfaces": {
     "parity": {
-      "input_schema": "migration-parity/parity-input@55",
+      "input_schema": "migration-parity/parity-input@56",
       "result_schema": "migration-parity/parity-result@8",
       "command_id": "parity"
     },
@@ -18232,6 +18232,21 @@
                 "python-package-cpython313",
                 "python-package-cpython314"
               ]
+            },
+            {
+              "id": "starlette.request.stream-yields-truthy-body-object-without-byte-conversion",
+              "dimension": "boundary",
+              "description": "Request.stream yields any truthy ASGI body object unchanged and only uses its truthiness to decide whether to yield it. Pinned source: starlette/requests.py:241-252.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
             }
           ],
           "parity": {
@@ -34011,6 +34026,17 @@
               "id": "starlette.testclient.TestClient.websocket-session.raw-receive-message",
               "dimension": "protocol_variant",
               "description": "Receive raw application ASGI Messages through WebSocketTestSession.receive, including websocket.close without raising a typed disconnect and with extension fields intact. Pinned source: starlette/testclient.py:184-185; tests/test_applications.py:249,273.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.websocket-session.non-text-json-mode-falls-back-to-binary",
+              "dimension": "boundary",
+              "description": "send_json and receive_json select text only when the supplied mode compares equal to \"text\"; every other value follows the binary path. Pinned source: starlette/testclient.py:174-203.",
               "lanes": [
                 "parity"
               ],

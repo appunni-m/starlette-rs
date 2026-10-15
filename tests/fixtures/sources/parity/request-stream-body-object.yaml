@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@55",
+  "schema": "migration-parity/parity-input@56",
   "cases": [
     {
       "case_id": "starlette.requests.Request.body-stream-json.stream-preserves-bytes-subclass-object",
@@ -24,6 +24,42 @@
           "type": "http.request",
           "body_base64": "c3VibWl0dGVk",
           "body_type": "bytes-subclass",
+          "more_body": false
+        }
+      ],
+      "blocked_receive_calls": [],
+      "actions": [
+        {
+          "operation": "stream-next",
+          "stream_id": "body-object"
+        }
+      ],
+      "observations": [
+        "request-consumption"
+      ]
+    },
+    {
+      "case_id": "starlette.requests.Request.body-stream-json.stream-preserves-truthy-non-bytes-body-object",
+      "surface": "starlette.requests.Request",
+      "operation": "body-stream-json",
+      "covers": [
+        "starlette.request.stream-yields-truthy-body-object-without-byte-conversion"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "http"
+      },
+      "receive": [
+        {
+          "type": "http.request",
+          "body_value": "truthy non-bytes request body",
           "more_body": false
         }
       ],

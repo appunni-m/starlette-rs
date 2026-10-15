@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@55",
+  "schema": "migration-parity/parity-input@56",
   "cases": [
     {
       "case_id": "starlette.testclient.TestClient.websocket-session.accepted-text-exchange",
@@ -2643,6 +2643,85 @@
       "observations": [
         "convenience-sequence"
       ]
+    },
+    {
+      "case_id": "starlette.testclient.TestClient.websocket-session.non-text-json-mode-selects-binary",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "websocket-session",
+      "covers": [
+        "starlette.testclient.TestClient.websocket-session.scope-projection",
+        "starlette.testclient.TestClient.websocket-session.accept-handshake",
+        "starlette.testclient.TestClient.websocket-session.context-cleanup",
+        "starlette.testclient.TestClient.websocket-session.send-json-binary-frame",
+        "starlette.testclient.TestClient.websocket-session.receive-json-binary-frame",
+        "starlette.testclient.TestClient.websocket-session.non-text-json-mode-falls-back-to-binary",
+        "starlette.testclient.TestClient.websocket-session.portal-cleanup"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "websocket-session"
+      ],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": [
+          "testclient",
+          50000
+        ],
+        "headers": [],
+        "backend": "asyncio",
+        "backend_options": {}
+      },
+      "websocket": {
+        "url": "/",
+        "subprotocols": null,
+        "headers": [],
+        "actions": [
+          {
+            "operation": "send_json",
+            "value": {
+              "client": "request"
+            },
+            "mode": 0
+          },
+          {
+            "operation": "receive_json",
+            "mode": 0
+          }
+        ]
+      },
+      "asgi_app": {
+        "kind": "asgi3",
+        "scope_fields": [
+          "type",
+          "path"
+        ],
+        "actions": [
+          {
+            "operation": "websocket_flow",
+            "actions": [
+              {
+                "operation": "accept"
+              },
+              {
+                "operation": "receive_json",
+                "mode": "binary"
+              },
+              {
+                "operation": "send_json",
+                "value": {
+                  "server": "response"
+                },
+                "mode": "binary"
+              }
+            ]
+          }
+        ]
+      }
     }
   ]
 }

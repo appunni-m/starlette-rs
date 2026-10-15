@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@55",
+  "schema": "migration-parity/parity-input@56",
   "cases": [
     {
       "case_id": "starlette.websockets.WebSocket.convenience-sequence.send-json-serialization-before-mode-comparison",

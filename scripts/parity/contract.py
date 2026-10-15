@@ -47,8 +47,9 @@ INPUT_SCHEMA_V51 = "migration-parity/parity-input@51"
 INPUT_SCHEMA_V52 = "migration-parity/parity-input@52"
 INPUT_SCHEMA_V53 = "migration-parity/parity-input@53"
 INPUT_SCHEMA_V54 = "migration-parity/parity-input@54"
+INPUT_SCHEMA_V55 = "migration-parity/parity-input@55"
 PREVIOUS_INPUT_SCHEMA = INPUT_SCHEMA_V50
-INPUT_SCHEMA = "migration-parity/parity-input@55"
+INPUT_SCHEMA = "migration-parity/parity-input@56"
 BENCHMARK_INPUT_SCHEMA = "migration-parity/benchmark-input@1"
 RESULT_SCHEMA = "migration-parity/parity-result@8"
 BENCHMARK_RESULT_SCHEMA = "migration-parity/benchmark-result@1"
@@ -525,6 +526,7 @@ TESTCLIENT_WEBSOCKET_REQUIREMENTS = {
     "send_json_binary": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.send-json-binary-frame",
     "receive_json_text": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.receive-json-text-frame",
     "receive_json_binary": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.receive-json-binary-frame",
+    "non_text_json_mode": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.non-text-json-mode-falls-back-to-binary",
     "iterator_text": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.application-iter-text",
     "iterator_bytes": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.application-iter-bytes",
     "iterator_json": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.application-iter-json",
@@ -1931,6 +1933,7 @@ REQUEST_CONSUMPTION_REQUIREMENTS = {
     "body_cache": "starlette.request.body-cache-reuse",
     "body_chunks": "starlette.request.body-chunk-concatenation",
     "stream_original_body_object": "starlette.request.stream-yields-original-body-object",
+    "stream_truthy_body_object": "starlette.request.stream-yields-truthy-body-object-without-byte-conversion",
     "body_stream_replay": "starlette.request.body-stream-cache-replay",
     "stream_body_consumed": "starlette.request.stream-then-body-consumed",
     "stream_form_consumed": "starlette.request.stream-then-form-consumed",
@@ -18634,6 +18637,7 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
     client_json_exchange = False
     client_json_send_mode: str | None = None
     client_json_receive_mode: str | None = None
+    client_non_text_json_mode = False
     exchange_requirement: str | None = None
     frame_mode: str | None = None
     client_close_workflow = False
@@ -18684,12 +18688,10 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
                 {"operation", "value"} | (session_actions[0].keys() & {"mode"}),
                 "TestClient WebSocket JSON send action",
             )
-            client_json_send_mode = _string(
-                send_action.get("mode", "text"),
-                "TestClient WebSocket send_json mode",
-            )
-            if client_json_send_mode not in {"text", "binary"}:
-                raise ContractError("TestClient WebSocket send_json mode must be text or binary")
+            raw_send_mode = send_action.get("mode", "text")
+            _validate_threadpool_json(raw_send_mode, "TestClient WebSocket send_json mode")
+            client_non_text_json_mode |= raw_send_mode != "text" and raw_send_mode != "binary"
+            client_json_send_mode = "text" if raw_send_mode == "text" else "binary"
             receive_action = _exact(
                 session_actions[1],
                 {"operation"} | (session_actions[1].keys() & {"mode"}),
@@ -18697,12 +18699,10 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
             )
             if receive_action["operation"] != "receive_json":
                 raise ContractError("TestClient WebSocket must use receive_json after send_json")
-            client_json_receive_mode = _string(
-                receive_action.get("mode", "text"),
-                "TestClient WebSocket receive_json mode",
-            )
-            if client_json_receive_mode not in {"text", "binary"}:
-                raise ContractError("TestClient WebSocket receive_json mode must be text or binary")
+            raw_receive_mode = receive_action.get("mode", "text")
+            _validate_threadpool_json(raw_receive_mode, "TestClient WebSocket receive_json mode")
+            client_non_text_json_mode |= raw_receive_mode != "text" and raw_receive_mode != "binary"
+            client_json_receive_mode = "text" if raw_receive_mode == "text" else "binary"
             client_json_workflow = True
             client_json_exchange = True
         elif send_operation == "send_text":
@@ -18859,11 +18859,10 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
                 raise ContractError(
                     "TestClient WebSocket single action must call receive_json or receive_bytes"
                 )
-            client_json_receive_mode = _string(
-                receive_action.get("mode", "text"), "TestClient WebSocket receive_json mode"
-            )
-            if client_json_receive_mode not in {"text", "binary"}:
-                raise ContractError("TestClient WebSocket receive_json mode must be text or binary")
+            raw_receive_mode = receive_action.get("mode", "text")
+            _validate_threadpool_json(raw_receive_mode, "TestClient WebSocket receive_json mode")
+            client_non_text_json_mode |= raw_receive_mode != "text" and raw_receive_mode != "binary"
+            client_json_receive_mode = "text" if raw_receive_mode == "text" else "binary"
             if (
                 "capture_exception" in receive_action
                 and type(receive_action["capture_exception"]) is not bool
@@ -20491,6 +20490,8 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
             )
         else:
             raise ContractError(f"Unsupported TestClient WebSocket flow kind: {flow_kind}")
+        if client_non_text_json_mode:
+            expected_covers.add(TESTCLIENT_WEBSOCKET_REQUIREMENTS["non_text_json_mode"])
         flow_accept = next(
             action for action in app_actions[0]["actions"] if action["operation"] == "accept"
         )
@@ -31762,6 +31763,7 @@ def _validate_request_body_stream_json_case(case: dict[str, Any]) -> None:
         raise ContractError("Request body/stream/json receive tape must be non-empty")
     optional_receive_fields = False
     body_object_probe = False
+    truthy_json_body_probe = False
     body_truthiness_probe = False
     message_type_lookup_order_probe = False
     receive_error_indices: list[int] = []
@@ -31789,10 +31791,25 @@ def _validate_request_body_stream_json_case(case: dict[str, Any]) -> None:
                 "body_base64",
                 "body_type",
                 "body_truthiness_error",
+                "body_value",
                 "more_body",
             }
             if set(raw_message) - allowed:
                 raise ContractError(f"{context} contains unsupported HTTP request fields")
+            if "body_value" in raw_message:
+                if any(
+                    field in raw_message
+                    for field in ("body_base64", "body_type", "body_truthiness_error")
+                ):
+                    raise ContractError(
+                        f"{context}.body_value cannot be combined with byte-body selectors"
+                    )
+                _validate_threadpool_json(raw_message["body_value"], f"{context}.body_value")
+                if not raw_message["body_value"]:
+                    raise ContractError(
+                        f"{context}.body_value probe must select a truthy body object"
+                    )
+                truthy_json_body_probe = True
             if "body_type" in raw_message:
                 if raw_message["body_type"] != "bytes-subclass" or "body_base64" not in raw_message:
                     raise ContractError(
@@ -31827,7 +31844,7 @@ def _validate_request_body_stream_json_case(case: dict[str, Any]) -> None:
                     raise ContractError(
                         f"{context}.body_type bytes-subclass probe requires a non-empty body"
                     )
-            else:
+            elif "body_value" not in raw_message:
                 optional_receive_fields = True
             if "more_body" in raw_message:
                 if type(raw_message["more_body"]) is not bool:
@@ -32438,7 +32455,7 @@ def _validate_request_body_stream_json_case(case: dict[str, Any]) -> None:
                 "Request body truthiness failure requires a non-empty terminal bytes subclass and a declared body/stream retry order"
             )
         expected_covers.add(REQUEST_CONSUMPTION_REQUIREMENTS["body_truthiness_terminal_consumed"])
-    elif body_object_probe:
+    elif body_object_probe or truthy_json_body_probe:
         if (
             len(receive) != 1
             or receive[0].get("type") != "http.request"
@@ -32448,9 +32465,15 @@ def _validate_request_body_stream_json_case(case: dict[str, Any]) -> None:
             or scope_headers
         ):
             raise ContractError(
-                "Request bytes-subclass identity input requires one final body message and one stream advance"
+                "Request body-object identity input requires one final body message and one stream advance"
             )
-        expected_covers.add(REQUEST_CONSUMPTION_REQUIREMENTS["stream_original_body_object"])
+        expected_covers.add(
+            REQUEST_CONSUMPTION_REQUIREMENTS[
+                "stream_truthy_body_object"
+                if truthy_json_body_probe
+                else "stream_original_body_object"
+            ]
+        )
     if set(case["covers"]) != expected_covers:
         raise ContractError(
             "Request body/stream/json covers must match the declared action and receive inputs: "
@@ -41843,6 +41866,34 @@ def migrate_input_document_v54(document: Any) -> dict[str, Any]:
             )
 
     migrated = dict(document)
+    migrated["schema"] = INPUT_SCHEMA_V55
+    return migrated
+
+
+def migrate_input_document_v55(document: Any) -> dict[str, Any]:
+    """Advance @55 inputs to @56, which permits arbitrary JSON body stimuli."""
+    _exact(document, {"schema", "cases"}, "parity input")
+    if document["schema"] != INPUT_SCHEMA_V55:
+        raise ContractError(f"unsupported @55 parity input schema: {document['schema']!r}")
+    if not isinstance(document["cases"], list) or not document["cases"]:
+        raise ContractError("parity input must select at least one case")
+
+    for case_index, case in enumerate(document["cases"]):
+        if not isinstance(case, dict) or (case.get("surface"), case.get("operation")) != (
+            "starlette.requests.Request",
+            "body-stream-json",
+        ):
+            continue
+        receive = case.get("receive")
+        if isinstance(receive, list) and any(
+            isinstance(message, dict)
+            and message.get("type") == "http.request"
+            and "body_value" in message
+            for message in receive
+        ):
+            raise ContractError(f"parity case {case_index} cannot use HTTP body_value in @55 input")
+
+    migrated = dict(document)
     migrated["schema"] = INPUT_SCHEMA
     return migrated
 
@@ -41853,7 +41904,7 @@ def validate_input_document_v53(
     *,
     public_modules: frozenset[str] | None = None,
 ) -> list[dict[str, Any]]:
-    """Validate @53 inputs before their deterministic @54 and @55 migrations."""
+    """Validate @53 inputs before their deterministic @54, @55, and @56 migrations."""
     migrated = migrate_input_document_v53(document)
     return validate_input_document_v54(migrated, manifest, public_modules=public_modules)
 
@@ -41864,8 +41915,19 @@ def validate_input_document_v54(
     *,
     public_modules: frozenset[str] | None = None,
 ) -> list[dict[str, Any]]:
-    """Validate @54 inputs before their deterministic @55 schema-header migration."""
+    """Validate @54 inputs before their deterministic @55 and @56 migrations."""
     migrated = migrate_input_document_v54(document)
+    return validate_input_document_v55(migrated, manifest, public_modules=public_modules)
+
+
+def validate_input_document_v55(
+    document: Any,
+    manifest: dict[str, Any],
+    *,
+    public_modules: frozenset[str] | None = None,
+) -> list[dict[str, Any]]:
+    """Validate @55 inputs before the deterministic @56 schema-header migration."""
+    migrated = migrate_input_document_v55(document)
     return validate_input_document(migrated, manifest, public_modules=public_modules)
 
 
@@ -41875,7 +41937,7 @@ def validate_input_document_v52(
     *,
     public_modules: frozenset[str] | None = None,
 ) -> list[dict[str, Any]]:
-    """Validate @52 inputs before their deterministic @53, @54, and @55 migrations."""
+    """Validate @52 inputs before their deterministic @53, @54, @55, and @56 migrations."""
     migrated = migrate_input_document_v52(document)
     return validate_input_document_v53(migrated, manifest, public_modules=public_modules)
 
@@ -41886,7 +41948,7 @@ def validate_input_document_v50(
     *,
     public_modules: frozenset[str] | None = None,
 ) -> list[dict[str, Any]]:
-    """Validate @50 inputs after the deterministic @51, @52, and @53 migrations."""
+    """Validate @50 inputs through the deterministic @51 to @56 migration chain."""
     migrated_v51 = migrate_input_document_v50(document)
     return validate_input_document_v51(
         migrated_v51,
@@ -41901,7 +41963,7 @@ def validate_previous_input_document(
     *,
     public_modules: frozenset[str] | None = None,
 ) -> list[dict[str, Any]]:
-    """Validate @50 inputs before migrating them through the active @55 contract."""
+    """Validate @50 inputs before migrating them through the active @56 contract."""
     return validate_input_document_v50(document, manifest, public_modules=public_modules)
 
 

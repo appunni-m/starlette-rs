@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@55",
+  "schema": "migration-parity/parity-input@56",
   "cases": [
     {
       "case_id": "starlette.routing.Router.url_path_for.mount-path-none-is-not-forwarded",
