@@ -17,6 +17,7 @@ env:
   RUST_BACKTRACE: "1"
   RUSTC_WRAPPER: ""
   CARGO_NET_RETRY: "3"
+  RUSTUP_TOOLCHAIN: 1.96.1
   STARLETTE_ORACLE_ROOT: ${{ github.workspace }}/starlette
   PYO3_PYTHON: python
 
@@ -52,7 +53,7 @@ jobs:
           rustup default 1.96.1
 
       - name: Run correctness-gated upstream benchmark
-        run: make benchmark-upstream CARGO="cargo +1.96.1" PARITY_PYTHON=python
+        run: make benchmark-upstream PARITY_PYTHON=python
 
       - name: Upload benchmark and correctness-gate results
         if: always()
