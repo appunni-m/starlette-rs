@@ -7,7 +7,7 @@ Pydantic are outside this project's scope.
 
 ## Execution order and current status
 
-Current implementation checkpoint (2026-10-15; commit `68951650`):
+Active manifest checkpoint (2026-10-15; last contract change at commit `68951650`):
 
 The active manifest declares full Starlette 1.6.0 scope with 2,538 cases across
 416 parity inputs, two benchmark inputs, 151 compatibility operations, 14
@@ -37,20 +37,20 @@ inputs across CPython 3.10–3.14. Other async-generator protocol inputs remain
 at 3.12; the separately audited WebSocket `athrow` arity input now covers
 3.10–3.14.
 
-The current implementation batch expands the 5001-digit path-converter
-comparisons to CPython 3.10–3.14 and clears `PYTHONINTMAXSTRDIGITS` in parity
-workers so the default interpreter limit is stable. It adds a marked-sync
-coroutine Request endpoint input for CPython 3.12–3.14. WebSocket `athrow`
-invalid zero/four-argument and valid one/two/three-argument inputs use fresh
-iterators, and the behavior is scoped across CPython 3.10–3.14. These
-comparisons remain unexecuted. `make source-inventory-check`,
-`RUSTC_WRAPPER= make lint`, and `RUSTC_WRAPPER= make check` pass on this working
-tree. The implementation and source-inventory audits found no confirmed
-feature-family gap. The grouped full parity phase is now ready to run across
-CPython 3.10–3.14; mismatches from those runs will be repaired together before
-coverage. No current full parity, coverage, or complete benchmark run has been
-accepted. Do not infer replacement parity from the historical receipts below.
-Historical batch notes describe their state when recorded.
+The first grouped full matrix ran on clean commit `8b05702c` across CPython
+3.10–3.14. CPython 3.10 and 3.11 each recorded 631 passes, one URL mismatch,
+and one POSIX-only `not_run`; CPython 3.12 recorded 2,886 passes and one
+WebSocketRoute package-adapter infrastructure error; CPython 3.13 and 3.14
+each recorded 633 passes and one POSIX-only `not_run`. All 17 selected fault
+contracts passed. The URL mismatch comes from CPython 3.10/3.11 `urlunsplit`
+behavior for an empty authority and relative path. The Rust compatibility
+boundary now uses the running interpreter version to preserve that behavior,
+and the package adapter now accepts the input's declared optional
+`scope_container`. `RUSTC_WRAPPER= make check` and `RUSTC_WRAPPER= make lint`
+pass after these grouped repairs. A complete rerun across all five interpreters
+is required before coverage; no current full parity, coverage, or benchmark
+result has been accepted. Do not infer replacement parity from historical
+receipts below. Historical batch notes describe their state when recorded.
 
 The latest implementation batch now compares FileResponse's stateful PathLike
 calls inside its input-conditioned result record, and WSGIMiddleware's sender,
@@ -537,8 +537,8 @@ representation, and dynamic `FormData.close()` dispatch remain Rust-backed.
 
 | Phase | State | Evidence |
 | --- | --- | --- |
-| Implementation | Implementation review complete; repair any source-confirmed mismatches found in grouped parity before coverage. | Active manifest at commit `68951650`: 2,538 cases across 416 parity inputs, 151 compatibility operations, 14 Rust-native operations, and 1,399 requirements. Atlas: 810/866 mapped, 56 reasoned `not_applicable`, zero backlog. Contract, source-inventory, lint, and workspace-check gates pass. |
-| Full parity and grouped repairs | Ready to run for CPython 3.10–3.14; run each interpreter sequentially because prepared environments are shared. | Historical run `5a355e0f-ff4c-4605-9221-02feff1bc616` belongs to an earlier contract: 2,880 passed, 0 failed, 0 infrastructure errors, 2 `not_run`; it does not verify the active manifest. |
+| Implementation | Initial full matrix exposed two issues; both grouped repairs are applied and static gates pass. | The URL fix is version-specific in Rust; the WebSocketRoute fix is package-adapter input-schema parity. The active manifest and zero-backlog atlas remain unchanged. |
+| Full parity and grouped repairs | Initial five-profile pass complete; full rerun pending. Run interpreters sequentially because prepared environments are shared. | First-pass artifacts are `build/parity/parity-cpython310-result.json` through `parity-cpython314-result.json`. They are bound to clean commit `8b05702c` and do not verify the repaired revision. Historical run `5a355e0f-ff4c-4605-9221-02feff1bc616` belongs to an earlier contract. |
 | Full coverage and source reconciliation | Deferred until the active full parity phase completes. | Historical receipt-bound LCOV recorded 23,012/33,324 Rust lines covered (69.1%); its source/build identity and test status apply only to that prior workload. |
 | All benchmarks | Deferred until implementation, parity, and coverage phases complete. | Historical run `2e8f1ca8-239c-44eb-b72a-0ef02777bd35` measured 74 source/package workloads; it does not verify performance for the active implementation. |
 | Packaging and interpreter qualification | Historical local macOS arm64 qualification; current changes are not qualified by it. | Five CPython 3.10–3.14 wheels, an sdist, and the Rust crate were inspected in the earlier qualification. Other platform builds remain unqualified. |

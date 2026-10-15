@@ -4,9 +4,11 @@ The active contract last changed at `68951650`; it declares the full-scope
 contract to 2,538 cases across 416 parity inputs and two benchmark inputs, 151
 compatibility operations, 14 Rust-native operations, 1,399 requirements, and
 six profiles. `make source-inventory-check`, `RUSTC_WRAPPER= make lint`, and
-`RUSTC_WRAPPER= make check` pass. Implementation review found no confirmed
-feature-family gap; grouped full parity across CPython 3.10–3.14 is the next
-phase. Result schema @9 now strictly includes the
+`RUSTC_WRAPPER= make check` pass. The first grouped matrix across CPython
+3.10–3.14 found one URL behavior mismatch on 3.10/3.11 and one 3.12 package
+adapter schema crash; both are repaired in the current working tree. All
+17 first-pass fault contracts passed. The complete matrix must be rerun on the
+repaired revision before coverage. Result schema @9 now strictly includes the
 CPython 3.14 MarkupSafe build provenance. New unexecuted inputs cover
 WebSocketRoute Python equality and missing scope-key propagation, plus
 cross-version ordinary BackgroundTask, `run_until_first_complete`, and

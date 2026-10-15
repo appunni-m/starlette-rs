@@ -128,9 +128,10 @@ authentication requirement now cites the pinned
 `test_websocket_authentication_required` function at lines 273–303.
 The active contract at commit `68951650` has 2,538 cases across 416 parity
 inputs and 1,399 requirements. The generated atlas has 866 source rows, 810
-input mappings, 56 reasoned `not_applicable` rows, and zero backlog. The
-implementation review is complete and the grouped full parity phase is next;
-coverage and benchmark phases follow parity repair.
+input mappings, 56 reasoned `not_applicable` rows, and zero backlog. The first
+five-profile parity pass found the CPython 3.10/3.11 URL difference and one
+CPython 3.12 package-adapter schema crash; both fixes are applied. The complete
+matrix must pass on the repaired revision before coverage and benchmarks.
 
 **Atlas state:** Source-to-fixture mapping has zero backlog, and API candidate
 rows have explicit dispositions. The full Starlette replacement remains active and

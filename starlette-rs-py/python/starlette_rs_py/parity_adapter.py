@@ -7320,22 +7320,25 @@ def _canonical_websocket_route_event(message: dict[str, Any]) -> dict[str, Any]:
 
 
 def _run_websocket_route_case(case: dict[str, Any]) -> dict[str, Any]:
+    case_fields = {
+        "case_id",
+        "surface",
+        "operation",
+        "covers",
+        "target_profiles",
+        "assets",
+        "dispatch",
+        "route",
+        "scope",
+        "incoming",
+        "endpoint_actions",
+        "observations",
+    }
+    if "scope_container" in case:
+        case_fields.add("scope_container")
     _exact_object(
         case,
-        {
-            "case_id",
-            "surface",
-            "operation",
-            "covers",
-            "target_profiles",
-            "assets",
-            "dispatch",
-            "route",
-            "scope",
-            "incoming",
-            "endpoint_actions",
-            "observations",
-        },
+        case_fields,
         "WebSocketRoute route-dispatch case",
     )
     if case["surface"] != WEBSOCKET_ROUTE_SURFACE or case["operation"] != WEBSOCKET_ROUTE_OPERATION:

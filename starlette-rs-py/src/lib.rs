@@ -1455,12 +1455,34 @@ fn connection_url(
             .extract::<String>()?;
         Some((host, port))
     };
+    // CPython 3.10 and 3.11's urllib.parse.urlunsplit adds a leading slash
+    // when serializing a relative path with an empty authority for a network
+    // scheme. Keep that interpreter-specific behavior in the Rust boundary;
+    // `Python::version_info` reads the running interpreter version directly.
+    let default_port = match scheme.as_deref().unwrap_or("http") {
+        "http" | "ws" => Some("80"),
+        "https" | "wss" => Some("443"),
+        _ => None,
+    };
+    let legacy_empty_authority_relative_path = py.version_info() < (3, 12)
+        && !path.is_empty()
+        && !path.starts_with('/')
+        && default_port.is_some_and(|default_port| {
+            server
+                .as_ref()
+                .is_some_and(|(host, port)| host.is_empty() && port.as_str() == default_port)
+        });
+    let path = if legacy_empty_authority_relative_path {
+        format!("/{path}")
+    } else {
+        path.to_owned()
+    };
     let server = server
         .as_ref()
         .map(|(host, port)| (host.as_str(), port.as_str()));
     match native_connection_url_with_port_text(
         scheme.as_deref(),
-        path,
+        &path,
         query_bytes,
         &headers,
         server,
