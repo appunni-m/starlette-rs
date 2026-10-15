@@ -28,21 +28,18 @@ The active full-scope `parity-input@58` contract covers Starlette 1.6.0 with
 2,538 cases across 416 parity inputs and two benchmark inputs, 151 compatibility
 operations, 14 Rust-native operations, and 1,399 parity requirements. Its
 manifest SHA-256 is
-`431d29029f7857808d7785844926d10925fd0c92969f5c75a074d849afc719fc`. The
+`2dcb25d098d4f09ce3dd6bb231164a58391175f6cff222dd2c6316a9580eec4a`. The
 source atlas contains 866 rows: 810 input mappings, 56 source-backed
 `not_applicable` rows, and zero fixture backlog. The 999-row API candidate
 catalog has 564 supported candidates, 435 private/internal candidates, and
 zero uncertain candidates.
 
-The latest corrected five-profile matrix, run before the active manifest
-changed, used previous manifest SHA-256
-`86f69fc791088794fcd59483d6a91cc08bb9b3999586665f73c2f722f9946029` and
-runtime target revision
-`57361208aa1bbe3c95cf76a27992a50cd15cb767`; it recorded 5,423 passes, zero
-failures, zero infrastructure errors, and zero `not_run` rows in workflow
-[38769902939](https://github.com/appunni-m/starlette-rs/actions/runs/38769902939).
-All 17 selected fault contracts passed. That matrix is historical evidence for
-the current manifest; parity revalidation is pending in CI. The prior-manifest
+The latest five-profile matrix used the immediately preceding manifest SHA-256
+`431d29029f7857808d7785844926d10925fd0c92969f5c75a074d849afc719fc`; all five
+CPython profile jobs passed in workflow
+[38793776510](https://github.com/appunni-m/starlette-rs/actions/runs/38793776510).
+That matrix predates the coverage-component correction in the active manifest;
+parity revalidation is pending in CI. The prior-manifest
 local coverage receipt reports 26,126 of 33,348 Rust lines covered (78.34%); its
 CPython 3.12 receipt
 has two platform-specific `not_run` rows, so its test status is unknown. The

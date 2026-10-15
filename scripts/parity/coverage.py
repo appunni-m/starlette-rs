@@ -894,9 +894,10 @@ def run_coverage(
 
     run_id = str(uuid.uuid4())
     started_at = _now()
-    run_dir = root / COVERAGE_ROOT / target_profile / run_id
+    coverage_root = root / COVERAGE_ROOT
+    run_dir = coverage_root / target_profile / run_id
     run_dir.mkdir(parents=True, exist_ok=False)
-    target_dir = run_dir / "cargo-target"
+    target_dir = coverage_root / "cargo-target" / target_profile / run_id
     target_dir.mkdir(parents=True, exist_ok=False)
     errors: list[dict[str, str]] = []
     source_oracle_record: dict[str, Any] | None = None

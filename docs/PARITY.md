@@ -3,18 +3,16 @@
 ## Current verification status
 
 The active full-scope contract is `parity-input@58`, manifest SHA-256
-`431d29029f7857808d7785844926d10925fd0c92969f5c75a074d849afc719fc`. The
-latest complete parity evidence predates this digest: the previous manifest
-SHA-256 was
-`86f69fc791088794fcd59483d6a91cc08bb9b3999586665f73c2f722f9946029`. Its
-verified runtime target revision was
-`57361208aa1bbe3c95cf76a27992a50cd15cb767`; the pinned Starlette 1.6.0 source
-revision is `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The five-profile
-parity workflow [38769902939](https://github.com/appunni-m/starlette-rs/actions/runs/38769902939)
-recorded 5,423 passed, 0 failed, 0 infrastructure failures, and 0 `not_run`.
-The profile totals are CPython 3.10: 633; 3.11: 633; 3.12: 2,889; 3.13: 634;
-and 3.14: 634. The selected fault contracts passed 17/17. The source/package
-result artifacts are retained with that workflow run.
+`2dcb25d098d4f09ce3dd6bb231164a58391175f6cff222dd2c6316a9580eec4a`. The
+latest complete parity evidence used the immediately preceding manifest
+SHA-256
+`431d29029f7857808d7785844926d10925fd0c92969f5c75a074d849afc719fc`; all five
+CPython profile jobs passed in workflow
+[38793776510](https://github.com/appunni-m/starlette-rs/actions/runs/38793776510).
+That run used target revision
+`71be75c3583c6501fec276a46f4497c42aa4ce4e` and predates the coverage-component
+correction above. The pinned Starlette 1.6.0 source revision is
+`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`.
 
 That prior-manifest matrix is historical for the current contract. Current
 manifest parity revalidation is pending in CI. The `aggregate` command reports
