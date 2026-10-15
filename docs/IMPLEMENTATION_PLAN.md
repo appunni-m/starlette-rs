@@ -7,17 +7,24 @@ Pydantic are outside this project's scope.
 
 ## Execution order and current status
 
-Current implementation checkpoint (2026-10-15; working tree based on
-`e8ed3b8d`):
+Current implementation checkpoint (2026-10-15; commit `68951650`):
 
-The active manifest declares full Starlette 1.6.0 scope with 2,537 cases across
-415 parity inputs, two benchmark inputs, 151 compatibility operations, 14
-Rust-native operations, 1,398 parity requirements, and six target profiles.
+The active manifest declares full Starlette 1.6.0 scope with 2,538 cases across
+416 parity inputs, two benchmark inputs, 151 compatibility operations, 14
+Rust-native operations, 1,399 parity requirements, and six target profiles.
 The generated source atlas has 866 rows: 810 mapped, 56 source-backed
 `not_applicable`, and zero fixture backlog. The 999-row API catalog has 564
 supported candidates, 435 private/internal candidates, and zero uncertain
 candidates. The pinned denominators remain 514 upstream test functions and 24
 documented pages.
+
+Commit `68951650` registers an input-only Application/Mount/Router/Route
+middleware composition case and aligns the WebSocketRoute package adapter with
+missing-key and mapping-backed scope inputs. `make contract-check`,
+`make source-inventory-check`, `make lint`, and `make check` pass at this
+checkpoint. The Markdown link check passes; `make docs-check` still detects a
+stale benchmark-evidence manifest digest, which remains for the ordered
+benchmark phase. The new comparisons have not run.
 
 The last recorded full matrix, coverage, and benchmark receipts below belong to
 earlier manifest revisions; they do not verify the active working tree. The
@@ -38,9 +45,11 @@ invalid zero/four-argument and valid one/two/three-argument inputs use fresh
 iterators, and the behavior is scoped across CPython 3.10–3.14. These
 comparisons remain unexecuted. `make source-inventory-check`,
 `RUSTC_WRAPPER= make lint`, and `RUSTC_WRAPPER= make check` pass on this working
-tree. No current full parity, coverage, or complete benchmark run has been
-accepted. Continue implementing all feature families before the grouped parity
-phase; do not infer replacement parity from the historical receipts below.
+tree. The implementation and source-inventory audits found no confirmed
+feature-family gap. The grouped full parity phase is now ready to run across
+CPython 3.10–3.14; mismatches from those runs will be repaired together before
+coverage. No current full parity, coverage, or complete benchmark run has been
+accepted. Do not infer replacement parity from the historical receipts below.
 Historical batch notes describe their state when recorded.
 
 The latest implementation batch now compares FileResponse's stateful PathLike
@@ -528,8 +537,8 @@ representation, and dynamic `FormData.close()` dispatch remain Rust-backed.
 
 | Phase | State | Evidence |
 | --- | --- | --- |
-| Implementation | In progress; finish and review all feature-family work before the grouped comparison phase. | Active manifest: 2,534 cases across 415 parity inputs, 151 compatibility operations, 14 Rust-native operations, and 1,398 requirements. Atlas: 810/866 mapped, 56 reasoned `not_applicable`, zero backlog. Static source-inventory, lint, and workspace-check gates pass. |
-| Full parity and grouped repairs | Deferred until implementation closes. | Historical run `5a355e0f-ff4c-4605-9221-02feff1bc616` belongs to an earlier contract: 2,880 passed, 0 failed, 0 infrastructure errors, 2 `not_run`; it does not verify the active manifest. |
+| Implementation | Implementation review complete; repair any source-confirmed mismatches found in grouped parity before coverage. | Active manifest at commit `68951650`: 2,538 cases across 416 parity inputs, 151 compatibility operations, 14 Rust-native operations, and 1,399 requirements. Atlas: 810/866 mapped, 56 reasoned `not_applicable`, zero backlog. Contract, source-inventory, lint, and workspace-check gates pass. |
+| Full parity and grouped repairs | Ready to run for CPython 3.10–3.14; run each interpreter sequentially because prepared environments are shared. | Historical run `5a355e0f-ff4c-4605-9221-02feff1bc616` belongs to an earlier contract: 2,880 passed, 0 failed, 0 infrastructure errors, 2 `not_run`; it does not verify the active manifest. |
 | Full coverage and source reconciliation | Deferred until the active full parity phase completes. | Historical receipt-bound LCOV recorded 23,012/33,324 Rust lines covered (69.1%); its source/build identity and test status apply only to that prior workload. |
 | All benchmarks | Deferred until implementation, parity, and coverage phases complete. | Historical run `2e8f1ca8-239c-44eb-b72a-0ef02777bd35` measured 74 source/package workloads; it does not verify performance for the active implementation. |
 | Packaging and interpreter qualification | Historical local macOS arm64 qualification; current changes are not qualified by it. | Five CPython 3.10–3.14 wheels, an sdist, and the Rust crate were inspected in the earlier qualification. Other platform builds remain unqualified. |
@@ -598,9 +607,9 @@ also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
 The active parity contract is `parity-input@58` with full scope
-(`starlette-1.6.0-full`): 2,534 input cases across 415 parity files, two
+(`starlette-1.6.0-full`): 2,538 input cases across 416 parity files, two
 benchmark files, 151 Starlette compatibility operations, 14 Rust-native
-operations, 1,398 parity requirements, and six target profiles. No complete
+operations, 1,399 parity requirements, and six target profiles. No complete
 parity result has been accepted for this active manifest; full-suite coverage
 and benchmarks are deferred until implementation closes. The Config typing
 consumer covers all nine pinned `Config.__call__` overload assertions and is
