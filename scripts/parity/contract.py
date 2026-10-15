@@ -1625,6 +1625,7 @@ RESPONSE_BACKGROUND_REQUIREMENTS = {
     "task_add": "starlette.responses.Response.asgi-call.background-task-add",
     "task_order": "starlette.responses.Response.asgi-call.background-task-order",
     "task_subclass_property": "starlette.responses.Response.asgi-call.background-tasks-subclass-dynamic-tasks-lookup",
+    "task_subclass_add_task": "starlette.responses.Response.asgi-call.background-tasks-subclass-add-task-dynamic-lookup",
     "task_failure": "starlette.responses.Response.asgi-call.background-task-failure-stops",
     "task_late_failure": "starlette.responses.Response.asgi-call.background-task-late-failure-stops",
     "task_sequence_constructor": "starlette.responses.Response.asgi-call.background-task-sequence-constructor",
@@ -7288,6 +7289,8 @@ def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
             background_fields = {"kind", "tasks"}
             if case["background"].get("kind") == "task-list-subclass-property":
                 background_fields.add("tasks_property_indices")
+                if "add_task" in case["background"]:
+                    background_fields.add("add_task")
             background = _exact(
                 case["background"], background_fields, "Response background task input"
             )
@@ -7309,6 +7312,33 @@ def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
                     )
                 if any(index < 0 or index >= len(tasks) for index in task_indices):
                     raise ContractError("Response background task property index is out of range")
+                if "add_task" in background:
+                    add_task = _exact(
+                        background["add_task"],
+                        {"mode", "args", "kwargs", "failure"},
+                        "Response background subclass add_task input",
+                    )
+                    if add_task["mode"] not in {"sync", "async"}:
+                        raise ContractError(
+                            "Response background subclass add_task.mode must be sync or async"
+                        )
+                    if not isinstance(add_task["args"], list) or any(
+                        type(value) not in {str, int} for value in add_task["args"]
+                    ):
+                        raise ContractError(
+                            "Response background subclass add_task.args must contain only strings or integers"
+                        )
+                    if not isinstance(add_task["kwargs"], dict) or any(
+                        not isinstance(key, str) or type(value) not in {str, int}
+                        for key, value in add_task["kwargs"].items()
+                    ):
+                        raise ContractError(
+                            "Response background subclass add_task.kwargs must map strings to strings or integers"
+                        )
+                    if add_task["failure"] is not None:
+                        raise ContractError(
+                            "Response background subclass add_task.failure must be null"
+                        )
             if kind not in {
                 "single-task",
                 "task-list",
@@ -7695,6 +7725,8 @@ def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
                         "subclass tasks-property input requires non-failing ordinary callbacks"
                     )
                 derived = [RESPONSE_BACKGROUND_REQUIREMENTS["task_subclass_property"]]
+                if "add_task" in background:
+                    derived.append(RESPONSE_BACKGROUND_REQUIREMENTS["task_subclass_add_task"])
             else:
                 derived = [
                     RESPONSE_BACKGROUND_REQUIREMENTS["task_add"],

@@ -87,7 +87,7 @@ class BackgroundTasks(BackgroundTask):
         self._inner.delete_tasks()
 
     def add_task(self, func: Callable[P, Any], *args: P.args, **kwargs: P.kwargs) -> None:
-        self._inner.append_task(BackgroundTask(func, *args, **kwargs))
+        self._inner.append_task(BackgroundTask(func, *args, **kwargs), self.tasks)
 
     async def __call__(self) -> None:
         await self._inner.run(self.tasks)

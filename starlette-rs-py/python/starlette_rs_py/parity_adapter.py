@@ -682,7 +682,17 @@ def _input_background_tasks(
             def tasks(self, value: list[Any]) -> None:
                 self._constructor_tasks = value
 
-        return InputBackgroundTasks(tasks)
+        background_tasks = InputBackgroundTasks(tasks)
+        if "add_task" in spec:
+            add_task_spec = spec["add_task"]
+            task_index = len(spec["tasks"])
+            callback = make_callback(task_index, add_task_spec)
+            background_tasks.add_task(
+                callback,
+                *add_task_spec["args"],
+                **add_task_spec["kwargs"],
+            )
+        return background_tasks
     return background_tasks
 
 
@@ -10584,6 +10594,8 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
             background_fields = {"kind", "tasks"}
             if case["background"].get("kind") == "task-list-subclass-property":
                 background_fields.add("tasks_property_indices")
+                if "add_task" in case["background"]:
+                    background_fields.add("add_task")
             background_tasks_spec = _exact_object(
                 case["background"], background_fields, "Response background tasks"
             )
@@ -10607,6 +10619,27 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
                     for index in task_indices
                 ):
                     raise ValueError("Response background task property index is out of range")
+                if "add_task" in background_tasks_spec:
+                    add_task = _exact_object(
+                        background_tasks_spec["add_task"],
+                        {"mode", "args", "kwargs", "failure"},
+                        "Response background subclass add_task",
+                    )
+                    if add_task["mode"] not in {"sync", "async"}:
+                        raise ValueError("Response background subclass add_task mode is invalid")
+                    if not isinstance(add_task["args"], list) or any(
+                        type(value) not in {str, int} for value in add_task["args"]
+                    ):
+                        raise ValueError("Response background subclass add_task args are invalid")
+                    if not isinstance(add_task["kwargs"], dict) or any(
+                        not isinstance(key, str) or type(value) not in {str, int}
+                        for key, value in add_task["kwargs"].items()
+                    ):
+                        raise ValueError("Response background subclass add_task kwargs are invalid")
+                    if add_task["failure"] is not None:
+                        raise ValueError(
+                            "Response background subclass add_task failure is unsupported"
+                        )
 
     stream_lifecycle: dict[str, str] | None = None
     if "stream_lifecycle" in case:

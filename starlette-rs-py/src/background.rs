@@ -284,9 +284,12 @@ impl PyBackgroundTasks {
         self.is_async = None;
     }
 
-    /// Append a public Python task wrapper to the mutable task sequence.
-    fn append_task(&self, py: Python<'_>, task: Py<PyAny>) -> PyResult<()> {
-        let tasks = task_attribute(py, "BackgroundTasks", "tasks", self.tasks.as_ref())?;
+    /// Append a task to the live public `tasks` value selected by the facade.
+    ///
+    /// Starlette constructs the task before evaluating `self.tasks`, then calls
+    /// `append` on that value. Passing the resolved collection keeps subclass
+    /// property overrides and their side effects observable at this boundary.
+    fn append_task(&self, py: Python<'_>, task: Py<PyAny>, tasks: Py<PyAny>) -> PyResult<()> {
         tasks.bind(py).call_method1("append", (task,))?;
         Ok(())
     }

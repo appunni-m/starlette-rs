@@ -22343,6 +22343,17 @@
               ]
             },
             {
+              "id": "starlette.responses.Response.asgi-call.background-tasks-subclass-add-task-dynamic-lookup",
+              "dimension": "boundary",
+              "description": "Subclass BackgroundTasks with an input-selected public tasks property, call add_task after construction, and observe the live property lookup and append receiver before attaching it to Response. Pinned source: starlette/background.py:30-32.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.responses.Response.asgi-call.background-task-failure-stops",
               "dimension": "error_path",
               "description": "Make the first input-defined BackgroundTasks callback raise Exception and observe that the error propagates after response events and later callbacks are not invoked. Upstream: tests/test_background.py::test_multi_tasks_failure_avoids_next_execution; starlette/background.py:34-36.",
