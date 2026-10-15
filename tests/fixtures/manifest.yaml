@@ -548,8 +548,8 @@
       "build/parity/inputs/parity/wsgi-boundary.json",
       "build/parity/inputs/parity/session-middleware.json",
       "build/parity/inputs/parity/session-cookie-surrogate.json",
-      "build/parity/inputs/parity/session-timestamp-too-wide-without-expiry.json",
-      "build/parity/inputs/parity/timestamp-unsign-wide-timestamp-native.json",
+      "build/parity/inputs/parity/session-timestamp-maximum-u64.json",
+      "build/parity/inputs/parity/timestamp-unsign-maximum-u64-native.json",
       "build/parity/inputs/parity/session-response-header-iterable.json",
       "build/parity/inputs/parity/session-future-timestamp.json",
       "build/parity/inputs/parity/session-expired-timestamp-out-of-range.json",
@@ -11351,6 +11351,9 @@
                   ],
                   "comparison": {
                     "kind": "ordered"
+                  },
+                  "condition": {
+                    "input_key": "application.middleware.0.dispatch_callable"
                   }
                 },
                 {
@@ -15821,9 +15824,9 @@
               ]
             },
             {
-              "id": "starlette.middleware.sessions.SessionMiddleware.session-workflow.timestamp-too-wide-without-expiry-fallback",
+              "id": "starlette.middleware.sessions.SessionMiddleware.session-workflow.maximum-u64-timestamp-without-expiry-check",
               "dimension": "boundary",
-              "description": "Exercise timestamp decoding with max_age=None and a signed cookie whose decoded timestamp exceeds the 8-byte unsigned representation used by the locked ItsDangerous 2.2.0 dependency. Starlette calls TimestampSigner.unsign before any optional age check. Pinned source: starlette/middleware/sessions.py:43-54; dependency pin: uv.lock:130-136; behavior: TimestampSigner.unsign and bytes_to_int.",
+              "description": "Exercise the maximum eight-byte unsigned timestamp with max_age=None and confirm that the signed session remains valid when expiry checking is disabled. Pinned source: starlette/middleware/sessions.py:43-54; dependency pin: uv.lock:130-136; behavior: TimestampSigner.unsign and bytes_to_int.",
               "lanes": [
                 "parity"
               ],
@@ -38823,9 +38826,9 @@
           ],
           "requirements": [
             {
-              "id": "starlette_rs.timestamp_unsign.wide-authenticated-timestamp-without-max-age",
+              "id": "starlette_rs.timestamp_unsign.maximum-authenticated-u64-timestamp-without-max-age",
               "dimension": "boundary",
-              "description": "Authenticate a supplied timestamped value whose decoded unsigned timestamp exceeds u64 and return its payload unchanged when max_age is None. Source oracle: pinned itsdangerous 2.2.0 TimestampSigner.unsign and bytes_to_int; Rust implementation: starlette-rs/src/sessions.rs::timestamp_unsign.",
+              "description": "Authenticate a supplied timestamped value at the maximum eight-byte unsigned timestamp and return its payload unchanged when max_age is None. Source oracle: pinned itsdangerous 2.2.0 TimestampSigner.unsign and bytes_to_int; Rust implementation: starlette-rs/src/sessions.rs::timestamp_unsign.",
               "lanes": [
                 "parity"
               ],

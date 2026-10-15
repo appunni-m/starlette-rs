@@ -2,13 +2,13 @@
   "schema": "migration-parity/parity-input@58",
   "cases": [
     {
-      "case_id": "starlette.middleware.sessions.SessionMiddleware.session-workflow.timestamp-too-wide-without-expiry-fallback",
+      "case_id": "starlette.middleware.sessions.SessionMiddleware.session-workflow.maximum-u64-timestamp-without-expiry-check",
       "surface": "starlette.middleware.sessions.SessionMiddleware",
       "operation": "session-workflow",
       "covers": [
         "starlette.middleware.sessions.SessionMiddleware.session-workflow.construct",
         "starlette.middleware.sessions.SessionMiddleware.session-workflow.vary-cookie-on-access",
-        "starlette.middleware.sessions.SessionMiddleware.session-workflow.timestamp-too-wide-without-expiry-fallback"
+        "starlette.middleware.sessions.SessionMiddleware.session-workflow.maximum-u64-timestamp-without-expiry-check"
       ],
       "target_profiles": [
         "python-package-cpython312"
@@ -26,7 +26,7 @@
       },
       "requests": [
         {
-          "request_id": "timestamp-exceeds-u64-session-cookie",
+          "request_id": "maximum-u64-session-cookie",
           "scope": {
             "type": "http",
             "asgi": {
@@ -59,7 +59,7 @@
           ],
           "cookie_source": {
             "kind": "raw-cookie",
-            "value": "session=eyJ1c2VyIjogIkFkYSJ9.AQAAAAAAAAAA.7e9RhflpJaeoC9PlaIz8-P28iXs"
+            "value": "session=eyJ1c2VyIjogIkFkYSJ9.__________8.qX67Efo-7gA9HAUOYL02UD9Drxk"
           },
           "action": {
             "kind": "view"

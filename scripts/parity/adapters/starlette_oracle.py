@@ -5103,7 +5103,7 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
             returned = "replacement"
         else:
             raise ValueError(f"{context} has an unsupported action kind")
-    if returned is None:
+    if returned is None and dispatch_callable_spec is None:
         raise ValueError("BaseHTTPMiddleware dispatch action sequence has no response")
     if saw_header_mutation and returned != "call-next":
         raise ValueError("only the call_next response can be mutated")

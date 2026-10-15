@@ -1383,7 +1383,10 @@ def compare_workflows(
                         raise ContractError(
                             f"unsupported normalization for {path}: {normalization_step!r}"
                         )
-            if not _compare_value(compare_kind, left_field, right_field):
+            equal_partial_null = (
+                left["status"] == "error" and left_field is None and right_field is None
+            )
+            if not equal_partial_null and not _compare_value(compare_kind, left_field, right_field):
                 differences.append(
                     _diff(
                         step_id,

@@ -598,7 +598,7 @@ SESSION_REQUIREMENTS = {
     "max_age_default": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.max-age-default",
     "max_age_none": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.max-age-none",
     "max_age_arbitrary_precision": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.arbitrary-precision-max-age",
-    "timestamp_too_wide_without_expiry_fallback": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.timestamp-too-wide-without-expiry-fallback",
+    "timestamp_maximum_u64_without_expiry_check": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.maximum-u64-timestamp-without-expiry-check",
     "default_cookie_attributes": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.default-cookie-attributes",
     "custom_cookie_attributes": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.custom-cookie-attributes",
     "domain_secure_attributes": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.domain-secure-attributes",
@@ -3064,6 +3064,11 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                             "background_task_events",
                         }
                     )
+                    base_http_task_group_exit_events = (
+                        condition["input_key"] == "application.middleware.0.dispatch_callable"
+                        and key == BASE_HTTP_WORKFLOW_OPERATION_KEY
+                        and observation["path"] == "task_group_exit_events"
+                    )
                     templating_hook_trace = (
                         condition["input_key"] == "hooks"
                         and key == TEMPLATING_PUBLIC_OPERATION
@@ -3159,6 +3164,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         and not file_response_call_sequence
                         and not file_response_background_task
                         and not base_http_background_task_completion
+                        and not base_http_task_group_exit_events
                         and not templating_hook_trace
                         and not http_endpoint_method_reads
                         and not middleware_asgi_workflow
@@ -13345,7 +13351,7 @@ def _validate_session_workflow_case(case: dict[str, Any]) -> None:
     has_invalid_signature_input = False
     has_future_timestamp_out_of_range_input = False
     has_expired_timestamp_out_of_range_input = False
-    has_timestamp_too_wide_without_expiry_input = False
+    has_maximum_u64_timestamp_without_expiry_input = False
     out_of_range_timestamp_requests: set[str] = set()
     for index, raw_request in enumerate(requests):
         context = f"SessionMiddleware request[{index}]"
@@ -13426,8 +13432,8 @@ def _validate_session_workflow_case(case: dict[str, Any]) -> None:
                     timestamp = int.from_bytes(timestamp_bytes, "big") if timestamp_bytes else None
                     if timestamp is None:
                         has_invalid_signature_input = True
-                    elif constructor["max_age"] is None and timestamp > (1 << 64) - 1:
-                        has_timestamp_too_wide_without_expiry_input = True
+                    elif constructor["max_age"] is None and timestamp == (1 << 64) - 1:
+                        has_maximum_u64_timestamp_without_expiry_input = True
                     elif timestamp > constructor["clock_epoch"]:
                         if constructor["max_age"] is not None:
                             try:
@@ -13757,8 +13763,8 @@ def _validate_session_workflow_case(case: dict[str, Any]) -> None:
         requirements.add(SESSION_REQUIREMENTS["future_timestamp_out_of_range_error"])
     if has_expired_timestamp_out_of_range_input:
         requirements.add(SESSION_REQUIREMENTS["expired_timestamp_out_of_range_error"])
-    if has_timestamp_too_wide_without_expiry_input:
-        requirements.add(SESSION_REQUIREMENTS["timestamp_too_wide_without_expiry_fallback"])
+    if has_maximum_u64_timestamp_without_expiry_input:
+        requirements.add(SESSION_REQUIREMENTS["timestamp_maximum_u64_without_expiry_check"])
     if (
         type(constructor["max_age"]) is int
         and constructor["max_age"] < 0

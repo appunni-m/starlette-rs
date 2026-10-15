@@ -1742,9 +1742,12 @@ def _materialize_application_middleware(middleware_specs: Any) -> list[Any]:
             await self.app(scope, receive, send)
 
     class AppendResponseHeaderMiddleware:
-        def __init__(self, app: Any, *, name: str) -> None:
+        def __init__(self, app: Any, name: str, *, value: str = "true") -> None:
             self.app = app
-            self.response_header = (f"X-{name}".encode("ascii"), b"true")
+            self.response_header = (
+                f"X-{name}".encode("ascii"),
+                value.encode("ascii"),
+            )
 
         async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
             async def modified_send(message: Any) -> None:
@@ -1780,10 +1783,15 @@ def _materialize_application_middleware(middleware_specs: Any) -> list[Any]:
 
     middleware = []
     for index, raw_spec in enumerate(middleware_specs):
-        if isinstance(raw_spec, dict) and raw_spec.get("kind") == "append-response-header":
+        if isinstance(raw_spec, dict) and raw_spec.get("kind") in {
+            "append-response-header",
+            "middleware-iterator-subclass",
+        }:
             spec = _exact_object(
                 raw_spec,
-                {"kind", "name"},
+                {"kind", "name"}
+                if raw_spec["kind"] == "append-response-header"
+                else {"kind", "iterated"},
                 f"application middleware[{index}]",
             )
         else:
@@ -1800,6 +1808,25 @@ def _materialize_application_middleware(middleware_specs: Any) -> list[Any]:
             middleware.append(Middleware(AuthenticationMiddleware, backend=BasicAuthBackend()))
         elif spec["kind"] == "append-response-header":
             middleware.append(Middleware(AppendResponseHeaderMiddleware, name=spec["name"]))
+        elif spec["kind"] == "middleware-iterator-subclass":
+            iterated = _exact_object(
+                spec["iterated"],
+                {"kind", "name", "value"},
+                f"application middleware[{index}].iterated",
+            )
+            if iterated["kind"] != "append-response-header":
+                raise ValueError(
+                    "middleware iterator subclass must yield a declared middleware factory"
+                )
+            middleware.append(
+                middleware_with_iterator_override(
+                    Middleware,
+                    CopyScopeMiddleware,
+                    AppendResponseHeaderMiddleware,
+                    [iterated["name"]],
+                    MappingProxyType({"value": iterated["value"]}),
+                )
+            )
         else:
             raise ValueError(f"unsupported application middleware action: {spec['kind']!r}")
     return middleware
@@ -4226,7 +4253,6 @@ def _run_gzip_case(case: dict[str, Any]) -> dict[str, Any]:
             step.get("receiver") != {"kind": "binding", "step_id": instance_step}
             for step in dispatch_steps
         )
-        or (responder and dispatch_step_ids != ["dispatch"])
     ):
         raise ValueError("GZip cases must construct then dispatch the declared ASGI callable")
     if case["execution_schedule"] != dispatch_step_ids or case["observations"] != dispatch_step_ids:
@@ -4291,6 +4317,36 @@ def _run_gzip_case(case: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+class _InputDrivenHeaderPair(list[str]):
+    def __init__(self, items: list[str], iterated_items: list[str]) -> None:
+        super().__init__(items)
+        self._iterated_items = iterated_items
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(self._iterated_items)
+
+
+def _materialize_wsgi_header_pairs(headers: list[Any]) -> list[Any]:
+    materialized: list[Any] = []
+    for pair in headers:
+        if isinstance(pair, dict):
+            pair = _exact_object(
+                pair,
+                {"kind", "items", "iterated_items"},
+                "WSGI input-defined header pair",
+            )
+            if (
+                pair["kind"] != "list-subclass-iter-override"
+                or not isinstance(pair["items"], list)
+                or not isinstance(pair["iterated_items"], list)
+            ):
+                raise ValueError("WSGI header pair iterator input is malformed")
+            materialized.append(_InputDrivenHeaderPair(pair["items"], pair["iterated_items"]))
+        else:
+            materialized.append(pair)
+    return materialized
+
+
 def _materialize_wsgi_app(spec: dict[str, Any]) -> Any:
     caller_thread_id = threading.get_ident()
     kind = spec["kind"]
@@ -4320,7 +4376,7 @@ def _materialize_wsgi_app(spec: dict[str, Any]) -> Any:
 
     def app(environ: dict[str, Any], start_response: Any) -> list[bytes]:
         if kind == "wsgi-response":
-            start_response(spec["status"], spec["headers"])
+            start_response(spec["status"], _materialize_wsgi_header_pairs(spec["headers"]))
             return [base64.b64decode(chunk, validate=True) for chunk in spec["chunks_base64"]]
         if kind == "wsgi-echo-body":
             start_response(spec["status"], spec["headers"])
@@ -4513,6 +4569,8 @@ def _run_body_limit_case(case: dict[str, Any]) -> dict[str, Any]:
     scope_spec = dict(dispatch_arguments["scope"])
     prior_scope_limit = scope_spec.pop("preexisting_max_body_size", _MISSING)
     scope = _make_scope(scope_spec)
+    if case.get("scope_headers_container", "list") == "tuple":
+        scope["headers"] = tuple(scope["headers"])
     if prior_scope_limit is not _MISSING:
         scope[MAX_BODY_SIZE_SCOPE_KEY] = prior_scope_limit
     scope = _scope_container(scope, case.get("scope_container", "dict"))
@@ -6809,7 +6867,13 @@ def _run_websocket_convenience_case(case: dict[str, Any]) -> dict[str, Any]:
             "observations",
         }
         | (
-            {"constructor_thread", "iterator_thread", "method_descriptors", "scope_container"}
+            {
+                "constructor_thread",
+                "iterator_thread",
+                "receive_callback_actions",
+                "method_descriptors",
+                "scope_container",
+            }
             & case.keys()
         ),
         "WebSocket convenience-sequence case",
@@ -10072,16 +10136,19 @@ def _run_static_files_lookup_path_case(case: dict[str, Any]) -> dict[str, Any]:
         prefix="starlette-package-static-lookup-"
     ) as temporary_directory:
         workspace = Path(temporary_directory)
-        root = workspace / case["directory"]
+        root = workspace / case["directory"] if case["directory"] is not None else None
         root_symlink_target = case["filesystem"]["root_symlink_target"]
-        if root_symlink_target is None:
-            root.mkdir(parents=True)
-        else:
-            target_directory = workspace / root_symlink_target
-            target_directory.mkdir(parents=True, exist_ok=True)
-            root.parent.mkdir(parents=True, exist_ok=True)
-            os.symlink(os.path.relpath(target_directory, root.parent), root)
+        if root is not None:
+            if root_symlink_target is None:
+                root.mkdir(parents=True)
+            else:
+                target_directory = workspace / root_symlink_target
+                target_directory.mkdir(parents=True, exist_ok=True)
+                root.parent.mkdir(parents=True, exist_ok=True)
+                os.symlink(os.path.relpath(target_directory, root.parent), root)
         for file_spec in case["files"]:
+            if root is None:
+                raise ValueError("StaticFiles lookup-path file input has no configured root")
             file_path = file_spec["path"]
             if isinstance(file_path, dict):
                 file_path = _exact_object(
@@ -10133,12 +10200,16 @@ def _run_static_files_lookup_path_case(case: dict[str, Any]) -> dict[str, Any]:
             )
             os.utime(path, (file_spec["mtime_seconds"], file_spec["mtime_seconds"]))
         for symlink_spec in case["filesystem"]["symlinks"]:
+            if root is None:
+                raise ValueError("StaticFiles lookup-path symlink input has no configured root")
             path = root / symlink_spec["path"]
             path.parent.mkdir(parents=True, exist_ok=True)
             os.symlink(symlink_spec["target"], path)
         directory_pathlike = None
         configured_directory: Any = root
         if has_pathlike:
+            if root is None:
+                raise ValueError("StaticFiles lookup-path PathLike input has no configured root")
             directory_pathlike = InputSequencePathLike(
                 workspace,
                 case["directory_pathlike"]["fspath_results_relative_to_workspace"],
@@ -10193,9 +10264,12 @@ def _run_static_files_lookup_path_case(case: dict[str, Any]) -> dict[str, Any]:
                 }
         else:
             if directory_pathlike is None:
-                relative_root = root.absolute() if case["follow_symlink"] else root.resolve()
                 relative_path = (
-                    Path(full_path).relative_to(relative_root).as_posix() if full_path else None
+                    Path(full_path)
+                    .relative_to(root.absolute() if case["follow_symlink"] else root.resolve())
+                    .as_posix()
+                    if full_path and root is not None
+                    else None
                 )
             else:
                 relative_path = (
@@ -10712,8 +10786,10 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
     )
     if scope_spec["type"] == "websocket" and surface != STREAMING_RESPONSE_SURFACE:
         raise ValueError("WebSocket scope is supported only for StreamingResponse")
-    asgi_spec = _exact_object(
-        scope_spec.get("asgi", {}), {"version", "spec_version"}, "ASGI version"
+    asgi_spec = (
+        {}
+        if minimal_streaming_scope
+        else _exact_object(scope_spec["asgi"], {"version", "spec_version"}, "ASGI version")
     )
     if any(not isinstance(asgi_spec[key], str) for key in asgi_spec):
         raise ValueError("ASGI versions must be strings")
@@ -12019,6 +12095,8 @@ def _run_request_form_case(case: dict[str, Any]) -> dict[str, Any]:
     if "form_access" in case:
         case_fields.add("form_access")
     for key in (
+        "form_close_override_result",
+        "form_context_exception",
         "form_file_probe_keys",
         "form_file_probe_all",
         "form_type_probe_keys",
@@ -12077,6 +12155,16 @@ def _run_request_form_case(case: dict[str, Any]) -> dict[str, Any]:
             _apply_request_form_deferred_scope_headers(scope, case)
             if case.get("form_access", "await") == "context-manager":
                 async with form_operation as form:
+                    if "form_close_override_result" in case:
+
+                        async def close_with_input_result() -> bool:
+                            return case["form_close_override_result"]
+
+                        form.close = close_with_input_result
+                    context_exception = case.get("form_context_exception")
+                    if context_exception is not None:
+                        exception_type = getattr(builtins, context_exception["class"])
+                        raise exception_type(context_exception["message"])
                     value, observed_files = await inspect_form(form)
             else:
                 form = await form_operation
@@ -14563,8 +14651,10 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
     saw_header_mutation = False
     saw_disconnect_check = False
     saw_response_body_read = False
+    saw_response_body_iterator_replacement = False
     saw_response_iterator_overlap = False
     saw_response_header_observation = False
+    response_header_observation_name: str | None = None
     for index, raw_action in enumerate(dispatch_actions):
         context = f"BaseHTTPMiddleware dispatch_actions[{index}]"
         if not isinstance(raw_action, dict) or not isinstance(raw_action.get("kind"), str):
@@ -14608,6 +14698,28 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                     "call_next response body read requires one awaited response and must precede return"
                 )
             saw_response_body_read = True
+        elif kind == "set-call-next-response-body-iterator":
+            action = _exact_object(raw_action, {"kind", "chunks_base64"}, context)
+            chunks = action["chunks_base64"]
+            if (
+                not awaited
+                or returned is not None
+                or saw_response_body_iterator_replacement
+                or not isinstance(chunks, list)
+                or not chunks
+            ):
+                raise ValueError(
+                    "call_next response body iterator replacement requires one awaited response and a non-empty chunk sequence"
+                )
+            decoded_chunks = [
+                _decode_base64(chunk, f"{context}.chunks_base64[{chunk_index}]")
+                for chunk_index, chunk in enumerate(chunks)
+            ]
+            if not any(decoded_chunks):
+                raise ValueError(
+                    "call_next response body iterator replacement requires a non-empty body chunk"
+                )
+            saw_response_body_iterator_replacement = True
         elif kind == "overlap-call-next-response-body-reads":
             action = _exact_object(raw_action, {"kind", "timeout_ms"}, context)
             if (
@@ -14662,6 +14774,7 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
             ):
                 raise ValueError("call_next response header lookup name is invalid")
             saw_response_header_observation = True
+            response_header_observation_name = action["name"]
         elif kind == "set-call-next-response-header":
             action = _exact_object(raw_action, {"kind", "name", "value"}, context)
             if not awaited or returned is not None or saw_header_mutation:
@@ -14727,7 +14840,7 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
         elif kind == "return-plain-text-response":
             action = _exact_object(raw_action, {"kind", "content", "status_code"}, context)
             if (
-                not awaited
+                (not awaited and index != 0)
                 or returned is not None
                 or saw_header_mutation
                 or index != len(dispatch_actions) - 1
@@ -14735,11 +14848,13 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                 or type(action["status_code"]) is not int
                 or not 100 <= action["status_code"] <= 599
             ):
-                raise ValueError("replacement response must follow call_next and end dispatch")
+                raise ValueError("replacement response must be final dispatch action")
             returned = "replacement"
         else:
             raise ValueError(f"{context} has an unsupported action kind")
-    if not awaited or returned is None:
+    if dispatch_callable_spec is None and (
+        (not awaited and returned != "replacement") or returned is None
+    ):
         raise ValueError("BaseHTTPMiddleware dispatch action sequence is incomplete")
     if saw_header_mutation and returned != "call-next":
         raise ValueError("only the call_next response can be mutated")
@@ -15905,6 +16020,23 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                 "wide downstream status requires one empty GET call_next pass-through to an ASGI sequence"
             )
         required_covers.add(BASE_HTTP_STATUS_INTEGER_REQUIREMENT)
+    if saw_response_body_iterator_replacement:
+        required_covers.add(
+            f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.call-next-response-body-iterator-replacement"
+        )
+    if returned == "replacement" and not awaited:
+        required_covers.add(
+            f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.dispatch-short-circuits-downstream-app"
+        )
+    if (
+        saw_response_header_observation
+        and route_kind == "plain-text-response"
+        and response_header_observation_name is not None
+        and response_header_observation_name.lower() not in {"content-length", "content-type"}
+    ):
+        required_covers.add(
+            f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.call-next-response-headers-mapping-get"
+        )
     if not isinstance(case["covers"], list) or set(case["covers"]) != required_covers:
         raise ValueError("BaseHTTPMiddleware covers differ from its input actions")
 
@@ -18567,7 +18699,9 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
             "observations",
             "execution_schedule",
         }
-        expected_fields.update({"scope_container", "scope_observation"} & case.keys())
+        expected_fields.update(
+            {"scope_container", "scope_observation", "scope_headers_container"} & case.keys()
+        )
         _exact_object(
             case,
             expected_fields,
@@ -18611,7 +18745,7 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
             "dispatch",
         ] or schedule != expected_schedule:
             raise ValueError("request-dispatch target case must contain application then dispatch")
-    elif route_middleware_workflow:
+    elif route_middleware_workflow and step_ids != ["application", "dispatch"]:
         minimum_steps = 2 if _has_mounted_app_exception_route(route_specs) else 3
         if len(steps) < minimum_steps or schedule != step_ids[1:]:
             raise ValueError(
@@ -18647,7 +18781,8 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
     ):
         raise ValueError("target adapter received a workflow outside the declared ASGI slice")
     app_arguments = {name: item["value"] for name, item in steps[0]["arguments"].items()}
-    route_spec = app_arguments["routes"][0]
+    route_specs = app_arguments["routes"]
+    route_spec = route_specs[0] if route_specs else {}
     endpoint_spec = route_spec.get("endpoint") if isinstance(route_spec, dict) else None
     endpoint_kind = endpoint_spec.get("kind") if isinstance(endpoint_spec, dict) else None
     capture_dispatch_error = (

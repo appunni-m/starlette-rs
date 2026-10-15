@@ -24,7 +24,10 @@ class Secret(_core.Secret):
     """A redacted string value with the pinned Starlette typing contract."""
 
     def __init__(self, value: str) -> None:
-        super().__init__(value)
+        # PyO3's #[new] hook has already initialized the Rust-backed value.
+        # Keep this Python signature for the documented constructor type without
+        # calling object.__init__ with the constructor arguments.
+        return None
 
 
 _KeyType = TypeVar("_KeyType")
@@ -282,7 +285,10 @@ class UploadFile(_core.UploadFile):
         filename: str | None = None,
         headers: Headers | None = None,
     ) -> None:
-        super().__init__(file, size=size, filename=filename, headers=headers)
+        # PyO3's #[new] hook has already initialized the Rust-backed value.
+        # Keep this Python signature for the documented constructor type without
+        # calling object.__init__ with the constructor arguments.
+        return None
 
     async def write(self, data: bytes) -> None:
         await self._write(data)
