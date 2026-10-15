@@ -575,9 +575,9 @@ def validate_runtime_lock(root: Path, upstream: Path) -> str:
         wheel_hashes = {
             wheel["hash"].removeprefix("sha256:") for wheel in package.get("wheels", [])
         }
-        if not hashes <= wheel_hashes:
+        if hashes != wheel_hashes:
             raise ContractError(
-                f"runtime dependency {name} hash is absent from the pinned source lock"
+                f"runtime dependency {name} wheel hashes do not exactly match the pinned source lock"
             )
     return sha256_file(runtime_path)
 
@@ -652,9 +652,9 @@ def validate_oracle_runtime_lock(root: Path, upstream: Path) -> str:
         wheel_hashes = {
             wheel["hash"].removeprefix("sha256:") for wheel in package.get("wheels", [])
         }
-        if version != package["version"] or not hashes or not hashes <= wheel_hashes:
+        if version != package["version"] or not hashes or hashes != wheel_hashes:
             raise ContractError(
-                f"oracle {name} version or hash differs from the pinned source lock"
+                f"oracle {name} version or wheel hashes differ from the pinned source lock"
             )
     return sha256_file(oracle_path)
 

@@ -309,6 +309,7 @@ source-inventory: contract-check ## Regenerate the metadata-derived API catalog 
 	$(PARITY_PYTHON) scripts/merge_compatibility_atlas.py --upstream "$(STARLETTE_ORACLE_ROOT)"
 
 source-inventory-check: contract-check ## Check the API catalog and generated atlas for drift against pinned Starlette
+	$(PARITY_PYTHON) -m scripts.parity.cli validate --upstream "$(STARLETTE_ORACLE_ROOT)"
 	$(PARITY_PYTHON) scripts/inventory_upstream_api.py --upstream "$(STARLETTE_ORACLE_ROOT)" --check
 	$(PARITY_PYTHON) scripts/merge_compatibility_atlas.py --check --upstream "$(STARLETTE_ORACLE_ROOT)"
 
