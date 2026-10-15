@@ -332,6 +332,17 @@ The newest implementation cases cover CPython async-generator `athrow()` call ti
 The latest implementation slice fixes Host routing to read `host_regex`, preserves multipart `UploadFile.filename` values without stripping Windows path components, and reproduces CPython's `async for` TypeError/context/cause when an `__anext__` awaitable factory raises `StopAsyncIteration`. It also makes Starlette stack construction honor a `Middleware` subclass's `__iter__` and yielded `*args/**kwargs`; the Python iterator/mapping callback boundary is documented in [`APPLICATION_MIDDLEWARE_BOUNDARY.md`](APPLICATION_MIDDLEWARE_BOUNDARY.md). Two new input-only cases cover multipart Windows filenames and middleware iterator overrides. These inputs and the existing Host and StreamingResponse cases remain unexecuted until full parity.
 An earlier 12-case input-only batch covers non-string `HTTPException` detail and header-key errors, Python equality for special exception-handler selection, FileResponse multipart short reads, Mount `path=None`, Request custom receive events between chunks, TestClient portal-setup error policy, empty StaticFiles `If-None-Match` fallback, WebSocket raw state assignment, StreamingResponse type-level async iteration, and empty CORS private-network headers. Source inventory and contract validation pass with zero parity passes claimed; all 12 comparisons remain deferred to the grouped parity phase.
 The newest four input-only cases cover the deprecated TestClient `httpx` fallback, closing `Request.stream()` before its first advance, preserving an existing WebSocketEndpoint disconnect-hook context, and duplicate-key Python mapping expansion in a synchronous `BackgroundTask`. The Request, WebSocketEndpoint, and BackgroundTask Rust paths now preserve the source behavior; the TestClient fallback input records the existing boundary. All four comparisons remain unexecuted until the full parity phase.
+
+Adapter preparation now aligns source and target workflows for GZipResponder
+re-use and dispatch errors, BaseHTTPMiddleware body-iterator replacement,
+overlapping reads and early close, FileResponse PathLike selectors,
+StaticFiles direct errors and POSIX surrogateescape host skips, minimal
+StreamingResponse scopes, WebSocketRoute unused receives, and WSGI protocol
+serialization. Rust also now appends the active WebSocketEndpoint dispatch
+exception at the end of an existing disconnect-hook exception context chain.
+These changes are not parity evidence; all affected comparisons remain
+deferred to the grouped full parity phase.
+
 The latest routing slice makes `Mount.url_path_for()` treat a falsey mounted
 app `routes` attribute as empty, matching the pinned `routes or []` behavior;
 its `routes: null` comparison is authored and unexecuted. The compatibility

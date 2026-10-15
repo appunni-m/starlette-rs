@@ -3220,6 +3220,7 @@ async def _invoke(
     capture_dispatch_error: bool = False,
     capture_dispatch_error_as_observation: bool = False,
     cancel_after_endpoint_entry: bool = False,
+    allow_missing_response_start: bool = False,
     scope_container: str | dict[str, Any] = "dict",
     scope_observation: dict[str, Any] | None = None,
 ) -> dict[str, Any] | _CapturedDispatchError:
@@ -3457,6 +3458,7 @@ async def _invoke(
         and scope["type"] not in {"lifespan", "websocket"}
         and async_endpoint_observations is None
         and sync_cancellation_state is None
+        and not allow_missing_response_start
         and not (captured_exception is not None and capture_dispatch_error_as_observation)
     ):
         raise RuntimeError("target completed without an http.response.start event")
@@ -4117,9 +4119,15 @@ def _run_gzip_case(case: dict[str, Any]) -> dict[str, Any]:
                 [],
                 None,
                 False,
+                capture_dispatch_error=True,
+                capture_dispatch_error_as_observation=True,
+                allow_missing_response_start=responder,
                 scope_container=case.get("scope_container", "dict"),
                 scope_observation=case.get("scope_observation"),
             )
+            if isinstance(value, _CapturedDispatchError):
+                observations.append(_workflow_observation(dispatch_step["step_id"], value))
+                continue
             selected = {key: value[key] for key in ("asgi_events", "response_bytes")}
             if "scope_observation" in value:
                 selected["scope_observation"] = value["scope_observation"]
@@ -6173,6 +6181,12 @@ def _websocket_endpoint_disconnect_hook(
         calls.append({"hook": "on_disconnect", "close_code": close_code})
         if spec["kind"] == "raise-runtime-error":
             raise RuntimeError(spec["message"])
+        if spec["kind"] == "raise-runtime-error-from-value-error":
+            try:
+                raise ValueError(spec["context_message"])
+            except ValueError:
+                # Preserve implicit context without setting an explicit cause.
+                raise RuntimeError(spec["message"])  # noqa: B904
         await websocket.close(code=close_code)
 
     return on_disconnect
@@ -6357,6 +6371,7 @@ def _run_websocket_endpoint_case(case: dict[str, Any]) -> dict[str, Any]:
             "record-and-close",
             "raise-runtime-error",
             "raise-runtime-error-synchronously",
+            "raise-runtime-error-from-value-error",
             "wait-for-cancellation",
         }:
             methods["on_disconnect"] = _websocket_endpoint_disconnect_hook(
@@ -7103,8 +7118,6 @@ def _run_websocket_route_case(case: dict[str, Any]) -> dict[str, Any]:
             raise ValueError(f"unsupported WebSocketRoute dispatch kind: {case['dispatch']!r}")
 
     asyncio.run(dispatch())
-    if incoming_index != len(incoming):
-        raise ValueError("WebSocketRoute dispatch left incoming messages unconsumed")
     events = [_canonical_websocket_route_event(message) for message in sent_messages]
     response_start = next(
         (message for message in sent_messages if message["type"] == "http.response.start"),
@@ -8811,9 +8824,7 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
                     {
                         "step_id": "pathlike-fspath-call-order",
                         "status": "ok",
-                        "value": [
-                            call["result_relative_to_workspace"] for call in pathlike_calls
-                        ],
+                        "value": [call["result_relative_to_workspace"] for call in pathlike_calls],
                     },
                     {
                         "step_id": "pathlike-fspath-thread-context",
@@ -8823,9 +8834,7 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
                     {
                         "step_id": "pathlike-open-after-start-send",
                         "status": "ok",
-                        "value": [
-                            call["response_start_send_completed"] for call in pathlike_calls
-                        ],
+                        "value": [call["response_start_send_completed"] for call in pathlike_calls],
                     },
                 ]
             )
@@ -9681,6 +9690,7 @@ def _run_static_files_get_response_case(case: dict[str, Any]) -> dict[str, Any]:
                 "step_id": STATIC_FILES_GET_RESPONSE_OPERATION,
                 "status": "error",
                 "error": error,
+                "partial_value": {},
             }
         else:
             observation = {
@@ -9806,7 +9816,27 @@ def _run_static_files_lookup_path_case(case: dict[str, Any]) -> dict[str, Any]:
                 )
             path = root / file_path
             path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_bytes(_decode_base64(file_spec["contents_base64"], "file.contents_base64"))
+            try:
+                path.write_bytes(
+                    _decode_base64(file_spec["contents_base64"], "file.contents_base64")
+                )
+            except PermissionError:
+                if not any(0xDC80 <= ord(char) <= 0xDCFF for char in file_path):
+                    raise
+                return {
+                    "case_id": case["case_id"],
+                    "status": "skipped",
+                    "observations": [
+                        {
+                            "step_id": STATIC_FILES_LOOKUP_PATH_OPERATION,
+                            "status": "skipped",
+                            "reason": (
+                                "the temporary filesystem denied creation of the input's "
+                                "POSIX surrogateescape filename"
+                            ),
+                        }
+                    ],
+                }
             os.utime(path, (file_spec["mtime_seconds"], file_spec["mtime_seconds"]))
         for directory in case["filesystem"]["directories"]:
             (workspace / directory).mkdir(parents=True, exist_ok=True)
@@ -10391,16 +10421,25 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
         scope_fields.add("subprotocols")
     else:
         raise ValueError("Response ASGI-call requires an HTTP or WebSocket scope")
-    scope_spec = _exact_object(case["scope"], scope_fields, "Response ASGI-call scope")
+    minimal_streaming_scope = surface == STREAMING_RESPONSE_SURFACE and case["scope"] == {
+        "type": "http"
+    }
+    scope_spec = _exact_object(
+        case["scope"],
+        {"type"} if minimal_streaming_scope else scope_fields,
+        "Response ASGI-call scope",
+    )
     if scope_spec["type"] == "websocket" and surface != STREAMING_RESPONSE_SURFACE:
         raise ValueError("WebSocket scope is supported only for StreamingResponse")
-    asgi_spec = _exact_object(scope_spec["asgi"], {"version", "spec_version"}, "ASGI version")
+    asgi_spec = _exact_object(
+        scope_spec.get("asgi", {}), {"version", "spec_version"}, "ASGI version"
+    )
     if any(not isinstance(asgi_spec[key], str) for key in asgi_spec):
         raise ValueError("ASGI versions must be strings")
     scope_string_fields = ["http_version", "scheme", "path", "root_path"]
     if scope_spec["type"] == "http":
         scope_string_fields.append("method")
-    for field in scope_string_fields:
+    for field in scope_string_fields if not minimal_streaming_scope else ():
         if not isinstance(scope_spec[field], str):
             raise ValueError(f"Response scope.{field} must be a string")
     if scope_spec["type"] == "websocket" and (
@@ -10408,7 +10447,7 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
         or any(not isinstance(item, str) for item in scope_spec["subprotocols"])
     ):
         raise ValueError("Response WebSocket scope subprotocols must be strings")
-    headers = scope_spec["headers_base64_pairs"]
+    headers = scope_spec.get("headers_base64_pairs", [])
     if not isinstance(headers, list) or any(
         not isinstance(pair, list)
         or len(pair) != 2
@@ -10416,7 +10455,7 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
         for pair in headers
     ):
         raise ValueError("Response HTTP scope headers must be base64 string pairs")
-    for field in ("client", "server"):
+    for field in ("client", "server") if not minimal_streaming_scope else ():
         address = scope_spec[field]
         if (
             not isinstance(address, list)
@@ -10652,6 +10691,7 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
 
         class InputAwaitableStop:
             def __await__(self) -> Iterator[Any]:
+                yield from ()
                 raise StopAsyncIteration
 
         class InputAsyncIteratorAwaitFactoryStop:
@@ -10799,7 +10839,7 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
                 }
             ],
         }
-    scope = _make_scope(scope_spec)
+    scope = dict(scope_spec) if minimal_streaming_scope else _make_scope(scope_spec)
     sent: list[dict[str, Any]] = []
     receive_gate = (
         asyncio.Event()
@@ -14219,7 +14259,7 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                 raise ValueError(
                     "overlapping call_next response body reads require one awaited response"
                 )
-            if type(action["timeout_ms"]) is not int or not 10 <= action["timeout_ms"] <= 10_000:
+            if type(action["timeout_ms"]) is not int or not 1 <= action["timeout_ms"] <= 10_000:
                 raise ValueError(
                     "overlapping response body read timeout_ms must be between 10 and 10000"
                 )
@@ -15336,10 +15376,46 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
         downstream_spec is None or downstream_spec["kind"] != "receive-sequence-app"
     ):
         raise ValueError("Request.is_disconnected BaseHTTP input requires a receive-sequence app")
-    if saw_response_body_read and (
-        downstream_spec is None or downstream_spec["kind"] != "stream-until-disconnect-app"
+    closed_response_body_iterator = False
+    if (
+        saw_response_body_read
+        and downstream_spec is not None
+        and downstream_spec["kind"] == "asgi-sequence"
+    ):
+        downstream_steps = downstream_spec["steps"]
+        body_messages = [
+            step["message"]
+            for step in downstream_steps[:-1]
+            if step.get("kind") == "send"
+            and step.get("message", {}).get("type") == "http.response.body"
+        ]
+        closed_response_body_iterator = (
+            len(dispatch_actions) == 4
+            and returned == "call-next"
+            and dispatch_actions[0] == {"kind": "await-call-next"}
+            and dispatch_actions[1].get("kind") == "observe-call-next-response-headers"
+            and dispatch_actions[2] == {"kind": "read-call-next-response-body-next-and-close"}
+            and dispatch_actions[3] == {"kind": "return-call-next-response"}
+            and not saw_response_iterator_overlap
+            and request["receive_after_events"] == "block"
+            and not send_checkpoints
+            and len(body_messages) >= 2
+            and all(message.get("more_body") is True for message in body_messages)
+            and all(
+                bool(_decode_base64(message["body_base64"], "downstream ASGI response body"))
+                for message in body_messages
+            )
+        )
+    if (
+        saw_response_body_read
+        and not closed_response_body_iterator
+        and (downstream_spec is None or downstream_spec["kind"] != "stream-until-disconnect-app")
     ):
         raise ValueError("call_next response body read requires a streaming-until-disconnect app")
+    if closed_response_body_iterator:
+        required_covers.add(
+            f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.return-call-next-response-with-closed-body-iterator"
+        )
     if route_kind == "file-response":
         if (
             not file_response_pathsend
@@ -15612,107 +15688,46 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                     )
                 elif kind == "overlap-call-next-response-body-reads":
                     body_iterator = response.body_iterator
-                    first_read_started = anyio.Event()
-                    first_read_scopes: list[Any] = []
-                    first_read_outcome: dict[str, Any] = {}
-                    cancelled_exception_class = anyio.get_cancelled_exc_class()
-
-                    async def read_first_body_chunk(
-                        iterator: Any = body_iterator,
-                        started: Any = first_read_started,
-                        scopes: list[Any] = first_read_scopes,
-                        outcome: dict[str, Any] = first_read_outcome,
-                        cancelled_class: type[BaseException] = cancelled_exception_class,
-                    ) -> None:
-                        with anyio.CancelScope() as cancel_scope:
-                            scopes.append(cancel_scope)
-                            started.set()
-                            try:
-                                value = await iterator.__anext__()
-                            except StopAsyncIteration:
-                                outcome.update({"kind": "exhausted"})
-                            except cancelled_class:
-                                outcome.update({"kind": "cancelled"})
-                            except Exception as exc:
-                                outcome.update(
-                                    {
-                                        "kind": "exception",
-                                        "class": f"{type(exc).__module__}.{type(exc).__qualname__}",
-                                        "message": str(exc),
-                                    }
-                                )
-                            else:
-                                if isinstance(value, bytes):
-                                    result = {
-                                        "kind": "yielded",
-                                        "body_base64": base64.b64encode(value).decode("ascii"),
-                                    }
-                                elif isinstance(value, dict):
-                                    result = {
-                                        "kind": "yielded",
-                                        "message": _canonical_http_message(value),
-                                    }
-                                else:
-                                    result = {
-                                        "kind": "yielded",
-                                        "type": f"{type(value).__module__}.{type(value).__qualname__}",
-                                    }
-                                outcome.update(result)
-
-                    concurrent_read_outcome: dict[str, Any] = {}
-                    async with anyio.create_task_group() as task_group:
-                        task_group.start_soon(read_first_body_chunk)
-                        await first_read_started.wait()
-                        with anyio.move_on_after(action["timeout_ms"] / 1000) as timeout_scope:
-                            try:
-                                value = await body_iterator.__anext__()
-                            except StopAsyncIteration:
-                                concurrent_read_outcome.update({"kind": "exhausted"})
-                            except Exception as exc:
-                                concurrent_read_outcome.update(
-                                    {
-                                        "kind": "exception",
-                                        "class": f"{type(exc).__module__}.{type(exc).__qualname__}",
-                                        "message": str(exc),
-                                    }
-                                )
-                            else:
-                                if isinstance(value, bytes):
-                                    result = {
-                                        "kind": "yielded",
-                                        "body_base64": base64.b64encode(value).decode("ascii"),
-                                    }
-                                elif isinstance(value, dict):
-                                    result = {
-                                        "kind": "yielded",
-                                        "message": _canonical_http_message(value),
-                                    }
-                                else:
-                                    result = {
-                                        "kind": "yielded",
-                                        "type": f"{type(value).__module__}.{type(value).__qualname__}",
-                                    }
-                                concurrent_read_outcome.update(result)
-                        if timeout_scope.cancel_called and not concurrent_read_outcome:
-                            concurrent_read_outcome.update({"kind": "timed-out"})
-                        first_read_scopes[0].cancel()
-
+                    read_tasks = [asyncio.create_task(body_iterator.__anext__()) for _ in range(2)]
+                    _, pending_tasks = await asyncio.wait(
+                        read_tasks, timeout=action["timeout_ms"] / 1000
+                    )
+                    timed_out = bool(pending_tasks)
+                    for task in pending_tasks:
+                        task.cancel()
+                    read_results = await asyncio.gather(*read_tasks, return_exceptions=True)
+                    outcomes = []
+                    for result in read_results:
+                        if isinstance(result, asyncio.CancelledError):
+                            outcome = {"kind": "cancelled"}
+                        elif isinstance(result, BaseException):
+                            outcome = {
+                                "kind": "exception",
+                                "class": f"{type(result).__module__}.{type(result).__qualname__}",
+                                "message": str(result),
+                            }
+                        else:
+                            outcome = {
+                                "kind": "yielded",
+                                "body_base64": base64.b64encode(result).decode("ascii"),
+                            }
+                        outcomes.append(outcome)
                     try:
                         await body_iterator.aclose()
                     except Exception as exc:
-                        close_outcome = {
+                        iterator_close = {
                             "kind": "exception",
                             "class": f"{type(exc).__module__}.{type(exc).__qualname__}",
                             "message": str(exc),
                         }
                     else:
-                        close_outcome = {"kind": "completed"}
+                        iterator_close = {"kind": "closed"}
                     dispatch_response_stream_reads.append(
                         {
                             "action_index": action_index,
-                            "concurrent_read": concurrent_read_outcome,
-                            "first_read": first_read_outcome,
-                            "aclose_after_cancel": close_outcome,
+                            "timed_out": timed_out,
+                            "outcomes": outcomes,
+                            "iterator_close": iterator_close,
                         }
                     )
                 elif kind == "await-call-next":
@@ -18068,7 +18083,7 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         if "steps" not in case:
             from scripts.parity.adapters.wsgi_protocols import run_wsgi_protocol_case
 
-            return run_wsgi_protocol_case(case)
+            return _json_safe(run_wsgi_protocol_case(case))
         _exact_object(
             case,
             {

@@ -3258,6 +3258,7 @@ async def _invoke(
     capture_dispatch_error: bool = False,
     capture_dispatch_error_as_observation: bool = False,
     cancel_after_endpoint_entry: bool = False,
+    allow_missing_response_start: bool = False,
     scope_container: str | dict[str, Any] = "dict",
     scope_observation: dict[str, Any] | None = None,
 ) -> dict[str, Any] | _CapturedDispatchError:
@@ -3493,6 +3494,7 @@ async def _invoke(
         and scope["type"] not in {"lifespan", "websocket"}
         and async_endpoint_observations is None
         and sync_cancellation_state is None
+        and not allow_missing_response_start
         and not (captured_exception is not None and capture_dispatch_error_as_observation)
     ):
         raise RuntimeError("Starlette completed without an http.response.start event")
@@ -3760,9 +3762,15 @@ def _run_gzip_case(case: dict[str, Any]) -> dict[str, Any]:
                 [],
                 None,
                 False,
+                capture_dispatch_error=True,
+                capture_dispatch_error_as_observation=True,
+                allow_missing_response_start=responder,
                 scope_container=case.get("scope_container", "dict"),
                 scope_observation=case.get("scope_observation"),
             )
+            if isinstance(value, _CapturedDispatchError):
+                observations.append(_workflow_observation(dispatch_step["step_id"], value))
+                continue
             selected = {key: value[key] for key in ("asgi_events", "response_bytes")}
             if "scope_observation" in value:
                 selected["scope_observation"] = value["scope_observation"]
@@ -4761,6 +4769,8 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
     saw_header_mutation = False
     saw_disconnect_check = False
     saw_response_body_read = False
+    saw_response_body_iterator_replacement = False
+    saw_response_iterator_overlap = False
     saw_response_header_observation = False
     for index, raw_action in enumerate(dispatch_actions):
         context = f"BaseHTTPMiddleware dispatch_actions[{index}]"
@@ -4805,6 +4815,42 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                     "call_next response body read requires one awaited response and must precede return"
                 )
             saw_response_body_read = True
+        elif kind == "set-call-next-response-body-iterator":
+            action = _strict_object(raw_action, {"kind", "chunks_base64"}, context)
+            chunks = action["chunks_base64"]
+            if (
+                not awaited
+                or returned is not None
+                or saw_response_body_iterator_replacement
+                or not isinstance(chunks, list)
+                or not chunks
+            ):
+                raise ValueError(
+                    "call_next response body iterator replacement requires one awaited response and a non-empty chunk sequence"
+                )
+            decoded_chunks = [
+                _decode_b64(chunk, f"{context}.chunks_base64[{chunk_index}]")
+                for chunk_index, chunk in enumerate(chunks)
+            ]
+            if not any(decoded_chunks):
+                raise ValueError(
+                    "call_next response body iterator replacement requires a non-empty body chunk"
+                )
+            saw_response_body_iterator_replacement = True
+        elif kind == "overlap-call-next-response-body-reads":
+            action = _strict_object(raw_action, {"kind", "timeout_ms"}, context)
+            if (
+                not awaited
+                or returned is not None
+                or saw_response_body_read
+                or saw_response_iterator_overlap
+                or type(action["timeout_ms"]) is not int
+                or not 1 <= action["timeout_ms"] <= 10_000
+            ):
+                raise ValueError(
+                    "overlapping call_next response body reads require one awaited response and a bounded timeout"
+                )
+            saw_response_iterator_overlap = True
         elif kind == "await-call-next":
             _strict_object(raw_action, {"kind"}, context)
             if awaited or returned is not None:
@@ -4948,6 +4994,16 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
             response_started = False
             body_send_count = 0
             for step_index, raw_step in enumerate(steps[:-1]):
+                if raw_step == {"kind": "receive"}:
+                    if (
+                        not saw_response_iterator_overlap
+                        or returned != "replacement"
+                        or not response_started
+                    ):
+                        raise ValueError(
+                            "downstream ASGI may receive before its terminal read only during an input-defined response-iterator overlap"
+                        )
+                    continue
                 send_step_fields = {"kind", "message"}
                 if isinstance(raw_step, dict) and "message_mapping" in raw_step:
                     send_step_fields.add("message_mapping")
@@ -4979,10 +5035,11 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                         response_started
                         or step_index != 0
                         or type(message["status"]) is not int
-                        or not 100 <= message["status"] <= 599
                         or not isinstance(message["headers_base64_pairs"], list)
                     ):
-                        raise ValueError("downstream ASGI must begin with one valid response.start")
+                        raise ValueError(
+                            "downstream ASGI must begin with one integer response.start"
+                        )
                     for header_index, pair in enumerate(message["headers_base64_pairs"]):
                         if not isinstance(pair, list) or len(pair) != 2:
                             raise ValueError(
@@ -5027,7 +5084,16 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                 and steps[-2]["message"].get("type") == "http.response.body"
                 and steps[-2]["message"].get("more_body") is False
             )
-            if not response_started or (body_send_count < 2 and not terminal_body_case):
+            pending_body_iterator_case = (
+                (saw_response_body_read or saw_response_iterator_overlap)
+                and returned in {"call-next", "replacement"}
+                and saw_response_header_observation == (returned == "call-next")
+                and len(steps) == 3
+                and steps[1:] == [{"kind": "receive"}, {"kind": "receive"}]
+            )
+            if not response_started or (
+                body_send_count < 2 and not terminal_body_case and not pending_body_iterator_case
+            ):
                 raise ValueError(
                     "downstream ASGI receive input requires response.start and at least two body sends, except for a completed call_next header observation"
                 )
@@ -5765,6 +5831,36 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
             required_covers.add(
                 f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.response-completion-unblocks-downstream-receive"
             )
+            if saw_response_iterator_overlap:
+                request_body_events = [
+                    event for event in request_event_specs if event["type"] == "http.request"
+                ]
+                downstream_steps = downstream_spec["steps"]
+                if (
+                    scope_spec["method"] != "GET"
+                    or len(request_body_events) != 1
+                    or len(receive_specs) != 1
+                    or _decode_b64(
+                        request_body_events[0]["body_base64"],
+                        "BaseHTTPMiddleware request body",
+                    )
+                    or request_body_events[0]["more_body"]
+                    or disconnect_event_indices
+                    or len(dispatch_actions) != 3
+                    or dispatch_actions[0]["kind"] != "await-call-next"
+                    or dispatch_actions[1]["kind"] != "overlap-call-next-response-body-reads"
+                    or dispatch_actions[2]["kind"] != "return-plain-text-response"
+                    or len(downstream_steps) != 3
+                    or downstream_steps[0]["kind"] != "send"
+                    or downstream_steps[0]["message"]["type"] != "http.response.start"
+                    or downstream_steps[1:] != [{"kind": "receive"}, {"kind": "receive"}]
+                ):
+                    raise ValueError(
+                        "overlapping response body reads do not match the declared receive workflow"
+                    )
+                required_covers.add(
+                    f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.body-iterator-overlapping-read-and-cancellation"
+                )
         elif not (
             returned == "call-next"
             and saw_response_header_observation
@@ -5897,10 +5993,50 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
         downstream_spec is None or downstream_spec["kind"] != "receive-sequence-app"
     ):
         raise ValueError("Request.is_disconnected BaseHTTP input requires a receive-sequence app")
-    if saw_response_body_read and (
-        downstream_spec is None or downstream_spec["kind"] != "stream-until-disconnect-app"
+    closed_response_body_iterator = False
+    if (
+        saw_response_body_read
+        and downstream_spec is not None
+        and downstream_spec["kind"] == "asgi-sequence"
+    ):
+        downstream_steps = downstream_spec["steps"]
+        body_messages = [
+            step["message"]
+            for step in downstream_steps[:-1]
+            if step.get("kind") == "send"
+            and step.get("message", {}).get("type") == "http.response.body"
+        ]
+        closed_response_body_iterator = (
+            len(dispatch_actions) == 4
+            and returned == "call-next"
+            and dispatch_actions[0] == {"kind": "await-call-next"}
+            and dispatch_actions[1].get("kind") == "observe-call-next-response-headers"
+            and dispatch_actions[2] == {"kind": "read-call-next-response-body-next-and-close"}
+            and dispatch_actions[3] == {"kind": "return-call-next-response"}
+            and not saw_response_iterator_overlap
+            and request["receive_after_events"] == "block"
+            and not send_checkpoints
+            and len(body_messages) >= 2
+            and all(message.get("more_body") is True for message in body_messages)
+            and all(
+                bool(_decode_b64(message["body_base64"], "downstream ASGI response body"))
+                for message in body_messages
+            )
+        )
+    if (
+        saw_response_body_read
+        and not closed_response_body_iterator
+        and (downstream_spec is None or downstream_spec["kind"] != "stream-until-disconnect-app")
     ):
         raise ValueError("call_next response body read requires a streaming-until-disconnect app")
+    if closed_response_body_iterator:
+        required_covers.add(
+            f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.return-call-next-response-with-closed-body-iterator"
+        )
+    if saw_response_body_iterator_replacement:
+        required_covers.add(
+            f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.call-next-response-body-iterator-replacement"
+        )
     if route_kind == "file-response":
         if (
             not file_response_pathsend
@@ -6132,6 +6268,50 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                         {
                             "action_index": action_index,
                             "body_base64": base64.b64encode(chunk).decode("ascii"),
+                        }
+                    )
+                elif kind == "overlap-call-next-response-body-reads":
+                    body_iterator = response.body_iterator
+                    read_tasks = [asyncio.create_task(body_iterator.__anext__()) for _ in range(2)]
+                    _, pending_tasks = await asyncio.wait(
+                        read_tasks, timeout=action["timeout_ms"] / 1000
+                    )
+                    timed_out = bool(pending_tasks)
+                    for task in pending_tasks:
+                        task.cancel()
+                    read_results = await asyncio.gather(*read_tasks, return_exceptions=True)
+                    outcomes = []
+                    for result in read_results:
+                        if isinstance(result, asyncio.CancelledError):
+                            outcome = {"kind": "cancelled"}
+                        elif isinstance(result, BaseException):
+                            outcome = {
+                                "kind": "exception",
+                                "class": f"{type(result).__module__}.{type(result).__qualname__}",
+                                "message": str(result),
+                            }
+                        else:
+                            outcome = {
+                                "kind": "yielded",
+                                "body_base64": base64.b64encode(result).decode("ascii"),
+                            }
+                        outcomes.append(outcome)
+                    try:
+                        await body_iterator.aclose()
+                    except Exception as exc:
+                        iterator_close = {
+                            "kind": "exception",
+                            "class": f"{type(exc).__module__}.{type(exc).__qualname__}",
+                            "message": str(exc),
+                        }
+                    else:
+                        iterator_close = {"kind": "closed"}
+                    dispatch_response_stream_reads.append(
+                        {
+                            "action_index": action_index,
+                            "timed_out": timed_out,
+                            "outcomes": outcomes,
+                            "iterator_close": iterator_close,
                         }
                     )
                 elif kind == "await-call-next":
@@ -9080,8 +9260,6 @@ def _run_websocket_route_case(case: dict[str, Any]) -> dict[str, Any]:
             raise ValueError(f"unsupported WebSocketRoute dispatch kind: {case['dispatch']!r}")
 
     asyncio.run(dispatch())
-    if incoming_index != len(incoming):
-        raise ValueError("WebSocketRoute dispatch left incoming messages unconsumed")
     events = [_canonical_websocket_route_event(message) for message in sent_messages]
     response_start = next(
         (message for message in sent_messages if message["type"] == "http.response.start"),
@@ -10800,10 +10978,39 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
                 "value": "".join(background_value_parts),
                 "execution_trace": execution_trace,
             }
+    observations = [
+        {
+            "step_id": RESPONSE_OPERATION,
+            "status": "ok",
+            "value": {
+                key: value for key, value in observation.items() if key != "pathlike_fspath_calls"
+            },
+        }
+    ]
+    if pathlike_spec is not None:
+        observations.extend(
+            [
+                {
+                    "step_id": "pathlike-fspath-call-order",
+                    "status": "ok",
+                    "value": [call["result_relative_to_workspace"] for call in pathlike_calls],
+                },
+                {
+                    "step_id": "pathlike-fspath-thread-context",
+                    "status": "ok",
+                    "value": [call["is_event_loop_thread"] for call in pathlike_calls],
+                },
+                {
+                    "step_id": "pathlike-open-after-start-send",
+                    "status": "ok",
+                    "value": [call["response_start_send_completed"] for call in pathlike_calls],
+                },
+            ]
+        )
     return {
         "case_id": case["case_id"],
         "status": "completed",
-        "observations": [{"step_id": RESPONSE_OPERATION, "status": "ok", "value": observation}],
+        "observations": observations,
     }
 
 
@@ -11180,6 +11387,7 @@ def _run_static_files_get_response_case(case: dict[str, Any]) -> dict[str, Any]:
                 "step_id": STATIC_FILES_GET_RESPONSE_OPERATION,
                 "status": "error",
                 "error": error,
+                "partial_value": {},
             }
         else:
             raw_headers = getattr(response, "raw_headers", [])
@@ -11946,7 +12154,25 @@ def _run_static_files_lookup_path_case(case: dict[str, Any]) -> dict[str, Any]:
                 )
             path = root / file_path
             path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_bytes(_decode_b64(file_spec["contents_base64"], "file.contents_base64"))
+            try:
+                path.write_bytes(_decode_b64(file_spec["contents_base64"], "file.contents_base64"))
+            except PermissionError:
+                if not any(0xDC80 <= ord(char) <= 0xDCFF for char in file_path):
+                    raise
+                return {
+                    "case_id": case["case_id"],
+                    "status": "skipped",
+                    "observations": [
+                        {
+                            "step_id": STATIC_FILES_LOOKUP_PATH_OPERATION,
+                            "status": "skipped",
+                            "reason": (
+                                "the temporary filesystem denied creation of the input's "
+                                "POSIX surrogateescape filename"
+                            ),
+                        }
+                    ],
+                }
             os.utime(path, (file_spec["mtime_seconds"], file_spec["mtime_seconds"]))
         for directory in case["filesystem"]["directories"]:
             (workspace / directory).mkdir(parents=True, exist_ok=True)
@@ -12372,16 +12598,25 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
         scope_fields.add("subprotocols")
     else:
         raise ValueError("Response ASGI-call requires an HTTP or WebSocket scope")
-    scope_spec = _strict_object(case["scope"], scope_fields, "Response ASGI-call scope")
+    minimal_streaming_scope = surface == STREAMING_RESPONSE_SURFACE and case["scope"] == {
+        "type": "http"
+    }
+    scope_spec = _strict_object(
+        case["scope"],
+        {"type"} if minimal_streaming_scope else scope_fields,
+        "Response ASGI-call scope",
+    )
     if scope_spec["type"] == "websocket" and surface != STREAMING_RESPONSE_SURFACE:
         raise ValueError("WebSocket scope is supported only for StreamingResponse")
-    asgi_spec = _strict_object(scope_spec["asgi"], {"version", "spec_version"}, "ASGI version")
+    asgi_spec = _strict_object(
+        scope_spec.get("asgi", {}), {"version", "spec_version"}, "ASGI version"
+    )
     if any(not isinstance(asgi_spec[key], str) for key in asgi_spec):
         raise ValueError("ASGI versions must be strings")
     scope_string_fields = ["http_version", "scheme", "path", "root_path"]
     if scope_spec["type"] == "http":
         scope_string_fields.append("method")
-    for field in scope_string_fields:
+    for field in scope_string_fields if not minimal_streaming_scope else ():
         if not isinstance(scope_spec[field], str):
             raise ValueError(f"Response scope.{field} must be a string")
     if scope_spec["type"] == "websocket" and (
@@ -12389,7 +12624,7 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
         or any(not isinstance(item, str) for item in scope_spec["subprotocols"])
     ):
         raise ValueError("Response WebSocket scope subprotocols must be strings")
-    headers = scope_spec["headers_base64_pairs"]
+    headers = scope_spec.get("headers_base64_pairs", [])
     if not isinstance(headers, list) or any(
         not isinstance(pair, list)
         or len(pair) != 2
@@ -12397,7 +12632,7 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
         for pair in headers
     ):
         raise ValueError("Response HTTP scope headers must be base64 string pairs")
-    for field in ("client", "server"):
+    for field in ("client", "server") if not minimal_streaming_scope else ():
         address = scope_spec[field]
         if (
             not isinstance(address, list)
@@ -12632,6 +12867,7 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
 
         class InputAwaitableStop:
             def __await__(self) -> Iterator[Any]:
+                yield from ()
                 raise StopAsyncIteration
 
         class InputAsyncIteratorAwaitFactoryStop:
@@ -12780,7 +13016,7 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
             ],
         }
 
-    scope = _make_scope(scope_spec)
+    scope = dict(scope_spec) if minimal_streaming_scope else _make_scope(scope_spec)
     sent: list[dict[str, Any]] = []
     receive_gate = (
         asyncio.Event()
@@ -17157,7 +17393,7 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         if "steps" not in case:
             from scripts.parity.adapters.wsgi_protocols import run_wsgi_protocol_case
 
-            return run_wsgi_protocol_case(case)
+            return _json_safe(run_wsgi_protocol_case(case))
         return _run_wsgi_case(case)
     if case["surface"] in {
         "starlette.middleware.gzip.GZipMiddleware",
