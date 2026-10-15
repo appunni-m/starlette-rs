@@ -8,7 +8,7 @@ Pydantic are outside this project's scope.
 ## Execution order and current status
 
 Active evidence checkpoint (2026-10-15; `parity-input@58`; clean target
-revision `576e9cfd99a063d46493aed28ff103292aa642f8`):
+revision `57361208aa1bbe3c95cf76a27992a50cd15cb767`):
 
 The active manifest declares full Starlette 1.6.0 scope with 2,538 cases across
 416 parity inputs, two benchmark inputs, 151 compatibility operations, 14
@@ -23,55 +23,51 @@ supported candidates, 435 private/internal candidates, and zero uncertain
 candidates. The pinned denominators remain 514 upstream test functions and 24
 documented pages.
 
-The corrected five-profile matrix on the clean target revision recorded 5,417
-passed, zero failed, zero infrastructure errors, and six explicit `not_run`
-rows; all 17 selected fault contracts passed. Per-profile results were:
-CPython 3.10, 632/633 (run
-`960e977d-ff63-4cdc-bf86-7e29904bb9b7`); 3.11, 632/633
-(`084c571e-6a3e-485c-bac5-d784a269ed34`); 3.12, 2,887/2,889
-(`c5706308-af41-4f8a-b326-c03a5799d2d1`); 3.13, 633/634
-(`f21bef98-6b34-497e-bc30-e8bdce65b6f9`); and 3.14, 633/634
-(`4360b1c3-fa5e-4b5b-91c6-c0d1e710be8c`).
+The corrected five-profile matrix on the clean target revision completed in CI
+workflow `38769902939`; all 14 jobs succeeded. It recorded 5,423 passed, zero
+failed, zero infrastructure errors, and zero `not_run` rows. All 17 selected
+fault contracts passed. Per-profile results were: CPython 3.10, 633/633; 3.11,
+633/633; 3.12, 2,889/2,889; 3.13, 634/634; and 3.14, 634/634.
 
 The accepted full Rust coverage receipt is the local ignored artifact
-`build/parity/coverage/full-starlette-1.6.0-20261015-576e9cfd-native-inclusive-verified/starlette-project.lcov`:
-26,113/33,345 lines covered (78.31%). Its `tests=unknown` status reflects the
-two explicit CPython 3.12 `not_run` rows. The receipt is bound to extension
-SHA-256 `5a506c6d65feff52203ceaa713267d4fae42542767a88d45f6918861a7cf3e7f`
-and adapter SHA-256
-`40b898b97f65d661aecdf17ef6e796f57d23f6ce3aa153d8aaf1ebf82831a5c7`.
-Coverage measures executed Rust lines; it is not a parity score.
+`build/parity/coverage/full-starlette-1.6.0-20261015-57361208-native-inclusive-verified/starlette-project.lcov`:
+26,126/33,348 lines covered (78.34%). Coverage MCP reports a receipt-matched
+measurement. The instrumented CPython 3.12 run recorded 2,887 passed, zero
+failed or infrastructure errors, two platform-specific `not_run` rows, and
+fault contracts 5/5; its `tests=unknown` status reflects those two rows. The
+receipt is bound to extension SHA-256
+`cb2e4e34068e6d869d1236766609dda44e86f7f7bfd61c713371ffb977ba8618` and
+adapter SHA-256
+`9d745cca62615dfbae29bb1f1c2971915beca85b126dffa364df6b2f16ff93c9`.
+Coverage MCP's comparison with the earlier source/build is incomparable, so no
+coverage delta is claimed. Coverage measures executed Rust lines; it is not a
+parity score.
 
-The 74-workload benchmark measurement completed on the active revision: 6
-Router and 68 GZip source/package workloads, zero failures, zero source/package
+The latest 74-workload benchmark run
+`8971ad63-111e-4379-a327-6809e852ee75` completed on this revision: 6 Router
+and 68 GZip source/package workloads, zero failures, zero source/package
 `not_run`, and 74 Rust-native `not_run` because the equivalent native workload
-boundary is unavailable. The correctness preflight
-`2d30a13f-5318-49dd-8ce6-fea5b1e34eef` recorded 2,887 passed, zero failed,
-zero infrastructure errors, two `not_run`, and 5/5 selected fault contracts.
-The median source/package latency ratios were 0.219 for Router and 0.974 for
-GZip; source latency was lower in 6/6 Router and 63/68 GZip workloads, and
-normalized observation hashes matched in 74/74. The result SHA-256 is
-`f8c9af763f3695bcd284e9d1ff95517355f8a0eb086590e156f2a65e5b3f0086`.
+boundary is unavailable. Its correctness preflight
+`d82e3a6e-1069-441f-a0d1-0511042deac5` recorded 2,887 passed, zero failed,
+zero infrastructure errors, two platform-specific `not_run` comparisons, and
+5/5 selected fault contracts. The median source/package latency ratios were
+0.225 for Router and 0.976 for GZip; source latency was lower in 6/6 Router
+and 61/68 GZip workloads, and normalized observation hashes matched in 74/74.
+The result SHA-256 is
+`bc73295313ff0ccde806615597033e510dd502accfc859dc3cd653f7ef7b4eea`.
 These are workload-specific timings, not a general performance or compatibility
 claim.
 
-### Post-checkpoint CI follow-up
+### Post-checkpoint repair and verification
 
 Workflow `38767055636` on commit `4139a724` found two Linux Rust-native parity
-failures in CPython 3.10, 3.11, 3.13, and 3.14: FileResponse's default `.exe`
-MIME type differed, and StaticFiles fell through to a later root after an
-overlong first-root lookup. The 3.12 parity job was still running when this
-follow-up was recorded. Rust fixes for both cases are in the working tree.
-The docs job also exposed links to an ignored local LCOV artifact; those
-references now identify the artifact as a local path, and `make docs-check`
-passes.
-
-Local `cargo fmt --check`, `cargo check -p starlette-rs --locked`, and targeted
-Clippy passed. A focused local parity selection for the two failures stopped
-before executing cases because the prepared oracle/package environment
-fingerprint is stale; it produced no parity evidence. The new CI run after
-these fixes must establish grouped parity before coverage or benchmarks run
-again.
+failures: FileResponse's default `.exe` MIME type differed, and StaticFiles
+fell through to a later root after an overlong first-root lookup. Commit
+`57361208` fixes both Rust paths. It also changes links to ignored LCOV output
+into local artifact paths. The follow-up workflow `38769902939` passed all 14
+jobs, including the corrected five-profile parity matrix above. The plan and
+benchmark evidence are refreshed from that revision, and local `make
+docs-check` passes.
 
 The implementation and grouped repair phases are complete for this active
 contract. The earlier CI/schema failure and grouped first-pass results below
@@ -595,10 +591,10 @@ representation, and dynamic `FormData.close()` dispatch remain Rust-backed.
 
 | Phase | State | Evidence |
 | --- | --- | --- |
-| Implementation | Complete for the active `parity-input@58` contract; grouped repairs are included in the measured revision. | Active manifest SHA-256 `86f69fc791088794fcd59483d6a91cc08bb9b3999586665f73c2f722f9946029`; clean target revision `576e9cfd99a063d46493aed28ff103292aa642f8`. |
-| Full parity and grouped repairs | Corrected five-profile matrix complete; six explicit `not_run` rows remain recorded. | Aggregate: 5,417 passed, zero failed, zero infrastructure errors, 6 `not_run`; fault contracts 17/17. Runs: CPython 3.10 632/633 (`960e977d-ff63-4cdc-bf86-7e29904bb9b7`); 3.11 632/633 (`084c571e-6a3e-485c-bac5-d784a269ed34`); 3.12 2,887/2,889 (`c5706308-af41-4f8a-b326-c03a5799d2d1`); 3.13 633/634 (`f21bef98-6b34-497e-bc30-e8bdce65b6f9`); 3.14 633/634 (`4360b1c3-fa5e-4b5b-91c6-c0d1e710be8c`). Oracle: Starlette 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. |
-| Full coverage and source reconciliation | Accepted full Rust coverage receipt recorded; line coverage is not a parity score. | `build/parity/coverage/full-starlette-1.6.0-20261015-576e9cfd-native-inclusive-verified/starlette-project.lcov`: 26,113/33,345 lines (78.31%), `tests=unknown` because two CPython 3.12 rows are `not_run`; extension SHA-256 `5a506c6d65feff52203ceaa713267d4fae42542767a88d45f6918861a7cf3e7f`, adapter SHA-256 `40b898b97f65d661aecdf17ef6e796f57d23f6ce3aa153d8aaf1ebf82831a5c7`. |
-| All benchmarks | The 74-workload source/package measurement and generated evidence refresh are complete; `make docs-check` passes. | Run `39d8724c-dadd-4638-9f04-b84086632dbd`: 74/74 (6 Router, 68 GZip), zero failures and zero source/package `not_run`; 74 Rust-native `not_run` because the equivalent boundary is unavailable. Preflight `2d30a13f-5318-49dd-8ce6-fea5b1e34eef`: 2,887 passed, zero failed/infra, 2 `not_run`, faults 5/5. Ratios: 0.219 Router, 0.974 GZip; source lower in 6/6 Router and 63/68 GZip; normalized hashes match 74/74. Result SHA-256 `f8c9af763f3695bcd284e9d1ff95517355f8a0eb086590e156f2a65e5b3f0086`. The docs gate checks 38 Markdown files and generated benchmark evidence. |
+| Implementation | Complete for the active `parity-input@58` contract; grouped repairs are included in the measured revision. | Active manifest SHA-256 `86f69fc791088794fcd59483d6a91cc08bb9b3999586665f73c2f722f9946029`; clean target revision `57361208aa1bbe3c95cf76a27992a50cd15cb767`. |
+| Full parity and grouped repairs | Corrected five-profile matrix complete with no failed, infrastructure, or `not_run` comparisons. | Workflow `38769902939`, all 14 jobs successful. Aggregate: 5,423 passed, zero failed, zero infrastructure errors, zero `not_run`; fault contracts 17/17. CPython 3.10 633/633; 3.11 633/633; 3.12 2,889/2,889; 3.13 634/634; 3.14 634/634. Oracle: Starlette 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. |
+| Full coverage and source reconciliation | Accepted full Rust coverage receipt recorded; line coverage is not a parity score. | `build/parity/coverage/full-starlette-1.6.0-20261015-57361208-native-inclusive-verified/starlette-project.lcov`: 26,126/33,348 lines (78.34%), `tests=unknown` because two local CPython 3.12 rows are `not_run`; faults 5/5. Coverage MCP matched the receipt; its comparison with the previous source/build is incomparable. Extension SHA-256 `cb2e4e34068e6d869d1236766609dda44e86f7f7bfd61c713371ffb977ba8618`; adapter SHA-256 `9d745cca62615dfbae29bb1f1c2971915beca85b126dffa364df6b2f16ff93c9`. |
+| All benchmarks | The 74-workload source/package measurement and generated evidence refresh are complete. | Run `8971ad63-111e-4379-a327-6809e852ee75`: 74/74 (6 Router, 68 GZip), zero failures or source/package `not_run`; 74 Rust-native `not_run` because the equivalent boundary is unavailable. Preflight `d82e3a6e-1069-441f-a0d1-0511042deac5`: 2,887 passed, zero failed/infra, two platform-specific `not_run`, faults 5/5. Ratios: 0.225 Router, 0.976 GZip; source lower in 6/6 Router and 61/68 GZip; normalized hashes match 74/74. Result SHA-256 `bc73295313ff0ccde806615597033e510dd502accfc859dc3cd653f7ef7b4eea`. The generated page records benchmark evidence; `make docs-check` passed for 38 Markdown files and generated benchmark evidence. |
 | Packaging and interpreter qualification | Historical local macOS arm64 qualification; current changes are not qualified by it. | Five CPython 3.10–3.14 wheels, an sdist, and the Rust crate were inspected in the earlier qualification. Other platform builds remain unqualified. |
 
 Parity, coverage, and benchmark result artifacts are local generated output
@@ -610,11 +606,9 @@ counts from the generated [`coverage matrix`](atlas/coverage-matrix.csv) and
 [`fixture backlog`](atlas/fixture-backlog.csv). Coverage is a measurement, not
 a parity score. The full-replacement goal remains active.
 
-The benchmark measurement and generated evidence-block refresh are complete.
-An earlier evidence-writer attempt failed on a strict-schema `build_artifacts`
-mismatch; the schema fix is now applied. The current benchmark run is recorded
-in the generated section of [`BENCHMARKS.md`](BENCHMARKS.md), whose introductory
-summary now reflects the active contract and benchmark scope.
+The latest benchmark result and generated evidence block are recorded in
+[`BENCHMARKS.md`](BENCHMARKS.md). The evidence is limited to the declared
+Router/GZip workloads and does not establish full Starlette parity.
 
 Boundary details: [response protocols](RESPONSE_RENDER_BOUNDARY.md),
 [server-error traceback data](SERVER_ERROR_BOUNDARY.md),
