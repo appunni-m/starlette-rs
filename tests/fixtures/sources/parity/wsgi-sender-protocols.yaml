@@ -109,7 +109,7 @@
       "hold_timeout_seconds": 2.0,
       "send_action": {
         "kind": "raise",
-        "at_event": 1,
+        "at_event": 4,
         "failure": {
           "class": "OSError",
           "message": "input-defined ASGI send failure"
