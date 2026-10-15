@@ -70,11 +70,8 @@ def run_convertor_direct_methods_case(case: dict[str, Any]) -> dict[str, Any]:
         "case_id": case["case_id"],
         "status": "completed",
         "observations": [
-            {
-                "step_id": "direct-method-calls",
-                "status": "ok",
-                "value": {name: observations[name] for name in case["observations"]},
-            }
+            {"step_id": name, "status": "ok", "value": observations[name]}
+            for name in case["observations"]
         ],
     }
 
@@ -195,10 +192,7 @@ def run_convertor_registry_sequence_case(case: dict[str, Any]) -> dict[str, Any]
         "case_id": case["case_id"],
         "status": "completed",
         "observations": [
-            {
-                "step_id": "registry-sequence",
-                "status": "ok",
-                "value": {name: observations[name] for name in case["observations"]},
-            }
+            {"step_id": name, "status": "ok", "value": observations[name]}
+            for name in case["observations"]
         ],
     }

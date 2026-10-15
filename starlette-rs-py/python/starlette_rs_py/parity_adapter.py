@@ -8796,18 +8796,43 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
             observation["header_view_probe"] = header_view_probe_value
         if event_loop_scheduling is not None:
             observation["event_loop_scheduling"] = event_loop_scheduling
-        if pathlike_spec is not None:
-            observation["pathlike_fspath_calls"] = pathlike_calls
         if background_task_spec is not None:
             observation["background_task"] = {
                 "initial_value": "",
                 "value": "".join(background_value_parts),
                 "execution_trace": execution_trace,
             }
+        workflow_observations = [
+            {"step_id": RESPONSE_OPERATION, "status": "ok", "value": observation}
+        ]
+        if pathlike_spec is not None:
+            workflow_observations.extend(
+                [
+                    {
+                        "step_id": "pathlike-fspath-call-order",
+                        "status": "ok",
+                        "value": [
+                            call["result_relative_to_workspace"] for call in pathlike_calls
+                        ],
+                    },
+                    {
+                        "step_id": "pathlike-fspath-thread-context",
+                        "status": "ok",
+                        "value": [call["is_event_loop_thread"] for call in pathlike_calls],
+                    },
+                    {
+                        "step_id": "pathlike-open-after-start-send",
+                        "status": "ok",
+                        "value": [
+                            call["response_start_send_completed"] for call in pathlike_calls
+                        ],
+                    },
+                ]
+            )
     return {
         "case_id": case["case_id"],
         "status": "completed",
-        "observations": [{"step_id": RESPONSE_OPERATION, "status": "ok", "value": observation}],
+        "observations": workflow_observations,
     }
 
 
