@@ -64,6 +64,15 @@ unmatched source mappings were reported. The generated fixture backlog is zero;
 the grouped full parity run is the next project-wide gate, followed by full-suite
 coverage and the complete benchmark workload.
 
+The latest implementation batch now compares FileResponse's stateful PathLike
+calls inside its input-conditioned result record, and WSGIMiddleware's sender,
+worker, context, queue-progress, completion, and callback-lifetime observations
+are all declared and emitted by both live adapters. Rust GZip preserves
+Starlette's missing-`headers` lookup when an unusual response-start type fails
+equality, and TestClient cleanup keeps ExitStack exception context through
+shutdown. These source-backed changes pass contract and static quality checks;
+their comparisons remain deferred to the grouped full parity phase.
+
 This checkpoint also adds an input-only GZip response case for raw-header-name
 matching through compression and response-header mutation, alongside the
 existing request-negotiation case. It corrects a GZip lookup to match

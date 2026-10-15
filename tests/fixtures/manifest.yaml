@@ -15117,6 +15117,52 @@
                   "comparison": {
                     "kind": "exact"
                   }
+                },
+                {
+                  "path": "send_observations",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "worker_observations",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
+                  "path": "worker_completed",
+                  "value_types": [
+                    "boolean"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                },
+                {
+                  "path": "caller_context_after_call",
+                  "value_types": [
+                    "string"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                },
+                {
+                  "path": "callback_lifetime",
+                  "value_types": [
+                    "record",
+                    "null"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
                 }
               ],
               "error": {
@@ -19900,6 +19946,18 @@
                   },
                   "condition": {
                     "input_key": "calls"
+                  }
+                },
+                {
+                  "path": "pathlike_fspath_calls",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  },
+                  "condition": {
+                    "input_key": "pathlike"
                   }
                 }
               ],

@@ -3053,6 +3053,11 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         and key == (FILE_RESPONSE_SURFACE, RESPONSE_OPERATION)
                         and observation["path"] == "background_task"
                     )
+                    file_response_pathlike_fspath_calls = (
+                        condition["input_key"] == "pathlike"
+                        and key == (FILE_RESPONSE_SURFACE, RESPONSE_OPERATION)
+                        and observation["path"] == "pathlike_fspath_calls"
+                    )
                     base_http_background_task_completion = (
                         condition["input_key"] == "application.routes.0.endpoint.background_task"
                         and key == BASE_HTTP_WORKFLOW_OPERATION_KEY
@@ -3163,6 +3168,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         and not file_response_single_call
                         and not file_response_call_sequence
                         and not file_response_background_task
+                        and not file_response_pathlike_fspath_calls
                         and not base_http_background_task_completion
                         and not base_http_task_group_exit_events
                         and not templating_hook_trace
@@ -7864,16 +7870,7 @@ def _validate_file_response_case_stimulus(case: dict[str, Any]) -> None:
     _exact(case, case_keys, "FileResponse asgi-call case")
     if case["surface"] != FILE_RESPONSE_SURFACE or case["operation"] != RESPONSE_OPERATION:
         raise ContractError("case is outside the declared FileResponse asgi-call operation")
-    expected_observations = [RESPONSE_OPERATION]
-    if "pathlike" in case:
-        expected_observations.extend(
-            [
-                "pathlike-fspath-call-order",
-                "pathlike-fspath-thread-context",
-                "pathlike-open-after-start-send",
-            ]
-        )
-    if case["observations"] != expected_observations:
+    if case["observations"] != [RESPONSE_OPERATION]:
         raise ContractError("FileResponse observations must select asgi-call")
 
     background_task = case.get("background_task")

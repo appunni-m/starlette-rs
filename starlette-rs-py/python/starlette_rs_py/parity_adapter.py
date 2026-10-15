@@ -8479,16 +8479,7 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
     if case["surface"] != FILE_RESPONSE_SURFACE or case["operation"] != RESPONSE_OPERATION:
         raise ValueError("workflow is outside the declared FileResponse ASGI-call operation")
     pathlike_spec = case.get("pathlike")
-    expected_observations = [RESPONSE_OPERATION]
-    if pathlike_spec is not None:
-        expected_observations.extend(
-            [
-                "pathlike-fspath-call-order",
-                "pathlike-fspath-thread-context",
-                "pathlike-open-after-start-send",
-            ]
-        )
-    if case["observations"] != expected_observations:
+    if case["observations"] != [RESPONSE_OPERATION]:
         raise ValueError("FileResponse observations must select asgi-call")
 
     file_spec = case["file"]
@@ -9161,6 +9152,8 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
             observation["header_view_probe"] = header_view_probe_value
         if event_loop_scheduling is not None:
             observation["event_loop_scheduling"] = event_loop_scheduling
+        if pathlike_spec is not None:
+            observation["pathlike_fspath_calls"] = pathlike_calls
         if background_task_spec is not None:
             observation["background_task"] = {
                 "initial_value": "",
@@ -9170,26 +9163,6 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
         workflow_observations = [
             {"step_id": RESPONSE_OPERATION, "status": "ok", "value": observation}
         ]
-        if pathlike_spec is not None:
-            workflow_observations.extend(
-                [
-                    {
-                        "step_id": "pathlike-fspath-call-order",
-                        "status": "ok",
-                        "value": [call["result_relative_to_workspace"] for call in pathlike_calls],
-                    },
-                    {
-                        "step_id": "pathlike-fspath-thread-context",
-                        "status": "ok",
-                        "value": [call["is_event_loop_thread"] for call in pathlike_calls],
-                    },
-                    {
-                        "step_id": "pathlike-open-after-start-send",
-                        "status": "ok",
-                        "value": [call["response_start_send_completed"] for call in pathlike_calls],
-                    },
-                ]
-            )
     return {
         "case_id": case["case_id"],
         "status": "completed",
@@ -9201,7 +9174,10 @@ def _file_response_scheduling_skipped(case: dict[str, Any], reason: str) -> dict
     return {
         "case_id": case["case_id"],
         "status": "skipped",
-        "observations": [{"step_id": RESPONSE_OPERATION, "status": "skipped", "reason": reason}],
+        "observations": [
+            {"step_id": selector, "status": "skipped", "reason": reason}
+            for selector in case["observations"]
+        ],
     }
 
 

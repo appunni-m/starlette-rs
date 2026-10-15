@@ -209,12 +209,15 @@ def run_wsgi_protocol_case(case: dict[str, Any]) -> dict[str, Any]:
         },
         "received_message_count": received,
         "dispatch_error": outcome["error"],
+        "send_observations": send_observations,
+        "worker_observations": worker_observations,
+        "worker_completed": worker_complete.is_set(),
+        "caller_context_after_call": outcome["caller_context_after_call"],
+        "callback_lifetime": outcome.get("callback_lifetime"),
     }
     observation = case["observations"][0]
     return {
         "case_id": case["case_id"],
         "status": "completed",
-        "observations": [
-            {"step_id": observation, "status": "ok", "value": protocol_results}
-        ],
+        "observations": [{"step_id": observation, "status": "ok", "value": protocol_results}],
     }

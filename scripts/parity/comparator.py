@@ -733,21 +733,24 @@ def _normalize_multipart_body(body: bytes, boundary: bytes) -> bytes:
             if trailer in {b"", b"\r\n"}:
                 normalized.extend(trailer)
                 return bytes(normalized)
-            return body
+            return bytes(normalized) + body[offset:]
         if not body.startswith(b"\r\n", offset):
-            return body
+            return bytes(normalized) + body[offset:]
         normalized.extend(b"\r\n")
         offset += 2
         headers_end = body.find(b"\r\n\r\n", offset)
         if headers_end < 0:
-            return body
+            return bytes(normalized) + body[offset:]
         headers = body[offset:headers_end]
         content_range = _MULTIPART_RANGE_PART_CONTENT_RANGE.search(headers)
         if content_range is None:
-            return body
+            return bytes(normalized) + body[offset:]
         start, end = (int(content_range.group(index)) for index in (1, 2))
         if end < start:
-            return body
+            # FileResponse can send this MIME prefix before a malformed range
+            # reaches the file reader and raises. Keep the invalid header bytes
+            # exact while normalizing only the generated boundary token.
+            return bytes(normalized) + body[offset:]
         part_body_start = headers_end + 4
         part_body_end = part_body_start + end - start + 1
         if part_body_end + 2 > len(body):
@@ -757,10 +760,10 @@ def _normalize_multipart_body(body: bytes, boundary: bytes) -> bytes:
             normalized.extend(body[offset:])
             return bytes(normalized)
         if body[part_body_end : part_body_end + 2] != b"\r\n":
-            return body
+            return bytes(normalized) + body[offset:]
         normalized.extend(body[offset : part_body_end + 2])
         offset = part_body_end + 2
-    return body
+    return bytes(normalized) + body[offset:]
 
 
 def _normalize_multipart_boundary_headers(headers: Any, boundary: bytes) -> Any:

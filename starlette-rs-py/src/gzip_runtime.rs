@@ -241,6 +241,7 @@ impl GzipMiddlewareCall {
                     state: Py::new(
                         py,
                         GzipSendState {
+                            config: self.config.clone_ref(py),
                             responder,
                             send: self.send.clone_ref(py),
                             offload_body: self.offload_body.clone_ref(py),
@@ -284,6 +285,7 @@ impl PyGzipSendProxy {
                 pending: None,
                 original_body: None,
                 compressed_body: None,
+                more_body: false,
             },
         )
     }
@@ -291,6 +293,7 @@ impl PyGzipSendProxy {
 
 #[pyclass]
 struct GzipSendState {
+    config: Py<PyAny>,
     responder: Py<PyAny>,
     send: Py<PyAny>,
     offload_body: Py<PyAny>,
@@ -316,6 +319,7 @@ struct GzipSendMessage {
     pending: Option<GzipSendPending>,
     original_body: Option<Py<PyAny>>,
     compressed_body: Option<Py<PyAny>>,
+    more_body: bool,
 }
 
 impl AwaitableStateMachine for GzipSendMessage {
@@ -410,6 +414,7 @@ impl GzipSendMessage {
         let more_body = message
             .call_method1("get", ("more_body", false))?
             .extract::<bool>()?;
+        self.more_body = more_body;
         let body_length = body.len()?;
         let responder = self.responder(py);
         let offload = responder
@@ -448,8 +453,24 @@ impl GzipSendMessage {
             );
         }
 
-        self.replace_body_if_changed(py, &output_body)?;
         let initial_message = self.initial_message(py);
+        if initial_message.bind(py).len()? == 0 {
+            let original_body = self
+                .original_body
+                .as_ref()
+                .ok_or_else(|| PyRuntimeError::new_err("GZip body output has no input body"))?;
+            if self.missing_start_requires_header_access(
+                py,
+                original_body.bind(py),
+                &output_body,
+            )? {
+                // Starlette reaches MutableHeaders(raw=self.initial_message["headers"])
+                // before sending this body when it would modify response headers.
+                drop(initial_message.bind(py).get_item("headers")?);
+            }
+        }
+
+        self.replace_body_if_changed(py, &output_body)?;
         if initial_message.bind(py).len()? == 0 {
             return self.send_message(
                 py,
@@ -462,6 +483,35 @@ impl GzipSendMessage {
             self.message.clone_ref(py),
             GzipSendPending::FinalMessage,
         )
+    }
+
+    fn missing_start_requires_header_access(
+        &self,
+        py: Python<'_>,
+        original_body: &Bound<'_, PyAny>,
+        output_body: &Bound<'_, PyAny>,
+    ) -> PyResult<bool> {
+        let input_bytes = original_body.extract::<Vec<u8>>()?;
+        let output_bytes = output_body.extract::<Vec<u8>>()?;
+        if input_bytes != output_bytes || self.more_body {
+            return Ok(true);
+        }
+
+        // Identity responses still take Starlette's header-mutation branch once
+        // the configured minimum size is reached. Probe that threshold with a
+        // fresh, enabled responder because the native config keeps it private.
+        let config = self.state.borrow(py).config.clone_ref(py);
+        let probe = config.bind(py).call_method0("gzip_responder")?;
+        let probe_output =
+            match probe.call_method1("response_body", (original_body, self.more_body)) {
+                Ok(output) => output,
+                // Compression errors can only occur after the minimum-size branch
+                // has been selected; the source error here is the missing headers.
+                Err(_error) => return Ok(true),
+            };
+        let probe_output = probe_output.cast::<PyTuple>()?;
+        let probe_body = probe_output.get_item(1)?.extract::<Vec<u8>>()?;
+        Ok(input_bytes != probe_body)
     }
 
     fn start_pathsend(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
@@ -552,6 +602,7 @@ fn gzip_headers_to_python<'py>(
 #[pymethods]
 impl GzipSendState {
     fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.config)?;
         visit.call(&self.responder)?;
         visit.call(&self.send)?;
         visit.call(&self.offload_body)?;
@@ -560,6 +611,7 @@ impl GzipSendState {
     }
 
     fn __clear__(&mut self, py: Python<'_>) {
+        self.config = py.None();
         self.responder = py.None();
         self.send = py.None();
         self.offload_body = py.None();

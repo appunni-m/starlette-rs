@@ -63,10 +63,7 @@
         "kind": "capture-asgi-send"
       },
       "observations": [
-        "asgi-call",
-        "pathlike-fspath-call-order",
-        "pathlike-fspath-thread-context",
-        "pathlike-open-after-start-send"
+        "asgi-call"
       ]
     }
   ]

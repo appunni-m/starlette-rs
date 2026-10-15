@@ -196,12 +196,6 @@ struct TestClientLifespan {
     task: Option<Py<PyAny>>,
 }
 
-#[derive(Clone, Copy)]
-enum LifespanCleanupPhase {
-    Entry,
-    Shutdown,
-}
-
 enum LifespanTaskPhase {
     App,
     CompletionSignal,
@@ -456,11 +450,7 @@ impl TestClientLifespan {
     fn start(py: Python<'_>, backend: &str, backend_options: &Py<PyDict>) -> PyResult<Self> {
         let mut lifespan = Self::default();
         if let Err(error) = lifespan.start_inner(py, backend, backend_options) {
-            return match lifespan.cleanup(
-                py,
-                Some(error.clone_ref(py)),
-                LifespanCleanupPhase::Entry,
-            ) {
+            return match lifespan.cleanup(py, Some(error.clone_ref(py))) {
                 Ok(()) => Err(error),
                 Err(cleanup_error) => Err(cleanup_error),
             };
@@ -528,12 +518,7 @@ impl TestClientLifespan {
         )
     }
 
-    fn cleanup(
-        &mut self,
-        py: Python<'_>,
-        mut primary_error: Option<PyErr>,
-        phase: LifespanCleanupPhase,
-    ) -> PyResult<()> {
+    fn cleanup(&mut self, py: Python<'_>, mut primary_error: Option<PyErr>) -> PyResult<()> {
         // ExitStack closes the last-registered client-to-app endpoints first.
         for stream in [
             self.client_to_app_receive.take(),
@@ -557,15 +542,7 @@ impl TestClientLifespan {
                 if let Err(error) =
                     exit_portal(py, manager.bind(py).clone(), primary_error.as_ref())
                 {
-                    match phase {
-                        LifespanCleanupPhase::Entry => {
-                            replace_cleanup_error(py, &mut primary_error, error)?;
-                        }
-                        // During TestClient.__exit__, the portal context manager
-                        // replaces a shutdown failure without exposing it in the
-                        // cleanup exception's context chain.
-                        LifespanCleanupPhase::Shutdown => primary_error = Some(error),
-                    }
+                    replace_cleanup_error(py, &mut primary_error, error)?;
                 }
             }
         }
@@ -585,11 +562,7 @@ impl PyTestClientTransport {
             Some(portal) => portal.clone_ref(py),
             None => {
                 let error = PyRuntimeError::new_err("TestClient portal is unavailable");
-                return match lifespan.cleanup(
-                    py,
-                    Some(error.clone_ref(py)),
-                    LifespanCleanupPhase::Entry,
-                ) {
+                return match lifespan.cleanup(py, Some(error.clone_ref(py))) {
                     Ok(()) => Err(error),
                     Err(cleanup_error) => Err(cleanup_error),
                 };
@@ -616,11 +589,7 @@ fn cleanup_failed_testclient_enter(
 ) -> PyErr {
     let lifespan = slf.borrow_mut(py).lifespan.take();
     match lifespan {
-        Some(mut lifespan) => match lifespan.cleanup(
-            py,
-            Some(primary_error.clone_ref(py)),
-            LifespanCleanupPhase::Entry,
-        ) {
+        Some(mut lifespan) => match lifespan.cleanup(py, Some(primary_error.clone_ref(py))) {
             Ok(()) => primary_error,
             Err(cleanup_error) => cleanup_error,
         },
@@ -1445,9 +1414,7 @@ impl PyTestClientTransport {
 
         let lifespan = { slf.borrow_mut(py).lifespan.take() };
         match lifespan {
-            Some(mut lifespan) => {
-                lifespan.cleanup(py, primary_error, LifespanCleanupPhase::Shutdown)
-            }
+            Some(mut lifespan) => lifespan.cleanup(py, primary_error),
             None => match primary_error {
                 Some(error) => Err(error),
                 None if slf.borrow(py).context_entered => Ok(()),
