@@ -3617,8 +3617,6 @@ async def _invoke(
         "lifecycle_and_cleanup_effects": list(lifecycle_trace),
         "server_error_observation": _server_error_observation(app, start, body, captured_exception),
     }
-    if send_execution_trace is not None:
-        result["execution_trace"] = send_execution_trace
     if request_dispatch:
         if len(request_observations) > 1:
             raise RuntimeError("request observer endpoint ran more than once")
@@ -16870,11 +16868,6 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
             anyio.create_task_group = original_create_task_group
         if file_response_temporary_directory is not None:
             file_response_temporary_directory.cleanup()
-    scope_observation_result = (
-        _scope_observation(scope, case["scope_observation"])
-        if "scope_observation" in case
-        else None
-    )
     if downstream_stream_guard_fired:
         raise TimeoutError(
             "input-defined BaseHTTPMiddleware streaming guard expired before http.disconnect"
@@ -16924,8 +16917,6 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
         "middleware_response_background_states": middleware_response_background_states,
         "endpoint_body_events": endpoint_body_events,
     }
-    if scope_observation_result is not None:
-        value["scope_observation"] = scope_observation_result
     if task_group_probe_enabled:
         value["task_group_exit_events"] = task_group_exit_events
     if background_task_case:
