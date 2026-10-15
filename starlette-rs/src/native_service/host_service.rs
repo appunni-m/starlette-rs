@@ -15,7 +15,7 @@ use crate::{HostPattern, NativeRoute, PathConverter, PathParameterCapture, Route
 
 use super::{
     Endpoint, EndpointFuture, NativeApplicationError, NativeRequest, NativeRequestScope,
-    box_native_body, merge_scope_path_params, native_response_from_legacy,
+    box_native_body, fallback_future_for_match, merge_scope_path_params,
 };
 
 /// A host pattern and the HTTP routes mounted below it.
@@ -127,6 +127,15 @@ where
                 .get::<NativeRequestScope>()
                 .cloned()
                 .unwrap_or_default();
+            let host_captures = host_params
+                .into_iter()
+                .map(|(name, value)| PathParameterCapture {
+                    name,
+                    value,
+                    converter: PathConverter::String,
+                })
+                .collect::<Vec<_>>();
+            merge_scope_path_params(&mut scope.path_params, &host_captures);
             let route_match = entry.routes.matches_detailed_with_root_path(
                 request.uri().path(),
                 scope.root_path(),
@@ -142,15 +151,6 @@ where
                             Err(NativeApplicationError::MissingEndpoint { route_index })
                         });
                     };
-                    let host_captures = host_params
-                        .into_iter()
-                        .map(|(name, value)| PathParameterCapture {
-                            name,
-                            value,
-                            converter: PathConverter::String,
-                        })
-                        .collect::<Vec<_>>();
-                    merge_scope_path_params(&mut scope.path_params, &host_captures);
                     let path_captures = match entry
                         .routes
                         .capture_path_parameters(route_index, &path_params)
@@ -179,7 +179,9 @@ where
                     endpoint(request)
                 }
                 fallback @ (crate::DetailedRouteMatch::MethodNotAllowed { .. }
-                | crate::DetailedRouteMatch::NotFound) => fallback_future_for_match(fallback),
+                | crate::DetailedRouteMatch::NotFound) => {
+                    fallback_future_for_match(fallback, &entry.routes, scope)
+                }
             };
         }
 
@@ -189,14 +191,10 @@ where
 
 fn fallback_future<B>(routes: &RouteTable, request: &Request<B>) -> EndpointFuture {
     let route_match = routes.matches_detailed(request.uri().path(), request.method().as_str());
-    fallback_future_for_match(route_match)
-}
-
-fn fallback_future_for_match(route_match: crate::DetailedRouteMatch) -> EndpointFuture {
-    let response = route_match
-        .fallback_response()
-        .map_err(NativeApplicationError::FallbackResponse)
-        .and_then(|response| response.ok_or(NativeApplicationError::MissingFallbackResponse))
-        .and_then(native_response_from_legacy);
-    Box::pin(async move { response })
+    let scope = request
+        .extensions()
+        .get::<NativeRequestScope>()
+        .cloned()
+        .unwrap_or_default();
+    fallback_future_for_match(route_match, routes, scope)
 }

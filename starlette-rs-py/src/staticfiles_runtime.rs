@@ -1,6 +1,6 @@
 //! PyO3 boundary for Rust-owned Starlette static-file dispatch.
 
-use std::ffi::OsString;
+use std::ffi::{OsStr, OsString};
 use std::path::{Path, PathBuf};
 
 #[cfg(unix)]
@@ -539,12 +539,11 @@ impl StaticFilesCallMachine {
         let method = scope.get_item("method")?.extract::<String>()?;
         NativeStaticFiles::validate_response_method(&method)
             .map_err(|error| static_files_http_error(py, error))?;
-        let scope_path = scope_path_from_python(py, &scope.get_item("path")?)?;
         let (flow, step) = {
             let owner = self.owner.borrow(py);
             owner
                 .inner
-                .start_response_flow(&path, scope_path.as_os_str(), &method, &[])
+                .start_response_flow(&path, OsStr::new(""), &method, &[])
                 .map_err(|error| static_files_http_error(py, error))?
         };
         self.flow = Some(flow);
@@ -622,6 +621,18 @@ impl StaticFilesCallMachine {
 
     fn resume_lookup(&mut self, py: Python<'_>, value: Py<PyAny>) -> PyResult<MachineAction> {
         let (lookup, stat_result) = lookup_result_from_python(py, value)?;
+        let needs_scope_path = self
+            .flow
+            .as_ref()
+            .is_some_and(StaticFilesResponseFlow::needs_scope_path);
+        let scope_path = if needs_scope_path && lookup.as_ref().is_some_and(|file| file.is_file) {
+            Some(scope_path_from_python(
+                py,
+                &self.scope.bind(py).get_item("path")?,
+            )?)
+        } else {
+            None
+        };
         self.selected_stat_result = stat_result;
         let owner = self.owner.borrow(py);
         let inner = owner.inner.clone();
@@ -630,6 +641,9 @@ impl StaticFilesCallMachine {
             .flow
             .as_mut()
             .ok_or_else(|| PyRuntimeError::new_err("StaticFiles response flow is missing"))?;
+        if let Some(scope_path) = scope_path {
+            flow.set_scope_path(scope_path.as_os_str());
+        }
         let step = flow
             .resume_lookup(&inner, Ok(lookup))
             .map_err(|error| static_files_http_error(py, error))?;
@@ -1052,7 +1066,9 @@ fn http_exception(py: Python<'_>, status_code: u16) -> PyErr {
 fn static_files_error(error: StaticFilesError) -> PyErr {
     match error {
         StaticFilesError::DirectoryConfiguration(message) => PyRuntimeError::new_err(message),
-        StaticFilesError::InvalidPath => PyValueError::new_err("embedded null byte"),
+        StaticFilesError::InvalidPath => {
+            PyValueError::new_err("lstat: embedded null character in path")
+        }
         StaticFilesError::PermissionDenied => PyPermissionError::new_err("permission denied"),
         StaticFilesError::Io(error) if error.kind() == std::io::ErrorKind::PermissionDenied => {
             PyPermissionError::new_err(error.to_string())

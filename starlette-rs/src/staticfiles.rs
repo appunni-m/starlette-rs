@@ -359,6 +359,22 @@ impl StaticFiles {
 }
 
 impl StaticFilesResponseFlow {
+    /// Returns whether the flow has reached the HTML index-file lookup phase.
+    ///
+    /// A Python compatibility caller needs the request scope path only when
+    /// this lookup finds a file, matching Starlette's deferred `scope["path"]`
+    /// access for directory redirects.
+    #[must_use]
+    pub fn needs_scope_path(&self) -> bool {
+        self.phase == ResponseFlowPhase::IndexLookup
+    }
+
+    /// Supplies the request path when an HTML index lookup needs redirect
+    /// selection.
+    pub fn set_scope_path<P: AsRef<OsStr>>(&mut self, scope_path: P) {
+        self.scope_path = scope_path.as_ref().to_os_string();
+    }
+
     /// Supplies one lookup result and advances Rust response selection.
     ///
     /// Resume this flow once for each [`StaticFilesResponseStep::Lookup`]. A

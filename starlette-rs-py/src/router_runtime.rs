@@ -589,8 +589,8 @@ impl RouteTypes {
             return Ok(true);
         }
 
-        if matches!(kind, RouteKind::Mount) {
-            // Mount instances are dict-backed and can shadow `matches` directly.
+        if route.hasattr("__dict__")? {
+            // Starlette routes can shadow `matches` on an individual instance.
             let instance_attributes = route.getattr("__dict__")?;
             if instance_attributes.contains("matches")? {
                 return Ok(true);

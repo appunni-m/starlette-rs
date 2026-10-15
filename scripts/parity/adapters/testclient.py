@@ -186,7 +186,6 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
     receive_observations: list[dict[str, Any]] = []
     asgi_events: list[dict[str, Any]] = []
     app_exception_state: dict[str, BaseException] = {}
-    app_body_returned_normally = False
     request_content_generator_yields: list[str] = []
     sync_endpoint_state: dict[str, Any] | None = None
     host_route_observations: list[dict[str, Any]] = []
@@ -202,7 +201,6 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
         )
 
     async def run_app_body(receive: Any, send: Any) -> None:
-        nonlocal app_body_returned_normally
         for _ in range(app_input["receive_count"]):
             message = await receive()
             receive_observations.append(_safe(message))
@@ -234,7 +232,6 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
                     # Preserve the input-defined implicit __context__ chain.
                     raise raised_exception  # noqa: B904
                 raise raised_exception from None
-        app_body_returned_normally = True
 
     if app_input["kind"] == "starlette-route":
         from starlette.applications import Starlette
@@ -1322,12 +1319,6 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
         "nested_testclient": nested_testclient_observation,
         "exception_propagation": None,
     }
-    if (
-        app_input["kind"] in {"asgi2", "asgi3", "asgi3-asyncio-marked"}
-        and not app_input["messages"]
-        and "exception" not in app_input
-    ):
-        result["application_returned_normally"] = app_body_returned_normally
     if "content_generator_chunks_base64" in request_input:
         result["request_content_generator_yields"] = request_content_generator_yields
     if "exception" in app_input and "chain" in app_input["exception"]:

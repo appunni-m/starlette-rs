@@ -176,9 +176,9 @@ pub fn timestamp_unsign_with_timestamp(
 
 /// Verifies a timestamped value and returns its payload and unsigned timestamp bytes.
 ///
-/// The byte representation preserves arbitrary-precision timestamps used by
-/// `itsdangerous.TimestampSigner`; callers can convert it to their native
-/// integer representation without limiting it to `u64`.
+/// The bytes preserve the timestamp's unsigned representation for callers,
+/// while matching `itsdangerous.TimestampSigner`'s fixed-width `>Q` decoder:
+/// values longer than eight decoded bytes are malformed.
 ///
 /// # Errors
 ///
@@ -214,6 +214,9 @@ pub fn timestamp_unsign_with_timestamp_bytes(
     let encoded_timestamp = &signed_value[timestamp_separator + 1..];
     let timestamp = decode_itsdangerous_base64(encoded_timestamp)
         .ok_or(SessionSignatureError::MalformedTimestamp)?;
+    if timestamp.len() > std::mem::size_of::<u64>() {
+        return Err(SessionSignatureError::MalformedTimestamp);
+    }
     Ok((payload.to_vec(), timestamp))
 }
 

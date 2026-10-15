@@ -501,6 +501,8 @@ def _input_background_tasks(
                                 "thread": "worker",
                             }
                         )
+                        if failure["kind"] == "CancelledError":
+                            raise asyncio.CancelledError(failure["message"])
                         raise Exception(failure["message"])
                     execution_trace.append({"event": "task-complete", "task_index": task_index})
                 finally:
@@ -620,9 +622,10 @@ def _input_background_tasks(
                         {"kind", "message"},
                         f"Response background task[{task_index}].append_tasks[{appended_index}].failure",
                     )
-                    if appended_failure["kind"] != "Exception" or not isinstance(
-                        appended_failure["message"], str
-                    ):
+                    if appended_failure["kind"] not in {
+                        "Exception",
+                        "CancelledError",
+                    } or not isinstance(appended_failure["message"], str):
                         raise ValueError("Response appended background task failure is unsupported")
                     appended_spec["failure"] = appended_failure
                 validated_appended_specs.append(appended_spec)
@@ -632,7 +635,9 @@ def _input_background_tasks(
             failure = _strict_object(
                 failure, {"kind", "message"}, f"Response background task[{task_index}].failure"
             )
-            if failure["kind"] != "Exception" or not isinstance(failure["message"], str):
+            if failure["kind"] not in {"Exception", "CancelledError"} or not isinstance(
+                failure["message"], str
+            ):
                 raise ValueError("Response background task failure input is unsupported")
         callback = make_callback(task_index, task_spec)
         if background_tasks is None:
@@ -5974,6 +5979,15 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
             )
         required_covers.add(
             f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.async-context-manager-cleanup-completes"
+        )
+    scope_container = case.get("scope_container")
+    if scope_container == "user-dict":
+        required_covers.add(
+            f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.mutable-scope-mapping"
+        )
+    elif isinstance(scope_container, dict) and scope_container.get("kind") == "user-dict-fault":
+        required_covers.add(
+            f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.scope-type-lookup-error-propagation"
         )
     if not isinstance(case["covers"], list) or set(case["covers"]) != required_covers:
         raise ValueError("BaseHTTPMiddleware covers differ from its input actions")
@@ -12460,8 +12474,11 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
         if not isinstance(case["background"], dict):
             raise ValueError("Response background input must be an object")
         if case["background"].get("kind") == "async-values-recorder":
+            background_fields = {"kind", "values"}
+            if "failure" in case["background"]:
+                background_fields.add("failure")
             background_spec = _strict_object(
-                case["background"], {"kind", "values", "failure"}, "Response background"
+                case["background"], background_fields, "Response background"
             )
             values = background_spec["values"]
             if not isinstance(values, list) or any(not isinstance(value, str) for value in values):
@@ -13826,8 +13843,12 @@ def _run_request_form_case(case: dict[str, Any]) -> dict[str, Any]:
         "form_deferred_scope_headers",
         "receive_error",
         "file_write_error",
+        "file_rollover_error",
         "form_app",
         "form_read_body",
+        "form_rollover_event_loop_progress",
+        "rollover_progress_timeout_ms",
+        "form_error_upload_sizes",
     ):
         if key in case:
             case_fields.add(key)
@@ -13845,6 +13866,8 @@ def _run_request_form_case(case: dict[str, Any]) -> dict[str, Any]:
     io_trace: list[list[Any]] = []
     tracked_tempfiles: list[Any] = []
     tempfile_write_calls = 0
+    tracked_uploads: list[Any] = []
+    rollover_probe: dict[str, Any] = {}
 
     async def receive() -> dict[str, Any]:
         nonlocal received
@@ -13859,6 +13882,9 @@ def _run_request_form_case(case: dict[str, Any]) -> dict[str, Any]:
 
     async def observe() -> dict[str, Any]:
         request = Request(scope, receive)
+        if case.get("form_rollover_event_loop_progress", False):
+            rollover_probe["loop"] = asyncio.get_running_loop()
+            rollover_probe["timeout_ms"] = case["rollover_progress_timeout_ms"]
         file_observations = []
         observed_files = []
         try:
@@ -13893,6 +13919,11 @@ def _run_request_form_case(case: dict[str, Any]) -> dict[str, Any]:
                             "temp_files_closed": [file.closed for file in tracked_tempfiles],
                         }
                         if case.get("form_io_trace", False)
+                        else {}
+                    ),
+                    **(
+                        {"upload_sizes_after_error": [upload.size for upload in tracked_uploads]}
+                        if case.get("form_error_upload_sizes", False)
                         else {}
                     ),
                 },
@@ -14092,11 +14123,32 @@ def _run_request_form_case(case: dict[str, Any]) -> dict[str, Any]:
                 return original_write(data)
 
             def observed_rollover() -> Any:
-                result = original_rollover()
+                loop = rollover_probe.get("loop")
+                if loop is not None:
+                    release = threading.Event()
+                    progressed = threading.Event()
+
+                    def release_after_event_loop_progress() -> None:
+                        if not release.is_set():
+                            io_trace.append(["event-loop-progress-during-rollover"])
+                            progressed.set()
+                            release.set()
+
+                    timeout_seconds = rollover_probe["timeout_ms"] / 1000
+                    fallback = threading.Timer(timeout_seconds, release.set)
+                    fallback.daemon = True
+                    fallback.start()
+                    loop.call_soon_threadsafe(release_after_event_loop_progress)
+                    release.wait()
+                    fallback.cancel()
+                    io_trace.append(["spooled-rollover-progress", progressed.is_set()])
                 io_trace.append(
                     ["spooled-rollover-worker", threading.get_ident() != creation_thread]
                 )
-                return result
+                rollover_error = case.get("file_rollover_error")
+                if rollover_error is not None:
+                    raise OSError(rollover_error["message"])
+                return original_rollover()
 
             def observed_close() -> Any:
                 result = original_close()
@@ -14109,6 +14161,8 @@ def _run_request_form_case(case: dict[str, Any]) -> dict[str, Any]:
             return file
 
         async def observed_upload_write(self: Any, data: bytes) -> None:
+            if case.get("form_error_upload_sizes", False):
+                tracked_uploads.append(self)
             io_trace.append(
                 ["upload-write", self.filename, len(data), hashlib.sha256(data).hexdigest()]
             )
@@ -17090,10 +17144,20 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         and "scope_container" in case
     ):
         case_fields.add("scope_container")
+    if case.get("surface") in {
+        "starlette.middleware.gzip.GZipMiddleware",
+        "starlette.middleware.gzip.GZipResponder",
+        BODY_LIMIT_SURFACE,
+    }:
+        case_fields.update({"scope_container", "scope_observation"} & case.keys())
     _strict_object(case, case_fields, "parity case")
     if case["surface"] == WSGI_SURFACE:
         if case["operation"] != "__call__":
             raise ValueError("WSGIMiddleware cases must call its public ASGI interface")
+        if "steps" not in case:
+            from scripts.parity.adapters.wsgi_protocols import run_wsgi_protocol_case
+
+            return run_wsgi_protocol_case(case)
         return _run_wsgi_case(case)
     if case["surface"] in {
         "starlette.middleware.gzip.GZipMiddleware",
@@ -17115,7 +17179,8 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         _has_mounted_app_exception_route(route_specs)
     )
     if is_request_dispatch:
-        endpoint_spec = steps[0]["arguments"]["routes"]["value"][0]["endpoint"]
+        request_routes = steps[0]["arguments"]["routes"]["value"]
+        endpoint_spec = request_routes[0]["endpoint"] if request_routes else None
         expected_schedule = (
             ["dispatch", "cancel-server-task"]
             if endpoint_spec == {"kind": "async-call-boundary-observer"}
@@ -17133,7 +17198,7 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
             raise ValueError(
                 "request-dispatch cases must contain application then request-dispatch"
             )
-    elif route_middleware_workflow:
+    elif route_middleware_workflow and step_ids != ["application", "dispatch"]:
         minimum_steps = 2 if _has_mounted_app_exception_route(route_specs) else 3
         if len(steps) < minimum_steps or schedule != step_ids[1:]:
             raise ValueError(
@@ -17186,7 +17251,8 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
     ):
         raise ValueError("application_subclass is supported for one Starlette dispatch")
     application_arguments = {name: item["value"] for name, item in steps[0]["arguments"].items()}
-    route_spec = application_arguments["routes"][0]
+    route_specs = application_arguments["routes"]
+    route_spec = route_specs[0] if route_specs else {}
     endpoint_spec = route_spec.get("endpoint") if isinstance(route_spec, dict) else None
     endpoint_kind = endpoint_spec.get("kind") if isinstance(endpoint_spec, dict) else None
     capture_dispatch_error = (

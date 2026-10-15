@@ -327,6 +327,7 @@ impl AwaitableStateMachine for LifespanTaskMachine {
 #[derive(Clone, Copy)]
 enum LifespanHandshakePhase {
     SendRequest,
+    AwaitRequestSend,
     ReceiveResponse,
     ReceiveFailureResponse,
 }
@@ -364,6 +365,11 @@ impl AwaitableStateMachine for LifespanHandshakeMachine {
                     },
                 )?;
                 let awaitable = self.send.bind(py).call1((request,))?;
+                self.phase = LifespanHandshakePhase::AwaitRequestSend;
+                Ok(MachineAction::Await(awaitable.unbind()))
+            }
+            (LifespanHandshakePhase::AwaitRequestSend, MachineResume::Value(_)) => {
+                let awaitable = self.receive.bind(py).call0()?;
                 self.phase = LifespanHandshakePhase::ReceiveResponse;
                 Ok(MachineAction::Await(awaitable.unbind()))
             }

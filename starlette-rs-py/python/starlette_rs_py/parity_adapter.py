@@ -334,6 +334,29 @@ def _record_input_background_task(
     execution_trace.append({"event": "task-complete", "task_index": task_index})
 
 
+class _OrderedKeywordMapping:
+    def __init__(self, items: list[list[Any]]) -> None:
+        self._items = items
+
+    def keys(self) -> list[Any]:
+        return [key for key, _value in self._items]
+
+    def __getitem__(self, key: Any) -> Any:
+        for candidate, value in self._items:
+            if candidate == key:
+                return value
+        raise KeyError(key)
+
+
+class _InputArgumentIterable:
+    def __init__(self, exception_class: type[BaseException], message: str) -> None:
+        self.exception_class = exception_class
+        self.message = message
+
+    def __iter__(self) -> Any:
+        raise self.exception_class(self.message)
+
+
 def _input_background_tasks(
     spec: dict[str, Any],
     execution_trace: list[dict[str, Any]],
@@ -475,6 +498,8 @@ def _input_background_tasks(
                                 "thread": "worker",
                             }
                         )
+                        if failure["kind"] == "CancelledError":
+                            raise asyncio.CancelledError(failure["message"])
                         raise Exception(failure["message"])
                     execution_trace.append({"event": "task-complete", "task_index": task_index})
                 finally:
@@ -494,7 +519,11 @@ def _input_background_tasks(
         callable_spec = task_spec.get("callable", {"kind": "function"})
         callable_kind = callable_spec["kind"]
         callback = base_callback
-        if callable_kind == "bound-method":
+        if callable_kind == "builtin":
+            callback = getattr(builtins, callable_spec["name"])
+        elif callable_kind == "non-callable-object":
+            callback = object()
+        elif callable_kind == "bound-method":
             if task_spec["mode"] == "async":
 
                 class BoundCallback:
@@ -545,6 +574,8 @@ def _input_background_tasks(
             task_fields.add("kwargs_mapping")
         if isinstance(task_spec, dict) and "append_tasks" in task_spec:
             task_fields.add("append_tasks")
+        if isinstance(task_spec, dict) and "argument_protocol" in task_spec:
+            task_fields.add("argument_protocol")
         task_spec = _exact_object(
             task_spec,
             task_fields,
@@ -580,9 +611,10 @@ def _input_background_tasks(
                         {"kind", "message"},
                         f"Response background task[{task_index}].append_tasks[{appended_index}].failure",
                     )
-                    if appended_failure["kind"] != "Exception" or not isinstance(
-                        appended_failure["message"], str
-                    ):
+                    if appended_failure["kind"] not in {
+                        "Exception",
+                        "CancelledError",
+                    } or not isinstance(appended_failure["message"], str):
                         raise ValueError("Response appended background task failure is unsupported")
                     appended_spec["failure"] = appended_failure
                 validated_appended_specs.append(appended_spec)
@@ -592,22 +624,38 @@ def _input_background_tasks(
             failure = _exact_object(
                 failure, {"kind", "message"}, f"Response background task[{task_index}].failure"
             )
-            if failure["kind"] != "Exception" or not isinstance(failure["message"], str):
+            if failure["kind"] not in {"Exception", "CancelledError"} or not isinstance(
+                failure["message"], str
+            ):
                 raise ValueError("Response background task failure input is unsupported")
         callback = make_callback(task_index, task_spec)
         if background_tasks is None:
             task = BackgroundTask(callback, *task_spec["args"], **task_spec["kwargs"])
-            if "kwargs_mapping" in task_spec:
-                from collections import UserDict
+            if "argument_protocol" in task_spec:
+                protocol = _exact_object(
+                    task_spec["argument_protocol"],
+                    {"kind", "exception_class", "message"},
+                    f"Response background task[{task_index}].argument_protocol",
+                )
+                if protocol["kind"] != "raise-on-iteration":
+                    raise ValueError("Response background argument protocol is unsupported")
+                if protocol["exception_class"] != "RuntimeError":
+                    raise ValueError("Response background argument exception is unsupported")
 
+                task.args = _InputArgumentIterable(RuntimeError, protocol["message"])
+                del task.kwargs
+            if "kwargs_mapping" in task_spec:
                 mapping_spec = _exact_object(
                     task_spec["kwargs_mapping"],
                     {"kind", "items"},
                     f"Response background task[{task_index}].kwargs_mapping",
                 )
-                if mapping_spec["kind"] != "user-dict":
+                if mapping_spec["kind"] == "user-dict":
+                    task.kwargs = UserDict(dict(mapping_spec["items"]))
+                elif mapping_spec["kind"] == "ordered-key-mapping":
+                    task.kwargs = _OrderedKeywordMapping(mapping_spec["items"])
+                else:
                     raise ValueError("Response background kwargs mapping kind is unsupported")
-                task.kwargs = UserDict(dict(mapping_spec["items"]))
             tasks.append(task)
         else:
             background_tasks.add_task(callback, *task_spec["args"], **task_spec["kwargs"])
@@ -6384,11 +6432,7 @@ def _run_http_endpoint_case(case: dict[str, Any]) -> dict[str, Any]:
             raise ValueError("HTTPEndpoint direct handlers must return plain-text responses")
         handler_specs[handler_spec["name"]] = handler_spec
 
-    caller_thread_id = threading.get_ident()
-    handler_thread_hops: list[bool] = []
-
     def make_response(response_spec: dict[str, Any]) -> Any:
-        handler_thread_hops.append(threading.get_ident() != caller_thread_id)
         return PlainTextResponse(
             content=response_spec["content"],
             status_code=response_spec["status_code"],
@@ -6472,7 +6516,6 @@ def _run_http_endpoint_case(case: dict[str, Any]) -> dict[str, Any]:
         ),
         "asgi_event_order": [event["type"] for event in events],
         "asgi_events": events,
-        "handler_thread_hops": handler_thread_hops,
     }
     if "method_reads" in endpoint_spec:
         observation["method_reads"] = method_trace
@@ -10201,8 +10244,11 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
         if not isinstance(case["background"], dict):
             raise ValueError("Response background input must be an object")
         if case["background"].get("kind") == "async-values-recorder":
+            background_fields = {"kind", "values"}
+            if "failure" in case["background"]:
+                background_fields.add("failure")
             background_spec = _exact_object(
-                case["background"], {"kind", "values", "failure"}, "Response background"
+                case["background"], background_fields, "Response background"
             )
             values = background_spec["values"]
             if not isinstance(values, list) or any(not isinstance(value, str) for value in values):
@@ -17302,6 +17348,17 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         from scripts.parity.adapters.request_client import run_request_client_case
 
         return run_request_client_case(case, Request)
+    if (case.get("surface"), case.get("operation")) == (
+        "starlette.requests.Request",
+        "connection-properties",
+    ):
+        from starlette.requests import Request
+
+        from scripts.parity.adapters.request_connection_properties import (
+            run_request_connection_properties_case,
+        )
+
+        return run_request_connection_properties_case(case, Request)
     if (
         isinstance(case, dict)
         and (
@@ -17421,6 +17478,15 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         from scripts.parity.adapters.formdata import run_formdata_case
 
         return run_formdata_case(case, FormData, UploadFile)
+    if (case.get("surface"), case.get("operation")) == (
+        "starlette.background",
+        "attribute-operations",
+    ):
+        from starlette import background
+
+        from scripts.parity.adapters.background_attributes import run_background_attributes_case
+
+        return run_background_attributes_case(case, background)
     if isinstance(case, dict) and (case.get("surface"), case.get("operation")) == (
         "starlette.datastructures.UploadFile",
         "file-operations",
@@ -17696,6 +17762,12 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
     if case.get("surface") == EXCEPTION_MIDDLEWARE_SURFACE and case.get("operation") == "__call__":
         return _run_exception_middleware_case(case)
     if case.get("surface") == WSGI_SURFACE:
+        if case["operation"] != "__call__":
+            raise ValueError("WSGIMiddleware cases must call its public ASGI interface")
+        if "steps" not in case:
+            from scripts.parity.adapters.wsgi_protocols import run_wsgi_protocol_case
+
+            return run_wsgi_protocol_case(case)
         _exact_object(
             case,
             {
@@ -17711,45 +17783,47 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
             },
             "parity case",
         )
-        if case["operation"] != "__call__":
-            raise ValueError("WSGIMiddleware cases must call its public ASGI interface")
         return _run_wsgi_case(case)
     if case.get("surface") in {
         "starlette.middleware.gzip.GZipMiddleware",
         "starlette.middleware.gzip.GZipResponder",
     }:
+        expected_fields = {
+            "case_id",
+            "surface",
+            "operation",
+            "covers",
+            "target_profiles",
+            "assets",
+            "steps",
+            "observations",
+            "execution_schedule",
+        }
+        expected_fields.update({"scope_container", "scope_observation"} & case.keys())
         _exact_object(
             case,
-            {
-                "case_id",
-                "surface",
-                "operation",
-                "covers",
-                "target_profiles",
-                "assets",
-                "steps",
-                "observations",
-                "execution_schedule",
-            },
+            expected_fields,
             "parity case",
         )
         if case["operation"] != "__call__":
             raise ValueError("GZip cases must call the declared ASGI interface")
         return _run_gzip_case(case)
     if case.get("surface") == BODY_LIMIT_SURFACE:
+        expected_fields = {
+            "case_id",
+            "surface",
+            "operation",
+            "covers",
+            "target_profiles",
+            "assets",
+            "steps",
+            "observations",
+            "execution_schedule",
+        }
+        expected_fields.update({"scope_container", "scope_observation"} & case.keys())
         _exact_object(
             case,
-            {
-                "case_id",
-                "surface",
-                "operation",
-                "covers",
-                "target_profiles",
-                "assets",
-                "steps",
-                "observations",
-                "execution_schedule",
-            },
+            expected_fields,
             "parity case",
         )
         if case["operation"] != "__call__":

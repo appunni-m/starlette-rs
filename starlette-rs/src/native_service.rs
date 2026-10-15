@@ -578,17 +578,44 @@ where
             }
             fallback @ (DetailedRouteMatch::MethodNotAllowed { .. }
             | DetailedRouteMatch::NotFound) => {
-                let response = fallback
-                    .fallback_response()
-                    .map_err(NativeApplicationError::FallbackResponse)
-                    .and_then(|response| {
-                        response.ok_or(NativeApplicationError::MissingFallbackResponse)
-                    })
-                    .and_then(native_response_from_legacy);
-                Box::pin(async move { response })
+                fallback_future_for_match(fallback, &self.routes, request_scope)
             }
         }
     }
+}
+
+fn fallback_future_for_match(
+    route_match: DetailedRouteMatch,
+    routes: &RouteTable,
+    mut scope: NativeRequestScope,
+) -> EndpointFuture {
+    if let DetailedRouteMatch::MethodNotAllowed {
+        route_index,
+        path_params,
+        ..
+    } = &route_match
+    {
+        let captures = match routes.capture_path_parameters(*route_index, path_params) {
+            Ok(captures) => captures,
+            Err(error) => {
+                return Box::pin(async move {
+                    Err(NativeApplicationError::PathParameterCapture(error))
+                });
+            }
+        };
+        merge_scope_path_params(&mut scope.path_params, &captures);
+    }
+
+    let response = route_match
+        .fallback_response()
+        .map_err(NativeApplicationError::FallbackResponse)
+        .and_then(|response| response.ok_or(NativeApplicationError::MissingFallbackResponse))
+        .and_then(native_response_from_legacy);
+    Box::pin(async move {
+        let mut response = response?;
+        response.extensions_mut().insert(scope);
+        Ok(response)
+    })
 }
 
 /// An error raised while dispatching a native route or constructing its response.

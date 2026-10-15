@@ -632,6 +632,10 @@ impl PyFormData {
             .unwrap_or_else(|| py.None()))
     }
 
+    fn contains(&self, py: Python<'_>, key: &Bound<'_, PyAny>) -> PyResult<bool> {
+        self.mapping.bind(py).contains(key)
+    }
+
     fn getlist(&self, py: Python<'_>, key: &Bound<'_, PyAny>) -> PyResult<Vec<Py<PyAny>>> {
         self.items
             .iter()
@@ -1428,6 +1432,47 @@ fn url_init(
         let headers = scope.get_item("headers")?;
         let server = get.call1(("server", py.None()))?;
         let core = py.import("starlette_rs_py._core")?;
+        if path.is_instance_of::<PyString>() {
+            let original_path = python_string_to_codepoints(path.as_any())?;
+            if original_path
+                .iter()
+                .any(|codepoint| (0xD800..=0xDFFF).contains(codepoint))
+            {
+                // Rust's URL constructor accepts UTF-8 strings, while Starlette
+                // keeps lone surrogates in the URL until response encoding. Use
+                // a temporary valid path and restore the original code points
+                // after the URL has been assembled.
+                let marker = "__STARLETTE_RS_LONE_SURROGATE__";
+                let marker_codepoints: Vec<u32> =
+                    marker.chars().map(|character| character as u32).collect();
+                let mut marked_path = Vec::with_capacity(original_path.len());
+                for codepoint in &original_path {
+                    if (0xD800..=0xDFFF).contains(codepoint) {
+                        marked_path.extend_from_slice(&marker_codepoints);
+                    } else {
+                        marked_path.push(*codepoint);
+                    }
+                }
+                let marked_path_codepoints = marked_path;
+                let marked_path = codepoints_to_python_string(py, &marked_path_codepoints)?;
+                let assembled = core.getattr("_connection_url")?.call1((
+                    scheme,
+                    marked_path,
+                    query_string.clone(),
+                    headers,
+                    server,
+                ))?;
+                return restore_scope_url_path(
+                    py,
+                    &assembled,
+                    &original_path,
+                    &marked_path_codepoints,
+                    &query_string,
+                )
+                .map(Bound::into_any)
+                .map(Bound::unbind);
+            }
+        }
         return core
             .getattr("_connection_url")?
             .call1((scheme, path, query_string, headers, server))
@@ -1447,6 +1492,44 @@ fn url_init(
     }
 
     Ok(url.clone().unbind())
+}
+
+fn restore_scope_url_path<'py>(
+    py: Python<'py>,
+    assembled: &Bound<'py, PyAny>,
+    original_path: &[u32],
+    marked_path: &[u32],
+    query_string: &Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyAny>> {
+    let assembled = assembled.cast::<PyString>()?;
+    let mut assembled_codepoints = python_string_to_codepoints(assembled.as_any())?;
+    let query_string = query_string.cast::<PyBytes>()?;
+    let query_text = query_string
+        .call_method0("decode")?
+        .cast_into::<PyString>()?;
+    let query_codepoints = python_string_to_codepoints(query_text.as_any())?;
+
+    let mut suffix = Vec::with_capacity(query_codepoints.len() + 1);
+    if !query_codepoints.is_empty() {
+        suffix.push(u32::from(b'?'));
+        suffix.extend(query_codepoints);
+    }
+    if !assembled_codepoints.ends_with(&suffix) {
+        return Err(PyRuntimeError::new_err(
+            "connection URL did not preserve the query string suffix",
+        ));
+    }
+    let path_end = assembled_codepoints.len() - suffix.len();
+    if !assembled_codepoints[..path_end].ends_with(marked_path) {
+        return Err(PyRuntimeError::new_err(
+            "connection URL did not preserve the temporary scope path",
+        ));
+    }
+    let path_start = path_end - marked_path.len();
+    assembled_codepoints.truncate(path_start);
+    assembled_codepoints.extend_from_slice(original_path);
+    assembled_codepoints.extend(suffix);
+    codepoints_to_python_string(py, &assembled_codepoints).map(Bound::into_any)
 }
 
 #[pyfunction(name = "_url_components")]

@@ -157,9 +157,9 @@ impl PyWebSocketProtocol {
         send_callback: Py<PyAny>,
         disconnect_error: Py<PyAny>,
         state_type: Py<PyAny>,
+        debug: bool,
     ) -> PyResult<Self> {
-        let scope_type = scope.get_item("type")?;
-        if !scope_type.eq("websocket")? {
+        if debug && !scope.get_item("type")?.eq("websocket")? {
             return Err(PyAssertionError::new_err(()));
         }
 
@@ -1338,15 +1338,21 @@ impl AwaitableStateMachine for WebSocketIteratorThrow {
     fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
         match input {
             MachineResume::Start => {
-                if let Some(message) = &self.arity_error {
-                    return Err(PyTypeError::new_err(message.clone()));
-                }
                 if self.running.get() {
                     return Err(PyRuntimeError::new_err(
                         "athrow(): asynchronous generator is already running",
                     ));
                 }
+                if let Some(message) = &self.arity_error {
+                    // CPython 3.12 leaves an async generator marked as running
+                    // when an awaited athrow rejects its argument count.
+                    self.running.set(true);
+                    return Err(PyTypeError::new_err(message.clone()));
+                }
                 let was_finished = self.finished.replace(true);
+                if was_finished {
+                    return Ok(MachineAction::Complete(py.None()));
+                }
                 self.running.set(false);
                 let Some(exception_type) = self.exception_type.as_ref() else {
                     return Err(PyRuntimeError::new_err(

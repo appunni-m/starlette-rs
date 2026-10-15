@@ -5,7 +5,7 @@ use std::env;
 use std::error::Error;
 use std::ffi::OsString;
 use std::fs;
-use std::future::{Future, pending, ready};
+use std::future::{Future, pending, poll_fn, ready};
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
@@ -74,12 +74,12 @@ use unicode_general_category as _;
 const REQUEST_SCHEMA: &str = "migration-parity/adapter-request@1";
 const RESPONSE_SCHEMA: &str = "migration-parity/adapter-response@1";
 const SUBJECT_ID: &str = "rust-native";
-const RUST_NATIVE_TARGET_PROFILE: &str = "rust-native-local";
 const REDIRECT_RESPONSE_SURFACE: &str = "starlette.responses.RedirectResponse";
 const REDIRECT_RESPONSE_OPERATION: &str = "asgi-call";
 const RESPONSE_SURFACE: &str = "starlette.responses.Response";
 const JSON_RESPONSE_SURFACE: &str = "starlette.responses.JSONResponse";
 const STREAMING_RESPONSE_SURFACE: &str = "starlette.responses.StreamingResponse";
+const NATIVE_STREAMING_RESPONSE_SURFACE: &str = "starlette-rs.StreamingResponse";
 const FILE_RESPONSE_SURFACE: &str = "starlette.responses.FileResponse";
 const STATIC_FILES_SURFACE: &str = "starlette.staticfiles.StaticFiles";
 const STATIC_FILES_LOOKUP_PATH_OPERATION: &str = "lookup-path";
@@ -730,11 +730,6 @@ fn run_native_service_case(case: &Value) -> Result<Value, String> {
             "native service target_profiles must contain strings",
         ));
     }
-    let rust_only_profile = !input_profiles.is_empty()
-        && input_profiles
-            .iter()
-            .all(|profile| profile.as_str() == Some(RUST_NATIVE_TARGET_PROFILE));
-
     let request = exact_object(
         case.get("request")
             .ok_or_else(|| String::from("native service case misses request"))?,
@@ -834,7 +829,11 @@ fn run_native_service_case(case: &Value) -> Result<Value, String> {
                         match frame {
                             Ok(frame) => {
                                 if let Ok(data) = frame.into_data() {
-                                    chunks.push(encode_base64(&data));
+                                    let encoded = encode_base64(&data);
+                                    chunks.push(encoded.clone());
+                                    if let Ok(mut captured) = observations.lock() {
+                                        captured.request_chunks = chunks.clone();
+                                    }
                                 }
                             }
                             Err(error) => {
@@ -1053,35 +1052,6 @@ fn run_native_service_case(case: &Value) -> Result<Value, String> {
         String::from("service-error"),
         service_error.map_or(Value::Null, |message| json!({"message": message})),
     );
-    if rust_only_profile {
-        // These native polling and drop observations are target-specific. Keep
-        // them out of shared workflows, whose exact output is also compared
-        // with the Python package.
-        let request_poll_trace = request_trace
-            .lock()
-            .map_err(|_| String::from("native service request trace lock is poisoned"))?
-            .clone();
-        let response_poll_trace = response_trace
-            .lock()
-            .map_err(|_| String::from("native service response trace lock is poisoned"))?
-            .clone();
-        values.insert(
-            String::from("request-body-poll-trace"),
-            json!(request_poll_trace),
-        );
-        values.insert(
-            String::from("request-body-dropped"),
-            json!(request_dropped.load(Ordering::Acquire)),
-        );
-        values.insert(
-            String::from("response-body-poll-trace"),
-            json!(response_poll_trace),
-        );
-        values.insert(
-            String::from("response-body-dropped"),
-            json!(response_dropped.load(Ordering::Acquire)),
-        );
-    }
     native_observation_result(case_id, case, values, "native service")
 }
 
@@ -1361,13 +1331,19 @@ fn native_service_request_from_input(
     include_host: bool,
 ) -> Result<Request<NativeProbeBody>, String> {
     let request = if include_host {
-        exact_object(
+        object_with_optional_keys(
             value,
             &["method", "uri", "host_header", "body"],
+            &["scope"],
             "native host request",
         )?
     } else {
-        exact_object(value, &["method", "uri", "body"], "native mounted request")?
+        object_with_optional_keys(
+            value,
+            &["method", "uri", "body"],
+            &["scope"],
+            "native mounted request",
+        )?
     };
     let body = exact_object(
         request
@@ -1422,6 +1398,10 @@ fn native_service_response_observation(
     let mut response_body_chunks = Vec::new();
     let mut status = None;
     let mut service_error = service_error;
+    let response_scope = response
+        .as_ref()
+        .and_then(|response| response.extensions().get::<NativeRequestScope>())
+        .cloned();
     if let Some(mut response) = response.take() {
         status = Some(response.status().as_u16());
         block_on(async {
@@ -1443,8 +1423,26 @@ fn native_service_response_observation(
     let captured = observation
         .lock()
         .map_err(|_| format!("{context} observation lock is poisoned"))?
-        .clone()
-        .unwrap_or_default();
+        .clone();
+    let (path_params, root_path, app_root_path) = if let Some(captured) = captured {
+        let root_path = captured.root_path.unwrap_or_default();
+        let app_root_path = captured.app_root_path.unwrap_or_else(|| root_path.clone());
+        (captured.path_params, root_path, app_root_path)
+    } else if let Some(scope) = response_scope {
+        let root_path = scope.root_path().to_owned();
+        let app_root_path = scope
+            .app_root_path()
+            .unwrap_or_else(|| scope.root_path())
+            .to_owned();
+        let path_params = scope
+            .path_params()
+            .iter()
+            .map(|parameter| (parameter.name.clone(), parameter.value.clone()))
+            .collect::<Vec<_>>();
+        (path_params, root_path, app_root_path)
+    } else {
+        (Vec::new(), String::new(), String::new())
+    };
     let values = Map::from_iter([
         (
             String::from("status"),
@@ -1454,15 +1452,9 @@ fn native_service_response_observation(
             String::from("response_body_chunks"),
             json!(response_body_chunks),
         ),
-        (String::from("path_params"), json!(captured.path_params)),
-        (
-            String::from("root_path"),
-            captured.root_path.map_or(Value::Null, Value::String),
-        ),
-        (
-            String::from("app_root_path"),
-            captured.app_root_path.map_or(Value::Null, Value::String),
-        ),
+        (String::from("path_params"), json!(path_params)),
+        (String::from("root_path"), json!(root_path)),
+        (String::from("app_root_path"), json!(app_root_path)),
         (
             String::from("service_error"),
             service_error.map_or(Value::Null, Value::String),
@@ -2320,7 +2312,8 @@ fn run_native_streaming_source_case(case: &Value) -> Result<Value, String> {
         "native streaming source case",
     )?;
     let case_id = string_field(case, "case_id", "native streaming source case")?;
-    if string_field(case, "surface", "native streaming source case")? != STREAMING_RESPONSE_SURFACE
+    if string_field(case, "surface", "native streaming source case")?
+        != NATIVE_STREAMING_RESPONSE_SURFACE
         || string_field(case, "operation", "native streaming source case")?
             != NATIVE_STREAMING_RESPONSE_SOURCE_OPERATION
     {
@@ -3459,7 +3452,42 @@ struct NativeWebSocketDriverProbe {
     incoming: Mutex<VecDeque<NativeWebSocketEvent>>,
     pending_receive: bool,
     cancel_receive: bool,
+    cancellation: Arc<NativeWebSocketCancellation>,
     observations: Arc<Mutex<NativeWebSocketProbe>>,
+}
+
+#[derive(Default)]
+struct NativeWebSocketCancellation {
+    requested: AtomicBool,
+    waiter: Mutex<Option<Waker>>,
+}
+
+impl NativeWebSocketCancellation {
+    fn request(&self) {
+        self.requested.store(true, Ordering::Release);
+        let waker = match self.waiter.lock() {
+            Ok(mut waiter) => waiter.take(),
+            Err(error) => error.into_inner().take(),
+        };
+        if let Some(waker) = waker {
+            waker.wake();
+        }
+    }
+
+    fn poll_requested(&self, context: &mut Context<'_>) -> Poll<()> {
+        if self.requested.load(Ordering::Acquire) {
+            return Poll::Ready(());
+        }
+        match self.waiter.lock() {
+            Ok(mut waiter) => *waiter = Some(context.waker().clone()),
+            Err(error) => *error.into_inner() = Some(context.waker().clone()),
+        }
+        if self.requested.load(Ordering::Acquire) {
+            Poll::Ready(())
+        } else {
+            Poll::Pending
+        }
+    }
 }
 
 impl NativeWebSocketDriver for NativeWebSocketDriverProbe {
@@ -3491,6 +3519,9 @@ impl NativeWebSocketDriver for NativeWebSocketDriverProbe {
                 probe.receive_started = true;
             }
             if self.pending_receive {
+                if self.cancel_receive {
+                    self.cancellation.request();
+                }
                 return pending::<Result<NativeWebSocketEvent, NativeWebSocketTransportError>>()
                     .await;
             }
@@ -3561,15 +3592,23 @@ impl NativeWebSocketDriver for NativeWebSocketDriverProbe {
     }
 
     fn cancelled(&self) -> futures::future::BoxFuture<'_, ()> {
-        if self.cancel_receive {
-            Box::pin(async move {
-                if let Ok(mut probe) = self.observations.lock() {
-                    probe.receive_cancelled = true;
-                }
-            })
-        } else {
-            Box::pin(pending())
+        if !self.cancel_receive {
+            return Box::pin(pending());
         }
+        let cancellation = Arc::clone(&self.cancellation);
+        let observations = Arc::clone(&self.observations);
+        Box::pin(poll_fn(move |context| {
+            if cancellation.poll_requested(context).is_ready() {
+                let mut probe = match observations.lock() {
+                    Ok(probe) => probe,
+                    Err(error) => error.into_inner(),
+                };
+                probe.receive_cancelled = true;
+                Poll::Ready(())
+            } else {
+                Poll::Pending
+            }
+        }))
     }
 }
 
@@ -3681,6 +3720,8 @@ fn run_native_websocket_case(case: &Value) -> Result<Value, String> {
     )?;
     let route_path = string_field(route, "path", "native WebSocket route")?.to_owned();
     let preferred = string_array_field(route, "preferred_subprotocols", "native WebSocket route")?;
+    let (route_path_params, typed_route_path_params) =
+        native_websocket_path_parameters(&route_path, handshake.uri())?;
     let actions = input
         .get("actions")
         .and_then(Value::as_array)
@@ -3726,22 +3767,26 @@ fn run_native_websocket_case(case: &Value) -> Result<Value, String> {
         .transpose()?
         .unwrap_or_default();
     let observations = Arc::new(Mutex::new(NativeWebSocketProbe::default()));
+    let cancellation = Arc::new(NativeWebSocketCancellation::default());
     let driver: Arc<dyn NativeWebSocketDriver> = Arc::new(NativeWebSocketDriverProbe {
         incoming: Mutex::new(incoming),
         pending_receive,
         cancel_receive,
+        cancellation,
         observations: Arc::clone(&observations),
     });
     let route_observations = Arc::clone(&observations);
     let route = NativeWebSocketRoute::new(route_path, preferred, move |mut session| {
         let observations = Arc::clone(&route_observations);
         let actions = actions.clone();
+        let route_path_params = route_path_params.clone();
+        let typed_route_path_params = typed_route_path_params.clone();
         async move {
-            let params = session
-                .path_params()
-                .iter()
-                .map(|(key, value)| (key.clone(), json!(value)))
-                .collect::<Map<_, _>>();
+            if session.path_params() != route_path_params.as_slice() {
+                return Err(NativeWebSocketError::application(io::Error::other(
+                    "native WebSocket route captures differ from the route table",
+                )));
+            }
             let handshake = json!({
                 "method": session.handshake().method().as_str(),
                 "uri": session.handshake().uri().to_string(),
@@ -3750,7 +3795,7 @@ fn run_native_websocket_case(case: &Value) -> Result<Value, String> {
                 "offered_subprotocols": session.handshake().offered_subprotocols(),
             });
             if let Ok(mut probe) = observations.lock() {
-                probe.path_params = Some(Value::Object(params));
+                probe.path_params = Some(typed_route_path_params);
                 probe.handshake = Some(handshake);
             }
             let mut last_message = None::<NativeWebSocketMessage>;
@@ -3955,6 +4000,50 @@ fn run_native_websocket_case(case: &Value) -> Result<Value, String> {
         json!(probe.receive_cancelled && probe.receive_started),
     );
     native_observation_result(case_id, case, values, "native WebSocket")
+}
+
+fn native_websocket_path_parameters(
+    route_path: &str,
+    uri: &Uri,
+) -> Result<(Vec<(String, String)>, Value), String> {
+    let mut routes = RouteTable::new();
+    routes
+        .add_route(route_path, std::iter::empty::<&str>())
+        .map_err(|error| format!("native WebSocket route is invalid: {error}"))?;
+    let DetailedRouteMatch::Matched {
+        route_index,
+        path_params,
+    } = routes.matches_detailed(uri.path(), "")
+    else {
+        return Ok((Vec::new(), Value::Null));
+    };
+    let captures = routes
+        .capture_path_parameters(route_index, &path_params)
+        .map_err(|error| format!("native WebSocket route captures are invalid: {error}"))?;
+    let string_params = captures
+        .iter()
+        .map(|capture| (capture.name.clone(), capture.value.clone()))
+        .collect();
+    let typed_params = captures
+        .into_iter()
+        .map(|capture| {
+            let value = match capture.converter {
+                PathConverter::Integer | PathConverter::Float => {
+                    serde_json::from_str::<Value>(&capture.value).map_err(|error| {
+                        format!(
+                            "native WebSocket numeric path parameter {} is invalid: {error}",
+                            capture.name
+                        )
+                    })?
+                }
+                PathConverter::String | PathConverter::Uuid | PathConverter::Path => {
+                    Value::String(capture.value)
+                }
+            };
+            Ok((capture.name, value))
+        })
+        .collect::<Result<Map<_, _>, String>>()?;
+    Ok((string_params, Value::Object(typed_params)))
 }
 
 fn parse_native_websocket_event(
@@ -4197,14 +4286,15 @@ fn run_native_lifespan_case(case: &Value) -> Result<Value, String> {
                     .take()
                     .ok_or_else(|| String::from("native lifespan shutdown requires startup"))?;
                 if let Err(error) = block_on(active_lifecycle.shutdown()) {
-                    shutdown_failure = if operation == "shutdown" {
-                        native_lifespan_aggregated_shutdown_error_value(
-                            &error,
-                            &registration_names,
-                        )?
-                    } else {
-                        native_lifespan_error_value(&error, &registration_names)?
-                    };
+                    shutdown_failure =
+                        if operation == "shutdown" && case.get("fault_contract").is_some() {
+                            native_lifespan_aggregated_shutdown_error_value(
+                                &error,
+                                &registration_names,
+                            )?
+                        } else {
+                            native_lifespan_error_value(&error, &registration_names)?
+                        };
                 }
             }
             "start-to-cache-suspension" => {
@@ -9730,6 +9820,7 @@ fn run_websocket_state_case(case: &Value) -> Result<Value, String> {
 
     let mut machine = WebSocketStateMachine::new();
     let mut incoming_index = 0;
+    let mut receive_calls = 0;
     let mut action_ids = std::collections::BTreeSet::new();
     let mut action_results = Vec::with_capacity(actions.len());
     for (index, action) in actions.iter().enumerate() {
@@ -9745,6 +9836,7 @@ fn run_websocket_state_case(case: &Value) -> Result<Value, String> {
             "accept" => {
                 exact_keys(action_object, &["action_id", "action"], &context)?;
                 let receive_result = if machine.client_state() == WebSocketState::Connecting {
+                    receive_calls += 1;
                     let message = incoming.get(incoming_index).ok_or_else(|| {
                         String::from("WebSocket accept action has no input message")
                     })?;
@@ -9785,6 +9877,7 @@ fn run_websocket_state_case(case: &Value) -> Result<Value, String> {
                     machine.client_state(),
                     WebSocketState::Connecting | WebSocketState::Connected
                 ) {
+                    receive_calls += 1;
                     let message = incoming.get(incoming_index).ok_or_else(|| {
                         String::from("WebSocket state receive action has no input message")
                     })?;
@@ -9929,6 +10022,7 @@ fn run_websocket_state_case(case: &Value) -> Result<Value, String> {
         "action_results": action_results,
         "client_state": websocket_state_name(machine.client_state()),
         "application_state": websocket_state_name(machine.application_state()),
+        "receive_calls": receive_calls,
     });
     Ok(json!({
         "case_id": case_id,
@@ -11356,6 +11450,12 @@ fn run_request_case(case: &Value) -> Result<Value, String> {
                 "request_observations": request_observations,
                 "sync_endpoint_observations": null,
                 "async_endpoint_observations": null,
+                "scope_mapping_observation": {
+                    "type": "builtins.dict",
+                    "app_is_application": true,
+                    "router_is_application_router": true,
+                    "marker": request.path,
+                },
                 "route_scope": route_scope,
                 "response_status": response["response_status"],
                 "ordered_repeated_headers": response["ordered_repeated_headers"],

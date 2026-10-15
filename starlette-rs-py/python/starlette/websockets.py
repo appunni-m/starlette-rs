@@ -40,7 +40,7 @@ class WebSocket(HTTPConnection[StateT]):
         self._receive = receive
         self._send = send
         self._protocol = _core.WebSocketProtocol(
-            scope, receive, send, WebSocketDisconnect, WebSocketState
+            scope, receive, send, WebSocketDisconnect, WebSocketState, __debug__
         )
 
     @property

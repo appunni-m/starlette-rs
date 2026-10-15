@@ -42128,17 +42128,20 @@ def validate_workflow_result(value: Any, expected_case_id: str, context: str) ->
             _exact(item, {"step_id", "status", "value"}, item_context)
         elif status == "error":
             _exact(item, {"step_id", "status", "error", "partial_value"}, item_context)
+            error_fields = {
+                "class",
+                "kind",
+                "message",
+                "stage",
+                "code",
+                "cause",
+                "suppress_context",
+            }
+            if "context_chain" in item["error"]:
+                error_fields.add("context_chain")
             _exact(
                 item["error"],
-                {
-                    "class",
-                    "kind",
-                    "message",
-                    "stage",
-                    "code",
-                    "cause",
-                    "suppress_context",
-                },
+                error_fields,
                 f"{item_context}.error",
             )
             for name in ("class", "kind", "message", "stage"):
@@ -42159,6 +42162,15 @@ def validate_workflow_result(value: Any, expected_case_id: str, context: str) ->
                     raise ContractError(f"{item_context}.error.cause.attributes must be an object")
             if not isinstance(item["error"]["suppress_context"], bool):
                 raise ContractError(f"{item_context}.error.suppress_context must be boolean")
+            if "context_chain" in item["error"]:
+                context_chain = item["error"]["context_chain"]
+                if not isinstance(context_chain, list):
+                    raise ContractError(f"{item_context}.error.context_chain must be an array")
+                for chain_index, chain_item in enumerate(context_chain):
+                    chain_context = f"{item_context}.error.context_chain[{chain_index}]"
+                    _exact(chain_item, {"class", "message"}, chain_context)
+                    _string(chain_item["class"], f"{chain_context}.class")
+                    _string(chain_item["message"], f"{chain_context}.message")
             if not isinstance(item["partial_value"], dict):
                 raise ContractError(f"{item_context}.partial_value must be an object")
         elif status in {"skipped", "unsupported"}:
