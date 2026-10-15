@@ -485,7 +485,24 @@ def _native_not_run(category: str, identity: dict[str, Any] | None) -> dict[str,
 def _profile_parity_gate_passes(
     result: dict[str, Any], profile_id: str, expected_case_ids: list[str]
 ) -> bool:
-    """Require complete passing comparisons from a clean target identity."""
+    """Require passing comparisons, allowing only explicit two-sided skips."""
+    summary = result.get("summary")
+    if (
+        not isinstance(summary, dict)
+        or summary.get("failed") != 0
+        or summary.get("infrastructure_errors") != 0
+        or summary.get("passed") != summary.get("executed")
+    ):
+        return False
+    fault_contracts = summary.get("fault_contracts")
+    if (
+        not isinstance(fault_contracts, dict)
+        or fault_contracts.get("failed") != 0
+        or fault_contracts.get("not_run") != 0
+        or fault_contracts.get("passed") != fault_contracts.get("selected")
+    ):
+        return False
+
     comparisons = result.get("comparisons")
     if not isinstance(comparisons, list):
         return False
@@ -506,13 +523,36 @@ def _profile_parity_gate_passes(
         if isinstance(row, dict) and row.get("target_profile") == profile_id
     ]
     observed_case_ids = [row.get("case_id") for row in profile_rows]
+
+    def explicit_two_sided_skip(row: dict[str, Any]) -> bool:
+        if row.get("outcome") != "not_run":
+            return False
+        for side_name in ("source", "target"):
+            side = row.get(side_name)
+            if not isinstance(side, dict) or side.get("status") != "skipped":
+                return False
+            observations = side.get("observations")
+            if not isinstance(observations, list) or not observations:
+                return False
+            if any(
+                not isinstance(observation, dict)
+                or observation.get("status") != "skipped"
+                or not isinstance(observation.get("reason"), str)
+                or not observation["reason"]
+                for observation in observations
+            ):
+                return False
+        return True
+
     return (
         bool(expected_case_ids)
         and len(profile_rows) == len(expected_case_ids)
         and all(isinstance(case_id, str) for case_id in observed_case_ids)
         and len(observed_case_ids) == len(set(observed_case_ids))
         and set(observed_case_ids) == set(expected_case_ids)
-        and all(row.get("outcome") == "pass" for row in profile_rows)
+        and all(
+            row.get("outcome") == "pass" or explicit_two_sided_skip(row) for row in profile_rows
+        )
     )
 
 
