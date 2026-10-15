@@ -159,6 +159,12 @@ STARLETTE_CONSTRUCTOR_VISIBILITY_SUBCLASS_KIND = "capture-instance-during-constr
 REQUEST_PUSH_PROMISE_HEADER_ORDER_REQUIREMENT = (
     "starlette.request.send-push-promise.header-iteration-order"
 )
+REQUEST_PUSH_PROMISE_CALLBACK_EXCEPTION_REQUIREMENT = (
+    "starlette.request.send-push-promise.callback-exception-propagation"
+)
+REQUEST_PUSH_PROMISE_CALLBACK_EXCEPTION_CLASSES = frozenset(
+    {"LookupError", "RuntimeError", "ValueError"}
+)
 REQUEST_PUSH_PROMISE_COPIED_HEADERS = frozenset(
     {b"accept", b"accept-encoding", b"accept-language", b"cache-control", b"user-agent"}
 )
@@ -32379,11 +32385,51 @@ def _validate_send_push_promise_case(case: dict[str, Any]) -> None:
     if case["assets"] != [] or case["observations"] != ["send-push-promise"]:
         raise ContractError("push-promise cases must select one observation without assets")
     _string(case["path"], "Request.send_push_promise path")
-    callback = _exact(
-        case["send_callback"], {"kind"}, "Request.send_push_promise callback selector"
-    )
-    if callback["kind"] not in {"capture", "default"}:
-        raise ContractError("push-promise callback must select capture or default")
+    callback = case["send_callback"]
+    if not isinstance(callback, dict) or callback.get("kind") not in {
+        "capture",
+        "default",
+        "raise",
+    }:
+        raise ContractError("push-promise callback must select capture, default, or raise")
+    if callback["kind"] == "raise":
+        callback = _exact(
+            callback,
+            {"kind", "exception"},
+            "Request.send_push_promise raising callback",
+        )
+        exception = _exact(
+            callback["exception"],
+            {"class", "message", "cause", "context"},
+            "Request.send_push_promise callback exception",
+        )
+        exception_values = [("exception", exception)]
+        exception_values.extend(
+            (
+                exception_field,
+                _exact(
+                    exception[exception_field],
+                    {"class", "message"},
+                    f"Request.send_push_promise callback {exception_field}",
+                ),
+            )
+            for exception_field in ("cause", "context")
+        )
+        for exception_field, exception_value in exception_values:
+            if exception_value["class"] not in REQUEST_PUSH_PROMISE_CALLBACK_EXCEPTION_CLASSES:
+                raise ContractError(
+                    f"push-promise {exception_field} class is outside the declared built-in set"
+                )
+            _string(
+                exception_value["message"],
+                f"Request.send_push_promise callback {exception_field} message",
+            )
+    else:
+        _exact(
+            callback,
+            {"kind"},
+            "Request.send_push_promise callback selector",
+        )
     scope = case["scope"]
     if not isinstance(scope, dict) or "extensions" not in scope:
         raise ContractError("push-promise scope must explicitly declare its extensions")
@@ -32405,11 +32451,19 @@ def _validate_send_push_promise_case(case: dict[str, Any]) -> None:
     if "http.response.push" in extensions and extensions["http.response.push"] != {}:
         raise ContractError("HTTP response push extension configuration must be empty")
     if "http.response.push" not in extensions:
+        if callback["kind"] == "raise":
+            raise ContractError(
+                "raising push-promise callback requires the HTTP response push extension"
+            )
         expected = ["starlette.request.send-push-promise.without-extension"]
     elif callback["kind"] == "default":
         expected = ["starlette.request.send-push-promise.missing-send"]
     else:
-        expected = ["starlette.request.send-push-promise.extension-event"]
+        expected = [
+            REQUEST_PUSH_PROMISE_CALLBACK_EXCEPTION_REQUIREMENT
+            if callback["kind"] == "raise"
+            else "starlette.request.send-push-promise.extension-event"
+        ]
         header_pairs = _validate_header_pairs(
             scope["headers_base64_pairs"], "Request.send_push_promise headers"
         )

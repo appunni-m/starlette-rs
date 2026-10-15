@@ -1576,6 +1576,72 @@
       ]
     },
     {
+      "case_id": "starlette.requests.Request.send-push-promise.callback-exception-propagation",
+      "surface": "starlette.requests.Request",
+      "operation": "send-push-promise",
+      "covers": [
+        "starlette.request.send-push-promise.callback-exception-propagation"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "YWNjZXB0",
+            "dGV4dC9jc3M="
+          ],
+          [
+            "YXV0aG9yaXphdGlvbg==",
+            "c2VjcmV0"
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ],
+        "extensions": {
+          "http.response.push": {}
+        }
+      },
+      "path": "/asset.css",
+      "send_callback": {
+        "kind": "raise",
+        "exception": {
+          "class": "RuntimeError",
+          "message": "push callback failure",
+          "cause": {
+            "class": "ValueError",
+            "message": "callback cause"
+          },
+          "context": {
+            "class": "LookupError",
+            "message": "callback context"
+          }
+        }
+      },
+      "observations": [
+        "send-push-promise"
+      ]
+    },
+    {
       "case_id": "starlette.requests.Request.is-disconnected.after-response",
       "surface": "starlette.requests.Request",
       "operation": "is-disconnected",

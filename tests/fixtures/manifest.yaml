@@ -19024,6 +19024,18 @@
               ]
             },
             {
+              "id": "starlette.request.send-push-promise.callback-exception-propagation",
+              "dimension": "error_path",
+              "description": "When the supplied ASGI send callback raises an input-created exception after receiving the push event, preserve that exception object's identity and its cause/context chain. Pinned source: starlette/requests.py::Request.send_push_promise.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.request.send-push-promise.header-iteration-order",
               "dimension": "input_family",
               "description": "With the push extension enabled, compare the order of copied header names when multiple designated names and repeated values are supplied. Pinned source: starlette/requests.py::SERVER_PUSH_HEADERS_TO_COPY and Request.send_push_promise.",

@@ -11988,13 +11988,48 @@ def _run_send_push_promise_case(case: dict[str, Any]) -> dict[str, Any]:
     from starlette.requests import Request
 
     sent_messages: list[dict[str, Any]] = []
+    callback_calls = 0
+    callback_spec = case["send_callback"]
+    callback_error: BaseException | None = None
+    callback_cause: BaseException | None = None
+    callback_context: BaseException | None = None
 
     async def capture_send(message: dict[str, Any]) -> None:
+        nonlocal callback_calls
+        callback_calls += 1
         sent_messages.append(message)
 
     scope = _make_scope(case["scope"])
-    if case["send_callback"]["kind"] == "capture":
+    if callback_spec["kind"] == "capture":
         request = Request(scope, send=capture_send)
+    elif callback_spec["kind"] == "raise":
+        exception_types = {
+            "LookupError": LookupError,
+            "RuntimeError": RuntimeError,
+            "ValueError": ValueError,
+        }
+        exception_spec = callback_spec["exception"]
+        error_to_raise = exception_types[exception_spec["class"]](exception_spec["message"])
+        cause_to_raise = exception_types[exception_spec["cause"]["class"]](
+            exception_spec["cause"]["message"]
+        )
+        context_to_raise = exception_types[exception_spec["context"]["class"]](
+            exception_spec["context"]["message"]
+        )
+        callback_error = error_to_raise
+        callback_cause = cause_to_raise
+        callback_context = context_to_raise
+
+        async def raise_send(message: dict[str, Any]) -> None:
+            nonlocal callback_calls
+            callback_calls += 1
+            sent_messages.append(message)
+            try:
+                raise context_to_raise
+            except Exception:
+                raise error_to_raise from cause_to_raise
+
+        request = Request(scope, send=raise_send)
     else:
         request = Request(scope)
 
@@ -12002,15 +12037,42 @@ def _run_send_push_promise_case(case: dict[str, Any]) -> dict[str, Any]:
         try:
             await request.send_push_promise(case["path"])
         except Exception as exc:
-            return {
+            error = {
+                "class": f"{type(exc).__module__}.{type(exc).__qualname__}",
+                "message": str(exc),
+            }
+            if callback_error is not None:
+
+                def observe_link(
+                    linked_error: BaseException | None,
+                    expected_error: BaseException | None,
+                ) -> dict[str, Any] | None:
+                    if linked_error is None:
+                        return None
+                    return {
+                        "class": f"{type(linked_error).__module__}.{type(linked_error).__qualname__}",
+                        "message": str(linked_error),
+                        "identity_preserved": linked_error is expected_error,
+                    }
+
+                error.update(
+                    {
+                        "callback_exception_identity": exc is callback_error,
+                        "cause": observe_link(exc.__cause__, callback_cause),
+                        "context": observe_link(exc.__context__, callback_context),
+                        "suppress_context": exc.__suppress_context__,
+                    }
+                )
+            result = {
                 "outcome": "error",
-                "error": {
-                    "class": f"{type(exc).__module__}.{type(exc).__qualname__}",
-                    "message": str(exc),
-                },
+                "error": error,
                 "sent": _json_safe(sent_messages),
             }
-        return {"outcome": "value", "sent": _json_safe(sent_messages)}
+        else:
+            result = {"outcome": "value", "sent": _json_safe(sent_messages)}
+        if callback_spec["kind"] == "raise":
+            result["callback_calls"] = callback_calls
+        return result
 
     return {
         "case_id": case["case_id"],
