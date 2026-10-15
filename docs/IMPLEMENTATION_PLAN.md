@@ -7,37 +7,64 @@ Pydantic are outside this project's scope.
 
 ## Execution order and current status
 
-Active manifest checkpoint (2026-10-15; last contract change at commit `68951650`):
+Active evidence checkpoint (2026-10-15; `parity-input@58`; clean target
+revision `576e9cfd99a063d46493aed28ff103292aa642f8`):
 
 The active manifest declares full Starlette 1.6.0 scope with 2,538 cases across
 416 parity inputs, two benchmark inputs, 151 compatibility operations, 14
 Rust-native operations, 1,399 parity requirements, and six target profiles.
+Its SHA-256 is
+`86f69fc791088794fcd59483d6a91cc08bb9b3999586665f73c2f722f9946029`; the
+oracle is Starlette 1.6.0 at
+`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`.
 The generated source atlas has 866 rows: 810 mapped, 56 source-backed
 `not_applicable`, and zero fixture backlog. The 999-row API catalog has 564
 supported candidates, 435 private/internal candidates, and zero uncertain
 candidates. The pinned denominators remain 514 upstream test functions and 24
 documented pages.
 
-Commit `68951650` registers an input-only Application/Mount/Router/Route
-middleware composition case and aligns the WebSocketRoute package adapter with
-missing-key and mapping-backed scope inputs. `make contract-check`,
-`make source-inventory-check`, `make lint`, and `make check` pass at this
-checkpoint. The Markdown link check passes; `make docs-check` still detects a
-stale benchmark-evidence manifest digest, which remains for the ordered
-benchmark phase. The new comparisons have not run.
+The corrected five-profile matrix on the clean target revision recorded 5,417
+passed, zero failed, zero infrastructure errors, and six explicit `not_run`
+rows; all 17 selected fault contracts passed. Per-profile results were:
+CPython 3.10, 632/633 (run
+`960e977d-ff63-4cdc-bf86-7e29904bb9b7`); 3.11, 632/633
+(`084c571e-6a3e-485c-bac5-d784a269ed34`); 3.12, 2,887/2,889
+(`c5706308-af41-4f8a-b326-c03a5799d2d1`); 3.13, 633/634
+(`f21bef98-6b34-497e-bc30-e8bdce65b6f9`); and 3.14, 633/634
+(`4360b1c3-fa5e-4b5b-91c6-c0d1e710be8c`).
 
-The last recorded full matrix, coverage, and benchmark receipts below belong to
-earlier manifest revisions; they do not verify the active working tree. The
-most recent CI run on base commit `bf500141` failed before comparisons because
-result schema @8 rejected the emitted `build_artifacts` identity field. The
-`e8ed3b8d` base upgrades the strict result contract to @9, constrains the
-CPython-specific MarkupSafe provenance, adds WebSocketRoute equality and
-missing-scope-key inputs, and expands ordinary BackgroundTask and concurrency
-inputs across CPython 3.10–3.14. Other async-generator protocol inputs remain
-at 3.12; the separately audited WebSocket `athrow` arity input now covers
-3.10–3.14.
+The accepted full Rust coverage receipt is
+[`starlette-project.lcov`](../build/parity/coverage/full-starlette-1.6.0-20261015-576e9cfd-native-inclusive-verified/starlette-project.lcov):
+26,113/33,345 lines covered (78.31%). Its `tests=unknown` status reflects the
+two explicit CPython 3.12 `not_run` rows. The receipt is bound to extension
+SHA-256 `5a506c6d65feff52203ceaa713267d4fae42542767a88d45f6918861a7cf3e7f`
+and adapter SHA-256
+`40b898b97f65d661aecdf17ef6e796f57d23f6ce3aa153d8aaf1ebf82831a5c7`.
+Coverage measures executed Rust lines; it is not a parity score.
 
-The first grouped full matrix ran on clean commit `8b05702c` across CPython
+The 74-workload benchmark measurement completed on the active revision: 6
+Router and 68 GZip source/package workloads, zero failures, zero source/package
+`not_run`, and 74 Rust-native `not_run` because the equivalent native workload
+boundary is unavailable. The correctness preflight
+`2d30a13f-5318-49dd-8ce6-fea5b1e34eef` recorded 2,887 passed, zero failed,
+zero infrastructure errors, two `not_run`, and 5/5 selected fault contracts.
+The median source/package latency ratios were 0.219 for Router and 0.974 for
+GZip; source latency was lower in 6/6 Router and 63/68 GZip workloads, and
+normalized observation hashes matched in 74/74. The result SHA-256 is
+`f8c9af763f3695bcd284e9d1ff95517355f8a0eb086590e156f2a65e5b3f0086`.
+These are workload-specific timings, not a general performance or compatibility
+claim.
+
+The implementation and grouped repair phases are complete for this active
+contract. The earlier CI/schema failure and grouped first-pass results below
+are historical. The `e8ed3b8d` base upgraded the strict result contract to @9,
+constrained CPython-specific MarkupSafe provenance, added WebSocketRoute
+equality and missing-scope-key inputs, and expanded ordinary BackgroundTask
+and concurrency inputs across CPython 3.10–3.14. Other async-generator
+protocol inputs remain at 3.12; the separately audited WebSocket `athrow`
+arity input covers 3.10–3.14.
+
+The initial grouped full matrix ran on clean commit `8b05702c` across CPython
 3.10–3.14. CPython 3.10 and 3.11 each recorded 631 passes, one URL mismatch,
 and one POSIX-only `not_run`; CPython 3.12 recorded 2,886 passes and one
 WebSocketRoute package-adapter infrastructure error; CPython 3.13 and 3.14
@@ -46,11 +73,16 @@ contracts passed. The URL mismatch comes from CPython 3.10/3.11 `urlunsplit`
 behavior for an empty authority and relative path. The Rust compatibility
 boundary now uses the running interpreter version to preserve that behavior,
 and the package adapter now accepts the input's declared optional
-`scope_container`. `RUSTC_WRAPPER= make check` and `RUSTC_WRAPPER= make lint`
-pass after these grouped repairs. A complete rerun across all five interpreters
-is required before coverage; no current full parity, coverage, or benchmark
-result has been accepted. Do not infer replacement parity from historical
-receipts below. Historical batch notes describe their state when recorded.
+`scope_container`. The corrected active-revision results are recorded above.
+Do not infer universal drop-in compatibility from the matrix alone: retain the
+514 upstream test-function and 24 documented-page denominators and the
+input-driven compatibility inventory status.
+
+The implementation batch notes below preserve their checkpoint chronology;
+phrases such as “deferred” and “unexecuted” describe the status when each note
+was written. Current active-revision gate states are summarized above and in
+the execution ledger. Historical batch notes describe their state when
+recorded.
 
 The latest implementation batch now compares FileResponse's stateful PathLike
 calls inside its input-conditioned result record, and WSGIMiddleware's sender,
@@ -214,34 +246,42 @@ registered source/package comparison remains deferred to the full parity phase.
 
 The templating runtime now renders before resolving the dynamic `HTMLResponse.__init__`, and Rust looks up `context.update` before invoking each processor. Two input-only cases record those lookup orders and remain unexecuted until grouped parity. The `Jinja2Templates.get_template` facade annotation now exposes Jinja's `Template` type; its input-derived Mypy 1.19.1 consumer passed against both the pinned source and rebuilt package wheel. The registered comparison remains deferred to full parity.
 
-Implementation remains the active phase. Keep implementing across feature
-families and author input-only comparisons alongside the behavior. After
-implementation closes, run the complete source/package and Rust-native parity
-matrix, repair mismatches across families, measure coverage from that full
-matrix, reconcile the source atlas, then run all correctness-gated benchmarks.
+At this pre-parity checkpoint, implementation remained the active phase. The
+planned order was to finish implementation across feature families, run the
+complete source/package and Rust-native parity matrix, repair cross-family
+mismatches, measure coverage from that matrix, reconcile the source atlas, and
+then run all correctness-gated benchmarks. The active-revision outcomes are
+now recorded in the execution ledger above.
 
-The active contract declares full Starlette scope (`scope.id:
-starlette-1.6.0-full`, `scope.mode: full`) with 2,519 input cases across 414
+At that historical checkpoint, the contract declared full Starlette scope
+(`starlette-1.6.0-full`, mode `full`) with 2,519 input cases across 414
 parity inputs and two benchmark inputs, 151 Starlette compatibility operations,
 13 Rust-native operations, 1,389 parity requirements, and six target profiles.
-No complete parity result has been accepted for this contract. The latest implementation adds Rust-backed `BackgroundTasks.tasks` deletion and preserves Python strings, including lone surrogates, in built-in converter formatting. Five new input-only comparisons cover background attribute deletion, concurrency BaseExceptionGroup propagation, public converter methods, and registration replacement with preexisting routes; all remain unexecuted until full parity. The latest batch adds
+At that checkpoint, no complete parity result had been accepted. The following
+feature notes preserve implementation history and the status when they were
+recorded. The latest implementation adds Rust-backed `BackgroundTasks.tasks`
+deletion and preserves Python strings, including lone surrogates, in built-in
+converter formatting. Five new input-only comparisons cover background
+attribute deletion, concurrency BaseExceptionGroup propagation, public
+converter methods, and registration replacement with preexisting routes; all
+were awaiting the grouped full parity run at that time. The latest batch adds
 input-only comparisons for StaticFiles `If-Modified-Since` dates with single-digit
 time fields and Jinja environments that supply their own `url_for` global; the
 StaticFiles parser now normalizes the accepted time form in Rust. Both comparisons
-remain deferred until full parity. A new AuthenticationMiddleware scope input
-preserves present `None` values for `auth` and `user`; its comparison remains
-deferred. Two Request inputs omit `scope['auth']` and `scope['user']` in turn
+were also awaiting that run. A new AuthenticationMiddleware scope input
+preserves present `None` values for `auth` and `user`; two Request inputs omit
+`scope['auth']` and `scope['user']` in turn
 while an instance-level UserDict `__contains__` override returns true; the
 pinned type-level membership lookup still sees each key as absent and raises
-the documented assertion. Both source/package comparisons remain deferred. The
+the documented assertion. These comparisons were pending at the recorded
+checkpoint. The
 successful WebSocket authentication requirement now cites the pinned
 `test_websocket_authentication_required` function at lines 273–303. Rust now
 resolves awaitable `__await__` through type-level lookup, ignoring instance
-shadow attributes; its StreamingResponse source/package input remains deferred. A new Config
+shadow attributes. A new Config
 typing consumer covers all nine pinned `Config.__call__` overload assertions;
 its input-derived source/package Mypy 1.19.1 comparison passes with identical
-diagnostics and revealed types, while its registered parity case remains
-deferred to the full parity phase. The application typing consumer checks
+diagnostics and revealed types. The application typing consumer checks
 both `await Request.form()` and `async with Request.form()`, and iterates
 `Request.stream()` to assert that each yielded chunk is `bytes`. It also checks
 `Request.body()` as `bytes`, `Request.json()` as `Any`, `Request.query_params`
@@ -537,24 +577,26 @@ representation, and dynamic `FormData.close()` dispatch remain Rust-backed.
 
 | Phase | State | Evidence |
 | --- | --- | --- |
-| Implementation | Initial full matrix exposed two issues; both grouped repairs are applied and static gates pass. | The URL fix is version-specific in Rust; the WebSocketRoute fix is package-adapter input-schema parity. The active manifest and zero-backlog atlas remain unchanged. |
-| Full parity and grouped repairs | Initial five-profile pass complete; full rerun pending. Run interpreters sequentially because prepared environments are shared. | First-pass artifacts are `build/parity/parity-cpython310-result.json` through `parity-cpython314-result.json`. They are bound to clean commit `8b05702c` and do not verify the repaired revision. Historical run `5a355e0f-ff4c-4605-9221-02feff1bc616` belongs to an earlier contract. |
-| Full coverage and source reconciliation | Deferred until the active full parity phase completes. | Historical receipt-bound LCOV recorded 23,012/33,324 Rust lines covered (69.1%); its source/build identity and test status apply only to that prior workload. |
-| All benchmarks | Deferred until implementation, parity, and coverage phases complete. | Historical run `2e8f1ca8-239c-44eb-b72a-0ef02777bd35` measured 74 source/package workloads; it does not verify performance for the active implementation. |
+| Implementation | Complete for the active `parity-input@58` contract; grouped repairs are included in the measured revision. | Active manifest SHA-256 `86f69fc791088794fcd59483d6a91cc08bb9b3999586665f73c2f722f9946029`; clean target revision `576e9cfd99a063d46493aed28ff103292aa642f8`. |
+| Full parity and grouped repairs | Corrected five-profile matrix complete; six explicit `not_run` rows remain recorded. | Aggregate: 5,417 passed, zero failed, zero infrastructure errors, 6 `not_run`; fault contracts 17/17. Runs: CPython 3.10 632/633 (`960e977d-ff63-4cdc-bf86-7e29904bb9b7`); 3.11 632/633 (`084c571e-6a3e-485c-bac5-d784a269ed34`); 3.12 2,887/2,889 (`c5706308-af41-4f8a-b326-c03a5799d2d1`); 3.13 633/634 (`f21bef98-6b34-497e-bc30-e8bdce65b6f9`); 3.14 633/634 (`4360b1c3-fa5e-4b5b-91c6-c0d1e710be8c`). Oracle: Starlette 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. |
+| Full coverage and source reconciliation | Accepted full Rust coverage receipt recorded; line coverage is not a parity score. | `build/parity/coverage/full-starlette-1.6.0-20261015-576e9cfd-native-inclusive-verified/starlette-project.lcov`: 26,113/33,345 lines (78.31%), `tests=unknown` because two CPython 3.12 rows are `not_run`; extension SHA-256 `5a506c6d65feff52203ceaa713267d4fae42542767a88d45f6918861a7cf3e7f`, adapter SHA-256 `40b898b97f65d661aecdf17ef6e796f57d23f6ce3aa153d8aaf1ebf82831a5c7`. |
+| All benchmarks | The 74-workload source/package measurement and generated evidence refresh are complete; the documentation check is pending. | Run `39d8724c-dadd-4638-9f04-b84086632dbd`: 74/74 (6 Router, 68 GZip), zero failures and zero source/package `not_run`; 74 Rust-native `not_run` because the equivalent boundary is unavailable. Preflight `2d30a13f-5318-49dd-8ce6-fea5b1e34eef`: 2,887 passed, zero failed/infra, 2 `not_run`, faults 5/5. Ratios: 0.219 Router, 0.974 GZip; source lower in 6/6 Router and 63/68 GZip; normalized hashes match 74/74. Result SHA-256 `f8c9af763f3695bcd284e9d1ff95517355f8a0eb086590e156f2a65e5b3f0086`. |
 | Packaging and interpreter qualification | Historical local macOS arm64 qualification; current changes are not qualified by it. | Five CPython 3.10–3.14 wheels, an sdist, and the Rust crate were inspected in the earlier qualification. Other platform builds remain unqualified. |
 
-Prior parity, coverage, and benchmark receipts remain under ignored
-`build/parity/`. The fixed compatibility denominators are 514 upstream test
-functions and 24 documented pages. Derive changing mapping and backlog counts
-from the generated [`coverage matrix`](atlas/coverage-matrix.csv) and
+Parity, coverage, and benchmark result artifacts are local generated output
+under ignored `build/parity/`. The fixed compatibility denominators remain 514
+upstream test functions and 24 documented pages; the active contract's case
+and requirement counts do not replace those denominators or establish a
+universal drop-in compatibility claim. Derive changing mapping and backlog
+counts from the generated [`coverage matrix`](atlas/coverage-matrix.csv) and
 [`fixture backlog`](atlas/fixture-backlog.csv). Coverage is a measurement, not
 a parity score. The full-replacement goal remains active.
 
-The 38-file Markdown link check passes. `make docs-check` currently stops at
-benchmark evidence because the historical upstream benchmark receipt's
-manifest digest predates the active fixture changes; refresh that evidence in
-the ordered benchmark phase rather than running benchmarks during
-implementation.
+The benchmark measurement and generated evidence-block refresh are complete.
+An earlier evidence-writer attempt failed on a strict-schema `build_artifacts`
+mismatch; the schema fix is now applied. The current benchmark run is recorded
+in the generated section of [`BENCHMARKS.md`](BENCHMARKS.md), whose introductory
+summary now reflects the active contract and benchmark scope.
 
 Boundary details: [response protocols](RESPONSE_RENDER_BOUNDARY.md),
 [server-error traceback data](SERVER_ERROR_BOUNDARY.md),
@@ -609,17 +651,20 @@ this plan identify recorded executions.
 The active parity contract is `parity-input@58` with full scope
 (`starlette-1.6.0-full`): 2,538 input cases across 416 parity files, two
 benchmark files, 151 Starlette compatibility operations, 14 Rust-native
-operations, 1,399 parity requirements, and six target profiles. No complete
-parity result has been accepted for this active manifest; full-suite coverage
-and benchmarks are deferred until implementation closes. The Config typing
-consumer covers all nine pinned `Config.__call__` overload assertions and is
-deferred to full parity. Existing parity, coverage, and benchmark receipts
-refer to earlier contract revisions. The generated source-row,
-mapping, `not_applicable`, and backlog totals live in
+operations, 1,399 parity requirements, and six target profiles. Its manifest
+SHA-256 is `86f69fc791088794fcd59483d6a91cc08bb9b3999586665f73c2f722f9946029`.
+The corrected five-profile matrix, accepted coverage receipt, and benchmark
+measurement are recorded in the execution ledger above. The Config typing
+consumer covers all nine pinned `Config.__call__` overload assertions and its
+registered parity comparison is included in the active matrix. The generated
+source-row, mapping, `not_applicable`, and backlog totals live in
 [`coverage-matrix.csv`](atlas/coverage-matrix.csv) and
 [`fixture-backlog.csv`](atlas/fixture-backlog.csv); regenerate them after
 changing fixture dispositions. The implementation history below records how
-the input set grew; current gate states are in the execution ledger above.
+the input set grew; its checkpoint language is historical, while current gate
+states are in the execution ledger above. The matrix results do not establish
+universal compatibility beyond the declared contract; keep the fixed 514
+upstream test-function and 24 documented-page denominators visible.
 The preceding @44 working-tree matrix and instrumented coverage run passed with four
 unsupported native cases retained. Clean commit `553a06a` also passed the full
 parity gate and all 74 source/package benchmarks; native benchmark interfaces

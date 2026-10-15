@@ -44990,6 +44990,7 @@ def _validate_upstream_benchmark_result_artifact(value: Any, root: Path) -> dict
                 "dependency_lock_sha256",
                 "installed_lock_sha256",
                 "artifact_sha256",
+                "build_artifacts",
                 "environment_sha256",
             },
             context,
@@ -45009,6 +45010,12 @@ def _validate_upstream_benchmark_result_artifact(value: Any, root: Path) -> dict
             )
         for name in ("dependency_lock_sha256", "installed_lock_sha256", "environment_sha256"):
             _validate_sha256(environment[name], f"{context}.{name}")
+        if not isinstance(environment["build_artifacts"], list):
+            raise ContractError(f"{context}.build_artifacts must be an array")
+        if environment["build_artifacts"]:
+            raise ContractError(
+                f"{context}.build_artifacts must be empty for the CPython 3.12 benchmark"
+            )
         if index == 0:
             if environment["artifact_sha256"] is not None:
                 raise ContractError(
