@@ -85,6 +85,14 @@ matches the pinned sources for the cookie and WSGI builders by source review.
 All comparisons remain deferred to the grouped full parity phase; full parity,
 coverage, and benchmark work have not started. Five new input-only cases preserve Request.stream message-type lookup order, Python comparisons in ExceptionMiddleware and ServerErrorMiddleware, and TestClient WebSocket text-object identity; they remain unexecuted until the grouped parity phase. A StaticFiles input now covers an overflow-day If-Modified-Since value accepted by email.utils.parsedate; its comparison remains deferred to the grouped parity phase.
 
+StaticFiles target workflow materialization now decodes input-defined POSIX
+filesystem-byte `path` and `root_path` values, supports the registered
+`get_directories` subclass hook, and records the input-defined non-HTTP scope
+assertion and lookup-path exceptions as observations. The Rust boundary maps
+an embedded-NUL lookup failure to the pinned `ValueError("embedded null byte")`
+contract. These existing oracle/package/native inputs remain unexecuted until
+the grouped parity phase.
+
 The latest application source audit found that Rust middleware-stack building
 read `router` and `max_body_size` earlier than pinned Starlette, and read
 `max_body_size` only once. The Rust runtime now follows the pinned attribute

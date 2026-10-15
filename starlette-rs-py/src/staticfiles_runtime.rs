@@ -1066,9 +1066,7 @@ fn http_exception(py: Python<'_>, status_code: u16) -> PyErr {
 fn static_files_error(error: StaticFilesError) -> PyErr {
     match error {
         StaticFilesError::DirectoryConfiguration(message) => PyRuntimeError::new_err(message),
-        StaticFilesError::InvalidPath => {
-            PyValueError::new_err("lstat: embedded null character in path")
-        }
+        StaticFilesError::InvalidPath => PyValueError::new_err("embedded null byte"),
         StaticFilesError::PermissionDenied => PyPermissionError::new_err("permission denied"),
         StaticFilesError::Io(error) if error.kind() == std::io::ErrorKind::PermissionDenied => {
             PyPermissionError::new_err(error.to_string())

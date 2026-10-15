@@ -30,6 +30,7 @@ import sys
 import tempfile
 import threading
 import warnings
+import weakref
 from collections import UserDict
 from collections.abc import AsyncIterator, Callable, Iterator, Mapping
 from dataclasses import dataclass
@@ -99,6 +100,7 @@ REDIRECT_RESPONSE_OPERATION = "asgi-call"
 RESPONSE_SURFACE = "starlette.responses.Response"
 JSON_RESPONSE_SURFACE = "starlette.responses.JSONResponse"
 STREAMING_RESPONSE_SURFACE = "starlette.responses.StreamingResponse"
+STREAMING_RESPONSE_AWAIT_INSTANCE_SHADOW_MODE = "async-iterator-await-instance-shadow"
 FILE_RESPONSE_SURFACE = "starlette.responses.FileResponse"
 STATIC_FILES_SURFACE = "starlette.staticfiles.StaticFiles"
 STATIC_FILES_LOOKUP_PATH_OPERATION = "lookup-path"
@@ -1072,6 +1074,26 @@ def _make_scope(
     return _scope_container(scope, container)
 
 
+def _static_files_scope_path(value: Any, context: str) -> str:
+    if isinstance(value, str):
+        return value
+    encoded_path = _exact_object(value, {"encoding", "data"}, context)
+    if encoded_path["encoding"] != "filesystem-bytes-base64":
+        raise ValueError(f"{context}.encoding must be filesystem-bytes-base64")
+    return os.fsdecode(_decode_base64(encoded_path["data"], f"{context}.data"))
+
+
+def _make_static_files_scope(
+    spec: dict[str, Any], container: str | dict[str, Any] = "dict"
+) -> dict[str, Any] | UserDict:
+    decoded_spec = dict(spec)
+    decoded_spec["path"] = _static_files_scope_path(spec["path"], "StaticFiles scope.path")
+    decoded_spec["root_path"] = _static_files_scope_path(
+        spec["root_path"], "StaticFiles scope.root_path"
+    )
+    return _make_scope(decoded_spec, container)
+
+
 def _apply_request_form_deferred_scope_headers(scope: dict[str, Any], case: dict[str, Any]) -> None:
     if "form_deferred_scope_headers" in case:
         scope["headers"][:] = [
@@ -1883,6 +1905,38 @@ def _materialize_application(
                     _raise_lifespan_failure(lifespan_spec)
 
         lifespan = sync_lifespan if lifespan_spec["kind"] == "sync-generator" else async_lifespan
+    elif (
+        isinstance(lifespan_spec, dict)
+        and lifespan_spec.get("kind") == "async-context-manager-observe-exception-class"
+    ):
+
+        class ExceptionObservingContextManager:
+            async def __aenter__(self) -> None:
+                lifecycle_trace.append("entry")
+                return None
+
+            async def __aexit__(self, exception_type: Any, exception: Any, _traceback: Any) -> bool:
+                if exception is None:
+                    observation = {
+                        "exit_type_is_runtime_type": None,
+                        "runtime_type_name": None,
+                        "reported_class_name": None,
+                    }
+                else:
+                    observation = {
+                        "exit_type_is_runtime_type": exception_type is type(exception),
+                        "runtime_type_name": type(exception).__name__,
+                        "reported_class_name": exception.__class__.__name__,
+                    }
+                lifecycle_trace.append(observation)
+                if lifespan_spec["record_exit"]:
+                    lifecycle_trace.append("exit")
+                return False
+
+        context_manager = ExceptionObservingContextManager()
+
+        def lifespan(_app: Any) -> Any:
+            return context_manager
     elif (
         isinstance(lifespan_spec, dict)
         and lifespan_spec.get("kind") == "async-context-manager-shadowed-specials"
@@ -7341,6 +7395,20 @@ def _run_route_dispatch_case(case: dict[str, Any]) -> dict[str, Any]:
 
 
 def _run_route_dispatch_case_impl(case: dict[str, Any]) -> dict[str, Any]:
+    garbage_collection = case.get("garbage_collection")
+    if garbage_collection is None:
+        return _run_route_dispatch_case_inner(case, None)
+
+    from scripts.parity.adapters.ownership_cleanup import observe_ownership
+    from scripts.parity.adapters.traceback_cleanup import TracebackCleanup
+
+    with TracebackCleanup(garbage_collection) as gc_observer:
+        return _run_route_dispatch_case_inner(case, gc_observer, observe_ownership)
+
+
+def _run_route_dispatch_case_inner(
+    case: dict[str, Any], gc_observer: Any, observe_ownership: Any = None
+) -> dict[str, Any]:
     from datetime import datetime
 
     from starlette.convertors import Convertor, register_url_convertor
@@ -7369,7 +7437,49 @@ def _run_route_dispatch_case_impl(case: dict[str, Any]) -> dict[str, Any]:
         register_url_convertor(spec["name"], InputConvertor(spec))
 
     route_index_observations: list[int] = []
+    gc_endpoint_instances: list[Any] = []
     router_sequence = case.get("surface") == "starlette.routing.Router" and "steps" in case
+    garbage_collection = case.get("garbage_collection")
+
+    def make_http_route(route_spec: dict[str, Any], endpoint: Any) -> Any:
+        instance_match_override = route_spec.get("instance_match_override")
+        route_type = Route
+        if instance_match_override is not None:
+            override_kind = instance_match_override.get("kind")
+            override_keys = (
+                {"kind", "message"} if override_kind == "raise-runtime-error" else {"kind"}
+            )
+            _exact_object(instance_match_override, override_keys, "route instance matcher override")
+            if override_kind not in {"none", "raise-runtime-error"}:
+                raise ValueError("route instance matcher override kind is unsupported")
+
+            class InputRoute(Route):
+                pass
+
+            route_type = InputRoute
+
+        route = route_type(
+            route_spec["path"],
+            endpoint=endpoint,
+            methods=route_spec["methods"],
+            max_body_size=route_spec.get("max_body_size"),
+        )
+        if instance_match_override is not None:
+            if override_kind == "none":
+
+                def instance_matches(_scope: dict[str, Any]) -> tuple[Any, dict[str, Any]]:
+                    return Match.NONE, {}
+
+            else:
+                error_message = instance_match_override["message"]
+
+                def instance_matches(
+                    _scope: dict[str, Any], message: str = error_message
+                ) -> tuple[Any, dict[str, Any]]:
+                    raise RuntimeError(message)
+
+            route.matches = instance_matches
+        return route
 
     def make_route(route_spec: dict[str, Any], route_index: int) -> Any:
         if route_spec.get("kind") == "base-route-subclass":
@@ -7399,6 +7509,32 @@ def _run_route_dispatch_case_impl(case: dict[str, Any]) -> dict[str, Any]:
             return InputBaseRoute()
 
         response_spec = route_spec["endpoint"]
+        if garbage_collection is not None:
+            _exact_object(
+                response_spec,
+                {"kind", "content", "status_code", "media_type", "cookies"},
+                "Router GC endpoint response",
+            )
+
+            class CachedRouteCycleEndpoint:
+                def __init__(self) -> None:
+                    self.router: Any = None
+                    if gc_observer is None:
+                        raise RuntimeError("Router GC observer was not installed")
+                    self.guard = gc_observer.guard(garbage_collection["guard_label"])
+
+                async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
+                    route_index_observations.append(route_index)
+                    response = PlainTextResponse(
+                        content=response_spec["content"],
+                        status_code=response_spec["status_code"],
+                        media_type=response_spec["media_type"],
+                    )
+                    await response(scope, receive, send)
+
+            gc_endpoint_instances.append(CachedRouteCycleEndpoint())
+            return make_http_route(route_spec, gc_endpoint_instances[-1])
+
         if response_spec.get("kind") in {"starlette-response", "json-response"}:
 
             async def fixed_response_endpoint(_request: Any) -> Any:
@@ -7413,12 +7549,7 @@ def _run_route_dispatch_case_impl(case: dict[str, Any]) -> dict[str, Any]:
                     media_type=response_spec["media_type"],
                 )
 
-            return Route(
-                route_spec["path"],
-                endpoint=fixed_response_endpoint,
-                methods=route_spec["methods"],
-                max_body_size=route_spec.get("max_body_size"),
-            )
+            return make_http_route(route_spec, fixed_response_endpoint)
         if response_spec.get("kind") == "request-body-echo":
             _exact_object(response_spec, {"kind"}, "request-body echo endpoint")
 
@@ -7426,12 +7557,7 @@ def _run_route_dispatch_case_impl(case: dict[str, Any]) -> dict[str, Any]:
                 route_index_observations.append(route_index)
                 return Response(await request.body())
 
-            return Route(
-                route_spec["path"],
-                endpoint=endpoint,
-                methods=route_spec["methods"],
-                max_body_size=route_spec.get("max_body_size"),
-            )
+            return make_http_route(route_spec, endpoint)
 
         if response_spec.get("kind") == "http-class-based-endpoint":
             if set(response_spec) != {"kind", "handlers"}:
@@ -7506,12 +7632,7 @@ def _run_route_dispatch_case_impl(case: dict[str, Any]) -> dict[str, Any]:
                     raise ValueError("HTTP class endpoint call_style must be async or sync")
 
             endpoint_class = type("InputHTTPEndpoint", (HTTPEndpoint,), class_attributes)
-            return Route(
-                route_spec["path"],
-                endpoint=endpoint_class,
-                methods=route_spec["methods"],
-                max_body_size=route_spec.get("max_body_size"),
-            )
+            return make_http_route(route_spec, endpoint_class)
 
         if response_spec.get("kind") == "sync-datetime-json-response":
 
@@ -7523,12 +7644,7 @@ def _run_route_dispatch_case_impl(case: dict[str, Any]) -> dict[str, Any]:
                     status_code=raw["status_code"],
                 )
 
-            return Route(
-                route_spec["path"],
-                endpoint=datetime_endpoint,
-                methods=route_spec["methods"],
-                max_body_size=route_spec.get("max_body_size"),
-            )
+            return make_http_route(route_spec, datetime_endpoint)
 
         if response_spec.get("kind") == "sync-path-parameter-json-response":
 
@@ -7542,12 +7658,7 @@ def _run_route_dispatch_case_impl(case: dict[str, Any]) -> dict[str, Any]:
                     status_code=raw["status_code"],
                 )
 
-            return Route(
-                route_spec["path"],
-                endpoint=path_parameter_endpoint,
-                methods=route_spec["methods"],
-                max_body_size=route_spec.get("max_body_size"),
-            )
+            return make_http_route(route_spec, path_parameter_endpoint)
 
         if response_spec.get("kind") == "sync-plain-text-response":
             if set(response_spec) != {
@@ -7570,12 +7681,7 @@ def _run_route_dispatch_case_impl(case: dict[str, Any]) -> dict[str, Any]:
                     response.set_cookie(key=cookie["key"], value=cookie["value"])
                 return response
 
-            return Route(
-                route_spec["path"],
-                endpoint=endpoint,
-                methods=route_spec["methods"],
-                max_body_size=route_spec.get("max_body_size"),
-            )
+            return make_http_route(route_spec, endpoint)
 
         if response_spec["kind"] not in {"plain-text-response", "converted-path-response"}:
             raise ValueError(f"unsupported route endpoint input: {response_spec['kind']!r}")
@@ -7592,12 +7698,7 @@ def _run_route_dispatch_case_impl(case: dict[str, Any]) -> dict[str, Any]:
                 media_type=response_spec["media_type"],
             )
 
-        return Route(
-            route_spec["path"],
-            endpoint=endpoint,
-            methods=route_spec["methods"],
-            max_body_size=route_spec.get("max_body_size"),
-        )
+        return make_http_route(route_spec, endpoint)
 
     def make_mount_child(route_spec: dict[str, Any], route_index: int = 0) -> Any:
         if route_spec.get("kind") == "mount":
@@ -7672,15 +7773,16 @@ def _run_route_dispatch_case_impl(case: dict[str, Any]) -> dict[str, Any]:
         redirect_slashes = case["redirect_slashes"]
         if type(redirect_slashes) is not bool:
             raise ValueError("Router redirect_slashes must be a boolean")
+        route_objects = [
+            make_host_route(route, index)
+            if route["kind"] == "host-route"
+            else make_mount_child(route, index)
+            if route["kind"] == "mount"
+            else make_route(route, index)
+            for index, route in enumerate(case["routes"])
+        ]
         app = Router(
-            routes=[
-                make_host_route(route, index)
-                if route["kind"] == "host-route"
-                else make_mount_child(route, index)
-                if route["kind"] == "mount"
-                else make_route(route, index)
-                for index, route in enumerate(case["routes"])
-            ],
+            routes=route_objects,
             redirect_slashes=redirect_slashes,
             max_body_size=case.get("max_body_size"),
         )
@@ -7691,13 +7793,27 @@ def _run_route_dispatch_case_impl(case: dict[str, Any]) -> dict[str, Any]:
             frozenset({"path", "routes", "max_body_size"}),
         }:
             raise ValueError("Mount input has unsupported fields")
+        route_objects = [make_mount_child(route) for route in mount["routes"]]
         app = Mount(
             mount["path"],
-            routes=[make_mount_child(route) for route in mount["routes"]],
+            routes=route_objects,
             max_body_size=mount.get("max_body_size"),
         )
     else:
         raise ValueError("route-dispatch case has an unsupported surface")
+
+    gc_roots: list[Any] = []
+    gc_references: list[Any] = []
+    gc_endpoint = None
+    if garbage_collection is not None:
+        if case["surface"] != "starlette.routing.Router" or router_sequence:
+            raise ValueError("route-dispatch garbage collection requires a Router dispatch")
+        if len(gc_endpoint_instances) != 1:
+            raise RuntimeError("Router GC input did not construct one route endpoint")
+        gc_endpoint = gc_endpoint_instances.pop()
+        gc_endpoint.router = app
+        gc_roots.append(app)
+        gc_references = [weakref.ref(gc_endpoint), weakref.ref(gc_endpoint.guard)]
 
     async def dispatch(dispatch_input: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
         scope = _make_scope(dispatch_input["scope"])
@@ -7805,6 +7921,8 @@ def _run_route_dispatch_case_impl(case: dict[str, Any]) -> dict[str, Any]:
                             endpoint=route.endpoint,
                             methods=route_spec["methods"],
                         )
+                    elif mutation["operation"] == "router-default-set":
+                        app.default = app.routes[mutation["route_index"]].app
                     else:
                         raise ValueError("unsupported Router route mutation")
                 observation, _scope = await dispatch(step)
@@ -7820,7 +7938,34 @@ def _run_route_dispatch_case_impl(case: dict[str, Any]) -> dict[str, Any]:
             "observations": sequence_observations,
         }
 
-    observation, scope = asyncio.run(dispatch(case))
+    gc_observation = None
+    if garbage_collection is None:
+        observation, scope = asyncio.run(dispatch(case))
+    else:
+        if gc_observer is None or observe_ownership is None:
+            raise RuntimeError("Router GC observer was not installed")
+        with warnings.catch_warnings(record=True) as warning_events:
+            warnings.simplefilter("always")
+            observation, scope = asyncio.run(dispatch(case))
+            del dispatch
+            del app
+            del route_objects
+            del gc_endpoint
+            gc_observation = observe_ownership(
+                garbage_collection,
+                gc_roots,
+                gc_references,
+                [],
+                gc_observer,
+                warning_events,
+            )
+        observation["garbage_collection"] = {
+            "reference_labels": [
+                garbage_collection["endpoint_label"],
+                garbage_collection["guard_label"],
+            ],
+            **gc_observation,
+        }
     if case["surface"] == "starlette.routing.Mount":
         observation["mount_scope"] = (
             {
@@ -8167,8 +8312,48 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
     else:
         call_specs = [{"scope": case["scope"], "incoming": case["incoming"], "send": case["send"]}]
     scope_spec = call_specs[0]["scope"]
-    if not isinstance(scope_spec, dict) or scope_spec.get("type") != "http":
-        raise ValueError("FileResponse ASGI-call requires an HTTP scope")
+    if request_sequence:
+        scope_keys = {
+            "type",
+            "asgi",
+            "http_version",
+            "method",
+            "scheme",
+            "path",
+            "raw_path_base64",
+            "query_string_base64",
+            "root_path",
+            "headers_base64_pairs",
+            "client",
+            "server",
+        }
+        scope_spec = _exact_object(scope_spec, scope_keys, "FileResponse call scope")
+        if scope_spec["type"] != "http":
+            raise ValueError("FileResponse call sequences require HTTP scopes")
+    elif not isinstance(scope_spec, dict) or scope_spec.get("type") not in {"http", "websocket"}:
+        raise ValueError("FileResponse ASGI-call requires an HTTP or WebSocket scope")
+    else:
+        scope_type = scope_spec["type"]
+        scope_keys = {
+            "type",
+            "asgi",
+            "http_version",
+            "scheme",
+            "path",
+            "raw_path_base64",
+            "query_string_base64",
+            "root_path",
+            "headers_base64_pairs",
+            "client",
+            "server",
+        }
+        if scope_type == "http":
+            scope_keys.add("method")
+        else:
+            scope_keys.add("subprotocols")
+        if "extensions" in scope_spec:
+            scope_keys.add("extensions")
+        scope_spec = _exact_object(scope_spec, scope_keys, "FileResponse ASGI scope")
     if call_specs[0]["incoming"] != []:
         raise ValueError("FileResponse ASGI-call requires an empty incoming stream")
     send_error_spec = None
@@ -9000,6 +9185,12 @@ def _run_static_files_case(case: dict[str, Any]) -> dict[str, Any]:
                 {"return_value"},
                 "StaticFiles is_not_modified subclass hook",
             )
+        elif selected_hook == "get_directories":
+            _exact_object(
+                subclass_hooks["get_directories"],
+                {"return_configured_directory"},
+                "StaticFiles get_directories subclass hook",
+            )
         else:
             _exact_object(
                 subclass_hooks["get_response"],
@@ -9038,6 +9229,27 @@ def _run_static_files_case(case: dict[str, Any]) -> dict[str, Any]:
         from starlette.responses import Response
 
         class StaticFilesSubclassHooks(StaticFiles):
+            def get_directories(
+                self,
+                directory: Any = None,
+                packages: Any = None,
+            ) -> list[Any]:
+                hook_spec = subclass_hooks.get("get_directories")
+                if hook_spec is None:
+                    return super().get_directories(directory, packages)
+                subclass_hook_calls.append(
+                    {
+                        "hook": "get_directories",
+                        "directory_basename": Path(directory).name
+                        if directory is not None
+                        else None,
+                        "packages": packages,
+                    }
+                )
+                if hook_spec["return_configured_directory"] and directory is not None:
+                    return [directory]
+                return []
+
             def lookup_path(self, path: str) -> tuple[str, os.stat_result | None]:
                 hook_spec = subclass_hooks.get("lookup_path")
                 if hook_spec is None:
@@ -9211,7 +9423,9 @@ def _run_static_files_case(case: dict[str, Any]) -> dict[str, Any]:
             if request_sequence:
 
                 async def observe_call(call: dict[str, Any]) -> dict[str, Any]:
-                    scope = _make_scope(call["scope"], case.get("scope_container", "dict"))
+                    scope = _make_static_files_scope(
+                        call["scope"], case.get("scope_container", "dict")
+                    )
                     sent: list[dict[str, Any]] = []
 
                     async def receive() -> dict[str, Any]:
@@ -9298,7 +9512,7 @@ def _run_static_files_case(case: dict[str, Any]) -> dict[str, Any]:
                         }
                     ],
                 }
-            scope = _make_scope(case["scope"], case.get("scope_container", "dict"))
+            scope = _make_static_files_scope(case["scope"], case.get("scope_container", "dict"))
             sent: list[dict[str, Any]] = []
 
             async def receive() -> dict[str, Any]:
@@ -9316,8 +9530,11 @@ def _run_static_files_case(case: dict[str, Any]) -> dict[str, Any]:
             try:
                 asyncio.run(application(scope, receive, send))
             except Exception as exc:
-                if not isinstance(exc, HTTPException) and "lookup_path" not in (
-                    subclass_hooks or {}
+                invalid_scope_type = not isinstance(case["scope"].get("type"), str)
+                if (
+                    not isinstance(exc, HTTPException)
+                    and not (invalid_scope_type and isinstance(exc, AssertionError))
+                    and "lookup_path" not in (subclass_hooks or {})
                 ):
                     raise
                 captured_error = exc
@@ -9616,18 +9833,24 @@ def _run_static_files_lookup_path_case(case: dict[str, Any]) -> dict[str, Any]:
         try:
             full_path, stat_result = application.lookup_path(lookup_path)
         except Exception as exc:
-            if not observe_lookup_error:
-                raise
-            observation = {
-                "resolved_path": None,
-                "stat_result_present": False,
-                "mode_type_bits": None,
-                "is_file": None,
-                "is_directory": None,
-                "size": None,
-                "mtime_seconds": None,
-                "lookup_error": _static_files_lookup_error_observation(exc),
-            }
+            if observe_lookup_error:
+                observation = {
+                    "resolved_path": None,
+                    "stat_result_present": False,
+                    "mode_type_bits": None,
+                    "is_file": None,
+                    "is_directory": None,
+                    "size": None,
+                    "mtime_seconds": None,
+                    "lookup_error": _static_files_lookup_error_observation(exc),
+                }
+            else:
+                observation = {
+                    "lookup_error": {
+                        "class": f"{type(exc).__module__}.{type(exc).__qualname__}",
+                        "message": str(exc),
+                    }
+                }
         else:
             if directory_pathlike is None:
                 relative_root = root.absolute() if case["follow_symlink"] else root.resolve()
@@ -10081,6 +10304,8 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
             "file-like",
             "async-iterator",
             "async-iterable",
+            "async-iterator-await-factory-stop",
+            STREAMING_RESPONSE_AWAIT_INSTANCE_SHADOW_MODE,
             "async-generator",
         }:
             raise ValueError("StreamingResponse streaming must select a supported iterator")
@@ -10398,6 +10623,57 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
         content = _InputAsyncIterator(content, execution_trace)
     elif streaming == "async-iterable":
         content = _InputAsyncIterable(content, execution_trace)
+    elif streaming == "async-iterator-await-factory-stop":
+
+        class InputAwaitableStop:
+            def __await__(self) -> Iterator[Any]:
+                raise StopAsyncIteration
+
+        class InputAsyncIteratorAwaitFactoryStop:
+            def __aiter__(self) -> InputAsyncIteratorAwaitFactoryStop:
+                return self
+
+            def __anext__(self) -> InputAwaitableStop:
+                return InputAwaitableStop()
+
+        content = InputAsyncIteratorAwaitFactoryStop()
+    elif streaming == STREAMING_RESPONSE_AWAIT_INSTANCE_SHADOW_MODE:
+        if len(content) != 2:
+            raise ValueError("StreamingResponse awaitable lookup requires two input values")
+        await_results = content
+
+        def input_await_result(value: Any) -> Iterator[Any]:
+            yield from ()
+            return value
+
+        class InputAwaitableInstanceShadow:
+            def __init__(self, type_result: Any, instance_result: Any) -> None:
+                self.type_result = type_result
+                self.instance_result = instance_result
+
+            def __await__(self) -> Iterator[Any]:
+                return input_await_result(self.type_result)
+
+        class InputAsyncIteratorAwaitInstanceShadow:
+            def __init__(self) -> None:
+                self.returned_item = False
+
+            def __aiter__(self) -> InputAsyncIteratorAwaitInstanceShadow:
+                return self
+
+            def __anext__(self) -> Any:
+                if self.returned_item:
+
+                    async def exhausted() -> Any:
+                        raise StopAsyncIteration
+
+                    return exhausted()
+                self.returned_item = True
+                awaitable = InputAwaitableInstanceShadow(await_results[0], await_results[1])
+                awaitable.__await__ = lambda: input_await_result(awaitable.instance_result)
+                return awaitable
+
+        content = InputAsyncIteratorAwaitInstanceShadow()
     elif streaming == "async-generator":
         if repeating_stream:
             if execution_trace is None or stream_lifecycle is None:
