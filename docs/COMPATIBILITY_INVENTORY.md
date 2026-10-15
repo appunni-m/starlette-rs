@@ -5,22 +5,22 @@
 The active full-scope manifest is `parity-input@58`, SHA-256
 `2dcb25d098d4f09ce3dd6bb231164a58391175f6cff222dd2c6316a9580eec4a`,
 against Starlette 1.6.0 revision
-`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. Latest parity evidence used the
-immediately preceding manifest SHA-256
-`431d29029f7857808d7785844926d10925fd0c92969f5c75a074d849afc719fc`; all five
-CPython profile jobs passed in workflow
-[38793776510](https://github.com/appunni-m/starlette-rs/actions/runs/38793776510).
-That result predates the coverage-component correction in the active manifest.
+`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. Current-manifest parity workflow
+[38800172262](https://github.com/appunni-m/starlette-rs/actions/runs/38800172262)
+passed all five CPython profile jobs on target revision
+`aacfea8bb460d8691245bb60eb8f40970647ad09`.
 
-That result is historical for the current manifest; parity revalidation is
-pending in CI. The latest local coverage receipt is also prior-manifest
+The latest local coverage receipt is prior-manifest
 evidence: Coverage MCP measured 26,126/33,348 Rust lines (78.34%) in the
 native-inclusive CPython 3.12 plus `rust-native-local` report at the local ignored artifact
 `build/parity/coverage/full-starlette-1.6.0-20261015-57361208-native-inclusive-verified/starlette-project.lcov`.
 That local receipt has two platform-specific `not_run` rows, so test status is
 unknown. The manifest now declares six input-driven coverage plans and 11 Rust
 line components; execution of the current full profile matrix and MCP gap
-review remain pending.
+review remain pending. The current CI coverage attempt failed result validation
+in five profiles because uncovered `path:line` locations were ordered by line
+number before formatting; the sixth profile was still running at this
+checkpoint.
 
 Historical benchmark run `8971ad63-111e-4379-a327-6809e852ee75` measured 74/74
 source/package workloads (6 Router and 68 GZip), with zero failed or `not_run`

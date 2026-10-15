@@ -3,20 +3,15 @@
 ## Current verification status
 
 The active full-scope contract is `parity-input@58`, manifest SHA-256
-`2dcb25d098d4f09ce3dd6bb231164a58391175f6cff222dd2c6316a9580eec4a`. The
-latest complete parity evidence used the immediately preceding manifest
-SHA-256
-`431d29029f7857808d7785844926d10925fd0c92969f5c75a074d849afc719fc`; all five
-CPython profile jobs passed in workflow
-[38793776510](https://github.com/appunni-m/starlette-rs/actions/runs/38793776510).
-That run used target revision
-`71be75c3583c6501fec276a46f4497c42aa4ce4e` and predates the coverage-component
-correction above. The pinned Starlette 1.6.0 source revision is
-`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`.
+`2dcb25d098d4f09ce3dd6bb231164a58391175f6cff222dd2c6316a9580eec4a`. Its
+current-manifest five-profile parity workflow
+[38800172262](https://github.com/appunni-m/starlette-rs/actions/runs/38800172262)
+passed all five CPython profile jobs on target revision
+`aacfea8bb460d8691245bb60eb8f40970647ad09`. The pinned Starlette 1.6.0 source
+revision is `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`.
 
-That prior-manifest matrix is historical for the current contract. Current
-manifest parity revalidation is pending in CI. The `aggregate` command reports
-the five-profile parity matrix under
+The declared five-profile parity matrix is verified for this manifest. The
+`aggregate` command reports it under
 `parity_matrix.status`; its top-level status remains `not_proven` because this
 matrix report does not establish the complete Starlette replacement. The
 active manifest now declares six input-driven coverage plans and 11 Rust line
@@ -30,7 +25,10 @@ using native-inclusive CPython 3.12 and `rust-native-local` objects. It is not
 the current six-profile coverage run. The local receipt records 2,887 passed,
 0 failed, and 2 platform-specific `not_run` rows,
 so Coverage MCP reports test status as unknown. This receipt does not complete
-full-matrix coverage.
+full-matrix coverage. Workflow `38800172262` has not produced a valid current
+coverage result: five profiles failed the result contract because uncovered
+`path:line` locations were emitted in numeric rather than lexical order, and
+the sixth profile was still running at this checkpoint.
 
 Historical benchmark run `8971ad63-111e-4379-a327-6809e852ee75` measured all 74
 source/package workloads (6 Router and 68 GZip): 74 measured, 0 failed, and 0

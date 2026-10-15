@@ -758,7 +758,7 @@ def _component_result(component: dict[str, Any], lcov: dict[str, dict[int, int]]
                         "dimension": "line",
                         "covered": len(covered_lines),
                         "total": len(line_counts),
-                        "uncovered": [f"{relative_path}:{line}" for line in uncovered_lines],
+                        "uncovered": sorted(f"{relative_path}:{line}" for line in uncovered_lines),
                     }
                 ],
             }

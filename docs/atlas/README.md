@@ -34,12 +34,12 @@ source atlas contains 866 rows: 810 input mappings, 56 source-backed
 catalog has 564 supported candidates, 435 private/internal candidates, and
 zero uncertain candidates.
 
-The latest five-profile matrix used the immediately preceding manifest SHA-256
-`431d29029f7857808d7785844926d10925fd0c92969f5c75a074d849afc719fc`; all five
-CPython profile jobs passed in workflow
-[38793776510](https://github.com/appunni-m/starlette-rs/actions/runs/38793776510).
-That matrix predates the coverage-component correction in the active manifest;
-parity revalidation is pending in CI. The prior-manifest
+The current-manifest parity workflow
+[38800172262](https://github.com/appunni-m/starlette-rs/actions/runs/38800172262)
+passed all five CPython profile jobs. Current coverage validation remains
+pending because five profiles failed the coverage-result contract on uncovered
+`path:line` ordering; the sixth profile was still running at this checkpoint.
+The prior-manifest
 local coverage receipt reports 26,126 of 33,348 Rust lines covered (78.34%); its
 CPython 3.12 receipt
 has two platform-specific `not_run` rows, so its test status is unknown. The
