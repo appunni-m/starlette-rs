@@ -22133,6 +22133,44 @@ def _validate_fault_contract_case(case: dict[str, Any], manifest: dict[str, Any]
     return {**validated, "fault_contract": fault}
 
 
+def _native_only_fault_profiles(
+    cases: list[dict[str, Any]],
+    manifest: dict[str, Any],
+    *,
+    explicit_selection: bool,
+) -> list[str] | None:
+    """Return native profiles for an explicit, oracle-inapplicable fault-only selection."""
+    if not explicit_selection or not cases:
+        return None
+
+    contracts = {item["id"]: item for item in manifest["fault_contracts"]}
+    profiles = {item["id"]: item for item in manifest["target_profiles"]}
+    selected_profile_ids: set[str] = set()
+    for case in cases:
+        selector = case.get("fault_contract")
+        if not isinstance(selector, dict):
+            return None
+        contract = contracts.get(selector.get("contract_id"))
+        if not isinstance(contract, dict):
+            return None
+        profile_id = contract["target_profile"]
+        profile = profiles.get(profile_id)
+        if (
+            contract["oracle_applicability"] != "not_applicable"
+            or not isinstance(profile, dict)
+            or profile["target_id"] != "rust-native"
+            or case["target_profiles"] != [profile_id]
+        ):
+            return None
+        selected_profile_ids.add(profile_id)
+
+    return [
+        profile["id"]
+        for profile in manifest["target_profiles"]
+        if profile["id"] in selected_profile_ids
+    ]
+
+
 def _validate_public_api_inspection_payload(
     inspection: Any,
     public_modules: frozenset[str] | None,
@@ -45200,6 +45238,17 @@ def _validate_parity_result_against_active_contract(
     }
     if value["identity"]["command"] != expected_command:
         raise ContractError("parity result command identity differs from the active manifest")
+    selected_cases = [case for case in cases if case["case_id"] in selected_case_ids]
+    native_fault_profile_ids = _native_only_fault_profiles(
+        selected_cases,
+        manifest,
+        explicit_selection=selection["kind"] == "case_ids",
+    )
+    native_fault_only = command_id == "parity" and native_fault_profile_ids is not None
+    if native_fault_only and selected_profiles != native_fault_profile_ids:
+        raise ContractError(
+            "native fault-only selection profiles differ from their active fault contracts"
+        )
 
     identity = value["identity"]
     if not all(isinstance(identity[name], list) for name in ("oracles", "targets", "environments")):
@@ -45212,6 +45261,11 @@ def _validate_parity_result_against_active_contract(
         if selected_profiles != profile_order:
             raise ContractError(
                 "environment-failure results must retain all declared profile scopes"
+            )
+    elif native_fault_only:
+        if selected_profiles != native_fault_profile_ids:
+            raise ContractError(
+                "native fault-only results must select only their declared native profiles"
             )
     else:
         selected_python_profiles = [
@@ -45257,8 +45311,11 @@ def _validate_parity_result_against_active_contract(
             _validate_sha256(oracle[field], f"result.identity.oracles[{index}].{field}")
         oracle_records[oracle_id] = oracle
 
+    if native_fault_only and oracle_records:
+        raise ContractError("native fault-only results must not include source oracle identities")
     if set(oracle_records) != set(expected_oracles) and not (
-        failed_runner_environment
+        native_fault_only
+        or failed_runner_environment
         or any(error["scope"] == "oracle" and error["id"] in expected_oracles for error in errors)
     ):
         raise ContractError(

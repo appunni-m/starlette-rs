@@ -19,6 +19,7 @@ from .contract import (
     RESULT_SCHEMA,
     ContractError,
     _all_manifest_surfaces,
+    _native_only_fault_profiles,
     load_manifest,
     sha256_file,
     upstream_test_applicability_for_profile,
@@ -821,19 +822,35 @@ def run_parity(
     commands = _command_map(manifest)
     env = _base_environment()
     environment_errors: list[dict[str, Any]] = []
-    try:
-        prepared = load_prepared_environments(root, require_target=True)
-    except ContractError as exc:
-        prepared = {}
-        environment_errors.append(
-            {
-                "scope": "runner",
-                "id": "python-environments",
-                "kind": "environment_not_prepared",
-                "message": str(exc)[:MAX_DIAGNOSTIC],
-            }
+    profiles = _profiles(manifest)
+    all_profile_ids = [profile["id"] for profile in profiles.values()]
+    requested_cases, _ = _select_cases(all_cases, case_ids, all_profile_ids)
+    native_fault_profile_ids = (
+        _native_only_fault_profiles(
+            requested_cases,
+            manifest,
+            explicit_selection=case_ids is not None,
         )
-    if mode == "parity" and len(prepared) != 2:
+        if mode == "parity"
+        else None
+    )
+    native_fault_only = native_fault_profile_ids is not None
+    if native_fault_only:
+        prepared: dict[str, dict[str, Any]] = {}
+    else:
+        try:
+            prepared = load_prepared_environments(root, require_target=True)
+        except ContractError as exc:
+            prepared = {}
+            environment_errors.append(
+                {
+                    "scope": "runner",
+                    "id": "python-environments",
+                    "kind": "environment_not_prepared",
+                    "message": str(exc)[:MAX_DIAGNOSTIC],
+                }
+            )
+    if mode == "parity" and not native_fault_only and len(prepared) != 2:
         environment_errors.append(
             {
                 "scope": "runner",
@@ -847,12 +864,12 @@ def run_parity(
         runtimes = {record["runtime"] for record in prepared.values()}
         if len(runtimes) == 1:
             prepared_python_version = python_version_from_runtime(next(iter(runtimes)))
-    profiles = _profiles(manifest)
-    active_profiles = (
-        _active_profiles(profiles, prepared_python_version)
-        if prepared_python_version
-        else list(profiles.values())
-    )
+    if native_fault_only:
+        active_profiles = [profiles[profile_id] for profile_id in native_fault_profile_ids]
+    elif prepared_python_version:
+        active_profiles = _active_profiles(profiles, prepared_python_version)
+    else:
+        active_profiles = list(profiles.values())
     active_profile_ids = [profile["id"] for profile in active_profiles]
     cases, selection = _select_cases(all_cases, case_ids, active_profile_ids)
     parity_cases = [
@@ -870,9 +887,12 @@ def run_parity(
     oracle_environment_id = (
         environment_ids(prepared_python_version)[0] if prepared_python_version else ""
     )
-    _oracle_identity_raw, oracle_identity, oracle_error = _oracle_identity(
-        manifest, commands, env, prepared, root, oracle_environment_id
-    )
+    if native_fault_only:
+        oracle_identity, oracle_error = None, None
+    else:
+        _oracle_identity_raw, oracle_identity, oracle_error = _oracle_identity(
+            manifest, commands, env, prepared, root, oracle_environment_id
+        )
     if oracle_error:
         infra.append(oracle_error)
 

@@ -8,10 +8,11 @@ contract is full scope (`starlette-1.6.0-full`): 2,531 cases across 415 parity
 inputs and two benchmark inputs, 151 compatibility operations, 14 Rust-native
 operations, 1,396 requirements, and six profiles. Contract and source-inventory
 checks pass; no current complete parity result, full-suite coverage measurement,
-or complete benchmark run has been accepted for this manifest. A focused native
-fault-runner smoke passed three assertions, but its aggregate artifact is
-infrastructure-failed because prepared Python environments were stale after
-source changes. Revision `e36bc551` preserves the active exception observed by
+or complete benchmark run has been accepted for this manifest. Explicit
+selections containing only manifest-declared Rust-native fault contracts now
+run without prepared Python environments or a source-oracle identity; the
+current smoke passed all three assertions with zero infrastructure errors.
+Revision `e36bc551` preserves the active exception observed by
 synchronous `WebSocketEndpoint.on_disconnect` and adds an input-only comparison
 for a pending receive exception. The generated fixture backlog is zero, and the
 grouped full parity run is the next project-wide gate.
