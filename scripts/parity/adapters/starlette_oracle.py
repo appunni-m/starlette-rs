@@ -371,13 +371,18 @@ def _input_background_tasks(
 ) -> Any:
     from starlette.background import BackgroundTask, BackgroundTasks
 
-    if spec["kind"] not in {"single-task", "task-list", "task-list-constructor"}:
+    if spec["kind"] not in {
+        "single-task",
+        "task-list",
+        "task-list-constructor",
+        "task-list-subclass-property",
+    }:
         raise ValueError("Response background task kind is unsupported")
     if not isinstance(spec["tasks"], list) or not spec["tasks"]:
         raise ValueError("Response background tasks must be a non-empty array")
-    if (spec["kind"] == "single-task") != (len(spec["tasks"]) == 1):
+    if spec["kind"] == "single-task" and len(spec["tasks"]) != 1:
         raise ValueError("Response background task count does not match its kind")
-    if spec["kind"] != "single-task" and len(spec["tasks"]) < 2:
+    if spec["kind"] in {"task-list", "task-list-constructor"} and len(spec["tasks"]) < 2:
         raise ValueError("Response background task lists must contain multiple tasks")
     background_tasks = BackgroundTasks() if spec["kind"] == "task-list" else None
 
@@ -675,6 +680,19 @@ def _input_background_tasks(
         return tasks[0]
     if spec["kind"] == "task-list-constructor":
         return BackgroundTasks(tasks)
+    if spec["kind"] == "task-list-subclass-property":
+        visible_tasks = [tasks[index] for index in spec["tasks_property_indices"]]
+
+        class InputBackgroundTasks(BackgroundTasks):
+            @property
+            def tasks(self) -> list[Any]:
+                return visible_tasks
+
+            @tasks.setter
+            def tasks(self, value: list[Any]) -> None:
+                self._constructor_tasks = value
+
+        return InputBackgroundTasks(tasks)
     return background_tasks
 
 
@@ -8841,6 +8859,10 @@ def _run_websocket_convenience_case(case: dict[str, Any]) -> dict[str, Any]:
 
                 def typed_receive_descriptor(instance: Any, name: str = attribute) -> Any:
                     record_descriptor_read(name, instance)
+                    error = method_descriptors[name].get("raises")
+                    if error is not None:
+                        exception_type = getattr(builtins, error["exception_type"])
+                        raise exception_type(error["message"])
                     return getattr(WebSocket, name).__get__(instance, type(instance))
 
                 descriptor_members[attribute] = property(typed_receive_descriptor)
@@ -12747,17 +12769,32 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
                     raise ValueError("Response background failure input is unsupported")
                 background_failure = failure
         else:
+            background_fields = {"kind", "tasks"}
+            if case["background"].get("kind") == "task-list-subclass-property":
+                background_fields.add("tasks_property_indices")
             background_tasks_spec = _strict_object(
-                case["background"], {"kind", "tasks"}, "Response background tasks"
+                case["background"], background_fields, "Response background tasks"
             )
             if background_tasks_spec["kind"] not in {
                 "single-task",
                 "task-list",
                 "task-list-constructor",
+                "task-list-subclass-property",
             }:
                 raise ValueError("Response background task kind is unsupported")
             if not isinstance(background_tasks_spec["tasks"], list):
                 raise ValueError("Response background tasks must be an array")
+            if background_tasks_spec["kind"] == "task-list-subclass-property":
+                task_indices = background_tasks_spec["tasks_property_indices"]
+                if not isinstance(task_indices, list) or any(
+                    not isinstance(index, int) or isinstance(index, bool) for index in task_indices
+                ):
+                    raise ValueError("Response background task property indices must be integers")
+                if any(
+                    index < 0 or index >= len(background_tasks_spec["tasks"])
+                    for index in task_indices
+                ):
+                    raise ValueError("Response background task property index is out of range")
 
     stream_lifecycle: dict[str, str] | None = None
     if "stream_lifecycle" in case:

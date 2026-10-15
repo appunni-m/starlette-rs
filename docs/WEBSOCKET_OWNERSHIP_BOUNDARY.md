@@ -14,7 +14,10 @@ Python futures remain on the event loop that drives the call.
 Protocol objects and continuations expose directly owned Python references to
 cyclic GC. Non-iteration callbacks preserve their original StopAsyncIteration.
 Iterator callbacks retain the original error in Python's generator-error
-cause/context instead of replacing it with an empty exception.
+cause/context instead of replacing it with an empty exception. In particular,
+StopIteration raised while resolving a typed receive callback during iterator
+advancement becomes `RuntimeError("async generator raised StopIteration")`,
+with the original exception as cause and context under PEP 479.
 
 `starlette/websockets.py:144-163` implements `iter_text`, `iter_bytes`, and
 `iter_json` as native async generators whose only handled exception is
@@ -39,6 +42,11 @@ state, advance order, and disconnect handling remain in Rust. The three
 `websocket-convenience.yaml` descriptor inputs compare ordered reads for text,
 bytes, and JSON iterators, including the disconnect advance, against the pinned
 source. Their comparisons are deferred to the grouped parity phase.
+
+The same input file includes a descriptor that raises StopIteration on the
+first `iter_text` advance. The Rust callback-error path applies the pinned
+async-generator conversion and retains the injected exception chain; this
+comparison remains deferred with the full parity matrix.
 
 Thirty `websocket-thread-ownership.yaml` definitions select worker construction
 of public WebSocket objects and, for iterator workflows, worker construction of

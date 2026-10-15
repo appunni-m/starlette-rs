@@ -282,6 +282,9 @@ WEBSOCKET_DESCRIPTOR_TIMING_REQUIREMENT = (
 WEBSOCKET_ITERATOR_RECEIVE_LOOKUP_REQUIREMENT = (
     "starlette.websocket.api.iterator.receive-method-descriptor.lookup-timing"
 )
+WEBSOCKET_ITERATOR_STOP_ITERATION_REQUIREMENT = (
+    "starlette.websocket.api.iterator.callback.stop-iteration-pep479"
+)
 WEBSOCKET_INVALID_JSON_MODE_REQUIREMENTS = {
     "receive": "starlette.websocket.api.receive.json.invalid-mode",
     "send": "starlette.websocket.api.send.json.invalid-mode",
@@ -693,6 +696,8 @@ REQUEST_CONNECTION_PROPERTIES_REQUIREMENTS = {
         "starlette.requests.Request.connection-properties.mapping-membership-protocol"
     ),
     "present_null": "starlette.requests.HTTPConnection.auth-user.present-null-scope-values",
+    "missing_auth": "starlette.requests.HTTPConnection.auth.missing-scope-key",
+    "missing_user": "starlette.requests.HTTPConnection.user.missing-scope-key",
 }
 REQUEST_HEADER_CACHE_SEQUENCE_OPERATION = ("starlette.requests.Request", "header-cache-sequence")
 REQUEST_COOKIE_CACHE_SEQUENCE_OPERATION = ("starlette.requests.Request", "cookie-cache-sequence")
@@ -1614,6 +1619,7 @@ RESPONSE_BACKGROUND_REQUIREMENTS = {
     "argument_expansion_order": "starlette.responses.Response.asgi-call.background-task-argument-expansion-precedes-kwargs-lookup",
     "task_add": "starlette.responses.Response.asgi-call.background-task-add",
     "task_order": "starlette.responses.Response.asgi-call.background-task-order",
+    "task_subclass_property": "starlette.responses.Response.asgi-call.background-tasks-subclass-dynamic-tasks-lookup",
     "task_failure": "starlette.responses.Response.asgi-call.background-task-failure-stops",
     "task_late_failure": "starlette.responses.Response.asgi-call.background-task-late-failure-stops",
     "task_sequence_constructor": "starlette.responses.Response.asgi-call.background-task-sequence-constructor",
@@ -5198,7 +5204,10 @@ def _validate_websocket_convenience_case_stimulus(case: dict[str, Any]) -> None:
     for attribute, descriptor in method_descriptors.items():
         context = f"WebSocket method_descriptors.{attribute}"
         if attribute in {"scope", "receive", "receive_text", "receive_bytes", "receive_json"}:
-            descriptor = _exact(descriptor, {"read_labels"}, context)
+            fields = {"read_labels"}
+            if isinstance(descriptor, dict) and "raises" in descriptor:
+                fields.add("raises")
+            descriptor = _exact(descriptor, fields, context)
             labels = descriptor["read_labels"]
             if (
                 not isinstance(labels, list)
@@ -5207,6 +5216,19 @@ def _validate_websocket_convenience_case_stimulus(case: dict[str, Any]) -> None:
                 or len(labels) != len(set(labels))
             ):
                 raise ContractError(f"{context}.read_labels must be unique non-empty strings")
+            if "raises" in descriptor:
+                if attribute != "receive_text":
+                    raise ContractError(
+                        "WebSocket descriptor-raised StopIteration input is limited to receive_text"
+                    )
+                error = _exact(
+                    descriptor["raises"],
+                    {"exception_type", "message"},
+                    f"{context}.raises",
+                )
+                if error["exception_type"] != "StopIteration":
+                    raise ContractError(f"{context}.raises.exception_type must be StopIteration")
+                _string(error["message"], f"{context}.raises.message")
         else:
             descriptor = _exact(descriptor, {"by_client_state"}, context)
             state_labels = descriptor["by_client_state"]
@@ -5380,6 +5402,10 @@ def _validate_websocket_convenience_case_stimulus(case: dict[str, Any]) -> None:
             else:
                 exercised.add("starlette.websocket.api.accept.empty-headers")
         elif method in {"receive_text", "receive_bytes", "receive_json"}:
+            if method_descriptors.get(method, {}).get("raises") is not None:
+                raise ContractError(
+                    f"{context} descriptor-raised StopIteration is only supported during iter_text"
+                )
             success_requirement: str
             preaccept_requirement: str
             if method == "receive_json":
@@ -5456,22 +5482,33 @@ def _validate_websocket_convenience_case_stimulus(case: dict[str, Any]) -> None:
             if application_state != "CONNECTED":
                 raise ContractError(f"{context} requires a connected WebSocket")
             payload = "bytes_base64" if method == "iter_bytes" else "text"
-            iterated = False
-            iterator_receive_count = 0
-            while True:
-                message_type = receive_input(context, payload)
-                iterator_receive_count += 1
-                if message_type == "websocket.disconnect":
-                    break
-                iterated = True
-            if not iterated:
-                raise ContractError(f"{context} must yield at least one incoming message")
-            exercised.add(f"starlette.websocket.api.{method}.async-for")
             descriptor_attribute = {
                 "iter_text": "receive_text",
                 "iter_bytes": "receive_bytes",
                 "iter_json": "receive_json",
             }[method]
+            descriptor = method_descriptors.get(descriptor_attribute, {})
+            descriptor_raises = descriptor.get("raises")
+            iterated = False
+            iterator_receive_count = 0
+            if descriptor_raises is not None:
+                if method != "iter_text":
+                    raise ContractError(
+                        f"{context} StopIteration descriptor input is currently limited to iter_text"
+                    )
+                iterator_receive_count = 1
+                exercised.add(WEBSOCKET_ITERATOR_STOP_ITERATION_REQUIREMENT)
+            else:
+                while True:
+                    message_type = receive_input(context, payload)
+                    iterator_receive_count += 1
+                    if message_type == "websocket.disconnect":
+                        break
+                    iterated = True
+            if not iterated and descriptor_raises is None:
+                raise ContractError(f"{context} must yield at least one incoming message")
+            if descriptor_raises is None:
+                exercised.add(f"starlette.websocket.api.{method}.async-for")
             if descriptor_attribute in method_descriptors:
                 method_descriptors_used = True
                 if set(method_descriptors) != {descriptor_attribute}:
@@ -7240,8 +7277,11 @@ def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
         if "background" in case:
             if case["target_profiles"] != ["python-package-cpython312"]:
                 raise ContractError("Response background callbacks are Python-package-only")
+            background_fields = {"kind", "tasks"}
+            if case["background"].get("kind") == "task-list-subclass-property":
+                background_fields.add("tasks_property_indices")
             background = _exact(
-                case["background"], {"kind", "tasks"}, "Response background task input"
+                case["background"], background_fields, "Response background task input"
             )
             kind = _string(background["kind"], "Response background.kind")
             tasks = background["tasks"]
@@ -7251,7 +7291,22 @@ def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
                 raise ContractError("single-task background input must contain exactly one task")
             if kind in {"task-list", "task-list-constructor"} and len(tasks) < 2:
                 raise ContractError("background task lists must contain multiple tasks")
-            if kind not in {"single-task", "task-list", "task-list-constructor"}:
+            if kind == "task-list-subclass-property":
+                task_indices = background["tasks_property_indices"]
+                if not isinstance(task_indices, list) or any(
+                    type(index) is not int for index in task_indices
+                ):
+                    raise ContractError(
+                        "Response background task property indices must be integers"
+                    )
+                if any(index < 0 or index >= len(tasks) for index in task_indices):
+                    raise ContractError("Response background task property index is out of range")
+            if kind not in {
+                "single-task",
+                "task-list",
+                "task-list-constructor",
+                "task-list-subclass-property",
+            }:
                 raise ContractError(
                     "Response background.kind must select a single task or a task-list form"
                 )
@@ -7626,6 +7681,12 @@ def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
                     RESPONSE_BACKGROUND_REQUIREMENTS["task_order"],
                     RESPONSE_BACKGROUND_REQUIREMENTS["task_sequence_constructor"],
                 ]
+            elif kind == "task-list-subclass-property":
+                if failures or has_live_task_list_mutation or has_argument_expansion_order:
+                    raise ContractError(
+                        "subclass tasks-property input requires non-failing ordinary callbacks"
+                    )
+                derived = [RESPONSE_BACKGROUND_REQUIREMENTS["task_subclass_property"]]
             else:
                 derived = [
                     RESPONSE_BACKGROUND_REQUIREMENTS["task_add"],
@@ -30830,11 +30891,12 @@ def _validate_request_connection_properties_case(case: dict[str, Any]) -> None:
             "Request connection-properties case ID must bind to its public properties"
         )
 
-    scope = _exact(
-        case["scope"],
-        {"type", "method", "path", "session", "auth", "user"},
-        "Request connection-properties scope",
-    )
+    scope_input = case["scope"]
+    if not isinstance(scope_input, dict):
+        raise ContractError("Request connection-properties scope must be a mapping")
+    scope_fields = {"type", "method", "path", "session"}
+    scope_fields.update(key for key in ("auth", "user") if key in scope_input)
+    scope = _exact(scope_input, scope_fields, "Request connection-properties scope")
     if scope["type"] != "http":
         raise ContractError("Request connection-properties scope must be HTTP")
     _string(scope["method"], "Request connection-properties scope.method")
@@ -30859,20 +30921,41 @@ def _validate_request_connection_properties_case(case: dict[str, Any]) -> None:
     if (
         not isinstance(properties, list)
         or any(value not in allowed_properties for value in properties)
-        or len(properties) != len(allowed_properties)
-        or set(properties) != allowed_properties
+        or not properties
+        or len(properties) != len(set(properties))
     ):
-        raise ContractError(
-            "Request connection-properties input must select session, auth, and user once each"
-        )
+        raise ContractError("Request connection-properties input must select unique properties")
     if case["covers"] == [REQUEST_CONNECTION_PROPERTIES_REQUIREMENTS["mapping_membership"]]:
+        if set(scope) != scope_fields | {"auth", "user"} or set(properties) != allowed_properties:
+            raise ContractError(
+                "Request connection-properties membership case requires all properties and scope keys"
+            )
         return
     if case["covers"] == [REQUEST_CONNECTION_PROPERTIES_REQUIREMENTS["present_null"]]:
-        if scope["auth"] is not None or scope["user"] is not None:
+        if (
+            set(scope) != scope_fields | {"auth", "user"}
+            or set(properties) != allowed_properties
+            or scope["auth"] is not None
+            or scope["user"] is not None
+        ):
             raise ContractError(
                 "Request connection-properties present-null case requires null auth and user values"
             )
         return
+    for name in ("auth", "user"):
+        requirement = REQUEST_CONNECTION_PROPERTIES_REQUIREMENTS[f"missing_{name}"]
+        if case["covers"] == [requirement]:
+            other_name = "user" if name == "auth" else "auth"
+            if (
+                set(scope) != scope_fields | {other_name}
+                or properties != [name]
+                or mapping["instance_contains_result"] is not True
+            ):
+                raise ContractError(
+                    f"Request connection-properties missing-{name} case requires the key to be absent, "
+                    "the other auth property to be present, and instance __contains__ to return true"
+                )
+            return
     raise ContractError(
         "Request connection-properties case must cover a source-backed property requirement"
     )

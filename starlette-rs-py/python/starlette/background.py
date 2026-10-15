@@ -90,4 +90,4 @@ class BackgroundTasks(BackgroundTask):
         self._inner.append_task(BackgroundTask(func, *args, **kwargs))
 
     async def __call__(self) -> None:
-        await self._inner.run()
+        await self._inner.run(self.tasks)

@@ -291,12 +291,13 @@ impl PyBackgroundTasks {
         Ok(())
     }
 
-    /// Return an awaitable which runs tasks sequentially in registration order.
-    fn run(slf: Py<Self>, py: Python<'_>) -> PyResult<Py<PyAny>> {
+    /// Return an awaitable which iterates the caller's current public task list.
+    #[pyo3(signature = (tasks))]
+    fn run(_slf: Py<Self>, py: Python<'_>, tasks: Py<PyAny>) -> PyResult<Py<PyAny>> {
         into_sendable_python_awaitable(
             py,
             BackgroundTasksCall {
-                tasks: slf,
+                tasks,
                 iterator: None,
             },
         )
@@ -962,7 +963,7 @@ impl AwaitableStateMachine for BackgroundTaskCall {
 }
 
 struct BackgroundTasksCall {
-    tasks: Py<PyBackgroundTasks>,
+    tasks: Py<PyAny>,
     iterator: Option<Py<PyAny>>,
 }
 
@@ -1000,14 +1001,10 @@ impl AwaitableStateMachine for BackgroundTasksCall {
     fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
         match input {
             MachineResume::Start => {
-                let tasks = {
-                    let task = self.tasks.borrow(py);
-                    task_attribute(py, "BackgroundTasks", "tasks", task.tasks.as_ref())?
-                };
                 let iterator = py
                     .import("builtins")?
                     .getattr("iter")?
-                    .call1((tasks.bind(py),))?;
+                    .call1((self.tasks.bind(py),))?;
                 self.iterator = Some(iterator.unbind());
                 self.pull_next(py)
             }

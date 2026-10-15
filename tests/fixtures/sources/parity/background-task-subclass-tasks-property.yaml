@@ -1,0 +1,70 @@
+{
+  "schema": "migration-parity/parity-input@56",
+  "cases": [
+    {
+      "case_id": "starlette.responses.Response.asgi-call.background-tasks-subclass-tasks-property",
+      "surface": "starlette.responses.Response",
+      "operation": "asgi-call",
+      "covers": [
+        "starlette.responses.Response.asgi-call.background-tasks-subclass-dynamic-tasks-lookup"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "content": {
+        "kind": "text",
+        "value": "task initiated"
+      },
+      "status_code": 200,
+      "header_pairs": [],
+      "media_type": "text/plain",
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/background-tasks-subclass-property-lookup",
+        "raw_path_base64": "L2JhY2tncm91bmQtdGFza3Mtc3ViY2xhc3MtcHJvcGVydHktbG9va3Vw",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "asgi-call"
+      ],
+      "background": {
+        "kind": "task-list-subclass-property",
+        "tasks": [
+          {
+            "mode": "sync",
+            "args": [
+              "constructor-task"
+            ],
+            "kwargs": {
+              "label": "constructor-list"
+            },
+            "failure": null
+          }
+        ],
+        "tasks_property_indices": []
+      }
+    }
+  ]
+}

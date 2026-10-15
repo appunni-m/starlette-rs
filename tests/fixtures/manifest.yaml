@@ -448,6 +448,7 @@
       "build/parity/inputs/parity/redirect-response.json",
       "build/parity/inputs/parity/responses-basic.json",
       "build/parity/inputs/parity/background-tasks.json",
+      "build/parity/inputs/parity/background-task-subclass-tasks-property.json",
       "build/parity/inputs/parity/background-task-list-sync-cancellation-worker-error.json",
       "build/parity/inputs/parity/background-task-attribute-deletion.json",
       "build/parity/inputs/parity/background-task-tasks-attribute-deletion.json",
@@ -11066,7 +11067,7 @@
             {
               "id": "starlette.middleware.authentication.AuthenticationMiddleware.websocket-authenticated-success",
               "dimension": "success_path",
-              "description": "For a successful WebSocket backend result, install credentials and user before dispatching the ASGI app. Upstream: starlette/middleware/authentication.py:29-32,45-48; tests/test_authentication.py::test_websocket_auth_middleware.",
+              "description": "For a successful WebSocket backend result, install credentials and user before dispatching the ASGI app. Upstream: starlette/middleware/authentication.py:29-32,45-48; tests/test_authentication.py::test_websocket_authentication_required:273-303.",
               "lanes": [
                 "parity"
               ],
@@ -18466,6 +18467,36 @@
                 "python-package-cpython313",
                 "python-package-cpython314"
               ]
+            },
+            {
+              "id": "starlette.requests.HTTPConnection.auth.missing-scope-key",
+              "dimension": "error_path",
+              "description": "Reading Request.auth when the input scope lacks auth raises the pinned assertion with its AuthenticationMiddleware guidance. The instance-level UserDict __contains__ attribute reports true, but `key in scope` uses type-level special-method lookup and sees the key is absent. Pinned source: starlette/requests.py:178-181; docs/authentication.md:57-78.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
+              "id": "starlette.requests.HTTPConnection.user.missing-scope-key",
+              "dimension": "error_path",
+              "description": "Reading Request.user when the input scope lacks user raises the pinned assertion with its AuthenticationMiddleware guidance. The instance-level UserDict __contains__ attribute reports true, but `key in scope` uses type-level special-method lookup and sees the key is absent. Pinned source: starlette/requests.py:183-186; docs/authentication.md:57-78.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
             }
           ],
           "parity": {
@@ -22267,6 +22298,17 @@
               "id": "starlette.responses.Response.asgi-call.background-task-order",
               "dimension": "success_path",
               "description": "Attach three input-defined sync tasks through BackgroundTasks and compare callback arguments and exact sequential start/completion order after the response is sent. Upstream: tests/test_background.py::test_multiple_tasks; starlette/background.py:26-36.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.Response.asgi-call.background-tasks-subclass-dynamic-tasks-lookup",
+              "dimension": "boundary",
+              "description": "Subclass BackgroundTasks with an input-selected public tasks property that differs from the constructor list, attach it to Response, and compare which tasks run after the response is sent. Pinned source: starlette/background.py:26-36; starlette/responses.py:163-170.",
               "lanes": [
                 "parity"
               ],
@@ -31128,6 +31170,17 @@
               "id": "starlette.websocket.api.iterator.receive-method-descriptor.lookup-timing",
               "dimension": "boundary",
               "description": "For iter_text, iter_bytes, and iter_json, look up the corresponding typed receive method only when the native async iterator advances and repeat that Python descriptor lookup for each received frame, including the disconnect advance. Pinned source: starlette/websockets.py:144-160.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.websocket.api.iterator.callback.stop-iteration-pep479",
+              "dimension": "error_path",
+              "description": "When the input-defined typed-receive descriptor raises StopIteration during WebSocket.iter_text advancement, compare the native async-generator RuntimeError and preserved cause/context. Pinned source: starlette/websockets.py:144-149; Python async-generator StopIteration conversion follows PEP 479.",
               "lanes": [
                 "parity"
               ],

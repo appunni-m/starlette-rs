@@ -36,6 +36,72 @@
       "observations": [
         "connection-properties"
       ]
+    },
+    {
+      "case_id": "starlette.requests.Request.connection-properties.missing-auth-scope-key",
+      "surface": "starlette.requests.Request",
+      "operation": "connection-properties",
+      "covers": [
+        "starlette.requests.HTTPConnection.auth.missing-scope-key"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "http",
+        "method": "GET",
+        "path": "/profile",
+        "session": {},
+        "user": null
+      },
+      "scope_mapping": {
+        "container": "collections.UserDict",
+        "instance_contains_result": true
+      },
+      "properties": [
+        "auth"
+      ],
+      "observations": [
+        "connection-properties"
+      ]
+    },
+    {
+      "case_id": "starlette.requests.Request.connection-properties.missing-user-scope-key",
+      "surface": "starlette.requests.Request",
+      "operation": "connection-properties",
+      "covers": [
+        "starlette.requests.HTTPConnection.user.missing-scope-key"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "http",
+        "method": "GET",
+        "path": "/profile",
+        "session": {},
+        "auth": null
+      },
+      "scope_mapping": {
+        "container": "collections.UserDict",
+        "instance_contains_result": true
+      },
+      "properties": [
+        "user"
+      ],
+      "observations": [
+        "connection-properties"
+      ]
     }
   ]
 }

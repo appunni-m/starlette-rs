@@ -8,9 +8,9 @@ Pydantic are outside this project's scope.
 ## Execution order and current status
 
 Current implementation checkpoint (2026-10-15): the active manifest declares
-the full Starlette 1.6.0 scope (`starlette-1.6.0-full`) with 2,515 cases from
-413 parity input sources and two benchmark inputs, 151 Starlette compatibility
-operations, 13 Rust-native operations, 1,385 parity requirements, and six
+the full Starlette 1.6.0 scope (`starlette-1.6.0-full`) with 2,519 cases from
+414 parity input sources and two benchmark inputs, 151 Starlette compatibility
+operations, 13 Rust-native operations, 1,389 parity requirements, and six
 target profiles. Contract and source-inventory checks pass; the generated atlas
 reports 866 upstream source rows, 810 input mappings, 56 reasoned
 `not_applicable` rows, and zero fixture-backlog rows. The API candidate catalog
@@ -53,7 +53,7 @@ plus AuthenticationMiddleware iterable backend stimuli, now match their public
 consumer contracts in the parity adapters. A SessionMiddleware timestamp case
 now records the locked ItsDangerous 2.2.0 over-width fallback instead of
 claiming that a nine-byte timestamp is accepted. Contract and source-inventory
-checks pass at 2,515 cases and 413 input files; all comparisons remain
+checks pass at 2,519 cases and 414 input files; all comparisons remain
 unexecuted until the grouped parity phase.
 
 The next implementation batch adds BOM-required generic UTF-16 decoding with
@@ -61,7 +61,7 @@ the pinned Latin-1 fallback, StaticFiles handling for non-string HTTP methods,
 and Rust-owned WebSocket typed-receive descriptor lookup order. It registers
 one input-only comparison for each boundary and adds the StaticFiles source
 requirement; all three comparisons remain deferred to grouped parity. The
-active contract now has 2,515 cases across 413 parity inputs and 1,385
+active contract now has 2,519 cases across 414 parity inputs and 1,389
 requirements. The regenerated atlas has 866 source rows, 810 input mappings,
 56 reasoned `not_applicable` rows, and zero backlog. No parity, coverage, or
 benchmark phase has run for the active contract.
@@ -110,16 +110,19 @@ The current implementation batch adds WSGI protocol formatting and Config
 reflected-key-addition probes, Route/Router/Mount middleware-stack ordering,
 and TestClient handled-exception propagation after a complete response. The
 existing BackgroundTasks cancellation-then-worker-error case is now supported
-by its live adapter. A TestClient WebSocket input now exercises plus-space,
+by its live adapter. The BackgroundTasks facade now resolves its current public
+`tasks` attribute when awaited and passes that sequence to the Rust-owned
+iterator; a source/package input covers a subclass property override. That
+comparison remains deferred to grouped parity. A TestClient WebSocket input now exercises plus-space,
 percent-encoded UTF-8, duplicate query keys, and blank values through both the
 ASGI scope and `WebSocket.query_params`. Three more input-only cases observe
 successful WebSocket authentication scope installation, first-value selection
 for repeated CORS request headers, and `Request.stream()` skipping an
 application-defined event between body chunks; the reviewed Rust behavior
 matches the pinned source. All four new comparisons remain deferred.
-Static contract validation passes for full scope with 2,515 cases, 413 parity
+Static contract validation passes for full scope with 2,519 cases, 414 parity
 inputs, two benchmark inputs, 151 compatibility operations, 13 Rust-native
-operations, 1,385 parity requirements, and six target profiles. The latest source-reviewed inputs cover Request and WebSocket
+operations, 1,389 parity requirements, and six target profiles. The latest source-reviewed inputs cover Request and WebSocket
 identity across mutable scopes, WSGI query-string ASCII decoding and Latin-1
 header values, and quoted Request cookie escapes. Existing Rust behavior
 matches the pinned sources for the cookie and WSGI builders by source review.
@@ -183,16 +186,23 @@ matrix, repair mismatches across families, measure coverage from that full
 matrix, reconcile the source atlas, then run all correctness-gated benchmarks.
 
 The active contract declares full Starlette scope (`scope.id:
-starlette-1.6.0-full`, `scope.mode: full`) with 2,515 input cases across 413
+starlette-1.6.0-full`, `scope.mode: full`) with 2,519 input cases across 414
 parity inputs and two benchmark inputs, 151 Starlette compatibility operations,
-13 Rust-native operations, 1,385 parity requirements, and six target profiles.
+13 Rust-native operations, 1,389 parity requirements, and six target profiles.
 No complete parity result has been accepted for this contract. The latest implementation adds Rust-backed `BackgroundTasks.tasks` deletion and preserves Python strings, including lone surrogates, in built-in converter formatting. Five new input-only comparisons cover background attribute deletion, concurrency BaseExceptionGroup propagation, public converter methods, and registration replacement with preexisting routes; all remain unexecuted until full parity. The latest batch adds
 input-only comparisons for StaticFiles `If-Modified-Since` dates with single-digit
 time fields and Jinja environments that supply their own `url_for` global; the
 StaticFiles parser now normalizes the accepted time form in Rust. Both comparisons
 remain deferred until full parity. A new AuthenticationMiddleware scope input
 preserves present `None` values for `auth` and `user`; its comparison remains
-deferred. Rust now resolves awaitable `__await__` through type-level lookup, ignoring instance shadow attributes; its StreamingResponse source/package input remains deferred. A new Config
+deferred. Two Request inputs omit `scope['auth']` and `scope['user']` in turn
+while an instance-level UserDict `__contains__` override returns true; the
+pinned type-level membership lookup still sees each key as absent and raises
+the documented assertion. Both source/package comparisons remain deferred. The
+successful WebSocket authentication requirement now cites the pinned
+`test_websocket_authentication_required` function at lines 273–303. Rust now
+resolves awaitable `__await__` through type-level lookup, ignoring instance
+shadow attributes; its StreamingResponse source/package input remains deferred. A new Config
 typing consumer covers all nine pinned `Config.__call__` overload assertions;
 its input-derived source/package Mypy 1.19.1 comparison passes with identical
 diagnostics and revealed types, while its registered parity case remains
@@ -299,7 +309,7 @@ comparison checks
 `StopAsyncIteration`; it also remains unexecuted. The latest Request boundary fix uses Python membership for the
 documented `session`, `auth`, and `user` properties and adds a UserDict
 instance-override input to the active source/package adapters; it remains
-unexecuted until full parity. The WebSocket iterator now resolves its typed receive method through the receiver at each Rust iterator advance; three input-only descriptor-tape comparisons cover lazy lookup and the disconnect advance for text, bytes, and JSON and remains unexecuted. The Rust-native Route float negative-zero case is
+unexecuted until full parity. The WebSocket iterator now resolves its typed receive method through the receiver at each Rust iterator advance; three input-only descriptor-tape comparisons cover lazy lookup and the disconnect advance for text, bytes, and JSON and remain unexecuted. A fourth input makes the typed receive descriptor raise StopIteration during iter_text advancement; Rust applies PEP 479 conversion with the original cause/context, and the comparison remains deferred. The Rust-native Route float negative-zero case is
 also active and remains unexecuted until full parity. Commit `ba889955` adds
 Request concurrent
 body/disconnect recovery and terminal-event ordering, StaticFiles
@@ -492,7 +502,7 @@ representation, and dynamic `FormData.close()` dispatch remain Rust-backed.
 
 | Phase | State | Evidence |
 | --- | --- | --- |
-| Implementation | In progress. | The active manifest declares full Starlette scope with 2,515 cases across 413 parity inputs, two benchmark inputs, 151 compatibility operations, 13 Rust-native operations, 1,385 parity requirements, and six target profiles. Contract and source-inventory checks pass; no complete parity result has been accepted for this manifest. Recent input-only additions remain unexecuted until implementation closes. The latest source-reviewed inputs cover Request and WebSocket identity across mutable scopes, WSGI query-string ASCII decoding and Latin-1 header values, and quoted Request cookie escapes; all four cases remain deferred to grouped parity. A recent implementation checkpoint adds source-backed inputs for MultiDict protocol ordering, direct synchronous HTTPEndpoint dispatch, Router registration methods, and URLPath protocol construction; its typing consumer now exercises the pinned Router registration annotations. The current implementation batch also covers WSGI `SERVER_PROTOCOL` formatting for an integer `http_version` and Config environment-prefix lookup using `str.__radd__`; both comparisons remain deferred to the grouped full parity phase. Earlier implementation batches add Rust-backed `BackgroundTasks.tasks` deletion, direct converter method and registry-sequence operations, and Python-string preservation for converter formatting; all five input-only cases remain unexecuted until full parity. This batch adds app-level `StreamingResponse` dispatch and caller cancellation during a gated response send, Request stream recovery after a receive `ValueError`, and input-driven inspection of the source-reviewed public API; all four comparisons remain unexecuted until full parity. Both app workflow adapters handle the streaming and cancellation inputs. The root package facade now matches the pinned module by exposing only `__version__`. The Host→WebSocketRoute and TestClient cleanup-context inputs remain unexecuted until full parity. The new direct `run_in_threadpool` cancellation input observes AnyIO-scope cancellation while the worker is gated and remains unexecuted until full parity. The Starlette constructor input now observes live `exception_handlers`, `user_middleware`, and `middleware_stack` visibility while its input-defined middleware Sequence is consumed; its source/package comparison remains unexecuted until full parity. The Config typing consumer covers all nine pinned `Config.__call__` overload assertions and passed direct Mypy 1.19.1 checks against the pinned source and installed wheel with identical diagnostics and revealed types; its registered parity case remains unexecuted. The application typing consumer checks `Request.form()` await/async-with, `Request.stream()` chunks as `bytes`, `Request.body()` as `bytes`, `Request.json()` as `Any`, `Request.query_params` as `QueryParams`, and `Request.path_params` as `dict[str, Any]`; pinned-source and installed-wheel Mypy 1.19.1 output matches for the existing assertions. `WebSocket.receive` and `WebSocket.send` are assignable to ASGI `Receive` and `Send` callback types; pinned-source and installed-wheel checker outputs match. Mypy 1.19.1 against the pinned source and rebuilt wheel now confirms the `ASGIInstance` and `QueryParams` item, `getlist()`, and `multi_items()` value types match. The Mount `routes: null` input and Rust truthiness fix are authored but unexecuted. `Request.client` is now asserted as `Address | None`; pinned-source and installed-wheel Mypy 1.19.1 output matches, and its registered consumer comparison remains deferred to full parity. A WebSocketEndpoint constructor input supplies a non-WebSocket scope type and observes the source assertion before dispatch; its registered comparison remains unexecuted until full parity. A new direct `WebSocketDisconnect` constructor input covers supplied/default fields, inherited exception arguments, reason truthiness, and call-binding errors; its comparison remains unexecuted. A new FormData consumer contract preserves the pinned `UploadFile | str` types for indexing, `getlist()`, and `multi_items()`; the input comparison remains unexecuted. The current three input additions for FileResponse range unpacking, WebSocketEndpoint exception-context chaining, and StaticFiles conditional ETag/range handling remain unexecuted until grouped parity. This checkpoint adds four input-only cases for Authentication iterable and non-iterable unpack errors, GZipResponder reuse, and direct StaticFiles method-before-path ordering; all four remain unexecuted until grouped parity. Rust now matches Python's `ValueError` for iterable arity errors and `TypeError` for non-iterable backend results, preserves GZipResponder state across repeated calls, and checks StaticFiles method before reading `scope.path`. Two new Request.form inputs cover positive
+| Implementation | In progress. | The active manifest declares full Starlette scope with 2,519 cases across 414 parity inputs, two benchmark inputs, 151 compatibility operations, 13 Rust-native operations, 1,389 parity requirements, and six target profiles. Contract and source-inventory checks pass; no complete parity result has been accepted for this manifest. Recent input-only additions remain unexecuted until implementation closes. The latest source-reviewed inputs cover Request and WebSocket identity across mutable scopes, WSGI query-string ASCII decoding and Latin-1 header values, and quoted Request cookie escapes; all four cases remain deferred to grouped parity. A recent implementation checkpoint adds source-backed inputs for MultiDict protocol ordering, direct synchronous HTTPEndpoint dispatch, Router registration methods, and URLPath protocol construction; its typing consumer now exercises the pinned Router registration annotations. The current implementation batch also covers WSGI `SERVER_PROTOCOL` formatting for an integer `http_version` and Config environment-prefix lookup using `str.__radd__`; both comparisons remain deferred to the grouped full parity phase. Earlier implementation batches add Rust-backed `BackgroundTasks.tasks` deletion, direct converter method and registry-sequence operations, and Python-string preservation for converter formatting; all five input-only cases remain unexecuted until full parity. This batch adds app-level `StreamingResponse` dispatch and caller cancellation during a gated response send, Request stream recovery after a receive `ValueError`, and input-driven inspection of the source-reviewed public API; all four comparisons remain unexecuted until full parity. Both app workflow adapters handle the streaming and cancellation inputs. The root package facade now matches the pinned module by exposing only `__version__`. The Host→WebSocketRoute and TestClient cleanup-context inputs remain unexecuted until full parity. The new direct `run_in_threadpool` cancellation input observes AnyIO-scope cancellation while the worker is gated and remains unexecuted until full parity. The Starlette constructor input now observes live `exception_handlers`, `user_middleware`, and `middleware_stack` visibility while its input-defined middleware Sequence is consumed; its source/package comparison remains unexecuted until full parity. The Config typing consumer covers all nine pinned `Config.__call__` overload assertions and passed direct Mypy 1.19.1 checks against the pinned source and installed wheel with identical diagnostics and revealed types; its registered parity case remains unexecuted. The application typing consumer checks `Request.form()` await/async-with, `Request.stream()` chunks as `bytes`, `Request.body()` as `bytes`, `Request.json()` as `Any`, `Request.query_params` as `QueryParams`, and `Request.path_params` as `dict[str, Any]`; pinned-source and installed-wheel Mypy 1.19.1 output matches for the existing assertions. `WebSocket.receive` and `WebSocket.send` are assignable to ASGI `Receive` and `Send` callback types; pinned-source and installed-wheel checker outputs match. Mypy 1.19.1 against the pinned source and rebuilt wheel now confirms the `ASGIInstance` and `QueryParams` item, `getlist()`, and `multi_items()` value types match. The Mount `routes: null` input and Rust truthiness fix are authored but unexecuted. `Request.client` is now asserted as `Address | None`; pinned-source and installed-wheel Mypy 1.19.1 output matches, and its registered consumer comparison remains deferred to full parity. A WebSocketEndpoint constructor input supplies a non-WebSocket scope type and observes the source assertion before dispatch; its registered comparison remains unexecuted until full parity. A new direct `WebSocketDisconnect` constructor input covers supplied/default fields, inherited exception arguments, reason truthiness, and call-binding errors; its comparison remains unexecuted. A new FormData consumer contract preserves the pinned `UploadFile | str` types for indexing, `getlist()`, and `multi_items()`; the input comparison remains unexecuted. The current three input additions for FileResponse range unpacking, WebSocketEndpoint exception-context chaining, and StaticFiles conditional ETag/range handling remain unexecuted until grouped parity. This checkpoint adds four input-only cases for Authentication iterable and non-iterable unpack errors, GZipResponder reuse, and direct StaticFiles method-before-path ordering; all four remain unexecuted until grouped parity. Rust now matches Python's `ValueError` for iterable arity errors and `TypeError` for non-iterable backend results, preserves GZipResponder state across repeated calls, and checks StaticFiles method before reading `scope.path`. Two new Request.form inputs cover positive
 arbitrary-precision max_fields and max_files limits; these comparisons remain
 unexecuted. A new body-limit input checks that the Content-Length precheck
 preserves the original scope headers mapping; both behavior and comparison
@@ -566,9 +576,9 @@ also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
 The active parity contract is `parity-input@56` with full scope
-(`starlette-1.6.0-full`): 2,515 input cases across 413 parity files, two
+(`starlette-1.6.0-full`): 2,519 input cases across 414 parity files, two
 benchmark files, 151 Starlette compatibility operations, 13 Rust-native
-operations, 1,385 parity requirements, and six target profiles. No complete
+operations, 1,389 parity requirements, and six target profiles. No complete
 parity result has been accepted for this manifest; full-suite coverage and
 benchmarks remain pending. The Config typing
 consumer covers all nine pinned `Config.__call__` overload assertions and is
@@ -955,9 +965,11 @@ also maps to the pinned `tests/middleware/test_errors.py::test_handler`.
 Their complete comparisons remain part of the deferred full parity phase.
 Further implementation work includes broader HTTP/WebSocket connection and
 request-body behavior, streaming backpressure and iterator lifecycle, broader
-WebSocket exception flows, remaining TestClient exception-propagation modes,
-additional synchronous background-cancellation schedules, context variables,
-and broader background-task error interactions. The latest input-only batch
+WebSocket exception flows, additional synchronous background-cancellation
+schedules, context variables, and broader background-task error interactions.
+The TestClient exception-policy candidates are already represented in Rust and
+active input fixtures; their source/package comparisons remain deferred and
+unverified. The latest input-only batch
 also closes the identified runtime gaps for nested Host reverse lookup,
 AuthenticationMiddleware iterator results, and Request body retry after
 disconnect. Additional input-only probes now cover an invalid first ASGI message

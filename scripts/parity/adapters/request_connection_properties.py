@@ -20,9 +20,22 @@ def run_request_connection_properties_case(
     scope.__contains__ = lambda _key: contains_result
 
     request = request_type(scope)
-    property_values = [
-        {"name": name, "value": _safe(getattr(request, name))} for name in case["properties"]
-    ]
+    property_values = []
+    for name in case["properties"]:
+        try:
+            value = getattr(request, name)
+        except Exception as error:
+            error_type = type(error)
+            property_values.append(
+                {
+                    "name": name,
+                    "outcome": "error",
+                    "exception_type": f"{error_type.__module__}.{error_type.__qualname__}",
+                    "message": str(error),
+                }
+            )
+        else:
+            property_values.append({"name": name, "value": _safe(value)})
     return {
         "case_id": case["case_id"],
         "status": "completed",

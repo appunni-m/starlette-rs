@@ -1479,6 +1479,8 @@ impl WebSocketIteratorStep {
         self.finish();
         if error.is_instance(py, self.disconnect_error.bind(py)) {
             Err(PyStopAsyncIteration::new_err(()))
+        } else if error.is_instance_of::<PyStopIteration>(py) {
+            Err(async_generator_stop_iteration_error(py, error))
         } else if error.is_instance_of::<PyStopAsyncIteration>(py) {
             Err(async_generator_stop_async_iteration_error(py, error))
         } else {
