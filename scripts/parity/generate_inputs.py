@@ -25,6 +25,7 @@ from .contract import (
     load_json,
     load_manifest,
     validate_benchmark_document,
+    validate_coverage_document,
     validate_input_document,
     validate_manifest,
 )
@@ -33,7 +34,7 @@ from .upstream_benchmark_contract import validate_upstream_workloads
 MANIFEST_RELATIVE = Path("tests/fixtures/manifest.yaml")
 SOURCE_ROOT = Path("tests/fixtures/sources")
 INPUT_ROOT = Path("build/parity/inputs")
-LANES = ("parity", "benchmark")
+LANES = ("parity", "coverage", "benchmark")
 
 
 def _relative_input_path(value: str, lane: str) -> Path:
@@ -108,6 +109,7 @@ def _validate_sources(
 ) -> list[tuple[Path, bytes, dict[str, Any]]]:
     generated: list[tuple[Path, bytes, dict[str, Any]]] = []
     parity_cases: list[dict[str, Any]] = []
+    coverage_documents: list[dict[str, Any]] = []
     seen_paths: set[Path] = set()
     _validate_source_index(root, manifest)
     for lane in LANES:
@@ -150,6 +152,13 @@ def _validate_sources(
                 validate_benchmark_document(document, parity_cases, manifest)
             else:
                 validate_upstream_workloads(document)
+        elif relative.parts[3] == "coverage":
+            validate_coverage_document(document, manifest, parity_cases)
+            coverage_documents.append(document)
+    if len(coverage_documents) != 1:
+        raise ContractError(
+            "the full coverage plan must be authored in exactly one indexed coverage input"
+        )
     return generated
 
 
@@ -294,6 +303,7 @@ def generate_inputs(root: Path, *, check: bool = False) -> dict[str, int]:
     return {
         "api_sources": len(metadata["api_sources"]),
         "parity_inputs": len(manifest["input_index"]["parity"]),
+        "coverage_inputs": len(manifest["input_index"]["coverage"]),
         "benchmark_inputs": len(manifest["input_index"]["benchmark"]),
         "generated_json": len(generated),
     }

@@ -28,26 +28,34 @@ The active full-scope `parity-input@58` contract covers Starlette 1.6.0 with
 2,538 cases across 416 parity inputs and two benchmark inputs, 151 compatibility
 operations, 14 Rust-native operations, and 1,399 parity requirements. Its
 manifest SHA-256 is
-`86f69fc791088794fcd59483d6a91cc08bb9b3999586665f73c2f722f9946029`. The
+`431d29029f7857808d7785844926d10925fd0c92969f5c75a074d849afc719fc`. The
 source atlas contains 866 rows: 810 input mappings, 56 source-backed
 `not_applicable` rows, and zero fixture backlog. The 999-row API candidate
 catalog has 564 supported candidates, 435 private/internal candidates, and
 zero uncertain candidates.
 
-The corrected five-profile matrix at target revision
-`576e9cfd99a063d46493aed28ff103292aa642f8` recorded 5,417 passes, zero
-failures, zero infrastructure errors, and six explicit `not_run` rows. All 17
-selected fault contracts passed. The six skips are the same
-`StaticFiles.lookup-path.surrogateescape-posix-matched-filename` input across
-profiles; this macOS APFS host cannot create the required invalid-byte
-filename. The full coverage receipt reports 26,113 of 33,345 Rust lines
-covered (78.31%); its test status is unknown because two CPython 3.12 rows are
-skipped. Coverage is a measurement, not a parity score.
+The latest corrected five-profile matrix, run before the active manifest
+changed, used previous manifest SHA-256
+`86f69fc791088794fcd59483d6a91cc08bb9b3999586665f73c2f722f9946029` and
+runtime target revision
+`57361208aa1bbe3c95cf76a27992a50cd15cb767`; it recorded 5,423 passes, zero
+failures, zero infrastructure errors, and zero `not_run` rows in workflow
+[38769902939](https://github.com/appunni-m/starlette-rs/actions/runs/38769902939).
+All 17 selected fault contracts passed. That matrix is historical evidence for
+the current manifest; parity revalidation is pending in CI. The prior-manifest
+local coverage receipt reports 26,126 of 33,348 Rust lines covered (78.34%); its
+CPython 3.12 receipt
+has two platform-specific `not_run` rows, so its test status is unknown. The
+active manifest now defines six input-driven coverage plans and 11 Rust line
+components; the current full-profile measurement and Coverage MCP gap review
+remain pending. Coverage is a measurement, not a parity score.
 
-The completed benchmark run covers 74 Router and GZip source/package
-workloads, with zero failures or source/package skips. The 74 Rust-native
-benchmark entries remain `not_run` because the native API has no equivalent
-workload boundary. Current evidence and exact run identities are in the
+Historical benchmark run `8971ad63-111e-4379-a327-6809e852ee75` covers 74
+Router and GZip source/package workloads, with zero failures or source/package skips. Its
+median source/package latency ratios are 0.225 for Router and 0.976 for GZip;
+normalized observation hashes match in 74/74. The 74 Rust-native benchmark
+entries remain `not_run` because the native API has no equivalent workload
+boundary. Current evidence and exact run identities are in the
 [implementation plan](../IMPLEMENTATION_PLAN.md), [parity report](../PARITY.md),
 and [benchmark report](../BENCHMARKS.md).
 

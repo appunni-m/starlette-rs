@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import subprocess
@@ -15,6 +16,7 @@ from .benchmark import run_benchmark
 from .comparator import compare_workflows
 from .contract import (
     BENCHMARK_RESULT_SCHEMA,
+    COVERAGE_RESULT_SCHEMA,
     INPUT_SCHEMA,
     MANIFEST_SCHEMA,
     ORACLE_COMMIT,
@@ -24,25 +26,28 @@ from .contract import (
     _all_manifest_surfaces,
     load_json,
     load_manifest,
+    sha256_file,
     validate_benchmark_inputs,
     validate_inputs,
     validate_manifest,
     validate_result_artifact,
     validate_workflow_result,
 )
+from .coverage import run_coverage
 from .envs import (
     prepare_environments,
     validate_markupsafe_build_locks,
     validate_oracle_runtime_lock,
     validate_runtime_lock,
 )
-from .runner import ROOT, run_parity
+from .runner import ROOT, load_json_from_text, run_parity
 from .scope_completeness import validate_full_scope_completeness
 from .upstream_benchmark import UPSTREAM_RESULT_RELATIVE, run_upstream_benchmark
 
 MANIFEST_RELATIVE = Path("tests/fixtures/manifest.yaml")
 RESULT_SCHEMA_RELATIVE = Path("tests/fixtures/result-schema.json")
 BENCHMARK_RESULT_SCHEMA_RELATIVE = Path("tests/fixtures/benchmark-result-schema.json")
+COVERAGE_RESULT_SCHEMA_RELATIVE = Path("tests/fixtures/coverage-result-schema.json")
 UPSTREAM_BENCHMARK_RESULT_SCHEMA_RELATIVE = Path(
     "tests/fixtures/upstream-benchmark-result-schema.json"
 )
@@ -111,13 +116,19 @@ def _parser() -> argparse.ArgumentParser:
     compare.add_argument("--target", type=Path, required=True)
 
     lane_help = {
-        "coverage": "validate that coverage is not applicable to this parity-only slice",
+        "coverage": "measure the declared Rust coverage component for selected target profiles",
         "benchmark": "run the declared correctness-gated benchmark workload",
     }
     for lane in ("coverage", "benchmark"):
         command = subparsers.add_parser(lane, help=lane_help[lane])
         command.add_argument("--root", type=Path, default=ROOT)
         command.add_argument("--manifest", type=Path, default=None)
+        if lane == "coverage":
+            command.add_argument(
+                "--target-profile",
+                default=None,
+                help="measure one declared target profile (default: prepared CPython package profile)",
+            )
 
     upstream_benchmark = subparsers.add_parser(
         "benchmark-upstream",
@@ -126,10 +137,14 @@ def _parser() -> argparse.ArgumentParser:
     upstream_benchmark.add_argument("--root", type=Path, default=ROOT)
     upstream_benchmark.add_argument("--manifest", type=Path, default=None)
 
-    aggregate = subparsers.add_parser("aggregate", help="aggregate compatible lane artifacts")
+    aggregate = subparsers.add_parser(
+        "aggregate",
+        help="aggregate five-profile parity evidence without proving full replacement parity",
+    )
     aggregate.add_argument("results", nargs="*", type=Path)
     aggregate.add_argument("--root", type=Path, default=ROOT)
     aggregate.add_argument("--manifest", type=Path, default=None)
+    aggregate.add_argument("--output", type=Path, default=None)
     return parser
 
 
@@ -137,6 +152,251 @@ def _manifest_path(root: Path, override: Path | None) -> Path:
     return (
         override if override and override.is_absolute() else root / (override or MANIFEST_RELATIVE)
     )
+
+
+def _read_result_artifact(path: Path) -> tuple[Any, str]:
+    """Read and digest one artifact from the same byte snapshot."""
+    try:
+        raw = path.read_bytes()
+        value = load_json_from_text(raw.decode("utf-8"), str(path))
+    except (OSError, UnicodeError) as exc:
+        raise ContractError(f"cannot read result artifact {path}: {exc}") from exc
+    return value, hashlib.sha256(raw).hexdigest()
+
+
+def _aggregate_parity_results(
+    root: Path,
+    manifest_path: Path,
+    result_paths: list[Path],
+) -> dict[str, Any]:
+    """Aggregate exact full active parity runs, one artifact per CPython profile."""
+    root = root.resolve()
+    manifest_file = manifest_path.resolve()
+    try:
+        manifest_relative = manifest_file.relative_to(root).as_posix()
+    except ValueError as exc:
+        raise ContractError("active parity manifest must be inside the repository root") from exc
+
+    manifest = load_manifest(manifest_file)
+    validate_manifest(manifest)
+    python_profiles = [
+        profile
+        for profile in manifest["target_profiles"]
+        if profile["target_id"] == "python-package"
+    ]
+    native_profiles = [
+        profile for profile in manifest["target_profiles"] if profile["target_id"] == "rust-native"
+    ]
+    if len(python_profiles) != 5 or len(native_profiles) != 1:
+        raise ContractError(
+            "aggregate requires the five declared CPython profiles and one Rust-native profile"
+        )
+
+    expected_python_ids = [profile["id"] for profile in python_profiles]
+    native_profile_id = native_profiles[0]["id"]
+    expected_profile_set = set(expected_python_ids)
+    expected_manifest = {
+        "path": manifest_relative,
+        "schema": manifest["schema"],
+        "sha256": sha256_file(manifest_file),
+    }
+    oracle_revision = manifest["scope"]["inventory"]["revision"]
+    if oracle_revision != ORACLE_COMMIT:
+        raise ContractError("active manifest oracle revision differs from the pinned commit")
+
+    artifacts_by_profile: dict[str, dict[str, Any]] = {}
+    seen_paths: set[Path] = set()
+    seen_digests: set[str] = set()
+    package_revision: str | None = None
+    native_revision: str | None = None
+    package_shared_identity: tuple[Any, ...] | None = None
+    native_shared_identity: tuple[Any, ...] | None = None
+
+    for supplied_path in result_paths:
+        path = supplied_path.resolve()
+        if path in seen_paths:
+            raise ContractError(f"duplicate result artifact path: {path}")
+        seen_paths.add(path)
+        raw_artifact, digest = _read_result_artifact(path)
+        artifact = validate_result_artifact(
+            raw_artifact,
+            root=root,
+            manifest_path=manifest_file,
+        )
+        if artifact["schema"] != RESULT_SCHEMA:
+            raise ContractError(f"aggregate accepts parity results only: {path}")
+        if digest in seen_digests:
+            raise ContractError(f"duplicate result artifact digest: {digest}")
+        seen_digests.add(digest)
+
+        identity = artifact["identity"]
+        if identity["manifest"] != expected_manifest:
+            raise ContractError(f"result artifact is not bound to the active manifest: {path}")
+        if identity["command"]["command_id"] != "parity":
+            raise ContractError(f"result artifact is not a parity run: {path}")
+        selection = identity["selection"]
+        selected_profiles = selection["target_profiles"]
+        if selection["kind"] != "all" or selection["case_ids"]:
+            raise ContractError(f"result artifact is not a full all-cases run: {path}")
+        if len(selected_profiles) != 2 or native_profile_id not in selected_profiles:
+            raise ContractError(f"result artifact does not include its Rust-native profile: {path}")
+        python_ids = [
+            profile_id for profile_id in selected_profiles if profile_id in expected_profile_set
+        ]
+        if len(python_ids) != 1:
+            raise ContractError(f"result artifact must select exactly one CPython profile: {path}")
+        profile_id = python_ids[0]
+        if profile_id in artifacts_by_profile:
+            raise ContractError(f"duplicate result for CPython profile {profile_id}")
+        expected_selection = [
+            profile["id"]
+            for profile in manifest["target_profiles"]
+            if profile["id"] in {native_profile_id, profile_id}
+        ]
+        if selected_profiles != expected_selection:
+            raise ContractError(f"result profile selection is not in manifest order: {path}")
+
+        oracles = identity["oracles"]
+        if len(oracles) != 1 or oracles[0]["revision"] != oracle_revision:
+            raise ContractError(
+                f"result artifact omits or mixes the pinned source identity: {path}"
+            )
+        targets_by_profile = {target["target_profile"]: target for target in identity["targets"]}
+        if set(targets_by_profile) != {native_profile_id, profile_id}:
+            raise ContractError(f"result artifact omits a selected target identity: {path}")
+        package_target = targets_by_profile[profile_id]
+        native_target = targets_by_profile[native_profile_id]
+        if package_target["target_id"] != "python-package":
+            raise ContractError(f"result artifact package target identity is invalid: {path}")
+        if native_target["target_id"] != "rust-native":
+            raise ContractError(f"result artifact native target identity is invalid: {path}")
+
+        package_identity = (
+            package_target["revision"],
+            package_target["dirty"],
+            package_target["package_version"],
+            package_target["dependency_lock_sha256"],
+        )
+        native_identity = (
+            native_target["revision"],
+            native_target["dirty"],
+            native_target["package_version"],
+            native_target["dependency_lock_sha256"],
+            native_target["environment_sha256"],
+        )
+        if package_shared_identity is None:
+            package_shared_identity = package_identity
+            package_revision = package_target["revision"]
+        elif package_identity != package_shared_identity:
+            raise ContractError("CPython parity artifacts contain mixed package target identities")
+        if native_shared_identity is None:
+            native_shared_identity = native_identity
+            native_revision = native_target["revision"]
+        elif native_identity != native_shared_identity:
+            raise ContractError("CPython parity artifacts contain mixed Rust-native identities")
+
+        artifacts_by_profile[profile_id] = {
+            "path": str(path),
+            "result_sha256": digest,
+            "status": artifact["status"],
+            "summary": artifact["summary"],
+            "target": {
+                "revision": package_target["revision"],
+                "dirty": package_target["dirty"],
+                "package_version": package_target["package_version"],
+                "target_tree_sha256": package_target["target_tree_sha256"],
+                "runtime": package_target["runtime"],
+                "os": package_target["os"],
+                "architecture": package_target["architecture"],
+            },
+        }
+
+    missing_profiles = [
+        profile_id for profile_id in expected_python_ids if profile_id not in artifacts_by_profile
+    ]
+    profiles = [
+        {
+            "target_profile": profile_id,
+            **artifacts_by_profile[profile_id],
+        }
+        for profile_id in expected_python_ids
+        if profile_id in artifacts_by_profile
+    ]
+    summaries = [item["summary"] for item in artifacts_by_profile.values()]
+    totals = {
+        name: sum(summary[name] for summary in summaries)
+        for name in ("selected", "executed", "passed", "failed", "not_run")
+    }
+    totals["fault_contracts"] = {
+        name: sum(summary["fault_contracts"][name] for summary in summaries)
+        for name in ("selected", "executed", "passed", "failed", "not_run")
+    }
+    totals["infrastructure_errors"] = sum(summary["infrastructure_errors"] for summary in summaries)
+    totals["profiles_expected"] = len(expected_python_ids)
+    totals["profiles_supplied"] = len(artifacts_by_profile)
+    totals["profiles_missing"] = len(missing_profiles)
+
+    reasons: list[str] = []
+    if missing_profiles:
+        reasons.append("one or more CPython profiles are missing")
+    if any(item["status"] != "completed" for item in artifacts_by_profile.values()):
+        reasons.append("one or more profile runs did not complete")
+    if totals["failed"] or totals["fault_contracts"]["failed"]:
+        reasons.append("one or more parity or fault-contract comparisons failed")
+    if totals["not_run"] or totals["fault_contracts"]["not_run"]:
+        reasons.append("one or more parity or fault-contract comparisons were not run")
+    if totals["infrastructure_errors"]:
+        reasons.append("one or more profile runs reported infrastructure errors")
+    if totals["passed"] != totals["selected"]:
+        reasons.append("not every selected parity comparison passed")
+    if totals["fault_contracts"]["passed"] != totals["fault_contracts"]["selected"]:
+        reasons.append("not every selected fault contract passed")
+
+    parity_status = "proven" if not reasons else "not_proven"
+    parity_reason = (
+        "; ".join(reasons)
+        if reasons
+        else "all five CPython profiles passed the active parity contract"
+    )
+    return {
+        "schema": "migration-parity/status-report@1",
+        "status": "not_proven",
+        "reason": "full Starlette replacement remains not_proven: this aggregate summarizes "
+        "the five-profile parity matrix only; compatible coverage and package qualification "
+        "remain incomplete",
+        "identity": {
+            "manifest": expected_manifest,
+            "oracle_revision": oracle_revision,
+            "target_revision": package_revision,
+            "rust_native_revision": native_revision,
+        },
+        "parity_matrix": {
+            "scope": "active five-profile CPython parity matrix",
+            "counting": "per-artifact run totals; repeated Rust-native rows remain per-run counts",
+            "status": parity_status,
+            "reason": parity_reason,
+            "profiles_expected": expected_python_ids,
+            "profiles_missing": missing_profiles,
+            "profiles": profiles,
+            "summary": totals,
+        },
+    }
+
+
+def _aggregate_output_path(root: Path, override: Path | None) -> Path:
+    root = root.resolve()
+    output = (
+        root / "build/parity/status-report.json"
+        if override is None
+        else override
+        if override.is_absolute()
+        else root / override
+    ).resolve()
+    try:
+        output.relative_to((root / "build/parity").resolve())
+    except ValueError as exc:
+        raise ContractError("aggregate output must be inside ignored build/parity") from exc
+    return output
 
 
 def _upstream_path(override: Path | None) -> Path:
@@ -231,6 +491,30 @@ def _validate_schema(root: Path) -> None:
     }:
         raise ContractError(
             "benchmark-result-schema.json required fields differ from the benchmark result contract"
+        )
+    coverage_schema = load_json(root / COVERAGE_RESULT_SCHEMA_RELATIVE)
+    if (
+        not isinstance(coverage_schema, dict)
+        or coverage_schema.get("$schema") != "https://json-schema.org/draft/2020-12/schema"
+    ):
+        raise ContractError("coverage-result-schema.json must use JSON Schema 2020-12")
+    if coverage_schema.get("properties", {}).get("schema") != {"const": COVERAGE_RESULT_SCHEMA}:
+        raise ContractError(
+            "coverage-result-schema.json schema identifier differs from the coverage result contract"
+        )
+    if coverage_schema.get("additionalProperties") is not False:
+        raise ContractError("coverage-result-schema.json must reject unknown top-level fields")
+    if set(coverage_schema.get("required", [])) != {
+        "schema",
+        "identity",
+        "status",
+        "collector",
+        "summary",
+        "plans",
+        "infrastructure_errors",
+    }:
+        raise ContractError(
+            "coverage-result-schema.json required fields differ from the fixed coverage result contract"
         )
     upstream_benchmark_schema = load_json(root / UPSTREAM_BENCHMARK_RESULT_SCHEMA_RELATIVE)
     if (
@@ -503,27 +787,61 @@ def main(argv: list[str] | None = None) -> int:
             }
             print(json.dumps(comparison, indent=2, sort_keys=True))
             return 0 if status == "pass" else 1
-        if args.command in {"coverage", "benchmark"}:
-            if args.command == "benchmark":
-                result = run_benchmark(
-                    args.root.resolve(), _manifest_path(args.root.resolve(), args.manifest)
+        if args.command == "coverage":
+            root = args.root.resolve()
+            result = run_coverage(
+                root,
+                _manifest_path(root, args.manifest),
+                target_profile=args.target_profile,
+            )
+            print(
+                json.dumps(
+                    {
+                        "status": result["status"],
+                        "summary": result["summary"],
+                        "result": result.get("artifact_path"),
+                    },
+                    indent=2,
+                    sort_keys=True,
                 )
-                summary = result["summary"]
-                print(
-                    json.dumps(
-                        {
-                            "status": result["status"],
-                            "summary": summary,
-                            "result": str(
-                                args.root.resolve() / "build/parity/benchmark-result.json"
-                            ),
-                        },
-                        indent=2,
-                        sort_keys=True,
-                    )
+            )
+            summary = result["summary"]
+            coverage_execution_succeeded = (
+                result["status"] in {"completed", "not_ingested"}
+                and summary["plans_selected"] > 0
+                and summary["plans_executed"] == summary["plans_selected"]
+                and summary["plans_not_run"] == 0
+                and summary["tests_failed"] == 0
+                and not result["infrastructure_errors"]
+                and summary["tests_passed"]
+                == sum(plan["execution"]["tests_passed"] for plan in result["plans"])
+                and summary["tests_failed"]
+                == sum(plan["execution"]["tests_failed"] for plan in result["plans"])
+                and all(
+                    plan["execution"]["status"] == "completed"
+                    and plan["execution"]["tests_passed"] + plan["execution"]["tests_failed"]
+                    == len(plan["selected"]["parity_case_ids"])
+                    for plan in result["plans"]
                 )
-                return 0 if result["status"] == "completed" else 2
-            return _lane_empty(args.root.resolve(), args.manifest, args.command)
+            )
+            return 0 if coverage_execution_succeeded else 2
+        if args.command == "benchmark":
+            result = run_benchmark(
+                args.root.resolve(), _manifest_path(args.root.resolve(), args.manifest)
+            )
+            summary = result["summary"]
+            print(
+                json.dumps(
+                    {
+                        "status": result["status"],
+                        "summary": summary,
+                        "result": str(args.root.resolve() / "build/parity/benchmark-result.json"),
+                    },
+                    indent=2,
+                    sort_keys=True,
+                )
+            )
+            return 0 if result["status"] == "completed" else 2
         if args.command == "benchmark-upstream":
             result = run_upstream_benchmark(
                 args.root.resolve(), _manifest_path(args.root.resolve(), args.manifest)
@@ -541,49 +859,20 @@ def main(argv: list[str] | None = None) -> int:
             )
             return 0 if result["status"] == "completed" else 2
         if args.command == "aggregate":
-            if not args.results:
-                print(
-                    json.dumps(
-                        {
-                            "status": "not_proven",
-                            "reason": "no parity, coverage, or benchmark evidence was supplied",
-                        },
-                        sort_keys=True,
-                    )
-                )
-                return 2
             active_root = args.root.resolve()
             active_manifest = _manifest_path(active_root, args.manifest)
-            artifacts = [
-                validate_result_artifact(
-                    load_json(path), root=active_root, manifest_path=active_manifest
-                )
-                for path in args.results
-            ]
-            if len(artifacts) != len(args.results):
-                raise ContractError("not every supplied artifact was validated")
-            artifact_rows = [
-                {
-                    "path": str(path.resolve()),
-                    "schema": artifact["schema"],
-                    "status": artifact["status"],
-                    "summary": artifact["summary"],
-                }
-                for path, artifact in zip(args.results, artifacts, strict=True)
-            ]
-            print(
-                json.dumps(
-                    {
-                        "schema": "migration-parity/status-report@1",
-                        "status": "not_proven",
-                        "reason": "supplied evidence was validated, but the full replacement denominator remains incomplete",
-                        "artifacts": artifact_rows,
-                    },
-                    indent=2,
-                    sort_keys=True,
-                )
+            output_path = _aggregate_output_path(active_root, args.output)
+            if output_path in {path.resolve() for path in args.results}:
+                raise ContractError("aggregate output cannot overwrite a supplied result artifact")
+            report = _aggregate_parity_results(active_root, active_manifest, args.results)
+            report["artifact_path"] = output_path.relative_to(active_root).as_posix()
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            output_path.write_text(
+                json.dumps(report, indent=2, sort_keys=True, allow_nan=False) + "\n",
+                encoding="utf-8",
             )
-            return 2
+            print(json.dumps(report, indent=2, sort_keys=True, allow_nan=False))
+            return 0 if report["parity_matrix"]["status"] == "proven" else 2
         raise ContractError(f"unsupported command: {args.command}")
     except (ContractError, OSError, ValueError) as exc:
         print(f"parity contract error: {exc}", file=sys.stderr)

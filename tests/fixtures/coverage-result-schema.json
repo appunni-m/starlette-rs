@@ -1,0 +1,594 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://starlette-rs.dev/schemas/migration-parity-coverage-result-v1.json",
+  "title": "Starlette managed Rust coverage result with parity comparisons and provenance",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "identity",
+    "status",
+    "collector",
+    "summary",
+    "plans",
+    "infrastructure_errors"
+  ],
+  "properties": {
+    "schema": {
+      "const": "migration-parity/coverage-result@1"
+    },
+    "identity": {
+      "$ref": "#/$defs/identity"
+    },
+    "status": {
+      "enum": [
+        "completed",
+        "infrastructure_failed",
+        "cancelled",
+        "invalid",
+        "not_ingested"
+      ]
+    },
+    "collector": {
+      "$ref": "#/$defs/collector"
+    },
+    "summary": {
+      "$ref": "#/$defs/summary"
+    },
+    "plans": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/plan"
+      }
+    },
+    "infrastructure_errors": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/infrastructureError"
+      }
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "fileIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "schema",
+        "sha256"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "schema": {
+          "enum": [
+            "migration-parity/coverage-input@1",
+            "migration-parity/parity-input@58"
+          ]
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "run_id",
+        "started_at",
+        "finished_at",
+        "manifest",
+        "inputs",
+        "assets",
+        "oracles",
+        "targets",
+        "command"
+      ],
+      "properties": {
+        "run_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "started_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "finished_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "manifest": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "path",
+            "schema",
+            "sha256"
+          ],
+          "properties": {
+            "path": {
+              "const": "tests/fixtures/manifest.yaml"
+            },
+            "schema": {
+              "const": "migration-parity/manifest@6"
+            },
+            "sha256": {
+              "$ref": "#/$defs/sha256"
+            }
+          }
+        },
+        "inputs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/fileIdentity"
+          }
+        },
+        "assets": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "input_path",
+              "item_id",
+              "asset_id",
+              "kind",
+              "locator",
+              "sha256"
+            ],
+            "properties": {
+              "input_path": {
+                "type": "string",
+                "minLength": 1
+              },
+              "item_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "asset_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "kind": {
+                "type": "string",
+                "minLength": 1
+              },
+              "locator": {
+                "type": "string",
+                "minLength": 1
+              },
+              "sha256": {
+                "$ref": "#/$defs/sha256"
+              }
+            }
+          }
+        },
+        "oracles": {
+          "type": "array",
+          "maxItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "oracle_id",
+              "name",
+              "version",
+              "runtime"
+            ],
+            "properties": {
+              "oracle_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "version": {
+                "type": "string",
+                "minLength": 1
+              },
+              "runtime": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        "targets": {
+          "type": "array",
+          "maxItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "target_profile",
+              "target_id",
+              "revision",
+              "dirty",
+              "runtime",
+              "backend",
+              "features"
+            ],
+            "properties": {
+              "target_profile": {
+                "type": "string",
+                "minLength": 1
+              },
+              "target_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "revision": {
+                "type": "string",
+                "minLength": 1
+              },
+              "dirty": {
+                "type": "boolean"
+              },
+              "runtime": {
+                "type": "string",
+                "minLength": 1
+              },
+              "backend": {
+                "type": "string",
+                "minLength": 1
+              },
+              "features": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "uniqueItems": true
+              }
+            }
+          }
+        },
+        "command": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "command_id",
+            "argv",
+            "cwd",
+            "timeout_seconds"
+          ],
+          "properties": {
+            "command_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "argv": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "cwd": {
+              "type": "string",
+              "minLength": 1
+            },
+            "timeout_seconds": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        }
+      }
+    },
+    "collector": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "version",
+        "snapshot_id",
+        "artifact_ingested"
+      ],
+      "properties": {
+        "name": {
+          "const": "cargo-llvm-cov"
+        },
+        "version": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$"
+        },
+        "snapshot_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "artifact_ingested": {
+          "type": "boolean"
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "plans_selected",
+        "plans_executed",
+        "plans_not_run",
+        "tests_passed",
+        "tests_failed"
+      ],
+      "properties": {
+        "plans_selected": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "plans_executed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "plans_not_run": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "tests_passed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "tests_failed": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "plan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "plan_id",
+        "target_profile",
+        "requirements",
+        "selected",
+        "execution",
+        "components"
+      ],
+      "properties": {
+        "plan_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "target_profile": {
+          "type": "string",
+          "minLength": 1
+        },
+        "requirements": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "selected": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "parity_case_ids",
+            "command_ids"
+          ],
+          "properties": {
+            "parity_case_ids": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "uniqueItems": true
+            },
+            "command_ids": {
+              "type": "array",
+              "maxItems": 0
+            }
+          }
+        },
+        "execution": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "tests_passed",
+            "tests_failed"
+          ],
+          "properties": {
+            "status": {
+              "enum": [
+                "completed",
+                "failed",
+                "not_run"
+              ]
+            },
+            "tests_passed": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "tests_failed": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "components": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/component"
+          }
+        }
+      }
+    },
+    "component": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "component_id",
+        "files",
+        "thresholds"
+      ],
+      "properties": {
+        "component_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "files": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/coverageFile"
+          }
+        },
+        "thresholds": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/threshold"
+          }
+        }
+      }
+    },
+    "coverageFile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "dimensions"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "dimensions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/dimension"
+          }
+        }
+      }
+    },
+    "dimension": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "dimension",
+        "covered",
+        "total",
+        "uncovered"
+      ],
+      "properties": {
+        "dimension": {
+          "const": "line"
+        },
+        "covered": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "uncovered": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "threshold": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "dimension",
+        "minimum_percent",
+        "covered",
+        "total",
+        "outcome"
+      ],
+      "properties": {
+        "dimension": {
+          "const": "line"
+        },
+        "minimum_percent": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "covered": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "outcome": {
+          "enum": [
+            "pass",
+            "fail",
+            "not_proven"
+          ]
+        }
+      }
+    },
+    "infrastructureError": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scope",
+        "id",
+        "kind",
+        "message"
+      ],
+      "properties": {
+        "scope": {
+          "enum": [
+            "oracle",
+            "target",
+            "collector",
+            "runner",
+            "artifact",
+            "aggregation",
+            "case_outcome"
+          ]
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "type": "string",
+          "minLength": 1
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}

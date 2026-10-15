@@ -55,11 +55,13 @@ INPUT_SCHEMA = "migration-parity/parity-input@58"
 BENCHMARK_INPUT_SCHEMA = "migration-parity/benchmark-input@1"
 RESULT_SCHEMA = "migration-parity/parity-result@9"
 BENCHMARK_RESULT_SCHEMA = "migration-parity/benchmark-result@1"
+COVERAGE_RESULT_SCHEMA = "migration-parity/coverage-result@1"
+COVERAGE_INPUT_SCHEMA = "migration-parity/coverage-input@1"
 UPSTREAM_BENCHMARK_INPUT_SCHEMA = "migration-parity/upstream-benchmark-input@1"
 UPSTREAM_BENCHMARK_RESULT_SCHEMA = "migration-parity/upstream-benchmark-result@1"
 AGGREGATION_INPUT_SCHEMAS = (
     RESULT_SCHEMA,
-    "migration-parity/coverage-result@1",
+    COVERAGE_RESULT_SCHEMA,
     BENCHMARK_RESULT_SCHEMA,
     UPSTREAM_BENCHMARK_RESULT_SCHEMA,
 )
@@ -2744,12 +2746,85 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
 
     if not isinstance(manifest["coverage_components"], list):
         raise ContractError("coverage_components must be an array")
+    coverage_component_rows: dict[str, dict[str, Any]] = {}
+    coverage_components_by_profile: dict[str, list[dict[str, Any]]] = {
+        profile_id: [] for profile_id in profile_ids
+    }
     for index, component in enumerate(manifest["coverage_components"]):
+        context = f"coverage_components[{index}]"
         _exact(
             component,
             {"id", "target_profile", "paths", "dimensions", "thresholds"},
-            f"coverage_components[{index}]",
+            context,
         )
+        component_id = _string(component["id"], f"{context}.id")
+        if component_id in coverage_component_rows:
+            raise ContractError(f"duplicate coverage component id: {component_id}")
+        target_profile = _string(component["target_profile"], f"{context}.target_profile")
+        if target_profile not in profile_ids:
+            raise ContractError(f"{context}.target_profile is not a declared target profile")
+        paths = component["paths"]
+        if (
+            not isinstance(paths, list)
+            or not paths
+            or any(not isinstance(path, str) or not path for path in paths)
+            or len(paths) != len(set(paths))
+        ):
+            raise ContractError(f"{context}.paths must be a non-empty unique string array")
+        for path in paths:
+            relative = Path(path)
+            if (
+                relative.is_absolute()
+                or ".." in relative.parts
+                or relative.suffix != ".rs"
+                or (
+                    not path.startswith("starlette-rs/src/")
+                    and not path.startswith("starlette-rs-py/src/")
+                )
+            ):
+                raise ContractError(
+                    f"{context}.paths entries must be repository-relative Rust source paths: {path}"
+                )
+            if target_profile == "rust-native-local" and not path.startswith("starlette-rs/src/"):
+                raise ContractError(
+                    f"{context}.paths for the Rust-native profile must select starlette-rs/src files"
+                )
+        if component["dimensions"] != ["line"]:
+            raise ContractError(f"{context}.dimensions must select line coverage only")
+        if component["thresholds"] != []:
+            raise ContractError(
+                f"{context}.thresholds must stay empty until a measured policy exists"
+            )
+        coverage_component_rows[component_id] = component
+        coverage_components_by_profile[target_profile].append(component)
+
+    if not coverage_component_rows:
+        raise ContractError("full replacement coverage requires reusable Rust line components")
+    if any(not rows for rows in coverage_components_by_profile.values()):
+        missing_profiles = sorted(
+            profile_id for profile_id, rows in coverage_components_by_profile.items() if not rows
+        )
+        raise ContractError(
+            f"coverage components must provide at least one source set for each target profile: {missing_profiles}"
+        )
+    target_id_by_profile = {
+        profile["id"]: profile["target_id"] for profile in manifest["target_profiles"]
+    }
+    for profile_id, components in coverage_components_by_profile.items():
+        selected_paths = {path for component in components for path in component["paths"]}
+        path_roots = {
+            "starlette-rs/src/" if path.startswith("starlette-rs/src/") else "starlette-rs-py/src/"
+            for path in selected_paths
+        }
+        expected_roots = (
+            {"starlette-rs/src/"}
+            if target_id_by_profile[profile_id] == "rust-native"
+            else {"starlette-rs/src/", "starlette-rs-py/src/"}
+        )
+        if path_roots != expected_roots:
+            raise ContractError(
+                f"coverage components for {profile_id} must select the Rust runtime sources for its target"
+            )
 
     surfaces = manifest["surfaces"]
     if not isinstance(surfaces, list) or not surfaces:
@@ -2762,6 +2837,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
     if public_surface_ids & native_surface_ids:
         raise ContractError("native_surfaces IDs must be separate from Starlette surfaces")
     operation_rows: dict[tuple[str, str], dict[str, Any]] = {}
+    used_coverage_components: set[str] = set()
     used_unscoped_support_gaps: set[tuple[str, str, str, str]] = set()
     surface_rows = [(f"surfaces[{index}]", surface) for index, surface in enumerate(surfaces)] + [
         (f"native_surfaces[{index}]", surface) for index, surface in enumerate(native_surfaces)
@@ -3608,6 +3684,11 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                 ):
                     raise ContractError(f"{rctx} must map to declared target profiles")
             requirement_ids = {req["id"] for req in requirements}
+            coverage_requirements = [req for req in requirements if "coverage" in req["lanes"]]
+            if any("parity" not in req["lanes"] for req in coverage_requirements):
+                raise ContractError(
+                    f"{context}.requirements may select coverage only alongside input parity"
+                )
             for target_id, missing_requirements in partial_support_gaps:
                 unscoped_gaps = DECLARED_UNSCOPED_SUPPORT_GAPS.get(
                     (surface["id"], operation["id"], target_id), frozenset()
@@ -3632,6 +3713,16 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                     _exact(policy, {"applicability", "reason"}, f"{context}.{lane}")
                     if lane == "parity":
                         raise ContractError(f"{context}.parity cannot be not_applicable")
+                    if lane == "coverage" and coverage_requirements:
+                        raise ContractError(
+                            f"{context}.coverage cannot be not_applicable while runtime requirements select coverage"
+                        )
+                    if lane == "coverage" and coverage_requirements == []:
+                        reason = _string(policy["reason"], f"{context}.coverage.reason")
+                        if source["path"] not in reason:
+                            raise ContractError(
+                                f"{context}.coverage.reason must cite its source operation path"
+                            )
                 elif lane == "parity":
                     _exact(policy, {"applicability", "target_profiles"}, f"{context}.{lane}")
                     operation_key = (surface["id"], operation["id"])
@@ -3801,14 +3892,55 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                             f"{context}.benchmark must select both profiles and latency"
                         )
                 elif lane == "coverage":
+                    coverage_context = f"{context}.coverage"
+                    if not coverage_requirements:
+                        raise ContractError(
+                            f"{coverage_context} must be not_applicable without coverage requirements"
+                        )
                     _exact(
                         policy,
                         {"applicability", "target_profiles", "component_ids"},
-                        f"{context}.coverage",
+                        coverage_context,
                     )
-                    raise ContractError(
-                        "required coverage has no active component input in this slice"
-                    )
+                    target_profiles = policy["target_profiles"]
+                    expected_profiles = {
+                        profile_id
+                        for requirement in coverage_requirements
+                        for profile_id in requirement["target_profiles"]
+                    }
+                    if (
+                        not isinstance(target_profiles, list)
+                        or any(not isinstance(profile, str) for profile in target_profiles)
+                        or len(target_profiles) != len(set(target_profiles))
+                        or set(target_profiles) != expected_profiles
+                    ):
+                        raise ContractError(
+                            f"{coverage_context}.target_profiles must match its coverage requirement profiles"
+                        )
+                    component_ids = policy["component_ids"]
+                    expected_component_ids = [
+                        component["id"]
+                        for profile in manifest["target_profiles"]
+                        if profile["id"] in expected_profiles
+                        for component in coverage_components_by_profile[profile["id"]]
+                    ]
+                    if (
+                        not isinstance(component_ids, list)
+                        or any(not isinstance(component_id, str) for component_id in component_ids)
+                        or len(component_ids) != len(set(component_ids))
+                        or set(component_ids) != set(expected_component_ids)
+                    ):
+                        raise ContractError(
+                            f"{coverage_context}.component_ids must select every component for its target profiles"
+                        )
+                    unknown_components = set(component_ids) - coverage_component_rows.keys()
+                    if unknown_components:
+                        raise ContractError(
+                            f"{coverage_context}.component_ids references unknown components: {sorted(unknown_components)}"
+                        )
+                    used_coverage_components.update(component_ids)
+                    if policy["applicability"] != "required":
+                        raise ContractError(f"{coverage_context}.applicability must be required")
                 else:
                     raise ContractError(
                         f"{context}.{lane} is required but this contract has no matching input"
@@ -3824,6 +3956,12 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
         raise ContractError(
             "declared unscoped support gaps must be referenced by partial target records: "
             f"{sorted(unused_unscoped_support_gaps)}"
+        )
+
+    if used_coverage_components != set(coverage_component_rows):
+        unused_components = sorted(set(coverage_component_rows) - used_coverage_components)
+        raise ContractError(
+            f"coverage components are not mapped to runtime operations: {unused_components}"
         )
 
     docs = _exact(
@@ -42899,6 +43037,236 @@ def validate_benchmark_inputs(
     return documents
 
 
+def validate_coverage_document(
+    document: Any, manifest: dict[str, Any], cases: list[dict[str, Any]]
+) -> dict[str, Any]:
+    """Validate an input-only line-coverage plan against active parity cases."""
+    _exact(document, {"schema", "plans"}, "coverage input")
+    if document["schema"] != COVERAGE_INPUT_SCHEMA:
+        raise ContractError(f"unsupported coverage input schema: {document['schema']!r}")
+    plans = document["plans"]
+    if not isinstance(plans, list) or not plans:
+        raise ContractError("coverage input must select at least one plan")
+
+    profiles = {profile["id"]: profile for profile in manifest["target_profiles"]}
+    commands = {command["id"] for command in manifest["commands"]}
+    coverage_command_id = manifest["interfaces"]["coverage"]["command_id"]
+    targets = {target["id"]: target for target in manifest["targets"]}
+    cases_by_id: dict[str, dict[str, Any]] = {}
+    for case in cases:
+        case_id = _string(case.get("case_id"), "coverage parity case.case_id")
+        if case_id in cases_by_id:
+            raise ContractError(f"coverage input received duplicate parity case id: {case_id}")
+        cases_by_id[case_id] = case
+
+    requirement_rows: dict[str, tuple[dict[str, Any], dict[str, Any], dict[str, Any]]] = {}
+    for surface in _all_manifest_surfaces(manifest):
+        for operation in surface["operations"]:
+            for requirement in operation["requirements"]:
+                requirement_id = requirement["id"]
+                if "coverage" in requirement["lanes"]:
+                    if requirement_id in requirement_rows:
+                        raise ContractError(f"duplicate coverage requirement id: {requirement_id}")
+                    requirement_rows[requirement_id] = (surface, operation, requirement)
+
+    requirements_by_profile: dict[str, set[str]] = {profile_id: set() for profile_id in profiles}
+    components_by_profile: dict[str, set[str]] = {profile_id: set() for profile_id in profiles}
+    components_by_id = {component["id"]: component for component in manifest["coverage_components"]}
+    for requirement_id, (_surface, operation, requirement) in requirement_rows.items():
+        for profile_id in requirement["target_profiles"]:
+            requirements_by_profile[profile_id].add(requirement_id)
+        policy = operation["coverage"]
+        if policy["applicability"] != "required":
+            raise ContractError(
+                f"coverage requirement {requirement_id} belongs to an operation without required coverage"
+            )
+        for profile_id in policy["target_profiles"]:
+            components_by_profile[profile_id].update(
+                component_id
+                for component_id in policy["component_ids"]
+                if components_by_id[component_id]["target_profile"] == profile_id
+            )
+
+    case_ids_by_profile: dict[str, set[str]] = {profile_id: set() for profile_id in profiles}
+    for profile_id, requirement_ids in requirements_by_profile.items():
+        case_ids_by_profile[profile_id] = {
+            case["case_id"]
+            for case in cases
+            if profile_id in case["target_profiles"] and set(case["covers"]) & requirement_ids
+        }
+        if not requirement_ids:
+            raise ContractError(
+                f"full replacement coverage has no runtime requirements for profile {profile_id}"
+            )
+        missing_requirements = {
+            requirement_id
+            for requirement_id in requirement_ids
+            if not any(
+                profile_id in case["target_profiles"] and requirement_id in case["covers"]
+                for case in cases
+            )
+        }
+        if missing_requirements:
+            raise ContractError(
+                f"coverage inputs have no parity cases for {profile_id} requirements: {sorted(missing_requirements)}"
+            )
+
+    plan_ids: set[str] = set()
+    plan_profiles: set[str] = set()
+    expected_profiles = set(profiles)
+    for index, plan in enumerate(plans):
+        context = f"coverage input.plans[{index}]"
+        _exact(
+            plan,
+            {
+                "plan_id",
+                "covers",
+                "target_profile",
+                "selectors",
+                "component_ids",
+                "command_id",
+            },
+            context,
+        )
+        plan_id = _string(plan["plan_id"], f"{context}.plan_id")
+        if plan_id in plan_ids:
+            raise ContractError(f"duplicate coverage plan id: {plan_id}")
+        plan_ids.add(plan_id)
+
+        profile_id = _string(plan["target_profile"], f"{context}.target_profile")
+        if profile_id not in profiles:
+            raise ContractError(f"{context}.target_profile is not declared")
+        if profile_id in plan_profiles:
+            raise ContractError(f"coverage input has multiple plans for {profile_id}")
+        plan_profiles.add(profile_id)
+
+        plan_covers = plan["covers"]
+        if (
+            not isinstance(plan_covers, list)
+            or any(not isinstance(item, str) or not item for item in plan_covers)
+            or len(plan_covers) != len(set(plan_covers))
+            or set(plan_covers) != requirements_by_profile[profile_id]
+        ):
+            raise ContractError(
+                f"{context}.covers must list every applicable coverage requirement exactly once"
+            )
+
+        selectors = _exact(
+            plan["selectors"],
+            {"parity_case_ids", "command_ids"},
+            f"{context}.selectors",
+        )
+        parity_case_ids = selectors["parity_case_ids"]
+        if (
+            not isinstance(parity_case_ids, list)
+            or any(not isinstance(item, str) or not item for item in parity_case_ids)
+            or len(parity_case_ids) != len(set(parity_case_ids))
+            or set(parity_case_ids) != case_ids_by_profile[profile_id]
+        ):
+            raise ContractError(
+                f"{context}.selectors.parity_case_ids must select every applicable active parity case exactly once"
+            )
+        unknown_cases = set(parity_case_ids) - cases_by_id.keys()
+        if unknown_cases:
+            raise ContractError(
+                f"{context}.selectors.parity_case_ids references unknown cases: {sorted(unknown_cases)}"
+            )
+        command_ids = selectors["command_ids"]
+        if command_ids != []:
+            raise ContractError(
+                f"{context}.selectors.command_ids must be empty for input-driven plans"
+            )
+
+        target_profile = profiles[profile_id]
+        if target_profile["target_id"] not in targets:
+            raise ContractError(f"{context}.target_profile refers to an unknown public target")
+        component_ids = plan["component_ids"]
+        expected_component_ids = components_by_profile[profile_id]
+        if (
+            not isinstance(component_ids, list)
+            or any(not isinstance(item, str) or not item for item in component_ids)
+            or len(component_ids) != len(set(component_ids))
+            or set(component_ids) != expected_component_ids
+        ):
+            raise ContractError(
+                f"{context}.component_ids must select every component mapped to {profile_id} exactly once"
+            )
+        if plan["command_id"] != coverage_command_id or plan["command_id"] not in commands:
+            raise ContractError(f"{context}.command_id must select the declared coverage command")
+
+    if plan_profiles != expected_profiles:
+        raise ContractError(
+            "coverage plans must provide exactly one plan for every declared target profile: "
+            f"missing={sorted(expected_profiles - plan_profiles)}, extra={sorted(plan_profiles - expected_profiles)}"
+        )
+    return document
+
+
+def validate_coverage_inputs(
+    root: Path, manifest: dict[str, Any], cases: list[dict[str, Any]]
+) -> list[tuple[Path, dict[str, Any]]]:
+    """Load and validate every indexed coverage input and require an exact JSON inventory."""
+    root = root.resolve()
+    lane_root = root / GENERATED_INPUT_ROOT / "coverage"
+    if lane_root.is_symlink():
+        raise ContractError("active generated coverage input root cannot be a symlink")
+    indexed: set[str] = set()
+    documents: list[tuple[Path, dict[str, Any]]] = []
+    for relative_value in manifest["input_index"]["coverage"]:
+        relative = Path(relative_value)
+        if (
+            relative.is_absolute()
+            or ".." in relative.parts
+            or relative.suffix != ".json"
+            or relative.parts[:4] != ("build", "parity", "inputs", "coverage")
+        ):
+            raise ContractError(
+                f"coverage input path is outside its generated lane: {relative_value}"
+            )
+        path = root / relative
+        if path.is_symlink():
+            raise ContractError(f"generated coverage input cannot be a symlink: {relative_value}")
+        try:
+            path.resolve().relative_to(lane_root.resolve())
+        except ValueError as exc:
+            raise ContractError(f"coverage input escapes its lane root: {relative_value}") from exc
+        document = load_json(path)
+        if not isinstance(document, dict):
+            raise ContractError(f"coverage input must be an object: {relative_value}")
+        validate_coverage_document(document, manifest, cases)
+        indexed.add(path.resolve().as_posix())
+        documents.append((path, document))
+
+    discovered = (
+        {path.resolve().as_posix() for path in lane_root.rglob("*.json")}
+        if lane_root.exists()
+        else set()
+    )
+    if indexed != discovered:
+        raise ContractError(
+            "coverage input index mismatch: "
+            f"missing={sorted(discovered - indexed)}, stale={sorted(indexed - discovered)}"
+        )
+    if len(documents) != 1:
+        raise ContractError(
+            "the full coverage plan must be authored in exactly one indexed coverage input"
+        )
+    for component in manifest["coverage_components"]:
+        for relative_value in component["paths"]:
+            source_path = root / relative_value
+            if source_path.is_symlink() or not source_path.is_file():
+                raise ContractError(
+                    f"coverage component source path must be an existing regular Rust file: {relative_value}"
+                )
+            try:
+                source_path.resolve().relative_to(root)
+            except ValueError as exc:
+                raise ContractError(
+                    f"coverage component source path escapes the repository: {relative_value}"
+                ) from exc
+    return documents
+
+
 def validate_inputs(
     root: Path, manifest: dict[str, Any]
 ) -> tuple[list[tuple[Path, dict[str, Any]]], list[dict[str, Any]]]:
@@ -42975,13 +43343,7 @@ def validate_inputs(
             "indexed parity inputs do not cover declared parity requirement/profile pairs: "
             f"{missing_pairs}"
         )
-    if index["coverage"]:
-        raise ContractError(
-            "coverage inputs are outside this slice; full replacement coverage remains required"
-        )
-    coverage_root = root / GENERATED_INPUT_ROOT / "coverage"
-    if coverage_root.exists() and any(coverage_root.rglob("*.json")):
-        raise ContractError("unindexed coverage inputs are not allowed")
+    validate_coverage_inputs(root, manifest, all_cases)
     validate_benchmark_inputs(root, manifest, all_cases)
     return loaded, all_cases
 

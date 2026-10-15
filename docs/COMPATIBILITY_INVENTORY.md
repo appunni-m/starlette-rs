@@ -3,28 +3,37 @@
 ## Current verification status
 
 The active full-scope manifest is `parity-input@58`, SHA-256
-`86f69fc791088794fcd59483d6a91cc08bb9b3999586665f73c2f722f9946029`,
+`431d29029f7857808d7785844926d10925fd0c92969f5c75a074d849afc719fc`,
 against Starlette 1.6.0 revision
-`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The verified target revision is
-`576e9cfd99a063d46493aed28ff103292aa642f8`. Full five-profile parity recorded
-5,417 passed, 0 failed, 0 infrastructure failures, and 6 `not_run`; fault
-contracts passed 17/17.
+`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. Latest parity evidence used the
+previous manifest, SHA-256
+`86f69fc791088794fcd59483d6a91cc08bb9b3999586665f73c2f722f9946029`, on
+verified target revision `57361208aa1bbe3c95cf76a27992a50cd15cb767`. Full
+five-profile parity workflow [38769902939](https://github.com/appunni-m/starlette-rs/actions/runs/38769902939)
+recorded 5,423 passed, zero failed, zero infrastructure failures, and zero
+`not_run`; fault contracts passed 17/17. Profile totals were 633 (CPython
+3.10), 633 (3.11), 2,889 (3.12), 634 (3.13), and 634 (3.14).
 
-Coverage MCP measured 26,113/33,345 Rust lines (78.31%) in the native-inclusive
-CPython 3.12 plus `rust-native-local` report at the local ignored artifact
-`build/parity/coverage/full-starlette-1.6.0-20261015-576e9cfd-native-inclusive-verified/starlette-project.lcov`.
-Coverage status is unknown because two CPython 3.12 rows were skipped.
+That result is historical for the current manifest; parity revalidation is
+pending in CI. The latest local coverage receipt is also prior-manifest
+evidence: Coverage MCP measured 26,126/33,348 Rust lines (78.34%) in the
+native-inclusive CPython 3.12 plus `rust-native-local` report at the local ignored artifact
+`build/parity/coverage/full-starlette-1.6.0-20261015-57361208-native-inclusive-verified/starlette-project.lcov`.
+That local receipt has two platform-specific `not_run` rows, so test status is
+unknown. The manifest now declares six input-driven coverage plans and 11 Rust
+line components; execution of the current full profile matrix and MCP gap
+review remain pending.
 
-Benchmark run `39d8724c-dadd-4638-9f04-b84086632dbd` measured 74/74
+Historical benchmark run `8971ad63-111e-4379-a327-6809e852ee75` measured 74/74
 source/package workloads (6 Router and 68 GZip), with zero failed or `not_run`
 rows. All 74 Rust-native rows are `not_run` because no equivalent workload
-boundary is available. The strict evidence schema now accepts and validates
-the empty `build_artifacts` inventory for this CPython 3.12 run, and the
-generated benchmark evidence check passes.
+boundary is available. Median source/package latency ratios were 0.225 for
+Router and 0.976 for GZip; normalized observation hashes matched in 74/74.
 
 The full Starlette replacement remains incomplete; these measurements do not
-establish universal or drop-in compatibility. Keep the pinned denominators
-visible: 514 upstream test functions and 24 documented pages.
+establish universal or drop-in compatibility. Current-manifest benchmark
+refresh is deferred until parity and coverage complete. Keep the pinned
+denominators visible: 514 upstream test functions and 24 documented pages.
 
 The implementation-batch notes below preserve per-feature detail as it was
 recorded. Their `unexecuted` and `deferred` wording is historical, not the

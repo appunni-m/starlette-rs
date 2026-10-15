@@ -131,11 +131,13 @@ struct StaticFilesPermissionDenialStress {
     mode: u32,
 }
 
+#[cfg(unix)]
 struct StaticFilesPermissionDenialGuard {
     path: PathBuf,
     original_permissions: fs::Permissions,
 }
 
+#[cfg(unix)]
 impl Drop for StaticFilesPermissionDenialGuard {
     fn drop(&mut self) {
         let _ = fs::set_permissions(&self.path, self.original_permissions.clone());
@@ -143,11 +145,13 @@ impl Drop for StaticFilesPermissionDenialGuard {
 }
 
 enum StaticFilesPathLimitStressSetup {
+    #[cfg(unix)]
     Ready(PathBuf),
     Skipped(String),
 }
 
 enum StaticFilesPermissionDenialStressSetup {
+    #[cfg(unix)]
     Ready(StaticFilesPermissionDenialGuard),
     Skipped(String),
 }
@@ -8890,6 +8894,7 @@ fn run_static_files_case(case: &Value) -> Result<Value, String> {
                 follow_symlink,
                 stress,
             )? {
+                #[cfg(unix)]
                 StaticFilesPathLimitStressSetup::Ready(root) => root,
                 StaticFilesPathLimitStressSetup::Skipped(reason) => {
                     return Ok(static_files_skipped_result(case_id, &reason));
@@ -8913,6 +8918,7 @@ fn run_static_files_case(case: &Value) -> Result<Value, String> {
         .map_err(|error| format!("StaticFiles configuration failed: {error:?}"))?;
     let permission_guard = if let Some(stress) = permission_denial_stress {
         match prepare_static_files_permission_denial_stress(&root, &request_path, stress)? {
+            #[cfg(unix)]
             StaticFilesPermissionDenialStressSetup::Ready(guard) => Some(guard),
             StaticFilesPermissionDenialStressSetup::Skipped(reason) => {
                 return Ok(static_files_skipped_result(case_id, &reason));
@@ -9494,6 +9500,11 @@ fn prepare_static_files_path_limit_stress(
     _follow_symlink: bool,
     _stress: StaticFilesPathLimitStress,
 ) -> Result<StaticFilesPathLimitStressSetup, String> {
+    let _declared_limits = (
+        _stress.overflow_bytes,
+        _stress.later_root_margin_bytes,
+        _stress.safe_component_bytes,
+    );
     Ok(StaticFilesPathLimitStressSetup::Skipped(
         "path_limit_stress requires Unix pathconf support".to_owned(),
     ))
@@ -9566,6 +9577,7 @@ fn pathconf_limit(path: &Path, name: libc::c_int) -> Option<usize> {
     usize::try_from(value).ok().filter(|limit| *limit > 0)
 }
 
+#[cfg(unix)]
 fn static_files_path_padding(byte_length: usize, component_limit: usize) -> Option<PathBuf> {
     if byte_length == 0 {
         return Some(PathBuf::new());

@@ -3,28 +3,48 @@
 ## Current verification status
 
 The active full-scope contract is `parity-input@58`, manifest SHA-256
-`86f69fc791088794fcd59483d6a91cc08bb9b3999586665f73c2f722f9946029`.
-The verified target revision is `576e9cfd99a063d46493aed28ff103292aa642f8`;
-the pinned Starlette 1.6.0 source revision is
-`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. Full five-profile parity recorded
-5,417 passed, 0 failed, 0 infrastructure failures, and 6 `not_run`. Fault
-contracts passed 17/17.
+`431d29029f7857808d7785844926d10925fd0c92969f5c75a074d849afc719fc`. The
+latest complete parity evidence predates this digest: the previous manifest
+SHA-256 was
+`86f69fc791088794fcd59483d6a91cc08bb9b3999586665f73c2f722f9946029`. Its
+verified runtime target revision was
+`57361208aa1bbe3c95cf76a27992a50cd15cb767`; the pinned Starlette 1.6.0 source
+revision is `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The five-profile
+parity workflow [38769902939](https://github.com/appunni-m/starlette-rs/actions/runs/38769902939)
+recorded 5,423 passed, 0 failed, 0 infrastructure failures, and 0 `not_run`.
+The profile totals are CPython 3.10: 633; 3.11: 633; 3.12: 2,889; 3.13: 634;
+and 3.14: 634. The selected fault contracts passed 17/17. The source/package
+result artifacts are retained with that workflow run.
 
-Coverage MCP measured 26,113 of 33,345 Rust lines (78.31%) in the local ignored
-artifact `build/parity/coverage/full-starlette-1.6.0-20261015-576e9cfd-native-inclusive-verified/starlette-project.lcov`,
-using native-inclusive CPython 3.12 and `rust-native-local` objects. Coverage
-status is unknown because two CPython 3.12 rows were skipped.
+That prior-manifest matrix is historical for the current contract. Current
+manifest parity revalidation is pending in CI. The `aggregate` command reports
+the five-profile parity matrix under
+`parity_matrix.status`; its top-level status remains `not_proven` because this
+matrix report does not establish the complete Starlette replacement. The
+active manifest now declares six input-driven coverage plans and 11 Rust line
+components. Coverage and benchmark evidence remain separate from this
+parity-matrix report.
 
-Benchmark run `39d8724c-dadd-4638-9f04-b84086632dbd` measured all 74 source/package
-workloads (6 Router and 68 GZip): 74 measured, 0 failed, and 0 `not_run`.
-All 74 Rust-native rows are `not_run` because an equivalent workload boundary
-is unavailable. The strict evidence schema validates the empty
-`build_artifacts` inventory for this CPython 3.12 run, and the generated
-benchmark evidence check passes.
+The latest local coverage receipt is prior-manifest evidence: Coverage MCP
+measured 26,126 of 33,348 Rust lines (78.34%) in the local ignored
+artifact `build/parity/coverage/full-starlette-1.6.0-20261015-57361208-native-inclusive-verified/starlette-project.lcov`,
+using native-inclusive CPython 3.12 and `rust-native-local` objects. It is not
+the current six-profile coverage run. The local receipt records 2,887 passed,
+0 failed, and 2 platform-specific `not_run` rows,
+so Coverage MCP reports test status as unknown. This receipt does not complete
+full-matrix coverage.
+
+Historical benchmark run `8971ad63-111e-4379-a327-6809e852ee75` measured all 74
+source/package workloads (6 Router and 68 GZip): 74 measured, 0 failed, and 0
+`not_run`. All 74 Rust-native rows are `not_run` because an equivalent workload
+boundary is unavailable. The median source/package latency ratios were 0.225
+for Router and 0.976 for GZip; normalized observation hashes matched in 74/74.
 
 These results are revision-bound and do not establish universal or drop-in
-compatibility. The full Starlette replacement remains incomplete. The pinned
-denominators remain 514 upstream test functions and 24 documented pages.
+compatibility. The full Starlette replacement remains incomplete. Current
+manifest coverage is unexecuted and benchmark refresh is deferred until it
+completes. The pinned denominators remain 514 upstream test functions and 24
+documented pages.
 
 Historical preflight context: the earlier grouped matrix found a URL difference
 on CPython 3.10/3.11 and a CPython 3.12 package-adapter schema crash; both were
@@ -2285,12 +2305,19 @@ python3.12 -m scripts.parity.cli prepare-env --upstream /path/to/pinned/starlett
 python3.12 -m scripts.parity.cli inventory-slice
 python3.12 -m scripts.parity.cli oracle-only
 python3.12 -m scripts.parity.cli run
+make coverage COVERAGE_TARGET_PROFILE=python-package-cpython312
 python3.12 -m scripts.parity.cli compare --case-id starlette.applications.Starlette.__call__.get-hello --source source-workflow.json --target target-workflow.json
 python3.12 -m scripts.parity.cli benchmark
 python3.12 -m scripts.parity.cli benchmark-upstream
 ```
 
 Use `prepare-env --force` only to rebuild the generated `build/parity` environments and wheelhouse. `validate` checks strict manifest, parity-input, benchmark-input, and result-schema structure; source lock consistency; source pin; input indexes; case/observation references; and Python tooling syntax. It is static validation, not runtime parity. `oracle-only` and `run` write `build/parity/parity-result.json` by default. A result with missing targets, infrastructure errors, failed comparisons, or any `not_run` row exits nonzero.
+
+`make coverage` measures one declared target profile after the isolated source
+oracle and package environments are prepared. The six declared profiles are
+`rust-native-local` and `python-package-cpython310` through
+`python-package-cpython314`; run one profile per invocation. The result and
+LCOV report are written under the ignored `build/parity/coverage/` tree.
 
 The one-case `benchmark` command runs its exact parity gate before the source/package probe and samples. If the gate fails, it emits a `not_proven` result without placeholder measurements. If the gate passes, it measures the linked source and installed package using the smoke boundary above; Rust-native remains `not_run`. Its artifact is `build/parity/benchmark-result.json`, with gate evidence at `build/parity/benchmark-correctness-result.json`. The separate `benchmark-upstream` command runs the 74 input-backed Router/GZip workloads; its result and current scope are documented in [Benchmark mapping](BENCHMARKS.md). Coverage for the overall replacement still requires the remaining upstream tests, documented behaviors, and boundary cases.
 

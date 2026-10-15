@@ -1,8 +1,11 @@
 # Benchmark mapping
 
-The latest paired benchmark and correctness preflight below use the active
-2,538-case `parity-input@58` contract. The run measured all 74 declared
-source/package workloads (6 Router and 68 GZip). All 74 Rust-native workload
+The latest paired benchmark and correctness preflight below use the previous
+manifest for the 2,538-case `parity-input@58` contract. The active manifest
+has since added six coverage plans; its parity revalidation and full coverage
+run are pending, and the benchmark refresh follows coverage. The historical
+run measured all 74 declared source/package workloads (6 Router and 68 GZip).
+All 74 Rust-native workload
 rows remain `not_run` because the native API has no equivalent ASGI workload
 boundary. These results cover the declared benchmark slice and do not prove
 full Starlette replacement parity.
@@ -71,6 +74,10 @@ metrics were collected. Treat them as workload-specific evidence, not a
 general performance claim. `aggregate` validates the result artifact but
 continues to report the overall replacement as `not_proven` because the full
 compatibility denominator is still incomplete.
+
+The parity-matrix status is nested under `parity_matrix.status`. A passing
+five-profile matrix does not change the top-level replacement status; coverage
+and package qualification remain separate evidence requirements.
 
 Correctness gates run before timing and outside timed regions. Build the app,
 payload, middleware, and response input before timing where upstream does so.

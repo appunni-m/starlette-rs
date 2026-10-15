@@ -6,6 +6,7 @@ CARGO ?= cargo
 CARGO_DENY_VERSION ?= 0.20.2
 CARGO_AUDIT_VERSION ?= 0.22.2
 CARGO_ABOUT_VERSION ?= 0.9.2
+CARGO_LLVM_COV_VERSION ?= 0.8.7
 PYTHON ?= python3
 PARITY_PYTHON ?= python3.12
 STARLETTE_ORACLE_ROOT ?= ../starlette
@@ -19,12 +20,14 @@ TYPECHECK_LOCK ?= scripts/parity/locks/typecheck-cpython312.txt
 PARITY_CASE_IDS ?=
 PARITY_CASE_ARGS = $(foreach case_id,$(PARITY_CASE_IDS),--case-id '$(case_id)')
 PARITY_RUN_OUTPUT ?= $(if $(strip $(PARITY_CASE_IDS)),build/parity/parity-selected-result.json,build/parity/parity-result.json)
+COVERAGE_TARGET_PROFILE ?=
+COVERAGE_PROFILE_ARGS = $(if $(strip $(COVERAGE_TARGET_PROFILE)),--target-profile '$(COVERAGE_TARGET_PROFILE)',)
 PYTHON_SOURCES ?= scripts starlette-rs-py/python/starlette starlette-rs-py/python/starlette_rs_py
 CARGO_DENY ?= cargo deny
 CARGO_AUDIT ?= cargo audit
 CARGO_ABOUT ?= cargo about
 
-.PHONY: help style-setup typecheck-setup fmt fmt-fix python-format python-format-fix clippy rust-api-boundary-check python-lint project-policy-check workflows-check lint check build test parity-inputs migrate-parity-inputs-v17-v18 migrate-parity-inputs-v18-v19 migrate-parity-inputs-v19-v20 migrate-parity-inputs-v20-v21 migrate-parity-inputs-v21-v22 migrate-parity-inputs-v22-v23 migrate-parity-inputs-v23-v24 migrate-parity-inputs-v24-v25 migrate-parity-inputs-v25-v26 migrate-parity-inputs-v26-v27 migrate-parity-inputs-v27-v28 migrate-parity-inputs-v28-v29 migrate-parity-inputs-v29-v30 migrate-parity-inputs-v30-v31 migrate-parity-inputs-v31-v32 migrate-parity-inputs-v32-v33 migrate-parity-inputs-v33-v34 migrate-parity-inputs-v34-v35 migrate-parity-inputs-v35-v36 migrate-parity-inputs-v36-v37 migrate-parity-inputs-v37-v38 migrate-parity-inputs-v38-v39 migrate-parity-inputs-v39-v40 migrate-parity-inputs-v40-v41 migrate-parity-inputs-v41-v42 migrate-parity-inputs-v42-v43 migrate-parity-inputs-v43-v44 migrate-parity-inputs-v44-v45 migrate-parity-inputs-v45-v46 migrate-parity-inputs-v46-v47 migrate-parity-inputs-v47-v48 migrate-parity-inputs-v48-v49 migrate-parity-inputs-v49-v50 migrate-parity-inputs-v50-v51 migrate-parity-inputs-v51-v52 migrate-parity-inputs-v52-v53 migrate-parity-inputs-v53-v54 migrate-parity-inputs-v54-v55 migrate-parity-inputs-v55-v56 migrate-parity-inputs-v56-v57 migrate-parity-inputs-v57-v58 parity-env parity-adapter parity-run contract-check source-inventory source-inventory-check dependency-inventory-check benchmark-upstream rustdoc-check docs-check supply-chain-tools supply-chain-check third-party-notices third-party-notices-check ci
+.PHONY: help style-setup typecheck-setup fmt fmt-fix python-format python-format-fix clippy rust-api-boundary-check python-lint project-policy-check workflows-check lint check build test parity-inputs migrate-parity-inputs-v17-v18 migrate-parity-inputs-v18-v19 migrate-parity-inputs-v19-v20 migrate-parity-inputs-v20-v21 migrate-parity-inputs-v21-v22 migrate-parity-inputs-v22-v23 migrate-parity-inputs-v23-v24 migrate-parity-inputs-v24-v25 migrate-parity-inputs-v25-v26 migrate-parity-inputs-v26-v27 migrate-parity-inputs-v27-v28 migrate-parity-inputs-v28-v29 migrate-parity-inputs-v29-v30 migrate-parity-inputs-v30-v31 migrate-parity-inputs-v31-v32 migrate-parity-inputs-v32-v33 migrate-parity-inputs-v33-v34 migrate-parity-inputs-v34-v35 migrate-parity-inputs-v35-v36 migrate-parity-inputs-v36-v37 migrate-parity-inputs-v37-v38 migrate-parity-inputs-v38-v39 migrate-parity-inputs-v39-v40 migrate-parity-inputs-v40-v41 migrate-parity-inputs-v41-v42 migrate-parity-inputs-v42-v43 migrate-parity-inputs-v43-v44 migrate-parity-inputs-v44-v45 migrate-parity-inputs-v45-v46 migrate-parity-inputs-v46-v47 migrate-parity-inputs-v47-v48 migrate-parity-inputs-v48-v49 migrate-parity-inputs-v49-v50 migrate-parity-inputs-v50-v51 migrate-parity-inputs-v51-v52 migrate-parity-inputs-v52-v53 migrate-parity-inputs-v53-v54 migrate-parity-inputs-v54-v55 migrate-parity-inputs-v55-v56 migrate-parity-inputs-v56-v57 migrate-parity-inputs-v57-v58 parity-env parity-adapter parity-run contract-check source-inventory source-inventory-check dependency-inventory-check benchmark-upstream coverage coverage-tools rustdoc-check docs-check supply-chain-tools supply-chain-check third-party-notices third-party-notices-check ci
 
 help: ## Show common Rust workspace commands
 	@printf '%s\n' \
@@ -90,13 +93,15 @@ help: ## Show common Rust workspace commands
 	  '  make dependency-inventory-check  Check documented Python dependencies against pinned uv.lock' \
 	  '  make test       Run live source-to-package and supported Rust parity comparisons' \
 	  "  make test PARITY_CASE_IDS='case-a case-b'  Run a validated input-only selection" \
+	  '  make coverage COVERAGE_TARGET_PROFILE=<id>  Measure one declared target profile' \
 	  '  make contract-check  Generate and statically validate parity inputs' \
 	  '  make benchmark-upstream  Run 74 correctness-gated Starlette source/package workloads' \
 	  '  make docs-check  Check local documentation links offline' \
 	  '  make ci        Run the local quality-gate sequence' \
+	  '  make coverage-tools  Install and verify the pinned cargo-llvm-cov collector' \
 	  '  make supply-chain-tools  Install pinned cargo-deny and cargo-audit tools' \
 	  '' \
-	  'Set CARGO, PYTHON, PARITY_PYTHON, STYLE_VENV, STYLE_PYTHON, or RUFF to override local tools.'
+	  'Set CARGO, CARGO_LLVM_COV_VERSION, PYTHON, PARITY_PYTHON, STYLE_VENV, STYLE_PYTHON, or RUFF to override local tools.'
 
 style-setup: ## Create an isolated environment with the pinned Python style tool
 	$(PYTHON) -m venv "$(STYLE_VENV)"
@@ -321,6 +326,19 @@ parity-run: contract-check parity-env parity-adapter source-inventory-check type
 	STARLETTE_ORACLE_ROOT="$(STARLETTE_ORACLE_ROOT)" STARLETTE_PARITY_TYPECHECKER="$(abspath $(TYPECHECKER))" $(PARITY_PYTHON) -m scripts.parity.cli run --output "$(PARITY_RUN_OUTPUT)" $(PARITY_CASE_ARGS)
 
 test: parity-run ## Run behavioral checks as live source-to-target parity only
+
+coverage-tools: ## Install and verify the pinned LLVM coverage driver
+	$(CARGO) install cargo-llvm-cov --version "$(CARGO_LLVM_COV_VERSION)" --locked
+	@actual="$$($(CARGO) llvm-cov --version)"; \
+	expected="cargo-llvm-cov $(CARGO_LLVM_COV_VERSION)"; \
+	if [ "$$actual" != "$$expected" ]; then \
+	  printf 'Expected %s, found %s\n' "$$expected" "$$actual" >&2; \
+	  exit 1; \
+	fi; \
+	printf 'Verified %s\n' "$$actual"
+
+coverage: contract-check typecheck-setup coverage-tools ## Run the coverage lane for one declared target profile
+	STARLETTE_ORACLE_ROOT="$(STARLETTE_ORACLE_ROOT)" STARLETTE_PARITY_TYPECHECKER="$(abspath $(TYPECHECKER))" $(PARITY_PYTHON) -m scripts.parity.cli coverage $(COVERAGE_PROFILE_ARGS)
 
 benchmark-upstream: contract-check parity-env typecheck-setup ## Run 74 correctness-gated Starlette source/package workloads
 	STARLETTE_PARITY_TYPECHECKER="$(abspath $(TYPECHECKER))" $(PARITY_PYTHON) -m scripts.parity.cli benchmark-upstream
