@@ -24,58 +24,38 @@ with no conventional Python or Rust unit-test suite.
 
 ## Current implementation status
 
-Implementation remains active for the full Starlette 1.6.0 replacement. The
-working-tree `parity-input@58` contract indexes 2,531 cases across 415
-parity input files and two benchmark files, with 151 Starlette compatibility
-operations, 14 native operations, and 1,396 parity requirements. The contract
-remains a slice and claims zero parity passes. The latest batch adds Python membership/equality dispatch for non-string ASGI scope types in authentication, sessions, and GZip middleware, ServerErrorMiddleware message-type equality, plus application middleware lookup-order and pre-ASGI-2.4 cancellation inputs; all remain deferred to grouped parity. Commit `63271da0` adds input-only cases for mutable Request and
-WebSocket scope identity, WSGI query-string ASCII decoding and Latin-1 header
-encoding, and quoted Request cookie escapes. The Rust cookie parser now matches
-CPython's quoted-cookie unescaping. These comparisons remain deferred to the
-grouped full parity phase. The newest input-only cases cover `Request.stream()`
-preserving a truthy non-byte body object and TestClient selecting binary JSON
-frames for noncanonical modes; both remain unexecuted until grouped parity.
-The new application
-constructor input captures the state of
-`exception_handlers`, `user_middleware`, and `middleware_stack` while its
-middleware Sequence is consumed; its comparison remains deferred until full
-parity. Rust now returns the completed no-op for thread-pool iterator
-`athrow` calls after normal exhaustion; the new input covers `StopIteration`,
-`ValueError`, and subsequent exhaustion, with comparison deferred until full
-parity. `make contract-check` passed on the current input set; the
-static source-inventory check found 999 dispositioned API candidates and
-866 source rows: 810 input mappings, 56 reasoned `not_applicable` rows, and
-zero backlog. The Request.client typing consumer and ordered-overlap plus
-synchronous processor-exception-before-template-lookup template inputs are
-authored; their comparisons remain deferred to the full parity phase.
-The newest request-dispatch input supplies a preexisting true `scope.app`
-marker and observes `Request.app` after application dispatch; it remains
-unexecuted until the full parity phase. The latest batch adds input-only cases
-for `run_in_threadpool` ContextVar propagation/isolation, WebSocket callback
-descriptor timing, and StaticFiles root-path prefix-boundary preservation; all
-three remain unexecuted.
-The newest source-confirmed implementation inputs cover writable
-`Request._receive` callback replacement between stream chunks, a synchronous
-BackgroundTasks worker error after cancellation, the deprecated
-TestClient `httpx` fallback, Request stream closure before first advancement,
-WebSocketEndpoint disconnect-hook context preservation, duplicate-key
-BackgroundTask kwargs expansion, TestClient falsey `more_body` truthiness,
-WebSocket unhashable JSON modes and falsey close reasons, and FileResponse
-zero-size chunk behavior. The newest six input files cover empty synchronous StreamingResponse chunks, BaseHTTPMiddleware status 65536 pass-through, StaticFiles root_path/query redirect behavior, initial WebSocket accept-send OSError propagation, HTTPException default-handler conversion order, and TestClient message-type comparison errors. All eleven comparisons remain unexecuted.
+The active full-scope `parity-input@58` contract covers Starlette 1.6.0 with
+2,538 cases across 416 parity inputs and two benchmark inputs, 151 compatibility
+operations, 14 Rust-native operations, and 1,399 parity requirements. Its
+manifest SHA-256 is
+`86f69fc791088794fcd59483d6a91cc08bb9b3999586665f73c2f722f9946029`. The
+source atlas contains 866 rows: 810 input mappings, 56 source-backed
+`not_applicable` rows, and zero fixture backlog. The 999-row API candidate
+catalog has 564 supported candidates, 435 private/internal candidates, and
+zero uncertain candidates.
 
-StaticFiles, response-protocol, TestClient exception/close-code, WebSocket
-close-code, custom-regex, AuthenticationMiddleware iterable-result, nested
-Host/Mount reverse-lookup, and Request disconnect-retry inputs were also added after the latest complete
-parity, coverage, and benchmark receipts. The previous clean full run
-`dc8c8ca6-f2b7-449b-9f53-45860e3cad4c` passed 2,254/2,254 comparisons for the
-preceding 1,992-case contract; its coverage and 74-workload benchmark receipts
-also apply only to that earlier contract. The current input set has not been
-through those phases. Continue implementation across feature families, then
-run full parity and grouped fixes, full coverage, and benchmarks in that order.
+The corrected five-profile matrix at target revision
+`576e9cfd99a063d46493aed28ff103292aa642f8` recorded 5,417 passes, zero
+failures, zero infrastructure errors, and six explicit `not_run` rows. All 17
+selected fault contracts passed. The six skips are the same
+`StaticFiles.lookup-path.surrogateescape-posix-matched-filename` input across
+profiles; this macOS APFS host cannot create the required invalid-byte
+filename. The full coverage receipt reports 26,113 of 33,345 Rust lines
+covered (78.31%); its test status is unknown because two CPython 3.12 rows are
+skipped. Coverage is a measurement, not a parity score.
+
+The completed benchmark run covers 74 Router and GZip source/package
+workloads, with zero failures or source/package skips. The 74 Rust-native
+benchmark entries remain `not_run` because the native API has no equivalent
+workload boundary. Current evidence and exact run identities are in the
+[implementation plan](../IMPLEMENTATION_PLAN.md), [parity report](../PARITY.md),
+and [benchmark report](../BENCHMARKS.md).
 
 Fixed source denominators are 514 upstream test functions and 24 documentation
 pages. The complete replacement remains unproven; these inventory counts and
-the previous slice results do not establish full compatibility.
+the measured contract do not establish universal or drop-in compatibility.
+The execution order and remaining platform/packaging qualification are tracked
+in the implementation plan.
 
 ## Historical atlas checkpoints
 

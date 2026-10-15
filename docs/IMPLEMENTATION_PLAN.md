@@ -580,7 +580,7 @@ representation, and dynamic `FormData.close()` dispatch remain Rust-backed.
 | Implementation | Complete for the active `parity-input@58` contract; grouped repairs are included in the measured revision. | Active manifest SHA-256 `86f69fc791088794fcd59483d6a91cc08bb9b3999586665f73c2f722f9946029`; clean target revision `576e9cfd99a063d46493aed28ff103292aa642f8`. |
 | Full parity and grouped repairs | Corrected five-profile matrix complete; six explicit `not_run` rows remain recorded. | Aggregate: 5,417 passed, zero failed, zero infrastructure errors, 6 `not_run`; fault contracts 17/17. Runs: CPython 3.10 632/633 (`960e977d-ff63-4cdc-bf86-7e29904bb9b7`); 3.11 632/633 (`084c571e-6a3e-485c-bac5-d784a269ed34`); 3.12 2,887/2,889 (`c5706308-af41-4f8a-b326-c03a5799d2d1`); 3.13 633/634 (`f21bef98-6b34-497e-bc30-e8bdce65b6f9`); 3.14 633/634 (`4360b1c3-fa5e-4b5b-91c6-c0d1e710be8c`). Oracle: Starlette 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. |
 | Full coverage and source reconciliation | Accepted full Rust coverage receipt recorded; line coverage is not a parity score. | `build/parity/coverage/full-starlette-1.6.0-20261015-576e9cfd-native-inclusive-verified/starlette-project.lcov`: 26,113/33,345 lines (78.31%), `tests=unknown` because two CPython 3.12 rows are `not_run`; extension SHA-256 `5a506c6d65feff52203ceaa713267d4fae42542767a88d45f6918861a7cf3e7f`, adapter SHA-256 `40b898b97f65d661aecdf17ef6e796f57d23f6ce3aa153d8aaf1ebf82831a5c7`. |
-| All benchmarks | The 74-workload source/package measurement and generated evidence refresh are complete; the documentation check is pending. | Run `39d8724c-dadd-4638-9f04-b84086632dbd`: 74/74 (6 Router, 68 GZip), zero failures and zero source/package `not_run`; 74 Rust-native `not_run` because the equivalent boundary is unavailable. Preflight `2d30a13f-5318-49dd-8ce6-fea5b1e34eef`: 2,887 passed, zero failed/infra, 2 `not_run`, faults 5/5. Ratios: 0.219 Router, 0.974 GZip; source lower in 6/6 Router and 63/68 GZip; normalized hashes match 74/74. Result SHA-256 `f8c9af763f3695bcd284e9d1ff95517355f8a0eb086590e156f2a65e5b3f0086`. |
+| All benchmarks | The 74-workload source/package measurement and generated evidence refresh are complete; `make docs-check` passes. | Run `39d8724c-dadd-4638-9f04-b84086632dbd`: 74/74 (6 Router, 68 GZip), zero failures and zero source/package `not_run`; 74 Rust-native `not_run` because the equivalent boundary is unavailable. Preflight `2d30a13f-5318-49dd-8ce6-fea5b1e34eef`: 2,887 passed, zero failed/infra, 2 `not_run`, faults 5/5. Ratios: 0.219 Router, 0.974 GZip; source lower in 6/6 Router and 63/68 GZip; normalized hashes match 74/74. Result SHA-256 `f8c9af763f3695bcd284e9d1ff95517355f8a0eb086590e156f2a65e5b3f0086`. The docs gate checks 38 Markdown files and generated benchmark evidence. |
 | Packaging and interpreter qualification | Historical local macOS arm64 qualification; current changes are not qualified by it. | Five CPython 3.10–3.14 wheels, an sdist, and the Rust crate were inspected in the earlier qualification. Other platform builds remain unqualified. |
 
 Parity, coverage, and benchmark result artifacts are local generated output
@@ -622,13 +622,12 @@ examples exercise streamed bodies, handshake/message sequences, hook ordering,
 and host-owned future cancellation without invoking Python. Input-only
 Starlette ASGI analogues are authored for all three surfaces, including Tower
 middleware ordering, short-circuit responses, error propagation, and unread
-request bodies; all remain unexecuted until the integrated parity phase. Three target-only lifespan fault
-contracts cover shutdown error aggregation and dropping pending startup and
-shutdown futures; they are authored and statically validated, but remain
-unexecuted until the integrated parity phase. FastAPI composition is outside
-this project's scope. See [`native-service.md`](native-service.md),
-[`native-websocket.md`](native-websocket.md), and
-[`native-lifespan.md`](native-lifespan.md) for the APIs and boundaries.
+request bodies. The active five-profile grouped matrix executes these inputs;
+all 17 selected fault contracts pass, including the three target-only lifespan
+fault contracts for shutdown error aggregation and dropping pending startup
+and shutdown futures. FastAPI composition is outside this project's scope. See [`native-service.md`](native-service.md),
+[`native-websocket.md`](native-websocket.md), and [`native-lifespan.md`](native-lifespan.md)
+for the APIs and boundaries.
 
 ## 0. Establish the contract
 
