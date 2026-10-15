@@ -7,62 +7,49 @@ Pydantic are outside this project's scope.
 
 ## Execution order and current status
 
-Current implementation checkpoint (2026-10-15):
-the active manifest declares the full Starlette 1.6.0 scope
-(`starlette-1.6.0-full`) with 2,531 cases from
-415 parity input sources and two benchmark inputs, 151 Starlette compatibility
-operations, 14 Rust-native operations, 1,396 parity requirements, and six
-target profiles. Contract and source-inventory checks pass; the generated atlas
-reports 866 upstream source rows, 810 input mappings, 56 reasoned
-`not_applicable` rows, and zero fixture-backlog rows. The API candidate catalog
-has 999 rows: 564 supported, 435 private/internal, and zero uncertain. These
-are declared scope and inventory counts, not full parity results. A new StaticFiles direct-lookup input covers an embedded NUL when `directory=None` leaves no search roots; Rust now rejects NUL only when lookup will reach a configured filesystem root. Its comparison remains deferred until grouped parity. A WSGI response input covers a list-subclass header pair whose overridden iterator yields values different from its stored elements; Rust now uses Python iteration for subclasses. This comparison remains deferred until grouped parity. A focused
-runner smoke passed all three Rust-native lifespan fault assertions, but its
-artifact was infrastructure-failed because the prepared Python environments
-were stale after source changes. No complete parity result has been accepted
-for this manifest; full-suite coverage and the complete benchmark workload
-remain pending. The latest implementation batch matches CPython's compiled
-set-literal construction for Request push-promise header iteration, corrects
-several adapter observation projections, restores the `Secret` and
-`UploadFile` constructor typing contracts with direct Rust forwarding, and
-matches ExitStack context chaining when later TestClient cleanup callbacks fail.
-Contract, source-inventory, formatting, lint, and Rust static checks pass for
-the current working batch. Full parity, coverage, and benchmarks remain
-deferred; the installed-wheel typing comparison now matches the pinned source
-with Mypy 1.19.1 (identical diagnostics and revealed types). Revision
-`e36bc551` preserves the active exception observed by
-synchronous `WebSocketEndpoint.on_disconnect` and adds an input-only comparison
-for a pending receive exception. Revision `9a9d0e81` adds input-only boundaries
-for
-`FileResponse`'s live `scope["method"].upper()` dispatch and for
-`Request.form()` discarding the return value from awaited `FormData.close()`;
-both comparisons remain deferred to grouped parity. The current batch preserves
-`BackgroundTasks.add_task` lookup of a subclass's live `tasks` property and adds
-an input-only comparison; it remains deferred to grouped parity. A source audit found no
-additional mismatch in the supported `StreamingResponse` lifecycle. A new
-input-only case relays `Request.stream()`
-through a route's `StreamingResponse` for fragmented and empty request bodies;
-it remains deferred to grouped parity. The prior input-only cases cover
-FileResponse short range-pair unpacking, WebSocketEndpoint close-send exception
-context, and StaticFiles matching ETag plus Range; all remain deferred to
-grouped parity. The newest cases check that `Request.stream()` yields a truthy
-non-byte body object unchanged and that TestClient routes noncanonical JSON
-modes through binary frames; both comparisons remain deferred to grouped parity.
-The
-direct `StaticFiles.get_response()` method-before-path ordering case is now
-represented by a sparse-scope operation. The current
-input-only batch adds multipart
-context-manager cleanup for uploaded files and a precise unsupported-async
-Jinja context-processor contract, and maps Request.form, Request.state, client,
-exception-header, status, and body-limit source rows to exact active
-requirements. The body-limit runtime now uses Python inequality for scope-type
-dispatch, calls the scope mapping's `get` with a Rust-backed missing sentinel,
-and writes normalized list headers back during Content-Length lookup. Inputs
-compare tuple-header coercion, UserDict operations, and a custom `__ne__` scope
-type against the pinned source. These comparisons remain unexecuted. No
-unmatched source mappings were reported. The generated fixture backlog is zero;
-the grouped full parity run is the next project-wide gate, followed by full-suite
-coverage and the complete benchmark workload.
+Current evidence checkpoint (2026-10-15, commit `68a4942a`):
+
+The active manifest declares the full Starlette 1.6.0 scope with 2,531 cases
+across 415 parity inputs, two benchmark inputs, 151 compatibility operations,
+14 Rust-native operations, 1,396 parity requirements, and six target profiles.
+The source atlas contains 866 rows: 810 mapped, 56 reasoned
+`not_applicable`, and zero fixture backlog. The 999-row API catalog has 564
+supported candidates, 435 private/internal candidates, and zero uncertain
+candidates. The fixed upstream denominators remain 514 test functions and 24
+documented pages.
+
+The fresh full matrix run `5a355e0f-ff4c-4605-9221-02feff1bc616` completed
+with 2,880 passed, zero failed, zero infrastructure errors, and two `not_run`
+rows. Both `not_run` rows refer to the POSIX surrogateescape filename case,
+one for each target profile; the macOS temporary filesystem cannot create that
+filename. All five fault contracts passed. `make test` returns nonzero while
+preserving those skipped rows, so this is not a full-parity claim. The only
+remaining unverified contract observations are those two platform-limited
+rows.
+
+Full Rust coverage was measured from the instrumented parity workload. The
+receipt-bound LCOV report records 23,012 of 33,324 lines covered (69.1%) and
+10,312 uncovered. Coverage MCP matched the report to its source/build receipt;
+test status is `unknown` because the two cases were not run, and branch detail
+is unavailable from this LCOV export.
+
+The complete pinned source/package benchmark run
+`2e8f1ca8-239c-44eb-b72a-0ef02777bd35` measured all 74 workloads: six Router
+and 68 GZip. It reported zero failures and zero source/package `not_run`
+workloads. All 74 Rust-native equivalents remain `not_run` because the native
+API does not provide the same complete ASGI benchmark boundary. The benchmark
+preflight was the full matrix run above. `make docs-check` passes for the
+refreshed benchmark evidence.
+
+The recent grouped implementation fixes cover WSGI sender-observation
+conditions, TestClient cleanup error context, converter observation
+projections, BaseHTTP scope output, streaming cancellation output, and
+StaticFiles lookup-error preservation. Contract validation, Python formatting
+and lint, project policy, Rust formatting, workspace check, Clippy, and diff
+checks pass. Historical batch notes below describe their state when recorded;
+the current matrix, coverage, and benchmark results supersede their deferred
+phase status. No drop-in compatibility claim is made while the two `not_run`
+observations remain.
 
 The latest implementation batch now compares FileResponse's stateful PathLike
 calls inside its input-conditioned result record, and WSGIMiddleware's sender,
@@ -536,16 +523,10 @@ representation, and dynamic `FormData.close()` dispatch remain Rust-backed.
 
 | Phase | State | Evidence |
 | --- | --- | --- |
-| Implementation | In progress. | The active manifest declares full Starlette scope with 2,531 cases across 415 parity inputs, two benchmark inputs, 151 compatibility operations, 14 Rust-native operations, 1,396 parity requirements, and six target profiles. Contract and source-inventory checks pass; no complete parity result has been accepted for this manifest. Recent input-only additions remain unexecuted until implementation closes. The latest source-reviewed inputs cover Request and WebSocket identity across mutable scopes, WSGI query-string ASCII decoding and Latin-1 header values, and quoted Request cookie escapes; all four cases remain deferred to grouped parity. A recent implementation checkpoint adds source-backed inputs for MultiDict protocol ordering, direct synchronous HTTPEndpoint dispatch, Router registration methods, and URLPath protocol construction; its typing consumer now exercises the pinned Router registration annotations. The current implementation batch also covers WSGI `SERVER_PROTOCOL` formatting for an integer `http_version` and Config environment-prefix lookup using `str.__radd__`; both comparisons remain deferred to the grouped full parity phase. A new WSGI input makes a response-header list subclass yield values different from its stored elements; Rust now follows Python iteration for subclasses, and its comparison remains deferred. Earlier implementation batches add Rust-backed `BackgroundTasks.tasks` deletion, direct converter method and registry-sequence operations, and Python-string preservation for converter formatting; all five input-only cases remain unexecuted until full parity. This batch adds app-level `StreamingResponse` dispatch and caller cancellation during a gated response send, Request stream recovery after a receive `ValueError`, and input-driven inspection of the source-reviewed public API; all four comparisons remain unexecuted until full parity. Both app workflow adapters handle the streaming and cancellation inputs. The root package facade now matches the pinned module by exposing only `__version__`. The Host→WebSocketRoute and TestClient cleanup-context inputs remain unexecuted until full parity. The new direct `run_in_threadpool` cancellation input observes AnyIO-scope cancellation while the worker is gated and remains unexecuted until full parity. The Starlette constructor input now observes live `exception_handlers`, `user_middleware`, and `middleware_stack` visibility while its input-defined middleware Sequence is consumed; its source/package comparison remains unexecuted until full parity. The Config typing consumer covers all nine pinned `Config.__call__` overload assertions and passed direct Mypy 1.19.1 checks against the pinned source and installed wheel with identical diagnostics and revealed types; its registered parity case remains unexecuted. The application typing consumer checks `Request.form()` await/async-with, `Request.stream()` chunks as `bytes`, `Request.body()` as `bytes`, `Request.json()` as `Any`, `Request.query_params` as `QueryParams`, and `Request.path_params` as `dict[str, Any]`; pinned-source and installed-wheel Mypy 1.19.1 output matches for the existing assertions. `WebSocket.receive` and `WebSocket.send` are assignable to ASGI `Receive` and `Send` callback types; pinned-source and installed-wheel checker outputs match. Mypy 1.19.1 against the pinned source and rebuilt wheel now confirms the `ASGIInstance` and `QueryParams` item, `getlist()`, and `multi_items()` value types match. The Mount `routes: null` input and Rust truthiness fix are authored but unexecuted. `Request.client` is now asserted as `Address | None`; pinned-source and installed-wheel Mypy 1.19.1 output matches, and its registered consumer comparison remains deferred to full parity. A WebSocketEndpoint constructor input supplies a non-WebSocket scope type and observes the source assertion before dispatch; its registered comparison remains unexecuted until full parity. A new direct `WebSocketDisconnect` constructor input covers supplied/default fields, inherited exception arguments, reason truthiness, and call-binding errors; its comparison remains unexecuted. A new FormData consumer contract preserves the pinned `UploadFile | str` types for indexing, `getlist()`, and `multi_items()`; the input comparison remains unexecuted. The current three input additions for FileResponse range unpacking, WebSocketEndpoint exception-context chaining, and StaticFiles conditional ETag/range handling remain unexecuted until grouped parity. This checkpoint adds four input-only cases for Authentication iterable and non-iterable unpack errors, GZipResponder reuse, and direct StaticFiles method-before-path ordering; all four remain unexecuted until grouped parity. Rust now matches Python's `ValueError` for iterable arity errors and `TypeError` for non-iterable backend results, preserves GZipResponder state across repeated calls, and checks StaticFiles method before reading `scope.path`. Two new Request.form inputs cover positive
-arbitrary-precision max_fields and max_files limits; these comparisons remain
-unexecuted. A new body-limit input checks that the Content-Length precheck
-preserves the original scope headers mapping; both behavior and comparison
-remain unexecuted. The Request stream-after-body-completion, connection-properties, and Route float negative-zero inputs remain unexecuted. This batch adds three unexecuted input-only cases for Request cookie-cache persistence across header mutation, TestClient shutdown and portal cleanup error precedence, and `requires` mixed positional/keyword connection binding; the separate `run_in_threadpool` `StopAsyncIteration` identity case is also active and unexecuted. A WebSocketEndpoint case checks ordered reads of a stateful `encoding` descriptor; its comparison is deferred to full parity. A new stateful message-mapping input
-checks the distinct `message["type"]` branch lookups; it is unexecuted until full parity.
-This slice moves typed WebSocket iterator descriptor lookup into each Rust iterator advance and adds three unexecuted descriptor-tape inputs for text, bytes, and JSON. `make source-inventory-check PARITY_PYTHON=python3.12` passes with 999 API candidates dispositioned and 864 atlas rows (808 mappings / 56 reasoned `not_applicable` / zero backlog); zero API candidates or source rows remain uncertain. `env RUSTC_WRAPPER= make lint` passed. A prior implementation batch adds CPython `Morsel._reserved` cookie-name validation across CPython 3.10–3.14, preserves the callback order when `lower()` rebinds `_reserved`, and matches Python `str` subclass hashing/equality plus `Mapping.get` `KeyError` handling in `QueryParams`; all four input-only cases remain unexecuted until full parity. The latest implementation slices add input-only cases for TestClient debug-info membership-before-index errors, Host reverse-lookup leftover parameters after host-prefix consumption, and route-local middleware kwargs expansion from a non-dict Mapping; these three cases remain unexecuted until full parity. The preceding implementation batch adds route-instance `matches` override dispatch, TestClient WebSocket message-type equality error propagation, and a stateful FileResponse PathLike comparison; all three input-only cases remain unexecuted until full parity. The Response facade now forwards construction to Rust, which preserves assignment order and dynamically invokes Python `render` and `init_headers`; a new input-only case records render mutations at the header hook and remains unexecuted. A separate internal `_core.FileResponse.asgi_call` helper resolves `str(path)` at ASGI-call entry. The public facade uses `_core.FileResponse.call_for`, which preserves the pinned conversion timing; the helper is not part of Starlette's public surface. The newest Rust-native streaming batch adds binary and empty text/base64 chunk preservation alongside backpressure, producer-error, cancellation, and background-order cases; all remain unexecuted. Earlier input-only batches add `run_in_threadpool` ContextVar propagation/isolation, WebSocket callback-descriptor lookup timing, and a StaticFiles root-path prefix-boundary case; all four remain unexecuted. The newest compatibility batch adds input-defined tuple-backed `user_middleware`, UploadFile subclass policy overrides, and Request push-header iteration order; its three comparisons remain unexecuted. The newest Rust-native batch adds input-defined custom converter registration to `NativeApplication` route dispatch; its comparison remains unexecuted. The preceding batch adds dynamic `FormData.close()` dispatch through `multi_items()` and declaration-order error propagation in mixed native/custom Router scans; both input-only comparisons remain unexecuted. Earlier batches add WebSocketEndpoint PEP 479 conversion for `StopIteration`, Router path mutation with the original compiled matcher, Jinja `url_for.__annotations__`, and a matched POSIX StaticFiles surrogateescape filename; all four comparisons remain unexecuted. The filesystem conversion boundary is documented in [`STATICFILES_PATH_ENCODING_BOUNDARY.md`](STATICFILES_PATH_ENCODING_BOUNDARY.md). The preceding batch adds Request mapping special-method iteration, arbitrary-object Secret casts from Config defaults, and CORS method-before-header lookup ordering; all four comparisons remain unexecuted. Earlier slices cover iterable Response header-pair unpacking, Unix StaticFiles surrogateescape paths, WebSocketEndpoint status-lookup error context, Host regex selection, multipart filename preservation, invalid async-iterator awaitable error translation, and Middleware subclass iteration. Rust now treats `iterate_in_threadpool().athrow(...)` after normal exhaustion as a completed no-op; the composite input checks `StopIteration`, `ValueError`, and subsequent exhaustion, with its oracle comparison deferred until full parity. The application typing consumer also asserts `Request.url` and inherited `WebSocket.url` as `URL`, plus `WebSocket.cookies` as `dict[str, str]`; pinned-source and installed-wheel Mypy 1.19.1 results match. The new MultiDict input covers `update()` with both a positional pair iterable and keyword values, matching the pinned test’s pair order; its comparison remains unexecuted. The WSGI `start_response` bridge now mirrors Starlette’s two-value header unpacking, including non-iterable error text; its new input-only case remains unexecuted until grouped parity. Full parity, coverage, and benchmarks remain deferred until implementation closes; `make docs-check` benchmark evidence must be refreshed during the benchmark phase. |
-| Full parity and grouped repairs | Deferred until implementation closes. | The latest clean run, `dc8c8ca6-f2b7-449b-9f53-45860e3cad4c`, passed 2,254/2,254 comparisons for the preceding 1,992-case, 140-parity-input contract. Later optional-backend, WebSocket authorization, Router truthiness, BaseHTTPMiddleware iterator, StaticFiles path, response-protocol, close-code, TestClient exception, raw TestClient no-response return, custom-regex, Request stream retry, WebSocketEndpoint error-finalization, BaseHTTPMiddleware dispatch short-circuiting, StreamingResponse terminal-send failure, TestClient generator-body buffering, invalid initial WebSocket.accept events, Last-Modified If-Range matching, exception-class MRO precedence, Request receive-error retry, Request body retry after partial receive cancellation, empty root Mount dispatch, lazy StreamingResponse iterator acquisition after a failed response-start send, AsyncIterable descriptor failure after response-start, normal-return incomplete TestClient response, asyncio-marked TestClient ASGI3, WebSocketEndpoint hook-failure/context, bracketed IPv6 Host, StaticFiles `get_response` override, TestClient accepted-session error stream closure and completed-response exception propagation, StreamingResponse gated-send backpressure, WebSocket non-string send-type, BackgroundTask `kwargs` mapping expansion, synchronous WebSocketEndpoint `on_disconnect` failure, multipart rollover lifecycle, supplied-Morsel validation, and missing WebSocket disconnect-code cases are not included. The seven new TestClient partial-response, StreamingResponse callback, empty WSGI iterable, invalid initial WebSocketEndpoint, mutable WebSocket scope, explicit-None Request receive, and tuple CORS response-header cases are also outside that run. The current seven response, TestClient denial-body, WebSocket iterator-exhaustion, and BackgroundTask argument-order cases are likewise unexecuted. The Request custom-receive event, BaseHTTPMiddleware body-iterator replacement, TestClient MutableMapping send-message, WSGI header-unpack-order, AnyIO CancelScope worker-error, Config cast-error context, State missing-attribute formatting, and URL replacement formatting cases are also outside that run. The stateful StaticFiles PathLike, UploadFile write-error, BackgroundTasks live-list mutation, StreamingResponse caller-cancellation comparisons, and latest 12-case boundary batch remain unexecuted. The four newest TestClient fallback, Request stream-close-before-start, WebSocket context-preservation, and BackgroundTask duplicate-key comparisons are also unexecuted. |
-| Full coverage and source reconciliation | Deferred until the full parity phase. | The latest measured run, `fd5b3b63-9ddc-44bd-bf38-35ecbc260dbe`, covered 19,909/28,139 Rust lines (70.7%) for the preceding contract. |
-| All benchmarks | Deferred until coverage. | The latest run, `13ea2d04-7f31-4c12-93cd-855df93df8b0`, measured 74/74 source/package workloads for the preceding contract: six Router and 68 GZip workloads. |
+| Implementation | No executable mismatch remains; two platform-limited observations remain unverified. | Current manifest: 2,531 cases, 415 parity inputs, 151 compatibility operations, 14 Rust-native operations, and 1,396 requirements. Atlas: 810/866 mapped, 56 reasoned `not_applicable`, zero backlog. |
+| Full parity and grouped repairs | Full matrix completed with two platform skips; no full-parity claim. | Run `5a355e0f-ff4c-4605-9221-02feff1bc616`: 2,880 passed, 0 failed, 0 infrastructure errors, 2 `not_run`; all five fault contracts passed. Both skips are the POSIX surrogateescape filename on the macOS temporary filesystem. |
+| Full coverage and source reconciliation | Measured with two input cases not run. | Receipt-bound LCOV: 23,012/33,324 Rust lines covered (69.1%), 10,312 uncovered. Coverage MCP matched source/build identity; test status is `unknown` because two cases were skipped, and branch detail is unavailable. |
+| All benchmarks | Complete for the declared source/package boundary. | Run `2e8f1ca8-239c-44eb-b72a-0ef02777bd35` measured 74/74 workloads: 6 Router and 68 GZip; 0 failures and 0 source/package `not_run`. The 74 Rust-native boundaries remain `not_run` because they do not expose the matching full ASGI call boundary. |
 | Packaging and interpreter qualification | Complete for the local macOS arm64 build. | Five CPython 3.10–3.14 wheels, an sdist, and the Rust crate were inspected; isolated wheel installs passed public ASGI smoke and `pip check`. Other platform builds remain unqualified. |
 
 Prior parity, coverage, and benchmark receipts remain under ignored
@@ -555,9 +536,7 @@ from the generated [`coverage matrix`](atlas/coverage-matrix.csv) and
 [`fixture backlog`](atlas/fixture-backlog.csv). Coverage is a measurement, not
 a parity score. The full-replacement goal remains active.
 
-`python3 scripts/check_docs.py` passes its 37-file link check. The aggregate
-`make docs-check` still needs a benchmark receipt bound to the current manifest;
-refresh it only during the planned full benchmark phase.
+`make docs-check` passes for the current manifest and refreshed benchmark receipt, including the 38-file Markdown link check.
 
 Boundary details: [response protocols](RESPONSE_RENDER_BOUNDARY.md),
 [server-error traceback data](SERVER_ERROR_BOUNDARY.md),
