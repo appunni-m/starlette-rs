@@ -66,6 +66,7 @@ use starlette_rs::{
     Starlette as NativeApplication, StaticFiles as NativeStaticFiles, StaticFilesError,
     StaticFilesResponse, StreamingResponse, StreamingResponseCallInput, StreamingResponseCallStep,
     StreamingResponseEvent, WebSocketState, WebSocketStateMachine, classify_scope, connection_url,
+    timestamp_unsign,
 };
 use tower_layer as _;
 use tower_service as _;
@@ -108,6 +109,8 @@ const NATIVE_SERVICE_HOST_ROUTING_OPERATION: &str = "service-host-routing";
 const NATIVE_STREAMING_RESPONSE_SOURCE_OPERATION: &str = "lazy-source-call";
 const NATIVE_ROUTE_TABLE_CUSTOM_CONVERTER_OPERATION: &str = "custom-converter-match";
 const NATIVE_NAMED_ROUTE_CUSTOM_CONVERTER_OPERATION: &str = "custom-converter-url-path-for";
+const NATIVE_TIMESTAMP_UNSIGN_SURFACE: &str = "starlette_rs.timestamp_unsign";
+const NATIVE_TIMESTAMP_UNSIGN_OPERATION: &str = "timestamp-unsign";
 // The Python facade maps Rust state-transition errors through PyRuntimeError.
 const WEBSOCKET_STATE_ERROR_COMPATIBILITY_CLASS: &str = "builtins.RuntimeError";
 const WEBSOCKET_CALLBACK_OSERROR_CLASS: &str = "builtins.OSError";
@@ -518,6 +521,9 @@ fn run_case(case: &Value) -> Result<Value, String> {
         (Some("starlette-rs.NamedRoute"), Some(NATIVE_NAMED_ROUTE_CUSTOM_CONVERTER_OPERATION)) => {
             return run_native_custom_converter_url_case(case);
         }
+        (Some(NATIVE_TIMESTAMP_UNSIGN_SURFACE), Some(NATIVE_TIMESTAMP_UNSIGN_OPERATION)) => {
+            return run_timestamp_unsign_case(case);
+        }
         (Some("starlette-rs.NativeApplication"), Some(NATIVE_SERVICE_MIDDLEWARE_OPERATION)) => {
             return run_native_service_middleware_case(case);
         }
@@ -583,6 +589,85 @@ fn run_case(case: &Value) -> Result<Value, String> {
     }
 
     run_application_case(case)
+}
+
+fn run_timestamp_unsign_case(case: &Value) -> Result<Value, String> {
+    let context = "timestamp-unsign case";
+    let case_object = exact_object(
+        case,
+        &[
+            "case_id",
+            "surface",
+            "operation",
+            "covers",
+            "target_profiles",
+            "assets",
+            "input",
+            "observations",
+        ],
+        context,
+    )?;
+    if string_field(case_object, "surface", context)? != NATIVE_TIMESTAMP_UNSIGN_SURFACE
+        || string_field(case_object, "operation", context)? != NATIVE_TIMESTAMP_UNSIGN_OPERATION
+    {
+        return Err(String::from(
+            "case is outside the timestamp-unsign operation",
+        ));
+    }
+    let has_result_observation = case_object
+        .get("observations")
+        .and_then(Value::as_array)
+        .is_some_and(|observations| {
+            observations.len() == 1 && observations[0].as_str() == Some("result")
+        });
+    if !has_result_observation {
+        return Err(String::from(
+            "timestamp-unsign case must select the result observation",
+        ));
+    }
+
+    let input = exact_object(
+        case_object
+            .get("input")
+            .ok_or_else(|| String::from("timestamp-unsign case.input is missing"))?,
+        &["secret_key", "signed_value_ascii", "now", "max_age"],
+        "timestamp-unsign input",
+    )?;
+    let secret_key = string_field(input, "secret_key", "timestamp-unsign input")?;
+    let signed_value = string_field(input, "signed_value_ascii", "timestamp-unsign input")?;
+    if !signed_value.is_ascii() {
+        return Err(String::from(
+            "timestamp-unsign input.signed_value_ascii must contain ASCII characters",
+        ));
+    }
+    let now = input
+        .get("now")
+        .and_then(Value::as_u64)
+        .ok_or_else(|| String::from("timestamp-unsign input.now must be an unsigned integer"))?;
+    let max_age = match input.get("max_age") {
+        Some(Value::Null) => None,
+        Some(Value::Number(value)) => Some(value.as_i64().ok_or_else(|| {
+            String::from("timestamp-unsign input.max_age must fit a signed 64-bit integer")
+        })?),
+        _ => {
+            return Err(String::from(
+                "timestamp-unsign input.max_age must be an integer or null",
+            ));
+        }
+    };
+    let payload = timestamp_unsign(signed_value.as_bytes(), secret_key, now, max_age)
+        .map_err(|error| error.to_string())?;
+    let case_id = string_field(case_object, "case_id", context)?;
+
+    Ok(json!({
+        "case_id": case_id,
+        "status": "completed",
+        "observations": [{
+            "step_id": "result",
+            "status": "ok",
+            "value": {"encoding": "base64", "data": encode_base64(&payload)},
+        }],
+    }))
 }
 
 #[derive(Clone)]

@@ -381,10 +381,11 @@ enum NativeApplicationEntry {
 /// response body before returning the response. Endpoints and outer Tower
 /// layers control when they poll bodies, so `http_body::Body` demand propagates
 /// through this service without framework read-ahead. Cloned applications
-/// share their immutable route table and endpoint closures. Ordered Mount
-/// entries can delegate requests to child applications while carrying native
-/// scope metadata. It does not create a runtime; its caller supplies the
-/// executor.
+/// preserve their route behavior. Ordered Mount entries can delegate requests
+/// to child applications while carrying native scope metadata. Cloning the
+/// application copies its route tables and child metadata while sharing
+/// endpoint closures through `Arc`. It does not create a runtime; its caller
+/// supplies the executor.
 #[derive(Clone)]
 pub struct NativeApplication {
     routes: RouteTable,

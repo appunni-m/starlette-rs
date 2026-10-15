@@ -91,6 +91,8 @@ NATIVE_LIFESPAN_OPERATION = "native-lifespan"
 NATIVE_LIFESPAN_START_OPERATION = "start"
 NATIVE_LIFESPAN_SHUTDOWN_OPERATION = "shutdown"
 NATIVE_ACTIVE_LIFESPAN_SHUTDOWN_OPERATION = "active-shutdown"
+NATIVE_TIMESTAMP_UNSIGN_SURFACE = "starlette_rs.timestamp_unsign"
+NATIVE_TIMESTAMP_UNSIGN_OPERATION = "timestamp-unsign"
 NATIVE_WORKFLOW_STEP = "workflow"
 HTTP_ROUTE_SURFACE = "starlette.routing.Route"
 HTTP_ROUTE_CALL_OPERATION = "__call__"
@@ -16974,6 +16976,11 @@ def _run_starlette_add_route_case(case: dict[str, Any]) -> dict[str, Any]:
 
 def _run_case(case: dict[str, Any]) -> dict[str, Any]:
     if (case.get("surface"), case.get("operation")) == (
+        NATIVE_TIMESTAMP_UNSIGN_SURFACE,
+        NATIVE_TIMESTAMP_UNSIGN_OPERATION,
+    ):
+        return _run_timestamp_unsign_case(case)
+    if (case.get("surface"), case.get("operation")) == (
         NATIVE_SERVICE_SURFACE,
         NATIVE_SERVICE_OPERATION,
     ):
@@ -17895,6 +17902,61 @@ def _native_workflow_result(case: dict[str, Any], record: dict[str, Any]) -> dic
                 "value": {NATIVE_WORKFLOW_STEP: record},
             }
         ],
+    }
+
+
+def _run_timestamp_unsign_case(case: dict[str, Any]) -> dict[str, Any]:
+    context = "timestamp-unsign case"
+    _strict_object(
+        case,
+        {
+            "case_id",
+            "surface",
+            "operation",
+            "covers",
+            "target_profiles",
+            "assets",
+            "input",
+            "observations",
+        },
+        context,
+    )
+    if (
+        case["surface"] != NATIVE_TIMESTAMP_UNSIGN_SURFACE
+        or case["operation"] != NATIVE_TIMESTAMP_UNSIGN_OPERATION
+    ):
+        raise ValueError("case is outside the timestamp-unsign operation")
+    if case["observations"] != ["result"]:
+        raise ValueError("timestamp-unsign case must select the result observation")
+    input_spec = _strict_object(
+        case["input"],
+        {"secret_key", "signed_value_ascii", "now", "max_age"},
+        "timestamp-unsign input",
+    )
+    secret_key = input_spec["secret_key"]
+    signed_value_ascii = input_spec["signed_value_ascii"]
+    now = input_spec["now"]
+    max_age = input_spec["max_age"]
+    if not isinstance(secret_key, str):
+        raise ValueError("timestamp-unsign input.secret_key must be a string")
+    if not isinstance(signed_value_ascii, str) or not signed_value_ascii.isascii():
+        raise ValueError("timestamp-unsign input.signed_value_ascii must contain ASCII text")
+    if type(now) is not int or now < 0:
+        raise ValueError("timestamp-unsign input.now must be an unsigned integer")
+    if max_age is not None and (type(max_age) is not int or not -(1 << 63) <= max_age < (1 << 63)):
+        raise ValueError(
+            "timestamp-unsign input.max_age must fit a signed 64-bit integer or be null"
+        )
+
+    from itsdangerous import TimestampSigner
+
+    signer = TimestampSigner(secret_key)
+    signer.get_timestamp = lambda: now
+    payload = signer.unsign(signed_value_ascii.encode("ascii"), max_age=max_age)
+    return {
+        "case_id": case["case_id"],
+        "status": "completed",
+        "observations": [{"step_id": "result", "status": "ok", "value": _json_safe(payload)}],
     }
 
 

@@ -112,10 +112,10 @@ pub fn timestamp_sign(
 
 /// Verifies a timestamped value and returns its original raw payload bytes.
 ///
-/// The optional maximum age follows `itsdangerous.TimestampSigner`: age and
-/// future-time checks are performed only when `max_age` is provided. Negative
-/// maximum ages are accepted and make non-future values expired, matching the
-/// upstream integer comparison.
+/// When `max_age` is `None`, verifies the signature and returns the payload
+/// without narrowing the authenticated timestamp. When an age check is
+/// requested, the timestamp must fit in `u64`, matching this API's `now`
+/// parameter. Negative maximum ages make non-future values expired.
 ///
 /// # Errors
 ///
@@ -129,24 +129,27 @@ pub fn timestamp_unsign(
     now: u64,
     max_age: Option<i64>,
 ) -> Result<Vec<u8>, SessionSignatureError> {
-    let (payload, timestamp) = timestamp_unsign_with_timestamp(value, secret)?;
+    let (payload, timestamp_bytes) = timestamp_unsign_with_timestamp_bytes(value, secret)?;
+    let Some(max_age_seconds) = max_age else {
+        return Ok(payload);
+    };
+    let timestamp =
+        decode_timestamp(&timestamp_bytes).ok_or(SessionSignatureError::MalformedTimestamp)?;
 
-    if let Some(max_age_seconds) = max_age {
-        if timestamp > now {
-            return Err(SessionSignatureError::FutureTimestamp {
-                seconds_ahead: timestamp - now,
-                timestamp,
-            });
-        }
+    if timestamp > now {
+        return Err(SessionSignatureError::FutureTimestamp {
+            seconds_ahead: timestamp - now,
+            timestamp,
+        });
+    }
 
-        let age_seconds = now - timestamp;
-        if i128::from(age_seconds) > i128::from(max_age_seconds) {
-            return Err(SessionSignatureError::Expired {
-                age_seconds,
-                max_age_seconds,
-                timestamp,
-            });
-        }
+    let age_seconds = now - timestamp;
+    if i128::from(age_seconds) > i128::from(max_age_seconds) {
+        return Err(SessionSignatureError::Expired {
+            age_seconds,
+            max_age_seconds,
+            timestamp,
+        });
     }
 
     Ok(payload)
@@ -156,6 +159,9 @@ pub fn timestamp_unsign(
 ///
 /// Age policy is left to the caller so Python compatibility code can compare
 /// arbitrary-precision Python integers without narrowing them to a Rust integer.
+/// This convenience API requires the timestamp to fit in `u64`; use
+/// [`timestamp_unsign_with_timestamp_bytes`] when the caller must retain a wider
+/// unsigned timestamp.
 ///
 /// # Errors
 ///
@@ -176,9 +182,10 @@ pub fn timestamp_unsign_with_timestamp(
 
 /// Verifies a timestamped value and returns its payload and unsigned timestamp bytes.
 ///
-/// The bytes preserve the timestamp's unsigned representation for callers,
-/// while matching `itsdangerous.TimestampSigner`'s fixed-width `>Q` decoder:
-/// values longer than eight decoded bytes are malformed.
+/// The bytes preserve the timestamp's unsigned representation for callers.
+/// `itsdangerous.TimestampSigner` converts them to Python's arbitrary-precision
+/// integer, so callers that disable expiry checks can accept authenticated
+/// timestamps wider than `u64` without a datetime conversion.
 ///
 /// # Errors
 ///
@@ -214,9 +221,6 @@ pub fn timestamp_unsign_with_timestamp_bytes(
     let encoded_timestamp = &signed_value[timestamp_separator + 1..];
     let timestamp = decode_itsdangerous_base64(encoded_timestamp)
         .ok_or(SessionSignatureError::MalformedTimestamp)?;
-    if timestamp.len() > std::mem::size_of::<u64>() {
-        return Err(SessionSignatureError::MalformedTimestamp);
-    }
     Ok((payload.to_vec(), timestamp))
 }
 

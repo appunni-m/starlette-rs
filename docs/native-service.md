@@ -26,9 +26,9 @@ workspace lockfile.
 `NativeApplication` implements `tower_service::Service<Request<B>>` for any
 `B: http_body::Body<Data = bytes::Bytes> + Send + 'static`. It calls
 `poll_ready` as immediately ready and uses `call` to route a request. The
-application is cloneable; routes and endpoint closures are shared between
-clones. A `NativeRoute` endpoint receives a `NativeRequest` and asynchronously
-returns `http::Response<NativeResponseBody>` or a typed
+application is cloneable; cloning copies route-table and child metadata while
+sharing endpoint closures. A `NativeRoute` endpoint receives a `NativeRequest`
+and asynchronously returns `http::Response<NativeResponseBody>` or a typed
 `NativeApplicationError`.
 
 `NativeRequest` retains the `http::request::Parts`, request body, route

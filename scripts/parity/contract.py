@@ -271,6 +271,8 @@ NATIVE_WEBSOCKET_SURFACE = "starlette-rs.NativeWebSocket"
 NATIVE_WEBSOCKET_OPERATION = "native-session-sequence"
 NATIVE_LIFESPAN_OPERATION = "native-lifespan"
 NATIVE_LIFESPAN_SURFACE = "starlette-rs.NativeLifespan"
+NATIVE_TIMESTAMP_UNSIGN_SURFACE = "starlette_rs.timestamp_unsign"
+NATIVE_TIMESTAMP_UNSIGN_OPERATION = "timestamp-unsign"
 NATIVE_WORKFLOW_OBSERVATION = "workflow"
 WEBSOCKET_SEND_OSERROR_REQUIREMENT = "starlette.websocket.api.send.os-error.disconnect-details"
 WEBSOCKET_INVALID_REPR_FORMAT_REQUIREMENT = (
@@ -3435,6 +3437,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                     NATIVE_NAMED_ROUTE_SURFACE,
                     NATIVE_WEBSOCKET_SURFACE,
                     NATIVE_LIFESPAN_SURFACE,
+                    NATIVE_TIMESTAMP_UNSIGN_SURFACE,
                 }
                 else {
                     "class",
@@ -22626,6 +22629,7 @@ def _validate_native_api_case(
         },
         (NATIVE_SERVICE_SURFACE, NATIVE_SERVICE_MIDDLEWARE_OPERATION): {"inputs"},
         (NATIVE_WEBSOCKET_SURFACE, NATIVE_WEBSOCKET_OPERATION): {"input"},
+        (NATIVE_TIMESTAMP_UNSIGN_SURFACE, NATIVE_TIMESTAMP_UNSIGN_OPERATION): {"input"},
         (NATIVE_LIFESPAN_SURFACE, NATIVE_LIFESPAN_OPERATION): {"inputs"},
         (NATIVE_LIFESPAN_SURFACE, "start"): {"inputs"},
         (NATIVE_LIFESPAN_SURFACE, "shutdown"): {"inputs"},
@@ -22642,8 +22646,13 @@ def _validate_native_api_case(
         raise ContractError("native API case ID must bind to its surface operation")
     if case["assets"] != []:
         raise ContractError("native API input workflows do not use external assets")
-    if case["observations"] != [NATIVE_WORKFLOW_OBSERVATION]:
-        raise ContractError("native API workflows must select exactly the workflow observation")
+    expected_observations = (
+        ["result"]
+        if operation_key == (NATIVE_TIMESTAMP_UNSIGN_SURFACE, NATIVE_TIMESTAMP_UNSIGN_OPERATION)
+        else [NATIVE_WORKFLOW_OBSERVATION]
+    )
+    if case["observations"] != expected_observations:
+        raise ContractError("native API case must select its declared observation")
 
     profile_order = [profile["id"] for profile in manifest["target_profiles"]]
     profiles = case["target_profiles"]
@@ -22659,12 +22668,13 @@ def _validate_native_api_case(
         raise ContractError("native API cases must select declared profiles in manifest order")
     rust_only_operation = operation_key in {
         (NATIVE_SERVICE_SURFACE, NATIVE_SERVICE_CUSTOM_CONVERTER_OPERATION),
+        (NATIVE_TIMESTAMP_UNSIGN_SURFACE, NATIVE_TIMESTAMP_UNSIGN_OPERATION),
         (NATIVE_LIFESPAN_SURFACE, "start"),
         (NATIVE_LIFESPAN_SURFACE, "shutdown"),
         (NATIVE_LIFESPAN_SURFACE, "active-shutdown"),
     }
     if rust_only_operation and profiles != ["rust-native-local"]:
-        raise ContractError("Rust-native lifecycle methods select only the Rust target profile")
+        raise ContractError("Rust-native-only operations select only the Rust target profile")
 
     operations = {
         (surface["id"], operation["id"]): operation
@@ -22722,9 +22732,32 @@ def _validate_native_api_case(
         _validate_native_service_middleware_input(case["inputs"])
     elif operation_key == (NATIVE_WEBSOCKET_SURFACE, NATIVE_WEBSOCKET_OPERATION):
         _validate_native_websocket_input(case["input"])
+    elif operation_key == (NATIVE_TIMESTAMP_UNSIGN_SURFACE, NATIVE_TIMESTAMP_UNSIGN_OPERATION):
+        _validate_native_timestamp_unsign_input(case["input"])
     else:
         _validate_native_lifespan_input(case["inputs"])
     return case
+
+
+def _validate_native_timestamp_unsign_input(value: Any) -> None:
+    input_spec = _exact(
+        value,
+        {"secret_key", "signed_value_ascii", "now", "max_age"},
+        "native timestamp-unsign input",
+    )
+    _string(input_spec["secret_key"], "native timestamp-unsign input.secret_key")
+    signed_value = _string(
+        input_spec["signed_value_ascii"], "native timestamp-unsign input.signed_value_ascii"
+    )
+    if not signed_value.isascii():
+        raise ContractError("native timestamp-unsign signed_value_ascii must contain ASCII text")
+    if type(input_spec["now"]) is not int or input_spec["now"] < 0 or input_spec["now"] >= 1 << 64:
+        raise ContractError("native timestamp-unsign now must fit an unsigned 64-bit integer")
+    max_age = input_spec["max_age"]
+    if max_age is not None and (type(max_age) is not int or not -(1 << 63) <= max_age < (1 << 63)):
+        raise ContractError(
+            "native timestamp-unsign max_age must fit a signed 64-bit integer or be null"
+        )
 
 
 def _validate_native_service_input(case: dict[str, Any]) -> None:
@@ -23536,6 +23569,7 @@ def _validate_case_payload(
                 NATIVE_NAMED_ROUTE_SURFACE,
                 NATIVE_WEBSOCKET_SURFACE,
                 NATIVE_LIFESPAN_SURFACE,
+                NATIVE_TIMESTAMP_UNSIGN_SURFACE,
             }
         ):
             return _validate_native_api_case(case, manifest, fault_case_spec=fault_case_spec)
