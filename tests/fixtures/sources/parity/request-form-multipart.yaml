@@ -2801,6 +2801,7 @@
         "starlette.request.form.multipart-form-data",
         "starlette.datastructures.FormData.multidict-lookups",
         "starlette.datastructures.FormData.file-values",
+        "starlette.request.form.multipart-filename-path-normalization",
         "starlette.datastructures.UploadFile.file-operations",
         "starlette.datastructures.FormData.close"
       ],

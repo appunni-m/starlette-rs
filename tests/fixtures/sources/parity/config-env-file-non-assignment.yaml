@@ -1,0 +1,37 @@
+{
+  "schema": "migration-parity/parity-input@55",
+  "cases": [
+    {
+      "case_id": "starlette.config.Config.value-resolution.non-assignment-line",
+      "surface": "starlette.config.Config",
+      "operation": "value-resolution",
+      "covers": [
+        "starlette.config.Config.env-file-lines-without-equals-ignored",
+        "starlette.config.Config.missing-key-error"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "config": {
+        "env_prefix": "",
+        "environ": {},
+        "env_file_lines": [
+          "MISSING_ASSIGNMENT"
+        ]
+      },
+      "lookups": [
+        {
+          "key": "MISSING_ASSIGNMENT"
+        }
+      ],
+      "observations": [
+        "lookup-results"
+      ]
+    }
+  ]
+}

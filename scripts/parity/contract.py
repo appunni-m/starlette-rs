@@ -32500,6 +32500,20 @@ def _multipart_file_part_header_names(content_type: str, body: bytes) -> list[li
     ]
 
 
+def _multipart_windows_path_filename_keys(content_type: str, body: bytes) -> list[str]:
+    keys = []
+    for part in _multipart_parts(content_type, body):
+        filename = part.get_filename()
+        if filename is None or not (
+            (len(filename) >= 3 and filename[1:3] == ":\\") or filename.startswith("\\\\")
+        ):
+            continue
+        name = part.get_param("name", header="content-disposition")
+        if name is not None:
+            keys.append(name)
+    return keys
+
+
 def _multipart_has_missing_name(content_type: str, body: bytes) -> bool:
     return any(
         part.get("Content-Disposition") is not None
@@ -33123,12 +33137,18 @@ def _validate_request_form_case(case: dict[str, Any]) -> None:
             ) or any(value > 127 for value in body):
                 expected_covers.append("starlette.request.form.multipart-charset-decoding")
             if has_file_probes:
-                expected_covers.extend(
-                    [
-                        "starlette.datastructures.FormData.file-values",
-                        "starlette.datastructures.UploadFile.file-operations",
-                    ]
+                expected_covers.append("starlette.datastructures.FormData.file-values")
+                path_filename_keys = set(
+                    _multipart_windows_path_filename_keys(effective_content_type_header or "", body)
                 )
+                if path_filename_keys and (
+                    case.get("form_file_probe_all", False)
+                    or path_filename_keys & set(form_file_probe_keys)
+                ):
+                    expected_covers.append(
+                        "starlette.request.form.multipart-filename-path-normalization"
+                    )
+                expected_covers.append("starlette.datastructures.UploadFile.file-operations")
             if case.get("form_close", False) or form_access == "context-manager":
                 expected_covers.append("starlette.datastructures.FormData.close")
             if form_access == "context-manager":
@@ -33590,12 +33610,15 @@ def _validate_config_case(case: dict[str, Any]) -> None:
             raise ContractError("Config lookups must be a non-empty array")
         file_values = {}
         has_embedded_equals = False
+        non_assignment_lines = set()
         for line in lines:
             stripped = line.strip()
             if "=" in stripped and not stripped.startswith("#"):
                 key, value = stripped.split("=", 1)
                 file_values[key.strip()] = value.strip().strip("\"'")
                 has_embedded_equals = has_embedded_equals or "=" in value
+            elif stripped and not stripped.startswith("#"):
+                non_assignment_lines.add(stripped)
         selected: set[str] = set()
         if has_embedded_equals:
             selected.add("starlette.config.Config.env-file-first-equals")
@@ -33625,6 +33648,12 @@ def _validate_config_case(case: dict[str, Any]) -> None:
                     f"Config lookups[{index}].key.radd_result",
                 )
                 prefixed = radd_result if config["env_prefix"] else key
+            if (
+                prefixed in non_assignment_lines
+                and prefixed not in environ
+                and prefixed not in file_values
+            ):
+                selected.add("starlette.config.Config.env-file-lines-without-equals-ignored")
             cast = lookup.get("cast")
             public_class: str | None = None
             if isinstance(cast, str):
@@ -33766,7 +33795,10 @@ def _validate_config_case(case: dict[str, Any]) -> None:
                     )
                 selected.add("starlette.config.Config.cast-error-context")
         if set(case["covers"]) != selected:
-            raise ContractError("Config value-resolution coverage must match its input lookups")
+            raise ContractError(
+                f"Config value-resolution coverage must match its input lookups: "
+                f"expected {sorted(selected)}, got {case['covers']}"
+            )
         return
 
     if operation == ("starlette.config.Config", "constructor-warning"):

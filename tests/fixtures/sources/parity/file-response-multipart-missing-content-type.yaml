@@ -1,0 +1,75 @@
+{
+  "schema": "migration-parity/parity-input@55",
+  "cases": [
+    {
+      "case_id": "starlette.responses.FileResponse.consumer-construction.multipart-range-missing-content-type",
+      "surface": "starlette.responses.FileResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.FileResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.FileResponse.consumer-construction.attribute-and-header-cache-protocols"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "file",
+          "value": {
+            "name": "response.txt",
+            "contents_base64": "MDEyMzQ1Njc4OQ==",
+            "mtime_seconds": 1700000000.0,
+            "path_kind": "string"
+          }
+        },
+        "omit_content": false,
+        "kwargs": {},
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-consumer",
+        "method": "GET",
+        "headers": [
+          [
+            "cmFuZ2U=",
+            "Ynl0ZXM9MC0xLDQtNQ=="
+          ]
+        ],
+        "asgi": {
+          "spec_version": "2.4"
+        }
+      },
+      "send_failure": null,
+      "background_label": null,
+      "subclass_protocol": {
+        "get_watch": [],
+        "set_watch": [],
+        "get_allowed": null,
+        "set_allowed": null,
+        "rejected_read": null,
+        "rejected_write": null,
+        "failure": null,
+        "raw_accessor": null,
+        "actions": [],
+        "dict_fields": null,
+        "override_cookie": false,
+        "header_hook": {
+          "mutations": {
+            "media_type": null
+          },
+          "failure": null,
+          "delegate": true
+        }
+      }
+    }
+  ]
+}

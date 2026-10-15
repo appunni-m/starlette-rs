@@ -747,7 +747,9 @@
       "build/parity/inputs/parity/request-state-setdefault-readback.json",
       "build/parity/inputs/parity/schemas-lone-surrogate-boundary.json",
       "build/parity/inputs/parity/session-response-start-type-python-equality.json",
-      "build/parity/inputs/parity/testclient-lifespan-public-api.json"
+      "build/parity/inputs/parity/testclient-lifespan-public-api.json",
+      "build/parity/inputs/parity/config-env-file-non-assignment.json",
+      "build/parity/inputs/parity/file-response-multipart-missing-content-type.json"
     ],
     "coverage": [],
     "benchmark": [
@@ -5830,6 +5832,21 @@
               "id": "starlette.config.Config.env-file-first-equals",
               "dimension": "parameter_combination",
               "description": "Split an env-file assignment at its first equals sign and preserve subsequent equals signs in the value. Upstream: starlette/config.py:111-121; docs/config.md:4-33.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
+              "id": "starlette.config.Config.env-file-lines-without-equals-ignored",
+              "dimension": "boundary",
+              "description": "Ignore env-file lines that contain no equals sign instead of treating the line as a key or raising. Upstream: starlette/config.py:111-121.",
               "lanes": [
                 "parity"
               ],
@@ -17437,6 +17454,21 @@
               "id": "starlette.request.form.multipart-form-data",
               "dimension": "input_family",
               "description": "Parse one ordinary, well-formed multipart request split across ASGI body chunks, retaining text/file item order and exposing UploadFile metadata and consumer operations. This requirement covers small valid inputs only. Pinned source: starlette/requests.py:268-326; starlette/formparsers.py:187-297; tests/test_formparsers.py::test_multipart_request_mixed_files_and_data; docs/requests.md:112-162.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
+              "id": "starlette.request.form.multipart-filename-path-normalization",
+              "dimension": "boundary",
+              "description": "For Content-Disposition filenames containing a legacy IE drive path, retain only the final path component in UploadFile.filename. Starlette delegates parameter parsing to python-multipart 0.0.32, which performs this normalization; its pinned parser applies the same rule to UNC paths. Pinned source: starlette/formparsers.py:229; python-multipart 0.0.32 python_multipart/multipart.py:2524-2531.",
               "lanes": [
                 "parity"
               ],

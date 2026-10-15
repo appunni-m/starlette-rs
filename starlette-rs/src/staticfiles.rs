@@ -244,6 +244,7 @@ impl StaticFiles {
         if is_absolute_lookup_path(path) {
             return Ok(None);
         }
+        // Starlette maps embedded NUL through ValueError; other OS InvalidInput errors propagate.
         if contains_nul(path) {
             return Err(StaticFilesError::InvalidPath);
         }
@@ -552,8 +553,7 @@ fn lookup_in_directory(
             }
             Err(error)
                 if error.kind() == io::ErrorKind::NotFound
-                    || error.kind() == io::ErrorKind::NotADirectory
-                    || error.kind() == io::ErrorKind::InvalidInput =>
+                    || error.kind() == io::ErrorKind::NotADirectory =>
             {
                 return Ok(None);
             }
@@ -586,7 +586,6 @@ fn lookup_in_directory(
             Ok(None)
         }
         Err(error) if is_name_too_long(&error) => Err(StaticFilesError::Io(error)),
-        Err(error) if error.kind() == io::ErrorKind::InvalidInput => Ok(None),
         Err(error) if error.kind() == io::ErrorKind::PermissionDenied => {
             Err(StaticFilesError::PermissionDenied)
         }

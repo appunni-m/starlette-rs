@@ -717,6 +717,17 @@ fn disposition_parameter(header: &[u8], wanted: &str) -> Option<Vec<u8>> {
             raw_value.to_owned()
         };
 
+        // Starlette delegates Content-Disposition parsing to
+        // python-multipart, which removes the local path from legacy IE
+        // filenames before returning the filename parameter.
+        let parsed = if wanted == "filename"
+            && (parsed.as_bytes().get(1..3) == Some(b":\\") || parsed.starts_with("\\\\"))
+        {
+            parsed.rsplit('\\').next().unwrap_or_default().to_owned()
+        } else {
+            parsed
+        };
+
         value = Some(parsed.chars().map(|character| character as u8).collect());
     }
     value

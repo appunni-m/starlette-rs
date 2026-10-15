@@ -373,6 +373,8 @@ pub enum FileResponseError {
     MissingFile(String),
     /// The path exists but does not identify a regular file.
     NotAFile(String),
+    /// A multipart byte-range response requires a content-type header.
+    MissingContentType,
     /// A filesystem metadata operation failed.
     StatIo(io::Error),
     /// Secure random bytes could not be obtained for a multipart boundary.
@@ -388,6 +390,7 @@ impl Display for FileResponseError {
             Self::InvalidTimestamp => formatter.write_str("invalid file modification timestamp"),
             Self::MissingFile(path) => write!(formatter, "File at path {path} does not exist."),
             Self::NotAFile(path) => write!(formatter, "File at path {path} is not a file."),
+            Self::MissingContentType => formatter.write_str("content-type"),
             Self::StatIo(error) => Display::fmt(error, formatter),
             Self::RandomSource => formatter.write_str("could not generate multipart boundary"),
         }
@@ -753,8 +756,8 @@ impl FileResponse {
                 Ok(ranges) => {
                     send_pathsend = false;
                     let boundary = random_boundary()?;
-                    let content_type =
-                        header_bytes(&view_headers, b"content-type").unwrap_or_default();
+                    let content_type = header_bytes(&view_headers, b"content-type")
+                        .ok_or(FileResponseError::MissingContentType)?;
                     let content_length =
                         multipart_content_length(&ranges, &boundary, metadata.size, &content_type);
                     status_code = 206;

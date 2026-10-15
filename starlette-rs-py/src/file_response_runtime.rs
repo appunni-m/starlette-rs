@@ -8,8 +8,8 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
 use pyo3::exceptions::{
-    PyFileNotFoundError, PyIsADirectoryError, PyOSError, PyPermissionError, PyRuntimeError,
-    PyUnicodeEncodeError, PyValueError,
+    PyFileNotFoundError, PyIsADirectoryError, PyKeyError, PyOSError, PyPermissionError,
+    PyRuntimeError, PyUnicodeEncodeError, PyValueError,
 };
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyDict, PyList, PyModule, PyTuple};
@@ -1086,6 +1086,7 @@ fn file_response_error(error: FileResponseError) -> PyErr {
         FileResponseError::NotAFile(path) => {
             PyRuntimeError::new_err(format!("File at path {path} is not a file."))
         }
+        FileResponseError::MissingContentType => PyKeyError::new_err("content-type"),
         FileResponseError::StatIo(error) => io_error(error),
         FileResponseError::HeaderDataIsNotLatin1 { value, index } => {
             PyUnicodeEncodeError::new_err((
