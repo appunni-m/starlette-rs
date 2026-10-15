@@ -559,7 +559,10 @@ impl BaseHTTPCallMachine {
             state.clone_request(py)
         };
         let call_next = Py::new(py, PyBaseHTTPCallNext { shared })?.into_any();
-        let dispatch = self.dispatch.bind(py).call1((request, call_next))?;
+        let dispatch = match self.dispatch.bind(py).call1((request, call_next)) {
+            Ok(dispatch) => dispatch,
+            Err(error) => return self.finish_with_error(py, error),
+        };
         self.pending = Some(BaseHTTPPending::Dispatch);
         Ok(MachineAction::Await(dispatch.unbind()))
     }

@@ -14347,6 +14347,27 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                 {"kind": "await-call-next"},
                 {"kind": "return-call-next-response"},
             ]
+        elif isinstance(value, dict) and set(value) == {"kind", "dispatch_callable"}:
+            layer = _exact_object(value, {"kind", "dispatch_callable"}, context)
+            dispatch_callable = _exact_object(
+                layer["dispatch_callable"],
+                {"kind", "exception"},
+                "BaseHTTPMiddleware dispatch callable",
+            )
+            if dispatch_callable["kind"] != "sync-raise":
+                raise ValueError("BaseHTTPMiddleware dispatch callable kind is unsupported")
+            exception = _exact_object(
+                dispatch_callable["exception"],
+                {"class", "message"},
+                "BaseHTTPMiddleware synchronous dispatch exception",
+            )
+            if exception["class"] not in {
+                "Exception",
+                "RuntimeError",
+                "ValueError",
+            } or not isinstance(exception["message"], str):
+                raise ValueError("BaseHTTPMiddleware synchronous dispatch exception is invalid")
+            layer["dispatch_actions"] = []
         else:
             layer = _exact_object(value, {"kind", "dispatch_actions"}, context)
         middleware_layers.append(layer)
@@ -14367,7 +14388,7 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
         )
     layer_kinds = []
     for layer in base_http_layers:
-        layer_actions = layer["dispatch_actions"]
+        layer_actions = layer.get("dispatch_actions", [])
         if isinstance(layer_actions, list):
             layer_kinds.extend(
                 action.get("kind")
@@ -14529,8 +14550,11 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
     elif len(base_http_layers) > 1:
         raise ValueError("multi-layer BaseHTTPMiddleware input requires a declared stack workflow")
     middleware_spec = base_http_layers[0]
-    dispatch_actions = middleware_spec["dispatch_actions"]
-    if not isinstance(dispatch_actions, list) or not dispatch_actions:
+    dispatch_callable_spec = middleware_spec.get("dispatch_callable")
+    dispatch_actions = middleware_spec.get("dispatch_actions", [])
+    if not isinstance(dispatch_actions, list) or (
+        not dispatch_actions and dispatch_callable_spec is None
+    ):
         raise ValueError("BaseHTTPMiddleware dispatch_actions must be non-empty")
     awaited = False
     await_index = None
@@ -14997,6 +15021,10 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
     required_covers = {
         f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.construct-configured-middleware"
     }
+    if dispatch_callable_spec is not None:
+        required_covers.add(
+            f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.synchronous-dispatch-call-error-cleanup"
+        )
     if (
         downstream_spec is not None
         and downstream_spec["kind"] == "asgi-sequence"
@@ -16166,6 +16194,15 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                 return await call_next(request)
 
             return Middleware(BaseHTTPMiddleware, dispatch=passthrough_dispatch)
+        if "dispatch_callable" in middleware_spec:
+            dispatch_spec = middleware_spec["dispatch_callable"]
+            exception_spec = dispatch_spec["exception"]
+            exception_type = getattr(builtins, exception_spec["class"])
+
+            def sync_failing_dispatch(request: Any, call_next: Any) -> Any:
+                raise exception_type(exception_spec["message"])
+
+            return Middleware(BaseHTTPMiddleware, dispatch=sync_failing_dispatch)
         return Middleware(
             InputDefinedBaseHTTPMiddleware,
             dispatch_actions_for_case=middleware_spec["dispatch_actions"],
@@ -16582,6 +16619,7 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
         incoming = [UserDict(message) for message in incoming]
     sent: list[dict[str, Any]] = []
     request_receive_events: list[dict[str, Any]] = []
+    task_group_exit_events: list[dict[str, Any]] = []
     receive_index = 0
     receive_call_count = 0
     send_index = 0
@@ -16653,12 +16691,55 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
         if context_manager_cleanup_spec is not None:
             execution_trace.append({"event": "application-return"})
 
+    original_create_task_group = anyio.create_task_group
+    task_group_probe_enabled = dispatch_callable_spec is not None
+    if task_group_probe_enabled:
+
+        class TaskGroupExitProbe:
+            def __init__(self, task_group: Any) -> None:
+                self._task_group = task_group
+
+            async def __aenter__(self) -> Any:
+                result = await self._task_group.__aenter__()
+                task_group_exit_events.append({"event": "enter"})
+                return result
+
+            async def __aexit__(
+                self,
+                exception_type: type[BaseException] | None,
+                exception: BaseException | None,
+                traceback: Any,
+            ) -> Any:
+                task_group_exit_events.append(
+                    {
+                        "event": "exit",
+                        "exception": (
+                            None
+                            if exception is None
+                            else {
+                                "class": f"{type(exception).__module__}.{type(exception).__qualname__}",
+                                "message": str(exception),
+                            }
+                        ),
+                    }
+                )
+                return await self._task_group.__aexit__(exception_type, exception, traceback)
+
+            def __getattr__(self, name: str) -> Any:
+                return getattr(self._task_group, name)
+
+        def observed_create_task_group(*args: Any, **kwargs: Any) -> Any:
+            return TaskGroupExitProbe(original_create_task_group(*args, **kwargs))
+
+        anyio.create_task_group = observed_create_task_group
     try:
         asyncio.run(invoke_application())
         propagated_exception = None
     except Exception as exc:
         propagated_exception = _base_http_exception_value(exc)
     finally:
+        if task_group_probe_enabled:
+            anyio.create_task_group = original_create_task_group
         if file_response_temporary_directory is not None:
             file_response_temporary_directory.cleanup()
     scope_observation_result = (
@@ -16717,6 +16798,8 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
     }
     if scope_observation_result is not None:
         value["scope_observation"] = scope_observation_result
+    if task_group_probe_enabled:
+        value["task_group_exit_events"] = task_group_exit_events
     if background_task_case:
         value.update(
             {

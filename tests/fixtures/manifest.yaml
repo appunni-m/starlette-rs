@@ -11344,6 +11344,15 @@
                   }
                 },
                 {
+                  "path": "task_group_exit_events",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                },
+                {
                   "path": "propagated_exception",
                   "value_types": [
                     "record",
@@ -11581,6 +11590,17 @@
               "id": "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.construct-configured-middleware",
               "dimension": "success_path",
               "description": "Construct a Starlette app with Middleware(CustomMiddleware) or wrap a direct ASGI app with BaseHTTPMiddleware, then invoke the public ASGI interface. Upstream: tests/middleware/test_base.py:179-187,473-596; starlette/middleware/base.py:96-203.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.synchronous-dispatch-call-error-cleanup",
+              "dimension": "error_path",
+              "description": "When an input-defined synchronous dispatch callable raises while BaseHTTPMiddleware's AnyIO task group is entered, exit the task group with that original exception before propagating it. Observe task-group entry and exit plus the propagated exception. Pinned source: starlette/middleware/base.py:190-195; starlette/_utils.py:76-85.",
               "lanes": [
                 "parity"
               ],

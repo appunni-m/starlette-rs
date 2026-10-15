@@ -3553,6 +3553,77 @@
       "observations": [
         "base-http-workflow"
       ]
+    },
+    {
+      "case_id": "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.synchronous-dispatch-call-error-cleanup",
+      "surface": "starlette.middleware.base.BaseHTTPMiddleware",
+      "operation": "base-http-workflow",
+      "covers": [
+        "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.construct-configured-middleware",
+        "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.synchronous-dispatch-call-error-cleanup"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "application": {
+        "debug": false,
+        "routes": [],
+        "middleware": [
+          {
+            "kind": "base-http-middleware",
+            "dispatch_callable": {
+              "kind": "sync-raise",
+              "exception": {
+                "class": "RuntimeError",
+                "message": "synchronous dispatch failed"
+              }
+            }
+          }
+        ]
+      },
+      "request": {
+        "scope": {
+          "type": "http",
+          "asgi": {
+            "version": "3.0",
+            "spec_version": "2.4"
+          },
+          "http_version": "1.1",
+          "method": "GET",
+          "scheme": "http",
+          "path": "/dispatch-error",
+          "raw_path_base64": "L2Rpc3BhdGNoLWVycm9y",
+          "query_string_base64": "",
+          "root_path": "",
+          "headers_base64_pairs": [
+            [
+              "aG9zdA==",
+              "dGVzdHNlcnZlcg=="
+            ]
+          ],
+          "client": [
+            "127.0.0.1",
+            12345
+          ],
+          "server": [
+            "testserver",
+            80
+          ]
+        },
+        "receive": [
+          {
+            "type": "http.request",
+            "body_base64": "",
+            "more_body": false
+          }
+        ],
+        "receive_after_events": "disconnect",
+        "send_checkpoints": []
+      },
+      "observations": [
+        "base-http-workflow"
+      ]
     }
   ]
 }

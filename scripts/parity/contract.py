@@ -559,6 +559,7 @@ BASE_HTTP_REQUIREMENTS = {
     "body_iterator_overlapping_read_and_cancellation": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.body-iterator-overlapping-read-and-cancellation",
     "discarded_stream_cancellation": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.discarded-stream-cancelled-on-disconnect",
     "exception_context_propagation": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.exception-context-propagation",
+    "synchronous_dispatch_call_error_cleanup": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.synchronous-dispatch-call-error-cleanup",
     "caught_exception_response": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.catch-call-next-exception",
     "partial_stream_forwarding": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.partial-request-stream-forwarding",
     "downstream_body_after_stream_consumption": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.downstream-body-read-after-stream-consumption",
@@ -14160,6 +14161,7 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
     custom_layers = []
     middleware_layers = []
     context_manager_cleanup_spec = None
+    dispatch_callable_spec = None
     for index, value in enumerate(middleware):
         context = f"BaseHTTPMiddleware configured Middleware input[{index}]"
         if isinstance(value, dict) and value.get("kind") == "async-context-manager-cleanup":
@@ -14183,6 +14185,28 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
                 {"kind": "await-call-next"},
                 {"kind": "return-call-next-response"},
             ]
+            custom_layers.append(layer)
+            middleware_layers.append(layer)
+        elif isinstance(value, dict) and set(value) == {"kind", "dispatch_callable"}:
+            layer = dict(_exact(value, {"kind", "dispatch_callable"}, context))
+            dispatch_callable_spec = _exact(
+                layer["dispatch_callable"],
+                {"kind", "exception"},
+                "BaseHTTPMiddleware dispatch callable",
+            )
+            if dispatch_callable_spec["kind"] != "sync-raise":
+                raise ContractError("BaseHTTPMiddleware dispatch callable kind is unsupported")
+            failure = _exact(
+                dispatch_callable_spec["exception"],
+                {"class", "message"},
+                "BaseHTTPMiddleware synchronous dispatch exception",
+            )
+            if failure["class"] not in {"Exception", "RuntimeError", "ValueError"}:
+                raise ContractError(
+                    "BaseHTTPMiddleware synchronous dispatch exception class is unsupported"
+                )
+            _string(failure["message"], "BaseHTTPMiddleware synchronous dispatch exception.message")
+            layer["dispatch_actions"] = [{"kind": "synchronous-dispatch-call-error"}]
             custom_layers.append(layer)
             middleware_layers.append(layer)
         else:
@@ -14498,6 +14522,14 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
             awaited = True
             await_index = index
             await_action_kind = kind
+        elif kind == "synchronous-dispatch-call-error":
+            _exact(raw_action, {"kind"}, context)
+            if dispatch_callable_spec is None or awaited or returned is not None or index != 0:
+                raise ContractError(
+                    "synchronous dispatch call errors require the input-defined callable"
+                )
+            awaited = True
+            returned = "raised"
         elif kind == "observe-call-next-response-headers":
             action = _exact(raw_action, {"kind", "name"}, context)
             if not awaited or returned is not None or saw_response_header_observation:
@@ -14895,6 +14927,20 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
     if returned == "call-next" and not routes and downstream is None:
         raise ContractError("call_next response requires a configured route or downstream ASGI app")
 
+    if dispatch_callable_spec is not None and (
+        route_kind is not None
+        or downstream is not None
+        or len(custom_layers) != 1
+        or len(middleware_layers) != 1
+        or actions != [{"kind": "synchronous-dispatch-call-error"}]
+        or outer_receive_transform is not None
+        or background_task_spec is not None
+        or context_manager_cleanup_spec is not None
+    ):
+        raise ContractError(
+            "synchronous dispatch cleanup input requires one direct BaseHTTPMiddleware layer"
+        )
+
     request_fields = {
         "scope",
         "receive",
@@ -14990,6 +15036,16 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
     ):
         raise ContractError(
             "BaseHTTPMiddleware request scope does not select its declared route case"
+        )
+    if dispatch_callable_spec is not None and (
+        scope["method"] != "GET"
+        or path == "/"
+        or request["receive"] != [{"type": "http.request", "body_base64": "", "more_body": False}]
+        or request["receive_after_events"] != "disconnect"
+        or request["send_checkpoints"]
+    ):
+        raise ContractError(
+            "synchronous dispatch cleanup input requires an empty GET request and no send checkpoints"
         )
     extensions = scope.get("extensions", {})
     if not isinstance(extensions, dict):
@@ -15147,6 +15203,8 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
         raise ContractError("middleware lifecycle stack requires one initial http.disconnect event")
 
     requirements = {BASE_HTTP_REQUIREMENTS["construct"]}
+    if dispatch_callable_spec is not None:
+        requirements.add(BASE_HTTP_REQUIREMENTS["synchronous_dispatch_call_error_cleanup"])
     if (
         downstream is not None
         and downstream["kind"] == "asgi-sequence"
@@ -32820,6 +32878,26 @@ def _multipart_boundary(content_type: str) -> bytes | None:
     return value.encode("latin-1")
 
 
+def _multipart_default_parser_limit_exceeded(content_type: str, body: bytes) -> bool:
+    boundary = _multipart_boundary(content_type)
+    if boundary is None:
+        return False
+    if len(boundary) > 256:
+        return True
+    marker = b"--" + boundary
+    for segment in body.split(marker)[1:]:
+        if segment.startswith(b"--"):
+            continue
+        segment = segment.removeprefix(b"\r\n")
+        headers, separator, _ = segment.partition(b"\r\n\r\n")
+        if not separator:
+            continue
+        lines = headers.split(b"\r\n")
+        if len(lines) > 8 or any(len(line) > 4_224 for line in lines):
+            return True
+    return False
+
+
 def _first_multipart_file_data_range(content_type: str, body: bytes) -> tuple[int, int] | None:
     boundary = _multipart_boundary(content_type)
     if boundary is None:
@@ -33260,6 +33338,14 @@ def _validate_request_form_case(case: dict[str, Any]) -> None:
                     )
         if _request_form_has_out_of_float_range_count_limit(form_options):
             expected_covers.append(REQUEST_FORM_ARBITRARY_PRECISION_LIMIT_REQUIREMENT)
+    elif (
+        effective_content_type == b"multipart/form-data"
+        and effective_content_type_header is not None
+        and _multipart_default_parser_limit_exceeded(effective_content_type_header, body)
+    ):
+        if form_options or has_file_probes or form_access != "await":
+            raise ContractError("multipart dependency-limit cases only observe the parser error")
+        expected_covers = ["starlette.request.form.multipart-input-errors"]
     elif (
         effective_content_type == b"multipart/form-data"
         and body

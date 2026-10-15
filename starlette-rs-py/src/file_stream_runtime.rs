@@ -5,7 +5,7 @@
 //! Python protocol callbacks. Source: pinned Starlette responses.py (BSD-3-Clause).
 
 use pyo3::class::gc::{PyTraverseError, PyVisit};
-use pyo3::exceptions::PyRuntimeError;
+use pyo3::exceptions::{PyRuntimeError, PyStopIteration};
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyDict, PyList};
 
@@ -36,12 +36,12 @@ pub(crate) fn handler(
             pending: Pending::Start,
             manager: None,
             file: None,
-            ranges: Vec::new(),
-            index: 0,
+            range_source: None,
+            range_iterator: None,
             start: py.None(),
             end: py.None(),
-            multipart_start: 0,
-            multipart_end: 0,
+            multipart_start: py.None(),
+            multipart_end: py.None(),
             generator: None,
             boundary: None,
             chunk: None,
@@ -73,12 +73,12 @@ struct FileBody {
     pending: Pending,
     manager: Option<Py<PyAny>>,
     file: Option<Py<PyAny>>,
-    ranges: Vec<(u64, u64)>,
-    index: usize,
+    range_source: Option<Py<PyAny>>,
+    range_iterator: Option<Py<PyAny>>,
     start: Py<PyAny>,
     end: Py<PyAny>,
-    multipart_start: u64,
-    multipart_end: u64,
+    multipart_start: Py<PyAny>,
+    multipart_end: Py<PyAny>,
     generator: Option<Py<PyAny>>,
     boundary: Option<String>,
     chunk: Option<Py<PyAny>>,
@@ -92,8 +92,12 @@ impl AwaitableStateMachine for FileBody {
         visit.call(&self.send)?;
         visit.call(&self.manager)?;
         visit.call(&self.file)?;
+        visit.call(&self.range_source)?;
+        visit.call(&self.range_iterator)?;
         visit.call(&self.start)?;
         visit.call(&self.end)?;
+        visit.call(&self.multipart_start)?;
+        visit.call(&self.multipart_end)?;
         visit.call(&self.generator)?;
         visit.call(&self.chunk)?;
         visit.call(&self.error)?;
@@ -183,7 +187,7 @@ impl FileBody {
                 let length = parts.get_item(0)?;
                 self.generator = Some(parts.get_item(1)?.unbind());
                 self.boundary = Some(boundary.extract()?);
-                self.ranges = ranges.bind(py).extract()?;
+                self.range_source = Some(ranges.clone_ref(py));
                 let headers = copied_headers(py, response)?;
                 headers.set_item(
                     "content-type",
@@ -256,10 +260,9 @@ impl FileBody {
                             .eq(self.response.bind(py).getattr("chunk_size")?)?;
                     }
                     BodyKind::Single(_, _, _) => {
-                        self.start = self
-                            .start
-                            .bind(py)
-                            .call_method1("__add__", (size,))?
+                        self.start = py
+                            .import("operator")?
+                            .call_method1("iadd", (self.start.bind(py), size))?
                             .unbind();
                         self.more_body = size
                             .into_pyobject(py)?
@@ -268,12 +271,10 @@ impl FileBody {
                             && self.start.bind(py).lt(self.end.bind(py))?;
                     }
                     BodyKind::Multiple(_, _) => {
-                        self.multipart_start = self
-                            .multipart_start
-                            .checked_add(size as u64)
-                            .ok_or_else(|| {
-                                PyRuntimeError::new_err("file position exceeds the supported size")
-                            })?;
+                        self.multipart_start = py
+                            .import("operator")?
+                            .call_method1("iadd", (self.multipart_start.bind(py), size))?
+                            .unbind();
                         self.more_body = true;
                     }
                 }
@@ -288,7 +289,11 @@ impl FileBody {
                     }
                 }
                 BodyKind::Multiple(_, _) => {
-                    if self.multipart_start < self.multipart_end {
+                    if self
+                        .multipart_start
+                        .bind(py)
+                        .lt(self.multipart_end.bind(py))?
+                    {
                         self.read(py)
                     } else {
                         self.send_body(
@@ -300,10 +305,7 @@ impl FileBody {
                     }
                 }
             },
-            Pending::Separator => {
-                self.index += 1;
-                self.part(py)
-            }
+            Pending::Separator => self.part(py),
             Pending::Final => {
                 if self.manager.is_some() {
                     self.exit(py)
@@ -347,8 +349,8 @@ impl FileBody {
             BodyKind::Multiple(_, _) => {
                 let remaining = self
                     .multipart_end
-                    .checked_sub(self.multipart_start)
-                    .ok_or_else(|| PyRuntimeError::new_err("file range ends before it starts"))?;
+                    .bind(py)
+                    .call_method1("__sub__", (self.multipart_start.bind(py),))?;
                 py.import("builtins")?
                     .getattr("min")?
                     .call1((chunk_size, remaining))?
@@ -362,7 +364,7 @@ impl FileBody {
     fn seek(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
         let position = match self.kind {
             BodyKind::Single(_, _, _) => self.start.clone_ref(py),
-            BodyKind::Multiple(_, _) => self.multipart_start.into_pyobject(py)?.into_any().unbind(),
+            BodyKind::Multiple(_, _) => self.multipart_start.clone_ref(py),
             BodyKind::Simple(_) => {
                 return Err(PyRuntimeError::new_err("simple file response cannot seek"));
             }
@@ -373,9 +375,31 @@ impl FileBody {
     }
 
     fn part(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
-        if let Some(&(start, end)) = self.ranges.get(self.index) {
-            self.multipart_start = start;
-            self.multipart_end = end;
+        if self.range_iterator.is_none() {
+            let ranges = self.range_source.as_ref().ok_or_else(|| {
+                PyRuntimeError::new_err("multipart file handler has no range source")
+            })?;
+            self.range_iterator = Some(
+                py.import("builtins")?
+                    .getattr("iter")?
+                    .call1((ranges.bind(py),))?
+                    .unbind(),
+            );
+        }
+        let iterator = self.range_iterator.as_ref().ok_or_else(|| {
+            PyRuntimeError::new_err("multipart file handler has no range iterator")
+        })?;
+        let iterator = iterator.bind(py);
+        let next = iterator.get_type().getattr("__next__")?;
+        let range = match next.call1((iterator,)) {
+            Ok(range) => Some(range),
+            Err(error) if error.is_instance_of::<PyStopIteration>(py) => None,
+            Err(error) => return Err(error),
+        };
+        if let Some(range) = range {
+            let (start, end) = crate::file_range_runtime::unpack_range(py, &range)?;
+            self.multipart_start = start.clone().unbind();
+            self.multipart_end = end.clone().unbind();
             let generator = self.generator.as_ref().ok_or_else(|| {
                 PyRuntimeError::new_err("multipart file handler has no header generator")
             })?;

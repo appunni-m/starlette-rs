@@ -1832,6 +1832,30 @@ impl FormMachine {
                 };
                 format!("Part exceeded maximum size of {max_part_size_kb}KB.")
             }
+            MultipartFormParseError::BoundaryTooLong { length } => {
+                return multipart_dependency_error(
+                    py,
+                    "FormParserError",
+                    &format!("Boundary length {length} exceeds maximum of 256"),
+                    None,
+                );
+            }
+            MultipartFormParseError::HeaderCountExceeded { offset } => {
+                return multipart_dependency_error(
+                    py,
+                    "MultipartParseError",
+                    "Maximum header count exceeded",
+                    Some(offset),
+                );
+            }
+            MultipartFormParseError::HeaderSizeExceeded { offset } => {
+                return multipart_dependency_error(
+                    py,
+                    "MultipartParseError",
+                    "Maximum header size exceeded",
+                    Some(offset),
+                );
+            }
             error => error.message(),
         };
         self.form_exception(py, &message)
@@ -2035,6 +2059,31 @@ enum FormMediaType {
     UrlEncoded,
     Multipart,
     Other,
+}
+
+fn multipart_dependency_error(
+    py: Python<'_>,
+    error_name: &str,
+    message: &str,
+    offset: Option<usize>,
+) -> PyErr {
+    let result = (|| -> PyResult<Py<PyAny>> {
+        let multipart = py.import("starlette.formparsers")?.getattr("multipart")?;
+        let parser_module = multipart.getattr("multipart")?;
+        let error_type = parser_module.getattr(error_name)?;
+        let error = if let Some(offset) = offset {
+            let kwargs = PyDict::new(py);
+            kwargs.set_item("offset", offset)?;
+            error_type.call((message,), Some(&kwargs))?
+        } else {
+            error_type.call1((message,))?
+        };
+        Ok(error.unbind())
+    })();
+    match result {
+        Ok(error) => PyErr::from_value(error.bind(py).clone()),
+        Err(error) => error,
+    }
 }
 
 fn multipart_spooled_tempfile(py: Python<'_>) -> PyResult<Py<PyAny>> {

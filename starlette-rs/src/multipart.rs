@@ -10,6 +10,10 @@ use futures::{Stream, channel::mpsc};
 use multer::bytes::Bytes;
 use multer::{Field, Multipart, parse_boundary};
 
+const PYTHON_MULTIPART_MAX_BOUNDARY_LENGTH: usize = 256;
+const PYTHON_MULTIPART_MAX_HEADER_COUNT: usize = 8;
+const PYTHON_MULTIPART_MAX_HEADER_SIZE: usize = 4_224;
+
 /// One part from an input-driven multipart request body.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MultipartPart {
@@ -67,6 +71,21 @@ pub enum MultipartFormEvent {
 pub enum MultipartFormParseError {
     /// The multipart content type has no usable boundary parameter.
     MissingBoundary,
+    /// The multipart parser dependency rejected an overlong boundary.
+    BoundaryTooLong {
+        /// Boundary length as bytes in the dependency's Latin-1 input model.
+        length: usize,
+    },
+    /// The multipart parser dependency rejected a part with too many headers.
+    HeaderCountExceeded {
+        /// Byte offset within the current request-body chunk.
+        offset: usize,
+    },
+    /// The multipart parser dependency rejected an oversized header line.
+    HeaderSizeExceeded {
+        /// Byte offset within the current request-body chunk.
+        offset: usize,
+    },
     /// A part did not provide the required Content-Disposition `name` option.
     MissingName,
     /// The configured number of file parts was exceeded.
@@ -127,6 +146,9 @@ struct MultipartHeaderCapture {
     marker_prefix: Vec<u8>,
     header_bytes: Vec<u8>,
     headers: VecDeque<Vec<(Vec<u8>, Vec<u8>)>>,
+    header_count: usize,
+    header_line_size: usize,
+    header_parse_state: HeaderParseState,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -138,6 +160,14 @@ enum HeaderCaptureState {
     Headers,
     Body,
     Done,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum HeaderParseState {
+    Field,
+    ValueStart,
+    Value,
+    LineFeed,
 }
 
 impl MultipartHeaderCapture {
@@ -154,10 +184,13 @@ impl MultipartHeaderCapture {
             marker_prefix: Vec::new(),
             header_bytes: Vec::new(),
             headers: VecDeque::new(),
+            header_count: 0,
+            header_line_size: 0,
+            header_parse_state: HeaderParseState::Field,
         }
     }
 
-    fn push(&mut self, bytes: &[u8]) {
+    fn push(&mut self, bytes: &[u8]) -> Result<(), (MultipartFormParseError, usize)> {
         let mut offset = 0;
         while offset < bytes.len() {
             match self.state {
@@ -170,7 +203,7 @@ impl MultipartHeaderCapture {
                         offset += consumed;
                         self.state = HeaderCaptureState::BoundaryStart;
                     } else {
-                        return;
+                        return Ok(());
                     }
                 }
                 HeaderCaptureState::Body => {
@@ -182,7 +215,7 @@ impl MultipartHeaderCapture {
                         offset += consumed;
                         self.state = HeaderCaptureState::BoundaryStart;
                     } else {
-                        return;
+                        return Ok(());
                     }
                 }
                 HeaderCaptureState::BoundaryStart => {
@@ -193,18 +226,18 @@ impl MultipartHeaderCapture {
                         .extend_from_slice(&bytes[offset..offset + take]);
                     offset += take;
                     if self.boundary_prefix.len() < 2 {
-                        return;
+                        return Ok(());
                     }
                     if self.boundary_prefix == b"--" {
                         self.state = HeaderCaptureState::Done;
-                        return;
+                        return Ok(());
                     }
                     self.state = HeaderCaptureState::BoundaryPadding;
                     let prefix = std::mem::take(&mut self.boundary_prefix);
                     for byte in prefix {
                         self.consume_boundary_suffix_byte(byte);
                         if self.state == HeaderCaptureState::Done {
-                            return;
+                            return Ok(());
                         }
                     }
                 }
@@ -213,48 +246,54 @@ impl MultipartHeaderCapture {
                     offset += 1;
                     self.consume_boundary_suffix_byte(byte);
                     if self.state == HeaderCaptureState::Done {
-                        return;
+                        return Ok(());
                     }
                 }
                 HeaderCaptureState::BoundaryLineFeed => {
                     let byte = bytes[offset];
                     offset += 1;
                     self.state = if byte == b'\n' {
+                        self.begin_headers();
                         HeaderCaptureState::Headers
                     } else {
                         HeaderCaptureState::Done
                     };
                     if self.state == HeaderCaptureState::Done {
-                        return;
+                        return Ok(());
                     }
                 }
                 HeaderCaptureState::Headers => {
                     let remaining = &bytes[offset..];
-                    let delimiter = b"\r\n\r\n";
-                    let cross_prefix = self.header_bytes.len().min(delimiter.len() - 1);
-                    let mut cross =
-                        self.header_bytes[self.header_bytes.len() - cross_prefix..].to_vec();
-                    cross.extend_from_slice(&remaining[..remaining.len().min(delimiter.len() - 1)]);
-                    let cross_delimiter = find_subslice(&cross, delimiter)
-                        .filter(|position| *position < cross_prefix);
-                    if let Some(position) = cross_delimiter {
-                        let needed = position + delimiter.len() - cross_prefix;
-                        self.header_bytes.extend_from_slice(&remaining[..needed]);
-                        offset += needed;
-                        self.finish_headers();
-                    } else if let Some(position) = find_subslice(remaining, delimiter) {
-                        let consumed = position + delimiter.len();
-                        self.header_bytes.extend_from_slice(&remaining[..consumed]);
-                        offset += consumed;
-                        self.finish_headers();
-                    } else {
-                        self.header_bytes.extend_from_slice(remaining);
-                        return;
+                    let mut consumed = 0;
+                    let mut finished = false;
+                    let mut size_segment_start = None;
+                    while consumed < remaining.len() {
+                        let byte = remaining[consumed];
+                        if let Err(error) = self.validate_header_byte(
+                            byte,
+                            offset + consumed,
+                            &mut size_segment_start,
+                        ) {
+                            self.header_bytes.extend_from_slice(&remaining[..consumed]);
+                            return Err((error, offset + consumed));
+                        }
+                        self.header_bytes.push(byte);
+                        consumed += 1;
+                        if self.header_bytes.ends_with(b"\r\n\r\n") {
+                            offset += consumed;
+                            self.finish_headers();
+                            finished = true;
+                            break;
+                        }
+                    }
+                    if !finished {
+                        return Ok(());
                     }
                 }
-                HeaderCaptureState::Done => return,
+                HeaderCaptureState::Done => return Ok(()),
             }
         }
+        Ok(())
     }
 
     fn consume_boundary_suffix_byte(&mut self, byte: u8) {
@@ -264,10 +303,90 @@ impl MultipartHeaderCapture {
                 self.state = HeaderCaptureState::BoundaryLineFeed;
             }
             b'\n' if self.state == HeaderCaptureState::BoundaryLineFeed => {
-                self.state = HeaderCaptureState::Headers;
+                self.begin_headers();
             }
             _ => self.state = HeaderCaptureState::Done,
         }
+    }
+
+    fn begin_headers(&mut self) {
+        self.header_count = 0;
+        self.header_line_size = 0;
+        self.header_parse_state = HeaderParseState::Field;
+        self.state = HeaderCaptureState::Headers;
+    }
+
+    fn validate_header_byte(
+        &mut self,
+        byte: u8,
+        offset: usize,
+        size_segment_start: &mut Option<usize>,
+    ) -> Result<(), MultipartFormParseError> {
+        match self.header_parse_state {
+            HeaderParseState::Field => {
+                if byte == b'\r' {
+                    self.header_parse_state = HeaderParseState::LineFeed;
+                    return Ok(());
+                }
+                if self.header_line_size == 0 {
+                    self.header_count += 1;
+                    if self.header_count > PYTHON_MULTIPART_MAX_HEADER_COUNT {
+                        return Err(MultipartFormParseError::HeaderCountExceeded { offset });
+                    }
+                }
+                let segment_start = size_segment_start.get_or_insert(offset);
+                self.header_line_size += 1;
+                if self.header_line_size > PYTHON_MULTIPART_MAX_HEADER_SIZE {
+                    return Err(MultipartFormParseError::HeaderSizeExceeded {
+                        offset: *segment_start,
+                    });
+                }
+                if byte == b':' {
+                    self.header_parse_state = HeaderParseState::ValueStart;
+                    *size_segment_start = None;
+                }
+            }
+            HeaderParseState::ValueStart if byte == b' ' => {
+                self.header_line_size += 1;
+                if self.header_line_size > PYTHON_MULTIPART_MAX_HEADER_SIZE {
+                    return Err(MultipartFormParseError::HeaderSizeExceeded { offset });
+                }
+            }
+            HeaderParseState::ValueStart => {
+                if byte == b'\r' {
+                    self.header_line_size = 0;
+                    self.header_parse_state = HeaderParseState::LineFeed;
+                    return Ok(());
+                }
+                self.header_parse_state = HeaderParseState::Value;
+                *size_segment_start = Some(offset);
+                return self.validate_header_byte(byte, offset, size_segment_start);
+            }
+            HeaderParseState::Value => {
+                if byte == b'\r' {
+                    self.header_line_size = 0;
+                    self.header_parse_state = HeaderParseState::LineFeed;
+                    *size_segment_start = None;
+                    return Ok(());
+                }
+                let segment_start = size_segment_start.get_or_insert(offset);
+                self.header_line_size += 1;
+                if self.header_line_size > PYTHON_MULTIPART_MAX_HEADER_SIZE {
+                    return Err(MultipartFormParseError::HeaderSizeExceeded {
+                        offset: *segment_start,
+                    });
+                }
+            }
+            HeaderParseState::LineFeed => {
+                if byte == b'\n' {
+                    self.header_line_size = 0;
+                    self.header_parse_state = HeaderParseState::Field;
+                } else {
+                    self.header_parse_state = HeaderParseState::Field;
+                }
+            }
+        }
+        Ok(())
     }
 
     fn finish_headers(&mut self) {
@@ -369,6 +488,13 @@ impl MultipartFormParseError {
     pub fn message(&self) -> String {
         match self {
             Self::MissingBoundary => "Missing boundary in multipart.".to_owned(),
+            Self::BoundaryTooLong { length } => {
+                format!(
+                    "Boundary length {length} exceeds maximum of {PYTHON_MULTIPART_MAX_BOUNDARY_LENGTH}"
+                )
+            }
+            Self::HeaderCountExceeded { .. } => "Maximum header count exceeded".to_owned(),
+            Self::HeaderSizeExceeded { .. } => "Maximum header size exceeded".to_owned(),
             Self::MissingName => {
                 "The Content-Disposition header field \"name\" must be provided.".to_owned()
             }
@@ -388,7 +514,13 @@ impl MultipartFormParseError {
 
 /// Extracts the boundary before Request.form starts receiving request chunks.
 pub fn multipart_boundary(content_type: &str) -> Result<String, MultipartFormParseError> {
-    parse_boundary(content_type).map_err(|_| MultipartFormParseError::MissingBoundary)
+    let boundary =
+        parse_boundary(content_type).map_err(|_| MultipartFormParseError::MissingBoundary)?;
+    let length = boundary.chars().count();
+    if length > PYTHON_MULTIPART_MAX_BOUNDARY_LENGTH {
+        return Err(MultipartFormParseError::BoundaryTooLong { length });
+    }
+    Ok(boundary)
 }
 
 /// Parses a multipart/form-data body and enforces Starlette's file, field,
@@ -493,13 +625,22 @@ impl MultipartFormParser {
         if self.complete || chunk.is_empty() {
             return Ok(());
         }
-        self.raw_header_capture.push(&chunk);
-        self.sender
-            .unbounded_send(Ok(Bytes::from(chunk)))
-            .map_err(|_| MultipartFormParseError::Malformed {
-                message: "multipart parser input stream is closed".to_owned(),
-            })?;
-        self.process_available()
+        let capture_error = self.raw_header_capture.push(&chunk).err();
+        let forwarded_len = capture_error
+            .as_ref()
+            .map_or(chunk.len(), |(_, consumed)| *consumed);
+        if forwarded_len > 0 {
+            self.sender
+                .unbounded_send(Ok(Bytes::copy_from_slice(&chunk[..forwarded_len])))
+                .map_err(|_| MultipartFormParseError::Malformed {
+                    message: "multipart parser input stream is closed".to_owned(),
+                })?;
+            self.process_available()?;
+        }
+        if let Some((error, _)) = capture_error {
+            return Err(error);
+        }
+        Ok(())
     }
 
     /// Finishes the request-body stream and returns its parsed parts.

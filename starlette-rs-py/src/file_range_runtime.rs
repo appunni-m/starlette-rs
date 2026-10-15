@@ -142,7 +142,7 @@ pub(crate) fn parse_header(
     Ok(result.into_any().unbind())
 }
 
-fn unpack_range<'py>(
+pub(crate) fn unpack_range<'py>(
     py: Python<'py>,
     range: &Bound<'py, PyAny>,
 ) -> PyResult<(Bound<'py, PyAny>, Bound<'py, PyAny>)> {
