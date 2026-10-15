@@ -3140,6 +3140,18 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         and key == (GZIP_SURFACE, "__call__")
                         and observation["path"] == "scope_observation"
                     )
+                    wsgi_sender_context_observation = (
+                        condition["input_key"] == "context"
+                        and key == WSGI_PROTOCOL_OPERATION
+                        and observation["path"]
+                        in {
+                            "send_observations",
+                            "worker_observations",
+                            "worker_completed",
+                            "caller_context_after_call",
+                            "callback_lifetime",
+                        }
+                    )
                     if (
                         not response_header_probe
                         and not file_response_scheduling_probe
@@ -3179,6 +3191,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         and not testclient_lifespan_client_method_trace
                         and not cors_scope_observation
                         and not gzip_scope_observation
+                        and not wsgi_sender_context_observation
                     ):
                         raise ContractError(
                             f"{octx}.condition is not a supported input-gated observation"
