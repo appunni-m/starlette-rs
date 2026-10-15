@@ -450,7 +450,7 @@ impl TestClientLifespan {
     fn start(py: Python<'_>, backend: &str, backend_options: &Py<PyDict>) -> PyResult<Self> {
         let mut lifespan = Self::default();
         if let Err(error) = lifespan.start_inner(py, backend, backend_options) {
-            return match lifespan.cleanup(py, Some(error.clone_ref(py))) {
+            return match lifespan.cleanup(py, Some(error.clone_ref(py)), true) {
                 Ok(()) => Err(error),
                 Err(cleanup_error) => Err(cleanup_error),
             };
@@ -518,7 +518,12 @@ impl TestClientLifespan {
         )
     }
 
-    fn cleanup(&mut self, py: Python<'_>, mut primary_error: Option<PyErr>) -> PyResult<()> {
+    fn cleanup(
+        &mut self,
+        py: Python<'_>,
+        mut primary_error: Option<PyErr>,
+        preserve_cleanup_error_context: bool,
+    ) -> PyResult<()> {
         // ExitStack closes the last-registered client-to-app endpoints first.
         for stream in [
             self.client_to_app_receive.take(),
@@ -530,7 +535,12 @@ impl TestClientLifespan {
         .flatten()
         {
             if let Err(error) = stream.bind(py).call_method0("close") {
-                replace_cleanup_error(py, &mut primary_error, error)?;
+                replace_cleanup_error(
+                    py,
+                    &mut primary_error,
+                    error,
+                    preserve_cleanup_error_context,
+                )?;
             }
         }
 
@@ -542,7 +552,12 @@ impl TestClientLifespan {
                 if let Err(error) =
                     exit_portal(py, manager.bind(py).clone(), primary_error.as_ref())
                 {
-                    replace_cleanup_error(py, &mut primary_error, error)?;
+                    replace_cleanup_error(
+                        py,
+                        &mut primary_error,
+                        error,
+                        preserve_cleanup_error_context,
+                    )?;
                 }
             }
         }
@@ -562,7 +577,7 @@ impl PyTestClientTransport {
             Some(portal) => portal.clone_ref(py),
             None => {
                 let error = PyRuntimeError::new_err("TestClient portal is unavailable");
-                return match lifespan.cleanup(py, Some(error.clone_ref(py))) {
+                return match lifespan.cleanup(py, Some(error.clone_ref(py)), true) {
                     Ok(()) => Err(error),
                     Err(cleanup_error) => Err(cleanup_error),
                 };
@@ -589,7 +604,7 @@ fn cleanup_failed_testclient_enter(
 ) -> PyErr {
     let lifespan = slf.borrow_mut(py).lifespan.take();
     match lifespan {
-        Some(mut lifespan) => match lifespan.cleanup(py, Some(primary_error.clone_ref(py))) {
+        Some(mut lifespan) => match lifespan.cleanup(py, Some(primary_error.clone_ref(py)), true) {
             Ok(()) => primary_error,
             Err(cleanup_error) => cleanup_error,
         },
@@ -879,7 +894,14 @@ impl PyWebSocketTestSession {
             if let Err(error) = task.bind(py).call_method0("result") {
                 if !is_cancelled_error(py, &error)? {
                     if let Some(previous_error) = task_error.take() {
-                        chain_exception_context(py, &error, &previous_error)?;
+                        // An ExitStack callback failure does not become the
+                        // context of a later future.result() error when the
+                        // stack was closed without an active body exception.
+                        // Preserve the prior cleanup error only when __exit__
+                        // itself received an exception from the with-body.
+                        if active_exception.is_some() {
+                            chain_exception_context(py, &error, &previous_error)?;
+                        }
                     } else if let Some(active_exception) = active_exception {
                         chain_exception_context(py, &error, active_exception)?;
                     }
@@ -1414,7 +1436,7 @@ impl PyTestClientTransport {
 
         let lifespan = { slf.borrow_mut(py).lifespan.take() };
         match lifespan {
-            Some(mut lifespan) => lifespan.cleanup(py, primary_error),
+            Some(mut lifespan) => lifespan.cleanup(py, primary_error, false),
             None => match primary_error {
                 Some(error) => Err(error),
                 None if slf.borrow(py).context_entered => Ok(()),
@@ -2292,11 +2314,16 @@ fn replace_cleanup_error(
     py: Python<'_>,
     primary_error: &mut Option<PyErr>,
     error: PyErr,
+    preserve_previous_error_context: bool,
 ) -> PyResult<()> {
-    // ExitStack.__exit__ attaches the earlier callback error to each later
-    // cleanup error before reporting the last failure.
-    if let Some(previous_error) = primary_error.as_ref() {
-        chain_exception_context(py, &error, previous_error)?;
+    // Entry cleanup runs while the startup exception is active, so ExitStack
+    // retains it in later cleanup errors. TestClient.__exit__ calls
+    // ExitStack.close(), where later callback errors replace earlier ones
+    // without inheriting their context.
+    if preserve_previous_error_context {
+        if let Some(previous_error) = primary_error.as_ref() {
+            chain_exception_context(py, &error, previous_error)?;
+        }
     }
     *primary_error = Some(error);
     Ok(())

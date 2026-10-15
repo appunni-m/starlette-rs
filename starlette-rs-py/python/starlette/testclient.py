@@ -197,7 +197,8 @@ class TestClient(_httpx.Client):
         cookies: httpx._types.CookieTypes | None = None,
         auth: httpx._types.AuthTypes | httpx._client.UseClientDefault = _httpx.USE_CLIENT_DEFAULT,
         follow_redirects: bool | httpx._client.UseClientDefault = _httpx.USE_CLIENT_DEFAULT,
-        timeout: httpx._types.TimeoutTypes | httpx._client.UseClientDefault = _httpx.USE_CLIENT_DEFAULT,
+        timeout: httpx._types.TimeoutTypes
+        | httpx._client.UseClientDefault = _httpx.USE_CLIENT_DEFAULT,
         extensions: dict[str, Any] | None = None,
     ) -> httpx.Response:
         return super().get(
@@ -220,7 +221,8 @@ class TestClient(_httpx.Client):
         cookies: httpx._types.CookieTypes | None = None,
         auth: httpx._types.AuthTypes | httpx._client.UseClientDefault = _httpx.USE_CLIENT_DEFAULT,
         follow_redirects: bool | httpx._client.UseClientDefault = _httpx.USE_CLIENT_DEFAULT,
-        timeout: httpx._types.TimeoutTypes | httpx._client.UseClientDefault = _httpx.USE_CLIENT_DEFAULT,
+        timeout: httpx._types.TimeoutTypes
+        | httpx._client.UseClientDefault = _httpx.USE_CLIENT_DEFAULT,
         extensions: dict[str, Any] | None = None,
     ) -> httpx.Response:
         return super().options(
@@ -243,7 +245,8 @@ class TestClient(_httpx.Client):
         cookies: httpx._types.CookieTypes | None = None,
         auth: httpx._types.AuthTypes | httpx._client.UseClientDefault = _httpx.USE_CLIENT_DEFAULT,
         follow_redirects: bool | httpx._client.UseClientDefault = _httpx.USE_CLIENT_DEFAULT,
-        timeout: httpx._types.TimeoutTypes | httpx._client.UseClientDefault = _httpx.USE_CLIENT_DEFAULT,
+        timeout: httpx._types.TimeoutTypes
+        | httpx._client.UseClientDefault = _httpx.USE_CLIENT_DEFAULT,
         extensions: dict[str, Any] | None = None,
     ) -> httpx.Response:
         return super().head(
@@ -270,7 +273,8 @@ class TestClient(_httpx.Client):
         cookies: httpx._types.CookieTypes | None = None,
         auth: httpx._types.AuthTypes | httpx._client.UseClientDefault = _httpx.USE_CLIENT_DEFAULT,
         follow_redirects: bool | httpx._client.UseClientDefault = _httpx.USE_CLIENT_DEFAULT,
-        timeout: httpx._types.TimeoutTypes | httpx._client.UseClientDefault = _httpx.USE_CLIENT_DEFAULT,
+        timeout: httpx._types.TimeoutTypes
+        | httpx._client.UseClientDefault = _httpx.USE_CLIENT_DEFAULT,
         extensions: dict[str, Any] | None = None,
     ) -> httpx.Response:
         return super().post(
@@ -301,7 +305,8 @@ class TestClient(_httpx.Client):
         cookies: httpx._types.CookieTypes | None = None,
         auth: httpx._types.AuthTypes | httpx._client.UseClientDefault = _httpx.USE_CLIENT_DEFAULT,
         follow_redirects: bool | httpx._client.UseClientDefault = _httpx.USE_CLIENT_DEFAULT,
-        timeout: httpx._types.TimeoutTypes | httpx._client.UseClientDefault = _httpx.USE_CLIENT_DEFAULT,
+        timeout: httpx._types.TimeoutTypes
+        | httpx._client.UseClientDefault = _httpx.USE_CLIENT_DEFAULT,
         extensions: dict[str, Any] | None = None,
     ) -> httpx.Response:
         return super().put(
@@ -332,7 +337,8 @@ class TestClient(_httpx.Client):
         cookies: httpx._types.CookieTypes | None = None,
         auth: httpx._types.AuthTypes | httpx._client.UseClientDefault = _httpx.USE_CLIENT_DEFAULT,
         follow_redirects: bool | httpx._client.UseClientDefault = _httpx.USE_CLIENT_DEFAULT,
-        timeout: httpx._types.TimeoutTypes | httpx._client.UseClientDefault = _httpx.USE_CLIENT_DEFAULT,
+        timeout: httpx._types.TimeoutTypes
+        | httpx._client.UseClientDefault = _httpx.USE_CLIENT_DEFAULT,
         extensions: dict[str, Any] | None = None,
     ) -> httpx.Response:
         return super().patch(
@@ -359,7 +365,8 @@ class TestClient(_httpx.Client):
         cookies: httpx._types.CookieTypes | None = None,
         auth: httpx._types.AuthTypes | httpx._client.UseClientDefault = _httpx.USE_CLIENT_DEFAULT,
         follow_redirects: bool | httpx._client.UseClientDefault = _httpx.USE_CLIENT_DEFAULT,
-        timeout: httpx._types.TimeoutTypes | httpx._client.UseClientDefault = _httpx.USE_CLIENT_DEFAULT,
+        timeout: httpx._types.TimeoutTypes
+        | httpx._client.UseClientDefault = _httpx.USE_CLIENT_DEFAULT,
         extensions: dict[str, Any] | None = None,
     ) -> httpx.Response:
         return super().delete(

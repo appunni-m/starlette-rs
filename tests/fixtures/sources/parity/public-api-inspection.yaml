@@ -3368,8 +3368,7 @@
               {
                 "name": "WebSocketTestSession",
                 "observe": [
-                  "presence",
-                  "signature"
+                  "presence"
                 ]
               },
               {

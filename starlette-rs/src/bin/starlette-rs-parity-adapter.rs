@@ -8595,7 +8595,9 @@ fn run_static_files_lookup_path_case(case: &Value) -> Result<Value, String> {
         let fields = observation
             .as_object_mut()
             .ok_or_else(|| String::from("StaticFiles lookup-path observation must be an object"))?;
-        fields.insert(String::from("lookup_error"), Value::Null);
+        fields
+            .entry(String::from("lookup_error"))
+            .or_insert(Value::Null);
         observation
     } else {
         observation

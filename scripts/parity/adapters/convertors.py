@@ -66,11 +66,12 @@ def run_convertor_direct_methods_case(case: dict[str, Any]) -> dict[str, Any]:
         "call-results-in-order": call_results,
         "exception-class-and-message": error_results,
     }
+    projected_value = {name: observations[name] for name in case["observations"]}
     return {
         "case_id": case["case_id"],
         "status": "completed",
         "observations": [
-            {"step_id": name, "status": "ok", "value": {name: observations[name]}}
+            {"step_id": name, "status": "ok", "value": projected_value}
             for name in case["observations"]
         ],
     }
@@ -188,11 +189,12 @@ def run_convertor_registry_sequence_case(case: dict[str, Any]) -> dict[str, Any]
         "action-results-in-order": action_results,
         "route-snapshot-conversion-results": route_results,
     }
+    projected_value = {name: observations[name] for name in case["observations"]}
     return {
         "case_id": case["case_id"],
         "status": "completed",
         "observations": [
-            {"step_id": name, "status": "ok", "value": {name: observations[name]}}
+            {"step_id": name, "status": "ok", "value": projected_value}
             for name in case["observations"]
         ],
     }
