@@ -34,25 +34,22 @@ source atlas contains 866 rows: 810 input mappings, 56 source-backed
 catalog has 564 supported candidates, 435 private/internal candidates, and
 zero uncertain candidates.
 
-The current-manifest parity workflow
-[38800172262](https://github.com/appunni-m/starlette-rs/actions/runs/38800172262)
-passed all five CPython profile jobs. Current coverage validation remains
-pending because five profiles failed the coverage-result contract on uncovered
-`path:line` ordering; the sixth profile was still running at this checkpoint.
-The prior-manifest
-local coverage receipt reports 26,126 of 33,348 Rust lines covered (78.34%); its
-CPython 3.12 receipt
-has two platform-specific `not_run` rows, so its test status is unknown. The
-active manifest now defines six input-driven coverage plans and 11 Rust line
-components; the current full-profile measurement and Coverage MCP gap review
-remain pending. Coverage is a measurement, not a parity score.
+Current-manifest parity workflow
+[38805748474](https://github.com/appunni-m/starlette-rs/actions/runs/38805748474)
+passed all five CPython profile jobs. The six-profile coverage lane also
+completed with zero selected-case failures and zero infrastructure errors.
+Coverage MCP measured 5,156/8,004 Rust-native lines; CPython 3.10 11,650/33,280;
+3.11 11,662/33,280; 3.12 22,903/33,280; 3.13 11,610/33,280; and 3.14
+11,606/33,280. MCP reviewed uncovered locations, but source identity remains
+unverified and test status unknown because no source/build receipt was
+ingested. Coverage is a measurement, not a parity score.
 
-Historical benchmark run `8971ad63-111e-4379-a327-6809e852ee75` covers 74
-Router and GZip source/package workloads, with zero failures or source/package skips. Its
-median source/package latency ratios are 0.225 for Router and 0.976 for GZip;
-normalized observation hashes match in 74/74. The 74 Rust-native benchmark
-entries remain `not_run` because the native API has no equivalent workload
-boundary. Current evidence and exact run identities are in the
+Current-manifest benchmark run `1853ee16-2795-48dc-bc5f-2b15421967df` measured
+74 Router and GZip source/package workloads, with zero failures or
+source/package skips. Its median source/package latency ratios are 0.224 for
+Router and 0.974 for GZip; normalized observation hashes match in 74/74. The
+74 Rust-native benchmark entries remain `not_run` because the native API has no
+equivalent workload boundary. Current evidence and exact run identities are in the
 [implementation plan](../IMPLEMENTATION_PLAN.md), [parity report](../PARITY.md),
 and [benchmark report](../BENCHMARKS.md).
 

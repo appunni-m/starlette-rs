@@ -5,9 +5,9 @@
 The active full-scope contract is `parity-input@58`, manifest SHA-256
 `2dcb25d098d4f09ce3dd6bb231164a58391175f6cff222dd2c6316a9580eec4a`. Its
 current-manifest five-profile parity workflow
-[38800172262](https://github.com/appunni-m/starlette-rs/actions/runs/38800172262)
+[38805748474](https://github.com/appunni-m/starlette-rs/actions/runs/38805748474)
 passed all five CPython profile jobs on target revision
-`aacfea8bb460d8691245bb60eb8f40970647ad09`. The pinned Starlette 1.6.0 source
+`a10ecf5776c50cf86600e3d5f049e8db006f4966`. The pinned Starlette 1.6.0 source
 revision is `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`.
 
 The declared five-profile parity matrix is verified for this manifest. The
@@ -18,28 +18,30 @@ active manifest now declares six input-driven coverage plans and 11 Rust line
 components. Coverage and benchmark evidence remain separate from this
 parity-matrix report.
 
-The latest local coverage receipt is prior-manifest evidence: Coverage MCP
-measured 26,126 of 33,348 Rust lines (78.34%) in the local ignored
-artifact `build/parity/coverage/full-starlette-1.6.0-20261015-57361208-native-inclusive-verified/starlette-project.lcov`,
-using native-inclusive CPython 3.12 and `rust-native-local` objects. It is not
-the current six-profile coverage run. The local receipt records 2,887 passed,
-0 failed, and 2 platform-specific `not_run` rows,
-so Coverage MCP reports test status as unknown. This receipt does not complete
-full-matrix coverage. Workflow `38800172262` has not produced a valid current
-coverage result: five profiles failed the result contract because uncovered
-`path:line` locations were emitted in numeric rather than lexical order, and
-the sixth profile was still running at this checkpoint.
+The current six-profile coverage lane completed in workflow
+[38805748474](https://github.com/appunni-m/starlette-rs/actions/runs/38805748474)
+with zero selected-case failures and zero infrastructure errors. Coverage MCP
+measured Rust-native at 5,156/8,004 lines; CPython 3.10 at 11,650/33,280;
+3.11 at 11,662/33,280; 3.12 at 22,903/33,280; 3.13 at 11,610/33,280; and
+3.14 at 11,606/33,280. It reviewed uncovered locations in the Rust core and
+PyO3 binding sources. The coverage result artifacts have no ingested
+source/build receipt or snapshot, so MCP reports source identity as unverified
+and test status as unknown. These are measured line counts, not source-verified
+regression evidence.
 
-Historical benchmark run `8971ad63-111e-4379-a327-6809e852ee75` measured all 74
-source/package workloads (6 Router and 68 GZip): 74 measured, 0 failed, and 0
-`not_run`. All 74 Rust-native rows are `not_run` because an equivalent workload
-boundary is unavailable. The median source/package latency ratios were 0.225
-for Router and 0.976 for GZip; normalized observation hashes matched in 74/74.
+Current-manifest benchmark run `1853ee16-2795-48dc-bc5f-2b15421967df` measured
+all 74 source/package workloads (6 Router and 68 GZip): 74 measured, 0 failed,
+and 0 `not_run`. All 74 Rust-native rows are `not_run` because an equivalent
+workload boundary is unavailable. The median source/package latency ratios
+were 0.224 for Router and 0.974 for GZip; normalized observation hashes
+matched in 74/74. Its correctness preflight
+`f706bbcd-adc2-4ee0-8574-ce46b133fa26` recorded 2,887 passed, zero failed or
+infrastructure errors, and two `not_run` comparisons.
 
 These results are revision-bound and do not establish universal or drop-in
-compatibility. The full Starlette replacement remains incomplete. Current
-manifest coverage is unexecuted and benchmark refresh is deferred until it
-completes. The pinned denominators remain 514 upstream test functions and 24
+compatibility. The full Starlette replacement remains incomplete. Coverage MCP
+did not verify report source identity or ingest test receipts, as described
+above. The pinned denominators remain 514 upstream test functions and 24
 documented pages.
 
 Historical preflight context: the earlier grouped matrix found a URL difference

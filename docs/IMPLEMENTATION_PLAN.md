@@ -9,20 +9,18 @@ Pydantic are outside this project's scope.
 
 Active implementation checkpoint (2026-10-16; `parity-input@58`; current
 manifest SHA-256 `2dcb25d098d4f09ce3dd6bb231164a58391175f6cff222dd2c6316a9580eec4a`;
-last verified clean target revision before the coverage correction
-`71be75c3583c6501fec276a46f4497c42aa4ce4e`):
+last verified clean target revision `a10ecf5776c50cf86600e3d5f049e8db006f4966`):
 
 The active manifest declares full Starlette 1.6.0 scope with 2,538 cases across
 416 parity inputs, two benchmark inputs, 151 compatibility operations, 14
 Rust-native operations, 1,399 parity requirements, and six target profiles.
-The current-manifest parity matrix passed all five CPython profile jobs in CI
-workflow `38800172262` on target revision
-`aacfea8bb460d8691245bb60eb8f40970647ad09`. The benchmark evidence below
-remains bound to the earlier manifest SHA-256
-`86f69fc791088794fcd59483d6a91cc08bb9b3999586665f73c2f722f9946029`. The
-coverage lane for the current manifest exposed an uncovered-location ordering
-error; its targeted runner fix is pending CI validation. The oracle is
-Starlette 1.6.0 at
+The current-manifest five-profile parity matrix and six-profile coverage lane
+passed in CI workflow `38805748474` on target revision
+`a10ecf5776c50cf86600e3d5f049e8db006f4966`. The single current-manifest
+benchmark run measured all 74 declared source/package workloads with zero
+failures. Coverage MCP reviewed all six LCOV reports; its source identity is
+unverified and test status unknown because no source/build receipt was
+ingested. The oracle is Starlette 1.6.0 at
 `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`.
 The generated source atlas has 866 rows: 810 mapped, 56 source-backed
 `not_applicable`, and zero fixture backlog. The 999-row API catalog has 564
@@ -50,12 +48,12 @@ adapter SHA-256
 Coverage MCP's comparison with the earlier source/build is incomparable, so no
 coverage delta is claimed. The active manifest now declares input-driven line
 coverage plans for all six target profiles, mapping 2,500 profile-requirement
-entries to 11 Rust components. The existing receipt remains partial evidence;
-the full profile matrix, Coverage MCP gap review, and source reconciliation
-are still pending. Coverage measures executed Rust lines; it is not a parity
-score.
+entries to 11 Rust components. The current six-profile measurements and MCP
+review are recorded in the execution ledger below. MCP source identity remains
+unverified because the report artifacts have no ingested source/build receipt.
+Coverage measures executed Rust lines; it is not a parity score.
 
-The latest 74-workload benchmark run, also on the previous manifest,
+The historical 74-workload benchmark run on the previous manifest,
 `8971ad63-111e-4379-a327-6809e852ee75` completed on this revision: 6 Router
 and 68 GZip source/package workloads, zero failures, zero source/package
 `not_run`, and 74 Rust-native `not_run` because the equivalent native workload
@@ -68,8 +66,7 @@ and 61/68 GZip workloads, and normalized observation hashes matched in 74/74.
 The result SHA-256 is
 `bc73295313ff0ccde806615597033e510dd502accfc859dc3cd653f7ef7b4eea`.
 These are workload-specific timings, not a general performance or compatibility
-claim. Refresh the benchmark only after the current-manifest grouped parity and
-coverage phases complete.
+claim. The current-manifest benchmark run is recorded in the execution ledger.
 
 ### Post-checkpoint repair and verification
 
@@ -82,10 +79,11 @@ jobs, including the corrected five-profile parity matrix above. The plan and
 benchmark evidence are refreshed from that revision, and local `make
 docs-check` passes.
 
-The implementation and grouped repair phases completed for the previous
-manifest. Current-manifest parity revalidation is pending; coverage execution
-and MCP gap review follow it, and benchmark refresh follows coverage. The
-earlier CI/schema failure and grouped first-pass results below are historical.
+The implementation and grouped repair phases recorded in the notes below are
+historical checkpoints. Current-manifest parity, coverage, and benchmark status
+is summarized at the beginning of this document and in the execution ledger.
+The earlier CI/schema failure and grouped first-pass results below are
+historical.
 The `e8ed3b8d` base upgraded the strict result contract to @9,
 constrained CPython-specific MarkupSafe provenance, added WebSocketRoute
 equality and missing-scope-key inputs, and expanded ordinary BackgroundTask
@@ -606,10 +604,10 @@ representation, and dynamic `FormData.close()` dispatch remain Rust-backed.
 
 | Phase | State | Evidence |
 | --- | --- | --- |
-| Implementation | Coverage runner, six profile plans, 11 line components, and contract wiring are implemented for the current manifest. | Current `parity-input@58` manifest SHA-256 `2dcb25d098d4f09ce3dd6bb231164a58391175f6cff222dd2c6316a9580eec4a`; current changes await CI validation. |
-| Full parity and grouped repairs | The current-manifest five-profile parity matrix passed; parity evidence does not establish full Starlette replacement. | Manifest SHA-256 `2dcb25d098d4f09ce3dd6bb231164a58391175f6cff222dd2c6316a9580eec4a`; workflow `38800172262`, all five CPython profile jobs succeeded. Oracle: Starlette 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. |
-| Full coverage and source reconciliation | Current six-profile measurement and Coverage MCP review remain pending; five current profiles failed result validation on uncovered-location ordering, while the sixth was still running at this checkpoint. The serializer fix is prepared and awaits CI validation. | The previous coverage attempt found LCOV omitted `starlette-rs/src/lib.rs`, which has no executable lines; the manifest now excludes it, and Cargo build output is stored outside uploaded profile directories. The last successful receipt is partial historical evidence: `build/parity/coverage/full-starlette-1.6.0-20261015-57361208-native-inclusive-verified/starlette-project.lcov`, 26,126/33,348 lines (78.34%), `tests=unknown` because two local CPython 3.12 rows are `not_run`; faults 5/5. Coverage MCP matched the receipt; its comparison with the previous source/build is incomparable. Extension SHA-256 `cb2e4e34068e6d869d1236766609dda44e86f7f7bfd61c713371ffb977ba8618`; adapter SHA-256 `9d745cca62615dfbae29bb1f1c2971915beca85b126dffa364df6b2f16ff93c9`. |
-| All benchmarks | Current-manifest benchmark refresh is pending until grouped parity and full coverage complete. | Historical prior-manifest run `8971ad63-111e-4379-a327-6809e852ee75`: 74/74 (6 Router, 68 GZip), zero failures or source/package `not_run`; 74 Rust-native `not_run` because the equivalent boundary is unavailable. Preflight `d82e3a6e-1069-441f-a0d1-0511042deac5`: 2,887 passed, zero failed/infra, two platform-specific `not_run`, faults 5/5. Ratios: 0.225 Router, 0.976 GZip; source lower in 6/6 Router and 61/68 GZip; normalized hashes match 74/74. Result SHA-256 `bc73295313ff0ccde806615597033e510dd502accfc859dc3cd653f7ef7b4eea`. |
+| Implementation | Coverage runner, six profile plans, 11 line components, and contract wiring are implemented and validated. | Current manifest SHA-256 `2dcb25d098d4f09ce3dd6bb231164a58391175f6cff222dd2c6316a9580eec4a`; fixes `aacfea8b` and `a10ecf57`; workflow `38805748474` succeeded. |
+| Full parity and grouped repairs | The declared current-manifest five-profile parity matrix passed; this does not establish the complete Starlette replacement. | Manifest SHA-256 `2dcb25d098d4f09ce3dd6bb231164a58391175f6cff222dd2c6316a9580eec4a`; workflow `38805748474`, all five CPython profiles succeeded. Oracle: Starlette 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. |
+| Full coverage and source reconciliation | All six managed coverage profiles completed and Coverage MCP reviewed their LCOV gaps. MCP source identity remains unverified, test status unknown, and no snapshot was ingested, so the reports are measurements rather than source-verified regression evidence. | Workflow `38805748474`, collector cargo-llvm-cov 0.8.7, target revision `a10ecf5776c50cf86600e3d5f049e8db006f4966`; selected cases passed/failed: CPython 3.10 260/0, 3.11 260/0, 3.12 2,470/0, 3.13 261/0, 3.14 261/0, Rust-native 369/0. Line coverage: Rust-native 5,156/8,004; CPython 3.10 11,650/33,280; 3.11 11,662/33,280; 3.12 22,903/33,280; 3.13 11,610/33,280; 3.14 11,606/33,280. The MCP gap review sampled uncovered code in `starlette-rs/src/application.rs` and `starlette-rs-py/src/application_runtime.rs`. |
+| All benchmarks | The single current-manifest benchmark run completed after parity and coverage. | Run `1853ee16-2795-48dc-bc5f-2b15421967df`, manifest SHA-256 `2dcb25d098d4f09ce3dd6bb231164a58391175f6cff222dd2c6316a9580eec4a`: 74/74 source/package workloads (6 Router, 68 GZip), zero failures and `not_run`; 74 Rust-native `not_run` because the equivalent workload boundary is unavailable. Preflight `f706bbcd-adc2-4ee0-8574-ce46b133fa26`: 2,887 passed, zero failed or infrastructure errors, two `not_run`. Median source/package ratios: 0.224 Router and 0.974 GZip; source latency lower in 6/6 Router and 57/68 GZip; normalized observations matched 74/74. Result SHA-256 `2c870adf4b504e728014083c57b88af341f10ea878bf2e46a2d709cb0197e4a2`. |
 | Packaging and interpreter qualification | Historical local macOS arm64 qualification; current changes are not qualified by it. | Five CPython 3.10–3.14 wheels, an sdist, and the Rust crate were inspected in the earlier qualification. Other platform builds remain unqualified. |
 
 Parity, coverage, and benchmark result artifacts are local generated output

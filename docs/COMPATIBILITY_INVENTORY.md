@@ -5,32 +5,30 @@
 The active full-scope manifest is `parity-input@58`, SHA-256
 `2dcb25d098d4f09ce3dd6bb231164a58391175f6cff222dd2c6316a9580eec4a`,
 against Starlette 1.6.0 revision
-`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. Current-manifest parity workflow
-[38800172262](https://github.com/appunni-m/starlette-rs/actions/runs/38800172262)
-passed all five CPython profile jobs on target revision
-`aacfea8bb460d8691245bb60eb8f40970647ad09`.
+`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. Current-manifest parity and
+coverage completed in workflow
+[38805748474](https://github.com/appunni-m/starlette-rs/actions/runs/38805748474)
+on target revision `a10ecf5776c50cf86600e3d5f049e8db006f4966`; all five parity
+profiles and all six coverage profiles succeeded.
 
-The latest local coverage receipt is prior-manifest
-evidence: Coverage MCP measured 26,126/33,348 Rust lines (78.34%) in the
-native-inclusive CPython 3.12 plus `rust-native-local` report at the local ignored artifact
-`build/parity/coverage/full-starlette-1.6.0-20261015-57361208-native-inclusive-verified/starlette-project.lcov`.
-That local receipt has two platform-specific `not_run` rows, so test status is
-unknown. The manifest now declares six input-driven coverage plans and 11 Rust
-line components; execution of the current full profile matrix and MCP gap
-review remain pending. The current CI coverage attempt failed result validation
-in five profiles because uncovered `path:line` locations were ordered by line
-number before formatting; the sixth profile was still running at this
-checkpoint.
+Coverage MCP measured 5,156/8,004 Rust-native lines; CPython 3.10
+11,650/33,280; 3.11 11,662/33,280; 3.12 22,903/33,280; 3.13 11,610/33,280;
+and 3.14 11,606/33,280. MCP reviewed uncovered locations, but source identity
+is unverified and test status unknown because no source/build receipt was
+ingested. These line counts are measurements, not source-verified regression
+evidence.
 
-Historical benchmark run `8971ad63-111e-4379-a327-6809e852ee75` measured 74/74
-source/package workloads (6 Router and 68 GZip), with zero failed or `not_run`
-rows. All 74 Rust-native rows are `not_run` because no equivalent workload
-boundary is available. Median source/package latency ratios were 0.225 for
-Router and 0.976 for GZip; normalized observation hashes matched in 74/74.
+The latest benchmark run `1853ee16-2795-48dc-bc5f-2b15421967df` measured 74/74
+source/package workloads (6 Router and 68 GZip), with zero failures or
+`not_run` rows. All 74 Rust-native rows are `not_run` because no equivalent
+workload boundary is available. Median source/package latency ratios were
+0.224 for Router and 0.974 for GZip; normalized observation hashes matched in
+74/74. The evidence is workload-specific and does not establish full Starlette
+replacement parity.
 
 The full Starlette replacement remains incomplete; these measurements do not
-establish universal or drop-in compatibility. Current-manifest benchmark
-refresh is deferred until parity and coverage complete. Keep the pinned
+establish universal or drop-in compatibility. The current-manifest parity,
+coverage, and benchmark phases are complete. Keep the pinned
 denominators visible: 514 upstream test functions and 24 documented pages.
 
 The implementation-batch notes below preserve per-feature detail as it was
@@ -1149,10 +1147,11 @@ async-generator lifespan callables, `TestClient(timeout=...)`, and the legacy
   `doc.templates.async-context-processor-constraint`.
 
 These source-backed caveats and targeted inputs do not change API-candidate
-dispositions or create fixture backlog. The remaining staged work is
-implementation completion across the declared full compatibility surface,
-followed by grouped full parity and repairs, coverage measurement with source
-reconciliation, and complete benchmarks.
+dispositions or create fixture backlog. Implementation across the full
+compatibility surface remains incomplete. The active manifest's grouped parity,
+coverage, and benchmark phases are complete; after further implementation and
+new input comparisons are added, rerun those phases together for the revised
+manifest.
 The active contract and generated atlas links above carry the current case and
 backlog inventory; this document does not duplicate their changing totals.
 
