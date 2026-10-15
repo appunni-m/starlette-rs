@@ -1000,8 +1000,9 @@ async-generator lifespan callables, `TestClient(timeout=...)`, and the legacy
 
 ## Unresolved points carried into implementation
 
-- Unresolved API candidates remain deliberately uncertain where the pinned docs,
-  source, and release history do not establish public intent.
+- The current API candidate catalog has no uncertain entries. Keep future
+  candidates uncertain when the pinned docs, source, and release history do not
+  establish public intent.
 - `Router.add_route` is supported: the pinned routing guide presents `Router`
   as a standalone ASGI application, and `test_add_route_to_app_after_mount`
   calls `Router.add_route` after mounting it and observes the added route. Its
@@ -1025,10 +1026,11 @@ async-generator lifespan callables, `TestClient(timeout=...)`, and the legacy
   specifying whether use errors, is ignored, or is awaited; see
   `doc.templates.async-context-processor-constraint`.
 
-These items are tracked as uncertain behavior or backlog stimuli; they do not
-block using the atlas to choose implementation work. The remaining staged work is implementation completion across the declared
-full compatibility surface, followed by grouped full parity and repairs,
-coverage measurement with source reconciliation, and complete benchmarks.
+These source-backed caveats and targeted inputs do not change API-candidate
+dispositions or create fixture backlog. The remaining staged work is
+implementation completion across the declared full compatibility surface,
+followed by grouped full parity and repairs, coverage measurement with source
+reconciliation, and complete benchmarks.
 The active contract and generated atlas links above carry the current case and
 backlog inventory; this document does not duplicate their changing totals.
 
