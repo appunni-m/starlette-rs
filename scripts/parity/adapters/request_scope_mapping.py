@@ -135,16 +135,19 @@ def run_request_state_readback_case(
     state = request.state
     selected_values = case["scope_mapping"]["state"]["getitem_value_after_setdefault"]
     state_attributes = {key: _safe(getattr(state, key)) for key in selected_values}
+    observation = case["observations"][0]
     return {
         "case_id": case["case_id"],
         "status": "completed",
         "observations": [
             {
-                "step_id": "state-readback",
+                "step_id": observation,
                 "status": "ok",
                 "value": {
-                    "state_attributes": state_attributes,
-                    "scope_operation_trace": scope.state_operation_trace,
+                    observation: {
+                        "state_attributes": state_attributes,
+                        "scope_operation_trace": scope.state_operation_trace,
+                    }
                 },
             }
         ],

@@ -18,13 +18,10 @@ use crate::awaitable::{
 
 create_exception!(_core, WebSocketUpgrade, PyException);
 
-const WEBSOCKET_TASK_FAILURE_TYPE: &str = "starlette-rs.internal.websocket-app-failure";
-
 #[derive(Clone, Copy)]
 enum WebSocketTaskPhase {
     App,
     KeepAlive,
-    FailureSignal,
 }
 
 struct WebSocketTaskMachine {
@@ -33,10 +30,11 @@ struct WebSocketTaskMachine {
     scope: Py<PyDict>,
     receive: Py<PyAny>,
     send: Py<PyAny>,
-    send_stream: Py<PyAny>,
-    signal_token: Py<PyAny>,
+    client_to_app_send: Py<PyAny>,
+    client_to_app_receive: Py<PyAny>,
+    app_to_client_send: Py<PyAny>,
+    app_to_client_receive: Py<PyAny>,
     phase: WebSocketTaskPhase,
-    failure_exception: Option<Py<PyAny>>,
 }
 
 #[pyclass]
@@ -46,8 +44,10 @@ struct WebSocketTaskCallable {
     scope: Py<PyDict>,
     receive: Py<PyAny>,
     send: Py<PyAny>,
-    send_stream: Py<PyAny>,
-    signal_token: Py<PyAny>,
+    client_to_app_send: Py<PyAny>,
+    client_to_app_receive: Py<PyAny>,
+    app_to_client_send: Py<PyAny>,
+    app_to_client_receive: Py<PyAny>,
 }
 
 #[pymethods]
@@ -58,18 +58,23 @@ impl WebSocketTaskCallable {
         visit.call(&self.scope)?;
         visit.call(&self.receive)?;
         visit.call(&self.send)?;
-        visit.call(&self.send_stream)?;
-        visit.call(&self.signal_token)?;
+        visit.call(&self.client_to_app_send)?;
+        visit.call(&self.client_to_app_receive)?;
+        visit.call(&self.app_to_client_send)?;
+        visit.call(&self.app_to_client_receive)?;
         Ok(())
     }
 
     fn __clear__(&mut self, py: Python<'_>) {
         self.runner = py.None();
         self.app = py.None();
+        self.scope = PyDict::new(py).unbind();
         self.receive = py.None();
         self.send = py.None();
-        self.send_stream = py.None();
-        self.signal_token = py.None();
+        self.client_to_app_send = py.None();
+        self.client_to_app_receive = py.None();
+        self.app_to_client_send = py.None();
+        self.app_to_client_receive = py.None();
     }
 
     fn __call__(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
@@ -81,26 +86,31 @@ impl WebSocketTaskCallable {
                 scope: self.scope.clone_ref(py),
                 receive: self.receive.clone_ref(py),
                 send: self.send.clone_ref(py),
-                send_stream: self.send_stream.clone_ref(py),
-                signal_token: self.signal_token.clone_ref(py),
+                client_to_app_send: self.client_to_app_send.clone_ref(py),
+                client_to_app_receive: self.client_to_app_receive.clone_ref(py),
+                app_to_client_send: self.app_to_client_send.clone_ref(py),
+                app_to_client_receive: self.app_to_client_receive.clone_ref(py),
                 phase: WebSocketTaskPhase::App,
-                failure_exception: None,
             },
         )
     }
 }
 
 impl WebSocketTaskMachine {
-    fn signal_app_failure(&mut self, py: Python<'_>, error: PyErr) -> PyResult<MachineAction> {
-        self.phase = WebSocketTaskPhase::FailureSignal;
-        let exception = error.value(py).clone().into_any().unbind();
-        let signal = PyDict::new(py);
-        signal.set_item("type", WEBSOCKET_TASK_FAILURE_TYPE)?;
-        signal.set_item("token", self.signal_token.bind(py))?;
-        signal.set_item("exception", exception.bind(py))?;
-        self.failure_exception = Some(exception);
-        let awaitable = self.send.bind(py).call1((signal,))?;
-        Ok(MachineAction::Await(awaitable.unbind()))
+    fn propagate_app_failure(&self, py: Python<'_>, error: PyErr) -> PyResult<MachineAction> {
+        // Starlette's WebSocket task closes both memory streams while its
+        // context managers unwind. Closing the same endpoints here lets a
+        // pending client receive/send raise AnyIO's ClosedResourceError before
+        // the portal future surfaces the application exception.
+        for stream in [
+            &self.client_to_app_receive,
+            &self.client_to_app_send,
+            &self.app_to_client_receive,
+            &self.app_to_client_send,
+        ] {
+            stream.bind(py).call_method0("close")?;
+        }
+        Err(error)
     }
 }
 
@@ -111,9 +121,10 @@ impl AwaitableStateMachine for WebSocketTaskMachine {
         visit.call(&self.scope)?;
         visit.call(&self.receive)?;
         visit.call(&self.send)?;
-        visit.call(&self.send_stream)?;
-        visit.call(&self.signal_token)?;
-        visit.call(&self.failure_exception)?;
+        visit.call(&self.client_to_app_send)?;
+        visit.call(&self.client_to_app_receive)?;
+        visit.call(&self.app_to_client_send)?;
+        visit.call(&self.app_to_client_receive)?;
         Ok(())
     }
 
@@ -131,7 +142,7 @@ impl AwaitableStateMachine for WebSocketTaskMachine {
                     self.send.bind(py),
                 )) {
                     Ok(awaitable) => Ok(MachineAction::Await(awaitable.unbind())),
-                    Err(error) => self.signal_app_failure(py, error),
+                    Err(error) => self.propagate_app_failure(py, error),
                 }
             }
             (WebSocketTaskPhase::App, MachineResume::Value(_)) => {
@@ -142,22 +153,14 @@ impl AwaitableStateMachine for WebSocketTaskMachine {
             (
                 WebSocketTaskPhase::App,
                 MachineResume::AsyncIterationComplete(error) | MachineResume::Error(error),
-            ) => self.signal_app_failure(py, error),
-            (WebSocketTaskPhase::FailureSignal, MachineResume::Value(_)) => {
-                let exception = self.failure_exception.take().ok_or_else(|| {
-                    PyRuntimeError::new_err("WebSocket app failure completed without an exception")
-                })?;
-                self.send_stream.bind(py).call_method0("close")?;
-                Err(PyErr::from_value(exception.into_bound(py)))
-            }
+            ) => self.propagate_app_failure(py, error),
             (
-                WebSocketTaskPhase::FailureSignal | WebSocketTaskPhase::KeepAlive,
+                WebSocketTaskPhase::KeepAlive,
                 MachineResume::AsyncIterationComplete(error) | MachineResume::Error(error),
             ) => Err(error),
-            (WebSocketTaskPhase::FailureSignal, MachineResume::Start)
-            | (WebSocketTaskPhase::KeepAlive, MachineResume::Start) => Err(
-                PyRuntimeError::new_err("WebSocket app task resumed before awaiting its phase"),
-            ),
+            (WebSocketTaskPhase::KeepAlive, MachineResume::Start) => Err(PyRuntimeError::new_err(
+                "WebSocket app task resumed before awaiting its phase",
+            )),
             (WebSocketTaskPhase::KeepAlive, MachineResume::Value(_)) => {
                 Ok(MachineAction::Complete(py.None()))
             }
@@ -191,6 +194,12 @@ struct TestClientLifespan {
     app_to_client_send: Option<Py<PyAny>>,
     client_to_app_receive: Option<Py<PyAny>>,
     task: Option<Py<PyAny>>,
+}
+
+#[derive(Clone, Copy)]
+enum LifespanCleanupPhase {
+    Entry,
+    Shutdown,
 }
 
 enum LifespanTaskPhase {
@@ -447,7 +456,11 @@ impl TestClientLifespan {
     fn start(py: Python<'_>, backend: &str, backend_options: &Py<PyDict>) -> PyResult<Self> {
         let mut lifespan = Self::default();
         if let Err(error) = lifespan.start_inner(py, backend, backend_options) {
-            return match lifespan.cleanup(py, Some(error.clone_ref(py))) {
+            return match lifespan.cleanup(
+                py,
+                Some(error.clone_ref(py)),
+                LifespanCleanupPhase::Entry,
+            ) {
                 Ok(()) => Err(error),
                 Err(cleanup_error) => Err(cleanup_error),
             };
@@ -515,7 +528,12 @@ impl TestClientLifespan {
         )
     }
 
-    fn cleanup(&mut self, py: Python<'_>, mut primary_error: Option<PyErr>) -> PyResult<()> {
+    fn cleanup(
+        &mut self,
+        py: Python<'_>,
+        mut primary_error: Option<PyErr>,
+        phase: LifespanCleanupPhase,
+    ) -> PyResult<()> {
         // ExitStack closes the last-registered client-to-app endpoints first.
         for stream in [
             self.client_to_app_receive.take(),
@@ -539,7 +557,15 @@ impl TestClientLifespan {
                 if let Err(error) =
                     exit_portal(py, manager.bind(py).clone(), primary_error.as_ref())
                 {
-                    replace_cleanup_error(py, &mut primary_error, error)?;
+                    match phase {
+                        LifespanCleanupPhase::Entry => {
+                            replace_cleanup_error(py, &mut primary_error, error)?;
+                        }
+                        // During TestClient.__exit__, the portal context manager
+                        // replaces a shutdown failure without exposing it in the
+                        // cleanup exception's context chain.
+                        LifespanCleanupPhase::Shutdown => primary_error = Some(error),
+                    }
                 }
             }
         }
@@ -559,7 +585,11 @@ impl PyTestClientTransport {
             Some(portal) => portal.clone_ref(py),
             None => {
                 let error = PyRuntimeError::new_err("TestClient portal is unavailable");
-                return match lifespan.cleanup(py, Some(error.clone_ref(py))) {
+                return match lifespan.cleanup(
+                    py,
+                    Some(error.clone_ref(py)),
+                    LifespanCleanupPhase::Entry,
+                ) {
                     Ok(()) => Err(error),
                     Err(cleanup_error) => Err(cleanup_error),
                 };
@@ -586,7 +616,11 @@ fn cleanup_failed_testclient_enter(
 ) -> PyErr {
     let lifespan = slf.borrow_mut(py).lifespan.take();
     match lifespan {
-        Some(mut lifespan) => match lifespan.cleanup(py, Some(primary_error.clone_ref(py))) {
+        Some(mut lifespan) => match lifespan.cleanup(
+            py,
+            Some(primary_error.clone_ref(py)),
+            LifespanCleanupPhase::Entry,
+        ) {
             Ok(()) => primary_error,
             Err(cleanup_error) => cleanup_error,
         },
@@ -611,7 +645,6 @@ struct PyWebSocketTestSession {
     app_to_client_send: Option<Py<PyAny>>,
     app_to_client_receive: Option<Py<PyAny>>,
     task: Option<Py<PyAny>>,
-    failure_signal_token: Option<Py<PyAny>>,
     accepted_subprotocol: Option<Py<PyAny>>,
     extra_headers: Option<Py<PyAny>>,
     close_callback_registered: bool,
@@ -640,7 +673,6 @@ impl PyWebSocketTestSession {
             app_to_client_send: None,
             app_to_client_receive: None,
             task: None,
-            failure_signal_token: None,
             accepted_subprotocol: None,
             extra_headers: None,
             close_callback_registered: false,
@@ -691,8 +723,6 @@ impl PyWebSocketTestSession {
 
         let receive = client_to_app_receive.bind(py).getattr("receive")?.unbind();
         let send = app_to_client_send.bind(py).getattr("send")?.unbind();
-        let signal_token = py.import("builtins")?.getattr("object")?.call0()?.unbind();
-        self.failure_signal_token = Some(signal_token.clone_ref(py));
         let task_callable = Py::new(
             py,
             WebSocketTaskCallable {
@@ -701,8 +731,10 @@ impl PyWebSocketTestSession {
                 scope: self.scope.clone_ref(py),
                 receive,
                 send,
-                send_stream: app_to_client_send.clone_ref(py),
-                signal_token,
+                client_to_app_send: client_to_app_send.clone_ref(py),
+                client_to_app_receive: client_to_app_receive.clone_ref(py),
+                app_to_client_send: app_to_client_send.clone_ref(py),
+                app_to_client_receive: app_to_client_receive.clone_ref(py),
             },
         )?;
         let task = portal.call_method1("start_task_soon", (task_callable,))?;
@@ -825,31 +857,10 @@ impl PyWebSocketTestSession {
         let stream = self.app_to_client_receive.as_ref().ok_or_else(|| {
             PyRuntimeError::new_err("WebSocketTestSession client receive stream is unavailable")
         })?;
-        loop {
-            let message = portal
-                .bind(py)
-                .call_method1("call", (stream.bind(py).getattr("receive")?,))
-                .map(Bound::unbind)?;
-            if let Ok(message_dict) = message.bind(py).cast::<PyDict>() {
-                if let Some(message_type) = message_dict.get_item("type")? {
-                    if let Ok(message_type) = message_type.extract::<String>() {
-                        if message_type == WEBSOCKET_TASK_FAILURE_TYPE {
-                            if let (Some(token), Some(expected_token)) = (
-                                message_dict.get_item("token")?,
-                                self.failure_signal_token.as_ref(),
-                            ) {
-                                if token.is(expected_token.bind(py)) {
-                                    // Starlette observes stream closure first, then ExitStack retrieves
-                                    // the task error and chains the receive failure as its context.
-                                    continue;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            return Ok(message);
-        }
+        portal
+            .bind(py)
+            .call_method1("call", (stream.bind(py).getattr("receive")?,))
+            .map(Bound::unbind)
     }
 
     fn send_text_inner(&self, py: Python<'_>, data: &Bound<'_, PyAny>) -> PyResult<()> {
@@ -921,7 +932,6 @@ impl PyWebSocketTestSession {
         }
 
         self.task = None;
-        self.failure_signal_token = None;
         self.portal = None;
         let manager = self.portal_manager.take();
         if let Some(manager) = manager {
@@ -958,7 +968,6 @@ impl PyWebSocketTestSession {
         visit.call(&self.app_to_client_send)?;
         visit.call(&self.app_to_client_receive)?;
         visit.call(&self.task)?;
-        visit.call(&self.failure_signal_token)?;
         visit.call(&self.accepted_subprotocol)?;
         visit.call(&self.extra_headers)?;
         Ok(())
@@ -975,7 +984,6 @@ impl PyWebSocketTestSession {
         self.app_to_client_send = None;
         self.app_to_client_receive = None;
         self.task = None;
-        self.failure_signal_token = None;
         self.accepted_subprotocol = None;
         self.extra_headers = None;
     }
@@ -1437,7 +1445,9 @@ impl PyTestClientTransport {
 
         let lifespan = { slf.borrow_mut(py).lifespan.take() };
         match lifespan {
-            Some(mut lifespan) => lifespan.cleanup(py, primary_error),
+            Some(mut lifespan) => {
+                lifespan.cleanup(py, primary_error, LifespanCleanupPhase::Shutdown)
+            }
             None => match primary_error {
                 Some(error) => Err(error),
                 None if slf.borrow(py).context_entered => Ok(()),

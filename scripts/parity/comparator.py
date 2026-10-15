@@ -128,6 +128,7 @@ _HTML_SOURCE_LINE_NUMBER = re.compile(rb'(<span class="lineno">)\d+(\.</span>)')
 _HTML_FRAME_REFERENCE = re.compile(rb'((?:id|data-frame-id)=")[^"]*(")')
 _HTML_CLOSING_DIV_SEQUENCE = re.compile(rb"</div>(?:[ \t\r\n]*</div>)+")
 _PYTHON_OBJECT_ADDRESS = re.compile(r"(?<= object at )0x[0-9a-fA-F]+(?=>)")
+_PYTHON_SIGNATURE_ADDRESS = re.compile(r"(?<= at )0x[0-9a-fA-F]+(?=[)>])")
 
 
 def _normalize_python_object_address(path: str, value: Any) -> str:
@@ -141,6 +142,68 @@ def _normalize_python_object_address(path: str, value: Any) -> str:
             "Mount and Host representations must contain exactly one Python object address"
         )
     return normalized
+
+
+def _normalize_python_public_signature_process_state(path: str, value: Any) -> Any:
+    if path != "inspection" or not isinstance(value, dict):
+        raise ContractError(
+            "public signature process-state normalization requires an inspection record"
+        )
+
+    def normalize_environment_repr(signature: str) -> str:
+        marker = "environ({"
+        replacement = "environ(<process environment>)"
+        search_from = 0
+        while (start := signature.find(marker, search_from)) >= 0:
+            object_start = start + len("environ(")
+            depth = 0
+            quote: str | None = None
+            escaped = False
+            close = None
+            for index in range(object_start, len(signature)):
+                character = signature[index]
+                if quote is not None:
+                    if escaped:
+                        escaped = False
+                    elif character == "\\":
+                        escaped = True
+                    elif character == quote:
+                        quote = None
+                    continue
+                if character in {"'", '"'}:
+                    quote = character
+                elif character == "{":
+                    depth += 1
+                elif character == "}":
+                    depth -= 1
+                    if depth == 0:
+                        close = index
+                        break
+            if close is None or close + 1 >= len(signature) or signature[close + 1] != ")":
+                raise ContractError(
+                    "public signature contains an unterminated process environment representation"
+                )
+            signature = signature[:start] + replacement + signature[close + 2 :]
+            search_from = start + len(replacement)
+        return signature
+
+    def normalize(node: Any) -> Any:
+        if isinstance(node, dict):
+            return {
+                key: normalize_signature(item) if key == "signature" else normalize(item)
+                for key, item in node.items()
+            }
+        if isinstance(node, list):
+            return [normalize(item) for item in node]
+        return node
+
+    def normalize_signature(node: Any) -> Any:
+        if not isinstance(node, str):
+            return node
+        normalized = normalize_environment_repr(node)
+        return _PYTHON_SIGNATURE_ADDRESS.sub("0x<address>", normalized)
+
+    return normalize(value)
 
 
 _ISOLATED_PYTHON_SITE_PACKAGES = re.compile(
@@ -1379,6 +1442,20 @@ def compare_workflows(
                             )
                         left_field = _normalize_python_object_address(path, left_field)
                         right_field = _normalize_python_object_address(path, right_field)
+                    elif kind == "python-public-signature-process-state":
+                        if (case.get("surface"), case.get("operation")) != (
+                            "starlette",
+                            "public-api-inspection",
+                        ):
+                            raise ContractError(
+                                "public signature process-state normalization is only allowed for public API inspection"
+                            )
+                        left_field = _normalize_python_public_signature_process_state(
+                            path, left_field
+                        )
+                        right_field = _normalize_python_public_signature_process_state(
+                            path, right_field
+                        )
                     else:
                         raise ContractError(
                             f"unsupported normalization for {path}: {normalization_step!r}"

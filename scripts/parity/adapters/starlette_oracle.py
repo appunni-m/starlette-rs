@@ -5670,7 +5670,7 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
         _decode_b64(item["body_base64"], "BaseHTTPMiddleware request body")
         for item in request_event_specs
     )
-    if not awaited:
+    if not awaited and dispatch_callable_spec is None:
         if (
             returned != "replacement"
             or len(dispatch_actions) != 1
@@ -17985,7 +17985,13 @@ def _run_timestamp_unsign_case(case: dict[str, Any]) -> dict[str, Any]:
     return {
         "case_id": case["case_id"],
         "status": "completed",
-        "observations": [{"step_id": "result", "status": "ok", "value": _json_safe(payload)}],
+        "observations": [
+            {
+                "step_id": case["observations"][0],
+                "status": "ok",
+                "value": {case["observations"][0]: _json_safe(payload)},
+            }
+        ],
     }
 
 

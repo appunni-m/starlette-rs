@@ -32,6 +32,31 @@ def _plain(value: Any) -> Any:
     return value
 
 
+def _canonical_asgi_event(message: dict[str, Any]) -> dict[str, Any]:
+    kind = message["type"]
+    if kind == "http.response.start":
+        return {
+            "type": kind,
+            "status": message["status"],
+            "headers": [
+                [base64.b64encode(name).decode("ascii"), base64.b64encode(value).decode("ascii")]
+                for name, value in message["headers"]
+            ],
+        }
+    if kind == "http.response.body":
+        event = {
+            "type": kind,
+            "body": {
+                "encoding": "base64",
+                "data": base64.b64encode(message.get("body", b"")).decode("ascii"),
+            },
+        }
+        if "more_body" in message:
+            event["more_body"] = message["more_body"]
+        return event
+    raise ValueError(f"unsupported WSGI ASGI send event: {kind!r}")
+
+
 def run_wsgi_protocol_case(case: dict[str, Any]) -> dict[str, Any]:
     from starlette.exceptions import StarletteDeprecationWarning
 
@@ -52,7 +77,8 @@ def run_wsgi_protocol_case(case: dict[str, Any]) -> dict[str, Any]:
     worker_complete = threading.Event()
     worker_observations: list[Any] = []
     send_observations: list[Any] = []
-    events: list[Any] = []
+    events: list[dict[str, Any]] = []
+    response_chunks: list[bytes] = []
     dispatch_task = None
     first_sender_task = None
     incoming = [
@@ -104,7 +130,9 @@ def run_wsgi_protocol_case(case: dict[str, Any]) -> dict[str, Any]:
         task = asyncio.current_task()
         if first_sender_task is None:
             first_sender_task = task
-        events.append(_plain(message))
+        events.append(_canonical_asgi_event(message))
+        if message["type"] == "http.response.body":
+            response_chunks.append(message.get("body", b""))
         observation = {
             "event_number": len(events),
             "context": context.get(),
@@ -172,19 +200,21 @@ def run_wsgi_protocol_case(case: dict[str, Any]) -> dict[str, Any]:
                 name: reference() is not None for name, reference in lifetime_references.items()
             },
         }
-    outcome.update(
-        {
-            "asgi_events": events,
-            "send_observations": send_observations,
-            "worker_observations": worker_observations,
-            "worker_completed": worker_complete.is_set(),
-            "received_message_count": received,
-        }
-    )
+    response_body = b"".join(response_chunks)
+    protocol_results = {
+        "asgi_events": events,
+        "response_bytes": {
+            "encoding": "base64",
+            "data": base64.b64encode(response_body).decode("ascii"),
+        },
+        "received_message_count": received,
+        "dispatch_error": outcome["error"],
+    }
+    observation = case["observations"][0]
     return {
         "case_id": case["case_id"],
         "status": "completed",
         "observations": [
-            {"step_id": "protocol-results", "status": "ok", "value": {"protocol-results": outcome}}
+            {"step_id": observation, "status": "ok", "value": protocol_results}
         ],
     }

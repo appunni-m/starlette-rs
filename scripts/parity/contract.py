@@ -3306,6 +3306,21 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                             raise ContractError(
                                 f"{octx} permits Python object-address normalization only for exact Mount/Host representations"
                             )
+                    elif normalization_kind == "python-public-signature-process-state":
+                        normalization_spec = _exact(
+                            normalization_spec,
+                            {"kind", "reason"},
+                            f"{octx}.normalization",
+                        )
+                        _string(normalization_spec["reason"], f"{octx}.normalization.reason")
+                        if (
+                            key != PUBLIC_API_INSPECTION_OPERATION
+                            or observation["path"] != "inspection"
+                            or comparison["kind"] != "exact"
+                        ):
+                            raise ContractError(
+                                f"{octx} permits process-state normalization only for exact public API inspection records"
+                            )
                     elif normalization_kind == "isolated-python-environment-path":
                         normalization_spec = _exact(
                             normalization_spec,

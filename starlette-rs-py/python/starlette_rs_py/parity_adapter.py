@@ -4526,6 +4526,14 @@ def _materialize_body_limit_script(spec: dict[str, Any], trace: list[dict[str, A
                         "responder_present": _BODY_LIMIT_RESPONDER_SCOPE_KEY in scope,
                     }
                 )
+            elif kind == "observe-scope-headers":
+                _exact_object(action, {"action"}, f"body-limit action[{index}]")
+                trace.append(
+                    {
+                        "event": "scope-headers",
+                        "container": type(scope["headers"]).__name__,
+                    }
+                )
             elif kind in {"raise-http-exception", "raise-runtime-error"}:
                 operation, exception = _materialize_asgi_action(action, index)
                 if operation != "raise":
@@ -16036,6 +16044,18 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
     ):
         required_covers.add(
             f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.call-next-response-headers-mapping-get"
+        )
+    scope_container = case.get("scope_container")
+    if scope_container == "user-dict":
+        required_covers.add(
+            f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.mutable-scope-mapping"
+        )
+    elif isinstance(scope_container, dict) and scope_container.get("kind") == "user-dict-fault":
+        required_covers.add(
+            f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.mutable-scope-mapping"
+        )
+        required_covers.add(
+            f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.scope-type-lookup-error-propagation"
         )
     if not isinstance(case["covers"], list) or set(case["covers"]) != required_covers:
         raise ValueError("BaseHTTPMiddleware covers differ from its input actions")

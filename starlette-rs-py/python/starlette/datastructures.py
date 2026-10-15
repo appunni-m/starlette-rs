@@ -23,11 +23,20 @@ from starlette.types import Scope
 class Secret(_core.Secret):
     """A redacted string value with the pinned Starlette typing contract."""
 
-    def __init__(self, value: str) -> None:
+    def __init__(self, value: str):
         # PyO3's #[new] hook has already initialized the Rust-backed value.
         # Keep this Python signature for the documented constructor type without
         # calling object.__init__ with the constructor arguments.
         return None
+
+    def __repr__(self) -> str:
+        return super().__repr__()
+
+    def __str__(self) -> str:
+        return super().__str__()
+
+    def __bool__(self) -> bool:
+        return super().__bool__()
 
 
 _KeyType = TypeVar("_KeyType")
@@ -289,6 +298,9 @@ class UploadFile(_core.UploadFile):
         # Keep this Python signature for the documented constructor type without
         # calling object.__init__ with the constructor arguments.
         return None
+
+    def __repr__(self) -> str:
+        return super().__repr__()
 
     async def write(self, data: bytes) -> None:
         await self._write(data)

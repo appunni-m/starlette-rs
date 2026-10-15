@@ -70,7 +70,7 @@ use starlette_rs::{
 };
 use tower_layer as _;
 use tower_service as _;
-use unicode_general_category as _;
+use unicode_general_category::{GeneralCategory, get_general_category};
 
 const REQUEST_SCHEMA: &str = "migration-parity/adapter-request@1";
 const RESPONSE_SCHEMA: &str = "migration-parity/adapter-response@1";
@@ -625,6 +625,12 @@ fn run_timestamp_unsign_case(case: &Value) -> Result<Value, String> {
             "timestamp-unsign case must select the result observation",
         ));
     }
+    let observation = case_object
+        .get("observations")
+        .and_then(Value::as_array)
+        .and_then(|observations| observations.first())
+        .and_then(Value::as_str)
+        .ok_or_else(|| String::from("timestamp-unsign observation must be a string"))?;
 
     let input = exact_object(
         case_object
@@ -659,13 +665,18 @@ fn run_timestamp_unsign_case(case: &Value) -> Result<Value, String> {
         .map_err(|error| error.to_string())?;
     let case_id = string_field(case_object, "case_id", context)?;
 
+    let mut value = Map::new();
+    value.insert(
+        observation.to_owned(),
+        json!({"encoding": "base64", "data": encode_base64(&payload)}),
+    );
     Ok(json!({
         "case_id": case_id,
         "status": "completed",
         "observations": [{
-            "step_id": "result",
+            "step_id": observation,
             "status": "ok",
-            "value": {"encoding": "base64", "data": encode_base64(&payload)},
+            "value": value,
         }],
     }))
 }
@@ -3524,6 +3535,7 @@ struct NativeWebSocketProbe {
     acceptance: Option<Value>,
     messages: Vec<Value>,
     close: Option<Value>,
+    peer_close: Option<Value>,
     path_params: Option<Value>,
     handshake: Option<Value>,
     application_error: Option<Value>,
@@ -3631,6 +3643,7 @@ impl NativeWebSocketDriver for NativeWebSocketDriverProbe {
                     }
                     NativeWebSocketEvent::PeerClosed(close) => {
                         let value = json!({"code": close.code, "reason": close.reason});
+                        probe.peer_close = Some(value.clone());
                         probe.messages.push(json!({
                             "direction": "received",
                             "peer_close": value,
@@ -4049,7 +4062,10 @@ fn run_native_websocket_case(case: &Value) -> Result<Value, String> {
         String::from("session.close"),
         probe.close.clone().unwrap_or(Value::Null),
     );
-    values.insert(String::from("session.peer_close"), Value::Null);
+    values.insert(
+        String::from("session.peer_close"),
+        probe.peer_close.clone().unwrap_or(Value::Null),
+    );
     values.insert(
         String::from("application_error.kind"),
         probe
@@ -4899,6 +4915,7 @@ fn run_mutable_headers_case(case: &Value) -> Result<Value, String> {
         .get("actions")
         .and_then(Value::as_array)
         .ok_or_else(|| String::from("MutableHeaders actions must be an array"))?;
+    let mut action_trace = Vec::with_capacity(actions.len());
     for (index, raw_action) in actions.iter().enumerate() {
         let action = exact_object(
             raw_action,
@@ -4936,6 +4953,13 @@ fn run_mutable_headers_case(case: &Value) -> Result<Value, String> {
                 format!("MutableHeaders actions[{index}] references an unknown receiver")
             })?;
         headers.add_vary_header(&vary);
+        action_trace.push(json!({
+            "action_id": action_id,
+            "receiver": receiver,
+            "call": call,
+            "outcome": "value",
+            "value": Value::Null,
+        }));
     }
 
     let observations = case
@@ -4947,6 +4971,10 @@ fn run_mutable_headers_case(case: &Value) -> Result<Value, String> {
             "MutableHeaders observations must select exactly raw-pairs",
         ));
     }
+    let observation = observations
+        .first()
+        .and_then(Value::as_str)
+        .ok_or_else(|| String::from("MutableHeaders observation must be a string"))?;
     let raw_pairs = instances
         .iter()
         .map(|(instance_id, headers)| {
@@ -4956,16 +4984,159 @@ fn run_mutable_headers_case(case: &Value) -> Result<Value, String> {
             })
         })
         .collect::<Vec<_>>();
+    let instance_snapshots = instances
+        .iter()
+        .map(|(instance_id, headers)| {
+            let view = headers.as_headers();
+            json!({
+                "instance_id": instance_id,
+                "python_type": "starlette.datastructures.MutableHeaders",
+                "raw_base64_pairs": canonical_headers(headers.raw_pairs()),
+                "keys": view.keys(),
+                "values": view.values(),
+                "items": view.items(),
+                "length": view.len(),
+                "repr": mutable_headers_repr(headers.raw_pairs()),
+            })
+        })
+        .collect::<Vec<_>>();
+    let mut observation_value = Map::new();
+    observation_value.insert(String::from("action-trace"), json!(action_trace));
+    observation_value.insert(
+        String::from("instance-snapshots"),
+        json!(instance_snapshots),
+    );
+    observation_value.insert(String::from("scope-snapshots"), json!([]));
+    observation_value.insert(String::from("raw-pairs"), json!(raw_pairs));
 
     Ok(json!({
         "case_id": case_id,
         "status": "completed",
         "observations": [{
-            "step_id": "raw-pairs",
+            "step_id": observation,
             "status": "ok",
-            "value": {"raw-pairs": raw_pairs},
+            "value": observation_value,
         }],
     }))
+}
+
+fn mutable_headers_repr(headers: &[(Vec<u8>, Vec<u8>)]) -> String {
+    let mut mapping = Vec::<(String, String)>::new();
+    for (name, value) in headers {
+        let name = decode_latin1(name);
+        let value = decode_latin1(value);
+        if let Some((_, existing_value)) = mapping.iter_mut().find(|(key, _)| key.as_str() == name)
+        {
+            *existing_value = value;
+        } else {
+            mapping.push((name, value));
+        }
+    }
+
+    if mapping.len() == headers.len() {
+        let entries = mapping
+            .iter()
+            .map(|(name, value)| {
+                format!(
+                    "{}: {}",
+                    mutable_headers_string_repr(name),
+                    mutable_headers_string_repr(value)
+                )
+            })
+            .collect::<Vec<_>>()
+            .join(", ");
+        format!("MutableHeaders({{{entries}}})")
+    } else {
+        let pairs = headers
+            .iter()
+            .map(|(name, value)| {
+                format!(
+                    "({}, {})",
+                    mutable_headers_bytes_repr(name),
+                    mutable_headers_bytes_repr(value)
+                )
+            })
+            .collect::<Vec<_>>()
+            .join(", ");
+        format!("MutableHeaders(raw=[{pairs}])")
+    }
+}
+
+fn mutable_headers_string_repr(value: &str) -> String {
+    let quote = if value.contains('\'') && !value.contains('"') {
+        '"'
+    } else {
+        '\''
+    };
+    let mut output = String::with_capacity(value.len() + 2);
+    output.push(quote);
+    for character in value.chars() {
+        match character {
+            '\\' => output.push_str("\\\\"),
+            '\n' => output.push_str("\\n"),
+            '\r' => output.push_str("\\r"),
+            '\t' => output.push_str("\\t"),
+            current if current == quote => {
+                output.push('\\');
+                output.push(current);
+            }
+            current if !python_character_is_printable(current) => {
+                use std::fmt::Write as _;
+                let codepoint = u32::from(current);
+                if codepoint <= 0xff {
+                    let _ = write!(output, "\\x{codepoint:02x}");
+                } else if codepoint <= 0xffff {
+                    let _ = write!(output, "\\u{codepoint:04x}");
+                } else {
+                    let _ = write!(output, "\\U{codepoint:08x}");
+                }
+            }
+            current => output.push(current),
+        }
+    }
+    output.push(quote);
+    output
+}
+
+fn mutable_headers_bytes_repr(value: &[u8]) -> String {
+    let quote = if value.contains(&b'\'') && !value.contains(&b'"') {
+        '"'
+    } else {
+        '\''
+    };
+    let mut output = String::with_capacity(value.len() + 3);
+    output.push('b');
+    output.push(quote);
+    for byte in value {
+        match *byte {
+            b'\\' => output.push_str("\\\\"),
+            b'\n' => output.push_str("\\n"),
+            b'\r' => output.push_str("\\r"),
+            b'\t' => output.push_str("\\t"),
+            current if current == quote as u8 => {
+                output.push('\\');
+                output.push(char::from(current));
+            }
+            0x20..=0x7e => output.push(char::from(*byte)),
+            current => output.push_str(&format!("\\x{current:02x}")),
+        }
+    }
+    output.push(quote);
+    output
+}
+
+fn python_character_is_printable(character: char) -> bool {
+    match get_general_category(character) {
+        GeneralCategory::Control
+        | GeneralCategory::Format
+        | GeneralCategory::Surrogate
+        | GeneralCategory::PrivateUse
+        | GeneralCategory::Unassigned
+        | GeneralCategory::LineSeparator
+        | GeneralCategory::ParagraphSeparator => false,
+        GeneralCategory::SpaceSeparator => character == ' ',
+        _ => true,
+    }
 }
 
 fn decode_mutable_headers_pairs(value: &Value, context: &str) -> Result<HeaderPairs, String> {

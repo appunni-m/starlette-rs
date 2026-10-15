@@ -805,6 +805,10 @@
                   ],
                   "comparison": {
                     "kind": "exact"
+                  },
+                  "normalization": {
+                    "kind": "python-public-signature-process-state",
+                    "reason": "Public signatures render process-local Python object addresses and isolated os.environ snapshots; normalize only those volatile representations."
                   }
                 }
               ],
