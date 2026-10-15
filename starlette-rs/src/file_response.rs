@@ -87,7 +87,7 @@ impl FileStat {
         {
             use std::os::unix::fs::MetadataExt;
 
-            let mut stat = Self {
+            let stat = Self {
                 mode: metadata.mode(),
                 inode: metadata.ino(),
                 device: metadata.dev(),
@@ -116,16 +116,19 @@ impl FileStat {
             };
 
             #[cfg(target_os = "macos")]
-            {
+            let stat = {
                 use std::os::macos::fs::MetadataExt as MacMetadataExt;
 
-                stat.flags = Some(MacMetadataExt::st_flags(metadata));
-                stat.generation = Some(MacMetadataExt::st_gen(metadata));
-                stat.birth_time = Some(FileStatTimestamp {
-                    seconds: MacMetadataExt::st_birthtime(metadata),
-                    nanoseconds: MacMetadataExt::st_birthtime_nsec(metadata),
-                });
-            }
+                Self {
+                    flags: Some(MacMetadataExt::st_flags(metadata)),
+                    generation: Some(MacMetadataExt::st_gen(metadata)),
+                    birth_time: Some(FileStatTimestamp {
+                        seconds: MacMetadataExt::st_birthtime(metadata),
+                        nanoseconds: MacMetadataExt::st_birthtime_nsec(metadata),
+                    }),
+                    ..stat
+                }
+            };
 
             Some(stat)
         }

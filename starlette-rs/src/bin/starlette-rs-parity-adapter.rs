@@ -1720,10 +1720,10 @@ impl InputRegexNode {
         match self {
             Self::Bytes(accepted) => {
                 let mut positions = BTreeSet::new();
-                if let Some(byte) = input.get(start)
-                    && accepted[usize::from(*byte)]
-                {
-                    positions.insert(start + 1);
+                if let Some(byte) = input.get(start) {
+                    if accepted[usize::from(*byte)] {
+                        positions.insert(start + 1);
+                    }
                 }
                 positions
             }
@@ -2358,10 +2358,10 @@ impl Stream for NativeSourceProbe {
 
 impl Drop for NativeSourceProbe {
     fn drop(&mut self) {
-        if !self.finalized.swap(true, Ordering::AcqRel)
-            && let Ok(mut trace) = self.poll_trace.lock()
-        {
-            trace.push(format!("source-finalize:{}", self.finally_marker));
+        if !self.finalized.swap(true, Ordering::AcqRel) {
+            if let Ok(mut trace) = self.poll_trace.lock() {
+                trace.push(format!("source-finalize:{}", self.finally_marker));
+            }
         }
     }
 }
@@ -2978,21 +2978,21 @@ where
         self.layer
             .record_event(call_id.as_deref(), "request", None, None);
 
-        if let Some((short_circuit_uri, response)) = &self.layer.short_circuit
-            && *short_circuit_uri == request_uri
-        {
-            let layer = self.layer.clone();
-            let response = response.clone();
-            return Box::pin(async move {
-                let response = response.into_response();
-                layer.record_event(
-                    call_id.as_deref(),
-                    "response",
-                    Some(response.status().as_u16()),
-                    None,
-                );
-                Ok(response)
-            });
+        if let Some((short_circuit_uri, response)) = &self.layer.short_circuit {
+            if *short_circuit_uri == request_uri {
+                let layer = self.layer.clone();
+                let response = response.clone();
+                return Box::pin(async move {
+                    let response = response.into_response();
+                    layer.record_event(
+                        call_id.as_deref(),
+                        "response",
+                        Some(response.status().as_u16()),
+                        None,
+                    );
+                    Ok(response)
+                });
+            }
         }
 
         let future = self.inner.call(request);
@@ -3380,10 +3380,10 @@ fn run_native_service_middleware_case(case: &Value) -> Result<Value, String> {
                     while let Some(frame) = response.body_mut().frame().await {
                         match frame {
                             Ok(frame) => {
-                                if let Ok(data) = frame.into_data()
-                                    && !data.is_empty()
-                                {
-                                    chunks.push(encode_base64(&data));
+                                if let Ok(data) = frame.into_data() {
+                                    if !data.is_empty() {
+                                        chunks.push(encode_base64(&data));
+                                    }
                                 }
                             }
                             Err(error) => {

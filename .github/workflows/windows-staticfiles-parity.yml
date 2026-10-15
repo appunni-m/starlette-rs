@@ -11,6 +11,9 @@ jobs:
     name: Windows StaticFiles invalid-name parity
     runs-on: windows-latest
     timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: target
     env:
       PYO3_PYTHON: python
       RUSTC_WRAPPER: ""
@@ -19,6 +22,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          path: target
           persist-credentials: false
       - name: Checkout the pinned Starlette oracle
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -51,6 +55,6 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: starlette-staticfiles-windows-parity-${{ github.run_id }}
-          path: build/parity/windows-staticfiles-result.json
+          path: target/build/parity/windows-staticfiles-result.json
           if-no-files-found: warn
           retention-days: 30

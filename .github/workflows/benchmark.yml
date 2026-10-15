@@ -25,9 +25,13 @@ jobs:
     name: 74-workload Router/GZip benchmark
     runs-on: ubuntu-24.04
     timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: target
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          path: target
           persist-credentials: false
 
       - name: Check out the pinned Starlette oracle
@@ -56,7 +60,7 @@ jobs:
         with:
           name: starlette-upstream-benchmark-${{ github.run_id }}
           path: |
-            build/parity/upstream-benchmark-result.json
-            build/parity/upstream-benchmark-correctness-result.json
+            target/build/parity/upstream-benchmark-result.json
+            target/build/parity/upstream-benchmark-correctness-result.json
           if-no-files-found: warn
           retention-days: 30

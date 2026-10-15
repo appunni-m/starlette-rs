@@ -392,16 +392,17 @@ impl NativeWebSocketSession {
         acceptance: NativeWebSocketAcceptance,
     ) -> Result<(), NativeWebSocketError> {
         self.ensure_state("accept", NativeWebSocketState::AwaitingAcceptance)?;
-        if let Some(protocol) = acceptance.subprotocol()
-            && !self
+        if let Some(protocol) = acceptance.subprotocol() {
+            if !self
                 .handshake
                 .offered_subprotocols()
                 .iter()
                 .any(|offered| offered == protocol)
-        {
-            return Err(NativeWebSocketError::UnofferedSubprotocol(
-                protocol.to_owned(),
-            ));
+            {
+                return Err(NativeWebSocketError::UnofferedSubprotocol(
+                    protocol.to_owned(),
+                ));
+            }
         }
 
         self.state = NativeWebSocketState::Accepting;
