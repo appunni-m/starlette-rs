@@ -8,7 +8,7 @@ import platform
 import shutil
 import subprocess
 import uuid
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -47,7 +47,7 @@ MAX_DIAGNOSTIC = 2000
 
 
 def _now() -> str:
-    return datetime.now(UTC).isoformat(timespec="milliseconds").replace("+00:00", "Z")
+    return datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
 
 
 def _command_map(manifest: dict[str, Any]) -> dict[str, dict[str, Any]]:
