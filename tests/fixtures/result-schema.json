@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://starlette-rs.dev/schemas/migration-parity-result-v8.json",
+  "$id": "https://starlette-rs.dev/schemas/migration-parity-result-v9.json",
   "title": "Starlette selected parity and fault-contract result with execution provenance",
   "type": "object",
   "additionalProperties": false,
@@ -15,7 +15,7 @@
   ],
   "properties": {
     "schema": {
-      "const": "migration-parity/parity-result@8"
+      "const": "migration-parity/parity-result@9"
     },
     "identity": {
       "$ref": "#/$defs/identity"
@@ -970,6 +970,74 @@
         }
       }
     },
+    "markupsafeBuildArtifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "version",
+        "source_lock_path",
+        "source_lock_sha256",
+        "source_sha256",
+        "sdist_path",
+        "build_lock_path",
+        "build_lock_sha256",
+        "pip_version",
+        "builder_version",
+        "wheel_path",
+        "wheel_sha256",
+        "install_requirement_path"
+      ],
+      "properties": {
+        "name": {
+          "const": "markupsafe"
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_lock_path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_lock_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "source_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "sdist_path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "build_lock_path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "build_lock_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "pip_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "builder_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "wheel_path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "wheel_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "install_requirement_path": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
     "pythonEnvironment": {
       "oneOf": [
         {
@@ -985,6 +1053,7 @@
             "dependency_lock_sha256",
             "installed_lock_sha256",
             "artifact_sha256",
+            "build_artifacts",
             "environment_sha256"
           ],
           "properties": {
@@ -1028,8 +1097,42 @@
             },
             "environment_sha256": {
               "$ref": "#/$defs/sha256"
+            },
+            "build_artifacts": {
+              "type": "array",
+              "maxItems": 1,
+              "items": {
+                "$ref": "#/$defs/markupsafeBuildArtifact"
+              }
             }
-          }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "id": {
+                    "pattern": "^starlette-oracle-cpython314$"
+                  }
+                },
+                "required": ["id"]
+              },
+              "then": {
+                "properties": {
+                  "build_artifacts": {
+                    "minItems": 1,
+                    "maxItems": 1
+                  }
+                }
+              },
+              "else": {
+                "properties": {
+                  "build_artifacts": {
+                    "maxItems": 0
+                  }
+                }
+              }
+            }
+          ]
         },
         {
           "type": "object",
@@ -1044,6 +1147,7 @@
             "dependency_lock_sha256",
             "installed_lock_sha256",
             "artifact_sha256",
+            "build_artifacts",
             "environment_sha256"
           ],
           "properties": {
@@ -1087,8 +1191,42 @@
             },
             "environment_sha256": {
               "$ref": "#/$defs/sha256"
+            },
+            "build_artifacts": {
+              "type": "array",
+              "maxItems": 1,
+              "items": {
+                "$ref": "#/$defs/markupsafeBuildArtifact"
+              }
             }
-          }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "id": {
+                    "pattern": "^starlette-rs-py-cpython314$"
+                  }
+                },
+                "required": ["id"]
+              },
+              "then": {
+                "properties": {
+                  "build_artifacts": {
+                    "minItems": 1,
+                    "maxItems": 1
+                  }
+                }
+              },
+              "else": {
+                "properties": {
+                  "build_artifacts": {
+                    "maxItems": 0
+                  }
+                }
+              }
+            }
+          ]
         }
       ]
     },

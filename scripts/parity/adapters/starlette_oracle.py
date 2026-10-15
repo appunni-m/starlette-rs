@@ -8009,28 +8009,33 @@ def _run_body_limit_case(case: dict[str, Any]) -> dict[str, Any]:
 
 
 def _make_websocket_scope(spec: dict[str, Any]) -> dict[str, Any]:
-    scope = {
-        "type": spec["type"],
-        "asgi": dict(spec["asgi"]),
-        "http_version": spec["http_version"],
-        "scheme": spec["scheme"],
-        "path": spec["path"],
-        "raw_path": _decode_b64(spec["raw_path_base64"], "WebSocket scope.raw_path_base64"),
-        "query_string": _decode_b64(
-            spec["query_string_base64"], "WebSocket scope.query_string_base64"
-        ),
-        "root_path": spec["root_path"],
-        "headers": [
-            (
-                _decode_b64(name, "WebSocket scope header name"),
-                _decode_b64(value, "WebSocket scope header value"),
-            )
-            for name, value in spec["headers_base64_pairs"]
-        ],
-        "client": tuple(spec["client"]),
-        "server": tuple(spec["server"]),
-        "subprotocols": list(spec["subprotocols"]),
-    }
+    scope: dict[str, Any] = {}
+    if "type" in spec:
+        scope_type, _ = _materialize_scope_type_spec(spec["type"])
+        scope["type"] = scope_type
+    scope.update(
+        {
+            "asgi": dict(spec["asgi"]),
+            "http_version": spec["http_version"],
+            "scheme": spec["scheme"],
+            "path": spec["path"],
+            "raw_path": _decode_b64(spec["raw_path_base64"], "WebSocket scope.raw_path_base64"),
+            "query_string": _decode_b64(
+                spec["query_string_base64"], "WebSocket scope.query_string_base64"
+            ),
+            "root_path": spec["root_path"],
+            "headers": [
+                (
+                    _decode_b64(name, "WebSocket scope header name"),
+                    _decode_b64(value, "WebSocket scope header value"),
+                )
+                for name, value in spec["headers_base64_pairs"]
+            ],
+            "client": tuple(spec["client"]),
+            "server": tuple(spec["server"]),
+            "subprotocols": list(spec["subprotocols"]),
+        }
+    )
     if "extensions" in spec:
         scope["extensions"] = dict(spec["extensions"])
     return scope
@@ -9406,22 +9411,25 @@ def _canonical_websocket_route_event(message: dict[str, Any]) -> dict[str, Any]:
 
 
 def _run_websocket_route_case(case: dict[str, Any]) -> dict[str, Any]:
+    case_fields = {
+        "case_id",
+        "surface",
+        "operation",
+        "covers",
+        "target_profiles",
+        "assets",
+        "dispatch",
+        "route",
+        "scope",
+        "incoming",
+        "endpoint_actions",
+        "observations",
+    }
+    if "scope_container" in case:
+        case_fields.add("scope_container")
     _strict_object(
         case,
-        {
-            "case_id",
-            "surface",
-            "operation",
-            "covers",
-            "target_profiles",
-            "assets",
-            "dispatch",
-            "route",
-            "scope",
-            "incoming",
-            "endpoint_actions",
-            "observations",
-        },
+        case_fields,
         "WebSocketRoute route-dispatch case",
     )
     if case["surface"] != WEBSOCKET_ROUTE_SURFACE or case["operation"] != WEBSOCKET_ROUTE_OPERATION:
@@ -9500,11 +9508,19 @@ def _run_websocket_route_case(case: dict[str, Any]) -> dict[str, Any]:
     route = WebSocketRoute(case["route"]["path"], endpoint=endpoint, middleware=middleware)
     app = Starlette(routes=[route])
     scope_spec = case["scope"]
+    scope_type_value = (
+        _materialize_scope_type_spec(scope_spec["type"])[1]
+        if "type" in scope_spec
+        else "websocket"
+        if "subprotocols" in scope_spec
+        else ""
+    )
     scope = (
         _make_websocket_scope(scope_spec)
-        if scope_spec["type"] == "websocket"
+        if scope_type_value == "websocket"
         else _make_scope(scope_spec)
     )
+    scope = _scope_container(scope, case.get("scope_container", "dict"))
     incoming = [_materialize_websocket_message(message) for message in case["incoming"]]
     incoming_index = 0
     sent_messages: list[dict[str, Any]] = []
@@ -9520,15 +9536,19 @@ def _run_websocket_route_case(case: dict[str, Any]) -> dict[str, Any]:
     async def send(message: dict[str, Any]) -> None:
         sent_messages.append(message)
 
-    async def dispatch() -> None:
-        if case["dispatch"] == "application":
-            await app(scope, receive, send)
-        elif case["dispatch"] == "standalone-route":
-            await route(scope, receive, send)
-        else:
-            raise ValueError(f"unsupported WebSocketRoute dispatch kind: {case['dispatch']!r}")
+    async def dispatch() -> BaseException | None:
+        try:
+            if case["dispatch"] == "application":
+                await app(scope, receive, send)
+            elif case["dispatch"] == "standalone-route":
+                await route(scope, receive, send)
+            else:
+                raise ValueError(f"unsupported WebSocketRoute dispatch kind: {case['dispatch']!r}")
+        except Exception as exc:
+            return exc
+        return None
 
-    asyncio.run(dispatch())
+    captured_error = asyncio.run(dispatch())
     events = [_canonical_websocket_route_event(message) for message in sent_messages]
     response_start = next(
         (message for message in sent_messages if message["type"] == "http.response.start"),
@@ -9539,14 +9559,19 @@ def _run_websocket_route_case(case: dict[str, Any]) -> dict[str, Any]:
         for message in sent_messages
         if message["type"] == "http.response.body"
     )
+    route_scope_observation = {
+        "app_is_application": scope.get("app") is app,
+        "router_is_application_router": scope.get("router") is app.router,
+        "endpoint_is_route_endpoint": scope.get("endpoint") is endpoint,
+        "path_params_present": "path_params" in scope,
+        "path_params": _json_safe(scope.get("path_params")),
+    }
+    if "scope_container" in case:
+        route_scope_observation["mapping_operations"] = list(
+            getattr(scope, "parity_operations", [])
+        )
     available = {
-        "route_scope": {
-            "app_is_application": scope.get("app") is app,
-            "router_is_application_router": scope.get("router") is app.router,
-            "endpoint_is_route_endpoint": scope.get("endpoint") is endpoint,
-            "path_params_present": "path_params" in scope,
-            "path_params": _json_safe(scope.get("path_params")),
-        },
+        "route_scope": route_scope_observation,
         "asgi_events": events,
         "response_status": response_start["status"] if response_start is not None else None,
         "response_bytes": (
@@ -9559,12 +9584,16 @@ def _run_websocket_route_case(case: dict[str, Any]) -> dict[str, Any]:
         raise ValueError(
             "WebSocketRoute observations must select the route-dispatch workflow result"
         )
+    observation = _workflow_observation(
+        WEBSOCKET_ROUTE_OPERATION,
+        _CapturedDispatchError(_dispatch_error(captured_error), available)
+        if captured_error is not None
+        else available,
+    )
     return {
         "case_id": case["case_id"],
         "status": "completed",
-        "observations": [
-            {"step_id": WEBSOCKET_ROUTE_OPERATION, "status": "ok", "value": available}
-        ],
+        "observations": [observation],
     }
 
 

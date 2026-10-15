@@ -9,7 +9,11 @@
         "starlette.responses.Response.asgi-call.background-async-task"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "content": {
@@ -73,7 +77,11 @@
         "starlette.responses.Response.asgi-call.background-sync-task"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "content": {
@@ -136,7 +144,11 @@
         "starlette.responses.Response.asgi-call.background-task-order"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "content": {
@@ -215,7 +227,11 @@
         "starlette.responses.Response.asgi-call.background-task-sequence-constructor"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "content": {
@@ -364,7 +380,11 @@
         "starlette.responses.Response.asgi-call.background-callable-shapes"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "content": {
@@ -433,7 +453,11 @@
         "starlette.responses.Response.asgi-call.background-callable-shapes"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "content": {
@@ -502,7 +526,11 @@
         "starlette.responses.Response.asgi-call.background-callable-shapes"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "content": {
@@ -571,7 +599,11 @@
         "starlette.responses.Response.asgi-call.background-callable-shapes"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "content": {
@@ -640,7 +672,11 @@
         "starlette.responses.Response.asgi-call.background-callable-shapes"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "content": {
@@ -719,7 +755,11 @@
         "starlette.responses.Response.asgi-call.background-callable-shapes"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "content": {
@@ -806,7 +846,11 @@
         "starlette.responses.Response.asgi-call.background-callable-shapes"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "content": {

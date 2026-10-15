@@ -7,49 +7,34 @@ Pydantic are outside this project's scope.
 
 ## Execution order and current status
 
-Current evidence checkpoint (2026-10-15, commit `68a4942a`):
+Current implementation checkpoint (2026-10-15; working tree based on
+`bf500141`):
 
-The active manifest declares the full Starlette 1.6.0 scope with 2,531 cases
-across 415 parity inputs, two benchmark inputs, 151 compatibility operations,
-14 Rust-native operations, 1,396 parity requirements, and six target profiles.
-The source atlas contains 866 rows: 810 mapped, 56 reasoned
+The active manifest declares full Starlette 1.6.0 scope with 2,534 cases across
+415 parity inputs, two benchmark inputs, 151 compatibility operations, 14
+Rust-native operations, 1,398 parity requirements, and six target profiles.
+The generated source atlas has 866 rows: 810 mapped, 56 source-backed
 `not_applicable`, and zero fixture backlog. The 999-row API catalog has 564
 supported candidates, 435 private/internal candidates, and zero uncertain
-candidates. The fixed upstream denominators remain 514 test functions and 24
+candidates. The pinned denominators remain 514 upstream test functions and 24
 documented pages.
 
-The fresh full matrix run `5a355e0f-ff4c-4605-9221-02feff1bc616` completed
-with 2,880 passed, zero failed, zero infrastructure errors, and two `not_run`
-rows. Both `not_run` rows refer to the POSIX surrogateescape filename case,
-one for each target profile; the macOS temporary filesystem cannot create that
-filename. All five fault contracts passed. `make test` returns nonzero while
-preserving those skipped rows, so this is not a full-parity claim. The only
-remaining unverified contract observations are those two platform-limited
-rows.
+The last recorded full matrix, coverage, and benchmark receipts below belong to
+earlier manifest revisions; they do not verify the active working tree. The
+most recent CI run on base commit `bf500141` failed before comparisons because
+result schema @8 rejected the emitted `build_artifacts` identity field. This
+working tree upgrades the strict result contract to @9, constrains the
+CPython-specific MarkupSafe provenance, adds WebSocketRoute equality and
+missing-scope-key inputs, and expands ordinary BackgroundTask and concurrency
+inputs across CPython 3.10–3.14 while keeping async-generator protocol inputs
+at 3.12. Those parity inputs remain unexecuted.
 
-Full Rust coverage was measured from the instrumented parity workload. The
-receipt-bound LCOV report records 23,012 of 33,324 lines covered (69.1%) and
-10,312 uncovered. Coverage MCP matched the report to its source/build receipt;
-test status is `unknown` because the two cases were not run, and branch detail
-is unavailable from this LCOV export.
-
-The complete pinned source/package benchmark run
-`2e8f1ca8-239c-44eb-b72a-0ef02777bd35` measured all 74 workloads: six Router
-and 68 GZip. It reported zero failures and zero source/package `not_run`
-workloads. All 74 Rust-native equivalents remain `not_run` because the native
-API does not provide the same complete ASGI benchmark boundary. The benchmark
-preflight was the full matrix run above. `make docs-check` passes for the
-refreshed benchmark evidence.
-
-The recent grouped implementation fixes cover WSGI sender-observation
-conditions, TestClient cleanup error context, converter observation
-projections, BaseHTTP scope output, streaming cancellation output, and
-StaticFiles lookup-error preservation. Contract validation, Python formatting
-and lint, project policy, Rust formatting, workspace check, Clippy, and diff
-checks pass. Historical batch notes below describe their state when recorded;
-the current matrix, coverage, and benchmark results supersede their deferred
-phase status. No drop-in compatibility claim is made while the two `not_run`
-observations remain.
+`make source-inventory-check`, `RUSTC_WRAPPER= make lint`, and
+`RUSTC_WRAPPER= make check` pass on this working tree. No current full parity,
+coverage, or complete benchmark run has been accepted. Continue implementing
+all feature families before the grouped parity phase; do not infer replacement
+parity from the historical receipts below. Historical batch notes describe
+their state when recorded.
 
 The latest implementation batch now compares FileResponse's stateful PathLike
 calls inside its input-conditioned result record, and WSGIMiddleware's sender,
@@ -523,11 +508,11 @@ representation, and dynamic `FormData.close()` dispatch remain Rust-backed.
 
 | Phase | State | Evidence |
 | --- | --- | --- |
-| Implementation | No executable mismatch remains; two platform-limited observations remain unverified. | Current manifest: 2,531 cases, 415 parity inputs, 151 compatibility operations, 14 Rust-native operations, and 1,396 requirements. Atlas: 810/866 mapped, 56 reasoned `not_applicable`, zero backlog. |
-| Full parity and grouped repairs | Full matrix completed with two platform skips; no full-parity claim. | Run `5a355e0f-ff4c-4605-9221-02feff1bc616`: 2,880 passed, 0 failed, 0 infrastructure errors, 2 `not_run`; all five fault contracts passed. Both skips are the POSIX surrogateescape filename on the macOS temporary filesystem. |
-| Full coverage and source reconciliation | Measured with two input cases not run. | Receipt-bound LCOV: 23,012/33,324 Rust lines covered (69.1%), 10,312 uncovered. Coverage MCP matched source/build identity; test status is `unknown` because two cases were skipped, and branch detail is unavailable. |
-| All benchmarks | Complete for the declared source/package boundary. | Run `2e8f1ca8-239c-44eb-b72a-0ef02777bd35` measured 74/74 workloads: 6 Router and 68 GZip; 0 failures and 0 source/package `not_run`. The 74 Rust-native boundaries remain `not_run` because they do not expose the matching full ASGI call boundary. |
-| Packaging and interpreter qualification | Complete for the local macOS arm64 build. | Five CPython 3.10–3.14 wheels, an sdist, and the Rust crate were inspected; isolated wheel installs passed public ASGI smoke and `pip check`. Other platform builds remain unqualified. |
+| Implementation | In progress; finish and review all feature-family work before the grouped comparison phase. | Active manifest: 2,534 cases across 415 parity inputs, 151 compatibility operations, 14 Rust-native operations, and 1,398 requirements. Atlas: 810/866 mapped, 56 reasoned `not_applicable`, zero backlog. Static source-inventory, lint, and workspace-check gates pass. |
+| Full parity and grouped repairs | Deferred until implementation closes. | Historical run `5a355e0f-ff4c-4605-9221-02feff1bc616` belongs to an earlier contract: 2,880 passed, 0 failed, 0 infrastructure errors, 2 `not_run`; it does not verify the active manifest. |
+| Full coverage and source reconciliation | Deferred until the active full parity phase completes. | Historical receipt-bound LCOV recorded 23,012/33,324 Rust lines covered (69.1%); its source/build identity and test status apply only to that prior workload. |
+| All benchmarks | Deferred until implementation, parity, and coverage phases complete. | Historical run `2e8f1ca8-239c-44eb-b72a-0ef02777bd35` measured 74 source/package workloads; it does not verify performance for the active implementation. |
+| Packaging and interpreter qualification | Historical local macOS arm64 qualification; current changes are not qualified by it. | Five CPython 3.10–3.14 wheels, an sdist, and the Rust crate were inspected in the earlier qualification. Other platform builds remain unqualified. |
 
 Prior parity, coverage, and benchmark receipts remain under ignored
 `build/parity/`. The fixed compatibility denominators are 514 upstream test
@@ -536,7 +521,11 @@ from the generated [`coverage matrix`](atlas/coverage-matrix.csv) and
 [`fixture backlog`](atlas/fixture-backlog.csv). Coverage is a measurement, not
 a parity score. The full-replacement goal remains active.
 
-`make docs-check` passes for the current manifest and refreshed benchmark receipt, including the 38-file Markdown link check.
+The 38-file Markdown link check passes. `make docs-check` currently stops at
+benchmark evidence because the historical upstream benchmark receipt's
+manifest digest predates the active fixture changes; refresh that evidence in
+the ordered benchmark phase rather than running benchmarks during
+implementation.
 
 Boundary details: [response protocols](RESPONSE_RENDER_BOUNDARY.md),
 [server-error traceback data](SERVER_ERROR_BOUNDARY.md),
@@ -589,15 +578,14 @@ also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
 The active parity contract is `parity-input@58` with full scope
-(`starlette-1.6.0-full`): 2,531 input cases across 415 parity files, two
+(`starlette-1.6.0-full`): 2,534 input cases across 415 parity files, two
 benchmark files, 151 Starlette compatibility operations, 14 Rust-native
-operations, 1,396 parity requirements, and six target profiles. No complete
-parity result has been accepted for this manifest; full-suite coverage and
-benchmarks remain pending. The Config typing
+operations, 1,398 parity requirements, and six target profiles. No complete
+parity result has been accepted for this active manifest; full-suite coverage
+and benchmarks are deferred until implementation closes. The Config typing
 consumer covers all nine pinned `Config.__call__` overload assertions and is
-deferred to full parity. The latest clean full parity,
-coverage, and benchmark receipts belong to the preceding 1,992-case, 140-file
-contract. The generated source-row,
+deferred to full parity. Existing parity, coverage, and benchmark receipts
+refer to earlier contract revisions. The generated source-row,
 mapping, `not_applicable`, and backlog totals live in
 [`coverage-matrix.csv`](atlas/coverage-matrix.csv) and
 [`fixture-backlog.csv`](atlas/fixture-backlog.csv); regenerate them after
@@ -1322,11 +1310,14 @@ state enums. It excludes message payloads, callback tapes, Python exception
 classes, and exception context. The native comparison establishes only this
 projected state-machine behavior.
 
-The three `WebSocketRoute.route-dispatch` cases select the Python-package
-profile: `matched-root-path` matches `/rooms/{room:str}` beneath `/edge`;
+The `WebSocketRoute.route-dispatch` cases select the Python-package profile:
+`matched-root-path` matches `/rooms/{room:str}` beneath `/edge`;
 `router-miss-close` dispatches an unmatched WebSocket scope and observes its
 close event; `http-scope-404` calls a standalone route with an HTTP scope and
-observes the 404 response. Native `WebSocketRoute` dispatch is not declared.
+observes the 404 response. Two newly authored inputs exercise Python equality
+for a `str` subclass and propagation of a missing `scope["type"]` KeyError from
+a mapping-backed scope. Those two comparisons remain deferred until the
+grouped parity phase. Native `WebSocketRoute` dispatch is not declared.
 
 All 21 selected WebSocket comparisons passed in run
 `480437e5-e1f4-4e25-91a5-1453ba82ea69`, finished at

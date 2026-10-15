@@ -53,7 +53,7 @@ INPUT_SCHEMA_V57 = "migration-parity/parity-input@57"
 PREVIOUS_INPUT_SCHEMA = INPUT_SCHEMA_V50
 INPUT_SCHEMA = "migration-parity/parity-input@58"
 BENCHMARK_INPUT_SCHEMA = "migration-parity/benchmark-input@1"
-RESULT_SCHEMA = "migration-parity/parity-result@8"
+RESULT_SCHEMA = "migration-parity/parity-result@9"
 BENCHMARK_RESULT_SCHEMA = "migration-parity/benchmark-result@1"
 UPSTREAM_BENCHMARK_INPUT_SCHEMA = "migration-parity/upstream-benchmark-input@1"
 UPSTREAM_BENCHMARK_RESULT_SCHEMA = "migration-parity/upstream-benchmark-result@1"
@@ -1443,6 +1443,12 @@ ROUTER_OPPOSITE_SCOPE_MATCH_ERROR_REQUIREMENT = (
 )
 WEBSOCKET_ROUTE_LONE_SURROGATE_REQUIREMENT = (
     "starlette.routing.WebSocketRoute.route-dispatch.lone-surrogate-path"
+)
+WEBSOCKET_ROUTE_SCOPE_TYPE_EQUALITY_REQUIREMENT = (
+    "starlette.routing.WebSocketRoute.route-dispatch.scope-type-python-equality"
+)
+WEBSOCKET_ROUTE_SCOPE_TYPE_LOOKUP_REQUIREMENT = (
+    "starlette.routing.WebSocketRoute.route-dispatch.scope-type-lookup-error-propagation"
 )
 ROUTER_MIXED_MATCH_ORDER_REQUIREMENT = (
     "starlette.routing.Router.route-dispatch.native-partial-converter-error-before-custom-match"
@@ -3661,6 +3667,19 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         # Other consumer-construction requirements retain
                         # their narrower per-requirement applicability.
                         expected_parity_profiles = python_profile_ids
+                    elif operation_key in {
+                        RUN_UNTIL_FIRST_COMPLETE_OPERATION_KEY,
+                        ITERATE_THREADPOOL_OPERATION_KEY,
+                    }:
+                        # Ordinary callable and iterator inputs now cover every
+                        # supported CPython profile; version-specific protocol
+                        # cases remain scoped by their own requirements.
+                        expected_parity_profiles = {
+                            profile_id
+                            for requirement in requirements
+                            if "parity" in requirement["lanes"]
+                            for profile_id in requirement["target_profiles"]
+                        }
                     else:
                         package_only_operation = (
                             operation_key
@@ -6004,11 +6023,39 @@ def _validate_websocket_close_case_stimulus(case: dict[str, Any]) -> None:
         )
 
 
-def _validate_websocket_route_scope(scope: Any) -> None:
+def _websocket_route_scope_type_value(value: Any, context: str) -> tuple[str, bool]:
+    if isinstance(value, str):
+        return _string(value, context), False
+    descriptor = _exact(value, {"str_subclass"}, f"{context} descriptor")
+    subclass = _exact(
+        descriptor["str_subclass"],
+        {"value", "equal_result"},
+        f"{context}.str_subclass",
+    )
+    scope_type = _string(subclass["value"], f"{context}.str_subclass.value")
+    if scope_type != "websocket" or type(subclass["equal_result"]) is not bool:
+        raise ContractError(
+            f"{context} str subclass must define boolean equal_result for websocket"
+        )
+    if subclass["equal_result"] is not False:
+        raise ContractError(f"{context} equality probe must return false for websocket")
+    return scope_type, True
+
+
+def _validate_websocket_route_scope(scope: Any, *, allow_missing_type: bool = False) -> None:
     if not isinstance(scope, dict):
         raise ContractError("WebSocketRoute scope must be an object")
-    if scope.get("type") == "websocket":
-        _validate_websocket_scope(scope)
+    if "type" not in scope:
+        if not allow_missing_type:
+            raise ContractError("WebSocketRoute scope.type is required")
+        _validate_websocket_scope({**scope, "type": "websocket"})
+        return
+    scope_type, _scope_type_probe = _websocket_route_scope_type_value(
+        scope.get("type"), "WebSocketRoute scope.type"
+    )
+    normalized_scope = {**scope, "type": scope_type}
+    if scope_type == "websocket":
+        _validate_websocket_scope(normalized_scope)
         return
     scope = _exact(
         scope,
@@ -6028,7 +6075,7 @@ def _validate_websocket_route_scope(scope: Any) -> None:
         },
         "WebSocketRoute HTTP scope",
     )
-    if scope["type"] != "http":
+    if scope_type != "http":
         raise ContractError("WebSocketRoute scope.type must be websocket or http")
     asgi = _exact(scope["asgi"], {"version", "spec_version"}, "WebSocketRoute HTTP scope.asgi")
     if asgi != {"version": "3.0", "spec_version": "2.4"}:
@@ -6115,7 +6162,25 @@ def _validate_websocket_route_case_stimulus(case: dict[str, Any]) -> None:
             _string(spec["reason"], f"{context}.reason")
         else:
             raise ContractError(f"{context}.kind is unsupported")
-    _validate_websocket_route_scope(case["scope"])
+    raw_scope = case["scope"]
+    scope_type_missing = isinstance(raw_scope, dict) and "type" not in raw_scope
+    scope_type, scope_type_probe = (
+        ("websocket", False)
+        if scope_type_missing
+        else _websocket_route_scope_type_value(
+            raw_scope.get("type") if isinstance(raw_scope, dict) else None,
+            "WebSocketRoute scope.type",
+        )
+    )
+    scope = {**raw_scope, "type": scope_type} if isinstance(raw_scope, dict) else raw_scope
+    _validate_websocket_route_scope(raw_scope, allow_missing_type=scope_type_missing)
+    if "scope_container" in case and (
+        case["scope_container"] != "user-dict"
+        or case["target_profiles"] != ["python-package-cpython312"]
+    ):
+        raise ContractError("WebSocketRoute UserDict scopes require the Python-package profile")
+    if scope_type_missing and "scope_container" not in case:
+        raise ContractError("WebSocketRoute missing-type probe requires a UserDict scope")
     incoming = case["incoming"]
     actions = case["endpoint_actions"]
     if not isinstance(incoming, list) or not isinstance(actions, list):
@@ -6151,9 +6216,24 @@ def _validate_websocket_route_case_stimulus(case: dict[str, Any]) -> None:
             "WebSocketRoute observations must select the route-dispatch workflow result"
         )
 
-    scope = case["scope"]
     expected_route = route["path"]
     coverage: set[str] = set()
+    if (
+        scope_type_probe
+        and case["target_profiles"] == ["python-package-cpython312"]
+        and case["dispatch"] == "standalone-route"
+        and scope_type == "websocket"
+        and expected_route == scope["path"]
+    ):
+        coverage.add(WEBSOCKET_ROUTE_SCOPE_TYPE_EQUALITY_REQUIREMENT)
+    if (
+        scope_type_missing
+        and case["target_profiles"] == ["python-package-cpython312"]
+        and case.get("scope_container") == "user-dict"
+        and case["dispatch"] == "standalone-route"
+        and expected_route == scope["path"]
+    ):
+        coverage.add(WEBSOCKET_ROUTE_SCOPE_TYPE_LOOKUP_REQUIREMENT)
     if (
         case["dispatch"] == "application"
         and scope["type"] == "websocket"
@@ -7363,7 +7443,7 @@ def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
             _string(override["prefix"], "Response.render override prefix")
 
         if "background" in case:
-            if case["target_profiles"] != ["python-package-cpython312"]:
+            if not set(case["target_profiles"]) <= set(PYTHON_PROFILE_IDS):
                 raise ContractError("Response background callbacks are Python-package-only")
             background_fields = {"kind", "tasks"}
             if case["background"].get("kind") == "task-list-subclass-property":
@@ -24502,6 +24582,8 @@ def _validate_case_payload(
             }
             & case.keys()
         )
+    if is_websocket_route and "scope_container" in case:
+        expected_case_keys = expected_case_keys | {"scope_container"}
     if is_streaming_response:
         expected_case_keys = expected_case_keys | {
             key
@@ -24868,6 +24950,13 @@ def _validate_case_payload(
     ):
         raise ContractError("case must select one or more declared target profiles")
     selected_profile_ids = set(selected_profiles)
+    requirements: dict[str, dict[str, Any]] = {}
+    operations: dict[tuple[str, str], dict[str, Any]] = {}
+    for surface in _all_manifest_surfaces(manifest):
+        for operation in surface["operations"]:
+            operations[(surface["id"], operation["id"])] = operation
+            for requirement in operation["requirements"]:
+                requirements[requirement["id"]] = requirement
     if is_websocket_endpoint and selected_profiles != ["python-package-cpython312"]:
         raise ContractError("WebSocketEndpoint dispatch selects only the Python-package profile")
     if is_gzip_responder and selected_profiles != ["python-package-cpython312"]:
@@ -24915,23 +25004,27 @@ def _validate_case_payload(
         raise ContractError("FormData.close cases select all supported Python profiles")
     if is_threadpool and selected_profiles != list(PYTHON_PROFILE_IDS):
         raise ContractError("run_in_threadpool cases select all supported Python profiles")
-    if is_run_until_first_complete and selected_profiles != ["python-package-cpython312"]:
-        raise ContractError("run_until_first_complete cases select only the Python-package profile")
-    if is_iterate_threadpool and selected_profiles != ["python-package-cpython312"]:
-        raise ContractError("iterate_in_threadpool cases select only the Python-package profile")
+    if is_run_until_first_complete or is_iterate_threadpool:
+        if any(requirement_id not in requirements for requirement_id in case["covers"]):
+            raise ContractError("concurrency cases must cover declared requirements")
+        applicable_profile_sets = [
+            set(requirements[requirement_id]["target_profiles"])
+            for requirement_id in case["covers"]
+        ]
+        applicable_profiles = set.intersection(*applicable_profile_sets)
+        expected_concurrency_profiles = [
+            profile_id for profile_id in PYTHON_PROFILE_IDS if profile_id in applicable_profiles
+        ]
+        if selected_profiles != expected_concurrency_profiles:
+            raise ContractError(
+                "concurrency case profiles must match covered requirement applicability"
+            )
     if is_starlette_add_exception_handler_workflow and selected_profiles != [
         "python-package-cpython312"
     ]:
         raise ContractError(
             "Starlette.add_exception_handler cases select only the Python-package profile"
         )
-    requirements: dict[str, dict[str, Any]] = {}
-    operations: dict[tuple[str, str], dict[str, Any]] = {}
-    for surface in _all_manifest_surfaces(manifest):
-        for operation in surface["operations"]:
-            operations[(surface["id"], operation["id"])] = operation
-            for requirement in operation["requirements"]:
-                requirements[requirement["id"]] = requirement
     if is_session_workflow:
         session_operation = operations.get(SESSION_WORKFLOW_OPERATION_KEY)
         declared_requirements = (
@@ -25024,6 +25117,18 @@ def _validate_case_payload(
         if not selected_profile_ids <= set(requirement["target_profiles"]):
             raise ContractError(
                 f"case target profiles exceed requirement applicability: {requirement_id}"
+            )
+    if is_response and "background" in case:
+        covered_profile_sets = [
+            set(requirements[requirement_id]["target_profiles"]) for requirement_id in covers
+        ]
+        applicable_profiles = set.intersection(*covered_profile_sets)
+        expected_background_profiles = [
+            profile_id for profile_id in PYTHON_PROFILE_IDS if profile_id in applicable_profiles
+        ]
+        if case["target_profiles"] != expected_background_profiles:
+            raise ContractError(
+                "Response background profiles must match covered requirement applicability"
             )
 
     if is_run_until_first_complete:
@@ -27040,9 +27145,13 @@ def _validate_iterate_threadpool_case(case: dict[str, Any]) -> None:
     )
     streams = protocol["streams"]
     actions = protocol["actions"]
-    if not isinstance(streams, list) or not streams or len(streams) > 16:
+    if not isinstance(streams, list) or len(streams) > 16:
+        raise ContractError("iterate_in_threadpool protocol streams must be a bounded list")
+    if not isinstance(actions, list) or len(actions) > 128:
+        raise ContractError("iterate_in_threadpool protocol actions must be a bounded list")
+    if bool(streams) != bool(actions):
         raise ContractError(
-            "iterate_in_threadpool protocol streams must be a bounded non-empty list"
+            "iterate_in_threadpool protocol streams and actions must both be empty or non-empty"
         )
     stream_ids: set[str] = set()
     for index, raw_stream in enumerate(streams):
@@ -27066,10 +27175,6 @@ def _validate_iterate_threadpool_case(case: dict[str, Any]) -> None:
         _validate_threadpool_json(
             stream_items,
             f"iterate_in_threadpool protocol stream {stream_id!r} items",
-        )
-    if not isinstance(actions, list) or not actions or len(actions) > 128:
-        raise ContractError(
-            "iterate_in_threadpool protocol actions must be a bounded non-empty list"
         )
     for index, raw_action in enumerate(actions):
         if not isinstance(raw_action, dict):
@@ -27222,7 +27327,16 @@ def _validate_iterate_threadpool_case(case: dict[str, Any]) -> None:
             raise ContractError(
                 f"iterate_in_threadpool protocol action {index} references an unknown stream"
             )
-    if set(case["covers"]) != set(ITERATE_THREADPOOL_REQUIREMENTS.values()):
+    expected_requirements = (
+        {
+            ITERATE_THREADPOOL_REQUIREMENTS["items_order"],
+            ITERATE_THREADPOOL_REQUIREMENTS["worker_thread"],
+            ITERATE_THREADPOOL_REQUIREMENTS["exhaustion"],
+        }
+        if not streams
+        else set(ITERATE_THREADPOOL_REQUIREMENTS.values())
+    )
+    if set(case["covers"]) != expected_requirements:
         raise ContractError(
             "iterate_in_threadpool covers must match its item, worker, exhaustion, throw, and async-generator protocol observations"
         )
@@ -45461,6 +45575,76 @@ def _validate_parity_result_against_active_contract(
                 environment["installed_lock_sha256"],
                 f"result.identity.environments[{index}].installed_lock_sha256",
             )
+            build_artifacts = environment["build_artifacts"]
+            if not isinstance(build_artifacts, list):
+                raise ContractError(
+                    f"result.identity.environments[{index}].build_artifacts must be an array"
+                )
+            artifact_fields = {
+                "name",
+                "version",
+                "source_lock_path",
+                "source_lock_sha256",
+                "source_sha256",
+                "sdist_path",
+                "build_lock_path",
+                "build_lock_sha256",
+                "pip_version",
+                "builder_version",
+                "wheel_path",
+                "wheel_sha256",
+                "install_requirement_path",
+            }
+            for artifact_index, build_artifact in enumerate(build_artifacts):
+                artifact_context = (
+                    f"result.identity.environments[{index}].build_artifacts[{artifact_index}]"
+                )
+                _exact(build_artifact, artifact_fields, artifact_context)
+                for field in (
+                    "name",
+                    "version",
+                    "source_lock_path",
+                    "sdist_path",
+                    "build_lock_path",
+                    "pip_version",
+                    "builder_version",
+                    "wheel_path",
+                    "install_requirement_path",
+                ):
+                    _string(build_artifact[field], f"{artifact_context}.{field}")
+                for field in (
+                    "source_lock_sha256",
+                    "source_sha256",
+                    "build_lock_sha256",
+                    "wheel_sha256",
+                ):
+                    _validate_sha256(build_artifact[field], f"{artifact_context}.{field}")
+            # envs imports this module, so load its shared build-artifact policy lazily.
+            from .envs import _validate_markupsafe_build_artifacts
+
+            _validate_markupsafe_build_artifacts(
+                root,
+                version,
+                build_artifacts,
+                verify_files=False,
+            )
+            artifact_paths = [
+                root / artifact[field]
+                for artifact in build_artifacts
+                for field in ("sdist_path", "wheel_path", "install_requirement_path")
+            ]
+            artifact_files_exist = [path.is_file() for path in artifact_paths]
+            if any(artifact_files_exist) and not all(artifact_files_exist):
+                raise ContractError(
+                    "parity result contains only part of its MarkupSafe build artifact files"
+                )
+            if artifact_files_exist and all(artifact_files_exist):
+                _validate_markupsafe_build_artifacts(
+                    root,
+                    version,
+                    build_artifacts,
+                    verify_files=True,
+                )
             artifact_digest = environment["artifact_sha256"]
             if is_oracle_environment:
                 if artifact_digest is not None:
@@ -45835,6 +46019,7 @@ def _validate_parity_result_artifact(
                     "dependency_lock_sha256",
                     "installed_lock_sha256",
                     "artifact_sha256",
+                    "build_artifacts",
                     "environment_sha256",
                 },
                 f"result.identity.environments[{index}]",

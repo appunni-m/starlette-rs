@@ -2348,12 +2348,19 @@ fn route_matches(
     route_kind: &str,
     _builtin_convertors: &Bound<'_, PyDict>,
 ) -> PyResult<Py<PyAny>> {
-    let scope_type = optional_string(scope, "type", "")?;
+    let scope_type = if route_kind == "websocket" {
+        // Starlette compares the original scope value with `==` here. Keep
+        // Python rich comparison and `scope["type"]` lookup semantics for
+        // str subclasses and custom scope mappings.
+        None
+    } else {
+        Some(optional_string(scope, "type", "")?)
+    };
     let protocol_matches = match route_kind {
-        "http" => scope_type == "http",
-        "websocket" => scope_type == "websocket",
-        "mount" => matches!(scope_type.as_str(), "http" | "websocket"),
-        "host" => matches!(scope_type.as_str(), "http" | "websocket"),
+        "http" => scope_type.as_deref() == Some("http"),
+        "websocket" => scope.get_item("type")?.eq("websocket")?,
+        "mount" => matches!(scope_type.as_deref(), Some("http" | "websocket")),
+        "host" => matches!(scope_type.as_deref(), Some("http" | "websocket")),
         _ => false,
     };
     if !protocol_matches {
@@ -2728,15 +2735,14 @@ impl BaseRouteCallMachine {
         let route_match = route_match.cast::<PyTuple>()?;
         let match_kind = route_match.get_item(0)?.getattr("value")?.extract::<u8>()?;
         if match_kind == 0 {
-            let scope_type = required_string(scope, "type")?;
-            let callback = if scope_type == "http" {
+            let callback = if scope.get_item("type")?.eq("http")? {
                 let kwargs = PyDict::new(py);
                 kwargs.set_item("status_code", 404)?;
                 self.plain_text_response_type
                     .bind(py)
                     .call(("Not Found",), Some(&kwargs))?
                     .call1((scope, self.receive.bind(py), self.send.bind(py)))?
-            } else if scope_type == "websocket" {
+            } else if scope.get_item("type")?.eq("websocket")? {
                 self.websocket_close_type.bind(py).call0()?.call1((
                     scope,
                     self.receive.bind(py),

@@ -896,7 +896,11 @@ def _build_markupsafe_wheel(
 
 
 def _validate_markupsafe_build_artifacts(
-    root: Path, python_version: str, build_artifacts: Any
+    root: Path,
+    python_version: str,
+    build_artifacts: Any,
+    *,
+    verify_files: bool = True,
 ) -> list[dict[str, str]]:
     if not isinstance(build_artifacts, list):
         raise ContractError("prepared MarkupSafe build artifact inventory is malformed")
@@ -964,37 +968,59 @@ def _validate_markupsafe_build_artifacts(
         "wheel_path": artifact["wheel_path"],
         "install_requirement_path": artifact["install_requirement_path"],
     }
+    expected_build_relative = Path("build/parity/wheelhouse") / f"markupsafe-{artifact['version']}"
+    sdist_relative = Path(artifacts["sdist_path"])
+    wheel_relative = Path(artifacts["wheel_path"])
+    requirement_relative = Path(artifacts["install_requirement_path"])
+    if (
+        sdist_relative.parent != expected_build_relative / "source"
+        or sdist_relative.name.lower() != f"markupsafe-{artifact['version']}.tar.gz"
+        or wheel_relative.parent != expected_build_relative / "wheels"
+        or not wheel_relative.name.lower().startswith(f"markupsafe-{artifact['version']}-")
+        or wheel_relative.suffix != ".whl"
+        or requirement_relative != expected_build_relative / "install-requirement.txt"
+    ):
+        raise ContractError("prepared MarkupSafe build artifact paths have an unexpected layout")
     resolved: dict[str, Path] = {}
     for field, relative in artifacts.items():
         relative_path = Path(relative)
-        if relative_path.is_absolute() or ".." in relative_path.parts:
+        if (
+            relative_path.is_absolute()
+            or ".." in relative_path.parts
+            or "\\" in relative
+            or relative_path.as_posix() != relative
+        ):
             raise ContractError(f"prepared MarkupSafe {field} must stay repository-relative")
         path = (root / relative_path).resolve()
         try:
             path.relative_to(build_root)
         except ValueError as exc:
             raise ContractError(f"prepared MarkupSafe {field} escapes its build directory") from exc
-        if not path.is_file():
+        if verify_files and not path.is_file():
             raise ContractError(f"prepared MarkupSafe build artifact is missing: {relative}")
         resolved[field] = path
 
-    if (
-        resolved["sdist_path"].name.lower() != f"markupsafe-{artifact['version']}.tar.gz"
-        or sha256_file(resolved["sdist_path"]) != artifact["source_sha256"]
-        or not resolved["wheel_path"].name.endswith(".whl")
-        or sha256_file(resolved["wheel_path"]) != artifact["wheel_sha256"]
-    ):
-        raise ContractError("prepared MarkupSafe source or wheel artifact has changed")
-    _validate_markupsafe_wheel(resolved["wheel_path"], artifact["version"])
-    expected_requirement = (
-        f"MarkupSafe @ {resolved['wheel_path'].as_uri()} --hash=sha256:{artifact['wheel_sha256']}\n"
-    )
-    try:
-        requirement = resolved["install_requirement_path"].read_text(encoding="utf-8")
-    except (OSError, UnicodeError) as exc:
-        raise ContractError(f"cannot read generated MarkupSafe install requirement: {exc}") from exc
-    if requirement != expected_requirement:
-        raise ContractError("generated MarkupSafe wheel install requirement has changed")
+    if verify_files:
+        if (
+            resolved["sdist_path"].name.lower() != f"markupsafe-{artifact['version']}.tar.gz"
+            or sha256_file(resolved["sdist_path"]) != artifact["source_sha256"]
+            or not resolved["wheel_path"].name.endswith(".whl")
+            or sha256_file(resolved["wheel_path"]) != artifact["wheel_sha256"]
+        ):
+            raise ContractError("prepared MarkupSafe source or wheel artifact has changed")
+        _validate_markupsafe_wheel(resolved["wheel_path"], artifact["version"])
+        expected_requirement = (
+            f"MarkupSafe @ {resolved['wheel_path'].as_uri()} "
+            f"--hash=sha256:{artifact['wheel_sha256']}\n"
+        )
+        try:
+            requirement = resolved["install_requirement_path"].read_text(encoding="utf-8")
+        except (OSError, UnicodeError) as exc:
+            raise ContractError(
+                f"cannot read generated MarkupSafe install requirement: {exc}"
+            ) from exc
+        if requirement != expected_requirement:
+            raise ContractError("generated MarkupSafe wheel install requirement has changed")
     return [artifact]
 
 

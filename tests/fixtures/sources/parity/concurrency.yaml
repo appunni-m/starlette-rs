@@ -444,6 +444,38 @@
       }
     },
     {
+      "case_id": "starlette.concurrency.iterate_in_threadpool.iterable-items-worker-exhaustion-cross-version",
+      "surface": "starlette.concurrency",
+      "operation": "iterate_in_threadpool",
+      "covers": [
+        "starlette.concurrency.iterate_in_threadpool.items-order",
+        "starlette.concurrency.iterate_in_threadpool.worker-thread",
+        "starlette.concurrency.iterate_in_threadpool.exhaustion"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "observations": [
+        "iterate_in_threadpool"
+      ],
+      "iterable": {
+        "items": [
+          0,
+          1,
+          2
+        ]
+      },
+      "protocol": {
+        "streams": [],
+        "actions": []
+      }
+    },
+    {
       "case_id": "starlette.concurrency.iterate_in_threadpool.empty-iterable-exhaustion",
       "surface": "starlette.concurrency",
       "operation": "iterate_in_threadpool",
@@ -706,7 +738,11 @@
       "surface": "starlette.concurrency",
       "operation": "run_until_first_complete",
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "observations": [
@@ -764,7 +800,11 @@
       "surface": "starlette.concurrency",
       "operation": "run_until_first_complete",
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "observations": [

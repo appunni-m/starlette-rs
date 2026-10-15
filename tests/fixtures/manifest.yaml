@@ -249,7 +249,7 @@
   "interfaces": {
     "parity": {
       "input_schema": "migration-parity/parity-input@58",
-      "result_schema": "migration-parity/parity-result@8",
+      "result_schema": "migration-parity/parity-result@9",
       "command_id": "parity"
     },
     "coverage": {
@@ -269,7 +269,7 @@
     },
     "aggregation": {
       "input_schemas": [
-        "migration-parity/parity-result@8",
+        "migration-parity/parity-result@9",
         "migration-parity/coverage-result@1",
         "migration-parity/benchmark-result@1",
         "migration-parity/upstream-benchmark-result@1"
@@ -4992,7 +4992,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -5003,7 +5007,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -5025,7 +5033,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -5036,7 +5048,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -5065,7 +5081,11 @@
           "parity": {
             "applicability": "required",
             "target_profiles": [
-              "python-package-cpython312"
+              "python-package-cpython310",
+              "python-package-cpython311",
+              "python-package-cpython312",
+              "python-package-cpython313",
+              "python-package-cpython314"
             ]
           },
           "coverage": {
@@ -5440,7 +5460,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -5451,7 +5475,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -5462,7 +5490,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -5524,7 +5556,11 @@
           "parity": {
             "applicability": "required",
             "target_profiles": [
-              "python-package-cpython312"
+              "python-package-cpython310",
+              "python-package-cpython311",
+              "python-package-cpython312",
+              "python-package-cpython313",
+              "python-package-cpython314"
             ]
           },
           "coverage": {
@@ -22319,7 +22355,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -22407,7 +22447,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -22440,7 +22484,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -22506,7 +22554,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -22517,7 +22569,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -22528,7 +22584,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -27145,6 +27205,28 @@
               "id": "starlette.routing.WebSocketRoute.route-dispatch.lone-surrogate-path",
               "dimension": "input_family",
               "description": "Match a WebSocketRoute whose path and root_path contain a surrogateescaped code point, preserving the child scope and WebSocket endpoint dispatch. Pinned source: starlette/routing.py::WebSocketRoute.matches and Router.app.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.WebSocketRoute.route-dispatch.scope-type-python-equality",
+              "dimension": "boundary",
+              "description": "Pass a string subclass whose stored text is websocket but whose Python equality with websocket is false; compare the route no-match observation and endpoint non-dispatch. Pinned source: starlette/routing.py::WebSocketRoute.matches and BaseRoute.__call__.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.WebSocketRoute.route-dispatch.scope-type-lookup-error-propagation",
+              "dimension": "error_path",
+              "description": "Pass a mapping-based WebSocket scope without type; compare the observed KeyError and mapping operation order from the direct scope[type] lookup. Pinned source: starlette/routing.py::WebSocketRoute.matches and BaseRoute.__call__.",
               "lanes": [
                 "parity"
               ],

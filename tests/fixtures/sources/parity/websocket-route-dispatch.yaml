@@ -426,6 +426,135 @@
       "observations": [
         "route-dispatch"
       ]
+    },
+    {
+      "case_id": "starlette.routing.WebSocketRoute.route-dispatch.scope-type-python-equality",
+      "surface": "starlette.routing.WebSocketRoute",
+      "operation": "route-dispatch",
+      "covers": [
+        "starlette.routing.WebSocketRoute.route-dispatch.scope-type-python-equality"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "dispatch": "standalone-route",
+      "route": {
+        "path": "/ws"
+      },
+      "scope": {
+        "type": {
+          "str_subclass": {
+            "value": "websocket",
+            "equal_result": false
+          }
+        },
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.5"
+        },
+        "http_version": "1.1",
+        "scheme": "ws",
+        "path": "/ws",
+        "raw_path_base64": "L3dz",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ],
+        "subprotocols": []
+      },
+      "incoming": [
+        {
+          "type": "websocket.connect"
+        }
+      ],
+      "endpoint_actions": [
+        {
+          "action": "accept",
+          "subprotocol": null
+        },
+        {
+          "action": "send_text",
+          "text": "endpoint-must-not-run"
+        },
+        {
+          "action": "close",
+          "code": 1000,
+          "reason": "done"
+        }
+      ],
+      "observations": [
+        "route-dispatch"
+      ]
+    },
+    {
+      "case_id": "starlette.routing.WebSocketRoute.route-dispatch.scope-type-lookup-error-propagation",
+      "surface": "starlette.routing.WebSocketRoute",
+      "operation": "route-dispatch",
+      "covers": [
+        "starlette.routing.WebSocketRoute.route-dispatch.scope-type-lookup-error-propagation"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "dispatch": "standalone-route",
+      "route": {
+        "path": "/ws"
+      },
+      "scope": {
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.5"
+        },
+        "http_version": "1.1",
+        "scheme": "ws",
+        "path": "/ws",
+        "raw_path_base64": "L3dz",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ],
+        "subprotocols": []
+      },
+      "scope_container": "user-dict",
+      "incoming": [
+        {
+          "type": "websocket.connect"
+        }
+      ],
+      "endpoint_actions": [
+        {
+          "action": "accept",
+          "subprotocol": null
+        },
+        {
+          "action": "send_text",
+          "text": "endpoint-must-not-run"
+        },
+        {
+          "action": "close",
+          "code": 1000,
+          "reason": "done"
+        }
+      ],
+      "observations": [
+        "route-dispatch"
+      ]
     }
   ]
 }
