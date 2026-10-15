@@ -439,15 +439,23 @@ impl FileResponse {
             .as_deref()
             .filter(|filename| !filename.is_empty())
             .map_or_else(|| path.clone(), PathBuf::from);
-        // CPython's mimetypes table classifies `.mjs` as `text/javascript`,
-        // while mime_guess 2.0.5 classifies it as `application/javascript`.
+        // CPython's MIME table classifies `.mjs` as `text/javascript`, while
+        // mime_guess 2.0.5 classifies it as `application/javascript`.
         // FileResponse delegates its default type to mimetypes.guess_type.
         let guessed_type = match source.extension().and_then(|extension| extension.to_str()) {
-            // CPython 3.12's mimetypes table differs from mime_guess for these
-            // extensions; FileResponse delegates its default to that table.
+            // The MIME database loaded by CPython on Linux classifies `.exe`
+            // as `application/x-msdos-program`; other supported hosts use the
+            // built-in `application/x-msdownload` mapping from mime_guess.
             Some(extension) if extension.eq_ignore_ascii_case("mjs") => Some("text/javascript"),
             Some(extension) if extension.eq_ignore_ascii_case("exe") => {
-                Some("application/x-msdownload")
+                #[cfg(target_os = "linux")]
+                {
+                    Some("application/x-msdos-program")
+                }
+                #[cfg(not(target_os = "linux"))]
+                {
+                    Some("application/x-msdownload")
+                }
             }
             _ => mime_guess::from_path(&source).first_raw(),
         };

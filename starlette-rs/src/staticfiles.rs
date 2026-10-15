@@ -557,7 +557,17 @@ fn lookup_in_directory(
                 if error.kind() == io::ErrorKind::NotFound
                     || error.kind() == io::ErrorKind::NotADirectory =>
             {
-                return Ok(None);
+                // Python's non-strict `realpath` can return the normalized
+                // missing path, after which Starlette's `stat` reports
+                // ENAMETOOLONG. `canonicalize` may stop at the first missing
+                // component instead, so probe `stat` to preserve an overflow
+                // that would otherwise let lookup continue into a later root.
+                return match fs::metadata(&joined_path) {
+                    Err(stat_error) if is_name_too_long(&stat_error) => {
+                        Err(StaticFilesError::Io(stat_error))
+                    }
+                    _ => Ok(None),
+                };
             }
             Err(error) => return Err(StaticFilesError::Io(error)),
         };

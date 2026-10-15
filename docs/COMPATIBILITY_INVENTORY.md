@@ -11,8 +11,8 @@ against Starlette 1.6.0 revision
 contracts passed 17/17.
 
 Coverage MCP measured 26,113/33,345 Rust lines (78.31%) in the native-inclusive
-CPython 3.12 plus `rust-native-local` report at
-[`build/parity/coverage/full-starlette-1.6.0-20261015-576e9cfd-native-inclusive-verified/starlette-project.lcov`](../build/parity/coverage/full-starlette-1.6.0-20261015-576e9cfd-native-inclusive-verified/starlette-project.lcov).
+CPython 3.12 plus `rust-native-local` report at the local ignored artifact
+`build/parity/coverage/full-starlette-1.6.0-20261015-576e9cfd-native-inclusive-verified/starlette-project.lcov`.
 Coverage status is unknown because two CPython 3.12 rows were skipped.
 
 Benchmark run `39d8724c-dadd-4638-9f04-b84086632dbd` measured 74/74

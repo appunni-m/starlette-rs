@@ -10,8 +10,8 @@ the pinned Starlette 1.6.0 source revision is
 5,417 passed, 0 failed, 0 infrastructure failures, and 6 `not_run`. Fault
 contracts passed 17/17.
 
-Coverage MCP measured 26,113 of 33,345 Rust lines (78.31%) in
-[`build/parity/coverage/full-starlette-1.6.0-20261015-576e9cfd-native-inclusive-verified/starlette-project.lcov`](../build/parity/coverage/full-starlette-1.6.0-20261015-576e9cfd-native-inclusive-verified/starlette-project.lcov),
+Coverage MCP measured 26,113 of 33,345 Rust lines (78.31%) in the local ignored
+artifact `build/parity/coverage/full-starlette-1.6.0-20261015-576e9cfd-native-inclusive-verified/starlette-project.lcov`,
 using native-inclusive CPython 3.12 and `rust-native-local` objects. Coverage
 status is unknown because two CPython 3.12 rows were skipped.
 

@@ -33,8 +33,8 @@ CPython 3.10, 632/633 (run
 (`f21bef98-6b34-497e-bc30-e8bdce65b6f9`); and 3.14, 633/634
 (`4360b1c3-fa5e-4b5b-91c6-c0d1e710be8c`).
 
-The accepted full Rust coverage receipt is
-[`starlette-project.lcov`](../build/parity/coverage/full-starlette-1.6.0-20261015-576e9cfd-native-inclusive-verified/starlette-project.lcov):
+The accepted full Rust coverage receipt is the local ignored artifact
+`build/parity/coverage/full-starlette-1.6.0-20261015-576e9cfd-native-inclusive-verified/starlette-project.lcov`:
 26,113/33,345 lines covered (78.31%). Its `tests=unknown` status reflects the
 two explicit CPython 3.12 `not_run` rows. The receipt is bound to extension
 SHA-256 `5a506c6d65feff52203ceaa713267d4fae42542767a88d45f6918861a7cf3e7f`
@@ -54,6 +54,24 @@ normalized observation hashes matched in 74/74. The result SHA-256 is
 `f8c9af763f3695bcd284e9d1ff95517355f8a0eb086590e156f2a65e5b3f0086`.
 These are workload-specific timings, not a general performance or compatibility
 claim.
+
+### Post-checkpoint CI follow-up
+
+Workflow `38767055636` on commit `4139a724` found two Linux Rust-native parity
+failures in CPython 3.10, 3.11, 3.13, and 3.14: FileResponse's default `.exe`
+MIME type differed, and StaticFiles fell through to a later root after an
+overlong first-root lookup. The 3.12 parity job was still running when this
+follow-up was recorded. Rust fixes for both cases are in the working tree.
+The docs job also exposed links to an ignored local LCOV artifact; those
+references now identify the artifact as a local path, and `make docs-check`
+passes.
+
+Local `cargo fmt --check`, `cargo check -p starlette-rs --locked`, and targeted
+Clippy passed. A focused local parity selection for the two failures stopped
+before executing cases because the prepared oracle/package environment
+fingerprint is stale; it produced no parity evidence. The new CI run after
+these fixes must establish grouped parity before coverage or benchmarks run
+again.
 
 The implementation and grouped repair phases are complete for this active
 contract. The earlier CI/schema failure and grouped first-pass results below
