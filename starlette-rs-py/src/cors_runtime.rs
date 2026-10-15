@@ -534,7 +534,7 @@ impl CorsCall {
         }
         let scope = self.scope.bind(py);
         let scope_type = scope.get_item("type")?;
-        if !scope_type.eq("http")? {
+        if scope_type.ne("http")? {
             return self.call_app(py, self.send.clone_ref(py));
         }
 
@@ -709,7 +709,7 @@ impl AwaitableStateMachine for CorsSendMessage {
 impl CorsSendMessage {
     fn start(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
         let message = self.message.bind(py);
-        if !message.get_item("type")?.eq("http.response.start")? {
+        if message.get_item("type")?.ne("http.response.start")? {
             return self.send_message(py);
         }
 
