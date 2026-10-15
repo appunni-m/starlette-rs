@@ -1058,6 +1058,25 @@ def _materialize_scope_type_spec(value: Any) -> tuple[Any, Any]:
     raise ValueError("scope type str_subclass must declare one boolean comparison result")
 
 
+def _materialize_scope_method_spec(value: Any) -> Any:
+    if not isinstance(value, dict) or set(value) != {"str_subclass"}:
+        return value
+    descriptor = _exact_object(value, {"str_subclass"}, "scope method")
+    subclass = _exact_object(
+        descriptor["str_subclass"], {"value", "upper_result"}, "scope method str_subclass"
+    )
+    method_value = subclass["value"]
+    upper_result = subclass["upper_result"]
+    if not isinstance(method_value, str) or not isinstance(upper_result, str):
+        raise ValueError("scope method str_subclass values must be strings")
+
+    class InputMethodSubclass(str):
+        def upper(self, result: str = upper_result) -> str:
+            return result
+
+    return InputMethodSubclass(method_value)
+
+
 def _make_scope(
     spec: dict[str, Any], container: str | dict[str, Any] = "dict"
 ) -> dict[str, Any] | UserDict:
@@ -1088,7 +1107,7 @@ def _make_scope(
         "server": tuple(spec["server"]),
     }
     if scope_type_value == "http":
-        scope["method"] = spec["method"]
+        scope["method"] = _materialize_scope_method_spec(spec["method"])
     elif scope_type_value == "websocket":
         scope["subprotocols"] = list(spec["subprotocols"])
     if "extensions" in spec:
@@ -1962,6 +1981,65 @@ def _materialize_application(
                 return False
 
         context_manager = ExceptionObservingContextManager()
+
+        def lifespan(_app: Any) -> Any:
+            return context_manager
+    elif (
+        isinstance(lifespan_spec, dict)
+        and lifespan_spec.get("kind") == "async-context-manager-special-method-descriptor"
+    ):
+        descriptor = lifespan_spec["descriptor"]
+        if descriptor == "classmethod":
+
+            class ClassMethodContextManager:
+                @classmethod
+                async def __aenter__(cls) -> None:
+                    lifecycle_trace.append(
+                        {"event": "enter", "descriptor": "classmethod", "owner": cls.__name__}
+                    )
+                    return None
+
+                @classmethod
+                async def __aexit__(
+                    cls, exception_type: Any, _exception: Any, _traceback: Any
+                ) -> bool:
+                    lifecycle_trace.append(
+                        {
+                            "event": "exit",
+                            "descriptor": "classmethod",
+                            "owner": cls.__name__,
+                            "exception_type": (
+                                None if exception_type is None else exception_type.__name__
+                            ),
+                        }
+                    )
+                    return False
+
+            context_manager = ClassMethodContextManager()
+        elif descriptor == "staticmethod":
+
+            class StaticMethodContextManager:
+                @staticmethod
+                async def __aenter__() -> None:
+                    lifecycle_trace.append({"event": "enter", "descriptor": "staticmethod"})
+                    return None
+
+                @staticmethod
+                async def __aexit__(exception_type: Any, _exception: Any, _traceback: Any) -> bool:
+                    lifecycle_trace.append(
+                        {
+                            "event": "exit",
+                            "descriptor": "staticmethod",
+                            "exception_type": (
+                                None if exception_type is None else exception_type.__name__
+                            ),
+                        }
+                    )
+                    return False
+
+            context_manager = StaticMethodContextManager()
+        else:
+            raise ValueError("async context-manager descriptor is unsupported")
 
         def lifespan(_app: Any) -> Any:
             return context_manager
@@ -3596,10 +3674,30 @@ def _materialize_gzip_middleware(arguments: dict[str, Any], *, responder: bool =
 
     async def response_app(_scope: Any, _receive: Any, send: Any) -> None:
         for index, spec in enumerate(response_messages):
-            if not isinstance(spec, dict) or not isinstance(spec.get("type"), str):
+            if not isinstance(spec, dict):
                 raise ValueError(f"inner response message[{index}] must declare its ASGI type")
-            message_type = spec["type"]
-            if message_type == "http.response.start":
+            raw_message_type = spec.get("type")
+            if isinstance(raw_message_type, str):
+                message_type = raw_message_type
+            elif isinstance(raw_message_type, dict) and "str_subclass" in raw_message_type:
+                descriptor = _exact_object(raw_message_type, {"str_subclass"}, "ASGI message type")
+                subclass_spec = _exact_object(
+                    descriptor["str_subclass"],
+                    {"value", "equal_result"},
+                    "ASGI message type str_subclass",
+                )
+                if (
+                    not isinstance(subclass_spec["value"], str)
+                    or type(subclass_spec["equal_result"]) is not bool
+                ):
+                    raise ValueError("ASGI message type str_subclass has invalid fields")
+                message_type = _InputStringSubclass(
+                    subclass_spec["value"], equal_result=subclass_spec["equal_result"]
+                )
+            else:
+                raise ValueError(f"inner response message[{index}] must declare its ASGI type")
+            message_kind = str.__str__(message_type)
+            if message_kind == "http.response.start":
                 start_keys = {"type", "status", "headers_base64_pairs"}
                 if "message_mapping" in spec:
                     start_keys.add("message_mapping")
@@ -3619,7 +3717,7 @@ def _materialize_gzip_middleware(arguments: dict[str, Any], *, responder: bool =
                         for name, value in spec["headers_base64_pairs"]
                     ],
                 }
-            elif message_type == "http.response.body":
+            elif message_kind == "http.response.body":
                 body_keys = {"type", "body_base64", "more_body"}
                 if "message_mapping" in spec:
                     body_keys.add("message_mapping")
@@ -3633,7 +3731,7 @@ def _materialize_gzip_middleware(arguments: dict[str, Any], *, responder: bool =
                     "body": _decode_base64(spec["body_base64"], "inner response body"),
                     "more_body": spec["more_body"],
                 }
-            elif message_type == "http.response.pathsend":
+            elif message_kind == "http.response.pathsend":
                 _exact_object(
                     spec,
                     {"type", "path"},
@@ -3641,7 +3739,7 @@ def _materialize_gzip_middleware(arguments: dict[str, Any], *, responder: bool =
                 )
                 message = {"type": message_type, "path": spec["path"]}
             else:
-                raise ValueError(f"unsupported inner response event: {message_type!r}")
+                raise ValueError(f"unsupported inner response event: {message_kind!r}")
             message_mapping = spec.get("message_mapping", "dict")
             if not isinstance(message_mapping, str) or message_mapping not in {"dict", "user-dict"}:
                 raise ValueError("GZipMiddleware response message mapping is unsupported")
@@ -4166,7 +4264,17 @@ def _run_gzip_case(case: dict[str, Any]) -> dict[str, Any]:
                 scope_observation=case.get("scope_observation"),
             )
             if isinstance(value, _CapturedDispatchError):
-                observations.append(_workflow_observation(dispatch_step["step_id"], value))
+                partial_value = {
+                    key: value.partial_value[key] for key in ("asgi_events", "response_bytes")
+                }
+                if "scope_observation" in case:
+                    partial_value["scope_observation"] = value.partial_value["scope_observation"]
+                observations.append(
+                    _workflow_observation(
+                        dispatch_step["step_id"],
+                        _CapturedDispatchError(value.error, partial_value),
+                    )
+                )
                 continue
             selected = {key: value[key] for key in ("asgi_events", "response_bytes")}
             if "scope_observation" in value:
@@ -4622,7 +4730,7 @@ def _canonical_websocket_message(message: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
-class _InputProbeBodyError(OSError):
+class _InputProbeBodyError(RuntimeError):
     """Materialize a body-source failure specified by one parity input."""
 
     def __init__(self, kind: str, message: str) -> None:
@@ -5007,7 +5115,9 @@ def _run_native_service_routing_case(case: dict[str, Any]) -> dict[str, Any]:
                     elif field == "root_path":
                         value = request.scope.get("root_path", "")
                     elif field == "app_root_path":
-                        value = request.scope.get("app_root_path")
+                        value = request.scope.get(
+                            "app_root_path", request.scope.get("root_path", "")
+                        )
                     elif field == "path_params":
                         value = _native_scope_path_params(request.scope)
                     else:
@@ -5119,7 +5229,7 @@ def _run_native_service_routing_case(case: dict[str, Any]) -> dict[str, Any]:
         "response_body_chunks": body_chunks,
         "path_params": _native_scope_path_params(final_scope),
         "root_path": final_scope.get("root_path"),
-        "app_root_path": final_scope.get("app_root_path"),
+        "app_root_path": final_scope.get("app_root_path", final_scope.get("root_path", "")),
         "service_error": service_error,
     }
     return _native_workflow_result(case, workflow)
@@ -5567,9 +5677,7 @@ def _run_native_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
             ],
             "offered_subprotocols": list(websocket.scope["subprotocols"]),
         }
-        websocket_state["path_params"] = {
-            key: str(value) for key, value in websocket.path_params.items()
-        }
+        websocket_state["path_params"] = _json_safe(websocket.path_params)
         last_message: dict[str, Any] | None = None
         for action in actions:
             if action["action"] == "accept-preferred":
@@ -6127,6 +6235,16 @@ class _WebSocketEndpointInputReceive:
         return message
 
 
+class _WebSocketEndpointJSONDecoderLookupFailure:
+    def __init__(self, message: str) -> None:
+        self.message = message
+
+    def __getattr__(self, name: str) -> Any:
+        if name == "JSONDecodeError":
+            raise RuntimeError(self.message)
+        raise AttributeError(name)
+
+
 class _WebSocketEndpointCaptureSend:
     def __init__(
         self,
@@ -6200,6 +6318,31 @@ def _websocket_endpoint_receive_hook(spec: dict[str, Any], calls: list[dict[str,
 def _websocket_endpoint_disconnect_hook(
     spec: dict[str, Any], calls: list[dict[str, Any]], cancellation_ready: asyncio.Event
 ) -> Any:
+    if spec["kind"] == "record-active-exception":
+
+        def on_disconnect(_endpoint: Any, _websocket: Any, close_code: int) -> Any:
+            active_exception = sys.exception()
+            calls.append(
+                {
+                    "hook": "on_disconnect",
+                    "close_code": close_code,
+                    "active_exception": (
+                        None
+                        if active_exception is None
+                        else {
+                            "class": (
+                                f"{type(active_exception).__module__}."
+                                f"{type(active_exception).__qualname__}"
+                            ),
+                            "message": str(active_exception),
+                        }
+                    ),
+                }
+            )
+            return asyncio.sleep(0)
+
+        return on_disconnect
+
     if spec["kind"] == "raise-runtime-error-synchronously":
 
         def on_disconnect(_endpoint: Any, _websocket: Any, close_code: int) -> None:
@@ -6366,6 +6509,7 @@ def _run_websocket_endpoint_case(case: dict[str, Any]) -> dict[str, Any]:
     from starlette import status
     from starlette.endpoints import WebSocketEndpoint
 
+    endpoint_module = sys.modules[WebSocketEndpoint.__module__]
     internal_error_close_code = status.WS_1011_INTERNAL_ERROR
     send_failure = case.get("send")
     if send_failure is not None:
@@ -6409,6 +6553,7 @@ def _run_websocket_endpoint_case(case: dict[str, Any]) -> dict[str, Any]:
 
         if endpoint_spec["on_disconnect"]["kind"] in {
             "record-and-close",
+            "record-active-exception",
             "raise-runtime-error",
             "raise-runtime-error-synchronously",
             "raise-runtime-error-from-value-error",
@@ -6426,8 +6571,17 @@ def _run_websocket_endpoint_case(case: dict[str, Any]) -> dict[str, Any]:
         if session_spec.get("cancel_at") == "receive":
             receive.waiting = cancellation_ready
         send = _WebSocketEndpointCaptureSend(sent_messages, send_failure)
+        json_module: Any | None = None
+        original_json_decoder: Any = None
 
         try:
+            json_decoder_lookup = endpoint_spec.get("json_decoder_lookup")
+            if json_decoder_lookup is not None:
+                json_module = endpoint_module.json
+                original_json_decoder = json_module.decoder
+                json_module.decoder = _WebSocketEndpointJSONDecoderLookupFailure(
+                    json_decoder_lookup["message"]
+                )
             if session_spec.get("cancel_at") in {"receive", "disconnect"}:
                 error = asyncio.run(
                     _await_cancelled_websocket_endpoint(
@@ -6453,6 +6607,8 @@ def _run_websocket_endpoint_case(case: dict[str, Any]) -> dict[str, Any]:
                         include_context_chain=send_failure is not None,
                     )
         finally:
+            if json_module is not None:
+                json_module.decoder = original_json_decoder
             if on_receive_spec["kind"] == "delete-internal-error-close-code-and-raise-value-error":
                 status.WS_1011_INTERNAL_ERROR = internal_error_close_code
         if (
@@ -6652,7 +6808,10 @@ def _run_websocket_convenience_case(case: dict[str, Any]) -> dict[str, Any]:
             "actions",
             "observations",
         }
-        | ({"constructor_thread", "iterator_thread", "method_descriptors"} & case.keys()),
+        | (
+            {"constructor_thread", "iterator_thread", "method_descriptors", "scope_container"}
+            & case.keys()
+        ),
         "WebSocket convenience-sequence case",
     )
     if case["surface"] != WEBSOCKET_SURFACE or case["operation"] != WEBSOCKET_CONVENIENCE_OPERATION:
@@ -6752,6 +6911,10 @@ def _run_websocket_convenience_case(case: dict[str, Any]) -> dict[str, Any]:
 
                 def typed_receive_descriptor(instance: Any, name: str = attribute) -> Any:
                     record_descriptor_read(name, instance)
+                    error = method_descriptors[name].get("raises")
+                    if error is not None:
+                        exception_type = getattr(builtins, error["exception_type"])
+                        raise exception_type(error["message"])
                     return getattr(WebSocket, name).__get__(instance, type(instance))
 
                 descriptor_members[attribute] = property(typed_receive_descriptor)
@@ -7089,6 +7252,7 @@ def _run_websocket_route_case(case: dict[str, Any]) -> dict[str, Any]:
     if case["surface"] != WEBSOCKET_ROUTE_SURFACE or case["operation"] != WEBSOCKET_ROUTE_OPERATION:
         raise ValueError("workflow is outside the declared WebSocketRoute route-dispatch operation")
     from starlette.applications import Starlette
+    from starlette.exceptions import WebSocketException
     from starlette.middleware import Middleware
     from starlette.routing import WebSocketRoute
 
@@ -7102,6 +7266,8 @@ def _run_websocket_route_case(case: dict[str, Any]) -> dict[str, Any]:
                 await websocket.send_text(action["text"])
             elif action["action"] == "close":
                 await websocket.close(code=action["code"], reason=action["reason"])
+            elif action["action"] == "raise-websocket-exception":
+                raise WebSocketException(code=action["code"], reason=action["reason"])
             else:
                 raise ValueError(
                     f"unsupported WebSocketRoute endpoint action: {action['action']!r}"
@@ -7109,22 +7275,52 @@ def _run_websocket_route_case(case: dict[str, Any]) -> dict[str, Any]:
 
     middleware = []
     for middleware_spec in case["route"].get("middleware", []):
-        header = tuple(value.encode("latin-1") for value in middleware_spec["header"])
+        if middleware_spec["kind"] == "append-websocket-accept-header":
+            header = tuple(value.encode("latin-1") for value in middleware_spec["header"])
 
-        class AppendWebSocketAcceptHeaderMiddleware:
-            def __init__(self, app: Any, header_pair: tuple[bytes, bytes]) -> None:
-                self.app = app
-                self.header_pair = header_pair
+            class AppendWebSocketAcceptHeaderMiddleware:
+                def __init__(self, app: Any, header_pair: tuple[bytes, bytes]) -> None:
+                    self.app = app
+                    self.header_pair = header_pair
 
-            async def __call__(self, middleware_scope: Any, receive: Any, send: Any) -> None:
-                async def modified_send(message: dict[str, Any]) -> None:
-                    if message["type"] == "websocket.accept":
-                        message["headers"].append(self.header_pair)
-                    await send(message)
+                async def __call__(self, middleware_scope: Any, receive: Any, send: Any) -> None:
+                    async def modified_send(message: dict[str, Any]) -> None:
+                        if message["type"] == "websocket.accept":
+                            message["headers"].append(self.header_pair)
+                        await send(message)
 
-                await self.app(middleware_scope, receive, modified_send)
+                    await self.app(middleware_scope, receive, modified_send)
 
-        middleware.append(Middleware(AppendWebSocketAcceptHeaderMiddleware, header_pair=header))
+            middleware.append(Middleware(AppendWebSocketAcceptHeaderMiddleware, header_pair=header))
+        elif middleware_spec["kind"] == "catch-websocket-exception-with-close":
+            code = middleware_spec["code"]
+            reason = middleware_spec["reason"]
+
+            class CatchWebSocketExceptionMiddleware:
+                def __init__(self, app: Any, close_code: int, close_reason: str) -> None:
+                    self.app = app
+                    self.close_code = close_code
+                    self.close_reason = close_reason
+
+                async def __call__(self, middleware_scope: Any, receive: Any, send: Any) -> None:
+                    try:
+                        await self.app(middleware_scope, receive, send)
+                    except WebSocketException:
+                        await send(
+                            {
+                                "type": "websocket.close",
+                                "code": self.close_code,
+                                "reason": self.close_reason,
+                            }
+                        )
+
+            middleware.append(
+                Middleware(
+                    CatchWebSocketExceptionMiddleware,
+                    close_code=code,
+                    close_reason=reason,
+                )
+            )
 
     route = WebSocketRoute(case["route"]["path"], endpoint=endpoint, middleware=middleware)
     app = Starlette(routes=[route])
@@ -7397,7 +7593,24 @@ async def _invoke_lifespan_only(
             send_spec["kind"] == "raise-on-call"
             and message.get("type") == send_spec["message_type"]
         ):
-            raise RuntimeError(send_spec["message"])
+            import builtins
+
+            exception_type = getattr(builtins, send_spec["exception_type"])
+            if "exception_class_override" in send_spec:
+                reported_class = getattr(builtins, send_spec["exception_class_override"])
+
+                def class_override(_exception: BaseException) -> type[BaseException]:
+                    return reported_class
+
+                exception_type = type(
+                    f"InputDefined{exception_type.__name__}",
+                    (exception_type,),
+                    {
+                        "__class__": property(class_override),
+                        "__module__": exception_type.__module__,
+                    },
+                )
+            raise exception_type(send_spec["message"])
         return record_send(message)
 
     scope = _make_scope(lifecycle_arguments["scope"])
@@ -8004,6 +8217,7 @@ def _run_route_dispatch_case_inner(
             del app
             del route_objects
             del gc_endpoint
+            del scope
             gc_observation = observe_ownership(
                 garbage_collection,
                 gc_roots,
@@ -8631,18 +8845,24 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
                         (
                             message
                             for message in call_sent
-                            if message["type"] == "http.response.start"
+                            if message["type"]
+                            in {"http.response.start", "websocket.http.response.start"}
                         ),
                         None,
                     )
                     call_start_event = next(
-                        (event for event in call_events if event["type"] == "http.response.start"),
+                        (
+                            event
+                            for event in call_events
+                            if event["type"]
+                            in {"http.response.start", "websocket.http.response.start"}
+                        ),
                         None,
                     )
                     call_body = b"".join(
                         message.get("body", b"")
                         for message in call_sent
-                        if message["type"] == "http.response.body"
+                        if message["type"] in {"http.response.body", "websocket.http.response.body"}
                     )
                     observations.append(
                         {
@@ -8650,7 +8870,11 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
                                 call_start["status"] if call_start is not None else None
                             ),
                             "ordered_repeated_headers": (
-                                call_start_event["headers"] if call_start_event is not None else []
+                                call_start_event.get(
+                                    "headers", call_start_event.get("headers_base64_pairs", [])
+                                )
+                                if call_start_event is not None
+                                else []
                             ),
                             "response_bytes": {
                                 "encoding": "base64",
@@ -8824,18 +9048,34 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
             )
         events = [_canonical_message(message) for message in sent]
         response_start = next(
-            (message for message in sent if message["type"] == "http.response.start"), None
+            (
+                message
+                for message in sent
+                if message["type"] in {"http.response.start", "websocket.http.response.start"}
+            ),
+            None,
         )
         response_start_event = next(
-            (event for event in events if event["type"] == "http.response.start"), None
+            (
+                event
+                for event in events
+                if event["type"] in {"http.response.start", "websocket.http.response.start"}
+            ),
+            None,
         )
         response_body = b"".join(
-            message.get("body", b"") for message in sent if message["type"] == "http.response.body"
+            message.get("body", b"")
+            for message in sent
+            if message["type"] in {"http.response.body", "websocket.http.response.body"}
         )
         observation = {
             "response_status": response_start["status"] if response_start is not None else None,
             "ordered_repeated_headers": (
-                response_start_event["headers"] if response_start_event is not None else []
+                response_start_event.get(
+                    "headers", response_start_event.get("headers_base64_pairs", [])
+                )
+                if response_start_event is not None
+                else []
             ),
             "response_bytes": {
                 "encoding": "base64",
@@ -9730,7 +9970,11 @@ def _run_static_files_get_response_case(case: dict[str, Any]) -> dict[str, Any]:
                 "step_id": STATIC_FILES_GET_RESPONSE_OPERATION,
                 "status": "error",
                 "error": error,
-                "partial_value": {},
+                "partial_value": {
+                    "response_class": None,
+                    "response_status": None,
+                    "ordered_repeated_headers": None,
+                },
             }
         else:
             observation = {
@@ -9797,8 +10041,6 @@ def _run_static_files_lookup_path_case(case: dict[str, Any]) -> dict[str, Any]:
         "StaticFiles lookup-path case",
     )
     expected_observations = [STATIC_FILES_LOOKUP_PATH_OPERATION]
-    if has_pathlike:
-        expected_observations.append("directory-fspath-call-order")
     if (
         case["surface"] != STATIC_FILES_SURFACE
         or case["operation"] != STATIC_FILES_LOOKUP_PATH_OPERATION
@@ -9855,13 +10097,17 @@ def _run_static_files_lookup_path_case(case: dict[str, Any]) -> dict[str, Any]:
                     _decode_base64(file_path["data"], "StaticFiles lookup-path file path data")
                 )
             path = root / file_path
-            path.parent.mkdir(parents=True, exist_ok=True)
+            has_surrogateescape = any(0xDC80 <= ord(char) <= 0xDCFF for char in file_path)
             try:
+                path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_bytes(
                     _decode_base64(file_spec["contents_base64"], "file.contents_base64")
                 )
-            except PermissionError:
-                if not any(0xDC80 <= ord(char) <= 0xDCFF for char in file_path):
+                os.utime(path, (file_spec["mtime_seconds"], file_spec["mtime_seconds"]))
+            except OSError as exc:
+                if not has_surrogateescape or (
+                    not isinstance(exc, PermissionError) and exc.errno != errno.EILSEQ
+                ):
                     raise
                 return {
                     "case_id": case["case_id"],
@@ -9871,13 +10117,12 @@ def _run_static_files_lookup_path_case(case: dict[str, Any]) -> dict[str, Any]:
                             "step_id": STATIC_FILES_LOOKUP_PATH_OPERATION,
                             "status": "skipped",
                             "reason": (
-                                "the temporary filesystem denied creation of the input's "
+                                "the temporary filesystem cannot create the input's "
                                 "POSIX surrogateescape filename"
                             ),
                         }
                     ],
                 }
-            os.utime(path, (file_spec["mtime_seconds"], file_spec["mtime_seconds"]))
         for directory in case["filesystem"]["directories"]:
             (workspace / directory).mkdir(parents=True, exist_ok=True)
         for file_spec in case["filesystem"]["outside_files"]:
@@ -9971,6 +10216,10 @@ def _run_static_files_lookup_path_case(case: dict[str, Any]) -> dict[str, Any]:
             }
             if observe_lookup_error:
                 observation["lookup_error"] = None
+        if directory_pathlike is not None:
+            observation["directory-fspath-call-order.results_relative_to_workspace"] = (
+                directory_pathlike.observation()["results_relative_to_workspace"]
+            )
     observations = [
         {
             "step_id": STATIC_FILES_LOOKUP_PATH_OPERATION,
@@ -9978,14 +10227,6 @@ def _run_static_files_lookup_path_case(case: dict[str, Any]) -> dict[str, Any]:
             "value": observation,
         }
     ]
-    if directory_pathlike is not None:
-        observations.append(
-            {
-                "step_id": "directory-fspath-call-order",
-                "status": "ok",
-                "value": directory_pathlike.observation(),
-            }
-        )
     return {
         "case_id": case["case_id"],
         "status": "completed",
@@ -15833,7 +16074,7 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                         {
                             "action_index": action_index,
                             "lookup_name": name,
-                            "lookup_value": response.headers[name],
+                            "lookup_value": response.headers.get(name),
                             "iterated_names": list(response.headers),
                             "length": len(response.headers),
                             "items": response.headers.items(),

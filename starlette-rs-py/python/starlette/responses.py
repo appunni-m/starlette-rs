@@ -11,10 +11,12 @@ from starlette_rs_py import _core
 
 from starlette.background import BackgroundTask
 from starlette.datastructures import URL, MutableHeaders
-from starlette.types import Scope
+from starlette.types import Receive, Scope, Send
 
-_ContentChunk = str | bytes | memoryview
-_ContentStream = Iterable[_ContentChunk] | AsyncIterable[_ContentChunk]
+Content = str | bytes | memoryview
+SyncContentStream = Iterable[Content]
+AsyncContentStream = AsyncIterable[Content]
+ContentStream = AsyncContentStream | SyncContentStream
 
 
 class Response:
@@ -31,7 +33,7 @@ class Response:
         status_code: int = 200,
         headers: Mapping[str, str] | None = None,
         media_type: str | None = None,
-        background: Any = None,
+        background: BackgroundTask | None = None,
     ) -> None:
         _core.Response.initialize(self, (content, status_code, headers, media_type, background))
 
@@ -105,9 +107,7 @@ class Response:
     def _wrap_websocket_denial_send(self, send: Callable[..., Any]) -> Callable[..., Any]:
         return _core.Response.wrap_denial_send(send)
 
-    async def __call__(
-        self, scope: Scope, receive: Callable[..., Any], send: Callable[..., Any]
-    ) -> None:
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         await _core.Response.asgi_call_for(self, scope, receive, send)
 
 
@@ -134,7 +134,7 @@ class StreamingResponse(Response):
 
     def __init__(
         self,
-        content: _ContentStream,
+        content: ContentStream,
         status_code: int = 200,
         headers: Mapping[str, str] | None = None,
         media_type: str | None = None,
@@ -150,9 +150,7 @@ class StreamingResponse(Response):
     async def listen_for_disconnect(self, receive: Callable[..., Any]) -> None:
         await _core.StreamingResponse.listen_for(receive)
 
-    async def __call__(
-        self, scope: Scope, receive: Callable[..., Any], send: Callable[..., Any]
-    ) -> None:
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         await _core.StreamingResponse.call_for(self, scope, receive, send)
 
 
@@ -191,9 +189,7 @@ class FileResponse(Response):
     def set_stat_headers(self, stat_result: os.stat_result) -> None:
         _core.Response.set_stat_headers(self, stat_result)
 
-    async def __call__(
-        self, scope: Scope, receive: Callable[..., Any], send: Callable[..., Any]
-    ) -> None:
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         await _core.FileResponse.call_for(self, scope, receive, send)
 
     def _should_use_range(self, http_if_range: str) -> bool:
@@ -250,7 +246,7 @@ class RedirectResponse(Response):
         url: str | URL,
         status_code: int = 307,
         headers: Mapping[str, str] | None = None,
-        background: Any = None,
+        background: BackgroundTask | None = None,
     ) -> None:
         super().__init__(
             content=b"", status_code=status_code, headers=headers, background=background

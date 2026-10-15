@@ -784,19 +784,26 @@ fn unquote_parameter(value: &str) -> String {
 }
 
 fn user_safe_decode(bytes: &[u8], charset: &str) -> String {
+    // Python normalizes codec names by collapsing punctuation and whitespace
+    // to underscores before lookup (for example, `'utf-8'` becomes `utf_8`).
+    // Apply that normalization before resolving a WHATWG label so parameters
+    // accepted by `bytes.decode()` are not incorrectly treated as unknown.
+    let charset = normalize_python_codec_name(charset);
+
     // Latin-1 maps every byte directly. For ASCII, Starlette decodes strictly
     // and falls back to Latin-1 on non-ASCII bytes, so both codecs have the
     // same final output even though encoding_rs aliases ASCII to Windows-1252.
-    if is_iso_8859_1_charset(charset) || is_ascii_charset(charset) {
+    if is_iso_8859_1_charset(&charset) || is_ascii_charset(&charset) {
         return bytes.iter().map(|byte| char::from(*byte)).collect();
     }
 
-    if is_generic_utf16_charset(charset) {
+    if is_generic_utf16_charset(&charset) {
         return decode_generic_utf16(bytes)
             .unwrap_or_else(|| bytes.iter().map(|byte| char::from(*byte)).collect());
     }
 
-    if let Some(encoding) = Encoding::for_label(charset.as_bytes()) {
+    let label = charset.replace('_', "-");
+    if let Some(encoding) = Encoding::for_label(label.as_bytes()) {
         let (decoded, had_errors) = encoding.decode_without_bom_handling(bytes);
         if !had_errors {
             return decoded.into_owned();
@@ -805,22 +812,48 @@ fn user_safe_decode(bytes: &[u8], charset: &str) -> String {
     bytes.iter().map(|byte| char::from(*byte)).collect()
 }
 
+fn normalize_python_codec_name(codec: &str) -> String {
+    let mut normalized = String::with_capacity(codec.len());
+    let mut punctuation = false;
+    for character in codec.chars() {
+        if character.is_alphanumeric() || character == '.' {
+            if punctuation && !normalized.is_empty() {
+                normalized.push('_');
+            }
+            if character.is_ascii() {
+                normalized.push(character.to_ascii_lowercase());
+            }
+            punctuation = false;
+        } else {
+            punctuation = true;
+        }
+    }
+    normalized
+}
+
 fn is_generic_utf16_charset(charset: &str) -> bool {
     let normalized = charset.trim().to_ascii_lowercase().replace('_', "-");
     matches!(normalized.as_str(), "utf-16" | "utf16")
 }
 
 fn decode_generic_utf16(bytes: &[u8]) -> Option<String> {
-    // Python's generic utf-16 codec requires a BOM to select byte order.
-    // encoding_rs maps the generic label to UTF-16LE and accepts BOM-less
-    // input, so select the codec's endianness explicitly and fall back when
-    // the source codec would reject the bytes.
+    // Python's generic utf-16 codec uses a BOM to select byte order, then
+    // falls back to the native byte order when the BOM is absent. encoding_rs
+    // maps the generic label to UTF-16LE, so select that behavior explicitly
+    // and fall back when the source codec would reject the bytes.
     let (encoding, content) = if let Some(content) = bytes.strip_prefix(b"\xFF\xFE") {
         (UTF_16LE, content)
     } else if let Some(content) = bytes.strip_prefix(b"\xFE\xFF") {
         (UTF_16BE, content)
     } else {
-        return None;
+        #[cfg(target_endian = "little")]
+        {
+            (UTF_16LE, bytes)
+        }
+        #[cfg(target_endian = "big")]
+        {
+            (UTF_16BE, bytes)
+        }
     };
     let (decoded, had_errors) = encoding.decode_without_bom_handling(content);
     (!had_errors).then(|| decoded.into_owned())

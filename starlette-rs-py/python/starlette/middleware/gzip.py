@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from typing import Any
 
 import anyio.lowlevel
 from starlette_rs_py import _core
 
-from starlette.types import ASGIApp, Scope
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 DEFAULT_EXCLUDED_CONTENT_TYPES: tuple[str, ...] = _core.GZIP_DEFAULT_EXCLUDED_CONTENT_TYPES
 
@@ -54,8 +53,8 @@ class GZipMiddleware:
     async def __call__(
         self,
         scope: Scope,
-        receive: Callable[..., Any],
-        send: Callable[..., Any],
+        receive: Receive,
+        send: Send,
     ) -> None:
         await self._runtime(scope, receive, send)
 
@@ -88,7 +87,7 @@ class GZipResponder:
     async def __call__(
         self,
         scope: dict[str, Any],
-        receive: Callable[..., Any],
-        send: Callable[..., Any],
+        receive: Receive,
+        send: Send,
     ) -> None:
         await self._runtime(scope, receive, send)

@@ -7,7 +7,7 @@ from typing import Any
 
 from starlette_rs_py import _core
 
-from starlette.types import Scope
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 ALL_METHODS = _core.CORS_ALL_METHODS
 SAFELISTED_HEADERS = _core.CORS_SAFELISTED_HEADERS
@@ -18,7 +18,7 @@ class CORSMiddleware:
 
     def __init__(
         self,
-        app: Callable[..., Any],
+        app: ASGIApp,
         allow_origins: Sequence[str] = (),
         allow_methods: Sequence[str] = ("GET",),
         allow_headers: Sequence[str] = (),
@@ -163,7 +163,7 @@ class CORSMiddleware:
     async def __call__(
         self,
         scope: Scope,
-        receive: Callable[..., Any],
-        send: Callable[..., Any],
+        receive: Receive,
+        send: Send,
     ) -> None:
         await self._runtime(scope, receive, send)

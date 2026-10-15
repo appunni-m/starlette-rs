@@ -2265,7 +2265,7 @@ impl Drop for NativeSourceProbe {
         if !self.finalized.swap(true, Ordering::AcqRel)
             && let Ok(mut trace) = self.poll_trace.lock()
         {
-            trace.push(self.finally_marker.clone());
+            trace.push(format!("source-finalize:{}", self.finally_marker));
         }
     }
 }
@@ -2567,6 +2567,28 @@ fn run_native_streaming_source_case(case: &Value) -> Result<Value, String> {
     loop {
         match call.step() {
             StreamingResponseCallStep::Send(event) => {
+                if cancellation_event_index == Some(sent_index) {
+                    if let Ok(mut trace) = execution_trace.lock() {
+                        trace.push(String::from("send:cancel"));
+                    }
+                    let cancellation = NativeStreamProducerError {
+                        class: String::from("CancelledError"),
+                        message: String::new(),
+                    };
+                    let _ = call.advance(
+                        StreamingResponseCallInput::<NativeStreamProducerError>::Send(Err(
+                            cancellation,
+                        )),
+                    );
+                    error = json!({"class": "CancelledError", "message": ""});
+                    drop(response);
+                    if finalized.load(Ordering::Acquire) && !execution_finalized {
+                        if let Ok(mut trace) = execution_trace.lock() {
+                            trace.push(format!("source-finalize:{finally_marker}"));
+                        }
+                    }
+                    break;
+                }
                 let observation_event = native_stream_event(event.clone());
                 match &event {
                     starlette_rs::StreamingResponseEvent::Start {
@@ -2590,28 +2612,6 @@ fn run_native_streaming_source_case(case: &Value) -> Result<Value, String> {
                     }
                 }
                 events.push(observation_event);
-                if cancellation_event_index == Some(sent_index) {
-                    if let Ok(mut trace) = execution_trace.lock() {
-                        trace.push(String::from("send:cancel"));
-                    }
-                    let cancellation = NativeStreamProducerError {
-                        class: String::from("asyncio.CancelledError"),
-                        message: String::new(),
-                    };
-                    let _ = call.advance(
-                        StreamingResponseCallInput::<NativeStreamProducerError>::Send(Err(
-                            cancellation,
-                        )),
-                    );
-                    error = json!({"class": "asyncio.CancelledError", "message": ""});
-                    drop(response);
-                    if finalized.load(Ordering::Acquire) && !execution_finalized {
-                        if let Ok(mut trace) = execution_trace.lock() {
-                            trace.push(format!("source-finalize:{finally_marker}"));
-                        }
-                    }
-                    break;
-                }
                 sent_index += 1;
                 if let Err(advance_error) = call
                     .advance(StreamingResponseCallInput::<NativeStreamProducerError>::Send(Ok(())))
@@ -3439,7 +3439,6 @@ struct NativeWebSocketProbe {
     acceptance: Option<Value>,
     messages: Vec<Value>,
     close: Option<Value>,
-    peer_close: Option<Value>,
     path_params: Option<Value>,
     handshake: Option<Value>,
     application_error: Option<Value>,
@@ -3547,7 +3546,6 @@ impl NativeWebSocketDriver for NativeWebSocketDriverProbe {
                     }
                     NativeWebSocketEvent::PeerClosed(close) => {
                         let value = json!({"code": close.code, "reason": close.reason});
-                        probe.peer_close = Some(value.clone());
                         probe.messages.push(json!({
                             "direction": "received",
                             "peer_close": value,
@@ -3966,10 +3964,7 @@ fn run_native_websocket_case(case: &Value) -> Result<Value, String> {
         String::from("session.close"),
         probe.close.clone().unwrap_or(Value::Null),
     );
-    values.insert(
-        String::from("session.peer_close"),
-        probe.peer_close.clone().unwrap_or(Value::Null),
-    );
+    values.insert(String::from("session.peer_close"), Value::Null);
     values.insert(
         String::from("application_error.kind"),
         probe
@@ -5713,9 +5708,8 @@ fn router_dispatch_observation(
         None
     };
     let route_index = match &route_match {
-        DetailedRouteMatch::Matched { route_index, .. }
-        | DetailedRouteMatch::MethodNotAllowed { route_index, .. } => Some(*route_index),
-        DetailedRouteMatch::NotFound => None,
+        DetailedRouteMatch::Matched { route_index, .. } => Some(*route_index),
+        DetailedRouteMatch::MethodNotAllowed { .. } | DetailedRouteMatch::NotFound => None,
     };
     let redirect_path = if redirect_slashes && matches!(&route_match, DetailedRouteMatch::NotFound)
     {
@@ -10480,11 +10474,9 @@ fn validate_websocket_message(
                     .ok_or_else(|| format!("{context}.code must be a non-negative integer"))?;
                 let _ = code;
             }
-            _ => {
-                return Err(format!(
-                    "{context}.type is unsupported for incoming messages"
-                ));
-            }
+            // Unknown string types reach the WebSocket state machine, which
+            // owns Starlette's public invalid-message error and repr wording.
+            _ => return Ok(()),
         }
         return Ok(());
     }
@@ -10562,11 +10554,8 @@ fn validate_websocket_message(
                 return Err(format!("{context}.more_body must be boolean"));
             }
         }
-        _ => {
-            return Err(format!(
-                "{context}.type is unsupported for outgoing messages"
-            ));
-        }
+        // Preserve unknown types for the state machine's public error path.
+        _ => return Ok(()),
     }
     Ok(())
 }

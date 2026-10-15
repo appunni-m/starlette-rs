@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Iterable, Mapping, Sequence
 from typing import Any, Literal
 
 from starlette_rs_py import _core
@@ -12,6 +12,7 @@ from starlette.types import ASGIApp, Message, Receive, Send
 from starlette.websockets import WebSocketDisconnect
 
 ASGIInstance = Callable[[Receive, Send], Awaitable[None]]
+_RequestData = Mapping[str, str | Iterable[str] | bytes]
 
 httpx = _core.testclient_httpx()
 _httpx = httpx
@@ -153,20 +154,21 @@ class TestClient(_httpx.Client):
     def request(
         self,
         method: str,
-        url: Any,
+        url: httpx._types.URLTypes,
         *,
-        content: Any = None,
-        data: Any = None,
-        files: Any = None,
+        content: httpx._types.RequestContent | None = None,
+        data: _RequestData | None = None,
+        files: httpx._types.RequestFiles | None = None,
         json: Any = None,
-        params: Any = None,
-        headers: Any = None,
-        cookies: Any = None,
-        auth: Any = _httpx.USE_CLIENT_DEFAULT,
-        follow_redirects: Any = _httpx.USE_CLIENT_DEFAULT,
-        timeout: Any = _httpx.USE_CLIENT_DEFAULT,
-        extensions: Any = None,
-    ) -> Any:
+        params: httpx._types.QueryParamTypes | None = None,
+        headers: httpx._types.HeaderTypes | None = None,
+        cookies: httpx._types.CookieTypes | None = None,
+        auth: httpx._types.AuthTypes | httpx._client.UseClientDefault = _httpx.USE_CLIENT_DEFAULT,
+        follow_redirects: bool | httpx._client.UseClientDefault = _httpx.USE_CLIENT_DEFAULT,
+        timeout: httpx._types.TimeoutTypes
+        | httpx._client.UseClientDefault = _httpx.USE_CLIENT_DEFAULT,
+        extensions: dict[str, Any] | None = None,
+    ) -> httpx.Response:
         return self._testclient_runtime.request(
             self,
             method,
@@ -189,7 +191,7 @@ class TestClient(_httpx.Client):
     def websocket_connect(
         self,
         url: str,
-        subprotocols: Any = None,
+        subprotocols: Sequence[str] | None = None,
         **kwargs: Any,
     ) -> WebSocketTestSession:
         return WebSocketTestSession(

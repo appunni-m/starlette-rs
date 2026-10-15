@@ -2,13 +2,10 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
-from typing import Any
-
 from starlette_rs_py import _core
 
 from starlette.exceptions import HTTPException
-from starlette.types import Scope
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 MAX_BODY_SIZE_SCOPE_KEY = _core.MAX_BODY_SIZE_SCOPE_KEY
 _BODY_LIMIT_RESPONDER_SCOPE_KEY = _core.BODY_LIMIT_RESPONDER_SCOPE_KEY
@@ -31,7 +28,7 @@ RequestBodyLimitResponder = _core.RequestBodyLimitResponder
 class RequestBodyLimitMiddleware:
     """Limit the total size of an HTTP request body."""
 
-    def __init__(self, app: Callable[..., Any], max_body_size: int) -> None:
+    def __init__(self, app: ASGIApp, max_body_size: int) -> None:
         self.app = app
         self.max_body_size = max_body_size
         self._runtime = _core.RequestBodyLimitMiddlewareRuntime()
@@ -39,7 +36,7 @@ class RequestBodyLimitMiddleware:
     async def __call__(
         self,
         scope: Scope,
-        receive: Callable[..., Any],
-        send: Callable[..., Any],
+        receive: Receive,
+        send: Send,
     ) -> None:
         await self._runtime(self.app, self.max_body_size, scope, receive, send)

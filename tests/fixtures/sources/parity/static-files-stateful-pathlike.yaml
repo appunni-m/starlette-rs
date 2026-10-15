@@ -40,8 +40,7 @@
       "check_dir": true,
       "follow_symlink": false,
       "observations": [
-        "lookup-path",
-        "directory-fspath-call-order"
+        "lookup-path"
       ]
     }
   ]

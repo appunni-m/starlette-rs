@@ -8,7 +8,7 @@ from typing import Any, Literal
 from starlette_rs_py import _core
 
 from starlette.datastructures import Secret
-from starlette.types import Scope
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 _core._sessions_dependency()
 
@@ -77,7 +77,7 @@ class SessionMiddleware:
 
     def __init__(
         self,
-        app: Callable[..., Any],
+        app: ASGIApp,
         secret_key: str | Secret,
         session_cookie: str = "session",
         max_age: int | None = 14 * 24 * 60 * 60,
@@ -140,7 +140,7 @@ class SessionMiddleware:
     async def __call__(
         self,
         scope: Scope,
-        receive: Callable[..., Any],
-        send: Callable[..., Any],
+        receive: Receive,
+        send: Send,
     ) -> None:
         await self._runtime(scope, receive, send)

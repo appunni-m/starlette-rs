@@ -122,7 +122,7 @@ class Request(HTTPConnection[StateT]):
         scope: Scope,
         receive: Receive = empty_receive,
         send: Send = empty_send,
-    ) -> None:
+    ):
         self._inner = _core.HTTPConnection(scope, "http")
         self._body_state = _core.RequestBody(receive)
         self._send = send

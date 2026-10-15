@@ -60,7 +60,7 @@ class ImmutableMultiDict(Mapping[_KeyType, _CovariantValueType]):
     def __getitem__(self, key: _KeyType) -> _CovariantValueType:
         return self._inner[key]
 
-    def __contains__(self, key: object) -> bool:
+    def __contains__(self, key: Any) -> bool:
         return self._inner.contains(key)
 
     def __iter__(self) -> Iterator[_KeyType]:
@@ -122,7 +122,7 @@ class CommaSeparatedStrings(Sequence[str]):
 
     __slots__ = ("_inner",)
 
-    def __init__(self, value: str | Sequence[str]) -> None:
+    def __init__(self, value: str | Sequence[str]):
         self._inner = _core.CommaSeparatedStrings(value)
 
     def __getitem__(self, index: int | slice) -> Any:
@@ -182,7 +182,7 @@ class Headers(Mapping[str, str]):
     def __contains__(self, key: Any) -> bool:
         return key in self._inner
 
-    def __iter__(self) -> Iterator[str]:
+    def __iter__(self) -> Iterator[Any]:
         return iter(self._inner)
 
     def __len__(self) -> int:
@@ -241,7 +241,15 @@ class MutableHeaders(Headers):
 class QueryParams(ImmutableMultiDict[str, str]):
     """Immutable query parameters with Rust-owned parsing and lookup behavior."""
 
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
+    def __init__(
+        self,
+        *args: ImmutableMultiDict[Any, Any]
+        | Mapping[Any, Any]
+        | list[tuple[Any, Any]]
+        | str
+        | bytes,
+        **kwargs: Any,
+    ) -> None:
         self._inner = _core._QueryParamsStore(*args, **kwargs)
 
     def __repr__(self) -> str:
@@ -359,8 +367,8 @@ class URL:
     def is_secure(self) -> bool:
         return _core._url_is_secure(self.components)
 
-    def replace(self, **components: Any) -> URL:
-        url = _core._url_replace(self._url, self.components, components)
+    def replace(self, **kwargs: Any) -> URL:
+        url = _core._url_replace(self._url, self.components, kwargs)
         return self.__class__(url)
 
     def include_query_params(self, **kwargs: Any) -> URL:
@@ -381,7 +389,7 @@ class URL:
         )
         return value
 
-    def __eq__(self, other: object) -> bool:
+    def __eq__(self, other: Any) -> bool:
         return _core._url_eq(self._url, other)
 
 

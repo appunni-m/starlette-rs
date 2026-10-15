@@ -7,6 +7,7 @@ import base64
 import contextvars
 import gc
 import threading
+import warnings
 import weakref
 from collections.abc import Iterator
 from typing import Any
@@ -19,6 +20,11 @@ WSGI_PROTOCOL_OPERATION = ("starlette.middleware.wsgi.WSGIMiddleware", "__call__
 def _plain(value: Any) -> Any:
     if isinstance(value, bytes):
         return {"base64": base64.b64encode(value).decode("ascii")}
+    if isinstance(value, BaseException):
+        return {
+            "class": f"{type(value).__module__}.{type(value).__qualname__}",
+            "message": str(value),
+        }
     if isinstance(value, dict):
         return {key: _plain(item) for key, item in value.items()}
     if isinstance(value, tuple | list):
@@ -27,7 +33,17 @@ def _plain(value: Any) -> Any:
 
 
 def run_wsgi_protocol_case(case: dict[str, Any]) -> dict[str, Any]:
-    from starlette.middleware.wsgi import WSGIMiddleware
+    from starlette.exceptions import StarletteDeprecationWarning
+
+    with warnings.catch_warnings():
+        # A dedicated input case records this import warning; keep this protocol probe runnable
+        # under the parity runner's warnings-as-errors policy.
+        warnings.filterwarnings(
+            "ignore",
+            message=r"^starlette\.middleware\.wsgi is deprecated and will be removed in a future release\.",
+            category=StarletteDeprecationWarning,
+        )
+        from starlette.middleware.wsgi import WSGIMiddleware
 
     app_spec = case["app"]
     context_spec = case["context"]

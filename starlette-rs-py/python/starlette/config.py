@@ -18,7 +18,7 @@ T = TypeVar("T")
 class Environ(MutableMapping[str, str]):
     """Mutable environment mapping that freezes each key after its first read."""
 
-    def __init__(self, environ: MutableMapping[str, str] = os.environ) -> None:
+    def __init__(self, environ: MutableMapping[str, str] = os.environ):
         self._inner = _core._Environ(environ)
 
     @property

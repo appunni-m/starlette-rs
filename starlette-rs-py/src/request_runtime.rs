@@ -1251,9 +1251,12 @@ impl StreamMachine {
                 return Ok(MachineAction::Complete(py.None()));
             }
             StreamCommand::Close if !protocol.started => {
-                // An async generator's body has not run before its first
-                // advancement, so aclose() at this point leaves it available
-                // for a later anext().
+                // Even before its body starts, aclose() permanently closes an
+                // async generator. It does not run the generator's body, so
+                // this only closes the per-iterator stream state.
+                protocol.closed = true;
+                drop(protocol);
+                self.close_stream();
                 return Ok(MachineAction::Complete(py.None()));
             }
             StreamCommand::Advance(_) if terminal_yielded => {

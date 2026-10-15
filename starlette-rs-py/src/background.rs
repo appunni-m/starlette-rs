@@ -1304,7 +1304,9 @@ fn duplicate_keyword_error(
     duplicate_call_name: Option<&str>,
 ) -> PyResult<PyErr> {
     if let Some(call_name) = duplicate_call_name {
-        let key = key.repr()?.extract::<String>()?;
+        // The call site expands the mapping as Python keywords, whose error
+        // reports the string form of a non-string key as a quoted keyword.
+        let key = key.str()?.repr()?.extract::<String>()?;
         return Ok(PyTypeError::new_err(format!(
             "{call_name}() got multiple values for keyword argument {key}"
         )));

@@ -9,7 +9,7 @@ from starlette_rs_py import _core
 
 from starlette.requests import Request
 from starlette.responses import Response
-from starlette.types import Receive, Scope, Send
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 RequestResponseEndpoint = Callable[[Request], Awaitable[Response]]
 DispatchFunction = Callable[[Request, RequestResponseEndpoint], Awaitable[Response]]
@@ -55,7 +55,7 @@ class _StreamingResponse(Response):
 class BaseHTTPMiddleware:
     """Dispatch HTTP requests with a Request and a streaming ``call_next``."""
 
-    def __init__(self, app: Callable[..., Any], dispatch: DispatchFunction | None = None) -> None:
+    def __init__(self, app: ASGIApp, dispatch: DispatchFunction | None = None) -> None:
         self.app = app
         self.dispatch_func = _core._base_http_select_dispatch(self, dispatch)
         self._runtime = _core.BaseHTTPMiddlewareRuntime()

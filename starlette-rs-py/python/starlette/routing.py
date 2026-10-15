@@ -525,9 +525,7 @@ class Router:
             StarletteDeprecationWarning,
         )
 
-    async def __call__(
-        self, scope: Scope, receive: Callable[..., Any], send: Callable[..., Any]
-    ) -> None:
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         await self.middleware_stack(scope, receive, send)
 
     async def app(

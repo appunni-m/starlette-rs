@@ -71,7 +71,7 @@ class BackgroundTask:
 class BackgroundTasks(BackgroundTask):
     """Run a mutable list of background tasks in registration order."""
 
-    def __init__(self, tasks: Sequence[BackgroundTask] | None = None) -> None:
+    def __init__(self, tasks: Sequence[BackgroundTask] | None = None):
         self._inner = _core.BackgroundTasks(tasks)
 
     @property

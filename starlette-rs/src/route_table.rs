@@ -1227,7 +1227,11 @@ fn parse_python_float(value: &str) -> Option<f64> {
 fn method_not_allowed_response(
     allowed_methods: &[String],
 ) -> Result<Option<Response>, ResponseError> {
-    let allow = allowed_methods.join(", ");
+    // `Allow` names a set of methods; sorting makes its serialized form
+    // deterministic even when methods were added after route construction.
+    let mut ordered_methods = allowed_methods.to_vec();
+    ordered_methods.sort();
+    let allow = ordered_methods.join(", ");
     let response = Response::from_content(
         405,
         b"Method Not Allowed".to_vec(),

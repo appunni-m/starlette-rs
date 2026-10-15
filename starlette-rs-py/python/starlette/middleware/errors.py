@@ -9,7 +9,7 @@ from starlette_rs_py import _core
 
 from starlette.requests import Request
 from starlette.responses import Response
-from starlette.types import Scope
+from starlette.types import ASGIApp, ExceptionHandler, Receive, Scope, Send
 
 
 class ServerErrorMiddleware:
@@ -17,8 +17,8 @@ class ServerErrorMiddleware:
 
     def __init__(
         self,
-        app: Callable[..., Any],
-        handler: Callable[..., Any] | None = None,
+        app: ASGIApp,
+        handler: ExceptionHandler | None = None,
         debug: bool = False,
     ) -> None:
         self.app = app
@@ -52,7 +52,7 @@ class ServerErrorMiddleware:
     async def __call__(
         self,
         scope: Scope,
-        receive: Callable[..., Any],
-        send: Callable[..., Any],
+        receive: Receive,
+        send: Send,
     ) -> None:
         await self._runtime(self, scope, receive, send)

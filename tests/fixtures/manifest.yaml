@@ -13731,6 +13731,18 @@
                   "comparison": {
                     "kind": "bytes"
                   }
+                },
+                {
+                  "path": "scope_observation",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  },
+                  "condition": {
+                    "input_key": "scope_observation"
+                  }
                 }
               ],
               "error": {
@@ -28332,6 +28344,42 @@
                   }
                 },
                 {
+                  "path": "subclass_hook_calls",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  },
+                  "condition": {
+                    "input_key": "subclass_hooks"
+                  }
+                },
+                {
+                  "path": "scope_observation",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  },
+                  "condition": {
+                    "input_key": "scope_observation"
+                  }
+                },
+                {
+                  "path": "package_sequence_trace",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  },
+                  "condition": {
+                    "input_key": "package_sequence"
+                  }
+                },
+                {
                   "path": "requests",
                   "value_types": [
                     "sequence"
@@ -29178,6 +29226,9 @@
                   ],
                   "comparison": {
                     "kind": "exact"
+                  },
+                  "condition": {
+                    "input_key": "directory_pathlike"
                   }
                 }
               ],
@@ -29233,7 +29284,7 @@
             {
               "id": "starlette.staticfiles.StaticFiles.lookup-path.surrogateescape-path",
               "dimension": "boundary",
-              "description": "Create and match an input-defined filename containing invalid UTF-8 filesystem bytes, preserve the returned relative path bytes, and compare file metadata through StaticFiles.lookup_path. Adapters keep valid text paths as strings and encode surrogateescaped filesystem paths as base64 records for exact comparison. Upstream: starlette/staticfiles.py:22,154-173.",
+              "description": "Create and match an input-defined filename containing invalid UTF-8 filesystem bytes, preserve the returned relative path bytes, and compare file metadata through StaticFiles.lookup_path. Adapters keep valid text paths as strings and encode surrogateescaped filesystem paths as base64 records for exact comparison. If the temporary filesystem rejects that filename with EILSEQ or PermissionError, adapters preserve the case as skipped. Upstream: starlette/staticfiles.py:22,154-173.",
               "lanes": [
                 "parity"
               ],
@@ -30165,16 +30216,6 @@
                   "path": "ordered_repeated_headers",
                   "value_types": [
                     "sequence",
-                    "null"
-                  ],
-                  "comparison": {
-                    "kind": "exact"
-                  }
-                },
-                {
-                  "path": "error",
-                  "value_types": [
-                    "record",
                     "null"
                   ],
                   "comparison": {

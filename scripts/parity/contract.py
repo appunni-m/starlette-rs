@@ -2996,6 +2996,27 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         and key == (STATIC_FILES_SURFACE, STATIC_FILES_LOOKUP_PATH_OPERATION)
                         and observation["path"] == "lookup_error"
                     )
+                    static_files_pathlike_fspath_observation = (
+                        condition["input_key"] == "directory_pathlike"
+                        and key == (STATIC_FILES_SURFACE, STATIC_FILES_LOOKUP_PATH_OPERATION)
+                        and observation["path"]
+                        == "directory-fspath-call-order.results_relative_to_workspace"
+                    )
+                    static_files_subclass_hook_calls = (
+                        condition["input_key"] == "subclass_hooks"
+                        and key == (STATIC_FILES_SURFACE, RESPONSE_OPERATION)
+                        and observation["path"] == "subclass_hook_calls"
+                    )
+                    static_files_scope_observation = (
+                        condition["input_key"] == "scope_observation"
+                        and key == (STATIC_FILES_SURFACE, RESPONSE_OPERATION)
+                        and observation["path"] == "scope_observation"
+                    )
+                    static_files_package_sequence_trace = (
+                        condition["input_key"] == "package_sequence"
+                        and key == (STATIC_FILES_SURFACE, RESPONSE_OPERATION)
+                        and observation["path"] == "package_sequence_trace"
+                    )
                     trusted_host_constructor_probe = (
                         condition["input_key"] == "constructor_probes"
                         and key == (TRUSTED_HOST_SURFACE, "__call__")
@@ -3096,6 +3117,11 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         and key == (CORS_SURFACE, "__call__")
                         and observation["path"] == "scope_observation"
                     )
+                    gzip_scope_observation = (
+                        condition["input_key"] == "scope_observation"
+                        and key == (GZIP_SURFACE, "__call__")
+                        and observation["path"] == "scope_observation"
+                    )
                     if (
                         not response_header_probe
                         and not file_response_scheduling_probe
@@ -3116,6 +3142,10 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         and not static_files_single_call
                         and not static_files_call_sequence
                         and not static_files_lookup_error
+                        and not static_files_pathlike_fspath_observation
+                        and not static_files_subclass_hook_calls
+                        and not static_files_scope_observation
+                        and not static_files_package_sequence_trace
                         and not trusted_host_constructor_probe
                         and not file_response_single_call
                         and not file_response_call_sequence
@@ -3128,6 +3158,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         and not testclient_lifespan_backend_probe
                         and not testclient_lifespan_client_method_trace
                         and not cors_scope_observation
+                        and not gzip_scope_observation
                     ):
                         raise ContractError(
                             f"{octx}.condition is not a supported input-gated observation"
@@ -9606,8 +9637,6 @@ def _validate_static_files_lookup_path_case(
     has_directory_pathlike = "directory_pathlike" in case
     directory_pathlike = case.get("directory_pathlike")
     expected_observations = [STATIC_FILES_LOOKUP_PATH_OPERATION]
-    if has_directory_pathlike:
-        expected_observations.append("directory-fspath-call-order")
     if case["observations"] != expected_observations:
         raise ContractError("StaticFiles lookup-path observations must select lookup-path")
 
@@ -42520,7 +42549,8 @@ def validate_workflow_result(value: Any, expected_case_id: str, context: str) ->
                     chain_context = f"{item_context}.error.context_chain[{chain_index}]"
                     _exact(chain_item, {"class", "message"}, chain_context)
                     _string(chain_item["class"], f"{chain_context}.class")
-                    _string(chain_item["message"], f"{chain_context}.message")
+                    if not isinstance(chain_item["message"], str):
+                        raise ContractError(f"{chain_context}.message must be a string")
             if not isinstance(item["partial_value"], dict):
                 raise ContractError(f"{item_context}.partial_value must be an object")
         elif status in {"skipped", "unsupported"}:

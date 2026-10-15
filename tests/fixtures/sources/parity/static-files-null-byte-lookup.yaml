@@ -30,6 +30,7 @@
       "lookup_path": "asset\u0000.txt",
       "check_dir": true,
       "follow_symlink": false,
+      "observe_lookup_error": true,
       "observations": [
         "lookup-path"
       ]
