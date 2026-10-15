@@ -536,14 +536,34 @@ impl StaticFilesCallMachine {
                 return Ok(MachineAction::Await(awaitable.unbind()));
             }
         };
-        let method = scope.get_item("method")?.extract::<String>()?;
-        NativeStaticFiles::validate_response_method(&method)
-            .map_err(|error| static_files_http_error(py, error))?;
+        let method_value = scope.get_item("method")?;
+        // Match Starlette's tuple-membership comparison operand order without
+        // requiring malformed scope values to be strings. This preserves
+        // Python rich equality behavior while Rust selects the HTTP method.
+        let get_method = PyString::new(py, "GET");
+        let method_is_get = get_method.as_any().eq(method_value.as_any())?;
+        let method_is_head = if method_is_get {
+            false
+        } else {
+            PyString::new(py, "HEAD")
+                .as_any()
+                .eq(method_value.as_any())?
+        };
+        let method = if method_is_get {
+            "GET"
+        } else if method_is_head {
+            "HEAD"
+        } else {
+            return Err(static_files_http_error(
+                py,
+                StaticFilesError::MethodNotAllowed,
+            ));
+        };
         let (flow, step) = {
             let owner = self.owner.borrow(py);
             owner
                 .inner
-                .start_response_flow(&path, OsStr::new(""), &method, &[])
+                .start_response_flow(&path, OsStr::new(""), method, &[])
                 .map_err(|error| static_files_http_error(py, error))?
         };
         self.flow = Some(flow);

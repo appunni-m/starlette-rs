@@ -2,13 +2,12 @@
   "schema": "migration-parity/parity-input@55",
   "cases": [
     {
-      "case_id": "starlette.middleware.gzip.GZipMiddleware.__call__.case-insensitive-header-names",
+      "case_id": "starlette.middleware.gzip.GZipMiddleware.__call__.raw-response-header-name-case-sensitivity",
       "surface": "starlette.middleware.gzip.GZipMiddleware",
       "operation": "__call__",
       "covers": [
         "starlette.middleware.gzip.GZipMiddleware.construct",
-        "starlette.middleware.gzip.GZipMiddleware.excluded-content-type",
-        "starlette.middleware.gzip.GZipMiddleware.case-insensitive-header-names"
+        "starlette.middleware.gzip.GZipMiddleware.raw-header-name-case-sensitivity"
       ],
       "execution_schedule": [
         "dispatch"
@@ -39,8 +38,16 @@
                         "SW1hZ2UvUE5HOyBjaGFyc2V0PWJpbmFyeQ=="
                       ],
                       [
-                        "Y29udGVudC1sZW5ndGg=",
+                        "Q29udGVudC1MZW5ndGg=",
                         "MTE="
+                      ],
+                      [
+                        "Q29udGVudC1FbmNvZGluZw==",
+                        "YnI="
+                      ],
+                      [
+                        "VmFyeQ==",
+                        "T3JpZ2lu"
                       ]
                     ]
                   },
@@ -98,7 +105,7 @@
                 "root_path": "",
                 "headers_base64_pairs": [
                   [
-                    "QWNjZXB0LUVuY29kaW5n",
+                    "YWNjZXB0LWVuY29kaW5n",
                     "Z3ppcA=="
                   ]
                 ],

@@ -386,7 +386,8 @@
       "build/parity/inputs/parity/gzip-non-string-scope-type-bypass.json",
       "build/parity/inputs/parity/gzip-python-bigint-threshold.json",
       "build/parity/inputs/parity/gzip-python-bigint-compresslevel.json",
-      "build/parity/inputs/parity/gzip-header-case-insensitive.json",
+      "build/parity/inputs/parity/gzip-raw-header-name-case-sensitivity.json",
+      "build/parity/inputs/parity/gzip-raw-response-header-name-case-sensitivity.json",
       "build/parity/inputs/parity/gzip-responder.json",
       "build/parity/inputs/parity/body-limit-middleware.json",
       "build/parity/inputs/parity/body-limit-header-scope-preservation.json",
@@ -416,6 +417,7 @@
       "build/parity/inputs/parity/websocket-raw-state-assignment.json",
       "build/parity/inputs/parity/websocket-send-non-string-type.json",
       "build/parity/inputs/parity/websocket-receive-unhashable-type.json",
+      "build/parity/inputs/parity/websocket-typed-receive-before-accept-descriptor-order.json",
       "build/parity/inputs/parity/websocket-send-string-subclass-hash-error.json",
       "build/parity/inputs/parity/websocket-send-unhashable-event-type.json",
       "build/parity/inputs/parity/websocket-accept-invalid-connect-event.json",
@@ -524,6 +526,7 @@
       "build/parity/inputs/parity/authentication-required-websockets.json",
       "build/parity/inputs/parity/static-files.json",
       "build/parity/inputs/parity/static-files-scope-type-equality.json",
+      "build/parity/inputs/parity/static-files-non-string-method.json",
       "build/parity/inputs/parity/static-files-packages-falsey-sequence.json",
       "build/parity/inputs/parity/static-files-root-path-index-redirect.json",
       "build/parity/inputs/parity/static-files-symlink-asgi.json",
@@ -544,7 +547,7 @@
       "build/parity/inputs/parity/wsgi-boundary.json",
       "build/parity/inputs/parity/session-middleware.json",
       "build/parity/inputs/parity/session-cookie-surrogate.json",
-      "build/parity/inputs/parity/session-arbitrary-precision-timestamp.json",
+      "build/parity/inputs/parity/session-timestamp-too-wide-without-expiry.json",
       "build/parity/inputs/parity/session-response-header-iterable.json",
       "build/parity/inputs/parity/session-future-timestamp.json",
       "build/parity/inputs/parity/session-expired-timestamp-out-of-range.json",
@@ -575,6 +578,7 @@
       "build/parity/inputs/parity/request-form-multipart-parser-edge-cases.json",
       "build/parity/inputs/parity/request-form-multipart-duplicate-charset.json",
       "build/parity/inputs/parity/request-form-multipart-iso-8859-1.json",
+      "build/parity/inputs/parity/request-form-multipart-utf16.json",
       "build/parity/inputs/parity/formdata-constructor.json",
       "build/parity/inputs/parity/formdata-generic-typing.json",
       "build/parity/inputs/parity/formdata-close.json",
@@ -12847,6 +12851,18 @@
                   "comparison": {
                     "kind": "ordered"
                   }
+                },
+                {
+                  "path": "scope_observation",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  },
+                  "condition": {
+                    "input_key": "scope_observation"
+                  }
                 }
               ],
               "error": {
@@ -13109,7 +13125,7 @@
             {
               "id": "starlette.middleware.cors.CORSMiddleware.mutable-scope-mapping",
               "dimension": "boundary",
-              "description": "Pass an input-defined collections.UserDict through CORSMiddleware.__call__ and compare its live mapping-operation trace and selected final scope keys together with the exact response events. The CORS header write-back applies to the outgoing response-start message, not the input ASGI scope. Pinned source: starlette/types.py::Scope; starlette/middleware/cors.py:78-84,160-166.",
+              "description": "Pass an input-defined collections.UserDict through CORSMiddleware.__call__ and compare its live mapping-operation trace and selected final scope keys together with the exact response events. Headers(scope=scope) copies the request headers to a list and writes that list back to the input scope; MutableHeaders(scope=message) applies CORS response-header changes to the outgoing response-start message. Pinned source: starlette/types.py::Scope; starlette/datastructures.py:459-480,529-549; starlette/middleware/cors.py:78-84,156-166.",
               "lanes": [
                 "parity"
               ],
@@ -13945,9 +13961,9 @@
               ]
             },
             {
-              "id": "starlette.middleware.gzip.GZipMiddleware.case-insensitive-header-names",
+              "id": "starlette.middleware.gzip.GZipMiddleware.raw-header-name-case-sensitivity",
               "dimension": "parameter_combination",
-              "description": "Resolve request and response header names case-insensitively when selecting GZip negotiation and content-type exclusions.",
+              "description": "Lower-case header lookup and mutation keys match raw ASGI header names byte-for-byte; mixed-case raw names remain unmatched during GZip negotiation, exclusion checks, and response-header mutation.",
               "lanes": [
                 "parity"
               ],
@@ -15760,9 +15776,9 @@
               ]
             },
             {
-              "id": "starlette.middleware.sessions.SessionMiddleware.session-workflow.arbitrary-precision-timestamp-without-expiry",
+              "id": "starlette.middleware.sessions.SessionMiddleware.session-workflow.timestamp-too-wide-without-expiry-fallback",
               "dimension": "boundary",
-              "description": "Accept a cryptographically valid cookie with an arbitrary-precision timestamp when max_age=None, matching itsdangerous without converting the timestamp to datetime. Starlette only requests age conversion when expiry is configured. Pinned source: starlette/middleware/sessions.py:43-54; itsdangerous 2.2.0 timed.py:820-899.",
+              "description": "Exercise timestamp decoding with max_age=None and a signed cookie whose decoded timestamp exceeds the 8-byte unsigned representation used by the locked ItsDangerous 2.2.0 dependency. Starlette calls TimestampSigner.unsign before any optional age check. Pinned source: starlette/middleware/sessions.py:43-54; dependency pin: uv.lock:130-136; behavior: TimestampSigner.unsign and bytes_to_int.",
               "lanes": [
                 "parity"
               ],
@@ -28455,6 +28471,17 @@
               ],
               "target_profiles": [
                 "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.staticfiles.StaticFiles.asgi-call.non-string-method",
+              "dimension": "error_path",
+              "description": "Supply a non-string HTTP scope method to StaticFiles and compare its public exception and event observations; pinned source order begins at starlette/staticfiles.py:113.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
                 "python-package-cpython312"
               ]
             },

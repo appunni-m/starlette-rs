@@ -1,0 +1,91 @@
+{
+  "schema": "migration-parity/parity-input@55",
+  "cases": [
+    {
+      "case_id": "starlette.websockets.WebSocket.convenience-sequence.receive-text-before-accept-descriptor-order",
+      "surface": "starlette.websockets.WebSocket",
+      "operation": "convenience-sequence",
+      "covers": [
+        "starlette.websocket.api.receive.text.before-accept",
+        "starlette.websocket.api.callback-descriptor.lookup-timing",
+        "starlette.websocket.api.denial-response.present"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "websocket",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.5"
+        },
+        "http_version": "1.1",
+        "scheme": "ws",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "dGVzdHNlcnZlcg=="
+          ]
+        ],
+        "client": [
+          "testclient",
+          50000
+        ],
+        "server": [
+          "testserver",
+          80
+        ],
+        "subprotocols": [],
+        "extensions": {
+          "websocket.http.response": {}
+        }
+      },
+      "incoming": [],
+      "actions": [
+        {
+          "action_id": "receive-text-before-accept",
+          "method": "receive_text",
+          "arguments": {}
+        },
+        {
+          "action_id": "send-denial-response",
+          "method": "send_denial_response",
+          "arguments": {
+            "response": {
+              "status_code": 403,
+              "content_base64": "ZGVuaWVk",
+              "headers_base64_pairs": []
+            }
+          }
+        }
+      ],
+      "method_descriptors": {
+        "scope": {
+          "read_labels": [
+            "extension-check",
+            "response-arguments"
+          ]
+        },
+        "receive": {
+          "read_labels": [
+            "unexpected-before-state-check",
+            "response-arguments"
+          ]
+        },
+        "send": {
+          "by_client_state": {
+            "CONNECTING": "response-arguments"
+          }
+        }
+      },
+      "observations": [
+        "convenience-sequence"
+      ]
+    }
+  ]
+}

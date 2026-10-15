@@ -2,13 +2,13 @@
   "schema": "migration-parity/parity-input@55",
   "cases": [
     {
-      "case_id": "starlette.middleware.sessions.SessionMiddleware.session-workflow.arbitrary-precision-timestamp-without-expiry",
+      "case_id": "starlette.middleware.sessions.SessionMiddleware.session-workflow.timestamp-too-wide-without-expiry-fallback",
       "surface": "starlette.middleware.sessions.SessionMiddleware",
       "operation": "session-workflow",
       "covers": [
         "starlette.middleware.sessions.SessionMiddleware.session-workflow.construct",
         "starlette.middleware.sessions.SessionMiddleware.session-workflow.vary-cookie-on-access",
-        "starlette.middleware.sessions.SessionMiddleware.session-workflow.arbitrary-precision-timestamp-without-expiry"
+        "starlette.middleware.sessions.SessionMiddleware.session-workflow.timestamp-too-wide-without-expiry-fallback"
       ],
       "target_profiles": [
         "python-package-cpython312"
@@ -26,7 +26,7 @@
       },
       "requests": [
         {
-          "request_id": "unsigned-range-session-timestamp",
+          "request_id": "timestamp-exceeds-u64-session-cookie",
           "scope": {
             "type": "http",
             "asgi": {

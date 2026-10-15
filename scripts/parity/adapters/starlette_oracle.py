@@ -4264,7 +4264,13 @@ def _run_protocol_middleware_case(case: dict[str, Any]) -> dict[str, Any]:
                 if constructor_probe_observations:
                     partial_value["constructor_probes"] = constructor_probe_observations
                 if case["surface"] == CORS_SURFACE:
-                    partial_value["downstream_call_trace"] = downstream_call_trace[trace_start:]
+                    selected_partial = {
+                        key: partial_value[key] for key in ("asgi_events", "response_bytes")
+                    }
+                    if "scope_observation" in partial_value:
+                        selected_partial["scope_observation"] = partial_value["scope_observation"]
+                    selected_partial["downstream_call_trace"] = downstream_call_trace[trace_start:]
+                    partial_value = selected_partial
                 observations.append(
                     _workflow_observation(
                         dispatch_step["step_id"],

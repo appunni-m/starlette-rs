@@ -234,15 +234,15 @@ impl GzipConfig {
         }
     }
 
-    /// Returns whether the first `Accept-Encoding` header contains `gzip`.
+    /// Returns whether the first lower-case `Accept-Encoding` header contains `gzip`.
     ///
-    /// Starlette intentionally uses a substring check here; quality values
-    /// are not interpreted.
+    /// Starlette intentionally uses a substring check here; quality values are not interpreted.
+    /// It also leaves raw ASGI header names unchanged and looks them up by their lower-case name.
     #[must_use]
     pub fn accepts_gzip(request_headers: &[GzipHeader]) -> bool {
         request_headers
             .iter()
-            .find(|(name, _)| name.eq_ignore_ascii_case(b"accept-encoding"))
+            .find(|(name, _)| name == b"accept-encoding")
             .is_some_and(|(_, value)| value.windows(4).any(|window| window == b"gzip"))
     }
 
@@ -444,16 +444,11 @@ fn normalize_content_type(content_type: &str) -> String {
 }
 
 fn has_header(headers: &[GzipHeader], name: &[u8]) -> bool {
-    headers
-        .iter()
-        .any(|(key, _)| key.eq_ignore_ascii_case(name))
+    headers.iter().any(|(key, _)| key == name)
 }
 
 fn content_type_is_excluded(headers: &[GzipHeader], excluded: &[String]) -> bool {
-    let Some((_, value)) = headers
-        .iter()
-        .find(|(key, _)| key.eq_ignore_ascii_case(b"content-type"))
-    else {
+    let Some((_, value)) = headers.iter().find(|(key, _)| key == b"content-type") else {
         return false;
     };
     let media_type = value.split(|byte| *byte == b';').next().unwrap_or_default();
@@ -474,7 +469,7 @@ fn content_type_is_excluded(headers: &[GzipHeader], excluded: &[String]) -> bool
 fn add_vary_header(headers: &mut Vec<GzipHeader>) {
     let vary = headers
         .iter()
-        .find(|(key, _)| key.eq_ignore_ascii_case(b"vary"))
+        .find(|(key, _)| key == b"vary")
         .map(|(_, value)| value.as_slice());
     let value = match vary {
         Some(existing) => [existing, b", Accept-Encoding"].concat(),
@@ -487,7 +482,7 @@ fn set_header(headers: &mut Vec<GzipHeader>, name: &[u8], value: &[u8]) {
     let found_indexes = headers
         .iter()
         .enumerate()
-        .filter_map(|(index, (key, _))| key.eq_ignore_ascii_case(name).then_some(index));
+        .filter_map(|(index, (key, _))| (key == name).then_some(index));
     let indexes = found_indexes.collect::<Vec<_>>();
     if let Some(first_index) = indexes.first().copied() {
         headers[first_index] = (name.to_vec(), value.to_vec());
@@ -500,5 +495,5 @@ fn set_header(headers: &mut Vec<GzipHeader>, name: &[u8], value: &[u8]) {
 }
 
 fn delete_header(headers: &mut Vec<GzipHeader>, name: &[u8]) {
-    headers.retain(|(key, _)| !key.eq_ignore_ascii_case(name));
+    headers.retain(|(key, _)| key != name);
 }

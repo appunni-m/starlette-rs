@@ -304,36 +304,24 @@ impl PyWebSocketProtocol {
         )
     }
 
-    fn receive_text(
-        &self,
-        py: Python<'_>,
-        receive_callback: Py<PyAny>,
-        disconnect_handler: Py<PyAny>,
-    ) -> PyResult<Py<PyAny>> {
+    fn receive_text(&self, py: Python<'_>, websocket: Py<PyAny>) -> PyResult<Py<PyAny>> {
         typed_receive_awaitable(
             py,
             &self.state,
             clone_state_gc(py, self.state_gc.as_ref())?,
             self.state_type.clone_ref(py),
-            receive_callback,
-            disconnect_handler,
+            websocket,
             TypedReceiveKind::Text,
         )
     }
 
-    fn receive_bytes(
-        &self,
-        py: Python<'_>,
-        receive_callback: Py<PyAny>,
-        disconnect_handler: Py<PyAny>,
-    ) -> PyResult<Py<PyAny>> {
+    fn receive_bytes(&self, py: Python<'_>, websocket: Py<PyAny>) -> PyResult<Py<PyAny>> {
         typed_receive_awaitable(
             py,
             &self.state,
             clone_state_gc(py, self.state_gc.as_ref())?,
             self.state_type.clone_ref(py),
-            receive_callback,
-            disconnect_handler,
+            websocket,
             TypedReceiveKind::Bytes,
         )
     }
@@ -341,8 +329,7 @@ impl PyWebSocketProtocol {
     fn receive_json(
         &self,
         py: Python<'_>,
-        receive_callback: Py<PyAny>,
-        disconnect_handler: Py<PyAny>,
+        websocket: Py<PyAny>,
         mode: Py<PyAny>,
     ) -> PyResult<Py<PyAny>> {
         typed_receive_awaitable(
@@ -350,8 +337,7 @@ impl PyWebSocketProtocol {
             &self.state,
             clone_state_gc(py, self.state_gc.as_ref())?,
             self.state_type.clone_ref(py),
-            receive_callback,
-            disconnect_handler,
+            websocket,
             TypedReceiveKind::Json(mode),
         )
     }
@@ -752,8 +738,7 @@ fn typed_receive_awaitable(
     state: &SharedProtocolState,
     state_gc: Py<PyWebSocketProtocolState>,
     state_type: Py<PyAny>,
-    receive_callback: Py<PyAny>,
-    disconnect_handler: Py<PyAny>,
+    websocket: Py<PyAny>,
     kind: TypedReceiveKind,
 ) -> PyResult<Py<PyAny>> {
     into_sendable_python_awaitable(
@@ -762,8 +747,7 @@ fn typed_receive_awaitable(
             state: state.clone(),
             state_gc,
             state_type,
-            receive_callback,
-            disconnect_handler,
+            websocket,
             kind,
         },
     )
@@ -773,8 +757,7 @@ struct TypedReceiveMachine {
     state: SharedProtocolState,
     state_gc: Py<PyWebSocketProtocolState>,
     state_type: Py<PyAny>,
-    receive_callback: Py<PyAny>,
-    disconnect_handler: Py<PyAny>,
+    websocket: Py<PyAny>,
     kind: TypedReceiveKind,
 }
 
@@ -782,8 +765,7 @@ impl AwaitableStateMachine for TypedReceiveMachine {
     fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
         visit.call(&self.state_gc)?;
         visit.call(&self.state_type)?;
-        visit.call(&self.receive_callback)?;
-        visit.call(&self.disconnect_handler)?;
+        visit.call(&self.websocket)?;
         if let TypedReceiveKind::Json(mode) = &self.kind {
             visit.call(mode)?;
         }
@@ -819,13 +801,20 @@ impl TypedReceiveMachine {
                 "WebSocket is not connected. Need to call \"accept\" first.",
             ));
         }
-        let awaitable = self.receive_callback.bind(py).call0()?;
+        // Starlette checks the application state before resolving the public
+        // `receive` method. Resolve it here so subclass descriptors observe
+        // the same order as the pinned coroutine.
+        let receive_callback = self.websocket.bind(py).getattr("receive")?;
+        let awaitable = receive_callback.call0()?;
         Ok(MachineAction::Await(awaitable.unbind()))
     }
 
     fn finish_message(&self, py: Python<'_>, message: Py<PyAny>) -> PyResult<MachineAction> {
-        self.disconnect_handler
+        // The source resolves `_raise_on_disconnect` only after receive has
+        // completed, so keep that Python method lookup at this boundary.
+        self.websocket
             .bind(py)
+            .getattr("_raise_on_disconnect")?
             .call1((message.bind(py),))?;
 
         let value = match &self.kind {

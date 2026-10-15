@@ -5,7 +5,7 @@ use std::convert::Infallible;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
-use encoding_rs::Encoding;
+use encoding_rs::{Encoding, UTF_16BE, UTF_16LE};
 use futures::{Stream, channel::mpsc};
 use multer::bytes::Bytes;
 use multer::{Field, Multipart, parse_boundary};
@@ -791,6 +791,11 @@ fn user_safe_decode(bytes: &[u8], charset: &str) -> String {
         return bytes.iter().map(|byte| char::from(*byte)).collect();
     }
 
+    if is_generic_utf16_charset(charset) {
+        return decode_generic_utf16(bytes)
+            .unwrap_or_else(|| bytes.iter().map(|byte| char::from(*byte)).collect());
+    }
+
     if let Some(encoding) = Encoding::for_label(charset.as_bytes()) {
         let (decoded, had_errors) = encoding.decode_without_bom_handling(bytes);
         if !had_errors {
@@ -798,6 +803,27 @@ fn user_safe_decode(bytes: &[u8], charset: &str) -> String {
         }
     }
     bytes.iter().map(|byte| char::from(*byte)).collect()
+}
+
+fn is_generic_utf16_charset(charset: &str) -> bool {
+    let normalized = charset.trim().to_ascii_lowercase().replace('_', "-");
+    matches!(normalized.as_str(), "utf-16" | "utf16")
+}
+
+fn decode_generic_utf16(bytes: &[u8]) -> Option<String> {
+    // Python's generic utf-16 codec requires a BOM to select byte order.
+    // encoding_rs maps the generic label to UTF-16LE and accepts BOM-less
+    // input, so select the codec's endianness explicitly and fall back when
+    // the source codec would reject the bytes.
+    let (encoding, content) = if let Some(content) = bytes.strip_prefix(b"\xFF\xFE") {
+        (UTF_16LE, content)
+    } else if let Some(content) = bytes.strip_prefix(b"\xFE\xFF") {
+        (UTF_16BE, content)
+    } else {
+        return None;
+    };
+    let (decoded, had_errors) = encoding.decode_without_bom_handling(content);
+    (!had_errors).then(|| decoded.into_owned())
 }
 
 fn is_iso_8859_1_charset(charset: &str) -> bool {

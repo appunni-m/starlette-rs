@@ -3663,21 +3663,27 @@ def _materialize_asgi_sequence_app(app_spec: dict[str, Any]) -> Any:
                 raise ValueError(f"inner response message[{index}] must declare its ASGI type")
             message_kind = str.__str__(message_type)
             if message_kind == "http.response.start":
+                start_keys = {"type", "status", "headers_base64_pairs"}
+                if "headers_representation" in spec:
+                    start_keys.add("headers_representation")
                 _exact_object(
                     spec,
-                    {"type", "status", "headers_base64_pairs"},
+                    start_keys,
                     f"inner response message[{index}]",
                 )
+                response_headers = [
+                    (
+                        _decode_base64(name, "inner response header name"),
+                        _decode_base64(value, "inner response header value"),
+                    )
+                    for name, value in spec["headers_base64_pairs"]
+                ]
+                if spec.get("headers_representation", "list") == "tuple":
+                    response_headers = tuple(response_headers)
                 message = {
                     "type": message_type,
                     "status": spec["status"],
-                    "headers": [
-                        (
-                            _decode_base64(name, "inner response header name"),
-                            _decode_base64(value, "inner response header value"),
-                        )
-                        for name, value in spec["headers_base64_pairs"]
-                    ],
+                    "headers": response_headers,
                 }
             elif message_kind == "http.response.body":
                 expected_body_keys = {"type", "body_base64"}
@@ -4044,7 +4050,13 @@ def _run_protocol_middleware_case(case: dict[str, Any]) -> dict[str, Any]:
                 if constructor_probe_observations:
                     partial_value["constructor_probes"] = constructor_probe_observations
                 if case["surface"] == CORS_SURFACE:
-                    partial_value["downstream_call_trace"] = downstream_call_trace[trace_start:]
+                    selected_partial = {
+                        key: partial_value[key] for key in ("asgi_events", "response_bytes")
+                    }
+                    if "scope_observation" in partial_value:
+                        selected_partial["scope_observation"] = partial_value["scope_observation"]
+                    selected_partial["downstream_call_trace"] = downstream_call_trace[trace_start:]
+                    partial_value = selected_partial
                 observations.append(
                     _workflow_observation(
                         dispatch_step["step_id"],
@@ -12933,6 +12945,23 @@ def _run_authentication_case(case: dict[str, Any]) -> dict[str, Any]:
                         return None
                     if "non_iterable" in result:
                         return result["non_iterable"]
+                    if "container" in result:
+
+                        def unpack_value(item: dict[str, Any]) -> Any:
+                            if item["kind"] == "credentials":
+                                return AuthCredentials(item["scopes"])
+                            if item["kind"] == "simple-user":
+                                return SimpleUser(item["username"])
+                            raise ValueError(item["message"])
+
+                        if result["container"] == "list":
+                            return [unpack_value(item) for item in result["items"]]
+
+                        def result_iterator() -> Any:
+                            for item in result["items"]:
+                                yield unpack_value(item)
+
+                        return result_iterator()
                     return AuthCredentials(result["credentials"]), SimpleUser(result["user"])
 
             async def app(

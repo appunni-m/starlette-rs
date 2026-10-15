@@ -587,7 +587,7 @@ SESSION_REQUIREMENTS = {
     "max_age_default": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.max-age-default",
     "max_age_none": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.max-age-none",
     "max_age_arbitrary_precision": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.arbitrary-precision-max-age",
-    "timestamp_arbitrary_precision_without_expiry": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.arbitrary-precision-timestamp-without-expiry",
+    "timestamp_too_wide_without_expiry_fallback": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.timestamp-too-wide-without-expiry-fallback",
     "default_cookie_attributes": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.default-cookie-attributes",
     "custom_cookie_attributes": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.custom-cookie-attributes",
     "domain_secure_attributes": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.domain-secure-attributes",
@@ -1531,6 +1531,7 @@ STATIC_FILES_PACKAGE_TRUTHINESS_REQUIREMENT = "packages-truthiness-before-iterat
 STATIC_FILES_SCOPE_TYPE_EQUALITY_REQUIREMENT = (
     f"{STATIC_FILES_SURFACE}.asgi-call.scope-type-equality"
 )
+STATIC_FILES_NON_STRING_METHOD_BEHAVIOR = "non-string-method"
 STATIC_FILES_LOOKUP_PATH_OPERATION = "lookup-path"
 STATIC_FILES_GET_RESPONSE_OPERATION = "get-response"
 STATIC_FILES_GET_RESPONSE_OPERATION_KEY = (
@@ -2158,7 +2159,7 @@ GZIP_REQUIREMENTS = {
     "streaming-empty-chunk": "starlette.middleware.gzip.GZipMiddleware.streaming-empty-chunk",
     "thread-minimum-size": "starlette.middleware.gzip.GZipMiddleware.thread-minimum-size",
     "pathsend": "starlette.middleware.gzip.GZipMiddleware.pathsend",
-    "case-insensitive-header-names": "starlette.middleware.gzip.GZipMiddleware.case-insensitive-header-names",
+    "raw-header-name-case-sensitivity": "starlette.middleware.gzip.GZipMiddleware.raw-header-name-case-sensitivity",
     "message-type-python-equality": "starlette.middleware.gzip.GZipMiddleware.message-type-python-equality",
     "non-http-scope-type-bypass": (
         "starlette.middleware.gzip.GZipMiddleware.non-http-scope-type-bypass"
@@ -3071,6 +3072,11 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         and key == TESTCLIENT_LIFESPAN_OPERATION_KEY
                         and observation["path"] == "client_method_trace"
                     )
+                    cors_scope_observation = (
+                        condition["input_key"] == "scope_observation"
+                        and key == (CORS_SURFACE, "__call__")
+                        and observation["path"] == "scope_observation"
+                    )
                     if (
                         not response_header_probe
                         and not file_response_scheduling_probe
@@ -3102,6 +3108,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         and not testclient_lifespan_other_app_kind
                         and not testclient_lifespan_backend_probe
                         and not testclient_lifespan_client_method_trace
+                        and not cors_scope_observation
                     ):
                         raise ContractError(
                             f"{octx}.condition is not a supported input-gated observation"
@@ -8907,6 +8914,9 @@ def _validate_static_files_case_stimulus(
     if isinstance(scope, dict) and "extensions" in scope:
         scope_keys.add("extensions")
     scope = _exact(scope, scope_keys, "StaticFiles HTTP scope")
+    non_string_method = not isinstance(scope["method"], str)
+    if non_string_method and type(scope["method"]) not in (bool, int, float):
+        raise ContractError("StaticFiles non-string method input must use a JSON boolean or number")
     non_string_scope_type = not isinstance(scope["type"], str)
     if scope["type"] != "http" and not non_string_scope_type:
         raise ContractError("StaticFiles asgi-call requires an HTTP scope")
@@ -8951,6 +8961,7 @@ def _validate_static_files_case_stimulus(
         allow_root_path=True,
         allow_query=True,
         allow_non_string_scope_type=non_string_scope_type,
+        allow_non_string_method=non_string_method,
     )
 
     if non_string_scope_type:
@@ -9113,6 +9124,8 @@ def _validate_static_files_case_stimulus(
         and (normalized_path in selected_files) != (windows_normalized_path in selected_files)
     )
     derived: set[str] = set()
+    if not isinstance(method, str):
+        derived.add(STATIC_FILES_NON_STRING_METHOD_BEHAVIOR)
     if package_sequence_present:
         derived.add(STATIC_FILES_PACKAGE_TRUTHINESS_REQUIREMENT)
     if scope_path_encoded:
@@ -13102,7 +13115,7 @@ def _validate_session_workflow_case(case: dict[str, Any]) -> None:
     has_invalid_signature_input = False
     has_future_timestamp_out_of_range_input = False
     has_expired_timestamp_out_of_range_input = False
-    has_arbitrary_precision_timestamp_without_expiry_input = False
+    has_timestamp_too_wide_without_expiry_input = False
     out_of_range_timestamp_requests: set[str] = set()
     for index, raw_request in enumerate(requests):
         context = f"SessionMiddleware request[{index}]"
@@ -13184,7 +13197,7 @@ def _validate_session_workflow_case(case: dict[str, Any]) -> None:
                     if timestamp is None:
                         has_invalid_signature_input = True
                     elif constructor["max_age"] is None and timestamp > (1 << 64) - 1:
-                        has_arbitrary_precision_timestamp_without_expiry_input = True
+                        has_timestamp_too_wide_without_expiry_input = True
                     elif timestamp > constructor["clock_epoch"]:
                         if constructor["max_age"] is not None:
                             try:
@@ -13514,8 +13527,8 @@ def _validate_session_workflow_case(case: dict[str, Any]) -> None:
         requirements.add(SESSION_REQUIREMENTS["future_timestamp_out_of_range_error"])
     if has_expired_timestamp_out_of_range_input:
         requirements.add(SESSION_REQUIREMENTS["expired_timestamp_out_of_range_error"])
-    if has_arbitrary_precision_timestamp_without_expiry_input:
-        requirements.add(SESSION_REQUIREMENTS["timestamp_arbitrary_precision_without_expiry"])
+    if has_timestamp_too_wide_without_expiry_input:
+        requirements.add(SESSION_REQUIREMENTS["timestamp_too_wide_without_expiry_fallback"])
     if (
         type(constructor["max_age"]) is int
         and constructor["max_age"] < 0
@@ -30293,6 +30306,7 @@ def _validate_dispatch_stimulus(
     allow_minimal_http_scope: bool = False,
     allow_caller_cancellation_send: bool = False,
     allow_non_string_scope_type: bool = False,
+    allow_non_string_method: bool = False,
     allow_non_http_scope_passthrough: bool = False,
 ) -> None:
     if set(args) != {"scope", "receive", "send"}:
@@ -30367,7 +30381,8 @@ def _validate_dispatch_stimulus(
                 raise ContractError(
                     "HTTP scope.path_params must map non-empty names to strings or numbers"
                 )
-        _string(scope["method"], "HTTP scope.method")
+        if not allow_non_string_method:
+            _string(scope["method"], "HTTP scope.method")
         path = _string(scope["path"], "HTTP scope.path")
         try:
             path_bytes = path.encode("utf-8", errors="surrogateescape")
@@ -40546,7 +40561,7 @@ def _gzip_single_dispatch_semantic_coverage(case: dict[str, Any]) -> set[str]:
     if isinstance(response_start.get("type"), dict):
         coverage.add(GZIP_REQUIREMENTS["message-type-python-equality"])
     if any(name != name.lower() for name, _value in [*response_headers, *request_headers]):
-        coverage.add(GZIP_REQUIREMENTS["case-insensitive-header-names"])
+        coverage.add(GZIP_REQUIREMENTS["raw-header-name-case-sensitivity"])
 
     if (
         gzip_accepted
