@@ -12,8 +12,8 @@ use pyo3::exceptions::{
 };
 use pyo3::prelude::*;
 use pyo3::types::{
-    PyBool, PyBytes, PyDict, PyInt, PyIterator, PyList, PyModule, PySet, PyString, PyTraceback,
-    PyTuple, PyType,
+    PyBool, PyBytes, PyDict, PyFrozenSet, PyInt, PyIterator, PyList, PyModule, PySet, PyString,
+    PyTraceback, PyTuple, PyType,
 };
 use starlette_rs::{
     FormData as NativeFormData, FormDataParseError, MultipartFormEvent, MultipartFormParseError,
@@ -456,9 +456,9 @@ impl SendPushPromiseMachine {
             .extract::<Vec<(Vec<u8>, Vec<u8>)>>()?;
         drop(connection);
 
-        // Upstream iterates this Python set to build an ordered ASGI header
-        // list. Reconstruct it in the source literal's insertion sequence and
-        // let CPython preserve its process-specific set iteration order.
+        // CPython compiles the all-constant upstream set literal as an empty
+        // set updated from a frozenset constant. Preserve that construction:
+        // inserting the names directly can produce a different iteration order.
         const COPIED_HEADER_NAMES: [&str; 5] = [
             "accept",
             "accept-encoding",
@@ -466,7 +466,9 @@ impl SendPushPromiseMachine {
             "cache-control",
             "user-agent",
         ];
-        let copied_header_names = PySet::new(py, COPIED_HEADER_NAMES)?;
+        let literal_contents = PyFrozenSet::new(py, COPIED_HEADER_NAMES)?;
+        let copied_header_names = PySet::empty(py)?;
+        copied_header_names.call_method1("update", (literal_contents,))?;
         let copied_headers = PyList::empty(py);
         for name in copied_header_names.iter() {
             let name = name.extract::<String>()?;
