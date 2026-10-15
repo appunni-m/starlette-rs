@@ -1,0 +1,170 @@
+{
+  "schema": "migration-parity/parity-input@58",
+  "cases": [
+    {
+      "case_id": "starlette.applications.Starlette.__call__.nested-middleware-entry-exit-order",
+      "surface": "starlette.applications.Starlette",
+      "operation": "__call__",
+      "covers": [
+        "starlette.applications.Starlette.__call__.nested-application-mount-router-route-middleware-order"
+      ],
+      "execution_schedule": [
+        "dispatch"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "steps": [
+        {
+          "step_id": "application",
+          "surface": "starlette.applications.Starlette",
+          "operation": "__init__",
+          "receiver": null,
+          "arguments": {
+            "debug": {
+              "kind": "literal",
+              "value": false
+            },
+            "routes": {
+              "kind": "literal",
+              "value": [
+                {
+                  "kind": "mount",
+                  "path": "/service",
+                  "app": {
+                    "kind": "router",
+                    "routes": [
+                      {
+                        "kind": "http-route",
+                        "path": "/leaf",
+                        "methods": [
+                          "POST"
+                        ],
+                        "endpoint": {
+                          "kind": "scope-assert-empty-response",
+                          "scope_key": "route_entry",
+                          "scope_value": true
+                        },
+                        "middleware": [
+                          {
+                            "kind": "scope-and-response-header",
+                            "scope_key": "route_entry",
+                            "scope_value": true,
+                            "response_header": [
+                              "X-Route",
+                              "route-exit"
+                            ]
+                          }
+                        ]
+                      }
+                    ],
+                    "middleware": [
+                      {
+                        "kind": "scope-and-response-header",
+                        "scope_key": "path",
+                        "scope_value": "/leaf",
+                        "response_header": [
+                          "X-Router",
+                          "router-exit"
+                        ]
+                      }
+                    ]
+                  },
+                  "middleware": [
+                    {
+                      "kind": "scope-and-response-header",
+                      "scope_key": "path",
+                      "scope_value": "/router",
+                      "response_header": [
+                        "X-Mount",
+                        "mount-exit"
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            "middleware": {
+              "kind": "literal",
+              "value": [
+                {
+                  "kind": "append-response-header",
+                  "name": "Application"
+                }
+              ]
+            },
+            "exception_handlers": {
+              "kind": "literal",
+              "value": []
+            },
+            "lifespan": {
+              "kind": "literal",
+              "value": null
+            },
+            "max_body_size": {
+              "kind": "literal",
+              "value": null
+            }
+          }
+        },
+        {
+          "step_id": "dispatch",
+          "surface": "starlette.applications.Starlette",
+          "operation": "__call__",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "application"
+          },
+          "arguments": {
+            "scope": {
+              "kind": "literal",
+              "value": {
+                "type": "http",
+                "asgi": {
+                  "version": "3.0",
+                  "spec_version": "2.4"
+                },
+                "http_version": "1.1",
+                "method": "POST",
+                "scheme": "http",
+                "path": "/service/original",
+                "raw_path_base64": "L3NlcnZpY2Uvb3JpZ2luYWw=",
+                "query_string_base64": "",
+                "root_path": "",
+                "headers_base64_pairs": [],
+                "client": [
+                  "127.0.0.1",
+                  12345
+                ],
+                "server": [
+                  "testserver",
+                  80
+                ]
+              }
+            },
+            "receive": {
+              "kind": "literal",
+              "value": [
+                {
+                  "type": "http.request",
+                  "body_base64": "",
+                  "more_body": false
+                }
+              ]
+            },
+            "send": {
+              "kind": "literal",
+              "value": {
+                "kind": "capture-asgi-send"
+              }
+            }
+          }
+        }
+      ],
+      "observations": [
+        "dispatch"
+      ]
+    }
+  ]
+}

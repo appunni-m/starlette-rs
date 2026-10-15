@@ -83,6 +83,20 @@ phase. See the tagged [CPython 3.10](https://github.com/python/cpython/blob/v3.1
 [3.14](https://github.com/python/cpython/blob/v3.14.0/Objects/genobject.c)
 implementations.
 
+The `websocket-route-dispatch.yaml` scope-type inputs are independently
+authored from the pinned `starlette/routing.py::WebSocketRoute.matches` and
+`BaseRoute.__call__` behavior. They observe Python rich equality for a string
+subclass and missing-key propagation through a mapping-backed scope; no
+upstream test body or expected output is copied. Their source/package
+comparisons remain deferred to the grouped parity phase.
+
+The `nested-middleware-composition.yaml` input is independently authored from
+the pinned Application, Mount, Router, and Route middleware construction and
+dispatch behavior. It supplies one matched request, path/state mutations on
+entry, and headers during unwind to expose the layer order; no upstream test
+body or expected output is copied. Its source/package comparison remains
+deferred to the grouped parity phase.
+
 ## Public value lifetime input provenance
 
 The public value and Request property/worker fixtures and their consumers were authored for this repository from pinned `starlette/datastructures.py`, `starlette/requests.py`, their public documentation, and live Python collection behavior. No upstream test file was copied. Existing Starlette BSD-3-Clause notices remain preserved. See [Public value and worker boundary](VALUE_LIFETIME_BOUNDARY.md).

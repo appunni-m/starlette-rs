@@ -150,6 +150,19 @@ an embedded-NUL lookup failure to the pinned `ValueError("embedded null byte")`
 contract. These existing oracle/package/native inputs remain unexecuted until
 the grouped parity phase.
 
+The WebSocketRoute scope-type equality and missing-key cases are registered in
+the active contract. The package adapter now materializes an input-defined
+scope type through the same boundary as the oracle, preserves a missing `type`
+key for direct route dispatch, and captures dispatch errors and mapping
+operations. Their source/package comparisons remain deferred to the grouped
+parity phase.
+
+Nested Application, Mount, Router, and Route middleware composition has no
+source-backed runtime gap in the audited Rust stack. A distinct input-only
+workflow now records scope mutation during entry and response-header order
+during unwind, registered against the pinned source. Its comparison remains
+deferred to the grouped parity phase.
+
 The latest application source audit found that Rust middleware-stack building
 read `router` and `max_body_size` earlier than pinned Starlette, and read
 `max_body_size` only once. The Rust runtime now follows the pinned attribute

@@ -435,6 +435,7 @@
       "build/parity/inputs/parity/route-middleware-mapping-composition.json",
       "build/parity/inputs/parity/route-local-middleware-semantics.json",
       "build/parity/inputs/parity/route-local-middleware-stack-order.json",
+      "build/parity/inputs/parity/nested-middleware-composition.json",
       "build/parity/inputs/parity/request-path-param-types.json",
       "build/parity/inputs/parity/request-cookies.json",
       "build/parity/inputs/parity/request-cookie-cache-sequence.json",
@@ -2627,6 +2628,17 @@
               "id": "starlette.applications.Starlette.__call__.mount-app-middleware-response-header",
               "dimension": "protocol_variant",
               "description": "Middleware on a Mount wrapping an input-provided Route mutates request scope and adds a response header only for that mounted route, while a sibling response remains unmodified. Upstream: tests/test_routing.py::test_base_route_middleware[mounted_app_with_middleware].",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.applications.Starlette.__call__.nested-application-mount-router-route-middleware-order",
+              "dimension": "boundary",
+              "description": "Input-defined Application, Mount, Router, and Route middleware mutate nested scope state on entry and expose response-header unwind order after one dispatch. Pinned source: starlette/applications.py:74-83,92-96; starlette/routing.py:227-231,363-386,609-614; starlette/_utils.py:96-108.",
               "lanes": [
                 "parity"
               ],

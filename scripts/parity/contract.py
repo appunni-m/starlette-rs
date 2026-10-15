@@ -1844,6 +1844,10 @@ STARLETTE_ROUTE_MIDDLEWARE_REQUIREMENTS = {
         "starlette.applications.Starlette.__call__.mounted-app-exception-propagation"
     ),
     "router_middleware_truthiness": "starlette.routing.Router.route-dispatch.middleware-truthiness",
+    "nested_middleware_order": (
+        "starlette.applications.Starlette.__call__.nested-application-mount-router-route-"
+        "middleware-order"
+    ),
 }
 STARLETTE_ADD_ROUTE_OPERATION_KEY = ("starlette.applications.Starlette", "add_route")
 STARLETTE_ADD_MIDDLEWARE_REQUIREMENTS = {
@@ -28510,6 +28514,25 @@ def _route_middleware_topology(routes: list[dict[str, Any]]) -> str | None:
             and isinstance(child_routes[0], dict)
             and child_routes[0].get("kind") == "http-route"
             and all(
+                isinstance(node.get("middleware"), list)
+                and node["middleware"]
+                and all(
+                    isinstance(spec, dict) and spec.get("kind") == "scope-and-response-header"
+                    for spec in node["middleware"]
+                )
+                for node in (mount, app, child_routes[0])
+            )
+        ):
+            return "nested_middleware_order"
+        if (
+            mount.get("kind") == "mount"
+            and isinstance(app, dict)
+            and app.get("kind") == "router"
+            and isinstance(child_routes, list)
+            and len(child_routes) == 1
+            and isinstance(child_routes[0], dict)
+            and child_routes[0].get("kind") == "http-route"
+            and all(
                 isinstance(node.get("middleware"), list) and node["middleware"]
                 for node in (mount, app, child_routes[0])
             )
@@ -28616,14 +28639,20 @@ def _validate_route_middleware_application(args: dict[str, Any]) -> None:
     if not isinstance(args["routes"], list) or not args["routes"]:
         raise ContractError("route middleware app requires a non-empty route tree")
     topology = _route_middleware_topology(args["routes"])
-    if topology in {"mount_exception", "placement_stack"}:
+    if topology in {"mount_exception", "placement_stack", "nested_middleware_order"}:
         if not isinstance(args["middleware"], list) or len(args["middleware"]) != 1:
             raise ContractError("route middleware workflow requires one app middleware")
         app_middleware = _validate_route_middleware_spec(
             args["middleware"][0], "application middleware[0]"
         )
-        if app_middleware != {"kind": "append-response-header", "name": "Outer"}:
-            raise ContractError("route middleware workflow requires the source Outer middleware")
+        expected_app_middleware_name = (
+            "Application" if topology == "nested_middleware_order" else "Outer"
+        )
+        if app_middleware != {
+            "kind": "append-response-header",
+            "name": expected_app_middleware_name,
+        }:
+            raise ContractError("route middleware workflow requires its declared app middleware")
     elif args["middleware"] != []:
         raise ContractError("existing route middleware fixtures require no app middleware")
     if (
@@ -28651,10 +28680,68 @@ def _validate_route_middleware_workflow(case: dict[str, Any]) -> None:
         "placement_stack": 5,
         "kwargs_mapping": 2,
         "local_stack_order": 2,
+        "nested_middleware_order": 2,
     }.get(topology, 3)
     if topology is None or len(case["steps"]) != expected_step_count:
         raise ContractError("route middleware workflow must exercise one declared route topology")
     root = routes[0]
+    if topology == "nested_middleware_order":
+        router = root["app"]
+        route = router["routes"][0]
+        expected_route = {
+            "kind": "http-route",
+            "path": "/leaf",
+            "methods": ["POST"],
+            "endpoint": {
+                "kind": "scope-assert-empty-response",
+                "scope_key": "route_entry",
+                "scope_value": True,
+            },
+            "middleware": [
+                {
+                    "kind": "scope-and-response-header",
+                    "scope_key": "route_entry",
+                    "scope_value": True,
+                    "response_header": ["X-Route", "route-exit"],
+                }
+            ],
+        }
+        expected_router_middleware = [
+            {
+                "kind": "scope-and-response-header",
+                "scope_key": "path",
+                "scope_value": "/leaf",
+                "response_header": ["X-Router", "router-exit"],
+            }
+        ]
+        expected_mount_middleware = [
+            {
+                "kind": "scope-and-response-header",
+                "scope_key": "path",
+                "scope_value": "/router",
+                "response_header": ["X-Mount", "mount-exit"],
+            }
+        ]
+        if (
+            root.get("path") != "/service"
+            or route != expected_route
+            or router.get("middleware") != expected_router_middleware
+            or root.get("middleware") != expected_mount_middleware
+            or app_args["middleware"] != [{"kind": "append-response-header", "name": "Application"}]
+        ):
+            raise ContractError("nested middleware inputs differ from their declared layer order")
+        dispatch = case["steps"][1]
+        if dispatch["step_id"] != "dispatch":
+            raise ContractError("nested middleware workflow must dispatch the app once")
+        arguments = {key: item["value"] for key, item in dispatch["arguments"].items()}
+        scope = arguments["scope"]
+        if (
+            scope["type"] != "http"
+            or scope["method"] != "POST"
+            or scope["path"] != "/service/original"
+        ):
+            raise ContractError("nested middleware dispatch must target the input-defined route")
+        return
     if topology == "local_stack_order":
         app = root["app"]
         route = app["routes"][0]
@@ -41490,6 +41577,7 @@ def _semantic_coverage(case: dict[str, Any]) -> set[str]:
             "route": "route",
             "mount_routes": "mount_routes",
             "mount_app": "mount_app",
+            "nested_middleware_order": "nested_middleware_order",
             "kwargs_mapping": "kwargs_mapping",
             "mount_exception": "mount_exception",
             "mounted_app_exception_propagation": "mounted_app_exception_propagation",
