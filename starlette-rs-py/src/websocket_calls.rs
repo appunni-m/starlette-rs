@@ -1333,8 +1333,8 @@ impl AwaitableStateMachine for WebSocketIteratorThrow {
                     ));
                 }
                 if let Some(message) = &self.arity_error {
-                    // CPython 3.12 leaves an async generator marked as running
-                    // when an awaited athrow rejects its argument count.
+                    // CPython leaves an async generator marked as running when
+                    // an awaited athrow rejects its argument count.
                     self.running.set(true);
                     return Err(PyTypeError::new_err(message.clone()));
                 }

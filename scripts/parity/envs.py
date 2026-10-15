@@ -35,6 +35,7 @@ MARKUPSAFE_BUILD_LOCK_RELATIVE = Path("scripts/parity/locks/markupsafe-build-pyt
 SUPPORTED_PYTHON_VERSIONS = ("3.10", "3.11", "3.12", "3.13", "3.14")
 _PROCESS_ENVIRONMENT_POLICY = {
     "PYTHONHASHSEED": "0",
+    "PYTHONINTMAXSTRDIGITS": None,
     "PYTHONOPTIMIZE": None,
     "PYTHONWARNINGS": None,
 }
@@ -232,6 +233,7 @@ def base_environment() -> dict[str, str]:
         "PYTHONHOME",
         "PYTHONUSERBASE",
         "PYTHONSTARTUP",
+        "PYTHONINTMAXSTRDIGITS",
         "PYTHONOPTIMIZE",
         "PYTHONWARNINGS",
         "PYTHONHASHSEED",

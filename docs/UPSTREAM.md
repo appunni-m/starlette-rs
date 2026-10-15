@@ -61,6 +61,28 @@ this project.
 
 The Request callback-lifetime fixture and public consumer were authored for this repository from the pinned `starlette/requests.py` and `starlette/_utils.py` behavior and `docs/requests.md`; no upstream test file was copied. Starlette source remains a development-time BSD-3-Clause oracle, with its existing Encode OSS notices preserved. Python GC and coroutine behavior is observed live in both isolated environments. See [Request lifetime boundary](REQUEST_LIFETIME_BOUNDARY.md).
 
+The marked-coroutine route input in `asgi-request-callable-shapes.yaml` is
+independently authored from pinned `starlette/routing.py` and
+`starlette/_utils.py`, plus CPython's `inspect.markcoroutinefunction` behavior
+available in Python 3.12 and later. It supplies a synchronous user function
+that returns a coroutine and records the public route-dispatch result; no
+upstream test body or expected output is copied. The source/package comparison
+is scoped to CPython 3.12–3.14 and remains deferred to the grouped parity
+phase. See [Python 3.12 inspect documentation](https://docs.python.org/3.12/library/inspect.html#inspect.markcoroutinefunction).
+
+The `websocket-iterator-athrow-arities.yaml` inputs are independently authored
+from pinned `starlette/websockets.py` and CPython's async-generator protocol.
+They use separate public WebSocket workflows so invalid arity failures cannot
+leave one iterator running before the valid one/two/three-argument cases. No
+upstream test body or expected output is copied. The source/package comparison
+is scoped to CPython 3.10–3.14 and remains deferred to the grouped parity
+phase. See the tagged [CPython 3.10](https://github.com/python/cpython/blob/v3.10.0/Objects/genobject.c),
+[3.11](https://github.com/python/cpython/blob/v3.11.9/Objects/genobject.c),
+[3.12](https://github.com/python/cpython/blob/v3.12.0/Objects/genobject.c),
+[3.13](https://github.com/python/cpython/blob/v3.13.0/Objects/genobject.c), and
+[3.14](https://github.com/python/cpython/blob/v3.14.0/Objects/genobject.c)
+implementations.
+
 ## Public value lifetime input provenance
 
 The public value and Request property/worker fixtures and their consumers were authored for this repository from pinned `starlette/datastructures.py`, `starlette/requests.py`, their public documentation, and live Python collection behavior. No upstream test file was copied. Existing Starlette BSD-3-Clause notices remain preserved. See [Public value and worker boundary](VALUE_LIFETIME_BOUNDARY.md).

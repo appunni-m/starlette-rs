@@ -2895,6 +2895,20 @@ def _materialize_application(
 
                 route_endpoint = make_async_function_endpoint(response_spec, async_callable_state)
                 route_endpoint._parity_async_request_callable_state = async_callable_state
+            elif callable_kind == "marked_function":
+
+                def make_marked_async_function_endpoint(
+                    spec: dict[str, Any], state: dict[str, Any]
+                ) -> Any:
+                    def endpoint(request: Any) -> Any:
+                        return _async_request_callable_observer_response(request, spec, state)
+
+                    return inspect.markcoroutinefunction(endpoint)
+
+                route_endpoint = make_marked_async_function_endpoint(
+                    response_spec, async_callable_state
+                )
+                route_endpoint._parity_async_request_callable_state = async_callable_state
             elif callable_kind == "bound_method":
 
                 class AsyncBoundMethodEndpoint:

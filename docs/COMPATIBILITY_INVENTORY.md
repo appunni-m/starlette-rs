@@ -10,6 +10,32 @@ an earlier callback failure. The existing input-only comparisons and the new
 typing consumer remain unexecuted until grouped parity; coverage and benchmark
 phases remain pending.
 
+The 5001-digit integer path-converter inputs now target each declared Python
+package profile from CPython 3.10 through 3.14. CPython added the default
+4300-digit conversion limit in 3.10.7 and 3.11; the versioned built-in type
+references for 3.12, 3.13, and 3.14 document the same limitation. The
+manifest records minor profiles, while result environment identities carry
+the exact patch release. The only prepared profile recorded in this checkout
+is CPython 3.12.13, so all expanded comparisons remain unexecuted until the
+grouped parity phase. Parity subprocesses clear `PYTHONINTMAXSTRDIGITS` before
+interpreter startup and record the variable as unset in the environment policy;
+the CPython command-line reference says it configures the limit and `0`
+disables it. Sources: [CPython 3.10 What's New](https://docs.python.org/3.10/whatsnew/3.10.html),
+[3.11 What's New](https://docs.python.org/3.11/whatsnew/3.11.html),
+[3.12 built-in types](https://docs.python.org/3.12/library/stdtypes.html#integer-string-conversion-length-limitation),
+[3.13 built-in types](https://docs.python.org/3.13/library/stdtypes.html#integer-string-conversion-length-limitation),
+and [3.14 built-in types](https://docs.python.org/3.14/library/stdtypes.html#integer-string-conversion-length-limitation).
+See the [CPython 3.12 command-line reference](https://docs.python.org/3.12/using/cmdline.html#envvar-PYTHONINTMAXSTRDIGITS) for the environment variable behavior.
+
+The async Request callable-shape input now includes a synchronous function
+decorated by `inspect.markcoroutinefunction`, scoped to CPython 3.12–3.14 where
+the marker is available and recognized by Starlette's selected detector. The
+WebSocket iterator `athrow` input now targets CPython 3.10–3.14, with fresh
+iterator cases separating invalid zero/four-argument calls from valid
+one/two/three-argument calls. Tagged CPython source has the same
+running-flag-before-arity-unpack behavior across those versions. These new and
+expanded comparisons remain unexecuted until the grouped parity phase.
+
 The `Starlette.__init__` and `Starlette.__call__` Python-package support records
 now match their operation scope. The pinned constructor's input-copy order maps
 to `PyStarletteRuntime::new`; the pinned ASGI call's scope write, lazy cached

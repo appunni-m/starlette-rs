@@ -79,6 +79,14 @@ PYTHON_ENVIRONMENT_VERSIONS = {
 DEFAULT_TARGET_PROFILE_IDS = frozenset({"rust-native-local", "python-package-cpython312"})
 GENERATED_INPUT_ROOT = Path("build/parity/inputs")
 _BODY_LIMIT_MISSING = object()
+
+
+def _python_int_max_str_digits() -> int:
+    """Return CPython's configured digit limit, or zero before its 3.10.7 backport."""
+    get_limit = getattr(sys, "get_int_max_str_digits", None)
+    return 0 if get_limit is None else get_limit()
+
+
 PUBLIC_API_INSPECTION_OPERATION = ("starlette", "public-api-inspection")
 PUBLIC_API_INSPECTION_OBSERVATION = "public-api-inspection"
 APPLICATION_TYPING_CONSUMER_OPERATION = (
@@ -2012,6 +2020,7 @@ SYNC_ENDPOINT_REQUIREMENTS = {
 ASYNC_ENDPOINT_CALLABLE_REQUIREMENT = "starlette.routing.async-endpoint-callable-form"
 ASYNC_ENDPOINT_CALLABLE_KINDS = {
     "function",
+    "marked_function",
     "bound_method",
     "partial",
     "nested_partial",
@@ -3670,10 +3679,12 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                     elif operation_key in {
                         RUN_UNTIL_FIRST_COMPLETE_OPERATION_KEY,
                         ITERATE_THREADPOOL_OPERATION_KEY,
+                        (WEBSOCKET_SURFACE, WEBSOCKET_CONVENIENCE_OPERATION),
                     }:
-                        # Ordinary callable and iterator inputs now cover every
-                        # supported CPython profile; version-specific protocol
-                        # cases remain scoped by their own requirements.
+                        # Callable, iterator, and WebSocket async-generator
+                        # protocol inputs cover every declared CPython profile;
+                        # other version-specific cases remain scoped by their
+                        # own requirements.
                         expected_parity_profiles = {
                             profile_id
                             for requirement in requirements
@@ -11649,7 +11660,7 @@ def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
             derived.add(ROUTE_LONE_SURROGATE_MATCH_REQUIREMENT)
             derived.add(ROUTER_LONE_SURROGATE_PATH_REQUIREMENT)
         else:
-            digit_limit = sys.get_int_max_str_digits()
+            digit_limit = _python_int_max_str_digits()
             ordered_converter_error = False
             for index, route in enumerate(routes):
                 if route["kind"] != "http-route" or _route_method_matches(route, method):
@@ -41409,7 +41420,8 @@ def _starlette_route_converter_order_semantic_coverage(
 ) -> set[str] | None:
     if (
         case["operation"] != "__call__"
-        or case["target_profiles"] != ["python-package-cpython312"]
+        or not case["target_profiles"]
+        or not set(case["target_profiles"]).issubset(PYTHON_PROFILE_IDS)
         or len(app_arguments["routes"]) < 2
     ):
         return None
@@ -41423,7 +41435,7 @@ def _starlette_route_converter_order_semantic_coverage(
 
     path = scope["path"]
     method = scope["method"]
-    integer_limit = sys.get_int_max_str_digits()
+    integer_limit = _python_int_max_str_digits()
     if integer_limit <= 0:
         return None
 
@@ -41931,7 +41943,7 @@ def _semantic_coverage(case: dict[str, Any]) -> set[str]:
         if converter == "int":
             captured = _route_template_capture(route["path"], path)
             raw_value = captured.get(path_parameter) if captured is not None else None
-            integer_limit = sys.get_int_max_str_digits()
+            integer_limit = _python_int_max_str_digits()
             if integer_limit > 0 and raw_value is not None and len(raw_value) > integer_limit:
                 coverage.add("starlette.request.path-param-int-digit-limit")
 

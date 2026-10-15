@@ -9,7 +9,189 @@
         "starlette.websocket.api.iterator.athrow"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "websocket",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.5"
+        },
+        "http_version": "1.1",
+        "scheme": "ws",
+        "path": "/chat",
+        "raw_path_base64": "L2NoYXQ=",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "ZXhhbXBsZS50ZXN0"
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ],
+        "subprotocols": [
+          "chat"
+        ]
+      },
+      "incoming": [
+        {
+          "type": "websocket.connect",
+          "subprotocols": [
+            "chat"
+          ]
+        }
+      ],
+      "actions": [
+        {
+          "action_id": "accept",
+          "method": "accept",
+          "arguments": {}
+        },
+        {
+          "action_id": "throw-without-arguments",
+          "method": "iterator-control",
+          "arguments": {
+            "iterator": "iter_text",
+            "control": "athrow",
+            "throw_arguments": []
+          }
+        },
+        {
+          "action_id": "throw-with-positional-only-keyword",
+          "method": "iterator-control",
+          "arguments": {
+            "iterator": "iter_text",
+            "control": "athrow",
+            "throw_arguments": [],
+            "throw_keyword_arguments": {
+              "typ": {
+                "kind": "exception-class",
+                "name": "ValueError"
+              }
+            }
+          }
+        }
+      ],
+      "observations": [
+        "convenience-sequence"
+      ]
+    },
+    {
+      "case_id": "starlette.websockets.WebSocket.convenience-sequence.iterator-athrow-four-arguments",
+      "surface": "starlette.websockets.WebSocket",
+      "operation": "convenience-sequence",
+      "covers": [
+        "starlette.websocket.api.iterator.athrow"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "websocket",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.5"
+        },
+        "http_version": "1.1",
+        "scheme": "ws",
+        "path": "/chat",
+        "raw_path_base64": "L2NoYXQ=",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "ZXhhbXBsZS50ZXN0"
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ],
+        "subprotocols": [
+          "chat"
+        ]
+      },
+      "incoming": [
+        {
+          "type": "websocket.connect",
+          "subprotocols": [
+            "chat"
+          ]
+        }
+      ],
+      "actions": [
+        {
+          "action_id": "accept",
+          "method": "accept",
+          "arguments": {}
+        },
+        {
+          "action_id": "throw-with-four-positional-arguments",
+          "method": "iterator-control",
+          "arguments": {
+            "iterator": "iter_text",
+            "control": "athrow",
+            "throw_arguments": [
+              {
+                "kind": "exception-class",
+                "name": "ValueError"
+              },
+              {
+                "kind": "value",
+                "value": "explicit value for four-argument athrow"
+              },
+              {
+                "kind": "traceback",
+                "representation": "none"
+              },
+              {
+                "kind": "value",
+                "value": "extra positional argument"
+              }
+            ]
+          }
+        }
+      ],
+      "observations": [
+        "convenience-sequence"
+      ]
+    },
+    {
+      "case_id": "starlette.websockets.WebSocket.convenience-sequence.iterator-athrow-valid-arities",
+      "surface": "starlette.websockets.WebSocket",
+      "operation": "convenience-sequence",
+      "covers": [
+        "starlette.websocket.api.iterator.athrow"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "scope": {
@@ -67,56 +249,6 @@
           "action_id": "accept",
           "method": "accept",
           "arguments": {}
-        },
-        {
-          "action_id": "throw-without-arguments",
-          "method": "iterator-control",
-          "arguments": {
-            "iterator": "iter_text",
-            "control": "athrow",
-            "throw_arguments": []
-          }
-        },
-        {
-          "action_id": "throw-with-positional-only-keyword",
-          "method": "iterator-control",
-          "arguments": {
-            "iterator": "iter_text",
-            "control": "athrow",
-            "throw_arguments": [],
-            "throw_keyword_arguments": {
-              "typ": {
-                "kind": "exception-class",
-                "name": "ValueError"
-              }
-            }
-          }
-        },
-        {
-          "action_id": "throw-with-four-positional-arguments",
-          "method": "iterator-control",
-          "arguments": {
-            "iterator": "iter_text",
-            "control": "athrow",
-            "throw_arguments": [
-              {
-                "kind": "exception-class",
-                "name": "ValueError"
-              },
-              {
-                "kind": "value",
-                "value": "explicit value for four-argument athrow"
-              },
-              {
-                "kind": "traceback",
-                "representation": "none"
-              },
-              {
-                "kind": "value",
-                "value": "extra positional argument"
-              }
-            ]
-          }
         },
         {
           "action_id": "yield-first-text",

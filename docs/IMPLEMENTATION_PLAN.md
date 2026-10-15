@@ -8,9 +8,9 @@ Pydantic are outside this project's scope.
 ## Execution order and current status
 
 Current implementation checkpoint (2026-10-15; working tree based on
-`bf500141`):
+`e8ed3b8d`):
 
-The active manifest declares full Starlette 1.6.0 scope with 2,534 cases across
+The active manifest declares full Starlette 1.6.0 scope with 2,537 cases across
 415 parity inputs, two benchmark inputs, 151 compatibility operations, 14
 Rust-native operations, 1,398 parity requirements, and six target profiles.
 The generated source atlas has 866 rows: 810 mapped, 56 source-backed
@@ -22,19 +22,26 @@ documented pages.
 The last recorded full matrix, coverage, and benchmark receipts below belong to
 earlier manifest revisions; they do not verify the active working tree. The
 most recent CI run on base commit `bf500141` failed before comparisons because
-result schema @8 rejected the emitted `build_artifacts` identity field. This
-working tree upgrades the strict result contract to @9, constrains the
+result schema @8 rejected the emitted `build_artifacts` identity field. The
+`e8ed3b8d` base upgrades the strict result contract to @9, constrains the
 CPython-specific MarkupSafe provenance, adds WebSocketRoute equality and
 missing-scope-key inputs, and expands ordinary BackgroundTask and concurrency
-inputs across CPython 3.10–3.14 while keeping async-generator protocol inputs
-at 3.12. Those parity inputs remain unexecuted.
+inputs across CPython 3.10–3.14. Other async-generator protocol inputs remain
+at 3.12; the separately audited WebSocket `athrow` arity input now covers
+3.10–3.14.
 
-`make source-inventory-check`, `RUSTC_WRAPPER= make lint`, and
-`RUSTC_WRAPPER= make check` pass on this working tree. No current full parity,
-coverage, or complete benchmark run has been accepted. Continue implementing
-all feature families before the grouped parity phase; do not infer replacement
-parity from the historical receipts below. Historical batch notes describe
-their state when recorded.
+The current implementation batch expands the 5001-digit path-converter
+comparisons to CPython 3.10–3.14 and clears `PYTHONINTMAXSTRDIGITS` in parity
+workers so the default interpreter limit is stable. It adds a marked-sync
+coroutine Request endpoint input for CPython 3.12–3.14. WebSocket `athrow`
+invalid zero/four-argument and valid one/two/three-argument inputs use fresh
+iterators, and the behavior is scoped across CPython 3.10–3.14. These
+comparisons remain unexecuted. `make source-inventory-check`,
+`RUSTC_WRAPPER= make lint`, and `RUSTC_WRAPPER= make check` pass on this working
+tree. No current full parity, coverage, or complete benchmark run has been
+accepted. Continue implementing all feature families before the grouped parity
+phase; do not infer replacement parity from the historical receipts below.
+Historical batch notes describe their state when recorded.
 
 The latest implementation batch now compares FileResponse's stateful PathLike
 calls inside its input-conditioned result record, and WSGIMiddleware's sender,
@@ -856,8 +863,10 @@ adapter; the crate does not yet expose one public Rust `Request` type.
 The next input-only slice adds 15 Router cases for the five built-in
 converters, converter misses, route order, root-path matching and prefix
 boundaries, plus a package-only custom `str` converter override. Six Request
-cases exercise converted path-parameter values and CPython 3.12's 4300-digit
-integer conversion limit. Two Mount cases compare child-scope extension and
+cases exercise converted path-parameter values and CPython's 4300-digit
+integer conversion limit. The digit-limit cases now target all declared
+CPython 3.10–3.14 package profiles; CPython backported the limit to 3.10.7 and
+introduced it in 3.11. Two Mount cases compare child-scope extension and
 mount misses. At this checkpoint, Rust-native ran the built-in Router
 projection and marked the Mount cases plus four Python-callable Request
 endpoint shapes unsupported. The later bounded Mount goal below closes those

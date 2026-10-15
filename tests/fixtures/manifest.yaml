@@ -1571,7 +1571,11 @@
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -1710,12 +1714,16 @@
             {
               "id": "starlette.applications.Starlette.__call__.router-converter-error-before-method-check",
               "dimension": "error_path",
-              "description": "During Router.app's route scan, each path-matching HTTP route converts captures before checking its method. A CPython 3.12 integer digit-limit ValueError on any matching route reached before the first full match, including a later route after earlier partial matches, must reach the server-error response. Pinned source: starlette/routing.py::Route.matches and Router.app; starlette/convertors.py::IntegerConvertor.convert.",
+              "description": "During Router.app's route scan, each path-matching HTTP route converts captures before checking its method. The 5001-digit int capture observes whether the selected CPython patch enforces its integer-string conversion limit (4300 by default, added in CPython 3.10.7 and 3.11) before the first full match, including a later route after earlier partial matches. Compare the live server-error boundary on the 3.10\u20133.14 package profiles. Pinned source: starlette/routing.py::Route.matches and Router.app; starlette/convertors.py::IntegerConvertor.convert; CPython: https://docs.python.org/3.10/whatsnew/3.10.html and https://docs.python.org/3.11/whatsnew/3.11.html.",
               "lanes": [
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -2961,7 +2969,11 @@
               ],
               "target_profiles": [
                 "rust-native-local",
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -2973,7 +2985,11 @@
               ],
               "target_profiles": [
                 "rust-native-local",
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -2985,7 +3001,11 @@
               ],
               "target_profiles": [
                 "rust-native-local",
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -2997,7 +3017,11 @@
               ],
               "target_profiles": [
                 "rust-native-local",
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -3032,7 +3056,11 @@
               ],
               "target_profiles": [
                 "rust-native-local",
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -3132,7 +3160,11 @@
               ],
               "target_profiles": [
                 "rust-native-local",
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -3193,12 +3225,14 @@
             {
               "id": "starlette.routing.async-endpoint-callable-form",
               "dimension": "boundary",
-              "description": "Route async Request endpoints supplied as a function, bound method, functools.partial, or nested functools.partial. Observe the actual callable type, partial depth, Request argument and path parameter, live response events, and execution on the caller event loop, task, and thread. Upstream: starlette/routing.py::request_response; starlette/_utils.py::is_async_callable; tests/test__utils.py::test_async_func, test_async_method, test_async_partial, and test_async_nested_partial.",
+              "description": "Route async Request endpoints supplied as a function, bound method, functools.partial, nested functools.partial, or a synchronous function marked by inspect.markcoroutinefunction. Observe the actual callable type, partial depth, Request argument and path parameter, live response events, and execution on the caller event loop, task, and thread. The marked function case selects CPython 3.12\u20133.14, where the marker is available and recognized by Starlette's version-selected detector. Upstream: starlette/routing.py::request_response; starlette/_utils.py::is_async_callable; tests/test__utils.py::test_async_func, test_async_method, test_async_partial, and test_async_nested_partial; https://docs.python.org/3.12/library/inspect.html#inspect.markcoroutinefunction.",
               "lanes": [
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -3245,7 +3279,11 @@
               ],
               "target_profiles": [
                 "rust-native-local",
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -3350,12 +3388,16 @@
             {
               "id": "starlette.request.path-param-int-digit-limit",
               "dimension": "error_path",
-              "description": "A 5001-digit path parameter matches the int regex but exceeds CPython\u2019s configured integer-string conversion limit when Starlette converts Request.path_params. Observe the live exception boundary in the source and installed Python package. Upstream: starlette/convertors.py::IntegerConvertor.convert and starlette/routing.py::Route.matches.",
+              "description": "Use a 5001-digit path capture to compare Starlette's int path converter with the active CPython profile's integer-string conversion limit while observing Request.path_params and the live exception boundary. CPython added the default 4300-digit limit in 3.10.7 and 3.11; the manifest's 3.10\u20133.14 profiles select runtime patch versions at preparation time. Pinned source: starlette/convertors.py::IntegerConvertor.convert and starlette/routing.py::Route.matches; CPython: https://docs.python.org/3.10/whatsnew/3.10.html and https://docs.python.org/3.11/whatsnew/3.11.html.",
               "lanes": [
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -26555,12 +26597,16 @@
             {
               "id": "starlette.routing.Router.route-dispatch.native-partial-converter-error-before-custom-match",
               "dimension": "error_path",
-              "description": "Router evaluates BaseRoute.matches(scope) in declaration order: converting a matching integer path capture on an earlier method-partial Route raises before a later custom BaseRoute matcher can raise. Pinned source: starlette/routing.py:242-257,686-703.",
+              "description": "Router evaluates BaseRoute.matches(scope) in declaration order. A 5001-digit int path capture observes whether the selected CPython patch enforces its integer-string conversion limit (4300 by default, added in CPython 3.10.7 and 3.11) before a later custom BaseRoute matcher can raise. Compare the live behavior on the 3.10\u20133.14 package profiles. Pinned source: starlette/routing.py:242-257,686-703; starlette/convertors.py::IntegerConvertor.convert; CPython: https://docs.python.org/3.10/whatsnew/3.10.html and https://docs.python.org/3.11/whatsnew/3.11.html.",
               "lanes": [
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -31716,12 +31762,16 @@
             {
               "id": "starlette.websocket.api.iterator.athrow",
               "dimension": "boundary",
-              "description": "Exercise the native async-generator athrow protocol exposed by the public WebSocket iterators (pinned source: starlette/websockets.py:144-163) at positional arities zero through four and with a typ keyword, and observe the public outcomes. Valid calls cover an exception type, explicit value, and explicit None traceback; boundary calls cover deferred arity errors and positional-only keyword rejection.",
+              "description": "Exercise the native async-generator athrow protocol exposed by the public WebSocket iterators (pinned source: starlette/websockets.py:144-163) at positional arities zero through four and with a typ keyword, observing public outcomes. Separate input cases use fresh iterators for invalid arities and for valid exception-type, explicit-value, and explicit-None-traceback calls. CPython 3.10\u20133.14 all mark the iterator running before unpacking athrow arguments.",
               "lanes": [
                 "parity"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -31827,7 +31877,11 @@
           "parity": {
             "applicability": "required",
             "target_profiles": [
-              "python-package-cpython312"
+              "python-package-cpython310",
+              "python-package-cpython311",
+              "python-package-cpython312",
+              "python-package-cpython313",
+              "python-package-cpython314"
             ]
           },
           "coverage": {
