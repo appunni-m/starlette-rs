@@ -25,31 +25,34 @@ with no conventional Python or Rust unit-test suite.
 ## Current implementation status
 
 The active full-scope `parity-input@58` contract covers Starlette 1.6.0 with
-2,538 cases across 416 parity inputs and two benchmark inputs, 151 compatibility
-operations, 14 Rust-native operations, and 1,399 parity requirements. Its
+2,540 cases across 416 parity inputs and two benchmark inputs, 151 compatibility
+operations, 14 Rust-native operations, and 1,401 parity requirements. Its
 manifest SHA-256 is
-`2dcb25d098d4f09ce3dd6bb231164a58391175f6cff222dd2c6316a9580eec4a`. The
-source atlas contains 866 rows: 810 input mappings, 56 source-backed
-`not_applicable` rows, and zero fixture backlog. The 999-row API candidate
-catalog has 564 supported candidates, 435 private/internal candidates, and
-zero uncertain candidates.
+`27592f7b6bca14354b2dd4fa0b3cfd22c003ad41c227962df5028dbdac6e22f1`. Contract
+and source-inventory checks pass; parity, coverage, and benchmark runs have not
+been recorded for this digest. The source atlas contains 866 rows: 810 input
+mappings, 56 source-backed `not_applicable` rows, and zero fixture backlog. The
+999-row API candidate catalog has 564 supported candidates, 435
+private/internal candidates, and zero uncertain candidates; the compatibility
+input selects 432 unique supported names and 47 pinned documentation imports.
 
-Current-manifest parity workflow
+The last complete parity and coverage workflow
 [38805748474](https://github.com/appunni-m/starlette-rs/actions/runs/38805748474)
-passed all five CPython profile jobs. The six-profile coverage lane also
-completed with zero selected-case failures and zero infrastructure errors.
-Coverage MCP measured 5,156/8,004 Rust-native lines; CPython 3.10 11,650/33,280;
-3.11 11,662/33,280; 3.12 22,903/33,280; 3.13 11,610/33,280; and 3.14
-11,606/33,280. MCP reviewed uncovered locations, but source identity remains
-unverified and test status unknown because no source/build receipt was
+verified the previous manifest SHA-256
+`2dcb25d098d4f09ce3dd6bb231164a58391175f6cff222dd2c6316a9580eec4a` on target
+revision `a10ecf5776c50cf86600e3d5f049e8db006f4966`. For that earlier input set,
+all five CPython parity profiles and six coverage profiles completed. Coverage
+MCP measured 5,156/8,004 Rust-native lines; CPython 3.10 11,650/33,280; 3.11
+11,662/33,280; 3.12 22,903/33,280; 3.13 11,610/33,280; and 3.14 11,606/33,280.
+Its source identity remains unverified because no source/build receipt was
 ingested. Coverage is a measurement, not a parity score.
 
-Current-manifest benchmark run `1853ee16-2795-48dc-bc5f-2b15421967df` measured
-74 Router and GZip source/package workloads, with zero failures or
-source/package skips. Its median source/package latency ratios are 0.224 for
-Router and 0.974 for GZip; normalized observation hashes match in 74/74. The
-74 Rust-native benchmark entries remain `not_run` because the native API has no
-equivalent workload boundary. Current evidence and exact run identities are in the
+The last benchmark run `1853ee16-2795-48dc-bc5f-2b15421967df` used the previous
+manifest. It measured 74 Router and GZip source/package workloads, with zero
+failures or source/package skips. Its median source/package latency ratios are
+0.224 for Router and 0.974 for GZip; normalized observation hashes match in
+74/74. The 74 Rust-native benchmark entries remain `not_run` because the native
+API has no equivalent workload boundary. Run identities are in the
 [implementation plan](../IMPLEMENTATION_PLAN.md), [parity report](../PARITY.md),
 and [benchmark report](../BENCHMARKS.md).
 

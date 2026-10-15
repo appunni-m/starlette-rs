@@ -1,12 +1,15 @@
 # Benchmark mapping
 
-The latest paired benchmark and correctness preflight below use the active
-2,538-case `parity-input@58` contract. Its five-profile parity matrix and
-six-profile coverage lane completed in CI before this benchmark run. The run
+The active `parity-input@58` contract declares 2,540 cases and has manifest
+SHA-256
+`27592f7b6bca14354b2dd4fa0b3cfd22c003ad41c227962df5028dbdac6e22f1`. No
+benchmark or correctness preflight has run for this digest. The generated run
+below is historical evidence for the previous manifest SHA-256
+`2dcb25d098d4f09ce3dd6bb231164a58391175f6cff222dd2c6316a9580eec4a`; it
 measured all 74 declared source/package workloads (6 Router and 68 GZip). All
-74 Rust-native workload rows remain `not_run` because the native API has no
-equivalent ASGI workload boundary. These results cover the declared benchmark
-slice and do not prove full Starlette replacement parity.
+74 Rust-native workload rows were `not_run` because the native API has no
+equivalent ASGI workload boundary. Those results cover only their declared
+benchmark slice and do not prove full Starlette replacement parity.
 
 The pinned Starlette 1.6.0 benchmark suite has six Router workloads and 68
 GZip workloads. The dedicated runner measures all 74 against both pinned

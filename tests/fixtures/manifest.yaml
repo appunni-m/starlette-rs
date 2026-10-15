@@ -22305,6 +22305,19 @@
               ]
             },
             {
+              "id": "starlette.responses.FileResponse.asgi-call.range-206-pathsend",
+              "dimension": "parameter_combination",
+              "description": "Request one satisfiable byte range while the ASGI scope also declares http.response.pathsend, then compare the 206 response headers, range body bytes, and ASGI events. Pinned source: starlette/responses.py:341-382; tests/test_responses.py::test_file_response_range.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.responses.FileResponse.asgi-call.single-range-header-view-isolation",
               "dimension": "boundary",
               "description": "Observe the response's base raw_headers and cached headers view before and after one single-range ASGI call. Range handling uses a copied list, so per-range 206 headers remain local to the emitted response. Pinned source: starlette/responses.py:401-407; tests/test_responses.py::test_file_response_range.",

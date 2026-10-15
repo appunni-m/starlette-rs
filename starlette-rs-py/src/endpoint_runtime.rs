@@ -22,6 +22,7 @@ pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(websocket_endpoint_dispatch, module)?)?;
     module.add_function(wrap_pyfunction!(websocket_endpoint_decode, module)?)?;
     module.add_function(wrap_pyfunction!(websocket_endpoint_on_connect, module)?)?;
+    module.add_function(wrap_pyfunction!(websocket_endpoint_noop_hook, module)?)?;
     Ok(())
 }
 
@@ -876,4 +877,20 @@ fn exception_handler_match_error(
 #[pyfunction(name = "_websocket_endpoint_on_connect")]
 fn websocket_endpoint_on_connect(websocket: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
     websocket.call_method0("accept").map(Bound::unbind)
+}
+
+struct WebSocketEndpointNoopHook;
+
+impl AwaitableStateMachine for WebSocketEndpointNoopHook {
+    fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
+        match input {
+            MachineResume::Error(error) => Err(error),
+            _ => Ok(MachineAction::Complete(py.None())),
+        }
+    }
+}
+
+#[pyfunction(name = "_websocket_endpoint_noop_hook")]
+fn websocket_endpoint_noop_hook(py: Python<'_>) -> PyResult<Py<PyAny>> {
+    into_sendable_python_awaitable(py, WebSocketEndpointNoopHook)
 }

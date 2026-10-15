@@ -8,19 +8,21 @@ Pydantic are outside this project's scope.
 ## Execution order and current status
 
 Active implementation checkpoint (2026-10-16; `parity-input@58`; current
-manifest SHA-256 `2dcb25d098d4f09ce3dd6bb231164a58391175f6cff222dd2c6316a9580eec4a`;
-last verified clean target revision `a10ecf5776c50cf86600e3d5f049e8db006f4966`):
+manifest SHA-256 `27592f7b6bca14354b2dd4fa0b3cfd22c003ad41c227962df5028dbdac6e22f1`;
+last fully verified target revision `a10ecf5776c50cf86600e3d5f049e8db006f4966`):
 
-The active manifest declares full Starlette 1.6.0 scope with 2,538 cases across
+The active manifest declares full Starlette 1.6.0 scope with 2,540 cases across
 416 parity inputs, two benchmark inputs, 151 compatibility operations, 14
-Rust-native operations, 1,399 parity requirements, and six target profiles.
-The current-manifest five-profile parity matrix and six-profile coverage lane
-passed in CI workflow `38805748474` on target revision
-`a10ecf5776c50cf86600e3d5f049e8db006f4966`. The single current-manifest
-benchmark run measured all 74 declared source/package workloads with zero
-failures. Coverage MCP reviewed all six LCOV reports; its source identity is
-unverified and test status unknown because no source/build receipt was
-ingested. The oracle is Starlette 1.6.0 at
+Rust-native operations, 1,401 parity requirements, and six target profiles.
+The current manifest has passed the targeted contract and source-inventory
+checks; parity, coverage measurement, and benchmarks have not been run for
+this digest. The newly authored FileResponse range-plus-pathsend input, the
+Rust-backed WebSocketEndpoint default hooks, and the public `__version__` value
+comparison remain unexecuted until grouped parity. The last complete parity and
+coverage evidence belongs to the previous manifest SHA-256
+`2dcb25d098d4f09ce3dd6bb231164a58391175f6cff222dd2c6316a9580eec4a`; it ran
+in workflow `38805748474` on target revision
+`a10ecf5776c50cf86600e3d5f049e8db006f4966`. The oracle is Starlette 1.6.0 at
 `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`.
 The generated source atlas has 866 rows: 810 mapped, 56 source-backed
 `not_applicable`, and zero fixture backlog. The 999-row API catalog has 564
@@ -34,7 +36,7 @@ failed, zero infrastructure errors, and zero `not_run` rows. All 17 selected
 fault contracts passed. Per-profile results were: CPython 3.10, 633/633; 3.11,
 633/633; 3.12, 2,889/2,889; 3.13, 634/634; and 3.14, 634/634.
 
-The last Rust coverage measurement, also on the previous manifest, is the
+The last Rust coverage measurement, on that previously verified manifest, is the
 local ignored artifact
 `build/parity/coverage/full-starlette-1.6.0-20261015-57361208-native-inclusive-verified/starlette-project.lcov`:
 26,126/33,348 lines covered (78.34%). Coverage MCP reports a receipt-matched
@@ -46,14 +48,14 @@ receipt is bound to extension SHA-256
 adapter SHA-256
 `9d745cca62615dfbae29bb1f1c2971915beca85b126dffa364df6b2f16ff93c9`.
 Coverage MCP's comparison with the earlier source/build is incomparable, so no
-coverage delta is claimed. The active manifest now declares input-driven line
+coverage delta is claimed. The active manifest declares input-driven line
 coverage plans for all six target profiles, mapping 2,500 profile-requirement
-entries to 11 Rust components. The current six-profile measurements and MCP
-review are recorded in the execution ledger below. MCP source identity remains
-unverified because the report artifacts have no ingested source/build receipt.
-Coverage measures executed Rust lines; it is not a parity score.
+entries to 11 Rust components. No coverage measurement has been run for the
+active manifest SHA above. MCP source identity remains unverified for the prior
+reports because the artifacts have no ingested source/build receipt. Coverage
+measures executed Rust lines; it is not a parity score.
 
-The historical 74-workload benchmark run on the previous manifest,
+The previous-manifest 74-workload benchmark run,
 `8971ad63-111e-4379-a327-6809e852ee75` completed on this revision: 6 Router
 and 68 GZip source/package workloads, zero failures, zero source/package
 `not_run`, and 74 Rust-native `not_run` because the equivalent native workload
@@ -66,7 +68,7 @@ and 61/68 GZip workloads, and normalized observation hashes matched in 74/74.
 The result SHA-256 is
 `bc73295313ff0ccde806615597033e510dd502accfc859dc3cd653f7ef7b4eea`.
 These are workload-specific timings, not a general performance or compatibility
-claim. The current-manifest benchmark run is recorded in the execution ledger.
+claim. No benchmark has been run for the active manifest SHA above.
 
 ### Post-checkpoint repair and verification
 

@@ -1674,6 +1674,9 @@ RESPONSE_BACKGROUND_REQUIREMENTS = {
 }
 RESPONSE_BACKGROUND_CONTEXTVAR_REQUIREMENT = "starlette.responses.Response.consumer-construction.sync-background-contextvar-worker-propagation"
 FILE_RESPONSE_PATHSEND_REQUIREMENT = f"{FILE_RESPONSE_SURFACE}.{RESPONSE_OPERATION}.pathsend"
+FILE_RESPONSE_RANGE_PATHSEND_REQUIREMENT = (
+    f"{FILE_RESPONSE_SURFACE}.{RESPONSE_OPERATION}.range-206-pathsend"
+)
 FILE_RESPONSE_METHOD_UPPER_OVERRIDE_REQUIREMENT = (
     f"{FILE_RESPONSE_SURFACE}.{RESPONSE_OPERATION}.method-upper-str-subclass"
 )
@@ -8557,7 +8560,8 @@ def _validate_file_response_case_stimulus(case: dict[str, Any]) -> None:
         "extensions", {}
     )
     has_pathsend_requirement = FILE_RESPONSE_PATHSEND_REQUIREMENT in case["covers"]
-    if has_pathsend_extension != has_pathsend_requirement:
+    has_range_pathsend_requirement = FILE_RESPONSE_RANGE_PATHSEND_REQUIREMENT in case["covers"]
+    if has_pathsend_extension != (has_pathsend_requirement or has_range_pathsend_requirement):
         raise ContractError(
             "FileResponse pathsend extension presence must match its declared parity requirement"
         )
@@ -8571,10 +8575,18 @@ def _validate_file_response_case_stimulus(case: dict[str, Any]) -> None:
             raise ContractError(
                 "FileResponse pathsend request header names must be base64"
             ) from exc
-        if scope_spec["method"].upper() != "GET" or b"range" in request_header_names:
-            raise ContractError(
-                "FileResponse pathsend coverage requires a GET without a Range request header"
-            )
+        has_range_header = b"range" in request_header_names
+        expected_pathsend_requirement = (
+            FILE_RESPONSE_RANGE_PATHSEND_REQUIREMENT
+            if has_range_header
+            else FILE_RESPONSE_PATHSEND_REQUIREMENT
+        )
+        if (
+            scope_spec["method"].upper() != "GET"
+            or expected_pathsend_requirement not in case["covers"]
+            or has_pathsend_requirement == has_range_pathsend_requirement
+        ):
+            raise ContractError("FileResponse pathsend coverage must match GET range input")
     if pathlike_spec is not None:
         try:
             request_header_names = {

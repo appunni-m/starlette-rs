@@ -63,6 +63,8 @@ class WebSocketEndpoint:
 
     async def on_receive(self, websocket: WebSocket, data: Any) -> None:
         """Override to handle an incoming websocket message"""
+        await _core._websocket_endpoint_noop_hook()
 
     async def on_disconnect(self, websocket: WebSocket, close_code: int) -> None:
         """Override to handle a disconnecting websocket"""
+        await _core._websocket_endpoint_noop_hook()

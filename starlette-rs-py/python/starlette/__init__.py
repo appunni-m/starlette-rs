@@ -4,4 +4,4 @@ The package implements the documented Starlette compatibility slices without
 importing or falling back to the upstream distribution.
 """
 
-__version__ = "0.1.0"
+__version__ = "1.6.0"

@@ -450,7 +450,8 @@
               {
                 "name": "__version__",
                 "observe": [
-                  "presence"
+                  "presence",
+                  "value"
                 ]
               }
             ]

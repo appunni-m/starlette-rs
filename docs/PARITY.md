@@ -2,23 +2,26 @@
 
 ## Current verification status
 
-The active full-scope contract is `parity-input@58`, manifest SHA-256
-`2dcb25d098d4f09ce3dd6bb231164a58391175f6cff222dd2c6316a9580eec4a`. Its
-current-manifest five-profile parity workflow
+The active full-scope contract is `parity-input@58`, with 2,540 cases and
+manifest SHA-256
+`27592f7b6bca14354b2dd4fa0b3cfd22c003ad41c227962df5028dbdac6e22f1`. No full
+parity run is recorded for this digest. The last complete five-profile matrix
+was for the previous manifest SHA-256
+`2dcb25d098d4f09ce3dd6bb231164a58391175f6cff222dd2c6316a9580eec4a`; workflow
 [38805748474](https://github.com/appunni-m/starlette-rs/actions/runs/38805748474)
-passed all five CPython profile jobs on target revision
+passed all five CPython profiles on target revision
 `a10ecf5776c50cf86600e3d5f049e8db006f4966`. The pinned Starlette 1.6.0 source
 revision is `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`.
 
-The declared five-profile parity matrix is verified for this manifest. The
-`aggregate` command reports it under
+The previous manifest's five-profile parity matrix was verified. The
+`aggregate` command reports that historical matrix under
 `parity_matrix.status`; its top-level status remains `not_proven` because this
 matrix report does not establish the complete Starlette replacement. The
 active manifest now declares six input-driven coverage plans and 11 Rust line
 components. Coverage and benchmark evidence remain separate from this
 parity-matrix report.
 
-The current six-profile coverage lane completed in workflow
+The previous manifest's six-profile coverage lane completed in workflow
 [38805748474](https://github.com/appunni-m/starlette-rs/actions/runs/38805748474)
 with zero selected-case failures and zero infrastructure errors. Coverage MCP
 measured Rust-native at 5,156/8,004 lines; CPython 3.10 at 11,650/33,280;
@@ -29,7 +32,8 @@ source/build receipt or snapshot, so MCP reports source identity as unverified
 and test status as unknown. These are measured line counts, not source-verified
 regression evidence.
 
-Current-manifest benchmark run `1853ee16-2795-48dc-bc5f-2b15421967df` measured
+The last benchmark run `1853ee16-2795-48dc-bc5f-2b15421967df`, which used the
+previous manifest, measured
 all 74 source/package workloads (6 Router and 68 GZip): 74 measured, 0 failed,
 and 0 `not_run`. All 74 Rust-native rows are `not_run` because an equivalent
 workload boundary is unavailable. The median source/package latency ratios
