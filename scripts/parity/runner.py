@@ -1088,20 +1088,29 @@ def run_parity(
         elif profile_id in target_errors:
             target_result = _skipped_result(case, f"not run: {target_errors[profile_id]['kind']}")
         else:
-            target_command = _resolve_command(
-                commands[target["identity_command_id"]], prepared, root
-            )
-            target_environment = prepared.get(
+            target_environment_id = (
                 environment_ids(profile["python_version"])[1]
                 if profile["python_version"] is not None
-                else ""
+                else None
             )
-            if target_environment is None:
+            target_environment = (
+                prepared.get(target_environment_id) if target_environment_id else None
+            )
+            if target["id"] == "python-package" and target_environment is None:
                 target_result = _skipped_result(case, "not run: target environment is not prepared")
             else:
-                target_env = _adapter_environment(
-                    env, target_environment["dependency_lock_sha256"], target_environment
+                target_command = _resolve_command(
+                    commands[target["identity_command_id"]],
+                    prepared,
+                    root,
+                    target_environment_id,
                 )
+                target_lock = (
+                    target_environment["dependency_lock_sha256"]
+                    if target_environment is not None
+                    else sha256_file(root / "Cargo.lock")
+                )
+                target_env = _adapter_environment(env, target_lock, target_environment)
                 target_result_raw, error = _run_case(
                     target_command, target["id"], case, target_env, "target", root
                 )

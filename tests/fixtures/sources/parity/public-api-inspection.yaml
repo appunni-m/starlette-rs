@@ -2114,6 +2114,13 @@
                 ]
               },
               {
+                "name": "HTTPConnection.__init__",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
                 "name": "HTTPConnection.__getitem__",
                 "observe": [
                   "presence",
@@ -2269,6 +2276,13 @@
               },
               {
                 "name": "Request.method",
+                "observe": [
+                  "presence",
+                  "signature"
+                ]
+              },
+              {
+                "name": "Request.receive",
                 "observe": [
                   "presence",
                   "signature"

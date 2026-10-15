@@ -45240,8 +45240,7 @@ def _validate_parity_result_artifact(
             context,
         )
         _string(fault_row["case_id"], f"{context}.case_id")
-        if fault_row["target_profile"] != "python-package-cpython312":
-            raise ContractError(f"{context}.target_profile is invalid")
+        _string(fault_row["target_profile"], f"{context}.target_profile")
         if not isinstance(fault_row["requirements"], list) or any(
             not isinstance(item, str) for item in fault_row["requirements"]
         ):
