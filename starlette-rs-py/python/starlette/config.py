@@ -90,7 +90,7 @@ class Config:
         cast: Callable[[Any], Any] | None = None,
         default: Any = undefined,
     ) -> Any:
-        return self._inner.get(key, cast, default)
+        return self.get(key, cast, default)
 
     def get(
         self,

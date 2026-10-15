@@ -24678,6 +24678,12 @@ def _validate_case_payload(
         ):
             expected_case_keys = expected_case_keys | {"encoding"}
         if (
+            (case["surface"], case["operation"]) == ("starlette.config.Config", "value-resolution")
+            and isinstance(case, dict)
+            and "get_override" in case
+        ):
+            expected_case_keys = expected_case_keys | {"get_override"}
+        if (
             (case["surface"], case["operation"]) == ("starlette.config.Environ", "mapping-sequence")
             and isinstance(case, dict)
             and "mapping_source" in case
@@ -34549,6 +34555,10 @@ def _validate_config_case(case: dict[str, Any]) -> None:
             elif stripped and not stripped.startswith("#"):
                 non_assignment_lines.add(stripped)
         selected: set[str] = set()
+        if "get_override" in case:
+            override = _exact(case["get_override"], {"return_value"}, "Config get override")
+            _string(override["return_value"], "Config get override return_value")
+            selected.add("starlette.config.Config.call-subclass-get-dispatch")
         if has_embedded_equals:
             selected.add("starlette.config.Config.env-file-first-equals")
         if "encoding" in case:

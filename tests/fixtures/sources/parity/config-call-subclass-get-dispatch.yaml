@@ -1,0 +1,39 @@
+{
+  "schema": "migration-parity/parity-input@58",
+  "cases": [
+    {
+      "case_id": "starlette.config.Config.value-resolution.subclass-get-dispatch",
+      "surface": "starlette.config.Config",
+      "operation": "value-resolution",
+      "covers": [
+        "starlette.config.Config.call-subclass-get-dispatch"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "config": {
+        "env_prefix": "",
+        "environ": {
+          "VALUE": "stored value"
+        },
+        "env_file_lines": []
+      },
+      "lookups": [
+        {
+          "key": "VALUE"
+        }
+      ],
+      "get_override": {
+        "return_value": "subclass get result"
+      },
+      "observations": [
+        "lookup-results"
+      ]
+    }
+  ]
+}

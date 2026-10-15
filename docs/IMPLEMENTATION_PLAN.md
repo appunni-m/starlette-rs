@@ -8,15 +8,17 @@ Pydantic are outside this project's scope.
 ## Execution order and current status
 
 Active implementation checkpoint (2026-10-16; `parity-input@58`; current
-manifest SHA-256 `62080be6cdd50f612516f5c570ae5e2ac4ddda249ac3444a891de9f6efb2ebdc`;
+manifest SHA-256 `cf699c990f199c3a1adb8c79a8e125acd88a0030589d4535e5a7839ed1c897a5`;
 last fully verified target revision `a10ecf5776c50cf86600e3d5f049e8db006f4966`):
 
-The active manifest declares full Starlette 1.6.0 scope with 2,542 cases across
-416 parity inputs, two benchmark inputs, 151 compatibility operations, 14
-Rust-native operations, 1,403 parity requirements, and six target profiles.
-The current manifest has passed the targeted contract and source-inventory
-checks; parity, coverage measurement, and benchmarks have not been run for
-this digest. The newly authored FileResponse range-plus-pathsend input, the
+The active manifest declares full Starlette 1.6.0 scope with 2,543 cases across
+417 parity inputs, two benchmark inputs, 151 compatibility operations, 14
+Rust-native operations, 1,404 parity requirements, and six target profiles.
+Contract validation and source-inventory generation pass; parity, coverage
+measurement, and benchmarks have not been run for this digest. `Config.__call__`
+now forwards through the public `get` method to preserve pinned Python subclass
+dispatch; its input-only comparison remains deferred to full parity. The newly
+authored FileResponse range-plus-pathsend input, the
 Rust-backed WebSocketEndpoint default hooks, and the public `__version__` value
 comparison remain unexecuted until grouped parity. New WebSocketRoute and Mount
 inputs verify that Router dispatch continues using each object’s constructor-

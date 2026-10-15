@@ -489,6 +489,7 @@
       "build/parity/inputs/parity/https-redirect-valid-host-ignores-server-port.json",
       "build/parity/inputs/parity/config-runtime.json",
       "build/parity/inputs/parity/config-runtime-reflected-prefix-key.json",
+      "build/parity/inputs/parity/config-call-subclass-get-dispatch.json",
       "build/parity/inputs/parity/schemas-runtime.json",
       "build/parity/inputs/parity/schemas-unicode-word-boundary.json",
       "build/parity/inputs/parity/schemas-optional-pyyaml-boundary.json",
@@ -7049,6 +7050,22 @@
               "id": "starlette.config.Config.explicit-encoding",
               "dimension": "parameter",
               "description": "Decode environment-file bytes with the explicitly supplied encoding. Pinned source: starlette/config.py:54-64, 111-121; tests/test_config.py::test_config_with_encoding; docs/config.md:123-133.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
+              "id": "starlette.config.Config.call-subclass-get-dispatch",
+              "dimension": "boundary",
+              "description": "Config.__call__ dynamically dispatches through the public get method, including an input-defined subclass override. Pinned source: starlette/config.py::Config.__call__; docs/config.md; the documented Config callable API.",
               "lanes": [
                 "parity",
                 "coverage"

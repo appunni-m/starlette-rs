@@ -16243,7 +16243,21 @@ def _run_config_case(case: dict[str, Any]) -> dict[str, Any]:
                 Path(".env").write_text(
                     "\n".join(config_input["env_file_lines"]), encoding=encoding
                 )
-                config = Config(
+                config_class = Config
+                if "get_override" in case:
+                    override_result = case["get_override"]["return_value"]
+
+                    class ConfigWithGetOverride(Config):
+                        def get(
+                            self,
+                            key: str,
+                            cast: Any = None,
+                            default: Any = None,
+                        ) -> Any:
+                            return override_result
+
+                    config_class = ConfigWithGetOverride
+                config = config_class(
                     env_file=".env",
                     environ=config_input["environ"],
                     env_prefix=config_input["env_prefix"],
