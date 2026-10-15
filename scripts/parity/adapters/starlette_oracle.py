@@ -12389,16 +12389,19 @@ def _run_static_files_lookup_path_case(case: dict[str, Any]) -> dict[str, Any]:
 
     with tempfile.TemporaryDirectory(prefix="starlette-static-lookup-") as temporary_directory:
         workspace = Path(temporary_directory)
-        root = workspace / case["directory"]
+        root = workspace / case["directory"] if case["directory"] is not None else None
         root_symlink_target = case["filesystem"]["root_symlink_target"]
-        if root_symlink_target is None:
-            root.mkdir(parents=True)
-        else:
-            target_directory = workspace / root_symlink_target
-            target_directory.mkdir(parents=True, exist_ok=True)
-            root.parent.mkdir(parents=True, exist_ok=True)
-            os.symlink(os.path.relpath(target_directory, root.parent), root)
+        if root is not None:
+            if root_symlink_target is None:
+                root.mkdir(parents=True)
+            else:
+                target_directory = workspace / root_symlink_target
+                target_directory.mkdir(parents=True, exist_ok=True)
+                root.parent.mkdir(parents=True, exist_ok=True)
+                os.symlink(os.path.relpath(target_directory, root.parent), root)
         for file_spec in case["files"]:
+            if root is None:
+                raise ValueError("StaticFiles lookup-path file input has no configured root")
             file_path = file_spec["path"]
             if isinstance(file_path, dict):
                 file_path = _strict_object(
@@ -12448,12 +12451,16 @@ def _run_static_files_lookup_path_case(case: dict[str, Any]) -> dict[str, Any]:
             )
             os.utime(path, (file_spec["mtime_seconds"], file_spec["mtime_seconds"]))
         for symlink_spec in case["filesystem"]["symlinks"]:
+            if root is None:
+                raise ValueError("StaticFiles lookup-path symlink input has no configured root")
             path = root / symlink_spec["path"]
             path.parent.mkdir(parents=True, exist_ok=True)
             os.symlink(symlink_spec["target"], path)
         directory_pathlike = None
         configured_directory: Any = root
         if has_pathlike:
+            if root is None:
+                raise ValueError("StaticFiles lookup-path PathLike input has no configured root")
             directory_pathlike = InputSequencePathLike(
                 workspace,
                 case["directory_pathlike"]["fspath_results_relative_to_workspace"],
@@ -12510,9 +12517,12 @@ def _run_static_files_lookup_path_case(case: dict[str, Any]) -> dict[str, Any]:
                 }
         else:
             if directory_pathlike is None:
-                relative_root = root.absolute() if case["follow_symlink"] else root.resolve()
                 relative_path = (
-                    Path(full_path).relative_to(relative_root).as_posix() if full_path else None
+                    Path(full_path)
+                    .relative_to(root.absolute() if case["follow_symlink"] else root.resolve())
+                    .as_posix()
+                    if full_path and root is not None
+                    else None
                 )
             else:
                 relative_path = (

@@ -244,8 +244,10 @@ impl StaticFiles {
         if is_absolute_lookup_path(path) {
             return Ok(None);
         }
-        // Starlette maps embedded NUL through ValueError; other OS InvalidInput errors propagate.
-        if contains_nul(path) {
+        // Starlette reaches os.stat only while trying a configured root. With
+        // no roots, an embedded NUL path is never passed to the OS and is not
+        // an error.
+        if (directory.is_some() || !self.directories.is_empty()) && contains_nul(path) {
             return Err(StaticFilesError::InvalidPath);
         }
         if let Some((joined_directory, boundary_directory)) = directory {

@@ -48,8 +48,9 @@ INPUT_SCHEMA_V52 = "migration-parity/parity-input@52"
 INPUT_SCHEMA_V53 = "migration-parity/parity-input@53"
 INPUT_SCHEMA_V54 = "migration-parity/parity-input@54"
 INPUT_SCHEMA_V55 = "migration-parity/parity-input@55"
+INPUT_SCHEMA_V56 = "migration-parity/parity-input@56"
 PREVIOUS_INPUT_SCHEMA = INPUT_SCHEMA_V50
-INPUT_SCHEMA = "migration-parity/parity-input@56"
+INPUT_SCHEMA = "migration-parity/parity-input@57"
 BENCHMARK_INPUT_SCHEMA = "migration-parity/benchmark-input@1"
 RESULT_SCHEMA = "migration-parity/parity-result@8"
 BENCHMARK_RESULT_SCHEMA = "migration-parity/benchmark-result@1"
@@ -1562,6 +1563,9 @@ STATIC_FILES_ROOT_PATH_PREFIX_INDEX_REDIRECT = "root-path-prefix-html-index-redi
 STATIC_FILES_EMPTY_IF_NONE_MATCH_FALLBACK = "empty-if-none-match-falls-through-to-if-modified-since"
 STATIC_FILES_LOOKUP_PATH_NULL_BYTE_REQUIREMENT = (
     f"{STATIC_FILES_SURFACE}.{STATIC_FILES_LOOKUP_PATH_OPERATION}.null-byte-error"
+)
+STATIC_FILES_LOOKUP_PATH_EMPTY_ROOT_NUL_REQUIREMENT = (
+    f"{STATIC_FILES_SURFACE}.{STATIC_FILES_LOOKUP_PATH_OPERATION}.empty-roots-skip-nul-stat"
 )
 STATIC_FILES_LOOKUP_PATH_WINDOWS_INVALID_NAME_REQUIREMENT = f"{STATIC_FILES_SURFACE}.{STATIC_FILES_LOOKUP_PATH_OPERATION}.windows-invalid-name-error-propagation"
 STATIC_FILES_LOOKUP_PATH_SURROGATEESCAPE_REQUIREMENT = (
@@ -9623,26 +9627,61 @@ def _validate_static_files_lookup_path_case(
         or case["operation"] != STATIC_FILES_LOOKUP_PATH_OPERATION
     ):
         raise ContractError("case is outside the declared StaticFiles lookup-path operation")
-    directory = _string(case["directory"], "StaticFiles lookup-path.directory")
-    if (
-        not directory
-        or directory in {".", ".."}
-        or "\\" in directory
-        or Path(directory).is_absolute()
-        or Path(directory).name != directory
-    ):
-        raise ContractError("StaticFiles lookup-path.directory must be a relative basename")
+    directory = case["directory"]
+    if directory is not None:
+        directory = _string(directory, "StaticFiles lookup-path.directory")
+        if (
+            not directory
+            or directory in {".", ".."}
+            or "\\" in directory
+            or Path(directory).is_absolute()
+            or Path(directory).name != directory
+        ):
+            raise ContractError("StaticFiles lookup-path.directory must be a relative basename")
     if type(case["check_dir"]) is not bool or type(case["follow_symlink"]) is not bool:
         raise ContractError("StaticFiles lookup-path options must be boolean")
     observe_lookup_error = case.get("observe_lookup_error", False)
     if type(observe_lookup_error) is not bool:
         raise ContractError("StaticFiles lookup-path observe_lookup_error must be boolean")
-
-    has_directory_pathlike = "directory_pathlike" in case
-    directory_pathlike = case.get("directory_pathlike")
     expected_observations = [STATIC_FILES_LOOKUP_PATH_OPERATION]
     if case["observations"] != expected_observations:
         raise ContractError("StaticFiles lookup-path observations must select lookup-path")
+
+    if directory is None:
+        if "directory_pathlike" in case:
+            raise ContractError(
+                "StaticFiles lookup-path without a root cannot use a directory PathLike"
+            )
+        files = case["files"]
+        if not isinstance(files, list) or files:
+            raise ContractError("StaticFiles lookup-path without a root must not define files")
+        filesystem = _exact(
+            case["filesystem"],
+            {"root_symlink_target", "directories", "outside_files", "symlinks"},
+            "StaticFiles lookup-path filesystem",
+        )
+        if filesystem != {
+            "root_symlink_target": None,
+            "directories": [],
+            "outside_files": [],
+            "symlinks": [],
+        }:
+            raise ContractError(
+                "StaticFiles lookup-path without a root cannot define filesystem entries"
+            )
+        lookup_path = _string(case["lookup_path"], "StaticFiles lookup_path")
+        if "\x00" not in lookup_path:
+            raise ContractError(
+                "StaticFiles lookup-path without a root must use an embedded NUL path"
+            )
+        if validate_covers and set(case["covers"]) != {
+            STATIC_FILES_LOOKUP_PATH_EMPTY_ROOT_NUL_REQUIREMENT
+        }:
+            raise ContractError("StaticFiles lookup-path covers must match the selected input path")
+        return "empty-roots-skip-nul-stat"
+
+    has_directory_pathlike = "directory_pathlike" in case
+    directory_pathlike = case.get("directory_pathlike")
 
     pathlike_results: list[str] | None = None
     if has_directory_pathlike:
@@ -10008,6 +10047,8 @@ def _validate_static_files_lookup_path_case(
     if validate_covers:
         if requirement == "null-byte-error":
             requirement_id = STATIC_FILES_LOOKUP_PATH_NULL_BYTE_REQUIREMENT
+        elif requirement == "empty-roots-skip-nul-stat":
+            requirement_id = STATIC_FILES_LOOKUP_PATH_EMPTY_ROOT_NUL_REQUIREMENT
         elif requirement == "windows-invalid-name-error-propagation":
             requirement_id = STATIC_FILES_LOOKUP_PATH_WINDOWS_INVALID_NAME_REQUIREMENT
         elif requirement == "surrogateescape-path":
@@ -42254,6 +42295,19 @@ def migrate_input_document_v55(document: Any) -> dict[str, Any]:
             raise ContractError(f"parity case {case_index} cannot use HTTP body_value in @55 input")
 
     migrated = dict(document)
+    migrated["schema"] = INPUT_SCHEMA_V56
+    return migrated
+
+
+def migrate_input_document_v56(document: Any) -> dict[str, Any]:
+    """Advance @56 inputs to @57, which accepts StaticFiles without lookup roots."""
+    _exact(document, {"schema", "cases"}, "parity input")
+    if document["schema"] != INPUT_SCHEMA_V56:
+        raise ContractError(f"unsupported @56 parity input schema: {document['schema']!r}")
+    if not isinstance(document["cases"], list) or not document["cases"]:
+        raise ContractError("parity input must select at least one case")
+
+    migrated = dict(document)
     migrated["schema"] = INPUT_SCHEMA
     return migrated
 
@@ -42264,7 +42318,7 @@ def validate_input_document_v53(
     *,
     public_modules: frozenset[str] | None = None,
 ) -> list[dict[str, Any]]:
-    """Validate @53 inputs before their deterministic @54, @55, and @56 migrations."""
+    """Validate @53 inputs before their deterministic @54 through @57 migrations."""
     migrated = migrate_input_document_v53(document)
     return validate_input_document_v54(migrated, manifest, public_modules=public_modules)
 
@@ -42275,7 +42329,7 @@ def validate_input_document_v54(
     *,
     public_modules: frozenset[str] | None = None,
 ) -> list[dict[str, Any]]:
-    """Validate @54 inputs before their deterministic @55 and @56 migrations."""
+    """Validate @54 inputs before their deterministic @55 through @57 migrations."""
     migrated = migrate_input_document_v54(document)
     return validate_input_document_v55(migrated, manifest, public_modules=public_modules)
 
@@ -42286,8 +42340,19 @@ def validate_input_document_v55(
     *,
     public_modules: frozenset[str] | None = None,
 ) -> list[dict[str, Any]]:
-    """Validate @55 inputs before the deterministic @56 schema-header migration."""
+    """Validate @55 inputs before their deterministic @56 and @57 migrations."""
     migrated = migrate_input_document_v55(document)
+    return validate_input_document_v56(migrated, manifest, public_modules=public_modules)
+
+
+def validate_input_document_v56(
+    document: Any,
+    manifest: dict[str, Any],
+    *,
+    public_modules: frozenset[str] | None = None,
+) -> list[dict[str, Any]]:
+    """Validate @56 inputs before their deterministic @57 schema-header migration."""
+    migrated = migrate_input_document_v56(document)
     return validate_input_document(migrated, manifest, public_modules=public_modules)
 
 
@@ -42297,7 +42362,7 @@ def validate_input_document_v52(
     *,
     public_modules: frozenset[str] | None = None,
 ) -> list[dict[str, Any]]:
-    """Validate @52 inputs before their deterministic @53, @54, @55, and @56 migrations."""
+    """Validate @52 inputs before their deterministic @53 through @57 migrations."""
     migrated = migrate_input_document_v52(document)
     return validate_input_document_v53(migrated, manifest, public_modules=public_modules)
 
@@ -42308,7 +42373,7 @@ def validate_input_document_v50(
     *,
     public_modules: frozenset[str] | None = None,
 ) -> list[dict[str, Any]]:
-    """Validate @50 inputs through the deterministic @51 to @56 migration chain."""
+    """Validate @50 inputs through the deterministic @51 to @57 migration chain."""
     migrated_v51 = migrate_input_document_v50(document)
     return validate_input_document_v51(
         migrated_v51,
@@ -42323,7 +42388,7 @@ def validate_previous_input_document(
     *,
     public_modules: frozenset[str] | None = None,
 ) -> list[dict[str, Any]]:
-    """Validate @50 inputs before migrating them through the active @56 contract."""
+    """Validate @50 inputs before migrating them through the active @57 contract."""
     return validate_input_document_v50(document, manifest, public_modules=public_modules)
 
 

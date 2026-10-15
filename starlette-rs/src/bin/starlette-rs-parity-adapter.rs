@@ -8257,7 +8257,15 @@ fn run_static_files_lookup_path_case(case: &Value) -> Result<Value, String> {
         "StaticFiles lookup-path target_profiles",
         false,
     )?;
-    let directory_name = string_field(case, "directory", "StaticFiles lookup-path case")?;
+    let directory_name = match case.get("directory") {
+        Some(Value::String(directory_name)) => Some(directory_name.as_str()),
+        Some(Value::Null) => None,
+        _ => {
+            return Err(String::from(
+                "StaticFiles lookup-path directory must be a relative basename or null",
+            ));
+        }
+    };
     let check_dir = case
         .get("check_dir")
         .and_then(Value::as_bool)
@@ -8279,9 +8287,14 @@ fn run_static_files_lookup_path_case(case: &Value) -> Result<Value, String> {
         .get("files")
         .and_then(Value::as_array)
         .ok_or_else(|| String::from("StaticFiles lookup-path files must be an array"))?;
-    if file_inputs.is_empty() {
+    if directory_name.is_some() && file_inputs.is_empty() {
         return Err(String::from(
             "StaticFiles lookup-path requires at least one input file",
+        ));
+    }
+    if directory_name.is_none() && !file_inputs.is_empty() {
+        return Err(String::from(
+            "StaticFiles lookup-path without a root cannot define files",
         ));
     }
     let has_filesystem_byte_path = case.get("lookup_path").is_some_and(Value::is_object)
@@ -8306,11 +8319,39 @@ fn run_static_files_lookup_path_case(case: &Value) -> Result<Value, String> {
     let filesystem = case
         .get("filesystem")
         .ok_or_else(|| String::from("StaticFiles lookup-path filesystem is missing"))?;
-    let (temporary_directory, root) =
-        create_static_files_lookup_path_input(directory_name, file_inputs, filesystem)?;
+    let (temporary_directory, root) = if let Some(directory_name) = directory_name {
+        let (temporary_directory, root) =
+            create_static_files_lookup_path_input(directory_name, file_inputs, filesystem)?;
+        (Some(temporary_directory), Some(root))
+    } else {
+        let filesystem = exact_object(
+            filesystem,
+            &[
+                "root_symlink_target",
+                "directories",
+                "outside_files",
+                "symlinks",
+            ],
+            "StaticFiles lookup-path filesystem",
+        )?;
+        let has_entries = ["directories", "outside_files", "symlinks"]
+            .iter()
+            .any(|field| {
+                filesystem
+                    .get(*field)
+                    .and_then(Value::as_array)
+                    .is_none_or(|values| !values.is_empty())
+            });
+        if filesystem.get("root_symlink_target") != Some(&Value::Null) || has_entries {
+            return Err(String::from(
+                "StaticFiles lookup-path without a root cannot define filesystem entries",
+            ));
+        }
+        (None, None)
+    };
     let static_files = NativeStaticFiles::new(
-        Some(root.clone()),
-        vec![root.clone()],
+        root.clone(),
+        root.iter().cloned().collect(),
         false,
         check_dir,
         follow_symlink,
@@ -8326,8 +8367,11 @@ fn run_static_files_lookup_path_case(case: &Value) -> Result<Value, String> {
         }),
         Err(error) => return Err(format!("StaticFiles lookup_path failed: {error:?}")),
         Ok(Some(file)) => {
+            let root = root
+                .as_ref()
+                .ok_or_else(|| String::from("StaticFiles found a file without configured roots"))?;
             let resolved_root = if follow_symlink {
-                root
+                root.clone()
             } else {
                 root.canonicalize()
                     .map_err(|error| format!("cannot canonicalize StaticFiles root: {error}"))?

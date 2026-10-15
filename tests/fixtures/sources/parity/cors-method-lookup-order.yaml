@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@56",
+  "schema": "migration-parity/parity-input@57",
   "cases": [
     {
       "case_id": "starlette.middleware.cors.CORSMiddleware.__call__.missing-method-before-missing-headers",

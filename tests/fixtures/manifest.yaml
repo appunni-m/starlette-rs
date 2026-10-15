@@ -248,7 +248,7 @@
   ],
   "interfaces": {
     "parity": {
-      "input_schema": "migration-parity/parity-input@56",
+      "input_schema": "migration-parity/parity-input@57",
       "result_schema": "migration-parity/parity-result@8",
       "command_id": "parity"
     },
@@ -29341,7 +29341,19 @@
             {
               "id": "starlette.staticfiles.StaticFiles.lookup-path.null-byte-error",
               "dimension": "error_path",
-              "description": "Pass an input-defined path containing an embedded NUL to lookup_path and compare its direct ValueError outcome. Upstream: starlette/staticfiles.py:154-173; tests/test_staticfiles.py::test_staticfiles_null_byte_in_path covers the corresponding ASGI 404 mapping at lines 466-472.",
+              "description": "With a configured lookup root, pass an input-defined path containing an embedded NUL to lookup_path and compare its direct ValueError outcome. Upstream: starlette/staticfiles.py:154-173; tests/test_staticfiles.py::test_staticfiles_null_byte_in_path covers the corresponding ASGI 404 mapping at lines 466-472.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.staticfiles.StaticFiles.lookup-path.empty-roots-skip-nul-stat",
+              "dimension": "boundary",
+              "description": "When directory=None and packages=None leave lookup_path with no configured roots, an embedded NUL path is never passed to os.stat and returns an empty path with no stat result. Upstream: docs/staticfiles.md StaticFiles(directory=None) signature; starlette/staticfiles.py:154-173.",
               "lanes": [
                 "parity"
               ],

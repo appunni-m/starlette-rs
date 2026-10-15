@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@56",
+  "schema": "migration-parity/parity-input@57",
   "cases": [
     {
       "case_id": "starlette-rs.NativeApplication.service-body-streaming.error-phase-boundaries.endpoint-before-response",
