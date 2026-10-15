@@ -390,7 +390,18 @@ impl PyFileResponse {
         );
         let scope_type = scope.get_item("type")?.extract::<String>()?;
         let method = if scope_type == "http" {
-            scope.get_item("method")?.extract::<String>()?
+            // Starlette calls the scope method's live `.upper()` implementation
+            // before comparing it with `HEAD`; retain str-subclass overrides
+            // and their Python exceptions at this boundary.
+            if scope
+                .get_item("method")?
+                .call_method0("upper")?
+                .eq("HEAD")?
+            {
+                String::from("HEAD")
+            } else {
+                String::new()
+            }
         } else {
             String::new()
         };

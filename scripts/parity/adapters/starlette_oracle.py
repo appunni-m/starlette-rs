@@ -1040,6 +1040,25 @@ def _materialize_scope_type_spec(value: Any) -> tuple[Any, Any]:
     raise ValueError("scope type str_subclass must declare one comparison result")
 
 
+def _materialize_scope_method_spec(value: Any) -> Any:
+    if not isinstance(value, dict) or set(value) != {"str_subclass"}:
+        return value
+    descriptor = _strict_object(value, {"str_subclass"}, "scope method")
+    subclass = _strict_object(
+        descriptor["str_subclass"], {"value", "upper_result"}, "scope method str_subclass"
+    )
+    method_value = subclass["value"]
+    upper_result = subclass["upper_result"]
+    if not isinstance(method_value, str) or not isinstance(upper_result, str):
+        raise ValueError("scope method str_subclass values must be strings")
+
+    class InputMethodSubclass(str):
+        def upper(self, result: str = upper_result) -> str:
+            return result
+
+    return InputMethodSubclass(method_value)
+
+
 def _make_scope(
     spec: dict[str, Any], container: str | dict[str, Any] = "dict"
 ) -> dict[str, Any] | UserDict:
@@ -1070,7 +1089,7 @@ def _make_scope(
         "server": tuple(spec["server"]),
     }
     if scope_type_value == "http":
-        scope["method"] = spec["method"]
+        scope["method"] = _materialize_scope_method_spec(spec["method"])
     elif scope_type_value == "websocket":
         scope["subprotocols"] = list(spec["subprotocols"])
     if "extensions" in spec:
@@ -14126,6 +14145,8 @@ def _run_request_form_case(case: dict[str, Any]) -> dict[str, Any]:
     if "form_access" in case:
         case_fields.add("form_access")
     for key in (
+        "form_close_override_result",
+        "form_context_exception",
         "form_file_probe_keys",
         "form_file_probe_all",
         "form_type_probe_keys",
@@ -14185,6 +14206,16 @@ def _run_request_form_case(case: dict[str, Any]) -> dict[str, Any]:
             _apply_request_form_deferred_scope_headers(scope, case)
             if case.get("form_access", "await") == "context-manager":
                 async with form_operation as form:
+                    if "form_close_override_result" in case:
+
+                        async def close_with_input_result() -> bool:
+                            return case["form_close_override_result"]
+
+                        form.close = close_with_input_result
+                    context_exception = case.get("form_context_exception")
+                    if context_exception is not None:
+                        exception_type = getattr(builtins, context_exception["class"])
+                        raise exception_type(context_exception["message"])
                     value, observed_files = await inspect_form(form)
             else:
                 form = await form_operation

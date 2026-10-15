@@ -17466,6 +17466,21 @@
               ]
             },
             {
+              "id": "starlette.request.form.context-manager-exit-discards-close-result",
+              "dimension": "error_path",
+              "description": "When a URL-encoded Request.form context body raises ValueError and an instance-level FormData.close override returns true, await close but discard its return so async-with propagates the body exception. Pinned source: starlette/_utils.py:64-79; starlette/requests.py:313-321; tests/test_requests.py::test_request_form_context_manager; docs/requests.md:83, 124-136.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
               "id": "starlette.request.form.context-manager-closes-upload-files",
               "dimension": "runtime",
               "description": "When a multipart Request.form result containing UploadFile values is consumed with async-with, close the uploads when the form context exits while preserving the FormData result inside the context. Pinned source: starlette/requests.py:313-321; starlette/_utils.py:64-79; starlette/datastructures.py:482-498; docs/requests.md:83, 124-136.",
@@ -20034,6 +20049,17 @@
               ],
               "target_profiles": [
                 "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.FileResponse.asgi-call.method-upper-str-subclass",
+              "dimension": "boundary",
+              "description": "Pass an input-defined str subclass as scope.method whose upper() returns HEAD while its stored value is GET; preserve FileResponse's live method call and select a header-only response. Pinned source: starlette/responses.py:341-344; tests/test_responses.py::test_file_response_head.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
                 "python-package-cpython312"
               ]
             },

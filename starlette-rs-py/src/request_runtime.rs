@@ -2147,15 +2147,13 @@ impl PyFormAwaitableContext {
         traceback: Option<Py<PyAny>>,
     ) -> PyResult<Py<PyAny>> {
         let _ = (exc_type, exc, traceback);
-        let form = self
-            .entered
-            .try_borrow(py)
-            .map_err(|_| PyRuntimeError::new_err("form context is already borrowed"))?
-            .form
-            .as_ref()
-            .map(|form| form.clone_ref(py))
-            .ok_or_else(|| PyAttributeError::new_err("form context has not been entered"))?;
-        form.bind(py).call_method0("close").map(Bound::unbind)
+        into_sendable_python_awaitable(
+            py,
+            ExitFormMachine {
+                entered: self.entered.clone_ref(py),
+                pending_close: false,
+            },
+        )
     }
 }
 
@@ -2202,6 +2200,57 @@ impl AwaitableStateMachine for EnterFormMachine {
             }
             _ => Err(PyRuntimeError::new_err(
                 "form context enter received an unexpected result",
+            )),
+        }
+    }
+}
+
+// Upstream awaits `close()` inside `__aexit__` and discards its result.
+struct ExitFormMachine {
+    entered: SharedEnteredForm,
+    pending_close: bool,
+}
+
+impl AwaitableStateMachine for ExitFormMachine {
+    fn finalize_on_drop(&self) -> bool {
+        true
+    }
+
+    fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.entered)?;
+        Ok(())
+    }
+
+    fn unawaited_warning(&self) -> Option<&'static std::ffi::CStr> {
+        Some(c"coroutine 'AwaitableOrContextManagerWrapper.__aexit__' was never awaited")
+    }
+
+    fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
+        match input {
+            MachineResume::Start if !self.pending_close => {
+                let form = self
+                    .entered
+                    .try_borrow(py)
+                    .map_err(|_| PyRuntimeError::new_err("form context is already borrowed"))?
+                    .form
+                    .as_ref()
+                    .map(|form| form.clone_ref(py))
+                    .ok_or_else(|| {
+                        PyAttributeError::new_err("form context has not been entered")
+                    })?;
+                let close = form.bind(py).call_method0("close")?.unbind();
+                self.pending_close = true;
+                Ok(MachineAction::Await(close))
+            }
+            MachineResume::Value(_) if self.pending_close => {
+                self.pending_close = false;
+                Ok(MachineAction::Complete(py.None()))
+            }
+            MachineResume::Error(error) | MachineResume::AsyncIterationComplete(error) => {
+                Err(error)
+            }
+            _ => Err(PyRuntimeError::new_err(
+                "form context exit received an unexpected result",
             )),
         }
     }

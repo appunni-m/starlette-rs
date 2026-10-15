@@ -130,6 +130,70 @@
       "form_access": "context-manager"
     },
     {
+      "case_id": "starlette.requests.Request.form.context-manager-close-result-does-not-suppress-body-error",
+      "surface": "starlette.requests.Request",
+      "operation": "form",
+      "covers": [
+        "starlette.request.form.urlencoded-fields",
+        "starlette.datastructures.FormData.multidict-lookups",
+        "starlette.request.form.context-manager-lifecycle",
+        "starlette.request.form.context-manager-exit-discards-close-result"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "POST",
+        "scheme": "http",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "Y29udGVudC10eXBl",
+            "YXBwbGljYXRpb24veC13d3ctZm9ybS11cmxlbmNvZGVk"
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "receive": [
+        {
+          "type": "http.request",
+          "body_base64": "YT0x",
+          "more_body": false
+        }
+      ],
+      "form_probe_keys": [],
+      "observations": [
+        "form"
+      ],
+      "form_access": "context-manager",
+      "form_close_override_result": true,
+      "form_context_exception": {
+        "class": "ValueError",
+        "message": "context body failure"
+      }
+    },
+    {
       "case_id": "starlette.requests.Request.form.empty-without-content-type",
       "surface": "starlette.requests.Request",
       "operation": "form",

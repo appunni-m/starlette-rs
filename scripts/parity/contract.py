@@ -778,6 +778,9 @@ REQUEST_FORM_OPERATION = ("starlette.requests.Request", "form")
 REQUEST_FORM_ARBITRARY_PRECISION_LIMIT_REQUIREMENT = (
     "starlette.request.form.arbitrary-precision-count-limits"
 )
+REQUEST_FORM_CONTEXT_EXIT_DISCARDS_CLOSE_RESULT_REQUIREMENT = (
+    "starlette.request.form.context-manager-exit-discards-close-result"
+)
 REQUEST_BODY_STREAM_JSON_OPERATION = ("starlette.requests.Request", "body-stream-json")
 REQUEST_LIFETIME_OPERATION = ("starlette.requests.Request", "callback-lifetime")
 RESPONSE_CONSUMER_OPERATIONS = {
@@ -850,6 +853,8 @@ REQUEST_BODY_STREAM_JSON_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"
 REQUEST_FORM_OPTIONAL_KEYS = {
     "form_options",
     "form_access",
+    "form_close_override_result",
+    "form_context_exception",
     "form_deferred_scope_headers",
     "form_file_probe_keys",
     "form_file_probe_all",
@@ -1637,6 +1642,9 @@ RESPONSE_BACKGROUND_REQUIREMENTS = {
 }
 RESPONSE_BACKGROUND_CONTEXTVAR_REQUIREMENT = "starlette.responses.Response.consumer-construction.sync-background-contextvar-worker-propagation"
 FILE_RESPONSE_PATHSEND_REQUIREMENT = f"{FILE_RESPONSE_SURFACE}.{RESPONSE_OPERATION}.pathsend"
+FILE_RESPONSE_METHOD_UPPER_OVERRIDE_REQUIREMENT = (
+    f"{FILE_RESPONSE_SURFACE}.{RESPONSE_OPERATION}.method-upper-str-subclass"
+)
 FILE_RESPONSE_WEBSOCKET_DENIAL_REQUIREMENT = (
     f"{FILE_RESPONSE_SURFACE}.{RESPONSE_OPERATION}.websocket-denial-response"
 )
@@ -8140,6 +8148,36 @@ def _validate_file_response_case_stimulus(case: dict[str, Any]) -> None:
     if isinstance(scope_spec, dict) and "extensions" in scope_spec:
         scope_keys.add("extensions")
     scope_spec = _exact(scope_spec, scope_keys, "FileResponse ASGI scope")
+    method_upper_override = FILE_RESPONSE_METHOD_UPPER_OVERRIDE_REQUIREMENT in case["covers"]
+    if scope_type == "http" and isinstance(scope_spec["method"], dict):
+        if (
+            call_sequence
+            or optional_keys
+            or case["covers"] != [FILE_RESPONSE_METHOD_UPPER_OVERRIDE_REQUIREMENT]
+            or case["target_profiles"] != ["python-package-cpython312"]
+        ):
+            raise ContractError(
+                "FileResponse method str-subclass input is limited to its direct package-only case"
+            )
+        method_descriptor = _exact(
+            scope_spec["method"], {"str_subclass"}, "FileResponse scope.method"
+        )
+        method = _exact(
+            method_descriptor["str_subclass"],
+            {"value", "upper_result"},
+            "FileResponse scope.method.str_subclass",
+        )
+        method_value = _string(method["value"], "FileResponse scope.method.value")
+        upper_result = _string(method["upper_result"], "FileResponse scope.method.upper_result")
+        if method_value == "HEAD" or upper_result != "HEAD":
+            raise ContractError(
+                "FileResponse method str-subclass input must make a non-HEAD value upper to HEAD"
+            )
+        scope_spec = {**scope_spec, "method": method_value}
+    elif method_upper_override:
+        raise ContractError(
+            "FileResponse method str-subclass requirement needs an input-defined upper override"
+        )
     if scope_type == "websocket":
         _validate_websocket_scope(scope_spec)
         if "websocket.http.response" not in scope_spec.get("extensions", {}):
@@ -33015,6 +33053,33 @@ def _validate_request_form_case(case: dict[str, Any]) -> None:
     form_access = case.get("form_access", "await")
     if form_access not in {"await", "context-manager"}:
         raise ContractError("Request.form form_access must be await or context-manager")
+    has_close_result_override = "form_close_override_result" in case
+    has_context_exception = "form_context_exception" in case
+    context_exception = case.get("form_context_exception")
+    if has_close_result_override != has_context_exception:
+        raise ContractError(
+            "Request.form context-exit close-result cases require both the close result and body exception"
+        )
+    if has_close_result_override:
+        context_exception = _exact(
+            context_exception,
+            {"class", "message"},
+            "Request.form form_context_exception",
+        )
+        if (
+            type(case["form_close_override_result"]) is not bool
+            or not case["form_close_override_result"]
+            or form_access != "context-manager"
+            or form_options
+            or probe_keys
+            or has_file_probes
+            or context_exception["class"] != "ValueError"
+            or not isinstance(context_exception["message"], str)
+            or not context_exception["message"]
+        ):
+            raise ContractError(
+                "Request.form context-exit close-result cases require an unprobed URL-encoded context and a non-empty ValueError body exception"
+            )
     has_deferred_scope_headers = "form_deferred_scope_headers" in case
     deferred_scope_headers = case.get("form_deferred_scope_headers")
     if has_deferred_scope_headers:
@@ -33074,6 +33139,12 @@ def _validate_request_form_case(case: dict[str, Any]) -> None:
                 )
                 break
     body = b"".join(base64.b64decode(message["body_base64"], validate=True) for message in messages)
+    if has_close_result_override and (
+        effective_content_type != b"application/x-www-form-urlencoded" or not body
+    ):
+        raise ContractError(
+            "Request.form context-exit close-result cases require a non-empty URL-encoded body"
+        )
     if has_deferred_scope_headers and (
         effective_content_type != b"application/x-www-form-urlencoded"
         or effective_content_type == original_content_type
@@ -33101,6 +33172,10 @@ def _validate_request_form_case(case: dict[str, Any]) -> None:
             ]
             if form_access == "context-manager":
                 expected_covers.append("starlette.request.form.context-manager-lifecycle")
+                if has_close_result_override:
+                    expected_covers.append(
+                        REQUEST_FORM_CONTEXT_EXIT_DISCARDS_CLOSE_RESULT_REQUIREMENT
+                    )
         if _request_form_has_out_of_float_range_count_limit(form_options):
             expected_covers.append(REQUEST_FORM_ARBITRARY_PRECISION_LIMIT_REQUIREMENT)
     elif (

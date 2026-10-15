@@ -612,6 +612,12 @@ manifest entry are present, but the source/package comparison remains
 unexecuted until the grouped full-parity phase. This targeted case does not
 establish complete `FileResponse` parity.
 
+A new package-only input covers `scope["method"]` as a `str` subclass whose
+`upper()` override returns `HEAD` while its stored value is `GET`. The Rust
+PyO3 boundary now invokes that live method before selecting the header-only
+response, matching the pinned `FileResponse.__call__` dispatch. Its source/package
+comparison remains deferred until the grouped full-parity phase.
+
 ## StaticFiles runtime boundary
 
 The public `starlette.staticfiles.StaticFiles` facade now delegates path
