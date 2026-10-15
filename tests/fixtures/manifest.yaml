@@ -505,6 +505,7 @@
       "build/parity/inputs/parity/datastructures-multidict-setlist-sequence.json",
       "build/parity/inputs/parity/routing-method-and-urlpath-boundaries.json",
       "build/parity/inputs/parity/query-params.json",
+      "build/parity/inputs/parity/query-params-falsey-string-subclass.json",
       "build/parity/inputs/parity/comma-separated-strings.json",
       "build/parity/inputs/parity/file-response.json",
       "build/parity/inputs/parity/file-response-stateful-pathlike.json",
@@ -643,6 +644,7 @@
       "build/parity/inputs/parity/testclient-websocket-exit-body-exception-context.json",
       "build/parity/inputs/parity/testclient-startup-cleanup-error.json",
       "build/parity/inputs/parity/testclient-shutdown-cleanup-error.json",
+      "build/parity/inputs/parity/testclient-exit-body-exception-cleanup-error.json",
       "build/parity/inputs/parity/application-routes.json",
       "build/parity/inputs/parity/asgi-app-streaming-response.json",
       "build/parity/inputs/parity/asgi-app-streaming-response-caller-cancellation.json",
@@ -10092,6 +10094,18 @@
               ],
               "target_profiles": [
                 "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.datastructures.QueryParams.constructor-string-subclass-before-truthiness",
+              "dimension": "boundary",
+              "description": "Dispatch Python str subclasses through the string constructor before evaluating their truth value, so a falsey subclass still parses its query text. Upstream: starlette/datastructures.py:392-397; docs/requests.md.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
                 "python-package-cpython312"
               ]
             },
@@ -38244,6 +38258,22 @@
               "id": "starlette.testclient.TestClient.lifespan-context.shutdown-cleanup-error-precedence",
               "dimension": "error_path",
               "description": "When lifespan shutdown fails and portal cleanup also raises, propagate the later cleanup error with the shutdown failure retained in its exception context. Pinned source: starlette/testclient.py:679-709,735-749 and contextlib.ExitStack cleanup behavior.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.lifespan-context.portal-exit-error-context",
+              "dimension": "error_path",
+              "description": "When a with-body exception is active during TestClient.__exit__ and portal cleanup raises, propagate the cleanup error with the body exception retained in its context. Pinned source: starlette/testclient.py:130-131,679-709; tests/test_testclient.py::test_error_on_shutdown; contextlib.ExitStack cleanup behavior.",
               "lanes": [
                 "parity",
                 "coverage"

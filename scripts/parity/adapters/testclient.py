@@ -2950,7 +2950,13 @@ def run_testclient_lifespan_case(case: dict[str, Any]) -> dict[str, Any]:
             if action["operation"] == "enter":
                 client.__enter__()
             elif action["operation"] == "exit":
-                client.__exit__(None, None, None)
+                active_exception = action.get("active_exception")
+                if active_exception is None:
+                    client.__exit__(None, None, None)
+                else:
+                    exception_type = getattr(builtins, active_exception["exception_type"])
+                    exception = exception_type(active_exception["message"])
+                    client.__exit__(exception_type, exception, exception.__traceback__)
             else:
                 request_input = action["request"]
                 response = client.request(

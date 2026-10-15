@@ -8,17 +8,22 @@ Pydantic are outside this project's scope.
 ## Execution order and current status
 
 Active implementation checkpoint (2026-10-16; `parity-input@58`; current
-manifest SHA-256 `cf699c990f199c3a1adb8c79a8e125acd88a0030589d4535e5a7839ed1c897a5`;
+manifest SHA-256 `e3f3a2045960bfde0ca3f7532d3a6fc88a82b82570f08f52d31b0cf4c1902891`;
 last fully verified target revision `a10ecf5776c50cf86600e3d5f049e8db006f4966`):
 
-The active manifest declares full Starlette 1.6.0 scope with 2,543 cases across
-417 parity inputs, two benchmark inputs, 151 compatibility operations, 14
-Rust-native operations, 1,404 parity requirements, and six target profiles.
+The active manifest declares full Starlette 1.6.0 scope with 2,545 cases across
+419 parity inputs, two benchmark inputs, 151 compatibility operations, 14
+Rust-native operations, 1,406 parity requirements, and six target profiles.
 Contract validation and source-inventory generation pass; parity, coverage
 measurement, and benchmarks have not been run for this digest. `Config.__call__`
 now forwards through the public `get` method to preserve pinned Python subclass
-dispatch; its input-only comparison remains deferred to full parity. The newly
-authored FileResponse range-plus-pathsend input, the
+dispatch; its input-only comparison remains deferred to full parity. The newest
+implementation batch fixes falsey Python `str` subclass dispatch in the QueryParams
+constructor and preserves an active TestClient context exception when portal cleanup
+raises. Their input-only parity cases are registered but remain unexecuted until the
+grouped parity phase. The focused package build and source-inventory validation pass;
+no broad test suite has been run during this implementation batch. The newly authored
+FileResponse range-plus-pathsend input, the
 Rust-backed WebSocketEndpoint default hooks, and the public `__version__` value
 comparison remain unexecuted until grouped parity. New WebSocketRoute and Mount
 inputs verify that Router dispatch continues using each object’s constructor-
@@ -635,9 +640,10 @@ Boundary details: [response protocols](RESPONSE_RENDER_BOUNDARY.md),
 [server-error traceback data](SERVER_ERROR_BOUNDARY.md),
 [template callbacks](TEMPLATE_PROTOCOL_BOUNDARY.md),
 [optional imports](OPTIONAL_IMPORT_BOUNDARY.md),
-[ASGI ownership](WEBSOCKET_OWNERSHIP_BOUNDARY.md), and the
-[custom BaseRoute callback boundary](ROUTE_MATCH_BOUNDARY.md), and
-[StaticFiles filesystem path encoding](STATICFILES_PATH_ENCODING_BOUNDARY.md).
+[ASGI ownership](WEBSOCKET_OWNERSHIP_BOUNDARY.md),
+[custom BaseRoute callbacks](ROUTE_MATCH_BOUNDARY.md),
+[StaticFiles filesystem path encoding](STATICFILES_PATH_ENCODING_BOUNDARY.md), and
+[Config callable subclass dispatch](CONFIG_CALL_OVERRIDE_BOUNDARY.md).
 
 ## Runtime architecture
 
@@ -681,10 +687,10 @@ also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
 The active parity contract is `parity-input@58` with full scope
-(`starlette-1.6.0-full`): 2,538 input cases across 416 parity files, two
+(`starlette-1.6.0-full`): 2,545 input cases across 419 parity files, two
 benchmark files, 151 Starlette compatibility operations, 14 Rust-native
-operations, 1,399 parity requirements, and six target profiles. Its manifest
-SHA-256 is `2dcb25d098d4f09ce3dd6bb231164a58391175f6cff222dd2c6316a9580eec4a`.
+operations, 1,406 parity requirements, and six target profiles. Its manifest
+SHA-256 is `e3f3a2045960bfde0ca3f7532d3a6fc88a82b82570f08f52d31b0cf4c1902891`.
 The latest parity, coverage, and benchmark receipts in the execution ledger
 are tied to the previous manifest and do not validate this current digest. The
 Config typing

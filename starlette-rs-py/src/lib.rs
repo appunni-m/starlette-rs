@@ -568,13 +568,13 @@ impl PyQueryParams {
 }
 
 fn query_params_from_python(value: &Bound<'_, PyAny>) -> PyResult<Vec<(String, String)>> {
-    if !value.is_truthy()? {
-        return Ok(Vec::new());
-    }
     if value.is_instance_of::<PyString>() {
         return Ok(NativeQueryParams::parse_str(&value.extract::<String>()?)
             .multi_items()
             .to_vec());
+    }
+    if !value.is_truthy()? {
+        return Ok(Vec::new());
     }
     if let Ok(bytes) = value.cast::<PyBytes>() {
         return Ok(NativeQueryParams::parse(bytes.as_bytes())

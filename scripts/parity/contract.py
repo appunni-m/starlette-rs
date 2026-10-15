@@ -482,6 +482,9 @@ TESTCLIENT_LIFESPAN_REQUIREMENTS = {
         f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.python-subclass-method-dispatch"
     ),
     "exit_before_enter": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.exit-before-enter",
+    "portal_exit_error_context": (
+        f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.portal-exit-error-context"
+    ),
 }
 ASGI_LIFESPAN_SCOPE_STATE_REQUIRED_REQUIREMENT = "starlette.asgi.lifespan.scope-state-required"
 ASGI_LIFESPAN_CLASSMETHOD_BINDING_REQUIREMENT = (
@@ -1154,6 +1157,9 @@ URL_SCOPE_REQUIREMENTS = {
 QUERY_PARAMS_OPERATION = (
     "starlette.datastructures.QueryParams",
     "construction-and-mapping-sequence",
+)
+QUERY_PARAMS_STRING_SUBCLASS_REQUIREMENT = (
+    "starlette.datastructures.QueryParams.constructor-string-subclass-before-truthiness"
 )
 MULTIDICT_OPERATION = ("starlette.datastructures.MultiDict", "mutation-sequence")
 EXCEPTION_MIDDLEWARE_TYPING_OPERATION = (
@@ -21321,9 +21327,36 @@ def _validate_testclient_lifespan_case(case: dict[str, Any]) -> None:
             raise ContractError("TestClient lifespan method overrides must record and delegate")
         if client_operations != ["enter", "exit"]:
             raise ContractError("TestClient lifecycle method overrides require one managed cycle")
+    has_active_exit_exception = False
     for index, operation in enumerate(client_operations):
         if operation not in {"request", "websocket"}:
-            _exact(client_actions[index], {"operation"}, "TestClient context action")
+            action = client_actions[index]
+            if operation == "exit" and isinstance(action, dict) and "active_exception" in action:
+                action = _exact(
+                    action,
+                    {"operation", "active_exception"},
+                    "TestClient context exit action",
+                )
+                active_exception = _exact(
+                    action["active_exception"],
+                    {"exception_type", "message"},
+                    "TestClient active context exception",
+                )
+                exception_class = _string(
+                    active_exception["exception_type"],
+                    "TestClient active context exception type",
+                )
+                exception_type = getattr(builtins, exception_class, None)
+                if not isinstance(exception_type, type) or not issubclass(
+                    exception_type, BaseException
+                ):
+                    raise ContractError(
+                        "TestClient active context exception type must name a built-in BaseException"
+                    )
+                _string(active_exception["message"], "TestClient active context exception message")
+                has_active_exit_exception = True
+            else:
+                _exact(action, {"operation"}, "TestClient context action")
     for index in (
         index for index, operation in enumerate(client_operations) if operation == "request"
     ):
@@ -21360,6 +21393,16 @@ def _validate_testclient_lifespan_case(case: dict[str, Any]) -> None:
             raise ContractError("TestClient WebSocket subprotocols must be strings")
 
     asgi_app_value = case["asgi_app"]
+    if has_active_exit_exception and (
+        portal_exit_error is None
+        or client_operations != ["enter", "exit"]
+        or "client_method_overrides" in case
+        or not isinstance(asgi_app_value, dict)
+        or asgi_app_value.get("kind") != "asgi3"
+    ):
+        raise ContractError(
+            "TestClient active context exceptions require one ASGI3 managed exit with portal failure"
+        )
     if "client_method_overrides" in case and (
         not isinstance(asgi_app_value, dict) or asgi_app_value.get("kind") != "asgi3"
     ):
@@ -22248,6 +22291,7 @@ def _validate_testclient_lifespan_case(case: dict[str, Any]) -> None:
             TESTCLIENT_LIFESPAN_REQUIREMENTS["reentrant_context_entry"],
             TESTCLIENT_LIFESPAN_REQUIREMENTS["python_subclass_method_dispatch"],
             TESTCLIENT_LIFESPAN_REQUIREMENTS["exit_before_enter"],
+            TESTCLIENT_LIFESPAN_REQUIREMENTS["portal_exit_error_context"],
         }
     elif (client_operations, lifespan_operations) == (["enter"], ["receive", "raise"]):
         expected_covers = {TESTCLIENT_LIFESPAN_REQUIREMENTS["startup_error"]}
@@ -22284,11 +22328,23 @@ def _validate_testclient_lifespan_case(case: dict[str, Any]) -> None:
     else:
         raise ContractError("TestClient client actions and lifespan app actions do not align")
 
+    if has_active_exit_exception and lifespan_operations != [
+        "receive",
+        "send",
+        "receive",
+        "send",
+    ]:
+        raise ContractError(
+            "TestClient active context exceptions require a successful lifespan handshake"
+        )
+
     if portal_exit_error is not None:
         if (client_operations, lifespan_operations) == (["enter"], ["receive", "raise"]):
             expected_covers.add(
                 TESTCLIENT_LIFESPAN_REQUIREMENTS["startup_cleanup_error_precedence"]
             )
+        elif has_active_exit_exception:
+            expected_covers.add(TESTCLIENT_LIFESPAN_REQUIREMENTS["portal_exit_error_context"])
         elif (client_operations, lifespan_operations) == (
             ["enter", "exit"],
             ["receive", "send", "receive", "send", "raise"],
@@ -37852,6 +37908,13 @@ def _validate_query_params_source(value: Any, context: str) -> dict[str, Any]:
         if not isinstance(source["value"], str):
             raise ContractError(f"{context}.value must be a string")
         return source
+    if kind == "string-subclass":
+        source = _exact(value, {"kind", "value", "truthy"}, context)
+        if not isinstance(source["value"], str):
+            raise ContractError(f"{context}.value must be a string")
+        if type(source["truthy"]) is not bool:
+            raise ContractError(f"{context}.truthy must be a boolean")
+        return source
     if kind == "bytes":
         source = _exact(value, {"kind", "value_base64"}, context)
         if not isinstance(source["value_base64"], str):
@@ -37910,7 +37973,16 @@ def _validate_query_params_source(value: Any, context: str) -> dict[str, Any]:
 def _validate_query_params_case(case: dict[str, Any]) -> None:
     if case["assets"] != [] or case["observations"] != ["snapshot"]:
         raise ContractError("QueryParams cases use no assets and select the snapshot")
-    _validate_query_params_source(case["source"], "QueryParams source")
+    source = _validate_query_params_source(case["source"], "QueryParams source")
+    has_string_subclass_source = source["kind"] == "string-subclass"
+    if has_string_subclass_source and case["target_profiles"] != ["python-package-cpython312"]:
+        raise ContractError(
+            "QueryParams string-subclass sources require the Python package profile"
+        )
+    if (QUERY_PARAMS_STRING_SUBCLASS_REQUIREMENT in case["covers"]) != has_string_subclass_source:
+        raise ContractError(
+            "QueryParams string-subclass coverage must follow the input constructor form"
+        )
     probe_keys = case["probe_keys"]
     if not isinstance(probe_keys, list):
         raise ContractError("QueryParams probe_keys must be an array")
@@ -37968,9 +38040,9 @@ def _validate_query_params_case(case: dict[str, Any]) -> None:
                 "QueryParams comparisons against non-QueryParams values select the Python package"
             )
     else:
-        python_only_string_probe = has_str_subclass_probe and case["target_profiles"] == [
-            "python-package-cpython312"
-        ]
+        python_only_string_probe = (has_str_subclass_probe or has_string_subclass_source) and (
+            case["target_profiles"] == ["python-package-cpython312"]
+        )
         if (
             case["target_profiles"] != ["rust-native-local", "python-package-cpython312"]
             and not python_only_string_probe

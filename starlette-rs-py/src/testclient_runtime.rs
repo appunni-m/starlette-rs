@@ -10,7 +10,7 @@ use pyo3::exceptions::{
     PyRuntimeError, PyStopIteration, PyValueError,
 };
 use pyo3::prelude::*;
-use pyo3::types::{PyBytes, PyDict, PyInt, PyList, PyModule, PyString, PyTuple};
+use pyo3::types::{PyBytes, PyDict, PyInt, PyList, PyModule, PyString, PyTraceback, PyTuple};
 
 use crate::awaitable::{
     AwaitableStateMachine, MachineAction, MachineResume, into_sendable_python_awaitable,
@@ -450,7 +450,7 @@ impl TestClientLifespan {
     fn start(py: Python<'_>, backend: &str, backend_options: &Py<PyDict>) -> PyResult<Self> {
         let mut lifespan = Self::default();
         if let Err(error) = lifespan.start_inner(py, backend, backend_options) {
-            return match lifespan.cleanup(py, Some(error.clone_ref(py)), true) {
+            return match lifespan.cleanup(py, Some(error.clone_ref(py)), true, None) {
                 Ok(()) => Err(error),
                 Err(cleanup_error) => Err(cleanup_error),
             };
@@ -523,6 +523,7 @@ impl TestClientLifespan {
         py: Python<'_>,
         mut primary_error: Option<PyErr>,
         preserve_cleanup_error_context: bool,
+        active_exception: Option<&PyErr>,
     ) -> PyResult<()> {
         // ExitStack closes the last-registered client-to-app endpoints first.
         for stream in [
@@ -540,6 +541,7 @@ impl TestClientLifespan {
                     &mut primary_error,
                     error,
                     preserve_cleanup_error_context,
+                    active_exception,
                 )?;
             }
         }
@@ -549,14 +551,14 @@ impl TestClientLifespan {
         let manager = self.portal_manager.take();
         if self.portal_entered {
             if let Some(manager) = manager {
-                if let Err(error) =
-                    exit_portal(py, manager.bind(py).clone(), primary_error.as_ref())
-                {
+                let exit_exception = primary_error.as_ref().or(active_exception);
+                if let Err(error) = exit_portal(py, manager.bind(py).clone(), exit_exception) {
                     replace_cleanup_error(
                         py,
                         &mut primary_error,
                         error,
                         preserve_cleanup_error_context,
+                        active_exception,
                     )?;
                 }
             }
@@ -577,7 +579,7 @@ impl PyTestClientTransport {
             Some(portal) => portal.clone_ref(py),
             None => {
                 let error = PyRuntimeError::new_err("TestClient portal is unavailable");
-                return match lifespan.cleanup(py, Some(error.clone_ref(py)), true) {
+                return match lifespan.cleanup(py, Some(error.clone_ref(py)), true, None) {
                     Ok(()) => Err(error),
                     Err(cleanup_error) => Err(cleanup_error),
                 };
@@ -604,10 +606,12 @@ fn cleanup_failed_testclient_enter(
 ) -> PyErr {
     let lifespan = slf.borrow_mut(py).lifespan.take();
     match lifespan {
-        Some(mut lifespan) => match lifespan.cleanup(py, Some(primary_error.clone_ref(py)), true) {
-            Ok(()) => primary_error,
-            Err(cleanup_error) => cleanup_error,
-        },
+        Some(mut lifespan) => {
+            match lifespan.cleanup(py, Some(primary_error.clone_ref(py)), true, None) {
+                Ok(()) => primary_error,
+                Err(cleanup_error) => cleanup_error,
+            }
+        }
         None => primary_error,
     }
 }
@@ -1410,7 +1414,7 @@ impl PyTestClientTransport {
         client: Py<PyAny>,
         args: &Bound<'_, PyTuple>,
     ) -> PyResult<()> {
-        let _ = args;
+        let active_exception = exception_from_exit_args(py, args)?;
         let portal = slf
             .borrow(py)
             .lifespan
@@ -1430,13 +1434,22 @@ impl PyTestClientTransport {
                             .map(|_| ())
                     });
             if let Err(error) = shutdown_result {
+                if let Some(active_exception) = active_exception.as_ref() {
+                    chain_exception_context(py, &error, active_exception)?;
+                }
                 primary_error = Some(error);
             }
         }
 
         let lifespan = { slf.borrow_mut(py).lifespan.take() };
+        let preserve_cleanup_error_context = primary_error.is_some() || active_exception.is_some();
         match lifespan {
-            Some(mut lifespan) => lifespan.cleanup(py, primary_error, false),
+            Some(mut lifespan) => lifespan.cleanup(
+                py,
+                primary_error,
+                preserve_cleanup_error_context,
+                active_exception.as_ref(),
+            ),
             None => match primary_error {
                 Some(error) => Err(error),
                 None if slf.borrow(py).context_entered => Ok(()),
@@ -2310,18 +2323,34 @@ fn exit_portal(py: Python<'_>, manager: Bound<'_, PyAny>, error: Option<&PyErr>)
     Ok(())
 }
 
+fn exception_from_exit_args(py: Python<'_>, args: &Bound<'_, PyTuple>) -> PyResult<Option<PyErr>> {
+    if args.len() != 3 {
+        return Ok(None);
+    }
+    let exception_type = args.get_item(0)?;
+    if exception_type.is_none() {
+        return Ok(None);
+    }
+
+    let error = PyErr::from_value(args.get_item(1)?);
+    let traceback = args.get_item(2)?;
+    if traceback.is_none() {
+        error.set_traceback(py, None);
+    } else {
+        error.set_traceback(py, Some(traceback.cast::<PyTraceback>()?.clone()));
+    }
+    Ok(Some(error))
+}
+
 fn replace_cleanup_error(
     py: Python<'_>,
     primary_error: &mut Option<PyErr>,
     error: PyErr,
     preserve_previous_error_context: bool,
+    active_exception: Option<&PyErr>,
 ) -> PyResult<()> {
-    // Entry cleanup runs while the startup exception is active, so ExitStack
-    // retains it in later cleanup errors. TestClient.__exit__ calls
-    // ExitStack.close(), where later callback errors replace earlier ones
-    // without inheriting their context.
     if preserve_previous_error_context {
-        if let Some(previous_error) = primary_error.as_ref() {
+        if let Some(previous_error) = primary_error.as_ref().or(active_exception) {
             chain_exception_context(py, &error, previous_error)?;
         }
     }

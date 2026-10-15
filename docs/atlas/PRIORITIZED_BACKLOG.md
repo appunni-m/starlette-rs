@@ -9,9 +9,13 @@ incomplete.
 ## Current parity snapshot
 
 Implementation remains the active phase for the full Starlette replacement.
-The working-tree `parity-input@58` contract indexes 2,531 cases across 415
-parity inputs, two benchmark inputs, 151 Starlette compatibility operations,
-14 native operations, and 1,396 parity requirements. The latest batch adds application attribute-read ordering, non-string scope dispatch in AuthenticationMiddleware, SessionMiddleware, and GZipMiddleware, ServerErrorMiddleware message-type equality, and pre-ASGI-2.4 StreamingResponse caller cancellation. These six new input-only comparisons remain unexecuted until the grouped full parity phase. The Request.stream body-object and TestClient noncanonical JSON-mode comparisons also remain unexecuted until grouped parity. The latest batch adds a Rust-backed StaticFiles single-digit
+The active `parity-input@58` contract indexes 2,545 cases across 419 parity
+inputs, two benchmark inputs, 151 Starlette compatibility operations, 14 native
+operations, and 1,406 parity requirements (manifest SHA-256
+`e3f3a2045960bfde0ca3f7532d3a6fc88a82b82570f08f52d31b0cf4c1902891`). The latest
+implementation batch fixes falsey `str` subclass dispatch for QueryParams and
+TestClient cleanup exception context; both input-only comparisons remain deferred
+until grouped parity. The latest batch adds application attribute-read ordering, non-string scope dispatch in AuthenticationMiddleware, SessionMiddleware, and GZipMiddleware, ServerErrorMiddleware message-type equality, and pre-ASGI-2.4 StreamingResponse caller cancellation. These six new input-only comparisons remain unexecuted until the grouped full parity phase. The Request.stream body-object and TestClient noncanonical JSON-mode comparisons also remain unexecuted until grouped parity. The latest batch adds a Rust-backed StaticFiles single-digit
 time-field normalization case, a Jinja caller-supplied `url_for` global case,
 and an AuthenticationMiddleware scope case preserving present `None` values
 for `auth` and `user`, plus a StreamingResponse awaitable case checking type-level `__await__` lookup; all four comparisons remain deferred to full parity. Rust now performs the awaitable lookup through the object's type.

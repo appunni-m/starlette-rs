@@ -1,0 +1,47 @@
+{
+  "schema": "migration-parity/parity-input@58",
+  "cases": [
+    {
+      "case_id": "starlette.datastructures.QueryParams.construction-and-mapping-sequence.falsey-string-subclass",
+      "surface": "starlette.datastructures.QueryParams",
+      "operation": "construction-and-mapping-sequence",
+      "covers": [
+        "starlette.datastructures.QueryParams.constructor-string-and-percent-decoding",
+        "starlette.datastructures.QueryParams.constructor-string-subclass-before-truthiness",
+        "starlette.datastructures.QueryParams.immutable-multidict-lookup-and-iteration",
+        "starlette.datastructures.QueryParams.query-string-and-repr"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "source": {
+        "kind": "string-subclass",
+        "value": "tag=from-fixture&flag",
+        "truthy": false
+      },
+      "probe_keys": [
+        "tag",
+        "flag",
+        "missing"
+      ],
+      "comparison": {
+        "kind": "pairs",
+        "items": [
+          [
+            "tag",
+            "from-fixture"
+          ],
+          [
+            "flag",
+            ""
+          ]
+        ],
+        "kwargs": []
+      },
+      "observations": [
+        "snapshot"
+      ]
+    }
+  ]
+}

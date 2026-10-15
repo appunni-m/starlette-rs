@@ -15985,6 +15985,14 @@ def _query_params_from_input(query_params_type: Any, source: dict[str, Any]) -> 
     kind = source["kind"]
     if kind == "string":
         return query_params_type(source["value"])
+    if kind == "string-subclass":
+        truthy = source["truthy"]
+
+        class InputStringSubclass(str):
+            def __bool__(self) -> bool:
+                return truthy
+
+        return query_params_type(InputStringSubclass(source["value"]))
     if kind == "bytes":
         return query_params_type(base64.b64decode(source["value_base64"], validate=True))
     if kind == "empty":

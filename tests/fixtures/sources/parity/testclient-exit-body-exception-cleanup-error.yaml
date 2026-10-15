@@ -1,0 +1,90 @@
+{
+  "schema": "migration-parity/parity-input@58",
+  "cases": [
+    {
+      "case_id": "starlette.testclient.TestClient.lifespan-context.portal-cleanup-error-context",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "lifespan-context",
+      "covers": [
+        "starlette.testclient.TestClient.lifespan-context.portal-exit-error-context",
+        "starlette.testclient.TestClient.lifespan-context.shutdown-handshake",
+        "starlette.testclient.TestClient.lifespan-context.startup-handshake"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "observations": [
+        "lifespan-context"
+      ],
+      "environment": {
+        "portal_exit_error": {
+          "exception_type": "RuntimeError",
+          "message": "portal cleanup failure"
+        }
+      },
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": [
+          "testclient",
+          50000
+        ],
+        "headers": [],
+        "backend": "asyncio",
+        "backend_options": {}
+      },
+      "client_actions": [
+        {
+          "operation": "enter"
+        },
+        {
+          "operation": "exit",
+          "active_exception": {
+            "exception_type": "ValueError",
+            "message": "context body failure"
+          }
+        }
+      ],
+      "asgi_app": {
+        "kind": "asgi3",
+        "scope_fields": [
+          "type"
+        ],
+        "loop_relations": [
+          "active_lifespan",
+          "previous_http_request"
+        ],
+        "lifespan_actions": [
+          {
+            "operation": "receive"
+          },
+          {
+            "operation": "send",
+            "message": {
+              "type": "lifespan.startup.complete"
+            }
+          },
+          {
+            "operation": "receive"
+          },
+          {
+            "operation": "send",
+            "message": {
+              "type": "lifespan.shutdown.complete"
+            }
+          }
+        ],
+        "http": {
+          "receive_count": 0,
+          "messages": []
+        }
+      }
+    }
+  ]
+}

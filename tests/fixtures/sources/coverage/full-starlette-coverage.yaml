@@ -893,7 +893,8 @@
         "starlette.testclient.TestClient.public-client-workflow.sync-worker-thread-context-propagation",
         "starlette.testclient.TestClient.request-response.cookie-domain-matching",
         "starlette.websocket.api.iterator.athrow",
-        "starlette.websockets.WebSocket.scope-identity-hash-sequence.mutable-scope-identity"
+        "starlette.websockets.WebSocket.scope-identity-hash-sequence.mutable-scope-identity",
+        "starlette.testclient.TestClient.lifespan-context.portal-exit-error-context"
       ],
       "target_profile": "python-package-cpython310",
       "selectors": {
@@ -1158,7 +1159,8 @@
           "starlette.datastructures.URL.scope-construction.authority-in-path-absolute-server-fallback",
           "starlette.websockets.WebSocket.convenience-sequence.iterator-athrow-arities",
           "starlette.websockets.WebSocket.convenience-sequence.iterator-athrow-four-arguments",
-          "starlette.websockets.WebSocket.convenience-sequence.iterator-athrow-valid-arities"
+          "starlette.websockets.WebSocket.convenience-sequence.iterator-athrow-valid-arities",
+          "starlette.testclient.TestClient.lifespan-context.portal-cleanup-error-context"
         ],
         "command_ids": []
       },
@@ -1379,7 +1381,8 @@
         "starlette.testclient.TestClient.public-client-workflow.sync-worker-thread-context-propagation",
         "starlette.testclient.TestClient.request-response.cookie-domain-matching",
         "starlette.websocket.api.iterator.athrow",
-        "starlette.websockets.WebSocket.scope-identity-hash-sequence.mutable-scope-identity"
+        "starlette.websockets.WebSocket.scope-identity-hash-sequence.mutable-scope-identity",
+        "starlette.testclient.TestClient.lifespan-context.portal-exit-error-context"
       ],
       "target_profile": "python-package-cpython311",
       "selectors": {
@@ -1644,7 +1647,8 @@
           "starlette.datastructures.URL.scope-construction.authority-in-path-absolute-server-fallback",
           "starlette.websockets.WebSocket.convenience-sequence.iterator-athrow-arities",
           "starlette.websockets.WebSocket.convenience-sequence.iterator-athrow-four-arguments",
-          "starlette.websockets.WebSocket.convenience-sequence.iterator-athrow-valid-arities"
+          "starlette.websockets.WebSocket.convenience-sequence.iterator-athrow-valid-arities",
+          "starlette.testclient.TestClient.lifespan-context.portal-cleanup-error-context"
         ],
         "command_ids": []
       },
@@ -3032,7 +3036,9 @@
         "starlette.websockets.WebSocketDisconnect.constructor-contract.fields-and-args",
         "starlette.websockets.WebSocketDisconnect.constructor-contract.reason-truthiness-error",
         "starlette.websockets.WebSocketDisconnect.constructor-contract.signature-errors",
-        "starlette.websockets.WebSocketDisconnect.constructor-contract.truthy-reason"
+        "starlette.websockets.WebSocketDisconnect.constructor-contract.truthy-reason",
+        "starlette.datastructures.QueryParams.constructor-string-subclass-before-truthiness",
+        "starlette.testclient.TestClient.lifespan-context.portal-exit-error-context"
       ],
       "target_profile": "python-package-cpython312",
       "selectors": {
@@ -5511,7 +5517,9 @@
           "starlette.middleware.wsgi.WSGIMiddleware.__call__.sender-protocols.queued-worker-completion-and-sender-context",
           "starlette.middleware.wsgi.WSGIMiddleware.__call__.sender-protocols.sender-oserror-propagation",
           "starlette.middleware.wsgi.WSGIMiddleware.__call__.sender-protocols.sender-cancels-dispatch",
-          "starlette.middleware.wsgi.WSGIMiddleware.__call__.sender-protocols.retained-start-response-ownership-cycle"
+          "starlette.middleware.wsgi.WSGIMiddleware.__call__.sender-protocols.retained-start-response-ownership-cycle",
+          "starlette.datastructures.QueryParams.construction-and-mapping-sequence.falsey-string-subclass",
+          "starlette.testclient.TestClient.lifespan-context.portal-cleanup-error-context"
         ],
         "command_ids": []
       },
@@ -5733,7 +5741,8 @@
         "starlette.testclient.TestClient.public-client-workflow.sync-worker-thread-context-propagation",
         "starlette.testclient.TestClient.request-response.cookie-domain-matching",
         "starlette.websocket.api.iterator.athrow",
-        "starlette.websockets.WebSocket.scope-identity-hash-sequence.mutable-scope-identity"
+        "starlette.websockets.WebSocket.scope-identity-hash-sequence.mutable-scope-identity",
+        "starlette.testclient.TestClient.lifespan-context.portal-exit-error-context"
       ],
       "target_profile": "python-package-cpython313",
       "selectors": {
@@ -5999,7 +6008,8 @@
           "starlette.datastructures.URL.scope-construction.authority-in-path-absolute-server-fallback",
           "starlette.websockets.WebSocket.convenience-sequence.iterator-athrow-arities",
           "starlette.websockets.WebSocket.convenience-sequence.iterator-athrow-four-arguments",
-          "starlette.websockets.WebSocket.convenience-sequence.iterator-athrow-valid-arities"
+          "starlette.websockets.WebSocket.convenience-sequence.iterator-athrow-valid-arities",
+          "starlette.testclient.TestClient.lifespan-context.portal-cleanup-error-context"
         ],
         "command_ids": []
       },
@@ -6221,7 +6231,8 @@
         "starlette.testclient.TestClient.public-client-workflow.sync-worker-thread-context-propagation",
         "starlette.testclient.TestClient.request-response.cookie-domain-matching",
         "starlette.websocket.api.iterator.athrow",
-        "starlette.websockets.WebSocket.scope-identity-hash-sequence.mutable-scope-identity"
+        "starlette.websockets.WebSocket.scope-identity-hash-sequence.mutable-scope-identity",
+        "starlette.testclient.TestClient.lifespan-context.portal-exit-error-context"
       ],
       "target_profile": "python-package-cpython314",
       "selectors": {
@@ -6487,7 +6498,8 @@
           "starlette.datastructures.URL.scope-construction.authority-in-path-absolute-server-fallback",
           "starlette.websockets.WebSocket.convenience-sequence.iterator-athrow-arities",
           "starlette.websockets.WebSocket.convenience-sequence.iterator-athrow-four-arguments",
-          "starlette.websockets.WebSocket.convenience-sequence.iterator-athrow-valid-arities"
+          "starlette.websockets.WebSocket.convenience-sequence.iterator-athrow-valid-arities",
+          "starlette.testclient.TestClient.lifespan-context.portal-cleanup-error-context"
         ],
         "command_ids": []
       },
