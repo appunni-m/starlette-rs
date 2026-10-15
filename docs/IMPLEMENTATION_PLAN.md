@@ -9,9 +9,9 @@ Pydantic are outside this project's scope.
 
 Current implementation checkpoint (2026-10-15):
 the active manifest declares the full Starlette 1.6.0 scope
-(`starlette-1.6.0-full`) with 2,522 cases from
+(`starlette-1.6.0-full`) with 2,523 cases from
 414 parity input sources and two benchmark inputs, 151 Starlette compatibility
-operations, 13 Rust-native operations, 1,392 parity requirements, and six
+operations, 13 Rust-native operations, 1,393 parity requirements, and six
 target profiles. Contract and source-inventory checks pass; the generated atlas
 reports 866 upstream source rows, 810 input mappings, 56 reasoned
 `not_applicable` rows, and zero fixture-backlog rows. The API candidate catalog
@@ -21,7 +21,10 @@ runner smoke passed all three Rust-native lifespan fault assertions, but its
 artifact was infrastructure-failed because the prepared Python environments
 were stale after source changes. No complete parity result has been accepted
 for this manifest; full-suite coverage and the complete benchmark workload
-remain pending. Revision `9a9d0e81` adds input-only boundaries for
+remain pending. Revision `e36bc551` preserves the active exception observed by
+synchronous `WebSocketEndpoint.on_disconnect` and adds an input-only comparison
+for a pending receive exception. Revision `9a9d0e81` adds input-only boundaries
+for
 `FileResponse`'s live `scope["method"].upper()` dispatch and for
 `Request.form()` discarding the return value from awaited `FormData.close()`;
 both comparisons remain deferred to grouped parity. The current batch preserves
@@ -48,9 +51,9 @@ dispatch, calls the scope mapping's `get` with a Rust-backed missing sentinel,
 and writes normalized list headers back during Content-Length lookup. Inputs
 compare tuple-header coercion, UserDict operations, and a custom `__ne__` scope
 type against the pinned source. These comparisons remain unexecuted. No
-unmatched source mappings were reported. Full parity, full-suite coverage, and
-the complete benchmark workload remain deferred until implementation across
-feature families is complete.
+unmatched source mappings were reported. The generated fixture backlog is zero;
+the grouped full parity run is the next project-wide gate, followed by full-suite
+coverage and the complete benchmark workload.
 
 This checkpoint also adds an input-only GZip response case for raw-header-name
 matching through compression and response-header mutation, alongside the

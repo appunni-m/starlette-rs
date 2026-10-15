@@ -3,16 +3,18 @@
 A Request.form boundary fix keeps content-type lookup inside the Rust
 awaitable start, matching the pinned `_get_form()` coroutine when
 `scope["headers"]` changes after the wrapper is returned. The latest URL scope
-fix preserves valid Host selection before `server` tuple conversion. The active contract is full scope (`starlette-1.6.0-full`): 2,515 cases
-across 413 parity inputs and two benchmark inputs, 151 compatibility operations,
-13 Rust-native operations, 1,385 requirements, and six profiles. Contract and
-source-inventory checks pass; no complete parity result, full-suite coverage
-measurement, or complete benchmark run has been accepted for this manifest. A
-focused native fault-runner smoke passed three assertions, but its aggregate
-artifact is infrastructure-failed because prepared Python environments were
-stale after source changes. The newest cases check unchanged Request.stream
-delivery of a truthy non-byte body object and TestClient binary JSON framing for
-noncanonical modes; both await grouped parity.
+fix preserves valid Host selection before `server` tuple conversion. The active
+contract is full scope (`starlette-1.6.0-full`): 2,523 cases across 414 parity
+inputs and two benchmark inputs, 151 compatibility operations, 13 Rust-native
+operations, 1,393 requirements, and six profiles. Contract and source-inventory
+checks pass; no current complete parity result, full-suite coverage measurement,
+or complete benchmark run has been accepted for this manifest. A focused native
+fault-runner smoke passed three assertions, but its aggregate artifact is
+infrastructure-failed because prepared Python environments were stale after
+source changes. Revision `e36bc551` preserves the active exception observed by
+synchronous `WebSocketEndpoint.on_disconnect` and adds an input-only comparison
+for a pending receive exception. The generated fixture backlog is zero, and the
+grouped full parity run is the next project-wide gate.
 Five new input-only boundary cases preserve Request.stream mapping lookup order,
 Python comparisons in both error middlewares, and TestClient WebSocket text
 object identity. They are registered and remain unexecuted until the grouped
