@@ -361,6 +361,7 @@
       "build/parity/inputs/parity/request-stream-receive-error-retry.json",
       "build/parity/inputs/parity/request-client-address.json",
       "build/parity/inputs/parity/request-connection-properties-mapping-membership.json",
+      "build/parity/inputs/parity/request-query-params-falsey-bytes-subclass.json",
       "build/parity/inputs/parity/authentication-http-connection-auth-user.json",
       "build/parity/inputs/parity/request-scope-interface.json",
       "build/parity/inputs/parity/request-push-promise-header-order.json",
@@ -518,6 +519,7 @@
       "build/parity/inputs/parity/file-response-if-range-last-modified.json",
       "build/parity/inputs/parity/file-response-signed-zero-range.json",
       "build/parity/inputs/parity/file-response-range-python-strip-c0-separators.json",
+      "build/parity/inputs/parity/file-response-scope-type-python-equality.json",
       "build/parity/inputs/parity/lifespan-generators.json",
       "build/parity/inputs/parity/lifespan-context-manager-descriptors.json",
       "build/parity/inputs/parity/router-lifespan-exception-class-identity.json",
@@ -20491,7 +20493,7 @@
           "source": {
             "oracle_id": "starlette-python",
             "path": "starlette.requests.HTTPConnection.session, HTTPConnection.auth, and HTTPConnection.user",
-            "signature": "Request(scope).session, Request(scope).auth, and Request(scope).user",
+            "signature": "Request(scope).query_params, Request(scope).session, Request(scope).auth, and Request(scope).user",
             "parameters": [
               {
                 "id": "scope",
@@ -20540,8 +20542,8 @@
             },
             {
               "target_id": "python-package",
-              "path": "starlette.requests.HTTPConnection.session, HTTPConnection.auth, and HTTPConnection.user",
-              "signature": "Read the session, auth, and user values from the supplied scope.",
+              "path": "starlette.requests.HTTPConnection.query_params, HTTPConnection.session, HTTPConnection.auth, and HTTPConnection.user",
+              "signature": "Read query parameters, session, auth, and user values from the supplied scope.",
               "support": {
                 "status": "supported"
               }
@@ -20552,6 +20554,22 @@
               "id": "starlette.requests.Request.connection-properties.mapping-membership-protocol",
               "dimension": "boundary",
               "description": "For session, auth, and user property reads, preserve Python membership semantics when the supplied scope is a collections.UserDict with an instance-level __contains__ override. Starlette uses `key in self.scope`, whose special-method lookup is type-level. Pinned source: starlette/requests.py:169-186; docs/middleware.md:135; docs/authentication.md:57-78.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
+              "id": "starlette.requests.HTTPConnection.query-params-bytes-subclass-before-truthiness",
+              "dimension": "boundary",
+              "description": "Pass a non-empty falsey bytes subclass from scope.query_string through Request.query_params and preserve QueryParams' bytes-subclass dispatch before fallback truthiness. Pinned source: starlette/requests.py:138-140; starlette/datastructures.py:383-397; tests/test_requests.py:32-38; tests/test_datastructures.py:344-369.",
               "lanes": [
                 "parity",
                 "coverage"
@@ -22301,6 +22319,18 @@
               "id": "starlette.responses.FileResponse.asgi-call.method-upper-str-subclass",
               "dimension": "boundary",
               "description": "Pass an input-defined str subclass as scope.method whose upper() returns HEAD while its stored value is GET; preserve FileResponse's live method call and select a header-only response. Pinned source: starlette/responses.py:341-344; tests/test_responses.py::test_file_response_head.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.FileResponse.asgi-call.scope-type-str-subclass-equality",
+              "dimension": "boundary",
+              "description": "Use an input-defined str subclass for scope.type whose equality returns false, preserving FileResponse's separate Python comparisons before selecting the response body for HEAD. Pinned source: starlette/responses.py:341-344,387-401; tests/test_responses.py::test_file_response_head.",
               "lanes": [
                 "parity",
                 "coverage"

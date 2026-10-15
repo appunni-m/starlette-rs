@@ -573,13 +573,13 @@ fn query_params_from_python(value: &Bound<'_, PyAny>) -> PyResult<Vec<(String, S
             .multi_items()
             .to_vec());
     }
-    if !value.is_truthy()? {
-        return Ok(Vec::new());
-    }
     if let Ok(bytes) = value.cast::<PyBytes>() {
         return Ok(NativeQueryParams::parse(bytes.as_bytes())
             .multi_items()
             .to_vec());
+    }
+    if !value.is_truthy()? {
+        return Ok(Vec::new());
     }
     if value.hasattr("multi_items")? {
         return query_params_from_iterable(&value.call_method0("multi_items")?);

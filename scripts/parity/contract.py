@@ -723,6 +723,9 @@ REQUEST_CONNECTION_PROPERTIES_REQUIREMENTS = {
     "present_null": "starlette.requests.HTTPConnection.auth-user.present-null-scope-values",
     "missing_auth": "starlette.requests.HTTPConnection.auth.missing-scope-key",
     "missing_user": "starlette.requests.HTTPConnection.user.missing-scope-key",
+    "query_params_bytes_subclass": (
+        "starlette.requests.HTTPConnection.query-params-bytes-subclass-before-truthiness"
+    ),
 }
 REQUEST_HEADER_CACHE_SEQUENCE_OPERATION = ("starlette.requests.Request", "header-cache-sequence")
 REQUEST_COOKIE_CACHE_SEQUENCE_OPERATION = ("starlette.requests.Request", "cookie-cache-sequence")
@@ -1687,6 +1690,9 @@ FILE_RESPONSE_RANGE_PATHSEND_REQUIREMENT = (
 )
 FILE_RESPONSE_METHOD_UPPER_OVERRIDE_REQUIREMENT = (
     f"{FILE_RESPONSE_SURFACE}.{RESPONSE_OPERATION}.method-upper-str-subclass"
+)
+FILE_RESPONSE_SCOPE_TYPE_EQUALITY_REQUIREMENT = (
+    f"{FILE_RESPONSE_SURFACE}.{RESPONSE_OPERATION}.scope-type-str-subclass-equality"
 )
 FILE_RESPONSE_WEBSOCKET_DENIAL_REQUIREMENT = (
     f"{FILE_RESPONSE_SURFACE}.{RESPONSE_OPERATION}.websocket-denial-response"
@@ -8479,7 +8485,29 @@ def _validate_file_response_case_stimulus(case: dict[str, Any]) -> None:
 
     if not isinstance(scope_spec, dict):
         raise ContractError("FileResponse ASGI scope must be an object")
-    scope_type = scope_spec.get("type")
+    scope_type_input = scope_spec.get("type")
+    scope_type = scope_type_input
+    scope_type_subclass = isinstance(scope_type_input, dict)
+    if scope_type_subclass:
+        descriptor = _exact(scope_type_input, {"str_subclass"}, "FileResponse scope.type")
+        subclass = descriptor["str_subclass"]
+        subclass = _exact(
+            subclass,
+            {"value", "equal_result"},
+            "FileResponse scope.type.str_subclass",
+        )
+        scope_type = _string(subclass["value"], "FileResponse scope.type.value")
+        if (
+            scope_type != "http"
+            or subclass["equal_result"] is not False
+            or call_sequence
+            or optional_keys
+            or case["covers"] != [FILE_RESPONSE_SCOPE_TYPE_EQUALITY_REQUIREMENT]
+            or case["target_profiles"] != ["python-package-cpython312"]
+        ):
+            raise ContractError(
+                "FileResponse scope.type str-subclass input requires its false-equality package-only case"
+            )
     if scope_type == "websocket":
         scope_keys = {
             "type",
@@ -8513,6 +8541,8 @@ def _validate_file_response_case_stimulus(case: dict[str, Any]) -> None:
     if isinstance(scope_spec, dict) and "extensions" in scope_spec:
         scope_keys.add("extensions")
     scope_spec = _exact(scope_spec, scope_keys, "FileResponse ASGI scope")
+    if scope_type_subclass:
+        scope_spec = {**scope_spec, "type": scope_type}
     method_upper_override = FILE_RESPONSE_METHOD_UPPER_OVERRIDE_REQUIREMENT in case["covers"]
     if scope_type == "http" and isinstance(scope_spec["method"], dict):
         if (
@@ -8565,6 +8595,10 @@ def _validate_file_response_case_stimulus(case: dict[str, Any]) -> None:
             )
     else:
         raise ContractError("FileResponse ASGI-call requires an HTTP or WebSocket scope")
+    if scope_type_subclass and case["covers"] != [FILE_RESPONSE_SCOPE_TYPE_EQUALITY_REQUIREMENT]:
+        raise ContractError(
+            "FileResponse scope.type str-subclass input must cover its equality requirement"
+        )
     if error_path_kind is not None and (
         scope_type != "http" or scope_spec["method"].upper() != "GET"
     ):
@@ -31650,8 +31684,10 @@ def _validate_request_connection_properties_case(case: dict[str, Any]) -> None:
     scope_input = case["scope"]
     if not isinstance(scope_input, dict):
         raise ContractError("Request connection-properties scope must be a mapping")
-    scope_fields = {"type", "method", "path", "session"}
-    scope_fields.update(key for key in ("auth", "user") if key in scope_input)
+    scope_fields = {"type", "method", "path"}
+    scope_fields.update(
+        key for key in ("session", "auth", "user", "query_string") if key in scope_input
+    )
     scope = _exact(scope_input, scope_fields, "Request connection-properties scope")
     if scope["type"] != "http":
         raise ContractError("Request connection-properties scope must be HTTP")
@@ -31673,7 +31709,7 @@ def _validate_request_connection_properties_case(case: dict[str, Any]) -> None:
         )
 
     properties = case["properties"]
-    allowed_properties = {"session", "auth", "user"}
+    allowed_properties = {"session", "auth", "user", "query_params"}
     if (
         not isinstance(properties, list)
         or any(value not in allowed_properties for value in properties)
@@ -31681,16 +31717,56 @@ def _validate_request_connection_properties_case(case: dict[str, Any]) -> None:
         or len(properties) != len(set(properties))
     ):
         raise ContractError("Request connection-properties input must select unique properties")
+    if case["covers"] == [
+        REQUEST_CONNECTION_PROPERTIES_REQUIREMENTS["query_params_bytes_subclass"]
+    ]:
+        if set(scope) != {"type", "method", "path", "query_string"} or properties != [
+            "query_params"
+        ]:
+            raise ContractError(
+                "Request connection-properties bytes-subclass case requires only query_params"
+            )
+        query_string = _exact(
+            scope["query_string"],
+            {"kind", "value_base64", "truthy"},
+            "Request connection-properties query string",
+        )
+        if query_string["kind"] != "bytes-subclass" or query_string["truthy"] is not False:
+            raise ContractError(
+                "Request connection-properties query string must be a falsey bytes subclass"
+            )
+        if not isinstance(query_string["value_base64"], str):
+            raise ContractError(
+                "Request connection-properties query string value_base64 must be text"
+            )
+        try:
+            query_bytes = base64.b64decode(query_string["value_base64"], validate=True)
+        except (TypeError, ValueError) as error:
+            raise ContractError(
+                "Request connection-properties query string value_base64 is invalid"
+            ) from error
+        if (
+            not query_bytes
+            or base64.b64encode(query_bytes).decode("ascii") != query_string["value_base64"]
+        ):
+            raise ContractError(
+                "Request connection-properties query string must be non-empty canonical base64"
+            )
+        return
+    if "session" not in scope:
+        raise ContractError("Request connection-properties auth/session cases must include session")
     if case["covers"] == [REQUEST_CONNECTION_PROPERTIES_REQUIREMENTS["mapping_membership"]]:
-        if set(scope) != scope_fields | {"auth", "user"} or set(properties) != allowed_properties:
+        if set(scope) != {"type", "method", "path", "session", "auth", "user"} or set(
+            properties
+        ) != {"session", "auth", "user"}:
             raise ContractError(
                 "Request connection-properties membership case requires all properties and scope keys"
             )
         return
     if case["covers"] == [REQUEST_CONNECTION_PROPERTIES_REQUIREMENTS["present_null"]]:
         if (
-            set(scope) != scope_fields | {"auth", "user"}
-            or set(properties) != allowed_properties
+            set(scope) != {"type", "method", "path", "session", "auth", "user"}
+            or set(properties) != {"session", "auth", "user"}
             or scope["auth"] is not None
             or scope["user"] is not None
         ):
@@ -31703,7 +31779,7 @@ def _validate_request_connection_properties_case(case: dict[str, Any]) -> None:
         if case["covers"] == [requirement]:
             other_name = "user" if name == "auth" else "auth"
             if (
-                set(scope) != scope_fields | {other_name}
+                set(scope) != {"type", "method", "path", "session", other_name}
                 or properties != [name]
                 or mapping["instance_contains_result"] is not True
             ):

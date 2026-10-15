@@ -388,8 +388,9 @@ impl PyFileResponse {
             status_code,
             stat_override,
         );
-        let scope_type = scope.get_item("type")?.extract::<String>()?;
-        let method = if scope_type == "http" {
+        let scope_type = scope.get_item("type")?;
+        let scope_is_http_for_head = scope_type.eq("http")?;
+        let method = if scope_is_http_for_head {
             // Starlette calls the scope method's live `.upper()` implementation
             // before comparing it with `HEAD`; retain str-subclass overrides
             // and their Python exceptions at this boundary.
@@ -405,12 +406,18 @@ impl PyFileResponse {
         } else {
             String::new()
         };
+        let scope_is_http_for_pathsend = scope_type.eq("http")?;
+        let pathsend_extension = if scope_is_http_for_pathsend {
+            scope
+                .call_method1("get", ("extensions", PyDict::new(py)))?
+                .contains("http.response.pathsend")?
+        } else {
+            false
+        };
+        let scope_is_websocket = scope_type.eq("websocket")?;
         let request_headers = scope
             .call_method1("get", ("headers", PyList::empty(py)))?
             .extract::<Vec<(Vec<u8>, Vec<u8>)>>()?;
-        let pathsend_extension = scope
-            .call_method1("get", ("extensions", PyDict::new(py)))?
-            .contains("http.response.pathsend")?;
         let headers_view = self.headers(py)?;
         let view_raw = headers_view.bind(py).getattr("raw")?;
         let view_headers = crate::response_headers_runtime::parse_raw_pairs(&view_raw)?;
@@ -426,12 +433,13 @@ impl PyFileResponse {
                     raw: raw_headers,
                     view_is_raw,
                 },
-                scope_type.clone(),
+                scope_is_http_for_head,
+                scope_is_http_for_pathsend,
                 method,
                 request_headers,
                 pathsend_extension,
                 background.is_some(),
-                scope_type == "websocket",
+                scope_is_websocket,
                 path.clone().unbind(),
                 metadata_path_required,
             ),
@@ -478,7 +486,8 @@ enum FileResponsePathResolution {
 struct FileResponseCallDriverState {
     response: NativeFileResponse,
     header_views: FileResponseHeaderViews,
-    scope_type: String,
+    scope_is_http_for_head: bool,
+    scope_is_http_for_pathsend: bool,
     method: String,
     request_headers: Vec<(Vec<u8>, Vec<u8>)>,
     pathsend_extension: bool,
@@ -510,7 +519,8 @@ impl PyFileResponseCallDriver {
     fn new(
         response: NativeFileResponse,
         header_views: FileResponseHeaderViews,
-        scope_type: String,
+        scope_is_http_for_head: bool,
+        scope_is_http_for_pathsend: bool,
         method: String,
         request_headers: Vec<(Vec<u8>, Vec<u8>)>,
         pathsend_extension: bool,
@@ -523,7 +533,8 @@ impl PyFileResponseCallDriver {
             state: Arc::new(Mutex::new(FileResponseCallDriverState {
                 response,
                 header_views,
-                scope_type,
+                scope_is_http_for_head,
+                scope_is_http_for_pathsend,
                 method,
                 request_headers,
                 pathsend_extension,
@@ -679,9 +690,10 @@ impl FileResponseCallDriverState {
         if self.call.is_none() {
             let mut call = self
                 .response
-                .call_state_with_headers(
+                .call_state_with_header_views_and_http_match(
                     self.header_views.clone(),
-                    &self.scope_type,
+                    self.scope_is_http_for_head,
+                    self.scope_is_http_for_pathsend,
                     &self.method,
                     &self.request_headers,
                     self.pathsend_extension,

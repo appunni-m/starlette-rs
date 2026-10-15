@@ -8701,10 +8701,12 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
         scope_spec = _exact_object(scope_spec, scope_keys, "FileResponse call scope")
         if scope_spec["type"] != "http":
             raise ValueError("FileResponse call sequences require HTTP scopes")
-    elif not isinstance(scope_spec, dict) or scope_spec.get("type") not in {"http", "websocket"}:
+    elif not isinstance(scope_spec, dict):
         raise ValueError("FileResponse ASGI-call requires an HTTP or WebSocket scope")
     else:
-        scope_type = scope_spec["type"]
+        _, scope_type = _materialize_scope_type_spec(scope_spec.get("type"))
+        if not isinstance(scope_type, str) or scope_type not in {"http", "websocket"}:
+            raise ValueError("FileResponse ASGI-call requires an HTTP or WebSocket scope")
         scope_keys = {
             "type",
             "asgi",

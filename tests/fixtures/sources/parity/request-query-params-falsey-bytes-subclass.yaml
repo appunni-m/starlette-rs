@@ -1,0 +1,41 @@
+{
+  "schema": "migration-parity/parity-input@58",
+  "cases": [
+    {
+      "case_id": "starlette.requests.Request.connection-properties.falsey-query-string-bytes-subclass",
+      "surface": "starlette.requests.Request",
+      "operation": "connection-properties",
+      "covers": [
+        "starlette.requests.HTTPConnection.query-params-bytes-subclass-before-truthiness"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "http",
+        "method": "GET",
+        "path": "/profile",
+        "query_string": {
+          "kind": "bytes-subclass",
+          "value_base64": "dGFnPWZyb20tZml4dXJlJmZsYWc=",
+          "truthy": false
+        }
+      },
+      "scope_mapping": {
+        "container": "collections.UserDict",
+        "instance_contains_result": false
+      },
+      "properties": [
+        "query_params"
+      ],
+      "observations": [
+        "connection-properties"
+      ]
+    }
+  ]
+}

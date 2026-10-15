@@ -703,6 +703,42 @@ impl FileResponse {
         pathsend_extension: bool,
         has_background: bool,
     ) -> Result<FileResponseCall, FileResponseError> {
+        self.call_state_with_header_views_and_http_match(
+            header_views,
+            scope_type == "http",
+            scope_type == "http",
+            method,
+            request_headers,
+            pathsend_extension,
+            has_background,
+        )
+    }
+
+    /// Prepares a request-specific call using scope classifications evaluated
+    /// by a Python compatibility boundary.
+    ///
+    /// Starlette compares the original `scope["type"]` object with the HTTP
+    /// and WebSocket literals. This entry point lets the Python facade preserve
+    /// the HTTP rich-equality results for string subclasses while keeping file
+    /// planning in Rust. The two values correspond to Starlette's separate
+    /// HEAD and pathsend checks. WebSocket message names are handled by the
+    /// facade.
+    /// Rust-native callers should use [`Self::call_state_with_headers`].
+    ///
+    /// # Errors
+    ///
+    /// Returns a file or metadata error before emitting response headers.
+    #[doc(hidden)]
+    pub fn call_state_with_header_views_and_http_match(
+        &self,
+        header_views: FileResponseHeaderViews,
+        scope_is_http_for_head: bool,
+        scope_is_http_for_pathsend: bool,
+        method: &str,
+        request_headers: &[(Vec<u8>, Vec<u8>)],
+        pathsend_extension: bool,
+        has_background: bool,
+    ) -> Result<FileResponseCall, FileResponseError> {
         let FileResponseHeaderViews {
             view: mut view_headers,
             raw: raw_headers,
@@ -743,8 +779,9 @@ impl FileResponse {
             })
         });
 
-        let send_header_only = scope_type == "http" && method.eq_ignore_ascii_case("HEAD");
-        let mut send_pathsend = scope_type == "http" && pathsend_extension && !send_header_only;
+        let send_header_only = scope_is_http_for_head && method.eq_ignore_ascii_case("HEAD");
+        let mut send_pathsend =
+            scope_is_http_for_pathsend && pathsend_extension && !send_header_only;
         let mut status_code = self.status_code;
         let mut mode = FileResponseMode::Simple;
         let background = has_background;
