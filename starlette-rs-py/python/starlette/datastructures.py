@@ -19,7 +19,13 @@ from starlette_rs_py import _core
 
 from starlette.types import Scope
 
-Secret = _core.Secret
+
+class Secret(_core.Secret):
+    """A redacted string value with the pinned Starlette typing contract."""
+
+    def __init__(self, value: str) -> None:
+        super().__init__(value)
+
 
 _KeyType = TypeVar("_KeyType")
 _CovariantValueType = TypeVar("_CovariantValueType", covariant=True)
@@ -267,6 +273,16 @@ class UploadFile(_core.UploadFile):
     size: int | None
     headers: Headers
     content_type: str | None
+
+    def __init__(
+        self,
+        file: BinaryIO,
+        *,
+        size: int | None = None,
+        filename: str | None = None,
+        headers: Headers | None = None,
+    ) -> None:
+        super().__init__(file, size=size, filename=filename, headers=headers)
 
     async def write(self, data: bytes) -> None:
         await self._write(data)

@@ -89,20 +89,32 @@ def run_router_registration_case(case: dict[str, Any], router_type: Any) -> dict
             }
         reverse_results.append({"lookup": lookup, "result": result})
 
+    observation_values = {
+        "registration-state": registration_states,
+        "reverse-url-results": reverse_results,
+    }
+    selected_observations = case["observations"]
+    if (
+        not isinstance(selected_observations, list)
+        or not selected_observations
+        or any(
+            not isinstance(selector, str) or selector not in observation_values
+            for selector in selected_observations
+        )
+        or len(selected_observations) != len(set(selected_observations))
+    ):
+        raise ValueError("Router observations must select unique declared result records")
+
     return {
         "case_id": case["case_id"],
         "status": "completed",
         "observations": [
             {
-                "step_id": "registration-state",
+                "step_id": selector,
                 "status": "ok",
-                "value": {"registration-state": registration_states},
-            },
-            {
-                "step_id": "reverse-url-results",
-                "status": "ok",
-                "value": {"reverse-url-results": reverse_results},
-            },
+                "value": observation_values,
+            }
+            for selector in selected_observations
         ],
     }
 

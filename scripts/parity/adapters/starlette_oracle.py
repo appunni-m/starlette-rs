@@ -8763,11 +8763,7 @@ def _run_http_endpoint_case(case: dict[str, Any]) -> dict[str, Any]:
             raise ValueError("HTTPEndpoint direct handlers must return plain-text responses")
         handler_specs[handler_spec["name"]] = handler_spec
 
-    caller_thread_id = threading.get_ident()
-    handler_thread_hops: list[bool] = []
-
     def make_response(response_spec: dict[str, Any]) -> Any:
-        handler_thread_hops.append(threading.get_ident() != caller_thread_id)
         return PlainTextResponse(
             content=response_spec["content"],
             status_code=response_spec["status_code"],
@@ -8851,7 +8847,6 @@ def _run_http_endpoint_case(case: dict[str, Any]) -> dict[str, Any]:
         ),
         "asgi_event_order": [event["type"] for event in events],
         "asgi_events": events,
-        "handler_thread_hops": handler_thread_hops,
     }
     if "method_reads" in endpoint_spec:
         observation["method_reads"] = method_trace

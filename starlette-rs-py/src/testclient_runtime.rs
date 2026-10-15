@@ -527,7 +527,7 @@ impl TestClientLifespan {
         .flatten()
         {
             if let Err(error) = stream.bind(py).call_method0("close") {
-                replace_cleanup_error(py, &mut primary_error, error)?;
+                replace_cleanup_error(&mut primary_error, error);
             }
         }
 
@@ -539,7 +539,7 @@ impl TestClientLifespan {
                 if let Err(error) =
                     exit_portal(py, manager.bind(py).clone(), primary_error.as_ref())
                 {
-                    replace_cleanup_error(py, &mut primary_error, error)?;
+                    replace_cleanup_error(&mut primary_error, error);
                 }
             }
         }
@@ -2311,17 +2311,10 @@ fn exit_portal(py: Python<'_>, manager: Bound<'_, PyAny>, error: Option<&PyErr>)
     Ok(())
 }
 
-fn replace_cleanup_error(
-    py: Python<'_>,
-    primary_error: &mut Option<PyErr>,
-    error: PyErr,
-) -> PyResult<()> {
-    // ExitStack lets each later failing callback replace the active exception.
-    if let Some(previous_error) = primary_error.take() {
-        chain_exception_context(py, &error, &previous_error)?;
-    }
+fn replace_cleanup_error(primary_error: &mut Option<PyErr>, error: PyErr) {
+    // Match ExitStack.close(): retain the callback exception's Python context as
+    // produced, rather than unconditionally chaining an earlier callback error.
     *primary_error = Some(error);
-    Ok(())
 }
 
 fn chain_exception_context(py: Python<'_>, error: &PyErr, previous_error: &PyErr) -> PyResult<()> {

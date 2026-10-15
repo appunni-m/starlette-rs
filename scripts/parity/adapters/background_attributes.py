@@ -31,6 +31,8 @@ def _observe(value: Any) -> Any:
 
 def run_background_attributes_case(case: dict[str, Any], background_module: Any) -> dict[str, Any]:
     """Apply declared reads, assignments, and deletions through the public classes."""
+    if case["observations"] != ["background-task-attributes"]:
+        raise ValueError("BackgroundTask observations must select the declared attribute record")
     task_spec = case["task"]
     if task_spec["kind"] == "background-task":
         task = background_module.BackgroundTask(
@@ -77,9 +79,9 @@ def run_background_attributes_case(case: dict[str, Any], background_module: Any)
         "status": "completed",
         "observations": [
             {
-                "step_id": "background-task-attributes",
+                "step_id": case["observations"][0],
                 "status": "ok",
-                "value": observation,
+                "value": {case["observations"][0]: observation},
             }
         ],
     }

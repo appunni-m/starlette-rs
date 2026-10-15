@@ -2407,10 +2407,6 @@ def _run_starlette_lifespan_case(case: dict[str, Any]) -> dict[str, Any]:
     }
     if "scope_mutations" in app_input:
         result["scope_mutation_trace"] = scope_mutation_trace
-    if observe_close_order:
-        if stream_close_observer is None:
-            raise RuntimeError("TestClient lifespan stream-close observer is unavailable")
-        result["stream_close_order"] = stream_close_observer.close_order
     return {
         "case_id": case["case_id"],
         "status": "completed",

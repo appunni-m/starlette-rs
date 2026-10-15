@@ -21,7 +21,15 @@ runner smoke passed all three Rust-native lifespan fault assertions, but its
 artifact was infrastructure-failed because the prepared Python environments
 were stale after source changes. No complete parity result has been accepted
 for this manifest; full-suite coverage and the complete benchmark workload
-remain pending. Revision `e36bc551` preserves the active exception observed by
+remain pending. The latest implementation batch matches CPython's compiled
+set-literal construction for Request push-promise header iteration, corrects
+several adapter observation projections, restores the `Secret` and
+`UploadFile` constructor typing contracts with direct Rust forwarding, and
+preserves TestClient cleanup exceptions without synthesizing callback context.
+Contract, source-inventory, formatting, lint, and Rust static checks pass for
+the current working batch. Full parity, coverage, and benchmarks remain
+deferred; the installed-wheel typing comparison is also pending. Revision
+`e36bc551` preserves the active exception observed by
 synchronous `WebSocketEndpoint.on_disconnect` and adds an input-only comparison
 for a pending receive exception. Revision `9a9d0e81` adds input-only boundaries
 for

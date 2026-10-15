@@ -1,5 +1,15 @@
 # Compatibility inventory
 
+The latest implementation batch fixes observation projections for
+`BackgroundTask`, `Headers`/`MutableHeaders`, `Router`, and TestClient lifespan,
+removes source-adapter-only fields, and preserves CPython's compiled set-literal
+iteration for Request push-promise headers. `Secret` and `UploadFile` now expose
+typed constructors through direct Rust forwarding wrappers. TestClient cleanup
+keeps the cleanup exception's Python context instead of synthesizing a link to
+an earlier callback failure. The existing input-only comparisons and the new
+typing consumer remain unexecuted until grouped parity; coverage and benchmark
+phases remain pending.
+
 TestClient's managed lifespan now resolves the client's bound `lifespan`,
 `wait_startup`, and `wait_shutdown` methods through the AnyIO portal, matching
 the pinned source's Python subclass dispatch. Input-only cases also observe
@@ -77,7 +87,7 @@ assertion with AuthenticationMiddleware guidance.
 Both comparisons remain unexecuted until full parity. The successful WebSocket
 authentication requirement now cites the pinned
 `test_websocket_authentication_required` function at lines 273–303.
-The active contract has 2,519 cases across 414 parity inputs and 1,389
+The active contract has 2,523 cases across 414 parity inputs and 1,393
 requirements. The generated atlas has 866 source rows, 810 input
 mappings, 56 reasoned `not_applicable` rows, and zero backlog. Full parity,
 coverage, and benchmark phases remain pending.

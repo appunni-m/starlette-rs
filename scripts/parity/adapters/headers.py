@@ -21,6 +21,15 @@ _CASE_FIELDS = {
     "observations",
 }
 _OBSERVATION_SELECTORS = {"action-trace", "instance-snapshots", "scope-snapshots", "raw-pairs"}
+_OUTPUT_FIELDS = {
+    HEADERS_SURFACE: ("action-trace", "instance-snapshots", "scope-snapshots"),
+    MUTABLE_HEADERS_SURFACE: (
+        "action-trace",
+        "instance-snapshots",
+        "scope-snapshots",
+        "raw-pairs",
+    ),
+}
 
 
 def _exact_object(value: Any, keys: set[str], context: str) -> dict[str, Any]:
@@ -367,6 +376,7 @@ def run_headers_case(case: dict[str, Any]) -> dict[str, Any]:
             for instance_id, instance in instances.items()
         ],
     }
+    observation_value = {field: values[field] for field in _OUTPUT_FIELDS[case["surface"]]}
     return {
         "case_id": case["case_id"],
         "status": "completed",
@@ -374,7 +384,7 @@ def run_headers_case(case: dict[str, Any]) -> dict[str, Any]:
             {
                 "step_id": selector,
                 "status": "ok",
-                "value": {"raw-pairs": values["raw-pairs"]} if selector == "raw-pairs" else values,
+                "value": observation_value,
             }
             for selector in observations
         ],
