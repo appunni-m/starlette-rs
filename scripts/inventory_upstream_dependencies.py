@@ -13,6 +13,10 @@ import urllib.error
 import urllib.request
 
 EXPECTED_COMMIT = "4f250d6b814587e20c5365f0a5f0c4d42bcb929f"
+CHECKED_FIELDS = (
+    "version",
+    "locked_transitive_dependencies",
+)
 DIRECT = {
     "anyio": (
         "runtime-required",
@@ -54,6 +58,92 @@ def parse_lock(path: pathlib.Path) -> dict[str, dict[str, object]]:
         children = sorted(set(re.findall(r'\{\s*name\s*=\s*"([^"]+)"', block)))
         packages[name] = {"version": version_match.group(1), "children": children}
     return packages
+
+
+def expected_inventory_fields(
+    packages: dict[str, dict[str, object]],
+) -> dict[str, dict[str, str]]:
+    parents: dict[str, list[str]] = {name: [] for name in packages}
+    for parent, package in packages.items():
+        for child in package["children"]:
+            if child in parents:
+                parents[child].append(parent)
+
+    categories: dict[str, set[str]] = {name: set() for name in packages}
+    for direct_name, (group_names, _) in DIRECT.items():
+        if direct_name not in packages:
+            raise SystemExit(f"direct dependency missing from lock: {direct_name}")
+        for category in group_names.split("+"):
+            pending = [direct_name]
+            while pending:
+                current = pending.pop()
+                if category in categories[current]:
+                    continue
+                categories[current].add(category)
+                pending.extend(packages[current]["children"])
+
+    fields = {}
+    for name, package in packages.items():
+        direct = DIRECT.get(name)
+        fields[name] = {
+            "version": str(package["version"]),
+            "role": direct[0] if direct else "transitive-only",
+            "why_selected_or_parent_chain": (
+                direct[1]
+                if direct
+                else "Transitive dependency required by: " + ", ".join(sorted(parents[name]))
+            ),
+            "locked_transitive_dependencies": ", ".join(package["children"]),
+            "dependency_groups": ", ".join(sorted(categories[name])),
+        }
+    return fields
+
+
+def check_inventory(path: pathlib.Path, expected: dict[str, dict[str, str]]) -> int:
+    with path.open(encoding="utf-8", newline="") as file:
+        reader = csv.DictReader(file)
+        if reader.fieldnames is None:
+            print(f"dependency inventory has no CSV header: {path}")
+            return 1
+        required = {"name", *CHECKED_FIELDS}
+        missing_columns = sorted(required - set(reader.fieldnames))
+        if missing_columns:
+            print("dependency inventory is missing columns: " + ", ".join(missing_columns))
+            return 1
+
+        actual: dict[str, dict[str, str]] = {}
+        errors: list[str] = []
+        for line_number, row in enumerate(reader, start=2):
+            name = (row.get("name") or "").strip().lower()
+            if not name:
+                errors.append(f"line {line_number}: missing package name")
+                continue
+            if name in actual:
+                errors.append(f"line {line_number}: duplicate package {name}")
+                continue
+            actual[name] = row
+
+    for name in sorted(expected.keys() - actual.keys()):
+        errors.append(f"missing locked package: {name}")
+    for name in sorted(actual.keys() - expected.keys()):
+        errors.append(f"package not present in pinned uv.lock: {name}")
+    for name in sorted(expected.keys() & actual.keys()):
+        for field in CHECKED_FIELDS:
+            if actual[name].get(field, "") != expected[name][field]:
+                errors.append(
+                    f"{name}: {field} differs (inventory={actual[name].get(field, '')!r}, "
+                    f"uv.lock={expected[name][field]!r})"
+                )
+
+    if errors:
+        print(f"dependency inventory drift found in {path}:")
+        print("\n".join(f"- {error}" for error in errors))
+        return 1
+    print(
+        f"dependency inventory matches the pinned uv.lock package graph for "
+        f"{len(expected)} packages (PyPI/license metadata not re-fetched)"
+    )
+    return 0
 
 
 def pypi_metadata(name: str, version: str) -> dict[str, str]:
@@ -117,9 +207,16 @@ def pypi_metadata(name: str, version: str) -> dict[str, str]:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--upstream", type=pathlib.Path, required=True)
-    parser.add_argument("--output", type=pathlib.Path, required=True)
+    parser.add_argument("--output", type=pathlib.Path)
+    parser.add_argument(
+        "--check",
+        type=pathlib.Path,
+        help="check package versions and dependency edges without network access",
+    )
     parser.add_argument("--snapshot-date", default="2026-09-27")
     args = parser.parse_args()
+    if (args.output is None) == (args.check is None):
+        parser.error("provide exactly one of --output or --check")
 
     upstream = args.upstream.resolve()
     import subprocess
@@ -137,11 +234,9 @@ def main() -> int:
     if len(packages) != 85:
         raise SystemExit(f"expected 85 third-party locked packages, found {len(packages)}")
 
-    parents: dict[str, list[str]] = {name: [] for name in packages}
-    for parent, package in packages.items():
-        for child in package["children"]:
-            if child in parents:
-                parents[child].append(parent)
+    inventory = expected_inventory_fields(packages)
+    if args.check is not None:
+        return check_inventory(args.check, inventory)
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=16) as pool:
         future_by_name = {
@@ -149,19 +244,6 @@ def main() -> int:
             for name, package in packages.items()
         }
         metadata = {name: future.result() for name, future in future_by_name.items()}
-
-    categories: dict[str, set[str]] = {name: set() for name in packages}
-    for direct_name, (group_names, _) in DIRECT.items():
-        if direct_name not in packages:
-            raise SystemExit(f"direct dependency missing from lock: {direct_name}")
-        for category in group_names.split("+"):
-            pending = [direct_name]
-            while pending:
-                current = pending.pop()
-                if category in categories[current]:
-                    continue
-                categories[current].add(category)
-                pending.extend(packages[current]["children"])
 
     output = args.output.resolve()
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -183,18 +265,11 @@ def main() -> int:
         writer = csv.DictWriter(file, fieldnames=columns, lineterminator="\n")
         writer.writeheader()
         for name in sorted(packages):
-            direct = DIRECT.get(name)
             info = metadata[name]
             writer.writerow(
                 {
                     "name": name,
-                    "version": packages[name]["version"],
-                    "role": direct[0] if direct else "transitive-only",
-                    "why_selected_or_parent_chain": direct[1]
-                    if direct
-                    else "Transitive dependency required by: " + ", ".join(sorted(parents[name])),
-                    "locked_transitive_dependencies": ", ".join(packages[name]["children"]),
-                    "dependency_groups": ", ".join(sorted(categories[name])),
+                    **inventory[name],
                     "reported_license": info["license"],
                     "implementation_classifiers": info["implementation_classifiers"],
                     "wheel_or_native_review_note": info["wheel_summary"],

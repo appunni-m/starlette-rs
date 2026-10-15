@@ -26,10 +26,12 @@ except ModuleNotFoundError:  # CPython 3.10 starts before the prepared parity lo
 
 from .contract import ORACLE_COMMIT, ContractError, sha256_file
 
-ENVIRONMENTS_SCHEMA = "migration-parity/python-environments@3"
+ENVIRONMENTS_SCHEMA = "migration-parity/python-environments@4"
 ENVIRONMENTS_RELATIVE = Path("build/parity/python-environments.json")
 RUNTIME_LOCK_RELATIVE = Path("scripts/parity/locks/asgi-runtime-python.txt")
 ORACLE_RUNTIME_LOCK_RELATIVE = Path("scripts/parity/locks/starlette-oracle-python.txt")
+MARKUPSAFE_SOURCE_LOCK_RELATIVE = Path("scripts/parity/locks/markupsafe-cpython314-source.txt")
+MARKUPSAFE_BUILD_LOCK_RELATIVE = Path("scripts/parity/locks/markupsafe-build-python.txt")
 SUPPORTED_PYTHON_VERSIONS = ("3.10", "3.11", "3.12", "3.13", "3.14")
 _PROCESS_ENVIRONMENT_POLICY = {
     "PYTHONHASHSEED": "0",
@@ -343,11 +345,13 @@ def _environment_fingerprints(
     runtime_lock_digest: str,
     probe: dict[str, Any],
     artifact_sha256: str | None,
+    build_artifacts: list[dict[str, str]],
 ) -> dict[str, Any]:
     installed_lock = {
         "implementation": probe["implementation"],
         "python": probe["python"],
         "packages": probe["packages"],
+        "build_artifacts": build_artifacts,
     }
     installed_digest = _canonical_sha256(installed_lock)
     fingerprint = {
@@ -360,6 +364,7 @@ def _environment_fingerprints(
         "dependency_lock_sha256": runtime_lock_digest,
         "installed_lock_sha256": installed_digest,
         "artifact_sha256": artifact_sha256,
+        "build_artifacts": build_artifacts,
     }
     fingerprint["environment_sha256"] = _canonical_sha256(
         {
@@ -549,11 +554,7 @@ def validate_runtime_lock(root: Path, upstream: Path) -> str:
             hash_parts = stripped.split()
             name, version = requirement.split("==", 1)
             normalized = name.lower().replace("_", "-")
-            hashes = {
-                part.removeprefix("--hash=sha256:")
-                for part in hash_parts
-                if part.startswith("--hash=sha256:")
-            }
+            hashes = _sha256_hashes(hash_parts, stripped)
             if not hashes or normalized in declarations:
                 raise ContractError(f"runtime lock entry is malformed or duplicated: {stripped}")
             declarations[normalized] = (version, hashes)
@@ -593,11 +594,7 @@ def _lock_declarations(path: Path) -> dict[str, tuple[str, set[str]]]:
             hash_parts = stripped.split()
             name, version = requirement.split("==", 1)
             normalized = name.lower().replace("_", "-")
-            hashes = {
-                part.removeprefix("--hash=sha256:")
-                for part in hash_parts
-                if part.startswith("--hash=sha256:")
-            }
+            hashes = _sha256_hashes(hash_parts, stripped)
             if not hashes or normalized in declarations:
                 raise ContractError(f"runtime lock entry is malformed or duplicated: {stripped}")
             declarations[normalized] = (version, hashes)
@@ -606,6 +603,24 @@ def _lock_declarations(path: Path) -> dict[str, tuple[str, set[str]]]:
             raise
         raise ContractError(f"cannot parse committed CPython runtime lock: {exc}") from exc
     return declarations
+
+
+def _sha256_hashes(parts: list[str], entry: str) -> set[str]:
+    hash_parts = [part for part in parts if part.startswith("--hash")]
+    hashes: list[str] = []
+    for part in hash_parts:
+        prefix = "--hash=sha256:"
+        digest = part.removeprefix(prefix)
+        if (
+            not part.startswith(prefix)
+            or len(digest) != 64
+            or any(character not in "0123456789abcdef" for character in digest)
+        ):
+            raise ContractError(f"dependency lock hash must be a SHA-256 digest: {entry}")
+        hashes.append(digest)
+    if len(hashes) != len(set(hashes)):
+        raise ContractError(f"dependency lock repeats a SHA-256 hash: {entry}")
+    return set(hashes)
 
 
 def validate_oracle_runtime_lock(root: Path, upstream: Path) -> str:
@@ -659,6 +674,330 @@ def validate_oracle_runtime_lock(root: Path, upstream: Path) -> str:
     return sha256_file(oracle_path)
 
 
+def validate_markupsafe_build_locks(root: Path, upstream: Path) -> dict[str, str]:
+    """Pin the MarkupSafe source fallback and its isolated wheel builder."""
+    source_path = root / MARKUPSAFE_SOURCE_LOCK_RELATIVE
+    build_path = root / MARKUPSAFE_BUILD_LOCK_RELATIVE
+    runtime = _lock_declarations(root / RUNTIME_LOCK_RELATIVE)
+    source = _lock_declarations(source_path)
+    builder = _lock_declarations(build_path)
+    if (
+        set(source) != {"markupsafe"}
+        or "markupsafe" not in runtime
+        or source["markupsafe"][0] != runtime["markupsafe"][0]
+    ):
+        raise ContractError("MarkupSafe source fallback lock must match the runtime package pin")
+    if set(builder) != {"pip", "setuptools"} or any(
+        len(hashes) != 1 for _, hashes in builder.values()
+    ):
+        raise ContractError(
+            "MarkupSafe source fallback must use hash-pinned pip and setuptools build tools"
+        )
+
+    try:
+        upstream_lock = tomllib.loads((upstream / "uv.lock").read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, tomllib.TOMLDecodeError) as exc:
+        raise ContractError(
+            f"cannot parse pinned source uv.lock for MarkupSafe build: {exc}"
+        ) from exc
+    source_packages = {
+        item.get("name", "").lower().replace("_", "-"): item
+        for item in upstream_lock.get("package", [])
+    }
+    package = source_packages.get("markupsafe")
+    if package is None or package.get("version") != source["markupsafe"][0]:
+        raise ContractError(
+            "MarkupSafe source fallback version differs from the pinned source lock"
+        )
+    sdist = package.get("sdist")
+    sdist_hash = sdist.get("hash") if isinstance(sdist, dict) else None
+    if not isinstance(sdist_hash, str) or not sdist_hash.startswith("sha256:"):
+        raise ContractError("pinned source uv.lock omits the MarkupSafe sdist hash")
+    sdist_sha256 = sdist_hash.removeprefix("sha256:")
+    if len(sdist_sha256) != 64 or any(
+        character not in "0123456789abcdef" for character in sdist_sha256
+    ):
+        raise ContractError("pinned source uv.lock contains a malformed MarkupSafe sdist hash")
+    if source["markupsafe"][1] != {sdist_sha256}:
+        raise ContractError("MarkupSafe source fallback hash differs from the pinned source lock")
+
+    builder_version = builder["setuptools"][0]
+    try:
+        builder_version_parts = tuple(int(part) for part in builder_version.split("."))
+    except ValueError as exc:
+        raise ContractError("MarkupSafe build tool version must be numeric") from exc
+    if builder_version_parts < (70, 1):
+        raise ContractError("MarkupSafe 3.0.2 source builds require setuptools 70.1 or newer")
+
+    return {
+        "source_lock_sha256": sha256_file(source_path),
+        "source_sha256": sdist_sha256,
+        "source_version": source["markupsafe"][0],
+        "build_lock_sha256": sha256_file(build_path),
+        "pip_version": builder["pip"][0],
+        "builder_version": builder_version,
+    }
+
+
+def _write_runtime_lock_without_markupsafe(source: Path, destination: Path) -> None:
+    lines: list[str] = []
+    removed = 0
+    try:
+        for line in source.read_text(encoding="utf-8").splitlines():
+            stripped = line.strip()
+            if stripped and not stripped.startswith("#"):
+                requirement = stripped.split(";", 1)[0].split()[0]
+                normalized = requirement.split("==", 1)[0].lower().replace("_", "-")
+                if normalized == "markupsafe":
+                    removed += 1
+                    continue
+            lines.append(line)
+    except (OSError, UnicodeError) as exc:
+        raise ContractError(f"cannot read committed runtime lock {source}: {exc}") from exc
+    if removed != 1:
+        raise ContractError("the CPython 3.14 runtime lock must contain one MarkupSafe entry")
+    try:
+        destination.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    except OSError as exc:
+        raise ContractError(f"cannot write generated filtered runtime lock: {exc}") from exc
+
+
+def _validate_markupsafe_wheel(wheel: Path, version: str) -> None:
+    try:
+        with zipfile.ZipFile(wheel) as archive:
+            metadata_paths = [
+                name for name in archive.namelist() if name.endswith(".dist-info/METADATA")
+            ]
+            if len(metadata_paths) != 1:
+                raise ContractError("built MarkupSafe wheel must contain one METADATA file")
+            metadata = archive.read(metadata_paths[0]).decode("utf-8")
+    except (OSError, UnicodeError, zipfile.BadZipFile, RuntimeError) as exc:
+        raise ContractError(f"cannot inspect built MarkupSafe wheel: {exc}") from exc
+    fields: dict[str, str] = {}
+    for line in metadata.splitlines():
+        name, separator, value = line.partition(":")
+        if separator and name in {"Name", "Version"}:
+            fields[name] = value.strip()
+    if (
+        fields.get("Name", "").lower().replace("_", "-") != "markupsafe"
+        or fields.get("Version") != version
+    ):
+        raise ContractError(
+            "built MarkupSafe wheel metadata differs from the pinned source package"
+        )
+
+
+def _build_markupsafe_wheel(
+    root: Path,
+    host_python: Path,
+    wheelhouse: Path,
+    env: dict[str, str],
+    build_lock: dict[str, str],
+) -> dict[str, str]:
+    """Build a CPython 3.14 wheel from the pinned MarkupSafe sdist in isolation."""
+    build_root = wheelhouse / f"markupsafe-{build_lock['source_version']}"
+    source_dir = build_root / "source"
+    builder_env = build_root / "builder-env"
+    built_wheels = build_root / "wheels"
+    source_dir.mkdir(parents=True)
+    built_wheels.mkdir()
+
+    source_lock = root / MARKUPSAFE_SOURCE_LOCK_RELATIVE
+    _run(
+        [
+            str(host_python),
+            "-m",
+            "pip",
+            "download",
+            "--require-hashes",
+            "--no-deps",
+            "--no-binary=:all:",
+            "--dest",
+            str(source_dir),
+            "-r",
+            str(source_lock),
+        ],
+        cwd=root,
+        env=env,
+        timeout=600,
+    )
+    sdists = sorted(path for path in source_dir.iterdir() if path.is_file())
+    expected_sdist_name = f"markupsafe-{build_lock['source_version']}.tar.gz"
+    if len(sdists) != 1 or sdists[0].name.lower() != expected_sdist_name:
+        raise ContractError(
+            f"pinned MarkupSafe source lock must download exactly {expected_sdist_name}"
+        )
+    sdist = sdists[0]
+    sdist_digest = sha256_file(sdist)
+    if sdist_digest != build_lock["source_sha256"]:
+        raise ContractError("downloaded MarkupSafe sdist differs from its pinned source hash")
+
+    _run([str(host_python), "-m", "venv", str(builder_env)], cwd=root, env=env, timeout=120)
+    builder_python = _venv_python(builder_env)
+    _run(
+        [
+            str(builder_python),
+            "-m",
+            "pip",
+            "install",
+            "--require-hashes",
+            "--no-deps",
+            "--only-binary=:all:",
+            "-r",
+            str(root / MARKUPSAFE_BUILD_LOCK_RELATIVE),
+        ],
+        cwd=root,
+        env=env,
+        timeout=600,
+    )
+    _run(
+        [
+            str(builder_python),
+            "-m",
+            "pip",
+            "wheel",
+            "--no-deps",
+            "--no-build-isolation",
+            "--wheel-dir",
+            str(built_wheels),
+            str(sdist),
+        ],
+        cwd=root,
+        env=env,
+        timeout=600,
+    )
+    wheels = sorted(built_wheels.glob("*.whl"))
+    if len(wheels) != 1:
+        raise ContractError(f"building MarkupSafe must produce one wheel, found {len(wheels)}")
+    wheel = wheels[0]
+    _validate_markupsafe_wheel(wheel, build_lock["source_version"])
+    wheel_digest = sha256_file(wheel)
+
+    requirement_path = build_root / "install-requirement.txt"
+    requirement_path.write_text(
+        f"MarkupSafe @ {wheel.resolve().as_uri()} --hash=sha256:{wheel_digest}\n",
+        encoding="utf-8",
+    )
+    return {
+        "name": "markupsafe",
+        "version": build_lock["source_version"],
+        "source_lock_path": MARKUPSAFE_SOURCE_LOCK_RELATIVE.as_posix(),
+        "source_lock_sha256": build_lock["source_lock_sha256"],
+        "source_sha256": sdist_digest,
+        "sdist_path": sdist.relative_to(root).as_posix(),
+        "build_lock_path": MARKUPSAFE_BUILD_LOCK_RELATIVE.as_posix(),
+        "build_lock_sha256": build_lock["build_lock_sha256"],
+        "pip_version": build_lock["pip_version"],
+        "builder_version": build_lock["builder_version"],
+        "wheel_path": wheel.relative_to(root).as_posix(),
+        "wheel_sha256": wheel_digest,
+        "install_requirement_path": requirement_path.relative_to(root).as_posix(),
+    }
+
+
+def _validate_markupsafe_build_artifacts(
+    root: Path, python_version: str, build_artifacts: Any
+) -> list[dict[str, str]]:
+    if not isinstance(build_artifacts, list):
+        raise ContractError("prepared MarkupSafe build artifact inventory is malformed")
+    if python_version != "3.14":
+        if build_artifacts:
+            raise ContractError("non-3.14 environments must not use the MarkupSafe source fallback")
+        return []
+    if len(build_artifacts) != 1 or not isinstance(build_artifacts[0], dict):
+        raise ContractError("CPython 3.14 environments must identify one built MarkupSafe wheel")
+
+    artifact = build_artifacts[0]
+    expected_fields = {
+        "name",
+        "version",
+        "source_lock_path",
+        "source_lock_sha256",
+        "source_sha256",
+        "sdist_path",
+        "build_lock_path",
+        "build_lock_sha256",
+        "pip_version",
+        "builder_version",
+        "wheel_path",
+        "wheel_sha256",
+        "install_requirement_path",
+    }
+    if set(artifact) != expected_fields or any(
+        not isinstance(value, str) for value in artifact.values()
+    ):
+        raise ContractError("prepared MarkupSafe build artifact identity is malformed")
+    source_lock_path = root / MARKUPSAFE_SOURCE_LOCK_RELATIVE
+    build_lock_path = root / MARKUPSAFE_BUILD_LOCK_RELATIVE
+    runtime = _lock_declarations(root / RUNTIME_LOCK_RELATIVE)
+    source = _lock_declarations(source_lock_path)
+    builder = _lock_declarations(build_lock_path)
+    if (
+        artifact["name"] != "markupsafe"
+        or set(source) != {"markupsafe"}
+        or "markupsafe" not in runtime
+        or source["markupsafe"][0] != runtime["markupsafe"][0]
+        or artifact["version"] != runtime["markupsafe"][0]
+        or source["markupsafe"][1] != {artifact["source_sha256"]}
+        or set(builder) != {"pip", "setuptools"}
+        or any(len(hashes) != 1 for _, hashes in builder.values())
+        or artifact["pip_version"] != builder["pip"][0]
+        or artifact["builder_version"] != builder["setuptools"][0]
+        or artifact["source_lock_path"] != MARKUPSAFE_SOURCE_LOCK_RELATIVE.as_posix()
+        or artifact["build_lock_path"] != MARKUPSAFE_BUILD_LOCK_RELATIVE.as_posix()
+        or artifact["source_lock_sha256"] != sha256_file(source_lock_path)
+        or artifact["build_lock_sha256"] != sha256_file(build_lock_path)
+    ):
+        raise ContractError("prepared MarkupSafe build artifact differs from its committed locks")
+    try:
+        builder_version_parts = tuple(int(part) for part in artifact["builder_version"].split("."))
+    except ValueError as exc:
+        raise ContractError("prepared MarkupSafe setuptools version must be numeric") from exc
+    if builder_version_parts[:2] < (70, 1):
+        raise ContractError("MarkupSafe 3.0.2 source builds require setuptools 70.1 or newer")
+
+    build_root = (
+        root / "build" / "parity" / "wheelhouse" / f"markupsafe-{artifact['version']}"
+    ).resolve()
+    artifacts = {
+        "sdist_path": artifact["sdist_path"],
+        "wheel_path": artifact["wheel_path"],
+        "install_requirement_path": artifact["install_requirement_path"],
+    }
+    resolved: dict[str, Path] = {}
+    for field, relative in artifacts.items():
+        relative_path = Path(relative)
+        if relative_path.is_absolute() or ".." in relative_path.parts:
+            raise ContractError(f"prepared MarkupSafe {field} must stay repository-relative")
+        path = (root / relative_path).resolve()
+        try:
+            path.relative_to(build_root)
+        except ValueError as exc:
+            raise ContractError(f"prepared MarkupSafe {field} escapes its build directory") from exc
+        if not path.is_file():
+            raise ContractError(f"prepared MarkupSafe build artifact is missing: {relative}")
+        resolved[field] = path
+
+    if (
+        resolved["sdist_path"].name.lower() != f"markupsafe-{artifact['version']}.tar.gz"
+        or sha256_file(resolved["sdist_path"]) != artifact["source_sha256"]
+        or not resolved["wheel_path"].name.endswith(".whl")
+        or sha256_file(resolved["wheel_path"]) != artifact["wheel_sha256"]
+    ):
+        raise ContractError("prepared MarkupSafe source or wheel artifact has changed")
+    _validate_markupsafe_wheel(resolved["wheel_path"], artifact["version"])
+    expected_requirement = (
+        f"MarkupSafe @ {resolved['wheel_path'].as_uri()} --hash=sha256:{artifact['wheel_sha256']}\n"
+    )
+    try:
+        requirement = resolved["install_requirement_path"].read_text(encoding="utf-8")
+    except (OSError, UnicodeError) as exc:
+        raise ContractError(f"cannot read generated MarkupSafe install requirement: {exc}") from exc
+    if requirement != expected_requirement:
+        raise ContractError("generated MarkupSafe wheel install requirement has changed")
+    return [artifact]
+
+
 def _target_wheel(root: Path, wheelhouse: Path, python: Path, env: dict[str, str]) -> Path:
     wheelhouse.mkdir(parents=True)
     _run(
@@ -708,6 +1047,7 @@ def prepare_environments(
     lock_digest = validate_runtime_lock(root, upstream)
     oracle_lock_path = root / ORACLE_RUNTIME_LOCK_RELATIVE
     oracle_lock_digest = validate_oracle_runtime_lock(root, upstream)
+    markupsafe_build_lock = validate_markupsafe_build_locks(root, upstream)
 
     build_root = root / "build" / "parity"
     env_root = build_root / "envs"
@@ -729,6 +1069,12 @@ def prepare_environments(
     wheel = _target_wheel(root, wheelhouse, host_python, env)
     wheel_digest = sha256_file(wheel)
     target_tree_digest = _wheel_package_tree_sha256(wheel)
+    build_artifacts: list[dict[str, str]] = []
+    if python_version == "3.14":
+        build_artifacts.append(
+            _build_markupsafe_wheel(root, host_python, wheelhouse, env, markupsafe_build_lock)
+        )
+    build_artifacts = _validate_markupsafe_build_artifacts(root, python_version, build_artifacts)
     if _target_source_identity(root) != target_source:
         raise ContractError("target source checkout changed while building the prepared wheel")
     env_root.mkdir(parents=True)
@@ -745,6 +1091,15 @@ def prepare_environments(
         venv_python = _venv_python(environment)
         if not venv_python.is_file():
             raise ContractError(f"venv creation did not produce interpreter: {venv_python}")
+        install_lock = environment_lock
+        if build_artifacts:
+            filtered_lock = (
+                wheelhouse
+                / f"markupsafe-{build_artifacts[0]['version']}"
+                / f"{environment.name}-runtime-lock.txt"
+            )
+            _write_runtime_lock_without_markupsafe(environment_lock, filtered_lock)
+            install_lock = filtered_lock
         _run(
             [
                 str(venv_python),
@@ -755,12 +1110,30 @@ def prepare_environments(
                 "--no-deps",
                 "--only-binary=:all:",
                 "-r",
-                str(environment_lock),
+                str(install_lock),
             ],
             cwd=root,
             env=env,
             timeout=600,
         )
+        if build_artifacts:
+            requirement = root / build_artifacts[0]["install_requirement_path"]
+            _run(
+                [
+                    str(venv_python),
+                    "-m",
+                    "pip",
+                    "install",
+                    "--require-hashes",
+                    "--no-deps",
+                    "--only-binary=:all:",
+                    "-r",
+                    str(requirement),
+                ],
+                cwd=root,
+                env=env,
+                timeout=600,
+            )
 
     _install_source_distribution_metadata(
         upstream,
@@ -792,6 +1165,7 @@ def prepare_environments(
                 runtime_lock_digest,
                 probe,
                 artifact_digest,
+                build_artifacts,
             )
         )
 
@@ -896,6 +1270,7 @@ def load_prepared_environments(
         "dependency_lock_sha256",
         "installed_lock_sha256",
         "artifact_sha256",
+        "build_artifacts",
         "environment_sha256",
     }
     for row in rows:
@@ -915,6 +1290,9 @@ def load_prepared_environments(
             target_wheel["sha256"] if row["id"] == environment_pair[1] else None
         ):
             raise ContractError(f"{row['id']} target artifact identity mismatch")
+        build_artifacts = _validate_markupsafe_build_artifacts(
+            root, python_version, row["build_artifacts"]
+        )
         python_relative = Path(row["python"])
         if python_relative.is_absolute() or ".." in python_relative.parts:
             raise ContractError(f"{row['id']} interpreter path must remain repository-relative")
@@ -933,6 +1311,7 @@ def load_prepared_environments(
             lock_digest,
             probe,
             row["artifact_sha256"],
+            build_artifacts,
         )
         if actual != row:
             raise ContractError(f"{row['id']} environment changed after preparation")

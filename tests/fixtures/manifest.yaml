@@ -1283,13 +1283,7 @@
               "path": "starlette.applications.Starlette",
               "signature": "Starlette(...); async __call__(scope, receive, send)",
               "support": {
-                "status": "partial",
-                "reason": "The installed package implements only the declared route, response, cookie, and successful lifespan slice.",
-                "missing_requirements": [
-                  "starlette.compatibility.full-public-surface",
-                  "starlette.asgi.streaming",
-                  "starlette.asgi.boundary-cancellation"
-                ]
+                "status": "supported"
               }
             }
           ],
@@ -1564,13 +1558,7 @@
               "path": "starlette.applications.Starlette.__call__",
               "signature": "async __call__(scope, receive, send) -> None",
               "support": {
-                "status": "partial",
-                "reason": "The package implements the declared direct ASGI route, error, lifespan, and authentication integration workflows; remaining behavior is listed in missing requirements.",
-                "missing_requirements": [
-                  "starlette.compatibility.full-public-surface",
-                  "starlette.asgi.streaming",
-                  "starlette.asgi.boundary-cancellation"
-                ]
+                "status": "supported"
               }
             }
           ],

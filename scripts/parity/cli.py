@@ -30,7 +30,12 @@ from .contract import (
     validate_result_artifact,
     validate_workflow_result,
 )
-from .envs import prepare_environments, validate_oracle_runtime_lock, validate_runtime_lock
+from .envs import (
+    prepare_environments,
+    validate_markupsafe_build_locks,
+    validate_oracle_runtime_lock,
+    validate_runtime_lock,
+)
 from .runner import ROOT, run_parity
 from .scope_completeness import validate_full_scope_completeness
 from .upstream_benchmark import UPSTREAM_RESULT_RELATIVE, run_upstream_benchmark
@@ -282,6 +287,7 @@ def validate_repository(
     commit, package = _source_identity(upstream)
     runtime_lock_sha256 = validate_runtime_lock(root, upstream)
     oracle_runtime_lock_sha256 = validate_oracle_runtime_lock(root, upstream)
+    markupsafe_build_locks = validate_markupsafe_build_locks(root, upstream)
     return {
         **report,
         "source_checkout_checked": True,
@@ -289,6 +295,8 @@ def validate_repository(
         "oracle_package": package,
         "runtime_dependency_lock_sha256": runtime_lock_sha256,
         "oracle_runtime_dependency_lock_sha256": oracle_runtime_lock_sha256,
+        "markupsafe_source_lock_sha256": markupsafe_build_locks["source_lock_sha256"],
+        "markupsafe_build_lock_sha256": markupsafe_build_locks["build_lock_sha256"],
     }
 
 

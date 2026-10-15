@@ -2038,34 +2038,12 @@ DECLARED_UNSCOPED_SUPPORT_GAPS = {
     ),
     (
         "starlette.applications.Starlette",
-        "__init__",
-        "python-package",
-    ): frozenset(
-        {
-            "starlette.asgi.boundary-cancellation",
-            "starlette.asgi.streaming",
-            "starlette.compatibility.full-public-surface",
-        }
-    ),
-    (
-        "starlette.applications.Starlette",
         "__call__",
         "rust-native",
     ): frozenset(
         {
             "starlette.asgi.python-callables",
             "starlette.asgi.scope-mutation",
-            "starlette.asgi.streaming",
-            "starlette.compatibility.full-public-surface",
-        }
-    ),
-    (
-        "starlette.applications.Starlette",
-        "__call__",
-        "python-package",
-    ): frozenset(
-        {
-            "starlette.asgi.boundary-cancellation",
             "starlette.asgi.streaming",
             "starlette.compatibility.full-public-surface",
         }

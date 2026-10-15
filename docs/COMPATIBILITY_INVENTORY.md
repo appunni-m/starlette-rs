@@ -10,6 +10,16 @@ an earlier callback failure. The existing input-only comparisons and the new
 typing consumer remain unexecuted until grouped parity; coverage and benchmark
 phases remain pending.
 
+The `Starlette.__init__` and `Starlette.__call__` Python-package support records
+now match their operation scope. The pinned constructor's input-copy order maps
+to `PyStarletteRuntime::new`; the pinned ASGI call's scope write, lazy cached
+stack build, and await map to `StarletteCall::start` and the scheduler-neutral
+awaitable driver. The public API inventory already lists the class, constructor,
+and ASGI call as supported. Input-only workflows cover construction ordering,
+streaming dispatch, and caller cancellation; those comparisons remain deferred
+to full parity. This operation-level status does not establish full replacement
+parity, which remains pending.
+
 TestClient's managed lifespan now resolves the client's bound `lifespan`,
 `wait_startup`, and `wait_shutdown` methods through the AnyIO portal, matching
 the pinned source's Python subclass dispatch. Input-only cases also observe
