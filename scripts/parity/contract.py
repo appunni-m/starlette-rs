@@ -2149,6 +2149,7 @@ GZIP_REQUIREMENTS = {
     "cleared-exclude-content-types": "starlette.middleware.gzip.GZipMiddleware.cleared-exclude-content-types",
     "small-body-bypass": "starlette.middleware.gzip.GZipMiddleware.small-body-bypass",
     "excluded-content-type": "starlette.middleware.gzip.GZipMiddleware.excluded-content-type",
+    "unicode-content-type-case-normalization": "starlette.middleware.gzip.GZipMiddleware.unicode-content-type-case-normalization",
     "default-excluded-content-type": "starlette.middleware.gzip.GZipMiddleware.default-excluded-content-type",
     "default-allowed-content-type": "starlette.middleware.gzip.GZipMiddleware.default-allowed-content-type",
     "existing-encoding-stream-bypass": "starlette.middleware.gzip.GZipMiddleware.existing-encoding-stream-bypass",
@@ -40478,17 +40479,29 @@ def _gzip_single_dispatch_semantic_coverage(case: dict[str, Any]) -> set[str]:
     accept_encoding = header_value(request_headers, b"accept-encoding") or b""
     gzip_accepted = b"gzip" in accept_encoding
     content_type_value = header_value(response_headers, b"content-type") or b""
-    media_type = content_type_value.partition(b";")[0].strip().lower().decode("latin-1")
+    media_type_bytes = content_type_value.partition(b";")[0]
+    media_type = media_type_bytes.decode("latin-1").strip().lower()
+    ascii_media_type = media_type_bytes.strip().lower().decode("latin-1")
     constructor_uses_default_exclusions = "exclude_content_types" not in constructor_args
+    configured_exclusions = (
+        GZIP_DEFAULT_EXCLUDED_CONTENT_TYPES
+        if constructor_uses_default_exclusions
+        else constructor_args["exclude_content_types"]
+    )
     excluded_types = {
-        content_type.partition(";")[0].strip().lower()
-        for content_type in (
-            GZIP_DEFAULT_EXCLUDED_CONTENT_TYPES
-            if constructor_uses_default_exclusions
-            else constructor_args["exclude_content_types"]
-        )
+        content_type.partition(";")[0].strip().lower() for content_type in configured_exclusions
+    }
+    ascii_lower_table = str.maketrans("ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz")
+    ascii_excluded_types = {
+        content_type.partition(";")[0].strip().translate(ascii_lower_table)
+        for content_type in configured_exclusions
     }
     media_family = media_type.partition("/")[0] + "/*"
+    ascii_media_family = ascii_media_type.partition("/")[0] + "/*"
+    excluded = media_type in excluded_types or media_family in excluded_types
+    ascii_excluded = (
+        ascii_media_type in ascii_excluded_types or ascii_media_family in ascii_excluded_types
+    )
     default_excluded_media_types = {
         content_type.partition(";")[0].strip().lower()
         for content_type in GZIP_DEFAULT_EXCLUDED_CONTENT_TYPES
@@ -40496,11 +40509,18 @@ def _gzip_single_dispatch_semantic_coverage(case: dict[str, Any]) -> set[str]:
     default_excluded_media_type = media_type in default_excluded_media_types or (
         media_family in default_excluded_media_types
     )
-    excluded = media_type in excluded_types or media_family in excluded_types
     default_excluded = constructor_uses_default_exclusions and excluded
     configured_excluded = not constructor_uses_default_exclusions and excluded
     content_encoded = header_value(response_headers, b"content-encoding") is not None
     partial_response = response_start["status"] == 206
+    unicode_case_changes_exclusion = excluded != ascii_excluded and (
+        media_type != ascii_media_type
+        or any(
+            content_type.partition(";")[0].strip().lower()
+            != content_type.partition(";")[0].strip().translate(ascii_lower_table)
+            for content_type in configured_exclusions
+        )
+    )
     output_messages = messages[1:]
     body_messages = [
         message for message in output_messages if message["type"] == "http.response.body"
@@ -40609,6 +40629,16 @@ def _gzip_single_dispatch_semantic_coverage(case: dict[str, Any]) -> set[str]:
         and not partial_response
     ):
         coverage.add(GZIP_REQUIREMENTS["excluded-content-type"])
+    if (
+        gzip_accepted
+        and bool(body_messages)
+        and sum(body_lengths) >= minimum_size
+        and not content_encoded
+        and not partial_response
+        and compresslevel_valid
+        and unicode_case_changes_exclusion
+    ):
+        coverage.add(GZIP_REQUIREMENTS["unicode-content-type-case-normalization"])
     if (
         gzip_accepted
         and bool(body_messages)
@@ -42225,15 +42255,34 @@ def _validate_session_workflow_result(
     observations = [
         item for item in result["observations"] if item.get("step_id") == SESSION_WORKFLOW_OPERATION
     ]
-    if len(observations) != 1 or observations[0]["status"] != "ok":
-        raise ContractError(f"{context} must contain one completed Session workflow value")
-    value = _exact(
-        observations[0]["value"],
-        {"secret_key_observation", "requests"},
-        f"{context}.value",
-    )
+    if len(observations) != 1:
+        raise ContractError(f"{context} must contain one Session workflow observation")
+    observation = observations[0]
+    observation_status = observation["status"]
+    if observation_status == "ok":
+        value = _exact(
+            observation["value"],
+            {"secret_key_observation", "requests"},
+            f"{context}.value",
+        )
+    elif observation_status == "error":
+        value = _exact(
+            observation["partial_value"],
+            {"secret_key_observation", "requests"},
+            f"{context}.partial_value",
+        )
+    else:
+        raise ContractError(f"{context} has an invalid Session workflow observation status")
+    is_partial = observation_status == "error"
     rows = value["requests"]
-    if not isinstance(rows, list) or len(rows) != len(case["requests"]):
+    if not isinstance(rows, list):
+        raise ContractError(f"{context}.requests must be an array")
+    if is_partial:
+        if not rows or len(rows) > len(case["requests"]) or not isinstance(rows[-1], dict):
+            raise ContractError(f"{context}.requests must be an input prefix ending in an error")
+        if rows[-1].get("outcome") != "error":
+            raise ContractError(f"{context}.requests must end with the failed request")
+    elif len(rows) != len(case["requests"]):
         raise ContractError(f"{context}.requests must match the input request count")
     request_fields = {
         "request_id",
@@ -42250,7 +42299,7 @@ def _validate_session_workflow_result(
         "asgi_event_order",
         "asgi_events",
     }
-    for index, (row, request) in enumerate(zip(rows, case["requests"], strict=True)):
+    for index, (row, request) in enumerate(zip(rows, case["requests"][: len(rows)], strict=True)):
         row_context = f"{context}.requests[{index}]"
         _exact(row, request_fields, row_context)
         if row["request_id"] != request["request_id"]:
@@ -42267,16 +42316,31 @@ def _validate_session_workflow_result(
         if (row["outcome"] == "error") != (error is not None):
             raise ContractError(f"{row_context}.outcome and error do not agree")
         if row["outcome"] == "error":
-            if request["action"]["kind"] != "session-operation":
-                raise ContractError(f"{row_context} records an error outside Session operations")
-            if (
-                row["response_status"] is not None
-                or row["response_headers"]
-                or row["response_bytes"] != {"encoding": "base64", "data": ""}
-                or row["asgi_event_order"]
-                or row["asgi_events"]
-            ):
-                raise ContractError(f"{row_context} emitted response data after an escaped error")
+            is_dispatch_error = is_partial and index == len(rows) - 1
+            if is_dispatch_error:
+                public_error = observation["error"]
+                if (
+                    error["class"] != public_error["class"]
+                    or error["message"] != public_error["message"]
+                ):
+                    raise ContractError(
+                        f"{row_context}.error differs from the Session dispatch error"
+                    )
+            else:
+                if request["action"]["kind"] != "session-operation":
+                    raise ContractError(
+                        f"{row_context} records an in-app error outside Session operations"
+                    )
+                if (
+                    row["response_status"] is not None
+                    or row["response_headers"]
+                    or row["response_bytes"] != {"encoding": "base64", "data": ""}
+                    or row["asgi_event_order"]
+                    or row["asgi_events"]
+                ):
+                    raise ContractError(
+                        f"{row_context} emitted response data after an in-app Session error"
+                    )
         if row["accessed"] is not None and not isinstance(row["accessed"], bool):
             raise ContractError(f"{row_context}.accessed must be boolean or null")
         if row["modified"] is not None and not isinstance(row["modified"], bool):

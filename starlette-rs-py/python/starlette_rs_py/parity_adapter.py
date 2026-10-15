@@ -16671,7 +16671,10 @@ def _run_session_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
         if callable(set_clock_for_test):
             set_clock_for_test(clock_epoch)
 
+    workflow_error: BaseException | None = None
+
     async def run_requests() -> list[dict[str, Any]]:
+        nonlocal workflow_error
         outputs = []
         prior_set_cookies: dict[str, str | None] = {}
         actions_by_id: dict[str, dict[str, Any]] = {}
@@ -16952,9 +16955,10 @@ def _run_session_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
 
             try:
                 await middleware(scope, receive, send)
-            except Exception:
+            except Exception as exc:
                 if current["error"] is None:
-                    raise
+                    workflow_error = exc
+                    current["error"] = _error_snapshot(exc)
             events = [_canonical_message(message) for message in sent]
             start = next(
                 (message for message in sent if message["type"] == "http.response.start"),
@@ -17008,21 +17012,29 @@ def _run_session_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                 }
             )
             actions_by_id[request_id] = action
+            if workflow_error is not None:
+                break
         return outputs
 
+    value = {
+        "secret_key_observation": secret_key_observation,
+        "requests": asyncio.run(run_requests()),
+    }
+    observation = {"step_id": SESSION_WORKFLOW_OPERATION}
+    if workflow_error is not None:
+        observation.update(
+            {
+                "status": "error",
+                "error": _dispatch_error(workflow_error),
+                "partial_value": value,
+            }
+        )
+    else:
+        observation.update({"status": "ok", "value": value})
     return {
         "case_id": case["case_id"],
         "status": "completed",
-        "observations": [
-            {
-                "step_id": SESSION_WORKFLOW_OPERATION,
-                "status": "ok",
-                "value": {
-                    "secret_key_observation": secret_key_observation,
-                    "requests": asyncio.run(run_requests()),
-                },
-            }
-        ],
+        "observations": [observation],
     }
 
 

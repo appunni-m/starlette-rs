@@ -381,6 +381,7 @@
       "build/parity/inputs/parity/request-concurrent-body-disconnect-recovery.json",
       "build/parity/inputs/parity/request-stream-after-concurrent-body-completion.json",
       "build/parity/inputs/parity/gzip-middleware.json",
+      "build/parity/inputs/parity/gzip-unicode-content-type-normalization.json",
       "build/parity/inputs/parity/gzip-message-type-python-equality.json",
       "build/parity/inputs/parity/gzip-non-string-scope-type-bypass.json",
       "build/parity/inputs/parity/gzip-python-bigint-threshold.json",
@@ -13792,6 +13793,18 @@
               "id": "starlette.middleware.gzip.GZipMiddleware.excluded-content-type",
               "dimension": "parameter_combination",
               "description": "Bypass compression for an excluded content type, including media-type case and parameter normalization.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.gzip.GZipMiddleware.unicode-content-type-case-normalization",
+              "dimension": "parameter_combination",
+              "description": "Decode raw response headers as Latin-1 and apply Unicode lowercasing to media types and configured exclusions. Pinned source: starlette/middleware/gzip.py:111-116,221-222; starlette/datastructures.py:528-535.",
               "lanes": [
                 "parity"
               ],

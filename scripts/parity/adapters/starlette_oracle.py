@@ -7253,7 +7253,7 @@ def _run_session_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
         # TimestampSigner.sign() and unsign() both consult this per-instance clock.
         middleware.signer.get_timestamp = lambda: clock_epoch
 
-    async def run_requests() -> list[dict[str, Any]]:
+    async def run_requests() -> tuple[list[dict[str, Any]], Exception | None]:
         outputs = []
         prior_set_cookies: dict[str, str | None] = {}
         actions_by_id: dict[str, dict[str, Any]] = {}
@@ -7536,11 +7536,13 @@ def _run_session_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
             async def send(message: dict[str, Any], _sent: list[dict[str, Any]] = sent) -> None:
                 _sent.append(message)
 
+            dispatch_error: Exception | None = None
             try:
                 await middleware(scope, receive, send)
-            except Exception:
+            except Exception as exc:
                 if current["error"] is None:
-                    raise
+                    current["error"] = _error_snapshot(exc)
+                    dispatch_error = exc
             events = [_canonical_message(message) for message in sent]
             start = next(
                 (message for message in sent if message["type"] == "http.response.start"),
@@ -7594,21 +7596,33 @@ def _run_session_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                 }
             )
             actions_by_id[request_id] = action
-        return outputs
+            if dispatch_error is not None:
+                return outputs, dispatch_error
+        return outputs, None
 
+    requests, dispatch_error = asyncio.run(run_requests())
+    value = {
+        "secret_key_observation": secret_key_observation,
+        "requests": requests,
+    }
+    if dispatch_error is not None:
+        observation = _workflow_observation(
+            SESSION_WORKFLOW_OPERATION,
+            _CapturedDispatchError(
+                error=_dispatch_error(dispatch_error),
+                partial_value=value,
+            ),
+        )
+    else:
+        observation = {
+            "step_id": SESSION_WORKFLOW_OPERATION,
+            "status": "ok",
+            "value": value,
+        }
     return {
         "case_id": case["case_id"],
         "status": "completed",
-        "observations": [
-            {
-                "step_id": SESSION_WORKFLOW_OPERATION,
-                "status": "ok",
-                "value": {
-                    "secret_key_observation": secret_key_observation,
-                    "requests": asyncio.run(run_requests()),
-                },
-            }
-        ],
+        "observations": [observation],
     }
 
 

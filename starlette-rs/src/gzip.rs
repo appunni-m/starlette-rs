@@ -440,7 +440,7 @@ fn normalize_content_type(content_type: &str) -> String {
         .split_once(';')
         .map_or(content_type, |(base, _)| base)
         .trim()
-        .to_ascii_lowercase()
+        .to_lowercase()
 }
 
 fn has_header(headers: &[GzipHeader], name: &[u8]) -> bool {
@@ -457,26 +457,18 @@ fn content_type_is_excluded(headers: &[GzipHeader], excluded: &[String]) -> bool
         return false;
     };
     let media_type = value.split(|byte| *byte == b';').next().unwrap_or_default();
-    let media_type = trim_ascii(media_type).to_ascii_lowercase();
-    let top_level = media_type
-        .split(|byte| *byte == b'/')
-        .next()
-        .unwrap_or_default();
-    let wildcard = [top_level, b"/*"].concat();
+    // Starlette decodes raw ASGI headers as Latin-1 before applying str.lower().
+    let media_type = media_type
+        .iter()
+        .map(|byte| char::from(*byte))
+        .collect::<String>();
+    let media_type = normalize_content_type(&media_type);
+    let top_level = media_type.split('/').next().unwrap_or("");
+    let wildcard = format!("{top_level}/*");
 
-    excluded.iter().any(|excluded_type| {
-        excluded_type.as_bytes() == media_type || excluded_type.as_bytes() == wildcard
-    })
-}
-
-fn trim_ascii(mut value: &[u8]) -> &[u8] {
-    while value.first().is_some_and(u8::is_ascii_whitespace) {
-        value = &value[1..];
-    }
-    while value.last().is_some_and(u8::is_ascii_whitespace) {
-        value = &value[..value.len() - 1];
-    }
-    value
+    excluded
+        .iter()
+        .any(|excluded_type| excluded_type == &media_type || excluded_type == &wildcard)
 }
 
 fn add_vary_header(headers: &mut Vec<GzipHeader>) {
