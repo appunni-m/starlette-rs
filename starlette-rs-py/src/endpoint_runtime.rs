@@ -25,6 +25,69 @@ pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     Ok(())
 }
 
+struct HandledExceptionGuard<'py> {
+    _python: Python<'py>,
+    previous_type: *mut pyo3::ffi::PyObject,
+    previous_value: *mut pyo3::ffi::PyObject,
+    previous_traceback: *mut pyo3::ffi::PyObject,
+}
+
+impl<'py> HandledExceptionGuard<'py> {
+    fn activate(py: Python<'py>, exception: &Bound<'py, PyAny>) -> Self {
+        let mut previous_type = std::ptr::null_mut();
+        let mut previous_value = std::ptr::null_mut();
+        let mut previous_traceback = std::ptr::null_mut();
+        // SAFETY: `py` proves the GIL is held. The C API writes new references
+        // into these valid out-pointers, which this guard later restores.
+        // LINT EXCEPTION: PyO3 has no safe wrapper for saving the handled-exception triple.
+        #[allow(unsafe_code)]
+        unsafe {
+            pyo3::ffi::PyErr_GetExcInfo(
+                &mut previous_type,
+                &mut previous_value,
+                &mut previous_traceback,
+            );
+        }
+
+        let exception_type = exception.get_type().into_ptr();
+        // SAFETY: `py` holds the GIL and `exception` is a live BaseException
+        // instance; the API returns a new traceback reference or NULL.
+        // LINT EXCEPTION: PyO3 lacks a safe wrapper to read the traceback for Python 3.10 state restoration.
+        #[allow(unsafe_code)]
+        let traceback = unsafe { pyo3::ffi::PyException_GetTraceback(exception.as_ptr()) };
+        // SAFETY: all three pointers are owned references (or NULL). PyErr_SetExcInfo
+        // consumes them and sets this exception as the active handled exception.
+        // LINT EXCEPTION: PyO3 has no safe API to install handled-exception state around this callback.
+        #[allow(unsafe_code)]
+        unsafe {
+            pyo3::ffi::PyErr_SetExcInfo(exception_type, exception.clone().into_ptr(), traceback);
+        }
+        Self {
+            _python: py,
+            previous_type,
+            previous_value,
+            previous_traceback,
+        }
+    }
+}
+
+impl Drop for HandledExceptionGuard<'_> {
+    fn drop(&mut self) {
+        // SAFETY: this guard retains its `Python` token, so the GIL remains held.
+        // Its pointers came from PyErr_GetExcInfo and are still owned; the setter
+        // consumes them while restoring the prior handled-exception state.
+        // LINT EXCEPTION: Drop must restore the saved CPython exception state through its public C API.
+        #[allow(unsafe_code)]
+        unsafe {
+            pyo3::ffi::PyErr_SetExcInfo(
+                self.previous_type,
+                self.previous_value,
+                self.previous_traceback,
+            );
+        }
+    }
+}
+
 #[pyfunction(name = "_endpoint_validate_scope")]
 fn endpoint_validate_scope(scope: &Bound<'_, PyAny>, expected: &str, debug: bool) -> PyResult<()> {
     if debug && !scope.get_item("type")?.eq(expected)? {
@@ -428,11 +491,24 @@ impl WebSocketEndpointCall {
             .close_code
             .as_ref()
             .ok_or_else(|| PyRuntimeError::new_err("WebSocket endpoint has no close code"))?;
-        let awaitable = self
-            .endpoint
-            .bind(py)
-            .getattr("on_disconnect")?
-            .call1((websocket, close_code.bind(py)))?;
+        let awaitable = match self.original_exception.as_ref() {
+            Some(exception) => {
+                // Starlette invokes this hook from the active `except`/`finally`
+                // path. Restore that handled exception around descriptor lookup
+                // and the synchronous callback call, then restore the caller's
+                // exact prior state before awaiting the returned object.
+                let _handled_exception = HandledExceptionGuard::activate(py, exception.bind(py));
+                self.endpoint
+                    .bind(py)
+                    .getattr("on_disconnect")?
+                    .call1((websocket, close_code.bind(py)))?
+            }
+            None => self
+                .endpoint
+                .bind(py)
+                .getattr("on_disconnect")?
+                .call1((websocket, close_code.bind(py)))?,
+        };
         Ok(MachineAction::Await(awaitable.unbind()))
     }
 

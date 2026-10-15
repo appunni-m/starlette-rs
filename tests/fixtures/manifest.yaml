@@ -10380,6 +10380,17 @@
               ]
             },
             {
+              "id": "starlette.endpoints.WebSocketEndpoint.dispatch.on-disconnect-active-exception",
+              "dimension": "boundary",
+              "description": "Invoke a synchronous on_disconnect override from the active receive-error finalizer and observe sys.exception() as the original ValueError while the hook creates an awaitable. Pinned source: starlette/endpoints.py:75-89.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.endpoints.WebSocketEndpoint.dispatch.on-disconnect-error-context",
               "dimension": "error_path",
               "description": "Propagate an exception raised by on_disconnect; preserve an existing hook-raised exception context when it replaces an on_receive exception, or chain to the pending dispatch exception when no direct context exists. Pinned source: starlette/endpoints.py:75-89.",

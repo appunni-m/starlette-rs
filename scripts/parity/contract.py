@@ -326,6 +326,7 @@ WEBSOCKET_ENDPOINT_REQUIREMENTS = {
     "default_empty_text_failure": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.decode-default-empty-text-failure",
     "default_bytes": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.decode-default-bytes",
     "callback_error": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.callback-error-propagation",
+    "active_exception": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.on-disconnect-active-exception",
     "invalid_encoding": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.invalid-encoding",
     "decode_stop_iteration_pep479": (
         f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.decode-stop-iteration-pep479"
@@ -4234,6 +4235,8 @@ def _validate_websocket_endpoint_case_stimulus(case: dict[str, Any]) -> None:
         _exact(on_disconnect, {"kind"}, "WebSocketEndpoint.on_disconnect")
     elif on_disconnect.get("kind") == "record-and-close":
         _exact(on_disconnect, {"kind"}, "WebSocketEndpoint.on_disconnect")
+    elif on_disconnect.get("kind") == "record-active-exception":
+        _exact(on_disconnect, {"kind"}, "WebSocketEndpoint.on_disconnect")
     elif on_disconnect.get("kind") in {
         "raise-runtime-error",
         "raise-runtime-error-synchronously",
@@ -4259,7 +4262,7 @@ def _validate_websocket_endpoint_case_stimulus(case: dict[str, Any]) -> None:
         raise ContractError(
             "WebSocketEndpoint.on_disconnect.kind must be default, record-and-close, "
             "raise-runtime-error, raise-runtime-error-from-value-error, or "
-            "raise-runtime-error-synchronously, or wait-for-cancellation"
+            "raise-runtime-error-synchronously, record-active-exception, or wait-for-cancellation"
         )
 
     send_failure = None
@@ -4577,6 +4580,23 @@ def _validate_websocket_endpoint_case_stimulus(case: dict[str, Any]) -> None:
             "raise-stop-iteration-synchronously",
             "delete-internal-error-close-code-and-raise-value-error",
         }
+        if on_disconnect["kind"] == "record-active-exception":
+            if (
+                len(sessions) != 1
+                or session["scope"]["type"] != "websocket"
+                or cancel_at is not None
+                or message_types != ["websocket.connect", "websocket.receive"]
+                or encoding is not None
+                or encoding_kind is not None
+                or on_connect["kind"] != "default"
+                or on_receive["kind"] != "raise-value-error"
+                or not decode_succeeds
+            ):
+                raise ContractError(
+                    f"{context} active-exception observation requires one default-encoded "
+                    "receive hook ValueError followed by synchronous finalization"
+                )
+            exercised_requirements.add(WEBSOCKET_ENDPOINT_REQUIREMENTS["active_exception"])
         if callback_raises:
             if (
                 not decode_succeeds
@@ -4584,6 +4604,7 @@ def _validate_websocket_endpoint_case_stimulus(case: dict[str, Any]) -> None:
                 or on_disconnect["kind"]
                 not in {
                     "record-and-close",
+                    "record-active-exception",
                     "raise-runtime-error",
                     "raise-runtime-error-from-value-error",
                 }

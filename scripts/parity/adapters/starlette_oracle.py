@@ -8324,6 +8324,31 @@ def _websocket_endpoint_disconnect_hook(
     calls: list[dict[str, Any]],
     cancellation_ready: asyncio.Event,
 ) -> Any:
+    if spec["kind"] == "record-active-exception":
+
+        def on_disconnect(_endpoint: Any, _websocket: Any, close_code: int) -> Any:
+            active_exception = sys.exception()
+            calls.append(
+                {
+                    "hook": "on_disconnect",
+                    "close_code": close_code,
+                    "active_exception": (
+                        None
+                        if active_exception is None
+                        else {
+                            "class": (
+                                f"{type(active_exception).__module__}."
+                                f"{type(active_exception).__qualname__}"
+                            ),
+                            "message": str(active_exception),
+                        }
+                    ),
+                }
+            )
+            return asyncio.sleep(0)
+
+        return on_disconnect
+
     if spec["kind"] == "raise-runtime-error-synchronously":
 
         def on_disconnect(_endpoint: Any, _websocket: Any, close_code: int) -> None:
@@ -8527,6 +8552,7 @@ def _run_websocket_endpoint_case(case: dict[str, Any]) -> dict[str, Any]:
 
         if endpoint_spec["on_disconnect"]["kind"] in {
             "record-and-close",
+            "record-active-exception",
             "raise-runtime-error",
             "raise-runtime-error-synchronously",
             "raise-runtime-error-from-value-error",
