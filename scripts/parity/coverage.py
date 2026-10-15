@@ -51,6 +51,11 @@ CARGO_LLVM_COV_VERSION = "0.8.7"
 COVERAGE_ROOT = Path("build/parity/coverage")
 _ASSIGNMENT = re.compile(r"^([A-Z_][A-Z0-9_]*)=(.*)$")
 _VERSION = re.compile(r"\bcargo-llvm-cov\s+(\d+\.\d+\.\d+)\b")
+_COVERAGE_FLAGS_ENV = (
+    "RUSTFLAGS",
+    "CARGO_ENCODED_RUSTFLAGS",
+    "__CARGO_LLVM_COV_RUSTC_WRAPPER_RUSTFLAGS",
+)
 
 
 def _now() -> str:
@@ -438,8 +443,10 @@ def _parse_show_env(output: str, inherited: dict[str, str]) -> tuple[dict[str, s
         env[name] = value
     if "LLVM_PROFILE_FILE" not in seen or not env.get("LLVM_PROFILE_FILE"):
         return env, "cargo llvm-cov show-env omitted LLVM_PROFILE_FILE"
-    if not any(name in seen for name in ("RUSTFLAGS", "CARGO_ENCODED_RUSTFLAGS")):
-        return env, "cargo llvm-cov show-env omitted Rust coverage instrumentation flags"
+    if not any(
+        "instrument-coverage" in env.get(name, "") for name in _COVERAGE_FLAGS_ENV if name in seen
+    ):
+        return env, "cargo llvm-cov show-env omitted -C instrument-coverage flags"
     return env, None
 
 
@@ -961,10 +968,16 @@ def run_coverage(
             )
             (run_dir / "cargo-llvm-cov-show-env.txt").write_text(
                 "\n".join(
-                    f"{key}={coverage_env[key]}"
+                    f"{key}={coverage_env[key].encode('unicode_escape').decode('ascii')}"
                     for key in sorted(coverage_env)
-                    if key.startswith("CARGO_LLVM_COV")
-                    or key in {"LLVM_PROFILE_FILE", "RUSTFLAGS", "CARGO_ENCODED_RUSTFLAGS"}
+                    if key.startswith(("CARGO_LLVM_COV", "__CARGO_LLVM_COV"))
+                    or key
+                    in {
+                        "LLVM_PROFILE_FILE",
+                        "RUSTC_WRAPPER",
+                        "RUSTFLAGS",
+                        "CARGO_ENCODED_RUSTFLAGS",
+                    }
                 )
                 + "\n",
                 encoding="utf-8",
