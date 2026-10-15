@@ -8,17 +8,21 @@ Pydantic are outside this project's scope.
 ## Execution order and current status
 
 Active implementation checkpoint (2026-10-16; `parity-input@58`; current
-manifest SHA-256 `27592f7b6bca14354b2dd4fa0b3cfd22c003ad41c227962df5028dbdac6e22f1`;
+manifest SHA-256 `62080be6cdd50f612516f5c570ae5e2ac4ddda249ac3444a891de9f6efb2ebdc`;
 last fully verified target revision `a10ecf5776c50cf86600e3d5f049e8db006f4966`):
 
-The active manifest declares full Starlette 1.6.0 scope with 2,540 cases across
+The active manifest declares full Starlette 1.6.0 scope with 2,542 cases across
 416 parity inputs, two benchmark inputs, 151 compatibility operations, 14
-Rust-native operations, 1,401 parity requirements, and six target profiles.
+Rust-native operations, 1,403 parity requirements, and six target profiles.
 The current manifest has passed the targeted contract and source-inventory
 checks; parity, coverage measurement, and benchmarks have not been run for
 this digest. The newly authored FileResponse range-plus-pathsend input, the
 Rust-backed WebSocketEndpoint default hooks, and the public `__version__` value
-comparison remain unexecuted until grouped parity. The last complete parity and
+comparison remain unexecuted until grouped parity. New WebSocketRoute and Mount
+inputs verify that Router dispatch continues using each object’s constructor-
+compiled path regex after its public path is mutated; these comparisons also
+remain unexecuted until grouped parity. Rust already dispatches against the
+stored compiled regex, so this batch required no runtime change. The last complete parity and
 coverage evidence belongs to the previous manifest SHA-256
 `2dcb25d098d4f09ce3dd6bb231164a58391175f6cff222dd2c6316a9580eec4a`; it ran
 in workflow `38805748474` on target revision
@@ -606,10 +610,10 @@ representation, and dynamic `FormData.close()` dispatch remain Rust-backed.
 
 | Phase | State | Evidence |
 | --- | --- | --- |
-| Implementation | Coverage runner, six profile plans, 11 line components, and contract wiring are implemented and validated. | Current manifest SHA-256 `2dcb25d098d4f09ce3dd6bb231164a58391175f6cff222dd2c6316a9580eec4a`; fixes `aacfea8b` and `a10ecf57`; workflow `38805748474` succeeded. |
-| Full parity and grouped repairs | The declared current-manifest five-profile parity matrix passed; this does not establish the complete Starlette replacement. | Manifest SHA-256 `2dcb25d098d4f09ce3dd6bb231164a58391175f6cff222dd2c6316a9580eec4a`; workflow `38805748474`, all five CPython profiles succeeded. Oracle: Starlette 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. |
+| Implementation | Coverage runner, six profile plans, 11 line components, and contract wiring were implemented and validated at the recorded checkpoint. | Verified checkpoint manifest SHA-256 `2dcb25d098d4f09ce3dd6bb231164a58391175f6cff222dd2c6316a9580eec4a`; fixes `aacfea8b` and `a10ecf57`; workflow `38805748474` succeeded. |
+| Full parity and grouped repairs | The five-profile parity matrix for the recorded checkpoint passed; this does not establish the complete Starlette replacement or the active manifest. | Manifest SHA-256 `2dcb25d098d4f09ce3dd6bb231164a58391175f6cff222dd2c6316a9580eec4a`; workflow `38805748474`, all five CPython profiles succeeded. Oracle: Starlette 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. |
 | Full coverage and source reconciliation | All six managed coverage profiles completed and Coverage MCP reviewed their LCOV gaps. MCP source identity remains unverified, test status unknown, and no snapshot was ingested, so the reports are measurements rather than source-verified regression evidence. | Workflow `38805748474`, collector cargo-llvm-cov 0.8.7, target revision `a10ecf5776c50cf86600e3d5f049e8db006f4966`; selected cases passed/failed: CPython 3.10 260/0, 3.11 260/0, 3.12 2,470/0, 3.13 261/0, 3.14 261/0, Rust-native 369/0. Line coverage: Rust-native 5,156/8,004; CPython 3.10 11,650/33,280; 3.11 11,662/33,280; 3.12 22,903/33,280; 3.13 11,610/33,280; 3.14 11,606/33,280. The MCP gap review sampled uncovered code in `starlette-rs/src/application.rs` and `starlette-rs-py/src/application_runtime.rs`. |
-| All benchmarks | The single current-manifest benchmark run completed after parity and coverage. | Run `1853ee16-2795-48dc-bc5f-2b15421967df`, manifest SHA-256 `2dcb25d098d4f09ce3dd6bb231164a58391175f6cff222dd2c6316a9580eec4a`: 74/74 source/package workloads (6 Router, 68 GZip), zero failures and `not_run`; 74 Rust-native `not_run` because the equivalent workload boundary is unavailable. Preflight `f706bbcd-adc2-4ee0-8574-ce46b133fa26`: 2,887 passed, zero failed or infrastructure errors, two `not_run`. Median source/package ratios: 0.224 Router and 0.974 GZip; source latency lower in 6/6 Router and 57/68 GZip; normalized observations matched 74/74. Result SHA-256 `2c870adf4b504e728014083c57b88af341f10ea878bf2e46a2d709cb0197e4a2`. |
+| All benchmarks | The benchmark run for the recorded checkpoint completed after that checkpoint's parity and coverage. | Run `1853ee16-2795-48dc-bc5f-2b15421967df`, manifest SHA-256 `2dcb25d098d4f09ce3dd6bb231164a58391175f6cff222dd2c6316a9580eec4a`: 74/74 source/package workloads (6 Router, 68 GZip), zero failures and `not_run`; 74 Rust-native `not_run` because the equivalent workload boundary is unavailable. Preflight `f706bbcd-adc2-4ee0-8574-ce46b133fa26`: 2,887 passed, zero failed or infrastructure errors, two `not_run`. Median source/package ratios: 0.224 Router and 0.974 GZip; source latency lower in 6/6 Router and 57/68 GZip; normalized observations matched 74/74. Result SHA-256 `2c870adf4b504e728014083c57b88af341f10ea878bf2e46a2d709cb0197e4a2`. |
 | Packaging and interpreter qualification | Historical local macOS arm64 qualification; current changes are not qualified by it. | Five CPython 3.10–3.14 wheels, an sdist, and the Rust crate were inspected in the earlier qualification. Other platform builds remain unqualified. |
 
 Parity, coverage, and benchmark result artifacts are local generated output

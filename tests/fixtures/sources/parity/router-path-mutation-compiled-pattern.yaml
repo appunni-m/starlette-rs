@@ -302,6 +302,306 @@
         "mutated-path-still-matches-compiled-surrogate-path",
         "mutated-utf8-path-does-not-recompile-pattern"
       ]
+    },
+    {
+      "case_id": "starlette.routing.Router.route-dispatch.live-websocket-route-path-mutation-preserves-compiled-pattern",
+      "surface": "starlette.routing.Router",
+      "operation": "route-dispatch",
+      "covers": [
+        "starlette.routing.Router.route-dispatch.live-websocket-route-path-mutation-keeps-compiled-pattern"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "custom_convertors": [],
+      "redirect_slashes": true,
+      "routes": [
+        {
+          "kind": "websocket-route",
+          "path": "/before",
+          "endpoint_actions": [
+            {
+              "action": "accept",
+              "subprotocol": null
+            },
+            {
+              "action": "send_text",
+              "text": "compiled-websocket-path-match"
+            },
+            {
+              "action": "close",
+              "code": 1000,
+              "reason": "done"
+            }
+          ]
+        }
+      ],
+      "steps": [
+        {
+          "step_id": "original-websocket-path-matches",
+          "scope": {
+            "type": "websocket",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.5"
+            },
+            "http_version": "1.1",
+            "scheme": "ws",
+            "path": "/before",
+            "raw_path_base64": "L2JlZm9yZQ==",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ],
+            "subprotocols": []
+          },
+          "incoming": [
+            {
+              "type": "websocket.connect"
+            }
+          ],
+          "send": {
+            "kind": "capture-asgi-send"
+          },
+          "mutations": []
+        },
+        {
+          "step_id": "mutated-websocket-path-retains-compiled-match",
+          "scope": {
+            "type": "websocket",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.5"
+            },
+            "http_version": "1.1",
+            "scheme": "ws",
+            "path": "/before",
+            "raw_path_base64": "L2JlZm9yZQ==",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ],
+            "subprotocols": []
+          },
+          "incoming": [
+            {
+              "type": "websocket.connect"
+            }
+          ],
+          "send": {
+            "kind": "capture-asgi-send"
+          },
+          "mutations": [
+            {
+              "operation": "route-path-set",
+              "route_index": 0,
+              "path": "/after"
+            }
+          ]
+        },
+        {
+          "step_id": "mutated-websocket-path-does-not-recompile-pattern",
+          "scope": {
+            "type": "websocket",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.5"
+            },
+            "http_version": "1.1",
+            "scheme": "ws",
+            "path": "/after",
+            "raw_path_base64": "L2FmdGVy",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ],
+            "subprotocols": []
+          },
+          "incoming": [
+            {
+              "type": "websocket.connect"
+            }
+          ],
+          "send": {
+            "kind": "capture-asgi-send"
+          },
+          "mutations": []
+        }
+      ],
+      "observations": [
+        "original-websocket-path-matches",
+        "mutated-websocket-path-retains-compiled-match",
+        "mutated-websocket-path-does-not-recompile-pattern"
+      ]
+    },
+    {
+      "case_id": "starlette.routing.Router.route-dispatch.live-mount-path-mutation-preserves-compiled-pattern",
+      "surface": "starlette.routing.Router",
+      "operation": "route-dispatch",
+      "covers": [
+        "starlette.routing.Mount.route-dispatch.miss",
+        "starlette.routing.Mount.route-dispatch.scope-extension",
+        "starlette.routing.Router.route-dispatch.mount-prefix-boundary-miss",
+        "starlette.routing.Router.route-dispatch.mount-route-dispatch",
+        "starlette.routing.Router.route-dispatch.live-mount-path-mutation-keeps-compiled-pattern"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "custom_convertors": [],
+      "redirect_slashes": true,
+      "observe_router_scope": true,
+      "routes": [
+        {
+          "kind": "mount",
+          "path": "/before",
+          "routes": [
+            {
+              "kind": "http-route",
+              "path": "/leaf",
+              "methods": [
+                "GET"
+              ],
+              "endpoint": {
+                "kind": "plain-text-response",
+                "content": "compiled-mount-path-match",
+                "status_code": 200,
+                "media_type": "text/plain",
+                "cookies": []
+              }
+            }
+          ]
+        }
+      ],
+      "steps": [
+        {
+          "step_id": "original-mount-path-matches",
+          "scope": {
+            "type": "http",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.4"
+            },
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "http",
+            "path": "/before/leaf",
+            "raw_path_base64": "L2JlZm9yZS9sZWFm",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ]
+          },
+          "incoming": [],
+          "send": {
+            "kind": "capture-asgi-send"
+          },
+          "mutations": []
+        },
+        {
+          "step_id": "mutated-mount-path-retains-compiled-match",
+          "scope": {
+            "type": "http",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.4"
+            },
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "http",
+            "path": "/before/leaf",
+            "raw_path_base64": "L2JlZm9yZS9sZWFm",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ]
+          },
+          "incoming": [],
+          "send": {
+            "kind": "capture-asgi-send"
+          },
+          "mutations": [
+            {
+              "operation": "route-path-set",
+              "route_index": 0,
+              "path": "/after"
+            }
+          ]
+        },
+        {
+          "step_id": "mutated-mount-path-does-not-recompile-pattern",
+          "scope": {
+            "type": "http",
+            "asgi": {
+              "version": "3.0",
+              "spec_version": "2.4"
+            },
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "http",
+            "path": "/after/leaf",
+            "raw_path_base64": "L2FmdGVyL2xlYWY=",
+            "query_string_base64": "",
+            "root_path": "",
+            "headers_base64_pairs": [],
+            "client": [
+              "127.0.0.1",
+              12345
+            ],
+            "server": [
+              "testserver",
+              80
+            ]
+          },
+          "incoming": [],
+          "send": {
+            "kind": "capture-asgi-send"
+          },
+          "mutations": []
+        }
+      ],
+      "observations": [
+        "original-mount-path-matches",
+        "mutated-mount-path-retains-compiled-match",
+        "mutated-mount-path-does-not-recompile-pattern"
+      ]
     }
   ]
 }

@@ -1487,6 +1487,8 @@ ROUTER_SEQUENCE_REQUIREMENTS = {
     "mutate_default": "starlette.routing.Router.route-dispatch.live-router-default-mutation",
     "mutate_methods": "starlette.routing.Router.route-dispatch.live-route-method-mutation",
     "mutate_path": "starlette.routing.Router.route-dispatch.live-route-path-mutation-keeps-compiled-pattern",
+    "mutate_websocket_path": "starlette.routing.Router.route-dispatch.live-websocket-route-path-mutation-keeps-compiled-pattern",
+    "mutate_mount_path": "starlette.routing.Router.route-dispatch.live-mount-path-mutation-keeps-compiled-pattern",
     "mount_child_add_route": "starlette.routing.Router.route-dispatch.mount-child-router-live-route-add",
 }
 ROUTER_MOUNT_REQUIREMENTS = {
@@ -6933,7 +6935,7 @@ def _validate_websocket_endpoint_actions(
             raise ContractError(f"{action_context}.action is unsupported")
 
 
-def _validate_host_websocket_route_input(route: Any, context: str) -> dict[str, Any]:
+def _validate_websocket_route_input(route: Any, context: str) -> dict[str, Any]:
     route = _exact(route, {"kind", "path", "endpoint_actions"}, context)
     if route["kind"] != "websocket-route":
         raise ContractError(f"{context}.kind must be websocket-route")
@@ -7000,7 +7002,7 @@ def _validate_host_route_input(route: Any, context: str) -> dict[str, Any]:
         for index, child in enumerate(app["routes"]):
             child_context = f"{app_context}.routes[{index}]"
             if isinstance(child, dict) and child.get("kind") == "websocket-route":
-                _validate_host_websocket_route_input(child, child_context)
+                _validate_websocket_route_input(child, child_context)
             else:
                 _validate_http_route_input(
                     child,
@@ -7072,6 +7074,8 @@ def _validate_router_route_input(
         return _validate_host_route_input(route, context)
     if isinstance(route, dict) and route.get("kind") == "mount":
         return _validate_mount_route_input(route, context)
+    if isinstance(route, dict) and route.get("kind") == "websocket-route":
+        return _validate_websocket_route_input(route, context)
     return _validate_http_route_input(
         route,
         context,
@@ -7119,6 +7123,7 @@ def _router_dispatch_route_selection(
     *,
     route_methods: list[set[str] | None] | None = None,
     request_host: str = "",
+    scope_type: str = "http",
 ) -> tuple[int | None, dict[str, Any] | None, bool]:
     """Return the first full Router match and any selected Mount analysis."""
     route_path = _route_path_after_root(path, root_path)
@@ -7130,6 +7135,8 @@ def _router_dispatch_route_selection(
                 return index, None, mount_was_attempted
             continue
         if kind == "http-route":
+            if scope_type != "http":
+                continue
             if route.get("instance_match_override", {}).get("kind") == "none":
                 continue
             methods = (
@@ -7143,6 +7150,12 @@ def _router_dispatch_route_selection(
             )
             if _route_template_matches(route["path"], route_path, custom_convertors) and (
                 methods is None or method in methods or (method == "HEAD" and "GET" in methods)
+            ):
+                return index, None, mount_was_attempted
+            continue
+        if kind == "websocket-route":
+            if scope_type == "websocket" and _route_template_matches(
+                route["path"], route_path, custom_convertors
             ):
                 return index, None, mount_was_attempted
             continue
@@ -7170,6 +7183,7 @@ def _router_mount_requirements(
     *,
     route_methods: list[set[str] | None] | None = None,
     request_host: str = "",
+    scope_type: str = "http",
 ) -> tuple[set[str], bool]:
     selected_index, selected_mount, mount_was_attempted = _router_dispatch_route_selection(
         routes,
@@ -7179,6 +7193,7 @@ def _router_mount_requirements(
         custom_convertors,
         route_methods=route_methods,
         request_host=request_host,
+        scope_type=scope_type,
     )
     derived: set[str] = set()
     if selected_mount is not None:
@@ -12200,6 +12215,7 @@ def _validate_router_sequence_case_stimulus(case: dict[str, Any]) -> None:
             allow_headers=False,
             allow_host=False,
             allow_inherited_mount_scope=any(route["kind"] == "mount" for route in routes),
+            allow_websocket=True,
         )
         if not isinstance(step["mutations"], list):
             raise ContractError(f"{context}.mutations must be an array")
@@ -12248,12 +12264,18 @@ def _validate_router_sequence_case_stimulus(case: dict[str, Any]) -> None:
                     type(route_index) is not int
                     or route_index < 0
                     or route_index >= len(routes)
-                    or routes[route_index]["kind"] != "http-route"
+                    or routes[route_index]["kind"] not in {"http-route", "websocket-route", "mount"}
                 ):
                     raise ContractError(
-                        f"{mutation_context} must set the path attribute of an existing HTTP Route"
+                        f"{mutation_context} must set the path attribute of an existing Route, WebSocketRoute, or Mount"
                     )
-                derived.add(ROUTER_SEQUENCE_REQUIREMENTS["mutate_path"])
+                route_kind = routes[route_index]["kind"]
+                if route_kind == "http-route":
+                    derived.add(ROUTER_SEQUENCE_REQUIREMENTS["mutate_path"])
+                elif route_kind == "websocket-route":
+                    derived.add(ROUTER_SEQUENCE_REQUIREMENTS["mutate_websocket_path"])
+                else:
+                    derived.add(ROUTER_SEQUENCE_REQUIREMENTS["mutate_mount_path"])
             elif operation == "router-default-set":
                 mutation = _exact(
                     raw_mutation,
@@ -12316,7 +12338,8 @@ def _validate_router_sequence_case_stimulus(case: dict[str, Any]) -> None:
 
         path = step["scope"]["path"]
         root_path = step["scope"]["root_path"]
-        method = step["scope"]["method"].upper()
+        method = step["scope"].get("method", "").upper()
+        scope_type = step["scope"]["type"]
         mount_requirements, selected_route = _router_mount_requirements(
             routes,
             path,
@@ -12324,6 +12347,7 @@ def _validate_router_sequence_case_stimulus(case: dict[str, Any]) -> None:
             method,
             {},
             route_methods=methods,
+            scope_type=scope_type,
         )
         derived.update(mount_requirements)
         selected_index, _selected_mount, _mount_was_attempted = _router_dispatch_route_selection(
@@ -12333,6 +12357,7 @@ def _validate_router_sequence_case_stimulus(case: dict[str, Any]) -> None:
             method,
             {},
             route_methods=methods,
+            scope_type=scope_type,
         )
         if selected_index is not None:
             derived.update(

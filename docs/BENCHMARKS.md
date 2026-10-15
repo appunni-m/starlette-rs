@@ -1,8 +1,8 @@
 # Benchmark mapping
 
-The active `parity-input@58` contract declares 2,540 cases and has manifest
+The active `parity-input@58` contract declares 2,542 cases and has manifest
 SHA-256
-`27592f7b6bca14354b2dd4fa0b3cfd22c003ad41c227962df5028dbdac6e22f1`. No
+`62080be6cdd50f612516f5c570ae5e2ac4ddda249ac3444a891de9f6efb2ebdc`. No
 benchmark or correctness preflight has run for this digest. The generated run
 below is historical evidence for the previous manifest SHA-256
 `2dcb25d098d4f09ce3dd6bb231164a58391175f6cff222dd2c6316a9580eec4a`; it

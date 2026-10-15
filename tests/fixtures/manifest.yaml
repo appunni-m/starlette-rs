@@ -28375,12 +28375,14 @@
               "signature": "Select an ordered route from the public RouteTable API, then report the response associated with its selected insertion index.",
               "support": {
                 "status": "partial",
-                "reason": "The Rust target supports ordered built-in route selection, fixed response projection, live method mutation, and live route-list append. Its RouteTable API has no mutable Python Route.path object; it also does not invoke arbitrary Python endpoints, expose Python scope mutation or typed path_params, support Python-registered URL convertors, or dispatch Mount routes.",
+                "reason": "The Rust target supports ordered built-in route selection, fixed response projection, live method mutation, and live route-list append. Its RouteTable API has no mutable compatibility Route, WebSocketRoute, or Mount path attributes; it also does not invoke arbitrary Python endpoints, expose Python scope mutation or typed path_params, support Python-registered URL convertors, or dispatch Mount routes.",
                 "missing_requirements": [
                   "starlette.routing.Router.route-dispatch.python-callable-endpoint",
                   "starlette.routing.Router.route-dispatch.custom-converter-override",
                   "starlette.routing.Router.route-dispatch.mount-child-router-live-route-add",
+                  "starlette.routing.Router.route-dispatch.live-mount-path-mutation-keeps-compiled-pattern",
                   "starlette.routing.Router.route-dispatch.live-route-path-mutation-keeps-compiled-pattern",
+                  "starlette.routing.Router.route-dispatch.live-websocket-route-path-mutation-keeps-compiled-pattern",
                   "starlette.routing.Router.route-dispatch.mount-route-dispatch",
                   "starlette.routing.Router.route-dispatch.mount-prefix-boundary-miss",
                   "starlette.routing.Router.route-dispatch.http-endpoint-asgi-class",
@@ -28840,6 +28842,30 @@
               "id": "starlette.routing.Router.route-dispatch.live-route-path-mutation-keeps-compiled-pattern",
               "dimension": "boundary",
               "description": "After Router dispatch compiles an HTTP Route's path, changing its public path attribute does not rebuild the compiled regex: the original path continues to match and the new path does not. Upstream: starlette/routing.py::Route.__init__, Route.matches, and Router.app.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Router.route-dispatch.live-websocket-route-path-mutation-keeps-compiled-pattern",
+              "dimension": "boundary",
+              "description": "After Router dispatch compiles a WebSocketRoute path, changing its public path attribute does not rebuild the compiled regex: the original WebSocket path continues to match and the new path does not. Upstream: starlette/routing.py::WebSocketRoute.__init__, WebSocketRoute.matches, and Router.app.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Router.route-dispatch.live-mount-path-mutation-keeps-compiled-pattern",
+              "dimension": "boundary",
+              "description": "After Router dispatch compiles a Mount path, changing its public path attribute does not rebuild the compiled regex: the original mount prefix continues to match and the new prefix does not. Upstream: starlette/routing.py::Mount.__init__, Mount.matches, and Router.app.",
               "lanes": [
                 "parity",
                 "coverage"

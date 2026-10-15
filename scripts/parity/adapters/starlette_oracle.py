@@ -10013,28 +10013,50 @@ def _run_route_dispatch_case(case: dict[str, Any]) -> dict[str, Any]:
 
         return endpoint
 
+    def make_websocket_route(
+        route_spec: dict[str, Any],
+        route_index: int,
+        observe_route_index: bool | None = None,
+    ) -> Any:
+        route_spec = _strict_object(
+            route_spec,
+            {"kind", "path", "endpoint_actions"},
+            "WebSocket route input",
+        )
+        endpoint_actions = route_spec["endpoint_actions"]
+        should_observe_route_index = (
+            is_router if observe_route_index is None else observe_route_index
+        )
+
+        async def websocket_endpoint(
+            websocket: Any,
+            actions: list[dict[str, Any]] = endpoint_actions,
+            observed_route_index: int = route_index,
+        ) -> None:
+            if should_observe_route_index:
+                route_index_observations.append(observed_route_index)
+            for action in actions:
+                if action["action"] == "accept":
+                    await websocket.accept(subprotocol=action["subprotocol"])
+                elif action["action"] == "send_text":
+                    await websocket.send_text(action["text"])
+                else:
+                    await websocket.close(code=action["code"], reason=action["reason"])
+
+        return WebSocketRoute(route_spec["path"], websocket_endpoint)
+
     def make_host_app(app_spec: dict[str, Any], route_index: int) -> Any:
         if app_spec["kind"] == "router":
             host_routes = []
             for route_spec in app_spec["routes"]:
                 if route_spec["kind"] == "websocket-route":
-                    endpoint_actions = route_spec["endpoint_actions"]
-
-                    async def websocket_endpoint(
-                        websocket: Any,
-                        actions: list[dict[str, Any]] = endpoint_actions,
-                        observed_route_index: int = route_index,
-                    ) -> None:
-                        route_index_observations.append(observed_route_index)
-                        for action in actions:
-                            if action["action"] == "accept":
-                                await websocket.accept(subprotocol=action["subprotocol"])
-                            elif action["action"] == "send_text":
-                                await websocket.send_text(action["text"])
-                            else:
-                                await websocket.close(code=action["code"], reason=action["reason"])
-
-                    host_routes.append(WebSocketRoute(route_spec["path"], websocket_endpoint))
+                    host_routes.append(
+                        make_websocket_route(
+                            route_spec,
+                            route_index,
+                            observe_route_index=True,
+                        )
+                    )
                     continue
                 host_routes.append(
                     Route(
@@ -10162,6 +10184,9 @@ def _run_route_dispatch_case(case: dict[str, Any]) -> dict[str, Any]:
                     continue
                 if isinstance(route_spec, dict) and route_spec.get("kind") == "mount":
                     route_objects.append(make_mount_child(route_spec, route_index))
+                    continue
+                if isinstance(route_spec, dict) and route_spec.get("kind") == "websocket-route":
+                    route_objects.append(make_websocket_route(route_spec, route_index))
                     continue
                 if isinstance(route_spec, dict) and route_spec.get("kind") == "base-route-subclass":
                     route_objects.append(make_base_route_subclass(route_spec, route_index))
