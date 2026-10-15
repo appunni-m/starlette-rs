@@ -3872,6 +3872,25 @@ def _run_gzip_case(case: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+class _InputDrivenHeaderPair(list[str]):
+    def __init__(self, items: list[str], iterated_items: list[str]) -> None:
+        super().__init__(items)
+        self._iterated_items = iterated_items
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(self._iterated_items)
+
+
+def _materialize_wsgi_header_pairs(headers: list[Any]) -> list[Any]:
+    materialized: list[Any] = []
+    for pair in headers:
+        if isinstance(pair, dict):
+            materialized.append(_InputDrivenHeaderPair(pair["items"], pair["iterated_items"]))
+        else:
+            materialized.append(pair)
+    return materialized
+
+
 def _materialize_wsgi_app(spec: dict[str, Any]) -> Any:
     caller_thread_id = threading.get_ident()
     kind = spec["kind"]
@@ -3901,7 +3920,7 @@ def _materialize_wsgi_app(spec: dict[str, Any]) -> Any:
 
     def app(environ: dict[str, Any], start_response: Any) -> list[bytes]:
         if kind == "wsgi-response":
-            start_response(spec["status"], spec["headers"])
+            start_response(spec["status"], _materialize_wsgi_header_pairs(spec["headers"]))
             return [base64.b64decode(chunk, validate=True) for chunk in spec["chunks_base64"]]
         if kind == "wsgi-echo-body":
             start_response(spec["status"], spec["headers"])

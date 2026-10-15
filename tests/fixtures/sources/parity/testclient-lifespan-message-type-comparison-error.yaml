@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@57",
+  "schema": "migration-parity/parity-input@58",
   "cases": [
     {
       "case_id": "starlette.testclient.TestClient.lifespan-context.startup-message-type-comparison-error",

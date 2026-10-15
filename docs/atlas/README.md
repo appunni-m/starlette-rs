@@ -25,7 +25,7 @@ with no conventional Python or Rust unit-test suite.
 ## Current implementation status
 
 Implementation remains active for the full Starlette 1.6.0 replacement. The
-working-tree `parity-input@57` contract indexes 2,530 cases across 415
+working-tree `parity-input@58` contract indexes 2,531 cases across 415
 parity input files and two benchmark files, with 151 Starlette compatibility
 operations, 14 native operations, and 1,396 parity requirements. The contract
 remains a slice and claims zero parity passes. The latest batch adds Python membership/equality dispatch for non-string ASGI scope types in authentication, sessions, and GZip middleware, ServerErrorMiddleware message-type equality, plus application middleware lookup-order and pre-ASGI-2.4 cancellation inputs; all remain deferred to grouped parity. Commit `63271da0` adds input-only cases for mutable Request and

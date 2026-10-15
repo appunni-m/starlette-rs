@@ -49,8 +49,9 @@ INPUT_SCHEMA_V53 = "migration-parity/parity-input@53"
 INPUT_SCHEMA_V54 = "migration-parity/parity-input@54"
 INPUT_SCHEMA_V55 = "migration-parity/parity-input@55"
 INPUT_SCHEMA_V56 = "migration-parity/parity-input@56"
+INPUT_SCHEMA_V57 = "migration-parity/parity-input@57"
 PREVIOUS_INPUT_SCHEMA = INPUT_SCHEMA_V50
-INPUT_SCHEMA = "migration-parity/parity-input@57"
+INPUT_SCHEMA = "migration-parity/parity-input@58"
 BENCHMARK_INPUT_SCHEMA = "migration-parity/benchmark-input@1"
 RESULT_SCHEMA = "migration-parity/parity-result@8"
 BENCHMARK_RESULT_SCHEMA = "migration-parity/benchmark-result@1"
@@ -40102,17 +40103,37 @@ def _validate_wsgi_app(value: Any) -> None:
     for index, pair in enumerate(headers):
         if pair is None:
             continue
-        if not isinstance(pair, list) or any(not isinstance(item, str) for item in pair):
-            raise ContractError(
-                f"WSGIMiddleware response header[{index}] must be a string array or null"
+        if isinstance(pair, dict):
+            pair_spec = _exact(
+                pair,
+                {"kind", "items", "iterated_items"},
+                f"WSGIMiddleware response header[{index}] iteration override",
             )
-        for item in pair:
-            try:
-                item.encode("ascii")
-            except UnicodeEncodeError as exc:
+            if pair_spec["kind"] != "list-subclass-iter-override":
                 raise ContractError(
-                    "WSGIMiddleware response headers must be ASCII encodable"
-                ) from exc
+                    f"WSGIMiddleware response header[{index}] has an unsupported container kind"
+                )
+            value_sequences = [pair_spec["items"], pair_spec["iterated_items"]]
+        elif isinstance(pair, list):
+            value_sequences = [pair]
+        else:
+            raise ContractError(
+                f"WSGIMiddleware response header[{index}] must be a string array, iteration override, or null"
+            )
+        for value_sequence in value_sequences:
+            if not isinstance(value_sequence, list) or any(
+                not isinstance(item, str) for item in value_sequence
+            ):
+                raise ContractError(
+                    f"WSGIMiddleware response header[{index}] values must be string arrays"
+                )
+            for item in value_sequence:
+                try:
+                    item.encode("ascii")
+                except UnicodeEncodeError as exc:
+                    raise ContractError(
+                        "WSGIMiddleware response headers must be ASCII encodable"
+                    ) from exc
     if kind in {"wsgi-response", "wsgi-iterator-error"}:
         chunks = value["chunks_base64"]
         if not isinstance(chunks, list) or (kind == "wsgi-iterator-error" and not chunks):
@@ -42308,6 +42329,33 @@ def migrate_input_document_v56(document: Any) -> dict[str, Any]:
         raise ContractError("parity input must select at least one case")
 
     migrated = dict(document)
+    migrated["schema"] = INPUT_SCHEMA_V57
+    return migrated
+
+
+def _contains_wsgi_header_iteration_override(value: Any) -> bool:
+    if isinstance(value, dict):
+        if value.get("kind") == "list-subclass-iter-override":
+            return True
+        return any(_contains_wsgi_header_iteration_override(item) for item in value.values())
+    if isinstance(value, list):
+        return any(_contains_wsgi_header_iteration_override(item) for item in value)
+    return False
+
+
+def migrate_input_document_v57(document: Any) -> dict[str, Any]:
+    """Advance @57 inputs to @58, which models WSGI header-list iteration overrides."""
+    _exact(document, {"schema", "cases"}, "parity input")
+    if document["schema"] != INPUT_SCHEMA_V57:
+        raise ContractError(f"unsupported @57 parity input schema: {document['schema']!r}")
+    if not isinstance(document["cases"], list) or not document["cases"]:
+        raise ContractError("parity input must select at least one case")
+    if _contains_wsgi_header_iteration_override(document["cases"]):
+        raise ContractError(
+            "parity-input@57 does not allow input-defined WSGI header iteration overrides"
+        )
+
+    migrated = dict(document)
     migrated["schema"] = INPUT_SCHEMA
     return migrated
 
@@ -42318,7 +42366,7 @@ def validate_input_document_v53(
     *,
     public_modules: frozenset[str] | None = None,
 ) -> list[dict[str, Any]]:
-    """Validate @53 inputs before their deterministic @54 through @57 migrations."""
+    """Validate @53 inputs before their deterministic @54 through @58 migrations."""
     migrated = migrate_input_document_v53(document)
     return validate_input_document_v54(migrated, manifest, public_modules=public_modules)
 
@@ -42329,7 +42377,7 @@ def validate_input_document_v54(
     *,
     public_modules: frozenset[str] | None = None,
 ) -> list[dict[str, Any]]:
-    """Validate @54 inputs before their deterministic @55 through @57 migrations."""
+    """Validate @54 inputs before their deterministic @55 through @58 migrations."""
     migrated = migrate_input_document_v54(document)
     return validate_input_document_v55(migrated, manifest, public_modules=public_modules)
 
@@ -42340,7 +42388,7 @@ def validate_input_document_v55(
     *,
     public_modules: frozenset[str] | None = None,
 ) -> list[dict[str, Any]]:
-    """Validate @55 inputs before their deterministic @56 and @57 migrations."""
+    """Validate @55 inputs before their deterministic @56 through @58 migrations."""
     migrated = migrate_input_document_v55(document)
     return validate_input_document_v56(migrated, manifest, public_modules=public_modules)
 
@@ -42351,8 +42399,19 @@ def validate_input_document_v56(
     *,
     public_modules: frozenset[str] | None = None,
 ) -> list[dict[str, Any]]:
-    """Validate @56 inputs before their deterministic @57 schema-header migration."""
+    """Validate @56 inputs before their deterministic @57 and @58 migrations."""
     migrated = migrate_input_document_v56(document)
+    return validate_input_document_v57(migrated, manifest, public_modules=public_modules)
+
+
+def validate_input_document_v57(
+    document: Any,
+    manifest: dict[str, Any],
+    *,
+    public_modules: frozenset[str] | None = None,
+) -> list[dict[str, Any]]:
+    """Validate @57 inputs before their deterministic @58 schema-header migration."""
+    migrated = migrate_input_document_v57(document)
     return validate_input_document(migrated, manifest, public_modules=public_modules)
 
 
@@ -42362,7 +42421,7 @@ def validate_input_document_v52(
     *,
     public_modules: frozenset[str] | None = None,
 ) -> list[dict[str, Any]]:
-    """Validate @52 inputs before their deterministic @53 through @57 migrations."""
+    """Validate @52 inputs before their deterministic @53 through @58 migrations."""
     migrated = migrate_input_document_v52(document)
     return validate_input_document_v53(migrated, manifest, public_modules=public_modules)
 
@@ -42373,7 +42432,7 @@ def validate_input_document_v50(
     *,
     public_modules: frozenset[str] | None = None,
 ) -> list[dict[str, Any]]:
-    """Validate @50 inputs through the deterministic @51 to @57 migration chain."""
+    """Validate @50 inputs through the deterministic @51 to @58 migration chain."""
     migrated_v51 = migrate_input_document_v50(document)
     return validate_input_document_v51(
         migrated_v51,
@@ -42388,7 +42447,7 @@ def validate_previous_input_document(
     *,
     public_modules: frozenset[str] | None = None,
 ) -> list[dict[str, Any]]:
-    """Validate @50 inputs before migrating them through the active @57 contract."""
+    """Validate @50 inputs before migrating them through the active @58 contract."""
     return validate_input_document_v50(document, manifest, public_modules=public_modules)
 
 

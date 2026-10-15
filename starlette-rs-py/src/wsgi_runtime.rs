@@ -846,14 +846,17 @@ fn unpack_wsgi_header_pair(
     py: Python<'_>,
     header: &Bound<'_, PyAny>,
 ) -> PyResult<(Py<PyAny>, Py<PyAny>)> {
-    if let Ok(values) = header.cast::<PyTuple>() {
+    // Python's unpack fast path skips subclass overrides only for exact lists and tuples.
+    if header.is_exact_instance_of::<PyTuple>() {
+        let values = header.cast::<PyTuple>()?;
         let value_count = values.len();
         if value_count != 2 {
             return Err(wsgi_header_pair_arity_error(value_count));
         }
         return Ok((values.get_item(0)?.unbind(), values.get_item(1)?.unbind()));
     }
-    if let Ok(values) = header.cast::<PyList>() {
+    if header.is_exact_instance_of::<PyList>() {
+        let values = header.cast::<PyList>()?;
         let value_count = values.len();
         if value_count != 2 {
             return Err(wsgi_header_pair_arity_error(value_count));

@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@57",
+  "schema": "migration-parity/parity-input@58",
   "cases": [
     {
       "case_id": "starlette.middleware.wsgi.WSGIMiddleware.__call__.start-response-empty-header-pair",
@@ -123,6 +123,109 @@
                 "status": "200 OK",
                 "headers": [
                   null
+                ],
+                "chunks_base64": []
+              }
+            }
+          }
+        },
+        {
+          "step_id": "dispatch",
+          "surface": "starlette.middleware.wsgi.WSGIMiddleware",
+          "operation": "__call__",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "middleware"
+          },
+          "arguments": {
+            "scope": {
+              "kind": "literal",
+              "value": {
+                "type": "http",
+                "asgi": {
+                  "version": "3.0",
+                  "spec_version": "2.4"
+                },
+                "http_version": "1.1",
+                "method": "GET",
+                "scheme": "http",
+                "path": "/",
+                "raw_path_base64": "Lw==",
+                "query_string_base64": "",
+                "root_path": "",
+                "headers_base64_pairs": [],
+                "client": [
+                  "127.0.0.1",
+                  12345
+                ],
+                "server": [
+                  "testserver",
+                  80
+                ]
+              }
+            },
+            "receive": {
+              "kind": "literal",
+              "value": [
+                {
+                  "type": "http.request",
+                  "body_base64": "",
+                  "more_body": false
+                }
+              ]
+            },
+            "send": {
+              "kind": "literal",
+              "value": {
+                "kind": "capture-asgi-send"
+              }
+            }
+          }
+        }
+      ],
+      "observations": [
+        "dispatch"
+      ]
+    },
+    {
+      "case_id": "starlette.middleware.wsgi.WSGIMiddleware.__call__.start-response-list-subclass-iteration",
+      "surface": "starlette.middleware.wsgi.WSGIMiddleware",
+      "operation": "__call__",
+      "covers": [
+        "starlette.middleware.wsgi.WSGIMiddleware.construct",
+        "starlette.middleware.wsgi.WSGIMiddleware.response-order"
+      ],
+      "execution_schedule": [
+        "dispatch"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "steps": [
+        {
+          "step_id": "middleware",
+          "surface": "starlette.middleware.wsgi.WSGIMiddleware",
+          "operation": "__init__",
+          "receiver": null,
+          "arguments": {
+            "app": {
+              "kind": "literal",
+              "value": {
+                "kind": "wsgi-response",
+                "status": "200 OK",
+                "headers": [
+                  {
+                    "kind": "list-subclass-iter-override",
+                    "items": [
+                      "x-storage-only",
+                      "stored-value"
+                    ],
+                    "iterated_items": [
+                      "X-iterated",
+                      "visible-value"
+                    ]
+                  }
                 ],
                 "chunks_base64": []
               }
