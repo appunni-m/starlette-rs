@@ -339,6 +339,9 @@ HTTP_ENDPOINT_REQUIREMENTS = {
 }
 WEBSOCKET_ENDPOINT_REQUIREMENTS = {
     "scope_type_validation": f"{WEBSOCKET_ENDPOINT_SURFACE}.__init__.scope-type-validation",
+    "optimized_scope_type_validation": (
+        f"{WEBSOCKET_ENDPOINT_SURFACE}.__init__.scope-type-validation.optimized"
+    ),
     "lifecycle": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.lifecycle",
     "connect": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.on-connect-subprotocols",
     "connect_error": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.on-connect-error-skips-disconnect",
@@ -4745,6 +4748,28 @@ def _validate_websocket_endpoint_case_stimulus(case: dict[str, Any]) -> None:
                 f"{context} send failure requires one malformed JSON receive with default hooks"
             )
         if session["scope"]["type"] != "websocket":
+            if case.get("python_optimization", False):
+                if (
+                    len(sessions) != 1
+                    or cancel_at is not None
+                    or message_types != ["websocket.connect", "websocket.disconnect"]
+                    or encoding is not None
+                    or on_connect["kind"] != "default"
+                    or on_receive["kind"] != "no-op"
+                    or on_disconnect["kind"] != "default"
+                ):
+                    raise ContractError(
+                        f"{context} optimized non-WebSocket scope requires one complete "
+                        "connect/disconnect dispatch with default endpoint hooks"
+                    )
+                if incoming[0]["subprotocols"] != session["scope"]["subprotocols"]:
+                    raise ContractError(
+                        f"{context} incoming connect subprotocols must match the scope offer"
+                    )
+                exercised_requirements.add(
+                    WEBSOCKET_ENDPOINT_REQUIREMENTS["optimized_scope_type_validation"]
+                )
+                continue
             if (
                 len(sessions) != 1
                 or cancel_at is not None

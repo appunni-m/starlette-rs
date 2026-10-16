@@ -25,13 +25,13 @@ with no conventional Python or Rust unit-test suite.
 ## Current implementation status
 
 The active full-scope `parity-input@64` contract covers Starlette 1.6.0 with
-2,613 cases across 446 parity inputs and two benchmark inputs, 152 compatibility
-operations, 15 Rust-native operations, and 1,451 parity requirements. Its
+2,614 cases across 446 parity inputs and two benchmark inputs, 152 compatibility
+operations, 15 Rust-native operations, and 1,452 parity requirements. Its
 manifest SHA-256 is
-`7fad0030a4044935ae4b98b5f4adc550aa5fde45410a5aec882f62a5bee42a64`. The latest
-Config, optimized Request/WebSocket, and StreamingResponse listener comparisons
-await the grouped parity phase. Results below are historical and do not cover
-the active manifest. The generated source atlas
+`d68552edd4d3b87ee9e99858bf03bfb1834dda959386976dc3f0858e97071809`. The latest
+Config, optimized Request/WebSocket/WebSocketEndpoint, and StreamingResponse
+listener comparisons await the grouped parity phase. Results below are
+historical and do not cover the active manifest. The generated source atlas
 has 867 rows: 811 input mappings, 56
 source-backed `not_applicable` rows, and zero fixture backlog. All 999 API
 candidate rows are dispositioned as 564 supported, 435 private/internal, and

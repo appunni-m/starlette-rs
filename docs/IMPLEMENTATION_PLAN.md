@@ -8,15 +8,17 @@ Pydantic are outside this project's scope.
 ## Execution order and current status
 
 Active implementation checkpoint (2026-10-17; `parity-input@64`; manifest
-SHA-256 `7fad0030a4044935ae4b98b5f4adc550aa5fde45410a5aec882f62a5bee42a64`):
+SHA-256 `d68552edd4d3b87ee9e99858bf03bfb1834dda959386976dc3f0858e97071809`):
 
-The working manifest declares full Starlette 1.6.0 scope with 2,613 cases
+The working manifest declares full Starlette 1.6.0 scope with 2,614 cases
 across 446 parity inputs, two benchmark inputs, 152 compatibility operations,
-15 Rust-native operations, 1,451 parity requirements, and six target profiles.
+15 Rust-native operations, 1,452 parity requirements, and six target profiles.
 This batch adds Config subclass dispatch and empty-format-spec error behavior,
 Request and WebSocket assertion behavior under `python -O`, and a
-`StreamingResponse.listen_for_disconnect` override input. Rust handles the
-new behavior; Python passes dynamic Config attributes and `__debug__` into the
+`StreamingResponse.listen_for_disconnect` override input. It also adds an
+optimized-mode WebSocketEndpoint case that dispatches a WebSocket connect and
+disconnect with an HTTP scope after the Rust-owned constructor assertion is
+disabled. Python passes dynamic Config attributes and `__debug__` into the
 Rust runtime and constructs only the input-defined listener callback. The
 @63-to-@64 migration, generated inputs, contract check, and source inventory
 passed. The atlas still has 867 rows: 811 input mappings, 56 source-backed
@@ -635,7 +637,7 @@ representation, and dynamic `FormData.close()` dispatch remain Rust-backed.
 
 | Phase | State | Evidence |
 | --- | --- | --- |
-| Implementation | The active `parity-input@64` manifest has 2,613 cases, 446 parity inputs, and 1,451 requirements. The latest cases cover Config dynamic subclass dispatch and string formatting, optimized Request/WebSocket assertion behavior, and a StreamingResponse listener override. The current comparisons are authored and contract-validated but unexecuted; implementation remains open. | Manifest SHA-256 `7fad0030a4044935ae4b98b5f4adc550aa5fde45410a5aec882f62a5bee42a64`; atlas has 811 input mappings, 56 reasoned `not_applicable` rows, zero fixture backlog. |
+| Implementation | The active `parity-input@64` manifest has 2,614 cases, 446 parity inputs, and 1,452 requirements. The latest cases cover Config dynamic subclass dispatch and string formatting, optimized Request/WebSocket/WebSocketEndpoint assertion behavior, and a StreamingResponse listener override. The current comparisons are authored and contract-validated but unexecuted; implementation remains open. | Manifest SHA-256 `d68552edd4d3b87ee9e99858bf03bfb1834dda959386976dc3f0858e97071809`; atlas has 811 input mappings, 56 reasoned `not_applicable` rows, zero fixture backlog. |
 | Full parity and grouped repairs | The recorded @63 workflow passed the selected cases and fault contracts. Full parity for @64 is deferred until the implementation phase is ready. | Historical workflow `38923021415`, clean target revision `14067d434dd74a3ae5f931233ace7088dcc04bcc`; CPython 3.10 646/646, 3.11 646/646, 3.12 2,943/2,943, 3.13 647/647, 3.14 647/647; zero failed, `not_run`, or infrastructure-error rows. |
 | Full coverage and source reconciliation | All six @63 profiles passed, but their measurements do not cover @64. Full coverage and source reconciliation for @64 are deferred until after grouped parity. | Historical workflow `38923021415`, cargo-llvm-cov 0.8.7, target revision `14067d434dd74a3ae5f931233ace7088dcc04bcc`; selected cases: CPython 3.10 274, 3.11 274, 3.12 2,573, 3.13 275, 3.14 275, Rust-native 375. |
 | All benchmarks | The complete @63 74-workload benchmark is historical. Run the complete workload against the final implementation checkpoint after grouped parity and coverage. | Historical run `005660ff-d624-43a0-aff3-fc86fcb9b2f0`, manifest SHA-256 `f8a34c2978af95382ceadcd3e3a2c5a9d7bb1d467f03b35ba55033d9b7336124`; 74/74 measured. It does not cover @64. |
@@ -706,10 +708,10 @@ also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
 The active parity contract uses `parity-input@64` with full scope
-(`starlette-1.6.0-full`): 2,613 input cases across 446 parity files, two
+(`starlette-1.6.0-full`): 2,614 input cases across 446 parity files, two
 benchmark files, 152 Starlette compatibility operations, 15 Rust-native
-operations, 1,451 parity requirements, and six target profiles. Its manifest
-SHA-256 is `7fad0030a4044935ae4b98b5f4adc550aa5fde45410a5aec882f62a5bee42a64`.
+operations, 1,452 parity requirements, and six target profiles. Its manifest
+SHA-256 is `d68552edd4d3b87ee9e99858bf03bfb1834dda959386976dc3f0858e97071809`.
 The active cases are authored and contract-validated but await the grouped
 parity phase. The grouped local run, five-profile CI parity matrix, six coverage
 profiles, and full 74-workload benchmark summarized above are evidence for the

@@ -5,12 +5,13 @@
 The latest fully verified earlier full-scope input set had 2,590 cases across
 437 parity inputs, 1,442 parity requirements, and manifest SHA-256
 `f8a34c2978af95382ceadcd3e3a2c5a9d7bb1d467f03b35ba55033d9b7336124`.
-The active `parity-input@64` manifest has 2,613 cases across 446 parity inputs,
-1,451 requirements, and SHA-256
-`7fad0030a4044935ae4b98b5f4adc550aa5fde45410a5aec882f62a5bee42a64`. The latest
+The active `parity-input@64` manifest has 2,614 cases across 446 parity inputs,
+1,452 requirements, and SHA-256
+`d68552edd4d3b87ee9e99858bf03bfb1834dda959386976dc3f0858e97071809`. The latest
 input-only comparisons cover Config subclass property/cast dispatch and
-empty-format-spec error messages, Request and WebSocket assertion behavior
-under `python -O`, and a `StreamingResponse.listen_for_disconnect` override.
+empty-format-spec error messages, optimized Request, WebSocket, and
+WebSocketEndpoint assertion behavior, and a
+`StreamingResponse.listen_for_disconnect` override.
 These cases are authored and contract-validated but unexecuted. The earlier
 @63 comparisons also remain outside the current parity run. No grouped parity,
 coverage, or benchmark run has been made for this active manifest.

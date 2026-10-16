@@ -11708,6 +11708,18 @@
               ]
             },
             {
+              "id": "starlette.endpoints.WebSocketEndpoint.__init__.scope-type-validation.optimized",
+              "dimension": "mode",
+              "description": "With Python optimization enabled, omit the constructor scope-type assertion and complete the input-defined WebSocket connect/disconnect dispatch. Pinned source: starlette/endpoints.py:61-62.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.endpoints.WebSocketEndpoint.dispatch.lifecycle",
               "dimension": "success_path",
               "description": "Dispatch ordered connect, optional receive, and disconnect events through the public WebSocketEndpoint hooks and observe their ASGI messages and hook order. Pinned source: starlette/endpoints.py:70-89; tests/test_endpoints.py::test_websocket_endpoint_on_default.",
