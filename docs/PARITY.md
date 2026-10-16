@@ -16,6 +16,16 @@ passed the five CPython 3.10–3.14 parity jobs on commit
 `4742d075a748fbe182ac121e8b37dd25f5f2d56c`. The pinned Starlette 1.6.0 source
 revision is `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`.
 
+The dedicated Windows StaticFiles workflow
+[`38892560877`](https://github.com/appunni-m/starlette-rs/actions/runs/38892560877)
+also passed both invalid-name lookup inputs on Windows Server 2025 with CPython
+3.12.10. Its result was 4/4 comparisons passed, with zero failures, skipped or
+`not_run` rows, and infrastructure errors. It compared the pinned source,
+installed package, and Rust-native target at commit
+`a3488d512b2680dd46b540f7db620ab7f564d70c`; the StaticFiles implementation
+and input definitions are unchanged on the current branch. This verifies those
+two Windows cases only.
+
 All six active coverage profiles passed: 375 Rust-native cases, 274 each for
 CPython 3.10 and 3.11, 2,571 for 3.12, and 275 each for 3.13 and 3.14. Coverage
 MCP read the LCOV reports and surfaced gaps, but reports imported from CI were
