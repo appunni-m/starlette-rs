@@ -7157,7 +7157,10 @@ def _run_websocket_convenience_case(case: dict[str, Any]) -> dict[str, Any]:
                 record_descriptor_read("scope", instance)
                 return WebSocket.scope.fget(instance)
 
-            descriptor_members["scope"] = property(scope_descriptor)
+            def set_scope_descriptor(instance: Any, value: Any) -> None:
+                WebSocket.scope.fset(instance, value)
+
+            descriptor_members["scope"] = property(scope_descriptor, set_scope_descriptor)
         if "receive" in method_descriptors:
 
             def receive_descriptor(instance: Any) -> Any:

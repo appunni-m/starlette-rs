@@ -8,20 +8,23 @@ incomplete.
 
 ## Current execution snapshot
 
-The active `parity-input@62` contract contains 2,583 cases across 437 parity
+The active `parity-input@62` contract contains 2,588 cases across 437 parity
 inputs and two benchmark inputs, 152 Starlette compatibility operations, 15
-Rust-native operations, 1,436 parity requirements, and six target profiles.
-Its manifest SHA-256 is
-`ffbf919201d9d658793b8e1d42cea97f23c856bd062b2b2f2399e8e7786c6520`. Contract
-validation passed and the generated atlas below reflects @62. It has 867 source
-rows: 811 input mappings, 56 source-backed `not_applicable` rows, and zero
-backlog. All 999 API candidate rows have dispositions. The grouped local @62
-run selected 2,936 comparisons on CPython 3.12 and Rust-native: 2,923 passed,
-four failed, seven had adapter infrastructure errors, and nine were not run;
-all five selected fault contracts passed. A targeted repair run passed all 11
-affected cases. Full five-profile @62 parity is pending CI; coverage and
-benchmark runs remain deferred. The pinned denominators remain 514 upstream
-test functions and 24 documented pages.
+Rust-native operations, 1,441 parity requirements, and six target profiles. Its
+manifest SHA-256 is
+`e666f6c2ae10afdfc6a785bd3101b0542ac1eba64d3687c92d3381a4c2790e3d`. Contract
+validation passed. The generated atlas has
+867 source rows: 811 input mappings, 56 source-backed `not_applicable` rows, and
+zero backlog. All 999 API candidate rows have dispositions. The current grouped local run
+selected 2,941 comparisons on CPython 3.12 and
+Rust-native: 2,937 passed, zero differed, two had target-adapter crashes, and
+four were not run; all five selected fault contracts passed. The two WebSocket
+descriptor-order adapter crashes are fixed, and a focused rerun passed both
+cases. The four remaining rows are explicit source skips because this local
+macOS temporary filesystem refuses POSIX surrogateescape filenames. Full
+cross-profile parity is pending CI; coverage and benchmark phases remain
+deferred. The pinned denominators remain 514 upstream test functions and 24
+documented pages.
 
 For the prior `@58` manifest, workflow
 [`38850605133`](https://github.com/appunni-m/starlette-rs/actions/runs/38850605133)
