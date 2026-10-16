@@ -396,11 +396,11 @@ impl PyWebSocketProtocol {
     fn send_json(
         &self,
         py: Python<'_>,
-        send_callback: Py<PyAny>,
+        websocket: Py<PyAny>,
         data: Py<PyAny>,
         mode: Py<PyAny>,
     ) -> PyResult<Py<PyAny>> {
-        framed_send_awaitable(py, send_callback, WebSocketSendFrame::Json { data, mode })
+        framed_json_send_awaitable(py, websocket, data, mode)
     }
 
     fn close(
@@ -963,15 +963,34 @@ fn framed_send_awaitable(
     into_sendable_python_awaitable(
         py,
         FramedSendMachine {
-            send_callback,
+            send_callback: Some(send_callback),
+            send_owner: None,
             frame: Some(frame),
             pending: false,
         },
     )
 }
 
+fn framed_json_send_awaitable(
+    py: Python<'_>,
+    websocket: Py<PyAny>,
+    data: Py<PyAny>,
+    mode: Py<PyAny>,
+) -> PyResult<Py<PyAny>> {
+    into_sendable_python_awaitable(
+        py,
+        FramedSendMachine {
+            send_callback: None,
+            send_owner: Some(websocket),
+            frame: Some(WebSocketSendFrame::Json { data, mode }),
+            pending: false,
+        },
+    )
+}
+
 struct FramedSendMachine {
-    send_callback: Py<PyAny>,
+    send_callback: Option<Py<PyAny>>,
+    send_owner: Option<Py<PyAny>>,
     frame: Option<WebSocketSendFrame>,
     pending: bool,
 }
@@ -979,6 +998,7 @@ struct FramedSendMachine {
 impl AwaitableStateMachine for FramedSendMachine {
     fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
         visit.call(&self.send_callback)?;
+        visit.call(&self.send_owner)?;
         match &self.frame {
             Some(WebSocketSendFrame::Text(value) | WebSocketSendFrame::Bytes(value)) => {
                 visit.call(value)
@@ -1022,8 +1042,18 @@ impl FramedSendMachine {
             .take()
             .ok_or_else(|| PyRuntimeError::new_err("WebSocket framed send has already started"))?;
         let message = build_send_frame(py, frame)?;
+        let send_callback = if let Some(websocket) = self.send_owner.take() {
+            // Starlette's send_json resolves `self.send` only after mode
+            // validation and JSON serialization have succeeded.
+            websocket.bind(py).getattr("send")?.unbind()
+        } else {
+            self.send_callback
+                .as_ref()
+                .map(|callback| callback.clone_ref(py))
+                .ok_or_else(|| PyRuntimeError::new_err("WebSocket send callback is unavailable"))?
+        };
         self.pending = true;
-        let awaitable = self.send_callback.bind(py).call1((message,))?;
+        let awaitable = send_callback.bind(py).call1((message,))?;
         Ok(MachineAction::Await(awaitable.unbind()))
     }
 }

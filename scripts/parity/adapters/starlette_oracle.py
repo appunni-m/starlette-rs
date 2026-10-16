@@ -393,6 +393,21 @@ def _input_background_tasks(
         raise ValueError("Response background task lists must contain multiple tasks")
     background_tasks = BackgroundTasks() if spec["kind"] == "task-list" else None
 
+    def delete_input_tasks(deleted_indices: list[int], parent_task_index: int) -> None:
+        if not deleted_indices:
+            return
+        if background_tasks is None:
+            raise RuntimeError("live task-list mutation requires BackgroundTasks")
+        for task_index in sorted(deleted_indices, reverse=True):
+            del background_tasks.tasks[task_index]
+        execution_trace.append(
+            {
+                "event": "task-list-mutated",
+                "task_index": parent_task_index,
+                "deleted_task_indices": sorted(deleted_indices, reverse=True),
+            }
+        )
+
     def append_input_tasks(appended_specs: list[dict[str, Any]], parent_task_index: int) -> None:
         if not appended_specs:
             return
@@ -417,11 +432,13 @@ def _input_background_tasks(
     def make_callback(task_index: int, task_spec: dict[str, Any]) -> Any:
         failure = task_spec["failure"]
         append_specs = task_spec.get("append_tasks", [])
+        delete_indices = task_spec.get("delete_task_indices", [])
 
-        def append_scheduled_tasks() -> None:
+        def mutate_scheduled_tasks() -> None:
             append_input_tasks(append_specs, task_index)
+            delete_input_tasks(delete_indices, task_index)
 
-        before_complete = append_scheduled_tasks if append_specs else None
+        before_complete = mutate_scheduled_tasks if append_specs or delete_indices else None
         if task_spec["mode"] == "async":
 
             async def base_callback(*args: Any, **kwargs: Any) -> None:
@@ -612,6 +629,8 @@ def _input_background_tasks(
             task_fields.add("kwargs_mapping")
         if isinstance(task_spec, dict) and "append_tasks" in task_spec:
             task_fields.add("append_tasks")
+        if isinstance(task_spec, dict) and "delete_task_indices" in task_spec:
+            task_fields.add("delete_task_indices")
         if isinstance(task_spec, dict) and "argument_protocol" in task_spec:
             task_fields.add("argument_protocol")
         task_spec = _strict_object(
@@ -623,6 +642,16 @@ def _input_background_tasks(
             raise ValueError("Response background task mode is unsupported")
         if not isinstance(task_spec["args"], list) or not isinstance(task_spec["kwargs"], dict):
             raise ValueError("Response background task arguments must be arrays and objects")
+        if "delete_task_indices" in task_spec:
+            delete_indices = task_spec["delete_task_indices"]
+            if (
+                background_tasks is None
+                or not isinstance(delete_indices, list)
+                or not delete_indices
+                or any(type(index) is not int or index < 0 for index in delete_indices)
+                or len(set(delete_indices)) != len(delete_indices)
+            ):
+                raise ValueError("Response background delete_task_indices input is invalid")
         if "append_tasks" in task_spec:
             if background_tasks is None:
                 raise ValueError("live task-list mutation requires a BackgroundTasks list")

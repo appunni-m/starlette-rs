@@ -25088,7 +25088,7 @@
             {
               "id": "starlette.responses.Response.asgi-call.background-task-live-list-mutation",
               "dimension": "protocol_variant",
-              "description": "Compare BackgroundTasks iteration when an awaited callback appends new BackgroundTask instances directly to the same public tasks list. Preserve Python list-iterator growth semantics, callback order, and propagation of an appended callback error after earlier callbacks complete. Pinned source: starlette/background.py:26-36; starlette/responses.py:163-170; docs/background.md:42-78. All callback actions and task values are input-derived.",
+              "description": "Compare BackgroundTasks iteration when an awaited callback appends new BackgroundTask instances to or deletes entries from the same public tasks list. Preserve Python list-iterator mutation semantics, callback order, and propagation of callback errors after earlier callbacks complete. Pinned source: starlette/background.py:26-36; starlette/responses.py:163-170; docs/background.md:42-78. All callback actions and task values are input-derived.",
               "lanes": [
                 "parity",
                 "coverage"
@@ -34799,6 +34799,18 @@
               "id": "starlette.websocket.api.send.json.invalid-mode",
               "dimension": "error_path",
               "description": "Reject an unsupported send_json mode before calling the supplied ASGI send callback. Pinned source: starlette/websockets.py:167-181; tests/test_websockets.py::test_send_json_invalid_mode.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.websocket.api.send.json.lookup-after-validation",
+              "dimension": "boundary",
+              "description": "Reject an invalid send_json mode before resolving the input-defined WebSocket.send descriptor; Starlette validates mode and serializes data before evaluating await self.send(...). Pinned source: starlette/websockets.py:171-178.",
               "lanes": [
                 "parity",
                 "coverage"

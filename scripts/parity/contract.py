@@ -313,6 +313,9 @@ WEBSOCKET_JSON_MODE_ORDER_REQUIREMENT = "starlette.websocket.api.receive.json.mo
 WEBSOCKET_SEND_JSON_MODE_ORDER_REQUIREMENT = (
     "starlette.websocket.api.send.json.serialization-before-mode-comparison"
 )
+WEBSOCKET_SEND_JSON_INVALID_MODE_LOOKUP_REQUIREMENT = (
+    "starlette.websocket.api.send.json.lookup-after-validation"
+)
 WEBSOCKET_ENDPOINT_SURFACE = "starlette.endpoints.WebSocketEndpoint"
 WEBSOCKET_ENDPOINT_OPERATION = "dispatch"
 WEBSOCKET_ENDPOINT_OPERATION_KEY = (
@@ -5902,6 +5905,8 @@ def _validate_websocket_convenience_case_stimulus(case: dict[str, Any]) -> None:
                     not isinstance(mode, str) or mode not in {"text", "binary"}
                 ):
                     exercised.add(WEBSOCKET_INVALID_JSON_MODE_REQUIREMENTS["send"])
+                    if "send" in method_descriptors:
+                        exercised.add(WEBSOCKET_SEND_JSON_INVALID_MODE_LOOKUP_REQUIREMENT)
                 elif not isinstance(mode, dict):
                     exercised.add(f"starlette.websocket.api.send.json.{mode}")
             else:
@@ -7808,6 +7813,8 @@ def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
                     task_fields.add("kwargs_mapping")
                 if isinstance(raw_task, dict) and "append_tasks" in raw_task:
                     task_fields.add("append_tasks")
+                if isinstance(raw_task, dict) and "delete_task_indices" in raw_task:
+                    task_fields.add("delete_task_indices")
                 if isinstance(raw_task, dict) and "argument_protocol" in raw_task:
                     task_fields.add("argument_protocol")
                 task = _exact(raw_task, task_fields, context)
@@ -7889,6 +7896,7 @@ def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
                         or "kwargs_mapping" in task
                         or "callable" in task
                         or "append_tasks" in task
+                        or "delete_task_indices" in task
                         or background_control is not None
                     ):
                         raise ContractError(
@@ -7904,6 +7912,25 @@ def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
                         )
                     _string(protocol["message"], f"{context}.argument_protocol.message")
                     has_argument_expansion_order = True
+                if "delete_task_indices" in task:
+                    if kind != "task-list":
+                        raise ContractError(
+                            f"{context}.delete_task_indices requires a mutable BackgroundTasks list"
+                        )
+                    deleted_indices = task["delete_task_indices"]
+                    if (
+                        not isinstance(deleted_indices, list)
+                        or not deleted_indices
+                        or any(
+                            type(task_index) is not int or task_index < 0
+                            for task_index in deleted_indices
+                        )
+                        or len(set(deleted_indices)) != len(deleted_indices)
+                    ):
+                        raise ContractError(
+                            f"{context}.delete_task_indices must contain unique non-negative integers"
+                        )
+                    has_live_task_list_mutation = True
                 if "append_tasks" in task:
                     if kind != "task-list":
                         raise ContractError(

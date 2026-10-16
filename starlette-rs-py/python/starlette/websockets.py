@@ -100,7 +100,7 @@ class WebSocket(HTTPConnection[StateT]):
         await self._protocol.send_bytes(self.send, data)
 
     async def send_json(self, data: Any, mode: str = "text") -> None:
-        await self._protocol.send_json(self.send, data, mode)
+        await self._protocol.send_json(self, data, mode)
 
     async def close(self, code: int = 1000, reason: str | None = None) -> None:
         await self._protocol.close(self.send, code, reason)

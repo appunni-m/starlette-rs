@@ -8,13 +8,20 @@ Pydantic are outside this project's scope.
 ## Execution order and current status
 
 Active implementation checkpoint (2026-10-16; `parity-input@58`; current
-manifest SHA-256 `4f4b95daeb52a383999d743214d22c759c9046fea5f187b8ecb1422eed5a5042`;
+manifest SHA-256 `5c9d527185317ff005d83c666610467ef86b9e870a5b723727f146dd2cff6fe1`;
 last fully verified target revision `a10ecf5776c50cf86600e3d5f049e8db006f4966`):
 
-The active manifest declares full Starlette 1.6.0 scope with 2,562 cases across
+The active manifest declares full Starlette 1.6.0 scope with 2,564 cases across
 431 parity inputs, two benchmark inputs, 152 compatibility operations, 14
-Rust-native operations, 1,420 parity requirements, and six target profiles.
-Input generation and contract validation pass. The scoped StaticFiles change
+Rust-native operations, 1,421 parity requirements, and six target profiles.
+Input generation, contract validation, and source-inventory generation pass.
+The newest implementation adds Rust-backed WebSocket `send_json` descriptor
+lookup after mode validation and serialization, with an input-only ordering
+comparison. A separate input observes deletion from the live
+`BackgroundTasks.tasks` list during iteration; the existing Rust-backed Python
+list iterator already preserves the pinned behavior. Both comparisons remain
+unexecuted until grouped parity. Focused Rust format/check/Clippy, Ruff, and
+contract checks passed. The scoped StaticFiles change
 also passed affected-crate checks, rustfmt, and targeted Ruff; atlas generation
 reports 867 source rows (811 input mappings, 56 reasoned `not_applicable`, zero
 backlog). The new StaticFiles input checks configured `PathLike` directory
