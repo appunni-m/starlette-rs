@@ -8980,6 +8980,8 @@ def _run_websocket_endpoint_case(case: dict[str, Any]) -> dict[str, Any]:
     }
     if "send" in case:
         case_fields.add("send")
+    if "python_optimization" in case:
+        case_fields.add("python_optimization")
     _strict_object(
         case,
         case_fields,
@@ -12875,7 +12877,9 @@ def _run_static_files_lookup_path_case(case: dict[str, Any]) -> dict[str, Any]:
             )
             configured_directory = directory_pathlike
         lookup_path_input = case["lookup_path"]
-        if isinstance(lookup_path_input, dict):
+        if lookup_path_is_subclass:
+            lookup_path = _materialize_scope_path_spec(lookup_path_input)
+        elif isinstance(lookup_path_input, dict):
             lookup_path_input = _strict_object(
                 lookup_path_input,
                 {"encoding", "data"},
@@ -12891,8 +12895,6 @@ def _run_static_files_lookup_path_case(case: dict[str, Any]) -> dict[str, Any]:
                     "StaticFiles lookup-path encoded data",
                 )
             )
-        elif lookup_path_is_subclass:
-            lookup_path = _materialize_scope_path_spec(lookup_path_input)
         elif isinstance(lookup_path_input, str):
             lookup_path = lookup_path_input
         else:

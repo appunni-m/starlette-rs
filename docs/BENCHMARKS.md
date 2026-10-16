@@ -6,10 +6,13 @@ cases across 437 parity inputs and manifest SHA-256
 parity and all six expanded coverage profiles completed for that input set
 before the benchmark below. The active `parity-input@64` manifest declares
 2,615 cases across 446 parity inputs, 1,453 requirements, and SHA-256
-`87db47cde97ae0841d87268dc238472c5218f0e6fa04ee71286691bf1ce5174d`; its
+`6d591e84da1a97cc73a6f04f9b0280704c214c1b1f793c1a9e16b4c6ab42e3b5`; its
 eleven latest cases are not included in the recorded preflight or benchmark
-evidence. The implementation phase remains open; rerun the full workload only
-after grouped parity and coverage for the completed implementation.
+evidence. The grouped parity run had zero mismatches but retained two
+source-skipped rows for a macOS filesystem limitation. The CPython 3.12
+coverage plan was not ingested after the same skip, so the @64 benchmark remains
+deferred until a coverage run completes on a filesystem that supports the input
+filename.
 The latest recorded run measured all
 74 declared source/package workloads (six
 Router and 68 GZip); all 74 Rust-native rows are `not_run` because the native

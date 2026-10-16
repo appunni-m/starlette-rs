@@ -28,20 +28,23 @@ The active full-scope `parity-input@64` contract covers Starlette 1.6.0 with
 2,615 cases across 446 parity inputs and two benchmark inputs, 152 compatibility
 operations, 15 Rust-native operations, and 1,453 parity requirements. Its
 manifest SHA-256 is
-`87db47cde97ae0841d87268dc238472c5218f0e6fa04ee71286691bf1ce5174d`. The latest
+`6d591e84da1a97cc73a6f04f9b0280704c214c1b1f793c1a9e16b4c6ab42e3b5`. The latest
 Config, optimized Request/WebSocket/WebSocketEndpoint (including the
-invalid-encoding fallback), and StreamingResponse listener comparisons await
-the grouped parity phase. Results below are
-historical and do not cover the active manifest. The generated source atlas
-has 867 rows: 811 input mappings, 56
-source-backed `not_applicable` rows, and zero fixture backlog. All 999 API
-candidate rows are dispositioned as 564 supported, 435 private/internal, and
-zero uncertain. The local grouped run selected 2,941 comparisons on CPython 3.12
-and Rust-native: 2,937 passed, zero differed, and two had WebSocket
+invalid-encoding fallback), and StreamingResponse listener comparisons were
+included in grouped parity. That run selected 2,971 rows: 2,969 passed, zero
+failed, zero had infrastructure errors, and all five fault contracts passed.
+Two rows were not run because the pinned source skipped a surrogateescape
+filename that this macOS filesystem cannot create. The coverage workload passed
+2,597 CPython 3.12 cases but did not ingest its plan after the same source skip;
+the full benchmark remains deferred. The generated source atlas has 867 rows:
+811 input mappings, 56 source-backed `not_applicable` rows, and zero fixture
+backlog. All 999 API candidate rows are dispositioned as 564 supported, 435
+private/internal, and zero uncertain. Older results below do not cover the
+active manifest. The local @63 grouped run selected 2,941 comparisons on CPython
+3.12 and Rust-native: 2,937 passed, zero differed, and two had WebSocket
 target-adapter crashes. The four local `not_run` rows were those two crash
-outcomes and two runs of a surrogateescape filesystem case that macOS cannot
-create. The adapter crashes were fixed and both cases passed in a focused
-rerun. CI workflow
+outcomes and two runs of a surrogateescape filesystem case. The adapter crashes
+were fixed and both cases passed in a focused rerun. CI workflow
 [`38895661384`](https://github.com/appunni-m/starlette-rs/actions/runs/38895661384)
 passed all five CPython 3.10–3.14 parity jobs on clean target revision
 `4742d075a748fbe182ac121e8b37dd25f5f2d56c`.

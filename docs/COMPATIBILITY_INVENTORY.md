@@ -3,21 +3,20 @@
 ## Current verification status
 
 The working full-scope manifest is `parity-input@64`, SHA-256
-`87db47cde97ae0841d87268dc238472c5218f0e6fa04ee71286691bf1ce5174d`,
+`6d591e84da1a97cc73a6f04f9b0280704c214c1b1f793c1a9e16b4c6ab42e3b5`,
 against Starlette 1.6.0 revision
 `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. It declares 2,615 input-only cases
 across 446 parity files, two benchmark inputs, 152 compatibility operations,
 15 Rust-native operations, 1,453 parity requirements, and six target profiles.
-The latest Config subclass dispatch and formatting, optimized
-Request/WebSocket/WebSocketEndpoint assertions, the optimized WebSocketEndpoint
-invalid-encoding fallback, and StreamingResponse listener-override comparisons
-are authored and contract-validated but unexecuted. The optimized decode
-case uses existing @64 fields; input generation, contract validation, and source
-inventory passed. The earlier @63-to-@64 schema migration also passed.
-Grouped parity, coverage, and benchmark results below apply to earlier input
-sets, including the one with SHA-256
-`f8a34c2978af95382ceadcd3e3a2c5a9d7bb1d467f03b35ba55033d9b7336124`.
-Workflow
+The grouped local run selected 2,971 comparisons: 2,969 passed, zero failed,
+zero had infrastructure errors, and all five fault contracts passed. Two rows
+were not run because the pinned source skipped an invalid-byte StaticFiles
+filename on this macOS filesystem; the CLI returned 2 because it requires all
+selected rows to run. The CPython 3.12 coverage workload passed 2,597 selected
+cases but did not ingest its plan after the same skip. Coverage and the full
+benchmark remain incomplete for @64. Input generation, contract validation,
+source inventory, and the earlier @63-to-@64 schema migration passed.
+Historical @63 workflow
 [`38923021415`](https://github.com/appunni-m/starlette-rs/actions/runs/38923021415)
 passed the five CPython source-parity profiles: 646/646 comparisons for 3.10
 and 3.11, 2,943/2,943 for 3.12, and 647/647 for 3.13 and 3.14. Every profile
@@ -1187,11 +1186,11 @@ and do not establish parity for every deprecation path.
   `doc.templates.async-context-processor-constraint`.
 
 These source-backed caveats and targeted inputs do not create fixture backlog.
-The grouped parity, six selected coverage profiles, and benchmark phases
-completed for the preceding verified `parity-input@63` manifest; they do not
-cover the active `parity-input@64` manifest. Run the grouped phases after the
-implementation is ready. These measurements do not prove universal Starlette
-parity.
+The current @64 parity run has no executable-row mismatches, but two rows remain
+source-skipped on macOS; coverage was not ingested and the benchmark was not run.
+Repeat those phases on a filesystem that supports the POSIX surrogateescape
+filename. Earlier grouped parity, coverage, and benchmark results apply only to
+prior input manifests and do not prove universal Starlette parity.
 
 The macOS arm64 Python package qualification is complete, and its SBOM
 metadata normalization is verified for direct and sdist-based CPython 3.12
@@ -1199,8 +1198,8 @@ wheels. The
 two Windows StaticFiles invalid-name cases passed in workflow
 [`38892560877`](https://github.com/appunni-m/starlette-rs/actions/runs/38892560877);
 broader Windows behavior remains unproven. After any new runtime implementation
-batch, run the grouped phases together once that batch and its input authoring
-are complete.
+batch and its input authoring are complete, run the grouped phases together as
+specified in the execution ledger.
 The active contract and generated atlas links above carry the current case and
 backlog inventory; this document does not duplicate their changing totals.
 

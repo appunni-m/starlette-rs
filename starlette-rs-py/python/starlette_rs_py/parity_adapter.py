@@ -1184,10 +1184,13 @@ def _materialize_scope_path_spec(value: Any) -> Any:
         return value
     descriptor = _exact_object(value, {"str_subclass"}, "scope path")
     subclass = descriptor["str_subclass"]
-    if not isinstance(subclass, dict) or set(subclass) not in (
-        {"value", "startswith_result"},
-        {"value", "startswith_result", "slice_result"},
-    ):
+    allowed_fields = {"value", "startswith_result"}
+    if isinstance(subclass, dict):
+        if "slice_result" in subclass:
+            allowed_fields.add("slice_result")
+        if "split_result" in subclass:
+            allowed_fields.add("split_result")
+    if not isinstance(subclass, dict) or set(subclass) != allowed_fields:
         raise ValueError("scope path str_subclass has unsupported fields")
     path_value = subclass["value"]
     startswith_result = subclass["startswith_result"]
@@ -1197,6 +1200,8 @@ def _materialize_scope_path_spec(value: Any) -> Any:
     slice_result = subclass.get("slice_result")
     if has_slice_result and slice_result is not None and not isinstance(slice_result, str):
         raise ValueError("scope path str_subclass slice_result must be a string or null")
+    has_split_result = "split_result" in subclass
+    split_result = subclass.get("split_result")
 
     class InputPathSubclass(str):
         def startswith(self, _prefix: Any, start: int = 0, end: int | None = None) -> bool:
@@ -1208,6 +1213,11 @@ def _materialize_scope_path_spec(value: Any) -> Any:
                 if isinstance(key, slice):
                     return slice_result
                 return str.__getitem__(self, key)
+
+        if has_split_result:
+
+            def split(self, _separator: str | None = None, _maxsplit: int = -1) -> Any:
+                return split_result
 
     return InputPathSubclass(path_value)
 
@@ -1256,8 +1266,10 @@ def _make_scope(
     return _scope_container(scope, container)
 
 
-def _static_files_scope_path(value: Any, context: str) -> str:
+def _static_files_scope_path(value: Any, context: str) -> Any:
     if isinstance(value, str):
+        return value
+    if isinstance(value, dict) and set(value) == {"str_subclass"}:
         return value
     encoded_path = _exact_object(value, {"encoding", "data"}, context)
     if encoded_path["encoding"] != "filesystem-bytes-base64":
@@ -3442,6 +3454,54 @@ def _materialize_application(
             route_endpoint = ASGICallableActionSequence(
                 response_spec["actions"], request_observations, exception_types
             )
+        elif response_spec["kind"] == "http-class-based-endpoint":
+            _exact_object(
+                response_spec,
+                {"kind", "name", "handlers"},
+                "HTTPEndpoint application endpoint",
+            )
+            from starlette.endpoints import HTTPEndpoint
+
+            class_attributes: dict[str, Any] = {"__module__": __name__}
+            for handler_spec in response_spec["handlers"]:
+                _exact_object(
+                    handler_spec,
+                    {"name", "call_style", "response"},
+                    "HTTPEndpoint method handler",
+                )
+                method_response = _exact_object(
+                    handler_spec["response"],
+                    {"kind", "content", "status_code", "media_type"},
+                    "HTTPEndpoint method response",
+                )
+                if method_response["kind"] != "plain-text-response":
+                    raise ValueError("HTTPEndpoint method response must be plain text")
+
+                def make_endpoint_method(spec: dict[str, Any], call_style: str) -> Any:
+                    if call_style == "sync":
+
+                        def endpoint_method(_self: Any, _request: Any) -> Any:
+                            return PlainTextResponse(
+                                content=spec["content"],
+                                status_code=spec["status_code"],
+                                media_type=spec["media_type"],
+                            )
+
+                        return endpoint_method
+
+                    async def endpoint_method(_self: Any, _request: Any) -> Any:
+                        return PlainTextResponse(
+                            content=spec["content"],
+                            status_code=spec["status_code"],
+                            media_type=spec["media_type"],
+                        )
+
+                    return endpoint_method
+
+                class_attributes[handler_spec["name"]] = make_endpoint_method(
+                    method_response, handler_spec["call_style"]
+                )
+            route_endpoint = type(response_spec["name"], (HTTPEndpoint,), class_attributes)
         else:
             raise ValueError(f"unsupported endpoint kind: {response_spec['kind']!r}")
         routes.append(
@@ -3939,7 +3999,7 @@ def _materialize_asgi_sequence_app(app_spec: dict[str, Any]) -> Any:
         raise ValueError("ASGI app must be an input-defined message sequence")
     response_messages = app_spec["messages"]
 
-    async def response_app(_scope: Any, _receive: Any, send: Any) -> None:
+    async def response_app(_scope: Any, receive: Any, send: Any) -> None:
         for index, spec in enumerate(response_messages):
             if not isinstance(spec, dict):
                 raise ValueError(f"inner response message[{index}] must declare its ASGI type")
@@ -3966,6 +4026,8 @@ def _materialize_asgi_sequence_app(app_spec: dict[str, Any]) -> Any:
                 start_keys = {"type", "status", "headers_base64_pairs"}
                 if "headers_representation" in spec:
                     start_keys.add("headers_representation")
+                if "message_mapping" in spec:
+                    start_keys.add("message_mapping")
                 _exact_object(
                     spec,
                     start_keys,
@@ -3989,6 +4051,8 @@ def _materialize_asgi_sequence_app(app_spec: dict[str, Any]) -> Any:
                 expected_body_keys = {"type", "body_base64"}
                 if "more_body" in spec:
                     expected_body_keys.add("more_body")
+                if "message_mapping" in spec:
+                    expected_body_keys.add("message_mapping")
                 _exact_object(spec, expected_body_keys, f"inner response message[{index}]")
                 message = {
                     "type": message_type,
@@ -4002,8 +4066,21 @@ def _materialize_asgi_sequence_app(app_spec: dict[str, Any]) -> Any:
             elif message_kind == "websocket.close":
                 _exact_object(spec, {"type", "code"}, f"inner response message[{index}]")
                 message = {"type": message_type, "code": spec["code"]}
+            elif message_kind in {
+                "lifespan.startup.complete",
+                "lifespan.shutdown.complete",
+            }:
+                _exact_object(spec, {"type"}, f"inner response message[{index}]")
+                message = {"type": message_type}
             else:
                 raise ValueError(f"unsupported inner response event: {message_type!r}")
+            message_mapping = spec.get("message_mapping", "dict")
+            if not isinstance(message_mapping, str) or message_mapping not in {"dict", "user-dict"}:
+                raise ValueError("inner response message mapping is unsupported")
+            if message_mapping == "user-dict":
+                message = UserDict(message)
+            if message_kind.startswith("lifespan."):
+                await receive()
             await send(message)
 
     return response_app
@@ -4289,7 +4366,9 @@ def _run_protocol_middleware_case(case: dict[str, Any]) -> dict[str, Any]:
         middleware = _materialize_protocol_middleware(
             case["surface"],
             constructor_arguments,
-            downstream_call_trace if case["surface"] == CORS_SURFACE else None,
+            downstream_call_trace
+            if case["surface"] in {CORS_SURFACE, HTTPS_REDIRECT_SURFACE}
+            else None,
         )
     except Exception as exc:
         error = _dispatch_error(exc)
@@ -4349,7 +4428,7 @@ def _run_protocol_middleware_case(case: dict[str, Any]) -> dict[str, Any]:
                 partial_value = dict(value.partial_value)
                 if constructor_probe_observations:
                     partial_value["constructor_probes"] = constructor_probe_observations
-                if case["surface"] == CORS_SURFACE:
+                if case["surface"] in {CORS_SURFACE, HTTPS_REDIRECT_SURFACE}:
                     selected_partial = {
                         key: partial_value[key] for key in ("asgi_events", "response_bytes")
                     }
@@ -4369,7 +4448,7 @@ def _run_protocol_middleware_case(case: dict[str, Any]) -> dict[str, Any]:
                 selected["scope_observation"] = value["scope_observation"]
             if constructor_probe_observations:
                 selected["constructor_probes"] = constructor_probe_observations
-            if case["surface"] == CORS_SURFACE:
+            if case["surface"] in {CORS_SURFACE, HTTPS_REDIRECT_SURFACE}:
                 selected["downstream_call_trace"] = downstream_call_trace[trace_start:]
             observations.append(
                 {"step_id": dispatch_step["step_id"], "status": "ok", "value": selected}
@@ -6763,6 +6842,8 @@ def _run_websocket_endpoint_case(case: dict[str, Any]) -> dict[str, Any]:
     }
     if "send" in case:
         case_fields.add("send")
+    if "python_optimization" in case:
+        case_fields.add("python_optimization")
     _exact_object(
         case,
         case_fields,
@@ -7864,6 +7945,8 @@ async def _invoke_lifespan_only(
     app: Any,
     lifecycle_arguments: dict[str, Any],
     lifecycle_trace: list[str],
+    scope_container: str | dict[str, Any] = "dict",
+    scope_observation: dict[str, Any] | None = None,
 ) -> dict[str, Any] | _CapturedDispatchError:
     """Run one complete lifecycle input with callback-call failures intact."""
     if lifecycle_arguments["scope"].get("type") != "lifespan":
@@ -7932,7 +8015,7 @@ async def _invoke_lifespan_only(
             return raise_on_await(error)
         return record_send(message)
 
-    scope = _make_scope(lifecycle_arguments["scope"])
+    scope = _make_scope(lifecycle_arguments["scope"], scope_container)
     try:
         await app(scope, receive_lifecycle, send_lifecycle)
         captured_exception = None
@@ -7954,6 +8037,8 @@ async def _invoke_lifespan_only(
         "deprecation_warnings": list(getattr(app, "_parity_lifespan_warnings", [])),
         "sync_endpoint_observations": None,
     }
+    if scope_observation is not None:
+        value["scope_observation"] = _scope_observation(scope, scope_observation)
     if captured_exception is None:
         return value
     error = _dispatch_error(captured_exception)
@@ -10407,9 +10492,12 @@ def _run_static_files_lookup_path_case(case: dict[str, Any]) -> dict[str, Any]:
     ):
         raise ValueError("workflow is outside the declared StaticFiles lookup-path operation")
 
-    has_filesystem_byte_path = isinstance(case["lookup_path"], dict) or any(
-        isinstance(file_spec.get("path"), dict) for file_spec in case["files"]
-    )
+    lookup_path_is_subclass = isinstance(case["lookup_path"], dict) and set(
+        case["lookup_path"]
+    ) == {"str_subclass"}
+    has_filesystem_byte_path = (
+        isinstance(case["lookup_path"], dict) and not lookup_path_is_subclass
+    ) or any(isinstance(file_spec.get("path"), dict) for file_spec in case["files"])
     if has_filesystem_byte_path and os.name != "posix":
         return {
             "case_id": case["case_id"],
@@ -10511,7 +10599,9 @@ def _run_static_files_lookup_path_case(case: dict[str, Any]) -> dict[str, Any]:
             )
             configured_directory = directory_pathlike
         lookup_path_input = case["lookup_path"]
-        if isinstance(lookup_path_input, dict):
+        if lookup_path_is_subclass:
+            lookup_path = _materialize_scope_path_spec(lookup_path_input)
+        elif isinstance(lookup_path_input, dict):
             lookup_path_input = _exact_object(
                 lookup_path_input,
                 {"encoding", "data"},
@@ -19583,7 +19673,13 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
             lifecycle_arguments = {
                 name: item["value"] for name, item in steps[1]["arguments"].items()
             }
-            value = await _invoke_lifespan_only(app, lifecycle_arguments, lifecycle_trace)
+            value = await _invoke_lifespan_only(
+                app,
+                lifecycle_arguments,
+                lifecycle_trace,
+                scope_container=case.get("scope_container", "dict"),
+                scope_observation=case.get("scope_observation"),
+            )
             return [_workflow_observation("lifecycle", value)]
         if schedule == ["lifespan.startup", "dispatch", "lifespan.shutdown"]:
             lifecycle_arguments = {
@@ -19631,6 +19727,7 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
                     and step["operation"] == "request-dispatch"
                 ),
                 scope_container=case.get("scope_container", "dict"),
+                scope_observation=case.get("scope_observation"),
             )
             results.append(_workflow_observation(step["step_id"], value))
         return results

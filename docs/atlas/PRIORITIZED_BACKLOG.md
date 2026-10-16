@@ -12,11 +12,15 @@ The active `parity-input@64` contract contains 2,615 cases across 446 parity
 inputs and two benchmark inputs, 152 Starlette compatibility operations, 15
 Rust-native operations, 1,453 parity requirements, and six target profiles. Its
 manifest SHA-256 is
-`87db47cde97ae0841d87268dc238472c5218f0e6fa04ee71286691bf1ce5174d`. The latest
+`6d591e84da1a97cc73a6f04f9b0280704c214c1b1f793c1a9e16b4c6ab42e3b5`. The latest
 Config, optimized Request/WebSocket/WebSocketEndpoint (including the
 invalid-encoding fallback), and StreamingResponse listener boundary comparisons
-await grouped parity; earlier results below do not cover this manifest.
-Contract and source-inventory checks passed. The generated atlas has
+were included in grouped parity. The run selected 2,971 rows: 2,969 passed,
+zero failed, zero had infrastructure errors, and all five fault contracts
+passed. Two rows were not run because the pinned source skipped a surrogateescape
+filename on this macOS filesystem. The CPython 3.12 coverage workload passed
+2,597 cases but did not ingest its plan after that source skip; the benchmark
+phase remains deferred. Contract and source-inventory checks passed. The generated atlas has
 867 source rows: 811 input mappings, 56 source-backed `not_applicable` rows, and
 zero backlog. All 999 API candidate rows have dispositions. The previous @62 grouped local run
 selected 2,941 comparisons on CPython 3.12 and

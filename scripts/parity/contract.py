@@ -3363,6 +3363,11 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         and key == (GZIP_SURFACE, "__call__")
                         and observation["path"] == "scope_observation"
                     )
+                    starlette_app_scope_observation = (
+                        condition["input_key"] == "scope_observation"
+                        and key == ("starlette.applications.Starlette", "__call__")
+                        and observation["path"] == "scope_observation"
+                    )
                     wsgi_sender_context_observation = (
                         condition["input_key"] == "context"
                         and key == WSGI_PROTOCOL_OPERATION
@@ -3416,6 +3421,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         and not testclient_lifespan_client_method_trace
                         and not cors_scope_observation
                         and not gzip_scope_observation
+                        and not starlette_app_scope_observation
                         and not wsgi_sender_context_observation
                     ):
                         raise ContractError(
