@@ -53,7 +53,7 @@ struct PyStaticFiles {
     directory: Option<Py<PyAny>>,
     packages: Option<Py<PyAny>>,
     all_directories: Py<PyAny>,
-    directory_is_lookup_root: bool,
+    directory_insertion_index: Option<usize>,
 }
 
 #[pymethods]
@@ -95,18 +95,27 @@ impl PyStaticFiles {
         };
         let mut directories = Vec::new();
         let mut native_directory = None;
-        let mut directory_is_lookup_root = false;
+        let mut directory_insertion_index = None;
         for value in all_directories.bind(py).try_iter()? {
             let value = value?;
             let is_configured_directory = directory
                 .as_ref()
                 .is_some_and(|directory| value.is(directory.bind(py)));
-            if is_configured_directory {
-                if defer_path_like_directory && !directory_is_lookup_root {
-                    directory_is_lookup_root = true;
+            if is_configured_directory && directory_insertion_index.is_none() {
+                directory_insertion_index = Some(directories.len());
+                let is_dynamic_directory = directory
+                    .as_ref()
+                    .is_some_and(|directory| !directory.bind(py).is_instance_of::<PyString>());
+                if is_dynamic_directory {
+                    if defer_path_like_directory {
+                        // Leave the root slot dynamic so each lookup observes
+                        // the current Python `PathLike` value.
+                        continue;
+                    }
+                    let path = path_from_python(py, &value)?;
+                    native_directory = Some(path);
                     continue;
                 }
-                directory_is_lookup_root = true;
             }
             let path = path_from_python(py, &value)?;
             if is_configured_directory && native_directory.is_none() {
@@ -147,7 +156,7 @@ impl PyStaticFiles {
             directory,
             packages,
             all_directories,
-            directory_is_lookup_root,
+            directory_insertion_index,
         })
     }
 
@@ -208,18 +217,23 @@ impl PyStaticFiles {
     ) -> PyResult<(Py<PyAny>, Py<PyAny>)> {
         let inner = self.inner.clone();
         let path = path_from_python(py, path.as_any())?;
-        let dynamic_directory = self.directory.as_ref().filter(|directory| {
-            self.directory_is_lookup_root && !directory.bind(py).is_instance_of::<PyString>()
-        });
+        let dynamic_directory = match (self.directory.as_ref(), self.directory_insertion_index) {
+            (Some(directory), Some(index)) if !directory.bind(py).is_instance_of::<PyString>() => {
+                Some((directory, index))
+            }
+            _ => None,
+        };
         let lookup = if is_absolute_lookup_path(&path) {
             py.detach(move || inner.lookup_path(path.as_os_str()))
-        } else if let Some(directory) = dynamic_directory {
+        } else if let Some((directory, directory_index)) = dynamic_directory {
             let joined_directory = path_from_python(py, directory.bind(py))?;
             let boundary_directory = path_from_python(py, directory.bind(py))?;
             py.detach(move || {
-                inner.lookup_path_with_directory(
+                inner.lookup_path_with_directory_at(
                     path.as_os_str(),
-                    Some((joined_directory.as_path(), boundary_directory.as_path())),
+                    directory_index,
+                    joined_directory.as_path(),
+                    boundary_directory.as_path(),
                 )
             })
         } else {

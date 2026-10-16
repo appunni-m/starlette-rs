@@ -9,10 +9,10 @@ incomplete.
 ## Current parity snapshot
 
 Implementation remains the active phase for the full Starlette replacement.
-The active `parity-input@58` contract indexes 2,557 cases across 428 parity
+The active `parity-input@58` contract indexes 2,562 cases across 431 parity
 inputs, two benchmark inputs, 152 Starlette compatibility operations, 14 native
-operations, and 1,417 parity requirements (manifest SHA-256
-`aa71f0c89470b1f4c401078445a8df445ab30c0eb8064ec4c13a1a1a61b9ca36`). The current batch adds CP437 multipart text decoding and ASGI2 `TestClient.app` wrapper behavior; both comparisons remain deferred to grouped parity. The current batch adds six unexecuted inputs for BackgroundTask attribute lookup, StaticFiles tuple-subclass iteration, Route/Router scope-type comparison, and Router missing-method order. The latest `Request.base_url` implementation adds two input-only comparisons for `app_root_path` string-subclass methods; these remain deferred to grouped parity. The latest
+operations, and 1,420 parity requirements (manifest SHA-256
+`4f4b95daeb52a383999d743214d22c759c9046fea5f187b8ecb1422eed5a5042`). The current batch adds CP437 multipart text decoding and ASGI2 `TestClient.app` wrapper behavior; both comparisons remain deferred to grouped parity. The current batch adds six unexecuted inputs for BackgroundTask attribute lookup, StaticFiles tuple-subclass iteration, Route/Router scope-type comparison, and Router missing-method order. The latest StaticFiles change preserves a dynamic configured `PathLike` root at its `get_directories()` position after package roots; its new input-only comparison remains deferred to grouped parity. The latest `Request.base_url` implementation adds two input-only comparisons for `app_root_path` string-subclass methods; these remain deferred to grouped parity. The latest
 implementation batch fixes falsey `str` subclass dispatch for QueryParams and
 TestClient cleanup exception context; both input-only comparisons remain deferred
 until grouped parity. The latest batch adds application attribute-read ordering, non-string scope dispatch in AuthenticationMiddleware, SessionMiddleware, and GZipMiddleware, ServerErrorMiddleware message-type equality, and pre-ASGI-2.4 StreamingResponse caller cancellation. These six new input-only comparisons remain unexecuted until the grouped full parity phase. The Request.stream body-object and TestClient noncanonical JSON-mode comparisons also remain unexecuted until grouped parity. The latest batch adds a Rust-backed StaticFiles single-digit
@@ -24,7 +24,7 @@ template processor exception-before-lookup
 case has its own derived parity requirement; both template processor
 comparisons remain unexecuted until full parity.
 The latest static inventory reports 999/999 API candidates dispositioned and
-866 source rows: 810 input mappings, 56 source-backed `not_applicable` rows,
+867 source rows: 811 input mappings, 56 source-backed `not_applicable` rows,
 and zero fixture backlog. A new `iterate_in_threadpool` input observes
 empty-iterable exhaustion alongside its async iterator protocol outcomes; a
 new `run_in_threadpool` cancellation input observes whether an AnyIO cancel

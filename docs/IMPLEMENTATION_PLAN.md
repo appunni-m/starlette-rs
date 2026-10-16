@@ -8,16 +8,19 @@ Pydantic are outside this project's scope.
 ## Execution order and current status
 
 Active implementation checkpoint (2026-10-16; `parity-input@58`; current
-manifest SHA-256 `99c085e88f819fd72f4740aeee5a28515f2390e9d57459c02fe97e1003823465`;
+manifest SHA-256 `4f4b95daeb52a383999d743214d22c759c9046fea5f187b8ecb1422eed5a5042`;
 last fully verified target revision `a10ecf5776c50cf86600e3d5f049e8db006f4966`):
 
-The active manifest declares full Starlette 1.6.0 scope with 2,561 cases across
-430 parity inputs, two benchmark inputs, 152 compatibility operations, 14
+The active manifest declares full Starlette 1.6.0 scope with 2,562 cases across
+431 parity inputs, two benchmark inputs, 152 compatibility operations, 14
 Rust-native operations, 1,420 parity requirements, and six target profiles.
-Input generation and contract validation, affected-crate `cargo check` and
-rustfmt, targeted Ruff checks, and source-atlas drift checks pass. Parity,
-coverage measurement, and benchmarks have not been run for this digest. The latest implementation batch
-preserves public BackgroundTask attribute lookup, StaticFiles package tuple
+Input generation and contract validation pass. The scoped StaticFiles change
+also passed affected-crate checks, rustfmt, and targeted Ruff; atlas generation
+reports 867 source rows (811 input mappings, 56 reasoned `not_applicable`, zero
+backlog). The new StaticFiles input checks configured `PathLike` directory
+ordering after package roots; it remains unexecuted until grouped parity.
+Parity, coverage measurement, and benchmarks have not been run for this
+digest. The latest implementation batch preserves public BackgroundTask attribute lookup, StaticFiles package tuple
 subclass iteration, Route/Router Python scope-type comparison semantics, and
 Router missing-method lookup order. Six corresponding input-only parity cases
 are registered and deferred to grouped parity. `Config.__call__`
@@ -65,7 +68,7 @@ contract check and affected Rust package checks pass. A WSGI import-warning
 audit found that the existing facade already matches the pinned warning,
 message, and call site; no change was needed. No parity, coverage, or benchmark
 run has been made for this manifest digest.
-The generated source atlas has 866 rows: 810 mapped, 56 source-backed
+The generated source atlas has 867 rows: 811 mapped, 56 source-backed
 `not_applicable`, and zero fixture backlog. The 999-row API catalog has 564
 supported candidates, 435 private/internal candidates, and zero uncertain
 candidates. The pinned denominators remain 514 upstream test functions and 24
@@ -717,10 +720,10 @@ also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
 The active parity contract is `parity-input@58` with full scope
-(`starlette-1.6.0-full`): 2,561 input cases across 430 parity files, two
+(`starlette-1.6.0-full`): 2,562 input cases across 431 parity files, two
 benchmark files, 152 Starlette compatibility operations, 14 Rust-native
 operations, 1,420 parity requirements, and six target profiles. Its manifest
-SHA-256 is `99c085e88f819fd72f4740aeee5a28515f2390e9d57459c02fe97e1003823465`.
+SHA-256 is `4f4b95daeb52a383999d743214d22c759c9046fea5f187b8ecb1422eed5a5042`.
 The latest parity, coverage, and benchmark receipts in the execution ledger
 are tied to the previous manifest and do not validate this current digest. The
 Config typing

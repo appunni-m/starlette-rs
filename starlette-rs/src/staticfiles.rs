@@ -240,6 +240,40 @@ impl StaticFiles {
         path: P,
         directory: Option<(&Path, &Path)>,
     ) -> Result<Option<StaticFile>, StaticFilesError> {
+        let skip_first_static_directory = directory.is_some() && self.directory.is_some();
+        self.lookup_path_in_order(
+            path,
+            directory.map(|(joined, boundary)| (0, joined, boundary)),
+            skip_first_static_directory,
+        )
+    }
+
+    /// Looks up a relative path with a dynamic directory inserted after the
+    /// requested number of configured roots.
+    ///
+    /// `directory_index` counts the static roots that precede the dynamic
+    /// directory. This keeps Python `PathLike` roots in the order returned by
+    /// `StaticFiles.get_directories`, including subclass overrides.
+    pub fn lookup_path_with_directory_at<P: AsRef<OsStr>>(
+        &self,
+        path: P,
+        directory_index: usize,
+        joined_directory: &Path,
+        boundary_directory: &Path,
+    ) -> Result<Option<StaticFile>, StaticFilesError> {
+        self.lookup_path_in_order(
+            path,
+            Some((directory_index, joined_directory, boundary_directory)),
+            false,
+        )
+    }
+
+    fn lookup_path_in_order<P: AsRef<OsStr>>(
+        &self,
+        path: P,
+        directory: Option<(usize, &Path, &Path)>,
+        mut skip_first_static_directory: bool,
+    ) -> Result<Option<StaticFile>, StaticFilesError> {
         let path = path.as_ref();
         if is_absolute_lookup_path(path) {
             return Ok(None);
@@ -250,18 +284,48 @@ impl StaticFiles {
         if (directory.is_some() || !self.directories.is_empty()) && contains_nul(path) {
             return Err(StaticFilesError::InvalidPath);
         }
-        if let Some((joined_directory, boundary_directory)) = directory {
-            if let Some(file) = lookup_in_directory(
-                path,
-                joined_directory,
-                boundary_directory,
-                self.follow_symlink,
-            )? {
-                return Ok(Some(file));
+        if let Some((directory_index, joined_directory, boundary_directory)) = directory {
+            // The dynamic directory is inserted at its original position
+            // among the roots returned by `get_directories`.
+            let mut static_directories_before = 0;
+            for configured_directory in &self.directories {
+                if directory_index == static_directories_before {
+                    if let Some(file) = lookup_in_directory(
+                        path,
+                        joined_directory,
+                        boundary_directory,
+                        self.follow_symlink,
+                    )? {
+                        return Ok(Some(file));
+                    }
+                }
+                if skip_first_static_directory {
+                    skip_first_static_directory = false;
+                } else if let Some(file) = lookup_in_directory(
+                    path,
+                    configured_directory,
+                    configured_directory,
+                    self.follow_symlink,
+                )? {
+                    return Ok(Some(file));
+                }
+                static_directories_before += 1;
             }
+            if directory_index == static_directories_before {
+                return lookup_in_directory(
+                    path,
+                    joined_directory,
+                    boundary_directory,
+                    self.follow_symlink,
+                );
+            }
+            return Ok(None);
         }
-        let first_static_directory = usize::from(directory.is_some() && self.directory.is_some());
-        for configured_directory in self.directories.iter().skip(first_static_directory) {
+        for configured_directory in &self.directories {
+            if skip_first_static_directory {
+                skip_first_static_directory = false;
+                continue;
+            }
             if let Some(file) = lookup_in_directory(
                 path,
                 configured_directory,

@@ -9591,11 +9591,19 @@ def _run_static_files_case(case: dict[str, Any]) -> dict[str, Any]:
                 "StaticFiles is_not_modified subclass hook",
             )
         elif selected_hook == "get_directories":
+            directory_hook_fields = {"return_configured_directory"}
+            if "return_package_directories_before_configured" in subclass_hooks["get_directories"]:
+                directory_hook_fields.add("return_package_directories_before_configured")
             _exact_object(
                 subclass_hooks["get_directories"],
-                {"return_configured_directory"},
+                directory_hook_fields,
                 "StaticFiles get_directories subclass hook",
             )
+            if any(
+                not isinstance(subclass_hooks["get_directories"][field], bool)
+                for field in directory_hook_fields
+            ):
+                raise ValueError("StaticFiles get_directories subclass hook values must be boolean")
         else:
             _exact_object(
                 subclass_hooks["get_response"],
@@ -9651,6 +9659,11 @@ def _run_static_files_case(case: dict[str, Any]) -> dict[str, Any]:
                         "packages": packages,
                     }
                 )
+                if hook_spec.get("return_package_directories_before_configured"):
+                    directories = super().get_directories(None, packages)
+                    if hook_spec["return_configured_directory"] and directory is not None:
+                        directories.append(directory)
+                    return directories
                 if hook_spec["return_configured_directory"] and directory is not None:
                     return [directory]
                 return []

@@ -25,13 +25,15 @@ with no conventional Python or Rust unit-test suite.
 ## Current implementation status
 
 The active full-scope `parity-input@58` contract covers Starlette 1.6.0 with
-2,557 cases across 428 parity inputs and two benchmark inputs, 152 compatibility
-operations, 14 Rust-native operations, and 1,417 parity requirements. Its
+2,562 cases across 431 parity inputs and two benchmark inputs, 152 compatibility
+operations, 14 Rust-native operations, and 1,420 parity requirements. Its
 manifest SHA-256 is
-`aa71f0c89470b1f4c401078445a8df445ab30c0eb8064ec4c13a1a1a61b9ca36`. Contract
+`4f4b95daeb52a383999d743214d22c759c9046fea5f187b8ecb1422eed5a5042`. Contract
 validation and source-inventory generation pass; parity, coverage, and benchmark
-runs have not been recorded for this digest. The source atlas contains 866 rows: 810 input
+runs have not been recorded for this digest. The source atlas contains 867 rows: 811 input
 mappings, 56 source-backed `not_applicable` rows, and zero fixture backlog. The
+StaticFiles implementation now preserves package-root order around a dynamic
+configured `PathLike` root; its input-only comparison remains deferred to grouped parity. The
 999-row API candidate catalog has 564 supported candidates, 435
 private/internal candidates, and zero uncertain candidates; the compatibility
 input selects 432 unique supported names and 47 pinned documentation imports.
@@ -249,8 +251,8 @@ selector. A related route or response example is not enough to claim coverage
 for a different public invocation shape.
 
 The crosswalk maps each source behavior only when an input directly stimulates
-and observes it. The checked-in generated `coverage-matrix.csv` has 866 source rows:
-810 `existing` mappings, zero `backlog` rows, and 56 reasoned `not_applicable`
+and observes it. The checked-in generated `coverage-matrix.csv` has 867 source rows:
+811 `existing` mappings, zero `backlog` rows, and 56 reasoned `not_applicable`
 rows. It maps exception, registered-handler, and direct
 `ServerErrorMiddleware` custom-handler behavior to input-only fixtures; the
 matrix is not a one-to-one index of active parity

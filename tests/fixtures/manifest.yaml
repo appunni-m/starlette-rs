@@ -548,6 +548,7 @@
       "build/parity/inputs/parity/static-files-stateful-pathlike.json",
       "build/parity/inputs/parity/static-files-os-path.json",
       "build/parity/inputs/parity/static-files-get-directories-subclass.json",
+      "build/parity/inputs/parity/static-files-get-directories-package-root-order.json",
       "build/parity/inputs/parity/static-files-secondary-lookup-error.json",
       "build/parity/inputs/parity/static-files-asgi-surrogateescape.json",
       "build/parity/inputs/parity/wsgi-middleware.json",

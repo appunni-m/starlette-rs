@@ -9420,14 +9420,25 @@ def _validate_static_files_case_stimulus(
             if base64.b64encode(decoded_body).decode("ascii") != encoded_body:
                 raise ContractError("StaticFiles get_response body must use canonical base64")
         elif subclass_hook_name == "get_directories":
+            hook_fields = {"return_configured_directory"}
+            if "return_package_directories_before_configured" in subclass_hooks[subclass_hook_name]:
+                hook_fields.add("return_package_directories_before_configured")
             hook = _exact(
                 subclass_hooks[subclass_hook_name],
-                {"return_configured_directory"},
+                hook_fields,
                 "StaticFiles get_directories subclass hook",
             )
             if type(hook["return_configured_directory"]) is not bool:
                 raise ContractError(
                     "StaticFiles get_directories return_configured_directory must be boolean"
+                )
+            if (
+                "return_package_directories_before_configured" in hook
+                and type(hook["return_package_directories_before_configured"]) is not bool
+            ):
+                raise ContractError(
+                    "StaticFiles get_directories return_package_directories_before_configured "
+                    "must be boolean"
                 )
         elif subclass_hook_name == "lookup_path":
             hook = _exact(
@@ -9456,14 +9467,17 @@ def _validate_static_files_case_stimulus(
     if type(case["follow_symlink"]) is not bool:
         raise ContractError("StaticFiles.follow_symlink must be boolean")
     if subclass_hook_name == "get_directories":
+        package_directories_first = subclass_hooks["get_directories"].get(
+            "return_package_directories_before_configured", False
+        )
         if (
             case["directory"] is None
             or not isinstance(case["directory"], str)
-            or case["packages"] != []
+            or (case["packages"] != [] and not package_directories_first)
             or not subclass_hooks["get_directories"]["return_configured_directory"]
         ):
             raise ContractError(
-                "StaticFiles get_directories override requires a configured string root and returns that root"
+                "StaticFiles get_directories override requires a configured root and returns that root"
             )
 
     path_limit_stress = case["path_limit_stress"]
@@ -9773,6 +9787,11 @@ def _validate_static_files_case_stimulus(
     for package in visible_packages:
         for file_input in package["files"]:
             selected_files[file_input["path"]] = (float(file_input["mtime_seconds"]), True)
+    package_directories_first = (
+        subclass_hooks["get_directories"].get("return_package_directories_before_configured", False)
+        if subclass_hook_name == "get_directories"
+        else False
+    )
     if subclass_hooks is not None:
         if subclass_hook_name == "lookup_path":
             hook = subclass_hooks["lookup_path"]
@@ -9800,7 +9819,7 @@ def _validate_static_files_case_stimulus(
             case["target_profiles"] != ["python-package-cpython312"]
             or scope["method"] != "GET"
             or case["html"]
-            or case["packages"]
+            or (case["packages"] and not package_directories_first)
             or len(direct_paths) != 1
             or normalized_path != direct_paths[0]
             or scope["path"] != f"/{normalized_path}"
@@ -10043,6 +10062,13 @@ def _validate_static_files_case_stimulus(
                         if conditional_full_month
                         else "conditional-date-match"
                     )
+            elif subclass_hook_name == "get_directories":
+                derived.add("get-directories-subclass-override")
+                if (
+                    selected_files[normalized_path][1]
+                    and "python-package-cpython312" in case["target_profiles"]
+                ):
+                    derived.add("package-static-assets")
             elif selected_files[normalized_path][1]:
                 if "python-package-cpython312" in case["target_profiles"]:
                     derived.add("package-static-assets")

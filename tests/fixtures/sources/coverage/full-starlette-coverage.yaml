@@ -4959,6 +4959,7 @@
           "starlette.staticfiles.StaticFiles.configuration-check.check-dir-false-valid-directory",
           "starlette.staticfiles.StaticFiles.asgi-call.empty-if-none-match-falls-through-to-if-modified-since",
           "starlette.staticfiles.StaticFiles.asgi-call.get-directories-subclass-override",
+          "starlette.staticfiles.StaticFiles.asgi-call.get-directories-subclass-configured-directory-after-package-roots",
           "starlette.staticfiles.StaticFiles.asgi-call.if-modified-since-full-month",
           "starlette.staticfiles.StaticFiles.asgi-call.if-modified-since-rfc850-full-month",
           "starlette.staticfiles.StaticFiles.asgi-call.if-modified-since-internal-rfc-comment",
