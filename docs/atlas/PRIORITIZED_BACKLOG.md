@@ -33,13 +33,12 @@ passed for CPython 3.10–3.14 at source snapshot `fe229a998` plus the README
 runtime-dependency wording correction: five isolated installs, `pip check`,
 import smoke, and 20 input-derived Mypy source/package comparisons passed.
 Wheel, sdist, and crate inspection confirmed package namespace, `py.typed`,
-runtime metadata, notices, and provenance. A local build-path reference and
-`file://.` PURL in the generated CycloneDX SBOM are tracked for review in
-follow-up `0t5m`; Windows-specific StaticFiles verification remains open. If
-further implementation changes add or alter runtime behavior, finish that
-implementation batch first, then rerun grouped parity and repairs, full
-coverage, and all benchmarks in that order. Do not infer complete compatibility
-from the active matrix alone.
+runtime metadata, notices, and provenance. The SBOM local-path issue was fixed
+and verified in commit `31ba6ba6`; Windows-specific StaticFiles verification
+remains open. If further implementation changes add or alter runtime behavior,
+finish that implementation batch first, then rerun grouped parity and repairs,
+full coverage, and all benchmarks in that order. Do not infer complete
+compatibility from the active matrix alone.
 
 ## Historical parity, coverage, and feature notes
 
