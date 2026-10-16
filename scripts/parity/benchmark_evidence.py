@@ -49,6 +49,7 @@ def _profile_summary(result: dict[str, Any]) -> str:
     package_profile = "python-package-cpython312"
     native_profile = "rust-native-local"
     package_passed = counts[(package_profile, "pass")]
+    package_not_run = counts[(package_profile, "not_run")]
     package_selected = sum(
         value for (profile, _), value in counts.items() if profile == package_profile
     )
@@ -60,7 +61,8 @@ def _profile_summary(result: dict[str, Any]) -> str:
     return (
         f"The preflight passed {package_passed}/{package_selected} Python-package "
         f"comparisons and {native_passed}/{native_selected} Rust-native comparisons; "
-        f"{native_not_run} Rust-native rows were `not_run`."
+        f"{package_not_run} Python-package and {native_not_run} Rust-native rows were "
+        "`not_run`."
     )
 
 

@@ -801,7 +801,7 @@
           "const": "python-package-cpython312"
         },
         "starlette_version": {
-          "const": "0.1.0"
+          "const": "1.6.0"
         },
         "package_version": {
           "const": "0.1.0"

@@ -44372,7 +44372,7 @@ def _validate_worker_identity(identity: Any, subject_id: str, context: str) -> N
     if subject_id != "python-package-cpython312":
         raise ContractError(f"{context} has an unsupported measured worker subject")
     if (
-        worker["starlette_version"] != "0.1.0"
+        worker["starlette_version"] != "1.6.0"
         or worker["package_version"] != "0.1.0"
         or worker["source_revision"] is not None
     ):
@@ -45684,7 +45684,7 @@ def _validate_upstream_worker_identity(value: Any, subject_id: str, context: str
         )
         if (
             identity["subject_id"] != subject_id
-            or identity["starlette_version"] != "0.1.0"
+            or identity["starlette_version"] != "1.6.0"
             or identity["package_version"] != "0.1.0"
         ):
             raise ContractError(f"{context} does not identify the installed Python package")

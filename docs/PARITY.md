@@ -5,31 +5,29 @@
 The active full-scope contract is `parity-input@58`, with 2,565 cases across
 431 parity inputs, 1,421 parity requirements, and manifest SHA-256
 `ec42686f557bdc59c0916f01823ac66018624dd0a787a9901ccfc6982a180b48`. Workflow
-[38844673533](https://github.com/appunni-m/starlette-rs/actions/runs/38844673533)
-completed the five-profile full parity matrix on revision
-`87ab3839852eafa87b1afb6b8e879ac8dae1f5b6`: 5,496 passed, zero failed, zero
-infrastructure errors, and zero `not_run`; all 17 selected fault-contract
-cases passed. The pinned Starlette 1.6.0 source revision is
-`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`.
+[38850605133](https://github.com/appunni-m/starlette-rs/actions/runs/38850605133)
+completed the five-profile parity matrix on revision
+`daf9b9d1f44e566515c640bc8d396bf342151b99`; all CPython 3.10–3.14 profiles and
+all 17 selected fault-contract cases passed. The pinned Starlette 1.6.0 source
+revision is `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`.
 
 The prior coverage selectors omitted 56 of the 2,565 unique parity cases. The
 active coverage input now selects every parity case applicable to each profile:
 374 Rust-native, 273 CPython 3.10, 273 CPython 3.11, 2,549 CPython 3.12, and 274
-each for CPython 3.13 and 3.14. The available workflow artifacts came from the
-smaller selectors and do not establish full-matrix coverage. The expanded plan
-passes `make contract-check` and a targeted Ruff check; fresh CI measurements
-are pending. Coverage MCP had matched the prior reports' source receipts and
-test status, but they are not used as full-matrix evidence. No saved coverage
-snapshot was ingested, and the receipt build IDs identify CI run/job/artifacts
-rather than a compiled target digest.
+each for CPython 3.13 and 3.14. All six full-matrix coverage jobs passed in the
+same workflow. Coverage MCP verified every report as `source=matches_receipt`,
+`tests=passed`, and `status=measured`, with no warnings. The selected case and
+line counts are recorded in the [implementation ledger](IMPLEMENTATION_PLAN.md).
+These measurements cover the selected case plans, not all source lines or the
+full Starlette behavior denominator.
 
-The 74-workload benchmark remains pending. Its correctness preflight must pass
-the CPython 3.12 package cases before timing; it does not establish the full
-Starlette replacement. The top-level aggregate status therefore remains
-`not_proven`. The source atlas currently contains 867 rows (811 input mappings,
-56 source-backed `not_applicable`, zero backlog). The pinned denominators
-remain 514 upstream test functions and 24 documented pages, and the full
-replacement remains incomplete.
+The complete 74-workload Router/GZip benchmark passed after parity and
+coverage: all source/package observations matched and the result records 74
+Rust-native `not_run` rows because there is no equivalent native ASGI boundary.
+The top-level aggregate status remains `not_proven`. The source atlas contains
+867 rows (811 input mappings, 56 source-backed `not_applicable`, zero backlog).
+The pinned denominators remain 514 upstream test functions and 24 documented
+pages, and the full replacement remains incomplete.
 
 Historical preflight context: the earlier grouped matrix found a URL difference
 on CPython 3.10/3.11 and a CPython 3.12 package-adapter schema crash; both were
