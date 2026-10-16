@@ -587,6 +587,7 @@
       "build/parity/inputs/parity/request-form-multipart-duplicate-charset.json",
       "build/parity/inputs/parity/request-form-multipart-iso-8859-1.json",
       "build/parity/inputs/parity/request-form-multipart-utf16.json",
+      "build/parity/inputs/parity/request-form-multipart-cp437.json",
       "build/parity/inputs/parity/formdata-constructor.json",
       "build/parity/inputs/parity/formdata-generic-typing.json",
       "build/parity/inputs/parity/formdata-close.json",
@@ -607,6 +608,7 @@
       "build/parity/inputs/parity/websocket-endpoint-docs-inputs.json",
       "build/parity/inputs/parity/http-endpoint-dispatch.json",
       "build/parity/inputs/parity/testclient-asgi-callable-protocol.json",
+      "build/parity/inputs/parity/testclient-asgi2-public-app-wrapper.json",
       "build/parity/inputs/parity/testclient-handled-exception-after-response.json",
       "build/parity/inputs/parity/testclient-http.json",
       "build/parity/inputs/parity/testclient-asgi-message-mutable-mapping.json",
@@ -19764,6 +19766,22 @@
               ]
             },
             {
+              "id": "starlette.request.form.multipart-cp437-decoding",
+              "dimension": "input_family",
+              "description": "Decode multipart text field values with Python-compatible CP437 when the input declares that charset, preserving the full mapping of bytes 0x80 through 0xFF. Pinned source: starlette/formparsers.py:212-275; Python's bytes.decode('cp437') behavior.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
               "id": "starlette.request.form.multipart-file-streaming",
               "dimension": "runtime",
               "description": "Write each parser-produced file chunk through UploadFile.write before receiving the next ASGI body chunk, then seek completed files after all writes from that request chunk. Pinned source: starlette/formparsers.py:181-297; starlette/datastructures.py:451-468; tests/test_formparsers.py::test_multipart_request_mixed_files_and_data; docs/requests.md:114-162.",
@@ -36040,6 +36058,16 @@
                   "condition": {
                     "input_key": "asgi_app.debug_after"
                   }
+                },
+                {
+                  "path": "public_app",
+                  "value_types": [
+                    "record",
+                    "null"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
                 }
               ],
               "error": {
@@ -36241,6 +36269,18 @@
               "id": "starlette.testclient.TestClient.request-response.asgi2-callable",
               "dimension": "protocol_variant",
               "description": "Adapt the supplied two-stage ASGI2 callable to the TestClient ASGI3 transport without changing its scope, receive, send, or response behavior. Pinned source: starlette/testclient.py:59-69,395-401; tests/test_testclient.py::test_testclient_asgi2.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.request-response.asgi2-public-app-wrapper",
+              "dimension": "boundary",
+              "description": "For a supplied ASGI2 application, expose the Rust-owned _WrapASGI2 adapter as TestClient.app, retain the original callable through its app attribute, and invoke it through the ASGI3 transport. Pinned source: starlette/testclient.py:64-74, 365-371; tests/test_testclient.py::test_testclient_asgi2.",
               "lanes": [
                 "parity",
                 "coverage"

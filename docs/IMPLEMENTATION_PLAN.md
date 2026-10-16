@@ -8,14 +8,14 @@ Pydantic are outside this project's scope.
 ## Execution order and current status
 
 Active implementation checkpoint (2026-10-16; `parity-input@58`; current
-manifest SHA-256 `604d24e0e5ea96be9a0fecbdd54e56235a010380af9a6d46588e4e787b03f25c`;
+manifest SHA-256 `aa71f0c89470b1f4c401078445a8df445ab30c0eb8064ec4c13a1a1a61b9ca36`;
 last fully verified target revision `a10ecf5776c50cf86600e3d5f049e8db006f4966`):
 
-The active manifest declares full Starlette 1.6.0 scope with 2,555 cases across
-426 parity inputs, two benchmark inputs, 152 compatibility operations, 14
-Rust-native operations, 1,415 parity requirements, and six target profiles.
-Input generation and contract validation, focused `cargo check`, Python
-compilation, and source-inventory drift checks pass; parity, coverage
+The active manifest declares full Starlette 1.6.0 scope with 2,557 cases across
+428 parity inputs, two benchmark inputs, 152 compatibility operations, 14
+Rust-native operations, 1,417 parity requirements, and six target profiles.
+Input generation and contract validation, focused `cargo check` and formatting,
+Python AST parsing, and source-inventory regeneration pass; parity, coverage
 measurement, and benchmarks have not been run for this digest. The latest implementation batch
 preserves public BackgroundTask attribute lookup, StaticFiles package tuple
 subclass iteration, Route/Router Python scope-type comparison semantics, and
@@ -51,6 +51,10 @@ Python boundary. Two input-only cases cover those methods. Input generation and
 its consistency check, focused `cargo check`, Python compilation, and source
 inventory drift checks passed; these parity cases remain unexecuted until the
 grouped parity phase.
+The current implementation batch adds CP437 multipart text decoding and the
+ASGI2 `TestClient.app` wrapper surface, with two input-only cases registered.
+The focused contract/input check and Rust package checks pass; both comparisons
+remain deferred to grouped parity.
 The generated source atlas has 866 rows: 810 mapped, 56 source-backed
 `not_applicable`, and zero fixture backlog. The 999-row API catalog has 564
 supported candidates, 435 private/internal candidates, and zero uncertain
@@ -703,10 +707,10 @@ also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
 The active parity contract is `parity-input@58` with full scope
-(`starlette-1.6.0-full`): 2,555 input cases across 426 parity files, two
+(`starlette-1.6.0-full`): 2,557 input cases across 428 parity files, two
 benchmark files, 152 Starlette compatibility operations, 14 Rust-native
-operations, 1,415 parity requirements, and six target profiles. Its manifest
-SHA-256 is `604d24e0e5ea96be9a0fecbdd54e56235a010380af9a6d46588e4e787b03f25c`.
+operations, 1,417 parity requirements, and six target profiles. Its manifest
+SHA-256 is `aa71f0c89470b1f4c401078445a8df445ab30c0eb8064ec4c13a1a1a61b9ca36`.
 The latest parity, coverage, and benchmark receipts in the execution ledger
 are tied to the previous manifest and do not validate this current digest. The
 Config typing

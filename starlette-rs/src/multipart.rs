@@ -938,6 +938,19 @@ fn user_safe_decode(bytes: &[u8], charset: &str) -> String {
         return bytes.iter().map(|byte| char::from(*byte)).collect();
     }
 
+    if is_cp437_charset(&charset) {
+        return bytes
+            .iter()
+            .map(|byte| {
+                if byte.is_ascii() {
+                    char::from(*byte)
+                } else {
+                    CP437_HIGH[usize::from(*byte - 0x80)]
+                }
+            })
+            .collect();
+    }
+
     if is_generic_utf16_charset(&charset) {
         return decode_generic_utf16(bytes)
             .unwrap_or_else(|| bytes.iter().map(|byte| char::from(*byte)).collect());
@@ -951,6 +964,20 @@ fn user_safe_decode(bytes: &[u8], charset: &str) -> String {
         }
     }
     bytes.iter().map(|byte| char::from(*byte)).collect()
+}
+
+const CP437_HIGH: [char; 128] = [
+    'Ç', 'ü', 'é', 'â', 'ä', 'à', 'å', 'ç', 'ê', 'ë', 'è', 'ï', 'î', 'ì', 'Ä', 'Å', 'É', 'æ', 'Æ',
+    'ô', 'ö', 'ò', 'û', 'ù', 'ÿ', 'Ö', 'Ü', '¢', '£', '¥', '₧', 'ƒ', 'á', 'í', 'ó', 'ú', 'ñ', 'Ñ',
+    'ª', 'º', '¿', '⌐', '¬', '½', '¼', '¡', '«', '»', '░', '▒', '▓', '│', '┤', '╡', '╢', '╖', '╕',
+    '╣', '║', '╗', '╝', '╜', '╛', '┐', '└', '┴', '┬', '├', '─', '┼', '╞', '╟', '╚', '╔', '╩', '╦',
+    '╠', '═', '╬', '╧', '╨', '╤', '╥', '╙', '╘', '╒', '╓', '╫', '╪', '┘', '┌', '█', '▄', '▌', '▐',
+    '▀', 'α', 'ß', 'Γ', 'π', 'Σ', 'σ', 'µ', 'τ', 'Φ', 'Θ', 'Ω', 'δ', '∞', 'φ', 'ε', '∩', '≡', '±',
+    '≥', '≤', '⌠', '⌡', '÷', '≈', '°', '∙', '·', '√', 'ⁿ', '²', '■', '\u{00a0}',
+];
+
+fn is_cp437_charset(charset: &str) -> bool {
+    matches!(charset, "437" | "cp437" | "cspc8codepage437" | "ibm437")
 }
 
 fn normalize_python_codec_name(codec: &str) -> String {

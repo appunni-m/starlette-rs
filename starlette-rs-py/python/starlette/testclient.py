@@ -13,6 +13,7 @@ from starlette.websockets import WebSocketDisconnect
 
 ASGIInstance = Callable[[Receive, Send], Awaitable[None]]
 _RequestData = Mapping[str, str | Iterable[str] | bytes]
+_WrapASGI2 = _core._WrapASGI2
 
 httpx = _core.testclient_httpx()
 _httpx = httpx
@@ -123,7 +124,7 @@ class TestClient(_httpx.Client):
                 "client": client,
             },
         )
-        self.app = app
+        self.app = self._testclient_runtime.app
         self.app_state = self._testclient_runtime.app_state
         self.async_backend = self._testclient_runtime.async_backend
         transport = _TestClientTransport(self._testclient_runtime)

@@ -78,7 +78,8 @@
         "starlette.testclient.TestClient.request-response.scope-projection",
         "starlette.testclient.TestClient.request-response.request-message",
         "starlette.testclient.TestClient.request-response.asgi2-callable",
-        "starlette.testclient.TestClient.request-response.response-and-debug"
+        "starlette.testclient.TestClient.request-response.response-and-debug",
+        "starlette.testclient.TestClient.request-response.asgi2-public-app-wrapper"
       ],
       "target_profiles": [
         "python-package-cpython312"
@@ -2418,7 +2419,7 @@
           "headers_base64_pairs": [],
           "body_base64": "",
           "params": {
-            "param": "Espa\u00f1a"
+            "param": "España"
           }
         },
         {
@@ -2428,7 +2429,7 @@
           "headers_base64_pairs": [],
           "body_base64": "",
           "params": {
-            "param": "voil\u00e0"
+            "param": "voilà"
           }
         }
       ],

@@ -398,6 +398,9 @@ TESTCLIENT_REQUIREMENTS = {
     "follow_redirects_enabled": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.follow-redirects-enabled",
     "response_history": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.response-history",
     "asgi2": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.asgi2-callable",
+    "asgi2_public_app_wrapper": (
+        f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.asgi2-public-app-wrapper"
+    ),
     "asgi3_asyncio_marker": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.asyncio-marked-asgi3-callable",
     "timeout_warning": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.timeout-deprecation-warning",
     "exception_policy": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.exception-policy",
@@ -810,6 +813,7 @@ REQUEST_FORM_OPERATION = ("starlette.requests.Request", "form")
 REQUEST_FORM_ARBITRARY_PRECISION_LIMIT_REQUIREMENT = (
     "starlette.request.form.arbitrary-precision-count-limits"
 )
+REQUEST_FORM_CP437_REQUIREMENT = "starlette.request.form.multipart-cp437-decoding"
 REQUEST_FORM_CONTEXT_EXIT_DISCARDS_CLOSE_RESULT_REQUIREMENT = (
     "starlette.request.form.context-manager-exit-discards-close-result"
 )
@@ -18646,6 +18650,7 @@ def _validate_testclient_case(
         expected_covers.add(TESTCLIENT_REQUIREMENTS["exception_policy"])
     if asgi_app["kind"] == "asgi2":
         expected_covers.add(TESTCLIENT_REQUIREMENTS["asgi2"])
+        expected_covers.add(TESTCLIENT_REQUIREMENTS["asgi2_public_app_wrapper"])
     if asgi_app["kind"] == "asgi3-asyncio-marked":
         expected_covers.add(TESTCLIENT_REQUIREMENTS["asgi3_asyncio_marker"])
     if any("timeout" in item for item in [request, *followup_requests]):
@@ -34538,6 +34543,25 @@ def _validate_request_form_case(case: dict[str, Any]) -> None:
                 r"(?:^|;)\s*charset\s*=", effective_content_type_header or "", re.IGNORECASE
             ) or any(value > 127 for value in body):
                 expected_covers.append("starlette.request.form.multipart-charset-decoding")
+            charset_match = re.search(
+                r'(?:^|;)\s*charset\s*=\s*"?([^";\s]+)',
+                effective_content_type_header or "",
+                re.IGNORECASE,
+            )
+            if charset_match is not None:
+                charset = re.sub(r"[^a-z0-9.]", "", charset_match.group(1).lower())
+                if charset in {"437", "cp437", "cspc8codepage437", "ibm437"}:
+                    high_bytes = set(range(0x80, 0x100))
+                    if not any(
+                        high_bytes.issubset(part)
+                        for part in _multipart_text_parts(
+                            effective_content_type_header or "", body
+                        )
+                    ):
+                        raise ContractError(
+                            "CP437 multipart decoding cases must supply every high byte in a text field"
+                        )
+                    expected_covers.append(REQUEST_FORM_CP437_REQUIREMENT)
             if has_file_probes:
                 expected_covers.append("starlette.datastructures.FormData.file-values")
                 path_filename_keys = set(

@@ -1186,6 +1186,15 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
         follow_redirects=settings.get("follow_redirects", True),
         cookies=settings.get("cookies"),
     )
+    public_app_observation = None
+    if app_input["kind"] == "asgi2":
+        public_app = client.app
+        public_app_observation = {
+            "same_as_supplied": public_app is app,
+            "wrapped_app_same_as_supplied": getattr(public_app, "app", None) is app,
+            "type_module": type(public_app).__module__,
+            "type_qualname": type(public_app).__qualname__,
+        }
     if "client_headers_assignment" in case:
         client.headers = dict(case["client_headers_assignment"])
     response = None
@@ -1318,6 +1327,7 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
         ),
         "nested_testclient": nested_testclient_observation,
         "exception_propagation": None,
+        "public_app": public_app_observation,
     }
     if "content_generator_chunks_base64" in request_input:
         result["request_content_generator_yields"] = request_content_generator_yields

@@ -18,6 +18,49 @@ use crate::awaitable::{
 
 create_exception!(_core, WebSocketUpgrade, PyException);
 
+#[pyclass(name = "_WrapASGI2", module = "starlette.testclient")]
+struct PyWrapASGI2 {
+    app: Py<PyAny>,
+    runner: Py<PyAny>,
+}
+
+#[pymethods]
+impl PyWrapASGI2 {
+    fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
+        visit.call(&self.app)?;
+        visit.call(&self.runner)?;
+        Ok(())
+    }
+
+    fn __clear__(&mut self, py: Python<'_>) {
+        self.app = py.None();
+        self.runner = py.None();
+    }
+
+    #[getter]
+    fn app(&self, py: Python<'_>) -> Py<PyAny> {
+        self.app.clone_ref(py)
+    }
+
+    #[setter]
+    fn set_app(&mut self, app: Py<PyAny>) {
+        self.app = app;
+    }
+
+    fn __call__(
+        &self,
+        py: Python<'_>,
+        scope: Py<PyAny>,
+        receive: Py<PyAny>,
+        send: Py<PyAny>,
+    ) -> PyResult<Py<PyAny>> {
+        self.runner
+            .bind(py)
+            .call1((self.app.bind(py), scope, receive, send))
+            .map(Bound::unbind)
+    }
+}
+
 #[derive(Clone, Copy)]
 enum WebSocketTaskPhase {
     App,
@@ -173,7 +216,6 @@ pub(crate) struct PyTestClientTransport {
     app: Py<PyAny>,
     httpx: Py<PyAny>,
     asgi3_runner: Py<PyAny>,
-    asgi2_runner: Py<PyAny>,
     backend: String,
     backend_options: Py<PyDict>,
     raise_server_exceptions: bool,
@@ -1318,7 +1360,6 @@ impl PyTestClientTransport {
         visit.call(&self.app)?;
         visit.call(&self.httpx)?;
         visit.call(&self.asgi3_runner)?;
-        visit.call(&self.asgi2_runner)?;
         visit.call(&self.backend_options)?;
         visit.call(&self.client)?;
         visit.call(&self.app_state)?;
@@ -1332,7 +1373,6 @@ impl PyTestClientTransport {
         self.app = py.None();
         self.httpx = py.None();
         self.asgi3_runner = py.None();
-        self.asgi2_runner = py.None();
         self.client = py.None();
         self.lifespan = None;
     }
@@ -1371,11 +1411,22 @@ impl PyTestClientTransport {
             .get_item("client")?
             .ok_or_else(|| PyKeyError::new_err("client"))?
             .unbind();
+        let app = if is_asgi3(py, app.bind(py))? {
+            app.clone_ref(py)
+        } else {
+            Py::new(
+                py,
+                PyWrapASGI2 {
+                    app: app.clone_ref(py),
+                    runner: runners.1.clone_ref(py),
+                },
+            )?
+            .into_any()
+        };
         Ok(Self {
             app,
             httpx,
             asgi3_runner: runners.0,
-            asgi2_runner: runners.1,
             backend,
             backend_options,
             raise_server_exceptions,
@@ -1466,11 +1517,7 @@ impl PyTestClientTransport {
         let lifespan = self.lifespan.as_ref().ok_or_else(|| {
             PyAttributeError::new_err("'TestClient' object has no attribute 'stream_receive'")
         })?;
-        let runner = if is_asgi3(py, self.app.bind(py))? {
-            self.asgi3_runner.clone_ref(py)
-        } else {
-            self.asgi2_runner.clone_ref(py)
-        };
+        let runner = self.asgi3_runner.clone_ref(py);
         let scope = PyDict::new(py);
         scope.set_item("type", "lifespan")?;
         scope.set_item("state", self.app_state.bind(py))?;
@@ -1557,11 +1604,7 @@ impl PyTestClientTransport {
                 self.client.bind(py),
                 self.app_state.bind(py),
             )?;
-            let runner = if is_asgi3(py, self.app.bind(py))? {
-                self.asgi3_runner.clone_ref(py)
-            } else {
-                self.asgi2_runner.clone_ref(py)
-            };
+            let runner = self.asgi3_runner.clone_ref(py);
             let shared_portal = self
                 .lifespan
                 .as_ref()
@@ -1605,11 +1648,7 @@ impl PyTestClientTransport {
                 state: Arc::clone(&state),
             },
         )?;
-        let runner = if is_asgi3(py, self.app.bind(py))? {
-            self.asgi3_runner.bind(py)
-        } else {
-            self.asgi2_runner.bind(py)
-        };
+        let runner = self.asgi3_runner.bind(py);
         let anyio = py.import("anyio")?;
         let mut manager: Option<Py<PyAny>> = None;
         let operation_result = (|| -> PyResult<()> {
@@ -1851,6 +1890,7 @@ pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
         "_WebSocketUpgrade",
         module.py().get_type::<WebSocketUpgrade>(),
     )?;
+    module.add_class::<PyWrapASGI2>()?;
     module.add_class::<PyTestClientTransport>()?;
     module.add_class::<PyWebSocketTestSession>()?;
     module.add_function(pyo3::wrap_pyfunction!(testclient_httpx, module)?)?;
