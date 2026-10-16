@@ -3,60 +3,36 @@
 ## Current verification status
 
 The active full-scope manifest is `parity-input@58`, SHA-256
-`5c9d527185317ff005d83c666610467ef86b9e870a5b723727f146dd2cff6fe1`,
-against Starlette 1.6.0 revision
-`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. It declares 2,565 input-only
-cases across 431 parity files, 152 compatibility operations, 14 Rust-native
-operations, 1,421 parity requirements, and six target profiles. The focused
-contract/input check, affected Rust package builds and formatting, targeted
-Ruff checks, and source-atlas validation pass. The latest implementation batch preserves BackgroundTask
-public attribute lookup, StaticFiles package tuple-subclass iteration,
-Route/Router Python scope-type comparison semantics, and Router missing-method
-lookup order; its six input-only cases remain deferred to grouped parity. No
-parity, coverage, or benchmark run is recorded for this manifest digest.
-The current StaticFiles change preserves `get_directories()` order when a
-dynamic configured `PathLike` root follows package roots; its new input-only
-comparison is registered and remains deferred to grouped parity.
-The newest `Request.base_url` slice adds two input-only comparisons for
-`app_root_path` string-subclass dispatch; they also remain unexecuted until the
-grouped parity phase.
-The current implementation batch adds CP437 multipart text decoding and the
-ASGI2 `TestClient.app` wrapper surface. Both new input-only comparisons remain
-deferred to the grouped parity phase.
-The newest batch fixes FileResponse's CPython integer digit-limit handling for
-leading-zero range bounds and Request.form's Content-Type case and repeated
-boundary parsing. Four input-only cases are registered and remain unexecuted
-until grouped parity. A focused WSGI import-warning audit confirmed the existing
-facade already matches the pinned warning message and call site. No parity,
-coverage, or benchmark run is recorded for the active digest.
+`ec42686f557bdc59c0916f01823ac66018624dd0a787a9901ccfc6982a180b48`, against
+Starlette 1.6.0 revision `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. It
+declares 2,565 input-only cases across 431 parity files, 152 compatibility
+operations, 14 Rust-native operations, 1,421 parity requirements, and six
+target profiles. Workflow
+[38850605133](https://github.com/appunni-m/starlette-rs/actions/runs/38850605133)
+passed the five CPython package profiles; all 17 selected fault-contract cases
+passed.
 
-The last complete parity and coverage workflow
-[38805748474](https://github.com/appunni-m/starlette-rs/actions/runs/38805748474)
-verified the previous manifest SHA-256
-`2dcb25d098d4f09ce3dd6bb231164a58391175f6cff222dd2c6316a9580eec4a` on target
-revision `a10ecf5776c50cf86600e3d5f049e8db006f4966`; all five parity profiles
-and all six coverage profiles succeeded for that earlier input set.
+The expanded coverage plan selects every case applicable to its target
+profile: Rust-native 374, CPython 3.10 273, 3.11 273, 3.12 2,549, and 3.13 and
+3.14 274 each. All six coverage jobs passed in workflow `38850605133`.
+Coverage MCP verified each report as `source=matches_receipt`, `tests=passed`,
+`status=measured`, and no warnings. The atlas contains 867 rows: 811 input
+mappings, 56 source-backed `not_applicable` rows, and zero backlog; all 999 API
+candidate rows have dispositions. These selected-case measurements do not
+claim full source-line or full Starlette behavioral coverage.
 
-Coverage MCP measured 5,156/8,004 Rust-native lines; CPython 3.10
-11,650/33,280; 3.11 11,662/33,280; 3.12 22,903/33,280; 3.13 11,610/33,280;
-and 3.14 11,606/33,280. MCP reviewed uncovered locations, but source identity
-is unverified and test status unknown because no source/build receipt was
-ingested. These line counts are measurements, not source-verified regression
-evidence.
-
-The last benchmark run `1853ee16-2795-48dc-bc5f-2b15421967df` measured 74/74
-source/package workloads (6 Router and 68 GZip), with zero failures or
-`not_run` rows. All 74 Rust-native rows are `not_run` because no equivalent
-workload boundary is available. Median source/package latency ratios were
-0.224 for Router and 0.974 for GZip; normalized observation hashes matched in
-74/74. The evidence is workload-specific and does not establish full Starlette
-replacement parity. It also belongs to the previous manifest, not the active
-digest above.
+Benchmark run `67373339-9c28-410d-b9b0-40fbe02ca40a` measured all 74 declared
+source/package workloads (six Router and 68 GZip), with zero failures or
+source/package `not_run` rows and matching normalized observations for all 74.
+All 74 Rust-native rows are `not_run` because no equivalent ASGI workload
+boundary is available. Median source/package latency ratios were 0.219 for
+Router and 0.970 for GZip. See [benchmark evidence](BENCHMARKS.md) for run
+identity and measurement details.
 
 The full Starlette replacement remains incomplete; these measurements do not
-establish universal or drop-in compatibility. Parity, coverage, and benchmark
-phases remain pending for the active manifest. Keep the pinned
-denominators visible: 514 upstream test functions and 24 documented pages.
+establish universal or drop-in compatibility. Packaging qualification and the
+remaining implementation gaps are still open. Keep the pinned denominators
+visible: 514 upstream test functions and 24 documented pages.
 
 The implementation-batch notes below preserve per-feature detail as it was
 recorded. Their `unexecuted` and `deferred` wording is historical, not the
