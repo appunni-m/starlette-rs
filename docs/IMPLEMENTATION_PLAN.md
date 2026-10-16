@@ -9,49 +9,46 @@ Pydantic are outside this project's scope.
 
 Active implementation checkpoint (2026-10-16; `parity-input@62`; manifest
 SHA-256 `e666f6c2ae10afdfc6a785bd3101b0542ac1eba64d3687c92d3381a4c2790e3d`;
-last recorded coverage revision `daf9b9d1f44e566515c640bc8d396bf342151b99`;
-last recorded benchmark revision `3b951a2fe0a91fbba708b3067c3dbdfc6da92da7`):
+parity and coverage workflow `38895661384`; target revision
+`4742d075a748fbe182ac121e8b37dd25f5f2d56c`; benchmark run
+`5242b8e5-4c5e-4c45-af60-0b83a6ba8b33`):
 
 The active manifest declares full Starlette 1.6.0 scope with 2,588 cases across
 437 parity inputs, two benchmark inputs, 152 compatibility operations, 15
 Rust-native operations, 1,441 parity requirements, and six target profiles.
-The grouped local parity run for this manifest selected 2,941 comparisons on
-CPython 3.12 and Rust-native: 2,937 passed with no behavioral mismatches; two
-WebSocket adapter crashes were fixed and both cases passed in a focused rerun.
-Four rows are explicit source skips because the local macOS filesystem refuses
-POSIX surrogateescape filenames. The five newest Request/HTTPConnection cases
-passed on CPython 3.12. Cross-profile parity is pending CI. `make source-inventory`
-passed contract validation and regenerated the source atlas: 867 rows, 811 input
-mappings, 56 source-backed `not_applicable` rows, and zero backlog. Coverage and
-benchmark runs have not been performed for this checkpoint. The pinned
-denominators remain 514 upstream test functions and 24 documented pages.
+The local grouped parity run selected 2,941 CPython 3.12 and Rust-native
+comparisons. It recorded 2,937 passes, no behavioral mismatches, and two
+WebSocket adapter crashes; the adapter fix was verified with a focused 2/2
+rerun. Four local rows remain explicit skips because macOS cannot create the
+required POSIX surrogateescape filenames. CI then passed all five CPython
+3.10–3.14 source parity jobs on the fixed commit. `make source-inventory`
+passed and regenerated the atlas with 867 rows, 811 input mappings, 56
+source-backed `not_applicable` rows, and zero backlog.
 
-The full parity workflow
-[`38850605133`](https://github.com/appunni-m/starlette-rs/actions/runs/38850605133)
-completed successfully for CPython 3.10–3.14; all 17 selected fault-contract
-cases passed. The fresh benchmark preflight also completed 2,916/2,918 selected
-comparisons with zero failures or infrastructure errors; its two declared
-two-sided platform skips are recorded in [benchmark evidence](BENCHMARKS.md).
-These inputs do not establish the full upstream test or documentation
-denominators.
+The six coverage profiles passed in workflow
+[`38895661384`](https://github.com/appunni-m/starlette-rs/actions/runs/38895661384):
+375 Rust-native cases, 274 each for CPython 3.10 and 3.11, 2,571 for CPython
+3.12, and 275 each for CPython 3.13 and 3.14. Selected-component line coverage
+was Rust-native 5,204/8,110; CPython 3.10 11,884/33,708; 3.11 11,878/33,708;
+3.12 23,313/33,708; 3.13 11,821/33,708; and 3.14 11,807/33,708. Coverage MCP
+read all six LCOV reports and surfaced uncovered locations, but marked the
+imported CI reports `source=unverified` and `tests=unknown` because their
+receipts were not ingested. The attached CI result artifacts record zero test
+failures against the clean target revision above. Coverage measures these
+selected cases; it is not a parity score or a percentage for the whole
+Starlette contract.
 
-An audit found that the prior coverage selectors omitted 56 of the 2,565 unique
-parity cases. The active coverage input now selects every parity case applicable
-to each target profile: 374 Rust-native, 273 CPython 3.10, 273 CPython 3.11,
-2,549 CPython 3.12, and 274 each for CPython 3.13 and 3.14. All six full-matrix
-coverage jobs passed in workflow `38850605133` and Coverage MCP verified every
-report as `source=matches_receipt`, `tests=passed`, `status=measured`, with no
-warnings. Line coverage was Rust-native 5,189/8,093; CPython 3.10 11,794/33,583;
-3.11 11,772/33,583; 3.12 23,215/33,583; 3.13 11,760/33,583; and 3.14
-11,749/33,583. These are measurements of selected cases, not a parity score or
-coverage percentage for the whole Starlette contract.
-
-The 74-workload benchmark completed after parity and coverage. It measured all
-six Router and 68 GZip source/package workloads with zero failures, skips, or
-observation mismatches; the Rust-native boundary remains `not_run` for all 74.
-The median source/package latency ratios were 0.219 for Router and 0.970 for
-GZip. The full replacement goal remains active because the pinned compatibility
-inventory is broader than these mapped inputs.
+The complete 74-workload benchmark ran after parity and coverage. It measured
+all six Router and 68 GZip source/package workloads with zero failures, skips,
+or observation mismatches; Rust-native remains `not_run` for all 74 because it
+has no equivalent ASGI workload boundary. Its correctness preflight selected
+2,941 comparisons: 2,939 passed, zero failed or had infrastructure errors,
+and two were skipped because macOS cannot create the surrogateescape filename.
+The median source/package latency ratios were 0.283 for Router and 0.976 for
+GZip; source latency was lower in 6/6 Router and 54/68 GZip workloads. The full
+replacement goal remains active because the pinned compatibility inventory is
+broader than these mapped inputs. The pinned denominators remain 514 upstream
+test functions and 24 documented pages.
 
 The macOS arm64 package qualification passed at source snapshot `fe229a998`
 plus the README runtime-dependency wording correction. Five isolated installs
@@ -605,9 +602,9 @@ representation, and dynamic `FormData.close()` dispatch remain Rust-backed.
 | Phase | State | Evidence |
 | --- | --- | --- |
 | Implementation | Request/HTTPConnection boundary implementation is recorded: dynamic overridden-scope descriptors and mapping methods, `Request.url_for` string and `base_url` overrides, and push-promise header overrides. The five input comparisons are authored and passed on the available CPython 3.12 profile. | Manifest SHA-256 `e666f6c2ae10afdfc6a785bd3101b0542ac1eba64d3687c92d3381a4c2790e3d`; `make source-inventory` passed; atlas has 811 source rows mapped and 56 marked `not_applicable`. |
-| Full parity and grouped repairs | The active manifest's grouped local run completed 2,937 comparisons with no behavioral mismatches. Two WebSocket target-adapter crashes were fixed and both affected cases passed in a focused rerun. Four rows remain explicit local skips because macOS refuses the required POSIX surrogateescape filenames; cross-profile CI parity is pending. | Full local run `build/parity/parity-result.json` and focused repair `build/parity/parity-selected-result.json`; oracle: Starlette 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. |
-| Full coverage and source reconciliation | All six coverage profiles passed for the prior @58 manifest. Those reports measure selected inputs and do not claim whole-project coverage; the current @59/@60/@61/@62 inputs are not included. | Workflow `38850605133`, cargo-llvm-cov 0.8.7, target revision `daf9b9d1f44e566515c640bc8d396bf342151b99`; selected cases passed/failed: CPython 3.10 273/0, 3.11 273/0, 3.12 2,549/0, 3.13 274/0, 3.14 274/0, Rust-native 374/0. Line coverage: Rust-native 5,189/8,093; CPython 3.10 11,794/33,583; 3.11 11,772/33,583; 3.12 23,215/33,583; 3.13 11,760/33,583; 3.14 11,749/33,583. Every Coverage MCP result reported `source=matches_receipt`, `tests=passed`, `status=measured`, and no warnings. |
-| All benchmarks | The recorded 74-workload source/package benchmark used the prior @58 manifest and completed after its full parity and coverage run. | Run `67373339-9c28-410d-b9b0-40fbe02ca40a`, manifest SHA-256 `ec42686f557bdc59c0916f01823ac66018624dd0a787a9901ccfc6982a180b48`: 74/74 measured (6 Router, 68 GZip), zero failures or source/package `not_run`; 74 Rust-native rows `not_run` because the equivalent workload boundary is unavailable. Preflight `4e8b63e7-dd15-4a46-b6e9-6e8bf4a29d31`: 2,916 passed, zero failed or infrastructure errors, two declared two-sided skips. Median source/package ratios: 0.219 Router and 0.970 GZip; source latency lower in 6/6 Router and 60/68 GZip; normalized observations matched 74/74. Result SHA-256 `588ceef503267cbfc868f701a808682d4201b5175137968837bbc8b2374dcb7d`. |
+| Full parity and grouped repairs | The active @62 manifest's local grouped run found two WebSocket adapter crashes, which were fixed and verified with a focused rerun. The current CI run passed all five CPython 3.10–3.14 parity jobs. Four local rows remain explicit macOS skips for the unsupported POSIX surrogateescape filename. | Workflow `38895661384`, clean target revision `4742d075a748fbe182ac121e8b37dd25f5f2d56c`; local full run `build/parity/parity-result.json`, focused repair `build/parity/parity-selected-result.json`; oracle: Starlette 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. |
+| Full coverage and source reconciliation | All six active @62 coverage profiles completed with zero failed cases. Coverage MCP read every LCOV report and returned gaps, with source and test status unverified because the CI receipts were not ingested. These selected-input measurements do not claim whole-project coverage. | Workflow `38895661384`, cargo-llvm-cov 0.8.7, clean target revision `4742d075a748fbe182ac121e8b37dd25f5f2d56c`; selected cases passed/failed: CPython 3.10 274/0, 3.11 274/0, 3.12 2,571/0, 3.13 275/0, 3.14 275/0, Rust-native 375/0. Line coverage: Rust-native 5,204/8,110; CPython 3.10 11,884/33,708; 3.11 11,878/33,708; 3.12 23,313/33,708; 3.13 11,821/33,708; 3.14 11,807/33,708. |
+| All benchmarks | The complete active @62 74-workload source/package benchmark passed after the grouped parity and coverage phases. | Run `5242b8e5-4c5e-4c45-af60-0b83a6ba8b33`, manifest SHA-256 `e666f6c2ae10afdfc6a785bd3101b0542ac1eba64d3687c92d3381a4c2790e3d`: 74/74 measured (6 Router, 68 GZip), zero failures, skips, or source/package `not_run`; 74 Rust-native rows `not_run` because the equivalent workload boundary is unavailable. Preflight `2da9e927-1a15-43c5-a242-e993c7ad84b8`: 2,939 passed, zero failed or infrastructure errors, two local POSIX-surrogateescape skips. Median source/package ratios: 0.283 Router and 0.976 GZip; source latency lower in 6/6 Router and 54/68 GZip; normalized observations matched 74/74. Result SHA-256 `b97144d789335cb0818f6b758e8a56f77160554b81cd22bf314420ff9d94ed4a`. |
 | Packaging and interpreter qualification | Historical local macOS arm64 qualification; current changes are not qualified by it. | Five CPython 3.10–3.14 wheels, an sdist, and the Rust crate were inspected in the earlier qualification. Other platform builds remain unqualified. |
 
 Parity, coverage, and benchmark result artifacts are local generated output
