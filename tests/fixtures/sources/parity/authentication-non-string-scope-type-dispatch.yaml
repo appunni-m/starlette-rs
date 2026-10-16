@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@62",
+  "schema": "migration-parity/parity-input@63",
   "cases": [
     {
       "case_id": "starlette.middleware.authentication.AuthenticationMiddleware.dispatch.non-string-scope-type-bypass",

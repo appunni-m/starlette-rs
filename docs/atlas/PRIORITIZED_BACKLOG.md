@@ -8,12 +8,14 @@ incomplete.
 
 ## Current execution snapshot
 
-The active `parity-input@62` contract contains 2,588 cases across 437 parity
+The active `parity-input@63` contract contains 2,590 cases across 437 parity
 inputs and two benchmark inputs, 152 Starlette compatibility operations, 15
-Rust-native operations, 1,441 parity requirements, and six target profiles. Its
+Rust-native operations, 1,442 parity requirements, and six target profiles. Its
 manifest SHA-256 is
-`e666f6c2ae10afdfc6a785bd3101b0542ac1eba64d3687c92d3381a4c2790e3d`. Contract
-validation passed. The generated atlas has
+`f8a34c2978af95382ceadcd3e3a2c5a9d7bb1d467f03b35ba55033d9b7336124`. The two
+new lifespan failure-send context comparisons await the grouped parity phase;
+results below use the preceding @62 manifest. Contract validation passed. The
+generated atlas has
 867 source rows: 811 input mappings, 56 source-backed `not_applicable` rows, and
 zero backlog. All 999 API candidate rows have dispositions. The current grouped local run
 selected 2,941 comparisons on CPython 3.12 and
