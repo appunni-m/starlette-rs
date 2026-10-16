@@ -98,7 +98,7 @@ class Config:
         cast: Callable[[Any], Any] | None = None,
         default: Any = undefined,
     ) -> Any:
-        return self._inner.get(key, cast, default)
+        return _core._config_get(self, key, cast, default)
 
     def _read_file(self, file_name: str | Path, encoding: str) -> dict[str, str]:
         return self._inner.read_file(file_name, encoding)

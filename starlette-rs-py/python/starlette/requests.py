@@ -38,7 +38,7 @@ class HTTPConnection(Mapping[str, Any], Generic[StateT]):
     __slots__ = ("_inner",)
 
     def __init__(self, scope: Scope, receive: Receive | None = None) -> None:
-        self._inner = _core.HTTPConnection(scope)
+        self._inner = _core.HTTPConnection(scope, debug=__debug__)
         self.scope = scope
 
     @property
@@ -102,15 +102,15 @@ class HTTPConnection(Mapping[str, Any], Generic[StateT]):
 
     @property
     def session(self) -> dict[str, Any]:
-        return _core.HTTPConnection._session_value(self)
+        return _core.HTTPConnection._session_value(self, __debug__)
 
     @property
     def auth(self) -> Any:
-        return _core.HTTPConnection._auth_value(self)
+        return _core.HTTPConnection._auth_value(self, __debug__)
 
     @property
     def user(self) -> Any:
-        return _core.HTTPConnection._user_value(self)
+        return _core.HTTPConnection._user_value(self, __debug__)
 
 
 class Request(HTTPConnection[StateT]):
@@ -124,9 +124,9 @@ class Request(HTTPConnection[StateT]):
         receive: Receive = empty_receive,
         send: Send = empty_send,
     ):
-        self._inner = _core.HTTPConnection(scope)
+        self._inner = _core.HTTPConnection(scope, debug=__debug__)
         self.scope = scope
-        _core.HTTPConnection._assert_scope_type(scope, "http")
+        _core.HTTPConnection._assert_scope_type(scope, "http", __debug__)
         self._body_state = _core.RequestBody(receive)
         self._send = send
 

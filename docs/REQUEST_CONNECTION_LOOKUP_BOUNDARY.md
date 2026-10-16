@@ -51,3 +51,14 @@ The input-only comparisons for these descriptor and argument boundaries are
 registered in the active parity manifest. They contain stimuli and observation
 selectors only; source/package execution remains deferred to the grouped full
 parity phase. No standalone unit tests or expected outputs are added.
+
+## Optimized Python assertions
+
+Pinned Request, WebSocket, and HTTPConnection checks use Python `assert`
+statements, so CPython removes those checks under `-O`. The facade passes the
+compile-time `__debug__` value to Rust; Rust skips the corresponding scope and
+membership checks when assertions are disabled, then performs the same indexed
+scope access the source performs. This keeps the Python wrapper branchless and
+preserves `KeyError` for missing `auth`, `user`, or `session` values under
+optimized execution. Input-only Request and WebSocket cases select `-O` on both
+the source oracle and package adapter and remain deferred until grouped parity.

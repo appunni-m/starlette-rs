@@ -8,14 +8,14 @@ incomplete.
 
 ## Current execution snapshot
 
-The active `parity-input@63` contract contains 2,604 cases across 443 parity
+The active `parity-input@64` contract contains 2,613 cases across 446 parity
 inputs and two benchmark inputs, 152 Starlette compatibility operations, 15
-Rust-native operations, 1,448 parity requirements, and six target profiles. Its
+Rust-native operations, 1,451 parity requirements, and six target profiles. Its
 manifest SHA-256 is
-`33ce03e0d5805e0915c4a3b07a85eaf3fa781ede713bea408bfb52609a410051`. The newest
-StaticFiles and TestClient boundary comparisons await the grouped parity phase;
-earlier results below do not cover this manifest. Contract and source-inventory
-checks passed. The
+`7fad0030a4044935ae4b98b5f4adc550aa5fde45410a5aec882f62a5bee42a64`. The latest
+Config, optimized Request/WebSocket, and StreamingResponse listener boundary
+comparisons await grouped parity; earlier results below do not cover this
+manifest. Contract and source-inventory checks passed. The
 generated atlas has
 867 source rows: 811 input mappings, 56 source-backed `not_applicable` rows, and
 zero backlog. All 999 API candidate rows have dispositions. The previous @62 grouped local run

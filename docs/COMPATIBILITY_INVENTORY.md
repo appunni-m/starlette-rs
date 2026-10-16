@@ -2,21 +2,17 @@
 
 ## Current verification status
 
-The working full-scope manifest is `parity-input@63`, SHA-256
-`33ce03e0d5805e0915c4a3b07a85eaf3fa781ede713bea408bfb52609a410051`,
+The working full-scope manifest is `parity-input@64`, SHA-256
+`7fad0030a4044935ae4b98b5f4adc550aa5fde45410a5aec882f62a5bee42a64`,
 against Starlette 1.6.0 revision
-`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. It declares 2,604 input-only cases
-across 443 parity files, two benchmark inputs, 152 compatibility operations,
-15 Rust-native operations, 1,448 parity requirements, and six target profiles.
-The latest integer URL conversion, lifespan scope lookup, FileResponse
-short-read, GZip wide-status, and class-based endpoint application 405 handler
-comparisons passed contract validation and remain unexecuted. The HTTPSRedirect
-lifespan pass-through case also passed contract/source-inventory validation.
-The newest cases preserve StaticFiles string-subclass path dispatch and
-TestClient HTTP/WebSocket `root_path` identity across CPython 3.10–3.14. All
-fourteen newest comparisons remain deferred. Contract and source-inventory
-checks pass; grouped parity, coverage, and benchmark results below apply to an
-earlier input set with SHA-256
+`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. It declares 2,613 input-only cases
+across 446 parity files, two benchmark inputs, 152 compatibility operations,
+15 Rust-native operations, 1,451 parity requirements, and six target profiles.
+The latest Config subclass dispatch and formatting, optimized Request/WebSocket
+assertion, and StreamingResponse listener-override comparisons are authored
+and contract-validated but unexecuted. The @63-to-@64 migration and source
+inventory passed. Grouped parity, coverage, and benchmark results below apply
+to earlier input sets, including the one with SHA-256
 `f8a34c2978af95382ceadcd3e3a2c5a9d7bb1d467f03b35ba55033d9b7336124`.
 Workflow
 [`38923021415`](https://github.com/appunni-m/starlette-rs/actions/runs/38923021415)
@@ -1190,7 +1186,7 @@ and do not establish parity for every deprecation path.
 These source-backed caveats and targeted inputs do not create fixture backlog.
 The grouped parity, six selected coverage profiles, and benchmark phases
 completed for the preceding verified `parity-input@63` manifest; they do not
-cover the active `parity-input@63` manifest. Run the grouped phases again after
+cover the active `parity-input@64` manifest. Run the grouped phases after the
 implementation is ready. These measurements do not prove universal Starlette
 parity.
 

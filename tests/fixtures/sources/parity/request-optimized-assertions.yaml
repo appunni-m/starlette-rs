@@ -1,0 +1,168 @@
+{
+  "schema": "migration-parity/parity-input@64",
+  "cases": [
+    {
+      "case_id": "starlette.requests.Request.constructor-contract.optimized-lifespan-scope",
+      "surface": "starlette.requests.Request",
+      "operation": "constructor-contract",
+      "covers": [
+        "starlette.requests.Request.constructor.scope-type-validation"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "python_optimization": true,
+      "scope": {
+        "type": "lifespan"
+      },
+      "observations": [
+        "constructor-contract"
+      ]
+    },
+    {
+      "case_id": "starlette.websockets.WebSocket.constructor-contract.optimized-http-scope",
+      "surface": "starlette.websockets.WebSocket",
+      "operation": "constructor-contract",
+      "covers": [
+        "starlette.websockets.WebSocket.constructor.scope-type-validation"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "python_optimization": true,
+      "scope": {
+        "type": "http",
+        "path": "/abc/",
+        "headers": []
+      },
+      "constructor_probes": [
+        {
+          "probe_id": "explicit-callbacks",
+          "arguments": [
+            "scope",
+            "receive",
+            "send"
+          ]
+        }
+      ],
+      "observations": [
+        "constructor-contract"
+      ]
+    },
+    {
+      "case_id": "starlette.requests.Request.connection-properties.optimized-type-containment-false",
+      "surface": "starlette.requests.Request",
+      "operation": "connection-properties",
+      "covers": [
+        "starlette.requests.Request.connection-properties.mapping-membership-protocol"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "python_optimization": true,
+      "scope": {
+        "type": "http",
+        "method": "GET",
+        "path": "/profile",
+        "session": {
+          "source": "optimized-session"
+        },
+        "auth": {
+          "scopes": [
+            "profile:read"
+          ]
+        },
+        "user": {
+          "display_name": "Optimized Mapping User"
+        }
+      },
+      "scope_mapping": {
+        "container": "collections.UserDict",
+        "class_contains_result": false
+      },
+      "properties": [
+        "session",
+        "auth",
+        "user"
+      ],
+      "observations": [
+        "connection-properties"
+      ]
+    },
+    {
+      "case_id": "starlette.requests.Request.connection-properties.optimized-missing-auth-scope-key",
+      "surface": "starlette.requests.Request",
+      "operation": "connection-properties",
+      "covers": [
+        "starlette.requests.HTTPConnection.auth.missing-scope-key"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "python_optimization": true,
+      "scope": {
+        "type": "http",
+        "method": "GET",
+        "path": "/profile",
+        "session": {},
+        "user": null
+      },
+      "scope_mapping": {
+        "container": "collections.UserDict",
+        "class_contains_result": false
+      },
+      "properties": [
+        "auth"
+      ],
+      "observations": [
+        "connection-properties"
+      ]
+    },
+    {
+      "case_id": "starlette.requests.Request.connection-properties.optimized-missing-user-scope-key",
+      "surface": "starlette.requests.Request",
+      "operation": "connection-properties",
+      "covers": [
+        "starlette.requests.HTTPConnection.user.missing-scope-key"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "python_optimization": true,
+      "scope": {
+        "type": "http",
+        "method": "GET",
+        "path": "/profile",
+        "session": {},
+        "auth": null
+      },
+      "scope_mapping": {
+        "container": "collections.UserDict",
+        "class_contains_result": false
+      },
+      "properties": [
+        "user"
+      ],
+      "observations": [
+        "connection-properties"
+      ]
+    }
+  ]
+}

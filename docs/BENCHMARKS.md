@@ -4,11 +4,12 @@ The latest recorded full-scope benchmark used an earlier input set with 2,590
 cases across 437 parity inputs and manifest SHA-256
 `f8a34c2978af95382ceadcd3e3a2c5a9d7bb1d467f03b35ba55033d9b7336124`. Full
 parity and all six expanded coverage profiles completed for that input set
-before the benchmark below. The active `parity-input@63` manifest now declares
-2,604 cases across 443 parity inputs, 1,448 requirements, and SHA-256
-`33ce03e0d5805e0915c4a3b07a85eaf3fa781ede713bea408bfb52609a410051`; its
-fourteen new cases are not included in the recorded preflight or benchmark
-evidence.
+before the benchmark below. The active `parity-input@64` manifest declares
+2,613 cases across 446 parity inputs, 1,451 requirements, and SHA-256
+`7fad0030a4044935ae4b98b5f4adc550aa5fde45410a5aec882f62a5bee42a64`; its
+nine latest cases are not included in the recorded preflight or benchmark
+evidence. The implementation phase remains open; rerun the full workload only
+after grouped parity and coverage for the completed implementation.
 The latest recorded run measured all
 74 declared source/package workloads (six
 Router and 68 GZip); all 74 Rust-native rows are `not_run` because the native

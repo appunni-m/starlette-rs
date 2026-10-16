@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@63",
+  "schema": "migration-parity/parity-input@64",
   "cases": [
     {
       "case_id": "starlette.middleware.gzip.GZipMiddleware.__call__.live-app-replacement-before-dispatch",

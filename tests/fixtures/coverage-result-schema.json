@@ -73,7 +73,8 @@
             "migration-parity/parity-input@60",
             "migration-parity/parity-input@61",
             "migration-parity/parity-input@62",
-            "migration-parity/parity-input@63"
+            "migration-parity/parity-input@63",
+            "migration-parity/parity-input@64"
           ]
         },
         "sha256": {

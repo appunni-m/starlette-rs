@@ -656,6 +656,13 @@ def _run_case(
     scope: str,
     root: Path,
 ) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
+    if case.get("python_optimization", False):
+        argv = command["argv"]
+        if len(argv) < 3 or argv[1] != "-m":
+            raise ContractError(
+                "python_optimization requires a declared Python module adapter command"
+            )
+        command = {**command, "argv": [argv[0], "-O", *argv[1:]]}
     response, error = _invoke_adapter(
         command,
         _request("workflow", subject_id, case),

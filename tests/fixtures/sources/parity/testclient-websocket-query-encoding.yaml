@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@63",
+  "schema": "migration-parity/parity-input@64",
   "cases": [
     {
       "case_id": "starlette.testclient.TestClient.websocket-session.query-params-percent-encoding",

@@ -7,32 +7,37 @@ Pydantic are outside this project's scope.
 
 ## Execution order and current status
 
-Active implementation checkpoint (2026-10-17; `parity-input@63`; manifest
-SHA-256 `33ce03e0d5805e0915c4a3b07a85eaf3fa781ede713bea408bfb52609a410051`):
+Active implementation checkpoint (2026-10-17; `parity-input@64`; manifest
+SHA-256 `7fad0030a4044935ae4b98b5f4adc550aa5fde45410a5aec882f62a5bee42a64`):
 
-The working manifest declares full Starlette 1.6.0 scope with 2,604 cases
+The working manifest declares full Starlette 1.6.0 scope with 2,613 cases
+across 446 parity inputs, two benchmark inputs, 152 compatibility operations,
+15 Rust-native operations, 1,451 parity requirements, and six target profiles.
+This batch adds Config subclass dispatch and empty-format-spec error behavior,
+Request and WebSocket assertion behavior under `python -O`, and a
+`StreamingResponse.listen_for_disconnect` override input. Rust handles the
+new behavior; Python passes dynamic Config attributes and `__debug__` into the
+Rust runtime and constructs only the input-defined listener callback. The
+@63-to-@64 migration, generated inputs, contract check, and source inventory
+passed. The atlas still has 867 rows: 811 input mappings, 56 source-backed
+`not_applicable` rows, and zero fixture backlog. These new comparisons have
+not run. Implementation remains open, so grouped parity, full coverage, and
+the benchmark workload remain deferred. The pinned denominators remain 514
+upstream test functions and 24 documented pages.
+
+The preceding @63 checkpoint is historical. Its manifest declared 2,604 cases
 across 443 parity inputs, two benchmark inputs, 152 compatibility operations,
 15 Rust-native operations, 1,448 parity requirements, and six target profiles.
-This implementation batch adds input-only comparisons for integer URL
-conversion from signed, underscored, whitespace-padded, and Unicode decimal
-strings; lifespan scope membership followed by a faulting indexed state lookup;
-a FileResponse whose supplied stat size exceeds the bytes read at EOF; and a
-GZip response with status 65536. It also maps `HTTPEndpoint.method_not_allowed`
-through a `Starlette` application to its configured status-405 handler; the
-class endpoint is constructed from the input in the parity adapter, and the
-Rust-backed runtime already forwards the resulting ASGI call. A further case
-maps `HTTPSRedirectMiddleware` forwarding lifespan startup and shutdown scopes;
-Rust already passes non-HTTP/non-WebSocket scopes through. Rust owns integer
-normalization, lifespan lookup order, and the GZip range-response decision; the
-Python bridge preserves the original status for Python equality instead of
-narrowing it to `u16`. This batch adds five StaticFiles string-subclass cases
-for route-prefix checks, slicing, `split`, and lookup `startswith`, plus HTTP
-and WebSocket TestClient cases that preserve the original `root_path` object.
-The seven new cases target CPython 3.10–3.14. Contract and source-inventory
-checks, scoped Rust format/build/Clippy, and pinned Ruff format/lint passed. No
-parity, coverage, or benchmark run has been made for this working manifest.
-The source inventory has 867 rows: 811 input mappings, 56
-source-backed `not_applicable` rows, and zero fixture backlog.
+That batch added input-only comparisons for integer URL conversion from
+signed, underscored, whitespace-padded, and Unicode decimal strings; lifespan
+scope membership followed by a faulting indexed state lookup; a FileResponse
+whose supplied stat size exceeds the bytes read at EOF; and a GZip response
+with status 65536. It also mapped `HTTPEndpoint.method_not_allowed` through a
+`Starlette` application to its configured status-405 handler; mapped
+`HTTPSRedirectMiddleware` forwarding lifespan startup and shutdown scopes; and
+added StaticFiles string-subclass and TestClient `root_path` identity cases.
+Those historical inputs passed their recorded contract and source-inventory
+checks; their parity, coverage, and benchmark evidence is recorded below.
 
 The full parity, coverage, and benchmark results below apply to the earlier
 verified input set `f8a34c2978af95382ceadcd3e3a2c5a9d7bb1d467f03b35ba55033d9b7336124`
@@ -630,10 +635,10 @@ representation, and dynamic `FormData.close()` dispatch remain Rust-backed.
 
 | Phase | State | Evidence |
 | --- | --- | --- |
-| Implementation | The active `parity-input@63` manifest has 2,604 cases, 443 parity inputs, and 1,448 requirements. Recent inputs map URL integer conversion, lifespan mapping lookup order, FileResponse short reads, wide GZip response statuses, the HTTPEndpoint application-level 405 handler path, HTTPSRedirectMiddleware lifespan pass-through, StaticFiles string-subclass path dispatch, and TestClient `root_path` identity. The newest seven cases remain unexecuted; implementation across the full Starlette surface remains open. | Current manifest SHA-256 `33ce03e0d5805e0915c4a3b07a85eaf3fa781ede713bea408bfb52609a410051`; atlas has 811 input mappings, 56 reasoned `not_applicable` rows, zero fixture backlog. |
-| Full parity and grouped repairs | The previous @62 local run and adapter repair remain historical. For @63, the two lifespan fault-contract cases and all other selected comparisons passed across the five CPython profiles. | Workflow `38923021415`, clean target revision `14067d434dd74a3ae5f931233ace7088dcc04bcc`; CPython 3.10 646/646, 3.11 646/646, 3.12 2,943/2,943, 3.13 647/647, 3.14 647/647; zero failed, `not_run`, or infrastructure-error rows. Oracle: Starlette 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. |
-| Full coverage and source reconciliation | All six @63 coverage profiles completed with zero failed cases. Coverage MCP read every LCOV report and returned uncovered locations; source identity and test attribution remain unverified because matching receipts were not ingested. These selected-input measurements do not claim whole-project coverage. | Workflow `38923021415`, cargo-llvm-cov 0.8.7, target revision `14067d434dd74a3ae5f931233ace7088dcc04bcc`; selected cases passed/failed: CPython 3.10 274/0, 3.11 274/0, 3.12 2,573/0, 3.13 275/0, 3.14 275/0, Rust-native 375/0. Line coverage: Rust-native 5,204/8,110; CPython 3.10 11,881/33,719; 3.11 11,961/33,719; 3.12 23,307/33,719; 3.13 11,821/33,719; 3.14 11,810/33,719. |
-| All benchmarks | The complete @63 74-workload source/package benchmark passed after grouped parity and coverage. | Run `005660ff-d624-43a0-aff3-fc86fcb9b2f0`, manifest SHA-256 `f8a34c2978af95382ceadcd3e3a2c5a9d7bb1d467f03b35ba55033d9b7336124`: 74/74 measured (6 Router, 68 GZip), zero failures, skips, or source/package `not_run`; 74 Rust-native rows `not_run` because the equivalent workload boundary is unavailable. Preflight `a7e85429-d6f2-430d-ad20-5021284711ef`: 2,941 passed, zero failed or infrastructure errors, two local POSIX-surrogateescape skips. Median source/package ratios: 0.274 Router and 0.970 GZip; source latency lower in 6/6 Router and 56/68 GZip; normalized observations matched 74/74. Result SHA-256 `d5ebf22b41dc14cd744e3b2ac4b1db45b68523f96b8aa7ff333fc6381cd0a2dd`. |
+| Implementation | The active `parity-input@64` manifest has 2,613 cases, 446 parity inputs, and 1,451 requirements. The latest cases cover Config dynamic subclass dispatch and string formatting, optimized Request/WebSocket assertion behavior, and a StreamingResponse listener override. The current comparisons are authored and contract-validated but unexecuted; implementation remains open. | Manifest SHA-256 `7fad0030a4044935ae4b98b5f4adc550aa5fde45410a5aec882f62a5bee42a64`; atlas has 811 input mappings, 56 reasoned `not_applicable` rows, zero fixture backlog. |
+| Full parity and grouped repairs | The recorded @63 workflow passed the selected cases and fault contracts. Full parity for @64 is deferred until the implementation phase is ready. | Historical workflow `38923021415`, clean target revision `14067d434dd74a3ae5f931233ace7088dcc04bcc`; CPython 3.10 646/646, 3.11 646/646, 3.12 2,943/2,943, 3.13 647/647, 3.14 647/647; zero failed, `not_run`, or infrastructure-error rows. |
+| Full coverage and source reconciliation | All six @63 profiles passed, but their measurements do not cover @64. Full coverage and source reconciliation for @64 are deferred until after grouped parity. | Historical workflow `38923021415`, cargo-llvm-cov 0.8.7, target revision `14067d434dd74a3ae5f931233ace7088dcc04bcc`; selected cases: CPython 3.10 274, 3.11 274, 3.12 2,573, 3.13 275, 3.14 275, Rust-native 375. |
+| All benchmarks | The complete @63 74-workload benchmark is historical. Run the complete workload against the final implementation checkpoint after grouped parity and coverage. | Historical run `005660ff-d624-43a0-aff3-fc86fcb9b2f0`, manifest SHA-256 `f8a34c2978af95382ceadcd3e3a2c5a9d7bb1d467f03b35ba55033d9b7336124`; 74/74 measured. It does not cover @64. |
 | Packaging and interpreter qualification | Historical local macOS arm64 qualification; current changes are not qualified by it. | Five CPython 3.10–3.14 wheels, an sdist, and the Rust crate were inspected in the earlier qualification. Other platform builds remain unqualified. |
 
 Parity, coverage, and benchmark result artifacts are local generated output
@@ -700,11 +705,11 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The active parity contract uses `parity-input@63` with full scope
-(`starlette-1.6.0-full`): 2,604 input cases across 443 parity files, two
+The active parity contract uses `parity-input@64` with full scope
+(`starlette-1.6.0-full`): 2,613 input cases across 446 parity files, two
 benchmark files, 152 Starlette compatibility operations, 15 Rust-native
-operations, 1,448 parity requirements, and six target profiles. Its manifest
-SHA-256 is `33ce03e0d5805e0915c4a3b07a85eaf3fa781ede713bea408bfb52609a410051`.
+operations, 1,451 parity requirements, and six target profiles. Its manifest
+SHA-256 is `7fad0030a4044935ae4b98b5f4adc550aa5fde45410a5aec882f62a5bee42a64`.
 The active cases are authored and contract-validated but await the grouped
 parity phase. The grouped local run, five-profile CI parity matrix, six coverage
 profiles, and full 74-workload benchmark summarized above are evidence for the

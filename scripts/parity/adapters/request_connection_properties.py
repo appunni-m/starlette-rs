@@ -22,6 +22,17 @@ class _InputQueryStringBytes(bytes):
         return self._truthy
 
 
+class _InputContainsUserDict(UserDict):
+    """Use an input-defined type-level containment result for mapping probes."""
+
+    def __init__(self, values: dict[str, Any], contains_result: bool) -> None:
+        super().__init__(values)
+        self._contains_result = contains_result
+
+    def __contains__(self, _key: object) -> bool:
+        return self._contains_result
+
+
 class _InputAppRootPath(str):
     """Represent an input-defined str subclass for HTTPConnection.base_url."""
 
@@ -55,9 +66,12 @@ def run_request_connection_properties_case(
             base64.b64decode(query_string["value_base64"], validate=True),
             query_string["truthy"],
         )
-    scope = UserDict(scope_values)
-    contains_result = mapping_spec["instance_contains_result"]
-    scope.__contains__ = lambda _key: contains_result
+    if "class_contains_result" in mapping_spec:
+        scope = _InputContainsUserDict(scope_values, mapping_spec["class_contains_result"])
+    else:
+        scope = UserDict(scope_values)
+        contains_result = mapping_spec["instance_contains_result"]
+        scope.__contains__ = lambda _key: contains_result
 
     request = request_type(scope)
     property_values = []

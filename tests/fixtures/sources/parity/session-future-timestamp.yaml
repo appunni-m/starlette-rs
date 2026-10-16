@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@63",
+  "schema": "migration-parity/parity-input@64",
   "cases": [
     {
       "case_id": "starlette.middleware.sessions.SessionMiddleware.session-workflow.future-timestamp-out-of-range-error",

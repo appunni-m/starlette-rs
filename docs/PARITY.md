@@ -5,14 +5,15 @@
 The latest fully verified earlier full-scope input set had 2,590 cases across
 437 parity inputs, 1,442 parity requirements, and manifest SHA-256
 `f8a34c2978af95382ceadcd3e3a2c5a9d7bb1d467f03b35ba55033d9b7336124`.
-The active `parity-input@63` manifest has 2,604 cases across 443 parity inputs,
-1,448 requirements, and SHA-256
-`33ce03e0d5805e0915c4a3b07a85eaf3fa781ede713bea408bfb52609a410051`. The latest
-input-only comparisons cover integer URL conversion, lifespan scope lookup,
-FileResponse short reads, GZip wide statuses, the class-based endpoint 405
-handler, HTTPSRedirect lifespan pass-through, StaticFiles string-subclass path
-dispatch, and TestClient `root_path` identity. All remain unexecuted. No broad
-parity, coverage, or benchmark run has been made for this active manifest.
+The active `parity-input@64` manifest has 2,613 cases across 446 parity inputs,
+1,451 requirements, and SHA-256
+`7fad0030a4044935ae4b98b5f4adc550aa5fde45410a5aec882f62a5bee42a64`. The latest
+input-only comparisons cover Config subclass property/cast dispatch and
+empty-format-spec error messages, Request and WebSocket assertion behavior
+under `python -O`, and a `StreamingResponse.listen_for_disconnect` override.
+These cases are authored and contract-validated but unexecuted. The earlier
+@63 comparisons also remain outside the current parity run. No grouped parity,
+coverage, or benchmark run has been made for this active manifest.
 Workflow [`38923021415`](https://github.com/appunni-m/starlette-rs/actions/runs/38923021415)
 passed the five CPython source-parity profiles: 646/646 comparisons for 3.10
 and 3.11, 2,943/2,943 for 3.12, and 647/647 for 3.13 and 3.14. Every profile

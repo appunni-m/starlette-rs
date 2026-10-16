@@ -55,8 +55,9 @@ INPUT_SCHEMA_V59 = "migration-parity/parity-input@59"
 INPUT_SCHEMA_V60 = "migration-parity/parity-input@60"
 INPUT_SCHEMA_V61 = "migration-parity/parity-input@61"
 INPUT_SCHEMA_V62 = "migration-parity/parity-input@62"
+INPUT_SCHEMA_V63 = "migration-parity/parity-input@63"
 PREVIOUS_INPUT_SCHEMA = INPUT_SCHEMA_V50
-INPUT_SCHEMA = "migration-parity/parity-input@63"
+INPUT_SCHEMA = "migration-parity/parity-input@64"
 BENCHMARK_INPUT_SCHEMA = "migration-parity/benchmark-input@1"
 RESULT_SCHEMA = "migration-parity/parity-result@9"
 BENCHMARK_RESULT_SCHEMA = "migration-parity/benchmark-result@1"
@@ -2414,6 +2415,23 @@ def _string(value: Any, context: str) -> str:
     if not isinstance(value, str) or not value:
         raise ContractError(f"{context} must be a non-empty string")
     return value
+
+
+def _config_formatted_string(value: Any, context: str) -> tuple[str, bool]:
+    if isinstance(value, str):
+        return value, False
+    formatted = _exact(
+        value,
+        {"kind", "value", "format_result"},
+        context,
+    )
+    if formatted["kind"] != "str-subclass-format":
+        raise ContractError(f"{context}.kind must be str-subclass-format")
+    if not isinstance(formatted["value"], str):
+        raise ContractError(f"{context}.value must be a string")
+    if not isinstance(formatted["format_result"], str):
+        raise ContractError(f"{context}.format_result must be a string")
+    return formatted["value"], True
 
 
 def _validate_request_stream_endpoint(endpoint: Any) -> dict[str, Any]:
@@ -24997,6 +25015,21 @@ def _validate_case_payload(
     fault_case_spec: dict[str, Any] | None = None,
     public_modules: frozenset[str] | None = None,
 ) -> dict[str, Any]:
+    if isinstance(case, dict) and "python_optimization" in case:
+        python_optimization = case["python_optimization"]
+        if type(python_optimization) is not bool:
+            raise ContractError("case.python_optimization must be a boolean")
+        if python_optimization and (
+            not isinstance(case.get("target_profiles"), list)
+            or not case["target_profiles"]
+            or any(
+                not isinstance(profile, str) or profile not in PYTHON_PROFILE_IDS
+                for profile in case["target_profiles"]
+            )
+        ):
+            raise ContractError(
+                "optimized Python cases must select only declared Python-package profiles"
+            )
     if isinstance(case, dict) and "fault_contract" in case:
         return _validate_fault_contract_case(case, manifest)
     if isinstance(case, dict):
@@ -25567,6 +25600,8 @@ def _validate_case_payload(
         expected_case_keys = expected_case_keys | {"followup_requests"}
     if is_testclient and isinstance(case, dict) and "client_headers_assignment" in case:
         expected_case_keys = expected_case_keys | {"client_headers_assignment"}
+    if isinstance(case, dict) and "python_optimization" in case:
+        expected_case_keys = expected_case_keys | {"python_optimization"}
     if is_testclient:
         if case["observations"] != [TESTCLIENT_OPERATION]:
             raise ContractError("TestClient cases must select request-response")
@@ -25802,6 +25837,12 @@ def _validate_case_payload(
         ):
             expected_case_keys = expected_case_keys | {"get_override"}
         if (
+            (case["surface"], case["operation"]) == ("starlette.config.Config", "value-resolution")
+            and isinstance(case, dict)
+            and "outer_lookup" in case
+        ):
+            expected_case_keys = expected_case_keys | {"outer_lookup"}
+        if (
             (case["surface"], case["operation"]) == ("starlette.config.Environ", "mapping-sequence")
             and isinstance(case, dict)
             and "mapping_source" in case
@@ -25872,6 +25913,7 @@ def _validate_case_payload(
                 "call_override",
                 "scope_container",
                 "scope_headers_container",
+                "listen_for_disconnect_override",
             }
             & case.keys()
         )
@@ -25957,6 +25999,8 @@ def _validate_case_payload(
         expected_case_keys = expected_case_keys | (
             {"scope_container", "scope_observation"} & case.keys()
         )
+    if isinstance(case, dict) and "python_optimization" in case:
+        expected_case_keys = expected_case_keys | {"python_optimization"}
     _exact(case, expected_case_keys, "case")
     if is_application_subclass_builder:
         _validate_application_subclass_builder_case(case, manifest)
@@ -33071,19 +33115,29 @@ def _validate_request_connection_properties_case(case: dict[str, Any]) -> None:
     _string(scope["method"], "Request connection-properties scope.method")
     _string(scope["path"], "Request connection-properties scope.path")
 
-    mapping = _exact(
-        case["scope_mapping"],
-        {"container", "instance_contains_result"},
-        "Request connection-properties scope mapping",
-    )
+    raw_mapping = case["scope_mapping"]
+    mapping_fields = {"container"}
+    if isinstance(raw_mapping, dict):
+        mapping_fields.update(
+            key
+            for key in ("instance_contains_result", "class_contains_result")
+            if key in raw_mapping
+        )
+    mapping = _exact(raw_mapping, mapping_fields, "Request connection-properties scope mapping")
     if mapping["container"] != "collections.UserDict":
         raise ContractError(
             "Request connection-properties scope mapping must use collections.UserDict"
         )
-    if type(mapping["instance_contains_result"]) is not bool:
+    if set(mapping) not in (
+        {"container", "instance_contains_result"},
+        {"container", "class_contains_result"},
+    ):
         raise ContractError(
-            "Request connection-properties instance_contains_result must be boolean"
+            "Request connection-properties scope mapping must select one containment hook"
         )
+    contains_field = next(iter(set(mapping) - {"container"}))
+    if type(mapping[contains_field]) is not bool:
+        raise ContractError(f"Request connection-properties {contains_field} must be boolean")
 
     properties = case["properties"]
     allowed_properties = {"session", "auth", "user", "query_params"}
@@ -33139,6 +33193,13 @@ def _validate_request_connection_properties_case(case: dict[str, Any]) -> None:
             raise ContractError(
                 "Request connection-properties membership case requires all properties and scope keys"
             )
+        if (
+            case.get("python_optimization", False)
+            and mapping.get("class_contains_result") is not False
+        ):
+            raise ContractError(
+                "optimized Request connection-properties membership cases require a false type-level containment result"
+            )
         return
     if case["covers"] == [REQUEST_CONNECTION_PROPERTIES_REQUIREMENTS["present_null"]]:
         if (
@@ -33155,14 +33216,19 @@ def _validate_request_connection_properties_case(case: dict[str, Any]) -> None:
         requirement = REQUEST_CONNECTION_PROPERTIES_REQUIREMENTS[f"missing_{name}"]
         if case["covers"] == [requirement]:
             other_name = "user" if name == "auth" else "auth"
+            missing_key_containment = (
+                mapping.get("class_contains_result") is False
+                if case.get("python_optimization", False)
+                else mapping.get("instance_contains_result") is True
+            )
             if (
                 set(scope) != {"type", "method", "path", "session", other_name}
                 or properties != [name]
-                or mapping["instance_contains_result"] is not True
+                or not missing_key_containment
             ):
                 raise ContractError(
                     f"Request connection-properties missing-{name} case requires the key to be absent, "
-                    "the other auth property to be present, and instance __contains__ to return true"
+                    "the other auth property to be present, and a containment result matching the selected Python mode"
                 )
             return
     raise ContractError(
@@ -36246,11 +36312,21 @@ def _validate_config_case(case: dict[str, Any]) -> None:
             raise ContractError("Config env_prefix must be a string")
         if "encoding" in case:
             _string(case["encoding"], "Config encoding")
-        environ = config["environ"]
-        if not isinstance(environ, dict) or any(
-            not isinstance(key, str) or not isinstance(value, str) for key, value in environ.items()
+        raw_environ = config["environ"]
+        if not isinstance(raw_environ, dict) or any(
+            not isinstance(key, str) for key in raw_environ
         ):
             raise ContractError("Config environ must be a string mapping")
+        environ = {}
+        formatted_environ_keys = set()
+        for key, value in raw_environ.items():
+            value_text, is_formatted = _config_formatted_string(
+                value,
+                f"Config environ[{key!r}]",
+            )
+            environ[key] = value_text
+            if is_formatted:
+                formatted_environ_keys.add(key)
         lines = config["env_file_lines"]
         if not isinstance(lines, list) or any(not isinstance(line, str) for line in lines):
             raise ContractError("Config env_file_lines must be a string array")
@@ -36269,6 +36345,36 @@ def _validate_config_case(case: dict[str, Any]) -> None:
             elif stripped and not stripped.startswith("#"):
                 non_assignment_lines.add(stripped)
         selected: set[str] = set()
+        outer_lookup = None
+        outer_lookup_sources = set()
+        formatted_environ_keys_used = set()
+        lookup_prefix = config["env_prefix"]
+        lookup_environ = environ
+        lookup_file_values = file_values
+        if "outer_lookup" in case:
+            if "get_override" in case:
+                raise ContractError("Config outer_lookup cannot override get at the same time")
+            if lines or formatted_environ_keys:
+                raise ContractError("Config outer_lookup uses independent string mappings")
+            outer_lookup = _exact(
+                case["outer_lookup"],
+                {"env_prefix", "environ", "file_values"},
+                "Config outer lookup",
+            )
+            lookup_prefix = outer_lookup["env_prefix"]
+            if not isinstance(lookup_prefix, str) or lookup_prefix == config["env_prefix"]:
+                raise ContractError("Config outer env_prefix must differ from the inner prefix")
+            for name in ("environ", "file_values"):
+                mapping = outer_lookup[name]
+                if not isinstance(mapping, dict) or any(
+                    not isinstance(key, str) or not isinstance(value, str)
+                    for key, value in mapping.items()
+                ):
+                    raise ContractError(f"Config outer {name} must be a string mapping")
+            if not outer_lookup["environ"] or not outer_lookup["file_values"]:
+                raise ContractError("Config outer lookup must supply environment and file values")
+            lookup_environ = outer_lookup["environ"]
+            lookup_file_values = outer_lookup["file_values"]
         if "get_override" in case:
             override = _exact(case["get_override"], {"return_value"}, "Config get override")
             _string(override["return_value"], "Config get override return_value")
@@ -36284,13 +36390,17 @@ def _validate_config_case(case: dict[str, Any]) -> None:
             lookup_keys.update(field for field in ("cast", "default", "inspect") if field in raw)
             lookup = _exact(raw, lookup_keys, f"Config lookups[{index}]")
             key_spec = lookup["key"]
+            key_has_format = False
             if isinstance(key_spec, str):
                 key = _string(key_spec, f"Config lookups[{index}].key")
-                prefixed = config["env_prefix"] + key
+                prefixed = lookup_prefix + key
             else:
+                key_fields = {"kind", "value", "radd_result"}
+                if isinstance(key_spec, dict) and "format_result" in key_spec:
+                    key_fields.add("format_result")
                 key_spec = _exact(
                     key_spec,
-                    {"kind", "value", "radd_result"},
+                    key_fields,
                     f"Config lookups[{index}].key",
                 )
                 if key_spec["kind"] != "str-subclass-right-add":
@@ -36300,9 +36410,16 @@ def _validate_config_case(case: dict[str, Any]) -> None:
                     key_spec["radd_result"],
                     f"Config lookups[{index}].key.radd_result",
                 )
-                prefixed = radd_result if config["env_prefix"] else key
+                if "format_result" in key_spec:
+                    if not isinstance(key_spec["format_result"], str):
+                        raise ContractError(
+                            f"Config lookups[{index}].key.format_result must be a string"
+                        )
+                    key_has_format = True
+                prefixed = radd_result if lookup_prefix else key
             if (
-                prefixed in non_assignment_lines
+                outer_lookup is None
+                and prefixed in non_assignment_lines
                 and prefixed not in environ
                 and prefixed not in file_values
             ):
@@ -36404,25 +36521,41 @@ def _validate_config_case(case: dict[str, Any]) -> None:
             if cast is not None and has_default and lookup["default"] is None:
                 selected.add("starlette.config.Config.cast-skips-null-default")
             if (
-                config["env_prefix"]
-                and key in environ
-                and prefixed not in environ
-                and prefixed not in file_values
+                lookup_prefix
+                and key in lookup_environ
+                and prefixed not in lookup_environ
+                and prefixed not in lookup_file_values
             ):
                 selected.add("starlette.config.Config.prefix-ignores-unprefixed-value")
-            if prefixed in environ and prefixed in file_values:
+            if prefixed in lookup_environ and prefixed in lookup_file_values:
                 selected.add("starlette.config.Config.environment-precedence")
-            if prefixed in file_values:
+            if prefixed in lookup_file_values:
                 selected.add("starlette.config.Config.file-precedence")
             if has_default:
                 selected.add("starlette.config.Config.default-values")
-            elif prefixed not in environ and prefixed not in file_values:
+            elif prefixed not in lookup_environ and prefixed not in lookup_file_values:
                 selected.add("starlette.config.Config.missing-key-error")
-            if config["env_prefix"]:
+            if lookup_prefix:
                 selected.add("starlette.config.Config.env-prefix")
-            raw_value = environ.get(prefixed, file_values.get(prefixed))
+            raw_value = lookup_environ.get(prefixed, lookup_file_values.get(prefixed))
+            value_has_format = prefixed in formatted_environ_keys and prefixed in lookup_environ
             cast_value = raw_value if raw_value is not None else lookup.get("default")
+            outer_source = (
+                "environ"
+                if prefixed in lookup_environ
+                else "file_values"
+                if prefixed in lookup_file_values
+                else None
+            )
+            if outer_lookup is not None and outer_source is not None:
+                if isinstance(lookup["key"], str) and cast == "str":
+                    outer_lookup_sources.add(outer_source)
+                else:
+                    raise ContractError(
+                        "Config outer lookup requires simple string keys cast to str"
+                    )
             cast_error = False
+            invalid_bool = False
             if (
                 public_class == "Secret"
                 and raw_value is None
@@ -36434,6 +36567,7 @@ def _validate_config_case(case: dict[str, Any]) -> None:
             if cast_operation == "bool" and isinstance(cast_value, str):
                 selected.add("starlette.config.Config.bool-cast")
                 if cast_value.lower() not in {"true", "1", "false", "0"}:
+                    invalid_bool = True
                     selected.add("starlette.config.Config.invalid-bool-error")
             if cast_operation == "int" and cast_value is not None:
                 try:
@@ -36441,12 +36575,40 @@ def _validate_config_case(case: dict[str, Any]) -> None:
                 except ValueError:
                     cast_error = True
                     selected.add("starlette.config.Config.cast-error")
+            missing_error = (
+                not has_default
+                and prefixed not in lookup_environ
+                and prefixed not in lookup_file_values
+            )
+            if key_has_format:
+                if missing_error or cast_error or invalid_bool:
+                    selected.add("starlette.config.Config.fstring-empty-spec-formatting")
+                else:
+                    raise ContractError(
+                        f"Config lookups[{index}] key format input requires an error outcome"
+                    )
+            if value_has_format:
+                if cast_error or invalid_bool:
+                    selected.add("starlette.config.Config.fstring-empty-spec-formatting")
+                    formatted_environ_keys_used.add(prefixed)
+                else:
+                    raise ContractError(
+                        f"Config lookups[{index}] formatted value requires a cast error"
+                    )
             if inspects_exception_context:
                 if public_class is not None or cast_operation != "int" or not cast_error:
                     raise ContractError(
                         f"Config lookups[{index}] exception-context inspection requires an invalid int cast"
                     )
                 selected.add("starlette.config.Config.cast-error-context")
+        if outer_lookup is not None:
+            if outer_lookup_sources != {"environ", "file_values"}:
+                raise ContractError(
+                    "Config outer lookup must read both environ and file_values through the subclass"
+                )
+            selected.add("starlette.config.Config.subclass-dynamic-property-and-cast-dispatch")
+        if formatted_environ_keys - formatted_environ_keys_used:
+            raise ContractError("Config formatted values must be used by an invalid cast")
         if set(case["covers"]) != selected:
             raise ContractError(
                 f"Config value-resolution coverage must match its input lookups: "
@@ -36519,7 +36681,28 @@ def _validate_config_case(case: dict[str, Any]) -> None:
         if action in {"set", "delete", "get", "contains"}:
             expected = {"action", "key", "value"} if action == "set" else {"action", "key"}
             item = _exact(raw, expected, context)
-            key = _string(item["key"], f"{context}.key")
+            key_input = item["key"]
+            formatted_key = False
+            if isinstance(key_input, str):
+                key = _string(key_input, f"{context}.key")
+            else:
+                formatted_key_input = _exact(
+                    key_input,
+                    {"kind", "value", "format_result"},
+                    f"{context}.key",
+                )
+                if formatted_key_input["kind"] != "str-subclass-format":
+                    raise ContractError(f"{context}.key.kind must be str-subclass-format")
+                if not isinstance(formatted_key_input["value"], str):
+                    raise ContractError(f"{context}.key.value must be a string")
+                if not isinstance(formatted_key_input["format_result"], str):
+                    raise ContractError(f"{context}.key.format_result must be a string")
+                if mapping_source != "explicit" or action not in {"set", "delete"}:
+                    raise ContractError(
+                        f"{context}.key formatting requires an explicit mutation action"
+                    )
+                key = formatted_key_input["value"]
+                formatted_key = True
             if action == "set":
                 if not isinstance(item["value"], str):
                     raise ContractError(f"{context}.value must be a string")
@@ -36533,6 +36716,12 @@ def _validate_config_case(case: dict[str, Any]) -> None:
                     present_keys.add(key)
                 else:
                     selected.add("starlette.config.Environ.read-freezes-set")
+                if formatted_key:
+                    if key not in read_keys:
+                        raise ContractError(
+                            f"{context}.key formatting requires a previously read key"
+                        )
+                    selected.add("starlette.config.Environ.fstring-empty-spec-formatting")
             elif action == "delete":
                 if is_module_environ and key not in read_keys:
                     module_global_mutations_before_read.add(action)
@@ -36544,7 +36733,17 @@ def _validate_config_case(case: dict[str, Any]) -> None:
                     present_keys.discard(key)
                 else:
                     selected.add("starlette.config.Environ.read-freezes-delete")
+                if formatted_key:
+                    if key not in read_keys:
+                        raise ContractError(
+                            f"{context}.key formatting requires a previously read key"
+                        )
+                    selected.add("starlette.config.Environ.fstring-empty-spec-formatting")
             else:
+                if formatted_key:
+                    raise ContractError(
+                        f"{context}.key formatting requires a read followed by a mutation"
+                    )
                 if action == "get":
                     selected.add("starlette.config.Environ.read-value")
                 elif key not in present_keys:
@@ -44985,6 +45184,38 @@ def migrate_input_document_v62(document: Any) -> dict[str, Any]:
         )
 
     migrated = dict(document)
+    migrated["schema"] = INPUT_SCHEMA_V63
+    return migrated
+
+
+def _contains_parity_input_v64_descriptor(value: Any) -> bool:
+    if isinstance(value, dict):
+        if {
+            "python_optimization",
+            "outer_lookup",
+            "listen_for_disconnect_override",
+            "class_contains_result",
+        } & value.keys():
+            return True
+        if "format_result" in value:
+            return True
+        return any(_contains_parity_input_v64_descriptor(item) for item in value.values())
+    if isinstance(value, list):
+        return any(_contains_parity_input_v64_descriptor(item) for item in value)
+    return False
+
+
+def migrate_input_document_v63(document: Any) -> dict[str, Any]:
+    """Advance @63 inputs to @64, adding optimized execution and override stimuli."""
+    _exact(document, {"schema", "cases"}, "parity input")
+    if document["schema"] != INPUT_SCHEMA_V63:
+        raise ContractError(f"unsupported @63 parity input schema: {document['schema']!r}")
+    if not isinstance(document["cases"], list) or not document["cases"]:
+        raise ContractError("parity input must select at least one case")
+    if _contains_parity_input_v64_descriptor(document["cases"]):
+        raise ContractError("parity-input@63 does not allow @64 input descriptors")
+
+    migrated = dict(document)
     migrated["schema"] = INPUT_SCHEMA
     return migrated
 
@@ -45094,8 +45325,19 @@ def validate_input_document_v62(
     *,
     public_modules: frozenset[str] | None = None,
 ) -> list[dict[str, Any]]:
-    """Validate @62 inputs before their deterministic @63 schema migration."""
+    """Validate @62 inputs before their deterministic @63 and @64 migrations."""
     migrated = migrate_input_document_v62(document)
+    return validate_input_document_v63(migrated, manifest, public_modules=public_modules)
+
+
+def validate_input_document_v63(
+    document: Any,
+    manifest: dict[str, Any],
+    *,
+    public_modules: frozenset[str] | None = None,
+) -> list[dict[str, Any]]:
+    """Validate @63 inputs before their deterministic @64 schema migration."""
+    migrated = migrate_input_document_v63(document)
     return validate_input_document(migrated, manifest, public_modules=public_modules)
 
 
@@ -49497,12 +49739,29 @@ def _validate_response_consumer_case(case: dict[str, Any]) -> None:
         expected_requirements.append(
             "starlette.responses.Response.consumer-construction.documented-subclass-call-override"
         )
+    listener_override = case.get("listen_for_disconnect_override")
+    if listener_override is not None:
+        listener_override = _exact(
+            listener_override,
+            {"kind", "message_type"},
+            "StreamingResponse disconnect-listener override",
+        )
+        if (
+            case["surface"] != "starlette.responses.StreamingResponse"
+            or listener_override["kind"] != "receive-once"
+            or type(listener_override["message_type"]) is not str
+            or listener_override["message_type"] not in {"http.request", "http.disconnect"}
+        ):
+            raise ContractError(
+                "StreamingResponse disconnect-listener override must receive one declared HTTP message"
+            )
     content_kind = case["construction"]["content"].get("kind")
     async_iterator_value = case["construction"]["content"].get("value")
-    if "protocols" in case or content_kind in {
-        "async-iterator",
-        "async-iterator-aiter-property-error",
-    }:
+    if (
+        "protocols" in case
+        or content_kind in {"async-iterator", "async-iterator-aiter-property-error"}
+        or listener_override is not None
+    ):
         expected_requirements.append(case["surface"] + ".consumer-construction.user-call-protocols")
         if "protocols" in case:
             _validate_response_user_protocols(case)
@@ -49721,7 +49980,12 @@ def _validate_response_consumer_case(case: dict[str, Any]) -> None:
         if not isinstance(scope["method"], str) or (scope["headers"] != [] and not file_response):
             raise ContractError("Response variant consumers require a method and empty headers")
         asgi = _exact(scope["asgi"], {"spec_version"}, "Response variant ASGI version")
-        if asgi["spec_version"] != "2.4":
+        if listener_override is not None:
+            if scope["type"] != "http" or asgi["spec_version"] != "2.3":
+                raise ContractError(
+                    "StreamingResponse disconnect-listener overrides require HTTP ASGI 2.3"
+                )
+        elif asgi["spec_version"] != "2.4":
             raise ContractError(
                 "Response variant consumers use ASGI 2.4; legacy cancellation has its own workflow"
             )

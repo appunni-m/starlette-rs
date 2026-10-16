@@ -137,6 +137,21 @@ def _run_response_consumer_case(case: dict[str, Any], resources: ExitStack) -> d
         from scripts.parity.adapters.response_protocols import configure_response_protocols
 
         configure_response_protocols(case["protocols"], attributes, base, trace, callback_errors)
+    listener_override = case.get("listen_for_disconnect_override")
+    if listener_override is not None:
+
+        async def listen_for_disconnect(_response: Any, receive: Any) -> None:
+            trace.append({"event": "listen-for-disconnect-override", "phase": "enter"})
+            message = await receive()
+            trace.append(
+                {
+                    "event": "listen-for-disconnect-override",
+                    "phase": "received",
+                    "type": message["type"],
+                }
+            )
+
+        attributes["listen_for_disconnect"] = listen_for_disconnect
     call_override = case.get("call_override")
     if call_override is not None:
 
@@ -306,6 +321,11 @@ def _run_response_consumer_case(case: dict[str, Any], resources: ExitStack) -> d
 
         async def receive() -> dict[str, Any]:
             trace.append({"event": "receive"})
+            if listener_override is not None:
+                message_type = listener_override["message_type"]
+                if message_type == "http.disconnect":
+                    return {"type": message_type}
+                return {"type": message_type, "body": b"", "more_body": False}
             return {"type": "http.request", "body": b"", "more_body": False}
 
         async def send(message: dict[str, Any]) -> None:

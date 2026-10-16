@@ -1,0 +1,137 @@
+{
+  "schema": "migration-parity/parity-input@64",
+  "cases": [
+    {
+      "case_id": "starlette.config.Config.value-resolution.outer-property-dynamic-lookup",
+      "surface": "starlette.config.Config",
+      "operation": "value-resolution",
+      "covers": [
+        "starlette.config.Config.env-prefix",
+        "starlette.config.Config.file-precedence",
+        "starlette.config.Config.subclass-dynamic-property-and-cast-dispatch"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "config": {
+        "env_prefix": "INNER_",
+        "environ": {
+          "INNER_ENV": "inner environment value"
+        },
+        "env_file_lines": []
+      },
+      "outer_lookup": {
+        "env_prefix": "OUTER_",
+        "environ": {
+          "OUTER_ENV": "outer environment value"
+        },
+        "file_values": {
+          "OUTER_FILE": "outer file value"
+        }
+      },
+      "lookups": [
+        {
+          "key": "ENV",
+          "cast": "str"
+        },
+        {
+          "key": "FILE",
+          "cast": "str"
+        }
+      ],
+      "observations": [
+        "lookup-results"
+      ]
+    },
+    {
+      "case_id": "starlette.config.Config.value-resolution.fstring-empty-spec-formatting",
+      "surface": "starlette.config.Config",
+      "operation": "value-resolution",
+      "covers": [
+        "starlette.config.Config.cast-error",
+        "starlette.config.Config.env-prefix",
+        "starlette.config.Config.fstring-empty-spec-formatting",
+        "starlette.config.Config.missing-key-error"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "config": {
+        "env_prefix": "APP_",
+        "environ": {
+          "APP_COUNT": {
+            "kind": "str-subclass-format",
+            "value": "not-an-integer",
+            "format_result": "formatted cast value"
+          }
+        },
+        "env_file_lines": []
+      },
+      "lookups": [
+        {
+          "key": "COUNT",
+          "cast": "int"
+        },
+        {
+          "key": {
+            "kind": "str-subclass-right-add",
+            "value": "MISSING",
+            "radd_result": "APP_MISSING",
+            "format_result": "formatted missing key"
+          }
+        }
+      ],
+      "observations": [
+        "lookup-results"
+      ]
+    },
+    {
+      "case_id": "starlette.config.Environ.mapping-sequence.fstring-empty-spec-formatting",
+      "surface": "starlette.config.Environ",
+      "operation": "mapping-sequence",
+      "covers": [
+        "starlette.config.Environ.fstring-empty-spec-formatting",
+        "starlette.config.Environ.read-freezes-delete",
+        "starlette.config.Environ.read-value"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "initial_environ": {
+        "LOCKED": "value"
+      },
+      "actions": [
+        {
+          "action": "get",
+          "key": "LOCKED"
+        },
+        {
+          "action": "delete",
+          "key": {
+            "kind": "str-subclass-format",
+            "value": "LOCKED",
+            "format_result": "formatted environ key"
+          }
+        }
+      ],
+      "observations": [
+        "action-results"
+      ]
+    }
+  ]
+}

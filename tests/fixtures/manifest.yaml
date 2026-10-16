@@ -248,7 +248,7 @@
   ],
   "interfaces": {
     "parity": {
-      "input_schema": "migration-parity/parity-input@63",
+      "input_schema": "migration-parity/parity-input@64",
       "result_schema": "migration-parity/parity-result@9",
       "command_id": "parity"
     },
@@ -397,6 +397,7 @@
       "build/parity/inputs/parity/concurrency-stop-async-iteration.json",
       "build/parity/inputs/parity/concurrency.json",
       "build/parity/inputs/parity/config-call-subclass-get-dispatch.json",
+      "build/parity/inputs/parity/config-dynamic-lookup-formatting.json",
       "build/parity/inputs/parity/config-env-file-non-assignment.json",
       "build/parity/inputs/parity/config-runtime-reflected-prefix-key.json",
       "build/parity/inputs/parity/config-runtime.json",
@@ -523,6 +524,7 @@
       "build/parity/inputs/parity/request-form-rollover-lifecycle.json",
       "build/parity/inputs/parity/request-form-urlencoded.json",
       "build/parity/inputs/parity/request-lifetime.json",
+      "build/parity/inputs/parity/request-optimized-assertions.json",
       "build/parity/inputs/parity/request-path-param-types.json",
       "build/parity/inputs/parity/request-property-worker-lifetime.json",
       "build/parity/inputs/parity/request-push-promise-header-order.json",
@@ -559,6 +561,7 @@
       "build/parity/inputs/parity/response-header-normalized-duplicates.json",
       "build/parity/inputs/parity/response-mutable-scope.json",
       "build/parity/inputs/parity/response-streaming-subclass-callback.json",
+      "build/parity/inputs/parity/streaming-response-listen-for-disconnect-override.json",
       "build/parity/inputs/parity/response-subclasses.json",
       "build/parity/inputs/parity/response-typing-consumer.json",
       "build/parity/inputs/parity/response-variants.json",
@@ -7136,6 +7139,38 @@
                 "python-package-cpython313",
                 "python-package-cpython314"
               ]
+            },
+            {
+              "id": "starlette.config.Config.subclass-dynamic-property-and-cast-dispatch",
+              "dimension": "boundary",
+              "description": "Read env_prefix, environ, file_values, and _perform_cast dynamically from a Config subclass during Config.get. Pinned source: starlette/config.py:94-109, 123-140.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
+              "id": "starlette.config.Config.fstring-empty-spec-formatting",
+              "dimension": "boundary",
+              "description": "Use Python's empty-format-spec string-subclass behavior while building missing-key and cast errors. Pinned source: starlette/config.py:109, 134-140.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
             }
           ],
           "parity": {
@@ -7638,6 +7673,22 @@
               "id": "starlette.config.Environ.default-os-environ-mapping",
               "dimension": "boundary",
               "description": "Construct Environ without an explicit mapping and operate on the default os.environ object, including setting/deleting keys and comparing iteration and length with that mapping. Upstream: starlette/config.py:18-41; tests/test_config.py::test_environ.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
+              "id": "starlette.config.Environ.fstring-empty-spec-formatting",
+              "dimension": "boundary",
+              "description": "Use Python's empty-format-spec string-subclass behavior when formatting Environ mutation errors. Pinned source: starlette/config.py:27-35.",
               "lanes": [
                 "parity",
                 "coverage"

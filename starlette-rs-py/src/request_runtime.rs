@@ -116,24 +116,31 @@ impl PyHTTPConnection {
     }
 
     #[new]
-    #[pyo3(signature = (scope, expected_type=None))]
-    fn new(py: Python<'_>, scope: Py<PyAny>, expected_type: Option<&str>) -> PyResult<Self> {
-        let scope_type = scope.bind(py).get_item("type")?;
-        let is_http = scope_type.eq("http")?;
-        let is_websocket = scope_type.eq("websocket")?;
-        if !is_http && !is_websocket {
-            return Err(PyAssertionError::new_err(""));
-        }
-        let matches_expected_type = match expected_type {
-            // Request first runs HTTPConnection's allowed-scope assertion,
-            // then performs its own `scope["type"] == "http"` assertion.
-            // Re-read the mapping here so stateful ASGI scope mappings observe
-            // the same lookup and comparison order as the pinned source.
-            Some(expected_type) => scope.bind(py).get_item("type")?.eq(expected_type)?,
-            None => true,
-        };
-        if !matches_expected_type {
-            return Err(PyAssertionError::new_err(""));
+    #[pyo3(signature = (scope, expected_type=None, debug=true))]
+    fn new(
+        py: Python<'_>,
+        scope: Py<PyAny>,
+        expected_type: Option<&str>,
+        debug: bool,
+    ) -> PyResult<Self> {
+        if debug {
+            let scope_type = scope.bind(py).get_item("type")?;
+            let is_http = scope_type.eq("http")?;
+            let is_websocket = scope_type.eq("websocket")?;
+            if !is_http && !is_websocket {
+                return Err(PyAssertionError::new_err(""));
+            }
+            let matches_expected_type = match expected_type {
+                // Request first runs HTTPConnection's allowed-scope assertion,
+                // then performs its own `scope["type"] == "http"` assertion.
+                // Re-read the mapping here so stateful ASGI scope mappings observe
+                // the same lookup and comparison order as the pinned source.
+                Some(expected_type) => scope.bind(py).get_item("type")?.eq(expected_type)?,
+                None => true,
+            };
+            if !matches_expected_type {
+                return Err(PyAssertionError::new_err(""));
+            }
         }
         Ok(Self {
             scope,
@@ -157,8 +164,14 @@ impl PyHTTPConnection {
     }
 
     #[staticmethod]
-    fn _assert_scope_type(py: Python<'_>, scope: Py<PyAny>, expected_type: &str) -> PyResult<()> {
-        if !scope.bind(py).get_item("type")?.eq(expected_type)? {
+    #[pyo3(signature = (scope, expected_type, debug=true))]
+    fn _assert_scope_type(
+        py: Python<'_>,
+        scope: Py<PyAny>,
+        expected_type: &str,
+        debug: bool,
+    ) -> PyResult<()> {
+        if debug && !scope.bind(py).get_item("type")?.eq(expected_type)? {
             return Err(PyAssertionError::new_err(""));
         }
         Ok(())
@@ -380,14 +393,17 @@ impl PyHTTPConnection {
     }
 
     #[staticmethod]
-    fn _session_value(py: Python<'_>, connection: Py<PyAny>) -> PyResult<Py<PyAny>> {
-        let contains_scope = connection.bind(py).getattr("scope")?;
-        // Match `"session" in self.scope`, including type-level special
-        // method lookup and the iterable fallback for mapping scopes.
-        if !contains_scope.contains("session")? {
-            return Err(PyAssertionError::new_err(
-                "SessionMiddleware must be installed to access request.session",
-            ));
+    #[pyo3(signature = (connection, debug=true))]
+    fn _session_value(py: Python<'_>, connection: Py<PyAny>, debug: bool) -> PyResult<Py<PyAny>> {
+        if debug {
+            let contains_scope = connection.bind(py).getattr("scope")?;
+            // Match `"session" in self.scope`, including type-level special
+            // method lookup and the iterable fallback for mapping scopes.
+            if !contains_scope.contains("session")? {
+                return Err(PyAssertionError::new_err(
+                    "SessionMiddleware must be installed to access request.session",
+                ));
+            }
         }
         let session = connection.bind(py).getattr("scope")?.get_item("session")?;
         if session.hasattr("mark_accessed")? {
@@ -397,12 +413,15 @@ impl PyHTTPConnection {
     }
 
     #[staticmethod]
-    fn _auth_value(py: Python<'_>, connection: Py<PyAny>) -> PyResult<Py<PyAny>> {
-        let contains_scope = connection.bind(py).getattr("scope")?;
-        if !contains_scope.contains("auth")? {
-            return Err(PyAssertionError::new_err(
-                "AuthenticationMiddleware must be installed to access request.auth",
-            ));
+    #[pyo3(signature = (connection, debug=true))]
+    fn _auth_value(py: Python<'_>, connection: Py<PyAny>, debug: bool) -> PyResult<Py<PyAny>> {
+        if debug {
+            let contains_scope = connection.bind(py).getattr("scope")?;
+            if !contains_scope.contains("auth")? {
+                return Err(PyAssertionError::new_err(
+                    "AuthenticationMiddleware must be installed to access request.auth",
+                ));
+            }
         }
         connection
             .bind(py)
@@ -412,12 +431,15 @@ impl PyHTTPConnection {
     }
 
     #[staticmethod]
-    fn _user_value(py: Python<'_>, connection: Py<PyAny>) -> PyResult<Py<PyAny>> {
-        let contains_scope = connection.bind(py).getattr("scope")?;
-        if !contains_scope.contains("user")? {
-            return Err(PyAssertionError::new_err(
-                "AuthenticationMiddleware must be installed to access request.user",
-            ));
+    #[pyo3(signature = (connection, debug=true))]
+    fn _user_value(py: Python<'_>, connection: Py<PyAny>, debug: bool) -> PyResult<Py<PyAny>> {
+        if debug {
+            let contains_scope = connection.bind(py).getattr("scope")?;
+            if !contains_scope.contains("user")? {
+                return Err(PyAssertionError::new_err(
+                    "AuthenticationMiddleware must be installed to access request.user",
+                ));
+            }
         }
         connection
             .bind(py)

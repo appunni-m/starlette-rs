@@ -17,6 +17,7 @@ pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyUndefined>()?;
     module.add_class::<PyEnviron>()?;
     module.add_class::<PyConfig>()?;
+    module.add_function(wrap_pyfunction!(config_get, module)?)?;
     module.add("EnvironError", py.get_type::<EnvironError>())?;
     py.get_type::<PyUndefined>()
         .setattr("__module__", "starlette.config")?;
@@ -121,7 +122,7 @@ impl PyEnviron {
 }
 
 fn environ_error(operation: &str, key: &Bound<'_, PyAny>) -> PyResult<PyErr> {
-    let key = key.str()?.extract::<String>()?;
+    let key = format_empty(key)?;
     let operation = match operation {
         "set" => "set",
         _ => "delete",
@@ -187,33 +188,6 @@ impl PyConfig {
         Ok(config)
     }
 
-    fn get(
-        &self,
-        py: Python<'_>,
-        key: Py<PyAny>,
-        cast: Py<PyAny>,
-        default: Py<PyAny>,
-    ) -> PyResult<Py<PyAny>> {
-        let key = self.env_prefix.bind(py).add(key.bind(py))?;
-        let key_text = key.str()?.extract::<String>()?;
-        let value = if self.environ.bind(py).contains(&key)? {
-            Some(self.environ.bind(py).get_item(&key)?)
-        } else if self.file_values.bind(py).contains(&key)? {
-            self.file_values.bind(py).get_item(&key)?
-        } else {
-            let default = default.bind(py);
-            (!default.is(py.get_type::<PyUndefined>())).then(|| default.clone())
-        };
-        let Some(value) = value else {
-            return Err(PyKeyError::new_err(format!(
-                "Config '{key_text}' is missing, and has no default."
-            )));
-        };
-        let cast = cast.bind(py);
-        let cast = (!cast.is_none()).then(|| cast.clone());
-        self.perform_cast(py, &key_text, &value, cast.as_ref())
-    }
-
     fn read_file(
         &self,
         py: Python<'_>,
@@ -226,11 +200,11 @@ impl PyConfig {
     fn perform_cast(
         &self,
         py: Python<'_>,
-        key: &str,
+        key: Py<PyAny>,
         value: &Bound<'_, PyAny>,
         cast: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<Py<PyAny>> {
-        perform_cast(py, key, value, cast).map(Bound::unbind)
+        perform_cast(py, key.bind(py), value, cast).map(Bound::unbind)
     }
 
     #[getter]
@@ -262,6 +236,53 @@ impl PyConfig {
     fn set_file_values(&mut self, file_values: Py<PyDict>) {
         self.file_values = file_values;
     }
+}
+
+#[pyfunction(name = "_config_get")]
+fn config_get(
+    py: Python<'_>,
+    config: Py<PyAny>,
+    key: Py<PyAny>,
+    cast: Py<PyAny>,
+    default: Py<PyAny>,
+) -> PyResult<Py<PyAny>> {
+    let config = config.bind(py);
+    let lookup_key = config.getattr("env_prefix")?.add(key.bind(py))?;
+
+    let environ = config.getattr("environ")?;
+    let value = if environ.contains(&lookup_key)? {
+        Some(config.getattr("environ")?.get_item(&lookup_key)?)
+    } else {
+        let file_values = config.getattr("file_values")?;
+        if file_values.contains(&lookup_key)? {
+            Some(config.getattr("file_values")?.get_item(&lookup_key)?)
+        } else {
+            None
+        }
+    };
+    let value = match value {
+        Some(value) => value,
+        None if default.bind(py).is(py.get_type::<PyUndefined>()) => {
+            let key_text = format_empty(&lookup_key)?;
+            return Err(PyKeyError::new_err(format!(
+                "Config '{key_text}' is missing, and has no default."
+            )));
+        }
+        None => default.bind(py).clone(),
+    };
+
+    config
+        .call_method1("_perform_cast", (lookup_key, value, cast))
+        .map(Bound::unbind)
+}
+
+fn format_empty(value: &Bound<'_, PyAny>) -> PyResult<String> {
+    value
+        .py()
+        .import("builtins")?
+        .getattr("format")?
+        .call1((value, ""))?
+        .extract()
 }
 
 fn read_file(
@@ -300,7 +321,7 @@ fn read_file(
 
 fn perform_cast<'py>(
     py: Python<'py>,
-    key: &str,
+    key: &Bound<'py, PyAny>,
     value: &Bound<'py, PyAny>,
     cast: Option<&Bound<'py, PyAny>>,
 ) -> PyResult<Bound<'py, PyAny>> {
@@ -314,13 +335,18 @@ fn perform_cast<'py>(
     let bool_type = py.get_type::<pyo3::types::PyBool>();
     let str_type = py.get_type::<PyString>();
     if cast.is(&bool_type) && value.is_instance(&str_type)? {
-        let normalized = value.call_method0("lower")?.extract::<String>()?;
-        return match normalized.as_str() {
+        let normalized = value.call_method0("lower")?;
+        let normalized_text = normalized.extract::<String>()?;
+        return match normalized_text.as_str() {
             "true" | "1" => Ok(true.into_pyobject(py)?.to_owned().into_any()),
             "false" | "0" => Ok(false.into_pyobject(py)?.to_owned().into_any()),
-            _ => Err(PyValueError::new_err(format!(
-                "Config '{key}' has value '{normalized}'. Not a valid bool."
-            ))),
+            _ => {
+                let key = format_empty(key)?;
+                let normalized = format_empty(&normalized)?;
+                Err(PyValueError::new_err(format!(
+                    "Config '{key}' has value '{normalized}'. Not a valid bool."
+                )))
+            }
         };
     }
 
@@ -330,8 +356,9 @@ fn perform_cast<'py>(
             if error.is_instance_of::<PyTypeError>(py)
                 || error.is_instance_of::<PyValueError>(py) =>
         {
-            let value = value.str()?.extract::<String>()?;
-            let cast_name = cast.getattr("__name__")?.str()?.extract::<String>()?;
+            let key = format_empty(key)?;
+            let value = format_empty(value)?;
+            let cast_name = format_empty(&cast.getattr("__name__")?)?;
             let wrapped = PyValueError::new_err(format!(
                 "Config '{key}' has value '{value}'. Not a valid {cast_name}."
             ));

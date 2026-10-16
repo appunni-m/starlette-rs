@@ -16655,12 +16655,86 @@ def _config_lookup_key(key_spec: Any) -> tuple[Any, str]:
 
     key_value = key_spec["value"]
     radd_result = key_spec["radd_result"]
+    format_result = key_spec.get("format_result")
 
     class InputConfigKey(str):
         def __radd__(self, _left: Any) -> str:
-            return radd_result
+            if format_result is None:
+                return radd_result
+            return _InputFormattedString(radd_result, format_result)
 
     return InputConfigKey(key_value), key_value
+
+
+class _InputFormattedString(str):
+    def __new__(cls, value: str, format_result: str) -> _InputFormattedString:
+        instance = super().__new__(cls, value)
+        instance.format_result = format_result
+        return instance
+
+    def __format__(self, format_spec: str) -> str:
+        if format_spec == "":
+            return self.format_result
+        return str.__format__(self, format_spec)
+
+
+def _config_formatted_value(value: Any) -> Any:
+    if isinstance(value, str):
+        return value
+    return _InputFormattedString(value["value"], value["format_result"])
+
+
+def _config_environ_key(key_spec: Any) -> tuple[Any, str]:
+    if isinstance(key_spec, str):
+        return key_spec, key_spec
+    return (
+        _InputFormattedString(key_spec["value"], key_spec["format_result"]),
+        key_spec["value"],
+    )
+
+
+def _config_outer_lookup_subclass(
+    config_type: Any,
+    lookup: dict[str, Any],
+    access_log: list[str],
+) -> Any:
+    class ConfigWithOuterLookup(config_type):
+        @property
+        def env_prefix(self) -> str:
+            access_log.append("env_prefix")
+            return lookup["env_prefix"]
+
+        @env_prefix.setter
+        def env_prefix(self, _value: str) -> None:
+            pass
+
+        @property
+        def environ(self) -> dict[str, str]:
+            access_log.append("environ")
+            return lookup["environ"]
+
+        @environ.setter
+        def environ(self, _value: Any) -> None:
+            pass
+
+        @property
+        def file_values(self) -> dict[str, str]:
+            access_log.append("file_values")
+            return lookup["file_values"]
+
+        @file_values.setter
+        def file_values(self, _value: Any) -> None:
+            pass
+
+        def _perform_cast(self, key: Any, value: Any, cast: Any = None) -> dict[str, Any]:
+            access_log.append("_perform_cast")
+            return {
+                "key": _json_safe(key),
+                "value": _json_safe(value),
+                "cast_name": getattr(cast, "__name__", None),
+            }
+
+    return ConfigWithOuterLookup
 
 
 def _config_value_inspections(value: Any, selectors: list[str]) -> dict[str, Any]:
@@ -16688,24 +16762,27 @@ def _run_config_environ_actions(case: dict[str, Any], environ: Any) -> list[dict
         name = action["action"]
         result = {"action": name}
         if "key" in action:
-            result["key"] = action["key"]
+            key, key_label = _config_environ_key(action["key"])
+            result["key"] = key_label
+        else:
+            key = None
         try:
             if name == "set":
-                environ[action["key"]] = action["value"]
+                environ[key] = action["value"]
             elif name == "delete":
-                del environ[action["key"]]
+                del environ[key]
             elif name == "get":
-                result["value"] = _json_safe(environ[action["key"]])
+                result["value"] = _json_safe(environ[key])
             elif name == "contains":
-                result["value"] = action["key"] in environ
+                result["value"] = key in environ
             elif name == "config-get":
                 from starlette.config import Config
 
                 config = Config(environ=environ)
                 if "default" in action:
-                    value = config(action["key"], default=action["default"])
+                    value = config(key, default=action["default"])
                 else:
-                    value = config(action["key"])
+                    value = config(key)
                 result["value"] = _json_safe(value)
             elif name == "iterate":
                 value = list(environ)
@@ -16777,9 +16854,19 @@ def _run_config_case(case: dict[str, Any]) -> dict[str, Any]:
                             return override_result
 
                     config_class = ConfigWithGetOverride
+                outer_accesses: list[str] = []
+                if "outer_lookup" in case:
+                    config_class = _config_outer_lookup_subclass(
+                        Config,
+                        case["outer_lookup"],
+                        outer_accesses,
+                    )
                 config = config_class(
                     env_file=".env",
-                    environ=config_input["environ"],
+                    environ={
+                        key: _config_formatted_value(value)
+                        for key, value in config_input["environ"].items()
+                    },
                     env_prefix=config_input["env_prefix"],
                     encoding=encoding,
                 )
@@ -16790,6 +16877,7 @@ def _run_config_case(case: dict[str, Any]) -> dict[str, Any]:
                     arguments = [key, cast]
                     if "default" in lookup:
                         arguments.append(lookup["default"])
+                    access_start = len(outer_accesses)
                     try:
                         value = config(*arguments)
                     except Exception as exc:
@@ -16808,6 +16896,8 @@ def _run_config_case(case: dict[str, Any]) -> dict[str, Any]:
                             result["inspections"] = _config_value_inspections(
                                 value, lookup["inspect"]
                             )
+                    if "outer_lookup" in case:
+                        result["dispatch"] = outer_accesses[access_start:]
                     results.append(result)
             finally:
                 os.chdir(previous_directory)
@@ -16835,7 +16925,9 @@ def _run_config_case(case: dict[str, Any]) -> dict[str, Any]:
         read_keys = module_environ._has_been_read
         original_read_keys = set(read_keys)
         touched_keys = set(case["initial_environ"])
-        touched_keys.update(action["key"] for action in case["actions"] if "key" in action)
+        touched_keys.update(
+            _config_environ_key(action["key"])[1] for action in case["actions"] if "key" in action
+        )
         try:
             read_keys.difference_update(touched_keys)
             for key in touched_keys:

@@ -1,0 +1,64 @@
+{
+  "schema": "migration-parity/parity-input@64",
+  "cases": [
+    {
+      "case_id": "starlette.responses.StreamingResponse.consumer-construction.listen-for-disconnect-override",
+      "surface": "starlette.responses.StreamingResponse",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.StreamingResponse.consumer-construction.public-render-and-asgi",
+        "starlette.responses.StreamingResponse.consumer-construction.user-call-protocols"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "async-iterator",
+          "value": {
+            "chunks": [
+              {
+                "kind": "bytes",
+                "value": "Zmlyc3Q="
+              },
+              {
+                "kind": "bytes",
+                "value": "c2Vjb25k"
+              }
+            ],
+            "completion": "awaited",
+            "checkpoint": true,
+            "failure": null
+          }
+        },
+        "omit_content": false,
+        "kwargs": {},
+        "class_attributes": {},
+        "render": {
+          "kind": "default"
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/legacy-listener",
+        "method": "GET",
+        "headers": [],
+        "asgi": {
+          "spec_version": "2.3"
+        }
+      },
+      "send_failure": null,
+      "background_label": "listener-background",
+      "background_kind": "task",
+      "listen_for_disconnect_override": {
+        "kind": "receive-once",
+        "message_type": "http.disconnect"
+      }
+    }
+  ]
+}
