@@ -62,8 +62,14 @@ Rust dependency graph. A targeted CPython 3.12 wheel built from the checkout
 and another built from its sdist each carried the 75-component, 76-record,
 134-edge SBOM with no local filesystem references. See [SBOM packaging
 notes](SBOM.md). The five-version qualification matrix above remains scoped to
-its recorded source snapshot; Windows-specific StaticFiles verification
-remains open.
+its recorded source snapshot. The two Windows StaticFiles invalid-name cases
+have since passed in workflow
+[`38892560877`](https://github.com/appunni-m/starlette-rs/actions/runs/38892560877)
+on Windows Server 2025 with CPython 3.12.10: four comparisons passed, with no
+failures, skips, `not_run` rows, or infrastructure errors. The workflow used
+Starlette 1.6.0 at the pinned source revision and target commit
+`a3488d512b2680dd46b540f7db620ab7f564d70c`; its StaticFiles runtime and input
+definitions are unchanged on the current branch.
 
 ### Post-checkpoint repair and verification
 
@@ -805,15 +811,14 @@ source-compatible 404 before a later root can serve its matching asset, under
 both symlink settings. Permission inputs deny search access to a root containing
 an asset and match the 401 error for both symlink settings. Python package
 discovery is profile-specific; Rust-native uses explicit package roots.
-Windows path normalization is implemented and has an authored ASGI input, but
-Windows execution remains unverified. Two new input-only lookup cases use an
-absent `missing?.txt` component to observe the lookup outcome through both
-canonicalized and `follow_symlink` paths. The adapters compare a shared OS-error
-category because native messages and error codes vary by platform. A dedicated
-manual Windows workflow is available to run these cases against the pinned
-source, installed package, and Rust-native target. The Windows comparison is
-unexecuted, so the possible `InvalidInput` mismatch remains open and no runtime
-behavior change has been accepted. The ASGI entry passes the bound
+Windows path normalization has two input-only lookup cases for an absent
+`missing?.txt` component, covering canonicalized lookup with both values of
+`follow_symlink`. The adapters compare a shared OS-error category because
+native messages and error codes vary by platform. Dedicated Windows workflow
+`38892560877` passed all four selected comparisons against the pinned source,
+installed package, and Rust-native target; no `InvalidInput` mismatch was
+observed for these inputs. This verifies only the declared invalid-name cases,
+not every Windows filesystem behavior. The ASGI entry passes the bound
 `get_response(path, scope)` override into the Rust awaitable state machine,
 which calls and awaits that Python callback on the caller's loop; the default
 path selection and response dispatch remain Rust-owned. This callback boundary
@@ -823,8 +828,9 @@ response and remains unexecuted. The active contract now contains 83
 StaticFiles cases across 21 input files. A source audit of all metadata-listed
 StaticFiles methods and the 36 upstream `tests/test_staticfiles.py` functions
 found those behaviors mapped to existing inputs and no distinct ordinary-input
-gap to implement. The current complete parity matrix remains unexecuted, so the
-audit does not establish runtime parity.
+gap to implement. The active @62 parity evidence is recorded above; this source
+audit and the targeted Windows result do not prove behavior beyond the declared
+input cases.
 
 ## 1. Completed bounded goal: lifespan state and cancellation
 

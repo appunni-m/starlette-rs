@@ -751,13 +751,17 @@ deny search permission on a configured root and match the 401 error under both
 symlink settings. Five Python-package inputs compare constructor-time missing
 root errors, deferred missing/non-directory errors, and the first successful
 `check_config` call across two ASGI requests, including `config_checked` state
-and event tapes. Windows execution remains unverified, and broader stateful
-custom PathLike sequences and subclass hooks beyond the input-only
+and event tapes. At this earlier 60-case checkpoint, Windows execution was
+unverified; the two invalid-name cases have since passed in workflow
+[`38892560877`](https://github.com/appunni-m/starlette-rs/actions/runs/38892560877)
+with four comparisons and no failures or skipped rows. This does not establish
+broader Windows filesystem parity. Stateful custom PathLike sequences and
+subclass hooks beyond the input-only
 `file_response` and `is_not_modified` overrides remain unproven. The active
 contract now contains 83 StaticFiles cases across 21 input files. A source
 audit maps all 36 upstream StaticFiles test functions to existing inputs; this
-source mapping does not establish parity for the current contract, which remains
-deferred to the full parity phase.
+source mapping does not establish behavior beyond the declared inputs. Active
+@62 parity evidence is recorded at the start of the implementation plan.
 The override cases are
 unexecuted and do not claim full StaticFiles parity. A new input-only case
 passes a stateful `os.PathLike` root whose `__fspath__` result changes across
@@ -1177,10 +1181,12 @@ active `parity-input@62` manifest; see the current verification status at the
 beginning of this document. After the next implementation batch and its
 input-only case authoring are complete, run the grouped phases together once.
 The macOS arm64 Python package qualification is complete, and its SBOM metadata
-normalization is verified for direct and sdist-based CPython 3.12 wheels.
-Windows-specific StaticFiles verification remains open. After any new runtime
-implementation batch, run the grouped phases together once that batch and its
-input authoring are complete.
+normalization is verified for direct and sdist-based CPython 3.12 wheels. The
+two Windows StaticFiles invalid-name cases passed in workflow
+[`38892560877`](https://github.com/appunni-m/starlette-rs/actions/runs/38892560877);
+broader Windows behavior remains unproven. After any new runtime implementation
+batch, run the grouped phases together once that batch and its input authoring
+are complete.
 The active contract and generated atlas links above carry the current case and
 backlog inventory; this document does not duplicate their changing totals.
 
