@@ -2661,6 +2661,18 @@
               ]
             },
             {
+              "id": "starlette.asgi.lifespan.failure-event-send-error-context",
+              "dimension": "error_path",
+              "description": "When the send callback fails synchronously or while awaited during startup.failed or shutdown.failed, the callback exception retains the original lifecycle failure in its Python __context__ chain. Pinned source: starlette/routing.py::Router.lifespan (except-and-send path); the surrounding failure events are exercised by tests/test_routing.py::test_raise_on_startup and test_raise_on_shutdown.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.asgi.lifespan.shutdown-receive-call-error",
               "dimension": "error_path",
               "description": "A synchronous exception raised by the receive callback while waiting for shutdown triggers cleanup, emits shutdown.failed, and propagates the callback exception. Upstream: starlette/routing.py::Router.__init__ and Router.lifespan; tests/test_routing.py.",

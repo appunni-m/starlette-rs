@@ -29026,16 +29026,29 @@ def _validate_lifespan_send_callback(send: Any) -> None:
     if (
         not isinstance(send, dict)
         or not required <= send.keys()
-        or send.keys() - required - {"exception_class_override"}
+        or send.keys() - required - {"exception_class_override", "observe_context_chain"}
     ):
         raise ContractError("lifecycle send callback has invalid fields")
-    if (
-        send["kind"] != "raise-on-call"
-        or send["message_type"] != "lifespan.startup.complete"
-        or send["exception_type"] != "RuntimeError"
-    ):
-        raise ContractError("lifecycle send callback failure must target startup.complete")
+    if send["exception_type"] != "RuntimeError":
+        raise ContractError("lifecycle send callback failure must raise RuntimeError")
     _string(send["message"], "lifecycle send callback failure message")
+    observes_context = send.get("observe_context_chain", False)
+    if not isinstance(observes_context, bool):
+        raise ContractError("lifecycle send context observation must be boolean")
+    if observes_context:
+        if (
+            send["kind"] not in {"raise-on-call", "raise-on-await"}
+            or send["message_type"] not in {"lifespan.startup.failed", "lifespan.shutdown.failed"}
+            or "exception_class_override" in send
+        ):
+            raise ContractError(
+                "lifecycle failure-event context observation requires an input-defined send error"
+            )
+        return
+    if send["kind"] != "raise-on-call" or send["message_type"] != "lifespan.startup.complete":
+        raise ContractError(
+            "lifecycle send callback failure must target startup.complete unless context is observed"
+        )
     if "exception_class_override" in send and send["exception_class_override"] != "ValueError":
         raise ContractError("lifecycle send exception class override must be ValueError")
 
@@ -29054,6 +29067,15 @@ def _lifespan_case_requirement(marker: dict[str, Any], lifecycle_args: dict[str,
     receive = lifecycle_args["receive"]
     prefix = "sync" if kind == "sync-generator" else "async"
     failure_exception_type = marker.get("failure_exception_type", "RuntimeError")
+    if send.get("observe_context_chain"):
+        if (
+            marker["failure_stage"] not in {"startup", "shutdown"}
+            or send["message_type"] != f"lifespan.{marker['failure_stage']}.failed"
+        ):
+            raise ContractError(
+                "lifecycle failure-event context observation must match the failing lifecycle stage"
+            )
+        return "starlette.asgi.lifespan.failure-event-send-error-context"
     if receive[1].get("kind") == "await-raise":
         if kind != "async-generator" or marker["failure_stage"] != "none":
             raise ContractError("shutdown-wait cancellation requires a healthy async generator")

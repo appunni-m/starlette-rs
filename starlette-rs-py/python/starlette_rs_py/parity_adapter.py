@@ -855,6 +855,22 @@ def _dispatch_error(exc: BaseException) -> dict[str, Any]:
     }
 
 
+def _exception_context_chain(exc: BaseException) -> list[dict[str, str]]:
+    context = exc.__context__
+    chain: list[dict[str, str]] = []
+    seen: set[int] = set()
+    while context is not None and id(context) not in seen:
+        seen.add(id(context))
+        chain.append(
+            {
+                "class": f"{type(context).__module__}.{type(context).__qualname__}",
+                "message": str(context),
+            }
+        )
+        context = context.__context__
+    return chain
+
+
 class _ExceptionHeadingParser(HTMLParser):
     def __init__(self) -> None:
         super().__init__()
@@ -7855,6 +7871,7 @@ async def _invoke_lifespan_only(
     if lifecycle_arguments["send"].get("kind") not in {
         "capture-asgi-send",
         "raise-on-call",
+        "raise-on-await",
     }:
         raise ValueError("send input must select a declared lifecycle callback")
 
@@ -7884,11 +7901,14 @@ async def _invoke_lifespan_only(
     async def record_send(message: dict[str, Any]) -> None:
         workflow_events.append(_canonical_message(message))
 
+    async def raise_on_await(error: BaseException) -> None:
+        raise error
+
     def send_lifecycle(message: dict[str, Any]) -> Any:
-        if (
-            send_spec["kind"] == "raise-on-call"
-            and message.get("type") == send_spec["message_type"]
-        ):
+        if message.get("type") == send_spec["message_type"] and send_spec["kind"] in {
+            "raise-on-call",
+            "raise-on-await",
+        }:
             import builtins
 
             exception_type = getattr(builtins, send_spec["exception_type"])
@@ -7906,7 +7926,10 @@ async def _invoke_lifespan_only(
                         "__module__": exception_type.__module__,
                     },
                 )
-            raise exception_type(send_spec["message"])
+            error = exception_type(send_spec["message"])
+            if send_spec["kind"] == "raise-on-call":
+                raise error
+            return raise_on_await(error)
         return record_send(message)
 
     scope = _make_scope(lifecycle_arguments["scope"])
@@ -7934,6 +7957,8 @@ async def _invoke_lifespan_only(
     if captured_exception is None:
         return value
     error = _dispatch_error(captured_exception)
+    if send_spec.get("observe_context_chain", False):
+        error["context_chain"] = _exception_context_chain(captured_exception)
     error["stage"] = "lifespan"
     return _CapturedDispatchError(error=error, partial_value=value)
 

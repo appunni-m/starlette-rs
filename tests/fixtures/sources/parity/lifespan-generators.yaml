@@ -2590,6 +2590,272 @@
       "observations": [
         "lifecycle"
       ]
+    },
+    {
+      "case_id": "starlette.applications.Starlette.__call__.lifespan-async-generator-startup-failure-event-send-raise-on-call",
+      "surface": "starlette.applications.Starlette",
+      "operation": "__call__",
+      "covers": [
+        "starlette.asgi.lifespan.failure-event-send-error-context"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "execution_schedule": [
+        "lifespan.startup",
+        "lifespan.shutdown"
+      ],
+      "steps": [
+        {
+          "step_id": "application",
+          "surface": "starlette.applications.Starlette",
+          "operation": "__init__",
+          "receiver": null,
+          "arguments": {
+            "debug": {
+              "kind": "literal",
+              "value": false
+            },
+            "routes": {
+              "kind": "literal",
+              "value": [
+                {
+                  "kind": "http-route",
+                  "path": "/hello",
+                  "methods": [
+                    "GET"
+                  ],
+                  "endpoint": {
+                    "kind": "plain-text-response",
+                    "content": "hello",
+                    "status_code": 200,
+                    "media_type": "text/plain",
+                    "cookies": [
+                      {
+                        "key": "first",
+                        "value": "one"
+                      },
+                      {
+                        "key": "second",
+                        "value": "two"
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            "middleware": {
+              "kind": "literal",
+              "value": []
+            },
+            "exception_handlers": {
+              "kind": "literal",
+              "value": []
+            },
+            "lifespan": {
+              "kind": "literal",
+              "value": {
+                "kind": "async-generator",
+                "record_entry": true,
+                "record_exit": true,
+                "failure_stage": "startup",
+                "failure_message": "lifespan generator failed during startup",
+                "yield_behavior": "single",
+                "shutdown_exception_behavior": "propagate"
+              }
+            },
+            "max_body_size": {
+              "kind": "literal",
+              "value": null
+            }
+          }
+        },
+        {
+          "step_id": "lifecycle",
+          "surface": "starlette.applications.Starlette",
+          "operation": "__call__",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "application"
+          },
+          "arguments": {
+            "scope": {
+              "kind": "literal",
+              "value": {
+                "type": "lifespan",
+                "asgi": {
+                  "version": "3.0",
+                  "spec_version": "2.4"
+                }
+              }
+            },
+            "receive": {
+              "kind": "literal",
+              "value": [
+                {
+                  "kind": "message",
+                  "message": {
+                    "type": "lifespan.startup"
+                  }
+                },
+                {
+                  "kind": "message",
+                  "message": {
+                    "type": "lifespan.shutdown"
+                  }
+                }
+              ]
+            },
+            "send": {
+              "kind": "literal",
+              "value": {
+                "kind": "raise-on-call",
+                "message_type": "lifespan.startup.failed",
+                "exception_type": "RuntimeError",
+                "message": "callback failed while reporting startup failure",
+                "observe_context_chain": true
+              }
+            }
+          }
+        }
+      ],
+      "observations": [
+        "lifecycle"
+      ]
+    },
+    {
+      "case_id": "starlette.applications.Starlette.__call__.lifespan-async-generator-shutdown-failure-event-send-raise-on-await",
+      "surface": "starlette.applications.Starlette",
+      "operation": "__call__",
+      "covers": [
+        "starlette.asgi.lifespan.failure-event-send-error-context"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "execution_schedule": [
+        "lifespan.startup",
+        "lifespan.shutdown"
+      ],
+      "steps": [
+        {
+          "step_id": "application",
+          "surface": "starlette.applications.Starlette",
+          "operation": "__init__",
+          "receiver": null,
+          "arguments": {
+            "debug": {
+              "kind": "literal",
+              "value": false
+            },
+            "routes": {
+              "kind": "literal",
+              "value": [
+                {
+                  "kind": "http-route",
+                  "path": "/hello",
+                  "methods": [
+                    "GET"
+                  ],
+                  "endpoint": {
+                    "kind": "plain-text-response",
+                    "content": "hello",
+                    "status_code": 200,
+                    "media_type": "text/plain",
+                    "cookies": [
+                      {
+                        "key": "first",
+                        "value": "one"
+                      },
+                      {
+                        "key": "second",
+                        "value": "two"
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            "middleware": {
+              "kind": "literal",
+              "value": []
+            },
+            "exception_handlers": {
+              "kind": "literal",
+              "value": []
+            },
+            "lifespan": {
+              "kind": "literal",
+              "value": {
+                "kind": "async-generator",
+                "record_entry": true,
+                "record_exit": true,
+                "failure_stage": "shutdown",
+                "failure_message": "lifespan generator failed during shutdown",
+                "yield_behavior": "single",
+                "shutdown_exception_behavior": "propagate"
+              }
+            },
+            "max_body_size": {
+              "kind": "literal",
+              "value": null
+            }
+          }
+        },
+        {
+          "step_id": "lifecycle",
+          "surface": "starlette.applications.Starlette",
+          "operation": "__call__",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "application"
+          },
+          "arguments": {
+            "scope": {
+              "kind": "literal",
+              "value": {
+                "type": "lifespan",
+                "asgi": {
+                  "version": "3.0",
+                  "spec_version": "2.4"
+                }
+              }
+            },
+            "receive": {
+              "kind": "literal",
+              "value": [
+                {
+                  "kind": "message",
+                  "message": {
+                    "type": "lifespan.startup"
+                  }
+                },
+                {
+                  "kind": "message",
+                  "message": {
+                    "type": "lifespan.shutdown"
+                  }
+                }
+              ]
+            },
+            "send": {
+              "kind": "literal",
+              "value": {
+                "kind": "raise-on-await",
+                "message_type": "lifespan.shutdown.failed",
+                "exception_type": "RuntimeError",
+                "message": "callback failed while reporting shutdown failure",
+                "observe_context_chain": true
+              }
+            }
+          }
+        }
+      ],
+      "observations": [
+        "lifecycle"
+      ]
     }
   ]
 }

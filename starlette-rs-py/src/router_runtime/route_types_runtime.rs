@@ -828,9 +828,12 @@ impl RouterLifespanMachine {
         error: PyErr,
     ) -> PyResult<MachineAction> {
         match pending {
-            RouterLifespanPending::StartupReceive
-            | RouterLifespanPending::FailureSend { .. }
-            | RouterLifespanPending::ShutdownComplete => Err(error),
+            RouterLifespanPending::StartupReceive | RouterLifespanPending::ShutdownComplete => {
+                Err(error)
+            }
+            RouterLifespanPending::FailureSend { original } => {
+                Err(chain_lifespan_failure_send_error(py, error, &original))
+            }
             RouterLifespanPending::Enter => self.send_failure(py, error, false),
             RouterLifespanPending::StartupSend => self.exit_with_error(py, error, false),
             RouterLifespanPending::ShutdownReceive => self.exit_with_error(py, error, true),
@@ -1000,14 +1003,26 @@ impl RouterLifespanMachine {
         }
         let send = match self.send.bind(py).call1((event,)) {
             Ok(send) => send,
-            Err(error) if matches!(&pending, RouterLifespanPending::StartupSend) => {
-                return self.exit_with_error(py, error, false);
+            Err(error) => {
+                return match &pending {
+                    RouterLifespanPending::StartupSend => self.exit_with_error(py, error, false),
+                    RouterLifespanPending::FailureSend { original } => {
+                        Err(chain_lifespan_failure_send_error(py, error, original))
+                    }
+                    _ => Err(error),
+                };
             }
-            Err(error) => return Err(error),
         };
         self.pending = Some(pending);
         Ok(MachineAction::Await(send.unbind()))
     }
+}
+
+fn chain_lifespan_failure_send_error(py: Python<'_>, error: PyErr, original: &Py<PyAny>) -> PyErr {
+    if !error.value(py).is(original.bind(py)) {
+        error.set_context(py, Some(PyErr::from_value(original.bind(py).clone())));
+    }
+    error
 }
 
 fn traceback_text(py: Python<'_>, error: &PyErr) -> PyResult<String> {
