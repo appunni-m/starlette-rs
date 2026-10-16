@@ -4,9 +4,9 @@ The latest recorded full-scope benchmark used the preceding `parity-input@63`
 snapshot, which declared 2,590 cases across 437 parity inputs, with manifest
 SHA-256 `f8a34c2978af95382ceadcd3e3a2c5a9d7bb1d467f03b35ba55033d9b7336124`.
 Full parity and all six expanded coverage profiles completed for that input
-set before the benchmark below. The working @63 manifest now declares 2,595
-cases across 441 parity inputs and SHA-256
-`82dc256e234b3d468d0f8a852fb88d34d51ab3b7ff1dcec9a893a8a2e72a409d`; its five
+set before the benchmark below. The working `parity-input@64` manifest now
+declares 2,597 cases across 441 parity inputs, 1,446 requirements, and SHA-256
+`561b43e60d126c9bba26d4fd49904c27d87505e01206e2438c785fe3ce8437a4`; its seven
 new cases are not included in the recorded preflight or benchmark evidence.
 The latest recorded run measured all
 74 declared source/package workloads (six

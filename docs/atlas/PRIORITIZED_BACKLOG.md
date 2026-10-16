@@ -8,13 +8,13 @@ incomplete.
 
 ## Current execution snapshot
 
-The active `parity-input@63` contract contains 2,590 cases across 437 parity
+The active `parity-input@64` contract contains 2,597 cases across 441 parity
 inputs and two benchmark inputs, 152 Starlette compatibility operations, 15
-Rust-native operations, 1,442 parity requirements, and six target profiles. Its
+Rust-native operations, 1,446 parity requirements, and six target profiles. Its
 manifest SHA-256 is
-`f8a34c2978af95382ceadcd3e3a2c5a9d7bb1d467f03b35ba55033d9b7336124`. The two
-new lifespan failure-send context comparisons await the grouped parity phase;
-results below use the preceding @62 manifest. Contract validation passed. The
+`561b43e60d126c9bba26d4fd49904c27d87505e01206e2438c785fe3ce8437a4`. The newest
+HTTPSRedirect lifespan pass-through comparison awaits the grouped parity phase;
+earlier results below do not cover @64. Contract validation passed. The
 generated atlas has
 867 source rows: 811 input mappings, 56 source-backed `not_applicable` rows, and
 zero backlog. All 999 API candidate rows have dispositions. The previous @62 grouped local run
