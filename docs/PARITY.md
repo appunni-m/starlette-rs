@@ -5,13 +5,14 @@
 The latest fully verified full-scope contract snapshot was `parity-input@63`,
 with 2,590 cases across 437 parity inputs, 1,442 parity requirements, and
 manifest SHA-256
-`f8a34c2978af95382ceadcd3e3a2c5a9d7bb1d467f03b35ba55033d9b7336124`. The
-working @63 manifest has since advanced to 2,594 cases across 440 parity
-inputs, 1,444 requirements, and SHA-256
-`0cfce947c191a10b16911294e74d7a19a1dc5987f7a16d8f7bc7fa4171d77bd7`. Its new
-integer URL conversion, lifespan scope lookup, and FileResponse short-read
-comparisons passed contract validation but remain unexecuted. No broad parity,
-coverage, or benchmark run has been made for this working manifest.
+`f8a34c2978af95382ceadcd3e3a2c5a9d7bb1d467f03b35ba55033d9b7336124`.
+The working @63 manifest has since advanced to 2,595 cases across 441 parity
+inputs, 1,445 requirements, and SHA-256
+`82dc256e234b3d468d0f8a852fb88d34d51ab3b7ff1dcec9a893a8a2e72a409d`. Its new
+integer URL conversion, lifespan scope lookup, FileResponse short-read, and
+GZip wide-status comparisons passed contract validation but remain unexecuted.
+No broad parity, coverage, or benchmark run has been made for this working
+manifest.
 Workflow [`38923021415`](https://github.com/appunni-m/starlette-rs/actions/runs/38923021415)
 passed the five CPython source-parity profiles: 646/646 comparisons for 3.10
 and 3.11, 2,943/2,943 for 3.12, and 647/647 for 3.13 and 3.14. Every profile

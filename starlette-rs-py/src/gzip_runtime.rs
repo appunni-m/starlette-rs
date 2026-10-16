@@ -391,13 +391,16 @@ impl GzipSendMessage {
         // custom str-subclass equality instead of dispatching on its contents.
         if message_type.eq("http.response.start")? {
             let message = self.message.bind(py);
-            let status = message.get_item("status")?.extract::<u16>()?;
             let headers = message.get_item("headers")?.extract::<Vec<GzipHeader>>()?;
+            // Starlette only compares the status with 206. Keep the original
+            // Python value for that comparison so wide status integers do
+            // not overflow a narrower Rust status type.
+            let status = message.get_item("status")?;
             let responder = self.responder(py);
             self.state.borrow_mut(py).initial_message = self.message.clone_ref(py);
             responder.bind(py).call_method1(
                 "response_start",
-                (status, gzip_headers_to_python(py, &headers)?),
+                (&status, gzip_headers_to_python(py, &headers)?),
             )?;
             Ok(MachineAction::Complete(py.None()))
         } else if message_type.eq("http.response.body")? {

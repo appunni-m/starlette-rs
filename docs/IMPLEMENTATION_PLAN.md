@@ -8,24 +8,27 @@ Pydantic are outside this project's scope.
 ## Execution order and current status
 
 Active implementation checkpoint (2026-10-16; `parity-input@63`; manifest
-SHA-256 `0cfce947c191a10b16911294e74d7a19a1dc5987f7a16d8f7bc7fa4171d77bd7`):
+SHA-256 `82dc256e234b3d468d0f8a852fb88d34d51ab3b7ff1dcec9a893a8a2e72a409d`):
 
-The working manifest declares full Starlette 1.6.0 scope with 2,594 cases
-across 440 parity inputs, two benchmark inputs, 152 compatibility operations,
-15 Rust-native operations, 1,444 parity requirements, and six target profiles.
+The working manifest declares full Starlette 1.6.0 scope with 2,595 cases
+across 441 parity inputs, two benchmark inputs, 152 compatibility operations,
+15 Rust-native operations, 1,445 parity requirements, and six target profiles.
 This implementation batch adds input-only comparisons for integer URL
 conversion from signed, underscored, whitespace-padded, and Unicode decimal
 strings; lifespan scope membership followed by a faulting indexed state lookup;
-and a FileResponse whose supplied stat size exceeds the bytes read at EOF.
-Rust owns the integer normalization and lifespan lookup order. Contract
-validation, source inventory generation, Rust formatting/compilation, Python
-adapter syntax, and diff checks passed. The source inventory has 867 rows: 811
-input mappings, 56 source-backed `not_applicable` rows, and zero fixture
-backlog.
+a FileResponse whose supplied stat size exceeds the bytes read at EOF; and a
+GZip response with status 65536. Rust owns integer normalization, lifespan
+lookup order, and the GZip range-response decision; the Python bridge preserves
+the original status for Python equality instead of narrowing it to `u16`.
+Contract validation and source inventory generation passed. Scoped Rust
+formatting, compilation, and Clippy checks passed; no parity, coverage, or
+benchmark run has been made for the working manifest. The source inventory has
+867 rows: 811 input mappings, 56 source-backed `not_applicable` rows, and zero
+fixture backlog.
 
 The full parity, coverage, and benchmark results below apply to the preceding
 @63 manifest snapshot `f8a34c2978af95382ceadcd3e3a2c5a9d7bb1d467f03b35ba55033d9b7336124`
-(2,590 cases, 437 parity inputs, and 1,442 requirements). The four new cases
+(2,590 cases, 437 parity inputs, and 1,442 requirements). The five new cases
 are not included in those results. No broad parity, coverage, or benchmark run
 has been made against the working manifest; those phases remain deferred until
 implementation is ready. The pinned denominators remain 514 upstream test
@@ -619,7 +622,7 @@ representation, and dynamic `FormData.close()` dispatch remain Rust-backed.
 
 | Phase | State | Evidence |
 | --- | --- | --- |
-| Implementation | The @63 lifespan failure-event context behavior, synchronous and awaited send cases, and capture-send adapter guard are implemented and grouped-verified. The broader Starlette replacement remains open; future implementation batches should be completed before the next grouped verification cycle. | Implementation and adapter commits `c47d400319d8bc3fe140ee87779b9c71600a289e` and `14067d434dd74a3ae5f931233ace7088dcc04bcc`; manifest SHA-256 `f8a34c2978af95382ceadcd3e3a2c5a9d7bb1d467f03b35ba55033d9b7336124`; atlas has 811 input mappings, 56 reasoned `not_applicable` rows, zero fixture backlog. |
+| Implementation | The active @63 working manifest has 2,595 cases, 441 parity inputs, and 1,445 requirements. The latest input batch implements and specifies URL integer conversion, lifespan mapping lookup order, FileResponse short reads, and wide GZip response statuses. Those new comparisons remain unexecuted; implementation across the full Starlette surface remains open. | Current manifest SHA-256 `82dc256e234b3d468d0f8a852fb88d34d51ab3b7ff1dcec9a893a8a2e72a409d`; based on commit `0fff0c40890b72340b1ec13ac275e2e2aff0968b`; atlas has 811 input mappings, 56 reasoned `not_applicable` rows, zero fixture backlog. |
 | Full parity and grouped repairs | The previous @62 local run and adapter repair remain historical. For @63, the two lifespan fault-contract cases and all other selected comparisons passed across the five CPython profiles. | Workflow `38923021415`, clean target revision `14067d434dd74a3ae5f931233ace7088dcc04bcc`; CPython 3.10 646/646, 3.11 646/646, 3.12 2,943/2,943, 3.13 647/647, 3.14 647/647; zero failed, `not_run`, or infrastructure-error rows. Oracle: Starlette 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. |
 | Full coverage and source reconciliation | All six @63 coverage profiles completed with zero failed cases. Coverage MCP read every LCOV report and returned uncovered locations; source identity and test attribution remain unverified because matching receipts were not ingested. These selected-input measurements do not claim whole-project coverage. | Workflow `38923021415`, cargo-llvm-cov 0.8.7, target revision `14067d434dd74a3ae5f931233ace7088dcc04bcc`; selected cases passed/failed: CPython 3.10 274/0, 3.11 274/0, 3.12 2,573/0, 3.13 275/0, 3.14 275/0, Rust-native 375/0. Line coverage: Rust-native 5,204/8,110; CPython 3.10 11,881/33,719; 3.11 11,961/33,719; 3.12 23,307/33,719; 3.13 11,821/33,719; 3.14 11,810/33,719. |
 | All benchmarks | The complete @63 74-workload source/package benchmark passed after grouped parity and coverage. | Run `005660ff-d624-43a0-aff3-fc86fcb9b2f0`, manifest SHA-256 `f8a34c2978af95382ceadcd3e3a2c5a9d7bb1d467f03b35ba55033d9b7336124`: 74/74 measured (6 Router, 68 GZip), zero failures, skips, or source/package `not_run`; 74 Rust-native rows `not_run` because the equivalent workload boundary is unavailable. Preflight `a7e85429-d6f2-430d-ad20-5021284711ef`: 2,941 passed, zero failed or infrastructure errors, two local POSIX-surrogateescape skips. Median source/package ratios: 0.274 Router and 0.970 GZip; source latency lower in 6/6 Router and 56/68 GZip; normalized observations matched 74/74. Result SHA-256 `d5ebf22b41dc14cd744e3b2ac4b1db45b68523f96b8aa7ff333fc6381cd0a2dd`. |

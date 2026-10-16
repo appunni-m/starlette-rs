@@ -2278,6 +2278,9 @@ GZIP_REQUIREMENTS = {
     "default-allowed-content-type": "starlette.middleware.gzip.GZipMiddleware.default-allowed-content-type",
     "existing-encoding-stream-bypass": "starlette.middleware.gzip.GZipMiddleware.existing-encoding-stream-bypass",
     "partial-response-stream-bypass": "starlette.middleware.gzip.GZipMiddleware.partial-response-stream-bypass",
+    "wide-status-python-equality": (
+        "starlette.middleware.gzip.GZipMiddleware.wide-status-python-equality"
+    ),
     "streaming-chunks": "starlette.middleware.gzip.GZipMiddleware.streaming-chunks",
     "streaming-empty-chunk": "starlette.middleware.gzip.GZipMiddleware.streaming-empty-chunk",
     "thread-minimum-size": "starlette.middleware.gzip.GZipMiddleware.thread-minimum-size",
@@ -42964,9 +42967,8 @@ def _validate_gzip_constructor_stimulus(args: dict[str, Any]) -> None:
         response_start_type != "http.response.start"
         or not isinstance(start["status"], int)
         or isinstance(start["status"], bool)
-        or not 100 <= start["status"] <= 599
     ):
-        raise ContractError("inner ASGI response must begin with a valid response-start event")
+        raise ContractError("inner ASGI response must begin with an integer response status")
     start_mapping = start.get("message_mapping", "dict")
     if not isinstance(start_mapping, str) or start_mapping not in {"dict", "user-dict"}:
         raise ContractError("inner ASGI response message mapping must be dict or user-dict")
@@ -43160,6 +43162,8 @@ def _gzip_single_dispatch_semantic_coverage(case: dict[str, Any]) -> set[str]:
     compresslevel_overflows_c_int = compresslevel < c_int_min or compresslevel > c_int_max
     compressible = not content_encoded and not partial_response and not excluded
     coverage = {GZIP_REQUIREMENT_CONSTRUCTION}
+    if not 0 <= response_start["status"] <= 0xFFFF:
+        coverage.add(GZIP_REQUIREMENTS["wide-status-python-equality"])
     if isinstance(response_start.get("type"), dict):
         coverage.add(GZIP_REQUIREMENTS["message-type-python-equality"])
     if any(name != name.lower() for name, _value in [*response_headers, *request_headers]):

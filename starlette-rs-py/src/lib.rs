@@ -1369,8 +1369,17 @@ impl PyGzipResponder {
         }
     }
 
-    fn response_start(&mut self, status: u16, headers: Vec<GzipHeader>) {
+    fn response_start(
+        &mut self,
+        status: &Bound<'_, PyAny>,
+        headers: Vec<GzipHeader>,
+    ) -> PyResult<()> {
+        // Starlette's only status-dependent GZip policy is `status == 206`.
+        // The middleware forwards its original ASGI message, so retain that
+        // policy result here without narrowing arbitrary Python integers.
+        let status = if status.eq(206)? { 206 } else { 0 };
         self.inner.response_start(status, headers);
+        Ok(())
     }
 
     fn should_offload(&self, body_len: usize, more_body: bool) -> bool {
