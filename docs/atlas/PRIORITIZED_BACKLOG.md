@@ -8,17 +8,18 @@ incomplete.
 
 ## Current execution snapshot
 
-The active `parity-input@61` contract contains 2,578 cases across 437 parity
+The active `parity-input@62` contract contains 2,579 cases across 437 parity
 inputs and two benchmark inputs, 152 Starlette compatibility operations, 15
-Rust-native operations, 1,431 parity requirements, and six target profiles.
+Rust-native operations, 1,432 parity requirements, and six target profiles.
 Its manifest SHA-256 is
-`90cf08c59ba844812602e910748996c99e673a98404376fca0c3de3a7cd1e9ab`. Contract
-validation passed and the generated atlas below reflects @61. It has 867 source
+`63f8459935e8ed93b3f3f7c4291f11d5ce638ef826f4cb5c4de77a9a3ca96940`. Contract
+validation passed and the generated atlas below reflects @62. It has 867 source
 rows: 811 input mappings, 56 source-backed `not_applicable` rows, and zero
 backlog. All 999 API candidate rows have dispositions. The pinned denominators
 remain 514 upstream test functions and 24 documented pages. The new @61
-MultiDict rich-inequality comparison and @59/@60 boundary comparisons are
-authored but remain unexecuted until grouped parity.
+MultiDict rich-inequality comparison and @62 WSGI status split-iterator
+comparison, alongside @59/@60 boundary comparisons, are authored but remain
+unexecuted until grouped parity.
 
 For the prior `@58` manifest, workflow
 [`38850605133`](https://github.com/appunni-m/starlette-rs/actions/runs/38850605133)

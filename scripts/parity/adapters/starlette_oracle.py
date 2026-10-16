@@ -4020,6 +4020,21 @@ def _materialize_wsgi_app(spec: dict[str, Any]) -> Any:
     caller_thread_id = threading.get_ident()
     kind = spec["kind"]
 
+    def materialize_status(value: Any) -> Any:
+        if not isinstance(value, dict):
+            return value
+
+        class StatusSplitIterator(str):
+            def __new__(cls, status_value: str, split_items: list[str]) -> StatusSplitIterator:
+                instance = super().__new__(cls, status_value)
+                instance._split_items = tuple(split_items)
+                return instance
+
+            def split(self, sep: str | None = None, maxsplit: int = -1) -> Iterator[str]:
+                return iter(self._split_items)
+
+        return StatusSplitIterator(value["value"], value["split_items"])
+
     if kind == "wsgi-iterator-error":
         failure_classes = {
             "OSError": OSError,
@@ -4034,7 +4049,7 @@ def _materialize_wsgi_app(spec: dict[str, Any]) -> Any:
 
         def iterator_failure_app(_environ: dict[str, Any], start_response: Any) -> Iterator[bytes]:
             def chunks() -> Iterator[bytes]:
-                start_response(spec["status"], spec["headers"])
+                start_response(materialize_status(spec["status"]), spec["headers"])
                 for chunk in spec["chunks_base64"]:
                     yield base64.b64decode(chunk, validate=True)
                 raise failure_type(spec["failure"]["message"])
@@ -4045,10 +4060,13 @@ def _materialize_wsgi_app(spec: dict[str, Any]) -> Any:
 
     def app(environ: dict[str, Any], start_response: Any) -> list[bytes]:
         if kind == "wsgi-response":
-            start_response(spec["status"], _materialize_wsgi_header_pairs(spec["headers"]))
+            start_response(
+                materialize_status(spec["status"]),
+                _materialize_wsgi_header_pairs(spec["headers"]),
+            )
             return [base64.b64decode(chunk, validate=True) for chunk in spec["chunks_base64"]]
         if kind == "wsgi-echo-body":
-            start_response(spec["status"], spec["headers"])
+            start_response(materialize_status(spec["status"]), spec["headers"])
             return [environ["wsgi.input"].read()]
         if kind == "wsgi-environ-report":
             values: dict[str, Any] = {}
@@ -4061,7 +4079,7 @@ def _materialize_wsgi_app(spec: dict[str, Any]) -> Any:
                     values[key] = environ[key]
             if spec["include_worker_thread"]:
                 values["worker_thread"] = threading.get_ident() != caller_thread_id
-            start_response(spec["status"], spec["headers"])
+            start_response(materialize_status(spec["status"]), spec["headers"])
             return [json.dumps(values, sort_keys=True, separators=(",", ":")).encode("utf-8")]
         if kind == "wsgi-raise-before-start":
             raise RuntimeError(spec["message"])
@@ -4070,7 +4088,7 @@ def _materialize_wsgi_app(spec: dict[str, Any]) -> Any:
                 raise RuntimeError(spec["message"])
             except RuntimeError:
                 start_response(
-                    spec["status"],
+                    materialize_status(spec["status"]),
                     spec["headers"],
                     sys.exc_info(),
                 )

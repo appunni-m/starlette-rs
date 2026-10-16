@@ -90,6 +90,7 @@ help: ## Show common Rust workspace commands
 	  '  make migrate-parity-inputs-v58-v59  Migrate authored parity inputs from @58 to @59' \
 	  '  make migrate-parity-inputs-v59-v60  Migrate authored parity inputs from @59 to @60' \
 	  '  make migrate-parity-inputs-v60-v61  Migrate authored parity inputs from @60 to @61' \
+	  '  make migrate-parity-inputs-v61-v62  Migrate authored parity inputs from @61 to @62' \
 	  '  make parity-env  Build the wheel and prepare isolated source/package environments' \
 	  '  make parity-adapter  Build the current Rust-native parity adapter' \
 	  '  make source-inventory  Regenerate the metadata-derived API catalog and source atlas' \
@@ -314,6 +315,10 @@ migrate-parity-inputs-v59-v60: ## Migrate authored parity inputs from schema @59
 .PHONY: migrate-parity-inputs-v60-v61
 migrate-parity-inputs-v60-v61: ## Migrate authored parity inputs from schema @60 to @61
 	$(PARITY_PYTHON) -m scripts.migrate_parity_input_v60_to_v61
+
+.PHONY: migrate-parity-inputs-v61-v62
+migrate-parity-inputs-v61-v62: ## Migrate authored parity inputs from schema @61 to @62
+	$(PARITY_PYTHON) -m scripts.migrate_parity_input_v61_to_v62
 
 parity-env: parity-inputs ## Build the package wheel and prepare isolated parity environments
 	$(PARITY_PYTHON) -m scripts.parity.cli prepare-env --force --upstream "$(STARLETTE_ORACLE_ROOT)"

@@ -808,20 +808,15 @@ impl PyWsgiStartResponse {
         }
 
         let status_parts = status.bind(py).call_method1("split", (" ", 1))?;
-        let status_part_count = status_parts.len()?;
-        if status_part_count != 2 {
-            return Err(PyValueError::new_err(format!(
-                "not enough values to unpack (expected 2, got {status_part_count})"
-            )));
-        }
+        let (status_code_part, _) = unpack_wsgi_pair(py, &status_parts)?;
         let status_code = py
             .import("builtins")?
             .getattr("int")?
-            .call1((status_parts.get_item(0)?,))?;
+            .call1((status_code_part,))?;
         let headers = PyList::empty(py);
         for header in response_headers.bind(py).try_iter()? {
             let header = header?;
-            let (name, value) = unpack_wsgi_header_pair(py, &header)?;
+            let (name, value) = unpack_wsgi_pair(py, &header)?;
             let name = name
                 .bind(py)
                 .call_method0("strip")?
@@ -841,17 +836,14 @@ impl PyWsgiStartResponse {
     }
 }
 
-/// Match the two-target unpacking performed for each WSGI response header.
-fn unpack_wsgi_header_pair(
-    py: Python<'_>,
-    header: &Bound<'_, PyAny>,
-) -> PyResult<(Py<PyAny>, Py<PyAny>)> {
+/// Match the two-target unpacking performed for WSGI status parts and response headers.
+fn unpack_wsgi_pair(py: Python<'_>, header: &Bound<'_, PyAny>) -> PyResult<(Py<PyAny>, Py<PyAny>)> {
     // Python's unpack fast path skips subclass overrides only for exact lists and tuples.
     if header.is_exact_instance_of::<PyTuple>() {
         let values = header.cast::<PyTuple>()?;
         let value_count = values.len();
         if value_count != 2 {
-            return Err(wsgi_header_pair_arity_error(value_count));
+            return Err(wsgi_pair_arity_error(value_count));
         }
         return Ok((values.get_item(0)?.unbind(), values.get_item(1)?.unbind()));
     }
@@ -859,7 +851,7 @@ fn unpack_wsgi_header_pair(
         let values = header.cast::<PyList>()?;
         let value_count = values.len();
         if value_count != 2 {
-            return Err(wsgi_header_pair_arity_error(value_count));
+            return Err(wsgi_pair_arity_error(value_count));
         }
         return Ok((values.get_item(0)?.unbind(), values.get_item(1)?.unbind()));
     }
@@ -882,18 +874,18 @@ fn unpack_wsgi_header_pair(
     let name = values
         .next()
         .transpose()?
-        .ok_or_else(|| wsgi_header_pair_arity_error(0))?;
+        .ok_or_else(|| wsgi_pair_arity_error(0))?;
     let value = values
         .next()
         .transpose()?
-        .ok_or_else(|| wsgi_header_pair_arity_error(1))?;
+        .ok_or_else(|| wsgi_pair_arity_error(1))?;
     if values.next().transpose()?.is_some() {
-        return Err(wsgi_header_pair_arity_error(3));
+        return Err(wsgi_pair_arity_error(3));
     }
     Ok((name.unbind(), value.unbind()))
 }
 
-fn wsgi_header_pair_arity_error(value_count: usize) -> PyErr {
+fn wsgi_pair_arity_error(value_count: usize) -> PyErr {
     if value_count < 2 {
         PyValueError::new_err(format!(
             "not enough values to unpack (expected 2, got {value_count})"

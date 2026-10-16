@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@61",
+  "schema": "migration-parity/parity-input@62",
   "cases": [
     {
       "case_id": "starlette.testclient.TestClient.request-response.status-code-exceeds-u16",

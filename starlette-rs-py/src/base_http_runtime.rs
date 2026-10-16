@@ -513,8 +513,7 @@ impl AwaitableStateMachine for BaseHTTPCallMachine {
 impl BaseHTTPCallMachine {
     fn start(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
         let scope = self.scope.bind(py);
-        let scope_type = scope.get_item("type")?.extract::<String>()?;
-        if scope_type != "http" {
+        if scope.get_item("type")?.ne("http")? {
             let call = self
                 .app
                 .bind(py)
@@ -772,17 +771,14 @@ impl CallNextMachine {
         } else {
             Some(info.unbind())
         };
-        let message_type = message_bound.get_item("type")?.extract::<String>()?;
-        if message_type == "http.response.debug" && info.is_some() && !self.debug_skipped {
+        let message_type = message_bound.get_item("type")?;
+        if message_type.eq("http.response.debug")? && info.is_some() && !self.debug_skipped {
             self.info = info;
             self.debug_skipped = true;
             return self.receive_after_debug(py);
         }
-        if message_type != "http.response.start" {
-            return Err(PyAssertionError::new_err(format!(
-                "Unexpected message: {}",
-                message_bound.repr()?.extract::<String>()?
-            )));
+        if !message_type.eq("http.response.start")? {
+            return Err(PyAssertionError::new_err(()));
         }
         let status_code = message_bound.get_item("status")?.unbind();
         let raw_headers = message_bound
@@ -1616,12 +1612,12 @@ impl BodyIteratorMachine {
 
     fn process_message(&mut self, py: Python<'_>, message: Py<PyAny>) -> PyResult<MachineAction> {
         let message_bound = message.bind(py);
-        let message_type = message_bound.get_item("type")?.extract::<String>()?;
-        if message_type == "http.response.pathsend" {
+        let message_type = message_bound.get_item("type")?;
+        if message_type.eq("http.response.pathsend")? {
             self.finished.store(true, Ordering::SeqCst);
             return Ok(MachineAction::Complete(message));
         }
-        if message_type != "http.response.body" {
+        if !message_type.eq("http.response.body")? {
             return Err(PyAssertionError::new_err(format!(
                 "Unexpected message: {}",
                 message_bound.str()?.extract::<String>()?

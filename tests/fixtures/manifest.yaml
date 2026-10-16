@@ -248,7 +248,7 @@
   ],
   "interfaces": {
     "parity": {
-      "input_schema": "migration-parity/parity-input@61",
+      "input_schema": "migration-parity/parity-input@62",
       "result_schema": "migration-parity/parity-result@9",
       "command_id": "parity"
     },
@@ -13584,6 +13584,54 @@
               "target_profiles": [
                 "python-package-cpython312"
               ]
+            },
+            {
+              "id": "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.scope-type-python-inequality",
+              "dimension": "boundary",
+              "description": "Pass an HTTP-valued str subclass whose __ne__(\"http\") returns true through direct BaseHTTPMiddleware ASGI invocation; compare whether the input-defined downstream app is called with the original scope and response events. Pinned source: starlette/middleware/base.py:101-104.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.response-start-message-type-python-equality",
+              "dimension": "error_path",
+              "description": "Send an HTTP response.start message whose type is an input-defined str subclass returning false from __eq__; compare the AssertionError outcome at BaseHTTPMiddleware.call_next. Pinned source: starlette/middleware/base.py:151-171.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.response-body-message-type-python-equality",
+              "dimension": "error_path",
+              "description": "Send an HTTP response.body message whose type is an input-defined str subclass returning false from __eq__; compare the assertion and its message in BaseHTTPMiddleware's call_next body stream. Pinned source: starlette/middleware/base.py:173-179.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.response-pathsend-message-type-python-equality",
+              "dimension": "error_path",
+              "description": "Send an HTTP response.pathsend message whose type is an input-defined str subclass returning false from __eq__; compare the assertion and its message when BaseHTTPMiddleware checks pathsend before response.body. Pinned source: starlette/middleware/base.py:173-179.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
             }
           ],
           "parity": {
@@ -17034,6 +17082,18 @@
               "id": "starlette.middleware.wsgi.WSGIMiddleware.response-order",
               "dimension": "success_path",
               "description": "Convert WSGI start_response headers and iterable chunks to ordered ASGI response events; source: tests/middleware/test_wsgi.py::test_wsgi_get.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.wsgi.WSGIMiddleware.start-response.status-unpacking",
+              "dimension": "boundary",
+              "description": "Apply Python two-target iterator unpacking to status.split(\" \", 1), including a str-subclass split override returning an iterator; pinned source: starlette/middleware/wsgi.py:130.",
               "lanes": [
                 "parity",
                 "coverage"
