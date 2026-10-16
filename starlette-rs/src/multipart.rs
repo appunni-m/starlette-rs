@@ -920,7 +920,7 @@ fn content_type_parameter(content_type: &str, wanted: &str) -> Option<String> {
             }
             Some(unquote_parameter(value.trim()))
         })
-        .last()
+        .next_back()
 }
 
 fn unquote_parameter(value: &str) -> String {

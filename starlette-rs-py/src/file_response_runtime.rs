@@ -692,8 +692,7 @@ impl FileResponseCallDriverState {
                 .response
                 .call_state_with_header_views_and_http_match(
                     self.header_views.clone(),
-                    self.scope_is_http_for_head,
-                    self.scope_is_http_for_pathsend,
+                    (self.scope_is_http_for_head, self.scope_is_http_for_pathsend),
                     &self.method,
                     &self.request_headers,
                     self.pathsend_extension,

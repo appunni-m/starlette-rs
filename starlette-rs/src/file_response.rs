@@ -705,8 +705,7 @@ impl FileResponse {
     ) -> Result<FileResponseCall, FileResponseError> {
         self.call_state_with_header_views_and_http_match(
             header_views,
-            scope_type == "http",
-            scope_type == "http",
+            (scope_type == "http", scope_type == "http"),
             method,
             request_headers,
             pathsend_extension,
@@ -732,13 +731,13 @@ impl FileResponse {
     pub fn call_state_with_header_views_and_http_match(
         &self,
         header_views: FileResponseHeaderViews,
-        scope_is_http_for_head: bool,
-        scope_is_http_for_pathsend: bool,
+        http_scope_matches: (bool, bool),
         method: &str,
         request_headers: &[(Vec<u8>, Vec<u8>)],
         pathsend_extension: bool,
         has_background: bool,
     ) -> Result<FileResponseCall, FileResponseError> {
+        let (scope_is_http_for_head, scope_is_http_for_pathsend) = http_scope_matches;
         let FileResponseHeaderViews {
             view: mut view_headers,
             raw: raw_headers,

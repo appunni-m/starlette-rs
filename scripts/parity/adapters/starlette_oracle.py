@@ -384,9 +384,10 @@ def _input_background_tasks(
         raise ValueError("Response background task kind is unsupported")
     if not isinstance(spec["tasks"], list) or not spec["tasks"]:
         raise ValueError("Response background tasks must be a non-empty array")
-    if spec["kind"] in {"single-task", "single-task-subclass-properties"} and len(
-        spec["tasks"]
-    ) != 1:
+    if (
+        spec["kind"] in {"single-task", "single-task-subclass-properties"}
+        and len(spec["tasks"]) != 1
+    ):
         raise ValueError("Response background task count does not match its kind")
     if spec["kind"] in {"task-list", "task-list-constructor"} and len(spec["tasks"]) < 2:
         raise ValueError("Response background task lists must contain multiple tasks")
@@ -672,21 +673,24 @@ def _input_background_tasks(
                 public_callback = subclass_callback
 
                 class InputBackgroundTask(BackgroundTask):
+                    _input_public_attributes = public_attributes
+                    _input_public_callback = public_callback
+
                     @property
                     def is_async(self) -> bool:
-                        return public_attributes["is_async"]
+                        return type(self)._input_public_attributes["is_async"]
 
                     @property
                     def func(self) -> Any:
-                        return public_callback
+                        return type(self)._input_public_callback
 
                     @property
                     def args(self) -> tuple[Any, ...]:
-                        return tuple(public_attributes["args"])
+                        return tuple(type(self)._input_public_attributes["args"])
 
                     @property
                     def kwargs(self) -> dict[str, Any]:
-                        return public_attributes["kwargs"]
+                        return type(self)._input_public_attributes["kwargs"]
 
                 task = InputBackgroundTask(callback, *task_spec["args"], **task_spec["kwargs"])
             else:
