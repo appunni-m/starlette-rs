@@ -42,8 +42,11 @@ runtime-dependency wording correction: five isolated installs, `pip check`,
 import smoke, and 20 input-derived Mypy source/package comparisons passed.
 Wheel, sdist, and crate inspection confirmed package namespace, `py.typed`,
 runtime metadata, notices, and provenance. The SBOM local-path issue was fixed
-and verified in commit `31ba6ba6`; Windows-specific StaticFiles verification
-remains open. If further implementation changes add or alter runtime behavior,
+and verified in commit `31ba6ba6`; the two Windows StaticFiles invalid-name
+cases have since passed in workflow
+[`38892560877`](https://github.com/appunni-m/starlette-rs/actions/runs/38892560877).
+Broader Windows filesystem behavior remains unproven. If further implementation
+changes add or alter runtime behavior,
 finish that implementation batch first, then rerun grouped parity and repairs,
 full coverage, and all benchmarks in that order. Do not infer complete
 compatibility from the active matrix alone.
