@@ -8,7 +8,7 @@ use std::task::{Context, Poll};
 use encoding_rs::{Encoding, UTF_16BE, UTF_16LE};
 use futures::{Stream, channel::mpsc};
 use multer::bytes::Bytes;
-use multer::{Field, Multipart, parse_boundary};
+use multer::{Field, Multipart};
 
 const PYTHON_MULTIPART_MAX_BOUNDARY_LENGTH: usize = 256;
 const PYTHON_MULTIPART_MAX_HEADER_COUNT: usize = 8;
@@ -514,8 +514,11 @@ impl MultipartFormParseError {
 
 /// Extracts the boundary before Request.form starts receiving request chunks.
 pub fn multipart_boundary(content_type: &str) -> Result<String, MultipartFormParseError> {
-    let boundary =
-        parse_boundary(content_type).map_err(|_| MultipartFormParseError::MissingBoundary)?;
+    // Starlette 1.6.0 parses Content-Type options into a dict, so the final
+    // duplicate `boundary` parameter wins. `multer::parse_boundary` instead
+    // returns the first occurrence through `mime::Mime::get_param`.
+    let boundary = content_type_parameter(content_type, "boundary")
+        .ok_or(MultipartFormParseError::MissingBoundary)?;
     let length = boundary.chars().count();
     if length > PYTHON_MULTIPART_MAX_BOUNDARY_LENGTH {
         return Err(MultipartFormParseError::BoundaryTooLong { length });
@@ -901,17 +904,23 @@ fn split_disposition_parameters(header: &str) -> Vec<&str> {
 }
 
 fn request_charset(content_type: &str) -> String {
-    // `parse_options_header` stores parameters in a dict, so a later charset
-    // replaces an earlier one when the header repeats this parameter.
+    content_type_parameter(content_type, "charset").unwrap_or_else(|| "utf-8".to_owned())
+}
+
+/// Parses one Content-Type parameter with python-multipart's last-value rule.
+fn content_type_parameter(content_type: &str, wanted: &str) -> Option<String> {
     split_disposition_parameters(content_type)
         .into_iter()
         .skip(1)
         .filter_map(|parameter| parameter.split_once('='))
-        .rfind(|(name, _)| name.trim().eq_ignore_ascii_case("charset"))
-        .map_or_else(
-            || "utf-8".to_owned(),
-            |(_, value)| unquote_parameter(value.trim()),
-        )
+        .filter_map(|(name, value)| {
+            let name = name.trim().to_ascii_lowercase();
+            if name.contains('*') || name != wanted {
+                return None;
+            }
+            Some(unquote_parameter(value.trim()))
+        })
+        .last()
 }
 
 fn unquote_parameter(value: &str) -> String {

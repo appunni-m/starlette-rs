@@ -201,10 +201,7 @@ impl PyHTTPConnection {
         let app_root_path = scope.call_method1("get", ("app_root_path", root_path))?;
         let mut path = app_root_path.clone();
         if !path.call_method1("endswith", ("/",))?.is_truthy()? {
-            path = py
-                .import("operator")?
-                .getattr("iadd")?
-                .call1((path, "/"))?;
+            path = py.import("operator")?.getattr("iadd")?.call1((path, "/"))?;
         }
         scope.set_item("path", path)?;
         scope.set_item("query_string", PyBytes::new(py, b""))?;
@@ -2129,13 +2126,26 @@ fn multipart_upload_file(
 }
 
 fn request_form_media_type(content_type: Option<&str>) -> FormMediaType {
-    let media_type = content_type
-        .and_then(|value| value.split(';').next())
-        .unwrap_or_default()
-        .trim();
-    if media_type.eq_ignore_ascii_case("application/x-www-form-urlencoded") {
+    let Some(content_type) = content_type else {
+        return FormMediaType::Other;
+    };
+    let media_type = content_type.split(';').next().unwrap_or_default().trim();
+    // python-multipart lowercases Content-Type only when there are no options.
+    // Its option parser preserves the media type's spelling otherwise, and
+    // Request._get_form compares that returned value exactly.
+    let is_urlencoded = if content_type.contains(';') {
+        media_type == "application/x-www-form-urlencoded"
+    } else {
+        media_type.eq_ignore_ascii_case("application/x-www-form-urlencoded")
+    };
+    let is_multipart = if content_type.contains(';') {
+        media_type == "multipart/form-data"
+    } else {
+        media_type.eq_ignore_ascii_case("multipart/form-data")
+    };
+    if is_urlencoded {
         FormMediaType::UrlEncoded
-    } else if media_type.eq_ignore_ascii_case("multipart/form-data") {
+    } else if is_multipart {
         FormMediaType::Multipart
     } else {
         FormMediaType::Other

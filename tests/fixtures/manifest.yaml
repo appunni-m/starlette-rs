@@ -517,6 +517,7 @@
       "build/parity/inputs/parity/file-response-exe-media-type.json",
       "build/parity/inputs/parity/file-response-empty-filename-media-type.json",
       "build/parity/inputs/parity/file-response-range-decimal-inputs.json",
+      "build/parity/inputs/parity/file-response-range-leading-zero-digit-limit.json",
       "build/parity/inputs/parity/file-response-if-range-last-modified.json",
       "build/parity/inputs/parity/file-response-signed-zero-range.json",
       "build/parity/inputs/parity/file-response-range-python-strip-c0-separators.json",
@@ -588,6 +589,7 @@
       "build/parity/inputs/parity/request-form-multipart-iso-8859-1.json",
       "build/parity/inputs/parity/request-form-multipart-utf16.json",
       "build/parity/inputs/parity/request-form-multipart-cp437.json",
+      "build/parity/inputs/parity/request-form-content-type-options.json",
       "build/parity/inputs/parity/formdata-constructor.json",
       "build/parity/inputs/parity/formdata-generic-typing.json",
       "build/parity/inputs/parity/formdata-close.json",
@@ -19782,6 +19784,38 @@
               ]
             },
             {
+              "id": "starlette.request.form.content-type-parser-media-type-case",
+              "dimension": "boundary",
+              "description": "When Content-Type has options, python-multipart preserves the media type's case and Request._get_form compares it exactly; parameterized uppercase media types are therefore unrecognized. Pinned source: starlette/requests.py:276-296; python-multipart parse_options_header.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
+              "id": "starlette.request.form.multipart-duplicate-boundary-last-wins",
+              "dimension": "boundary",
+              "description": "python-multipart stores Content-Type options in a mapping, so the last repeated boundary parameter selects the body delimiter. Pinned source: starlette/requests.py:276-296; starlette/formparsers.py:249; python-multipart parse_options_header.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
               "id": "starlette.request.form.multipart-file-streaming",
               "dimension": "runtime",
               "description": "Write each parser-produced file chunk through UploadFile.write before receiving the next ASGI body chunk, then seek completed files after all writes from that request chunk. Pinned source: starlette/formparsers.py:181-297; starlette/datastructures.py:451-468; tests/test_formparsers.py::test_multipart_request_mixed_files_and_data; docs/requests.md:114-162.",
@@ -22758,6 +22792,19 @@
               "id": "starlette.responses.FileResponse.asgi-call.range-bound-over-cpython-int-limit",
               "dimension": "error_path",
               "description": "On CPython 3.12 with its default 4,300-digit conversion limit, a Range bound containing 4,301 digits raises ValueError in int() and is ignored; compare the resulting malformed-range response. The Rust-native FileResponse must preserve the pinned behavior; the installed package serves as a live oracle. Pinned source: starlette/responses.py::FileResponse._parse_ranges and FileResponse._parse_range_header (lines 473–482, 502–528).",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.FileResponse.asgi-call.range-leading-zero-digit-limit",
+              "dimension": "boundary",
+              "description": "A Range bound with more than CPython's default integer digit limit still parses when every excess digit is a leading zero; compare the live 206 response. Pinned source: starlette/responses.py::FileResponse._parse_ranges and FileResponse._parse_range_header.",
               "lanes": [
                 "parity",
                 "coverage"

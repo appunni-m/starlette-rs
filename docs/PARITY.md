@@ -2,9 +2,9 @@
 
 ## Current verification status
 
-The active full-scope contract is `parity-input@58`, with 2,557 cases across
-428 parity inputs, 1,417 parity requirements, and manifest SHA-256
-`aa71f0c89470b1f4c401078445a8df445ab30c0eb8064ec4c13a1a1a61b9ca36`. No full
+The active full-scope contract is `parity-input@58`, with 2,561 cases across
+430 parity inputs, 1,420 parity requirements, and manifest SHA-256
+`99c085e88f819fd72f4740aeee5a28515f2390e9d57459c02fe97e1003823465`. No full
 parity run is recorded for this digest. The last complete five-profile matrix
 was for the previous manifest SHA-256
 `2dcb25d098d4f09ce3dd6bb231164a58391175f6cff222dd2c6316a9580eec4a`; workflow
@@ -15,9 +15,12 @@ revision is `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`.
 
 The current implementation batch adds CP437 multipart text decoding and
 ASGI2 `TestClient.app` wrapper behavior. Both input-only comparisons are
-registered and remain unexecuted until the grouped parity phase. The focused
-contract/input check passes; no parity, coverage, or benchmark run was made for
-this manifest digest.
+registered and remain unexecuted until the grouped parity phase. The newest
+batch fixes FileResponse's CPython integer digit-limit handling for
+leading-zero range bounds and Request.form's parameterized media-type case and
+duplicate-boundary parsing. Four input-only comparisons are registered and
+remain unexecuted until grouped parity. The focused contract/input check passes;
+no parity, coverage, or benchmark run was made for this manifest digest.
 
 The previous manifest's five-profile parity matrix was verified. The
 `aggregate` command reports that historical matrix under

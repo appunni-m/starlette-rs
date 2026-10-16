@@ -6582,8 +6582,7 @@ def _validate_http_route_call_case_stimulus(case: dict[str, Any]) -> None:
             or path != scope["path"]
             or scope["method"] != "GET"
             or scope["root_path"] != ""
-            or set(case["covers"])
-            != {HTTP_ROUTE_CALL_REQUIREMENTS["scope_type_python_equality"]}
+            or set(case["covers"]) != {HTTP_ROUTE_CALL_REQUIREMENTS["scope_type_python_equality"]}
         ):
             raise ContractError(
                 "Route.__call__ scope-type equality input requires one matching Python-package HTTP Route call with an observed no-match error"
@@ -12042,10 +12041,9 @@ def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
         requirement = ROUTER_MISSING_METHOD_REQUIREMENTS[
             "path_match" if path_matches else "path_miss"
         ]
-        if (
-            (case.get("observe_dispatch_error") is True) != path_matches
-            or set(case["covers"]) != {requirement}
-        ):
+        if (case.get("observe_dispatch_error") is True) != path_matches or set(case["covers"]) != {
+            requirement
+        }:
             raise ContractError(
                 "Router missing-method coverage must follow whether the input path reaches Route method lookup"
             )
@@ -33908,16 +33906,27 @@ def _multipart_part_limit_exceeded(
     return any(len(part) > max_part_size for part in _multipart_text_parts(content_type, body))
 
 
-def _multipart_boundary(content_type: str) -> bytes | None:
-    match = re.search(
+def _multipart_boundaries(content_type: str) -> list[bytes]:
+    matches = re.finditer(
         r'(?:^|;)\s*boundary\s*=\s*(?:"([^"]+)"|([^;\s]+))',
         content_type,
         re.IGNORECASE,
     )
-    if match is None:
+    return [(match.group(1) or match.group(2)).encode("latin-1") for match in matches]
+
+
+def _multipart_boundary(content_type: str) -> bytes | None:
+    boundaries = _multipart_boundaries(content_type)
+    if not boundaries:
         return None
-    value = match.group(1) or match.group(2)
-    return value.encode("latin-1")
+    return boundaries[-1]
+
+
+def _request_form_content_type(content_type_header: str) -> bytes:
+    media_type = content_type_header.split(";", 1)[0].strip()
+    if ";" not in content_type_header:
+        media_type = media_type.lower()
+    return media_type.encode("latin-1")
 
 
 def _multipart_default_parser_limit_exceeded(content_type: str, body: bytes) -> bool:
@@ -34321,9 +34330,7 @@ def _validate_request_form_case(case: dict[str, Any]) -> None:
             original_content_type_header = base64.b64decode(encoded_value, validate=True).decode(
                 "latin-1"
             )
-            original_content_type = (
-                original_content_type_header.split(";", 1)[0].strip().lower().encode("latin-1")
-            )
+            original_content_type = _request_form_content_type(original_content_type_header)
             break
     effective_content_type = original_content_type
     effective_content_type_header = original_content_type_header
@@ -34336,9 +34343,7 @@ def _validate_request_form_case(case: dict[str, Any]) -> None:
                 effective_content_type_header = base64.b64decode(
                     encoded_value, validate=True
                 ).decode("latin-1")
-                effective_content_type = (
-                    effective_content_type_header.split(";", 1)[0].strip().lower().encode("latin-1")
-                )
+                effective_content_type = _request_form_content_type(effective_content_type_header)
                 break
     body = b"".join(base64.b64decode(message["body_base64"], validate=True) for message in messages)
     if has_close_result_override and (
@@ -34364,7 +34369,23 @@ def _validate_request_form_case(case: dict[str, Any]) -> None:
         )
     ):
         raise ContractError("Request.form form_close without file probes requires a multipart file")
-    if effective_content_type == b"application/x-www-form-urlencoded" and body:
+    if (
+        effective_content_type is not None
+        and effective_content_type.lower()
+        in {b"application/x-www-form-urlencoded", b"multipart/form-data"}
+        and effective_content_type != effective_content_type.lower()
+        and ";" in (effective_content_type_header or "")
+        and body
+    ):
+        if form_options or has_file_probes or form_access != "await" or not probe_keys:
+            raise ContractError(
+                "parameterized case-variant Request.form media types only observe the empty FormData"
+            )
+        expected_covers = [
+            "starlette.request.form.content-type-parser-media-type-case",
+            "starlette.datastructures.FormData.multidict-lookups",
+        ]
+    elif effective_content_type == b"application/x-www-form-urlencoded" and body:
         if _request_form_limits_exceeded(body, form_options):
             expected_covers = ["starlette.request.form.parser-limits"]
         else:
@@ -34526,6 +34547,10 @@ def _validate_request_form_case(case: dict[str, Any]) -> None:
                     "starlette.request.form.multipart-header-duplicate-occurrences"
                 )
             expected_covers.append("starlette.datastructures.FormData.multidict-lookups")
+            if len(_multipart_boundaries(effective_content_type_header or "")) > 1:
+                expected_covers.append(
+                    "starlette.request.form.multipart-duplicate-boundary-last-wins"
+                )
             filelike_fields_without_filename = _multipart_filelike_fields_without_filename(
                 effective_content_type_header or "", body
             )
@@ -34554,9 +34579,7 @@ def _validate_request_form_case(case: dict[str, Any]) -> None:
                     high_bytes = set(range(0x80, 0x100))
                     if not any(
                         high_bytes.issubset(part)
-                        for part in _multipart_text_parts(
-                            effective_content_type_header or "", body
-                        )
+                        for part in _multipart_text_parts(effective_content_type_header or "", body)
                     ):
                         raise ContractError(
                             "CP437 multipart decoding cases must supply every high byte in a text field"

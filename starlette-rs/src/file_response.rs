@@ -1365,8 +1365,15 @@ fn parse_decimal(value: &str) -> Option<ParsedDecimal> {
         return None;
     }
     // Starlette 1.6.0 parses range bounds with Python `int()` and ignores
-    // ValueError. Match the pinned CPython 3.12 default digit limit here.
-    if bytes.iter().filter(|byte| byte.is_ascii_digit()).count() > PYTHON_INT_MAX_STR_DIGITS {
+    // ValueError. CPython's conversion limit excludes leading zeroes, so a
+    // long zero prefix remains valid while significant digits are bounded.
+    let significant_digits = bytes
+        .iter()
+        .copied()
+        .filter(|byte| *byte != b'_')
+        .skip_while(|byte| *byte == b'0')
+        .count();
+    if significant_digits > PYTHON_INT_MAX_STR_DIGITS {
         return None;
     }
     let value = bytes
