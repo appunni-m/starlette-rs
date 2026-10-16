@@ -1366,11 +1366,7 @@ fn parse_decimal(value: &str) -> Option<ParsedDecimal> {
     // Starlette 1.6.0 parses range bounds with Python `int()` and ignores
     // ValueError. Match CPython's decimal conversion limit for the full digit
     // sequence, including leading zeroes; underscores are not digits.
-    let digit_count = bytes
-        .iter()
-        .copied()
-        .filter(|byte| *byte != b'_')
-        .count();
+    let digit_count = bytes.iter().copied().filter(|byte| *byte != b'_').count();
     if digit_count > PYTHON_INT_MAX_STR_DIGITS {
         return None;
     }
