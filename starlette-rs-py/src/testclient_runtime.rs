@@ -593,7 +593,12 @@ impl TestClientLifespan {
         let manager = self.portal_manager.take();
         if self.portal_entered {
             if let Some(manager) = manager {
-                let exit_exception = primary_error.as_ref().or(active_exception);
+                // TestClient.__exit__ calls ExitStack.close(), which invokes
+                // the portal callback with the current cleanup error, or with
+                // no exception when only the with-body failed. The body error
+                // is used below to repair cleanup-error context, not forwarded
+                // as an ExitStack callback argument.
+                let exit_exception = primary_error.as_ref();
                 if let Err(error) = exit_portal(py, manager.bind(py).clone(), exit_exception) {
                     replace_cleanup_error(
                         py,
@@ -1486,21 +1491,20 @@ impl PyTestClientTransport {
                     });
             if let Err(error) = shutdown_result {
                 if let Some(active_exception) = active_exception.as_ref() {
-                    chain_exception_context(py, &error, active_exception)?;
+                    // The upstream method closes its ExitStack without passing
+                    // the with-body exception to the callback. Match the
+                    // stack's context repair for a failed shutdown callback.
+                    remove_exception_context(py, &error, active_exception)?;
                 }
                 primary_error = Some(error);
             }
         }
 
         let lifespan = { slf.borrow_mut(py).lifespan.take() };
-        let preserve_cleanup_error_context = primary_error.is_some() || active_exception.is_some();
         match lifespan {
-            Some(mut lifespan) => lifespan.cleanup(
-                py,
-                primary_error,
-                preserve_cleanup_error_context,
-                active_exception.as_ref(),
-            ),
+            Some(mut lifespan) => {
+                lifespan.cleanup(py, primary_error, false, active_exception.as_ref())
+            }
             None => match primary_error {
                 Some(error) => Err(error),
                 None if slf.borrow(py).context_entered => Ok(()),
@@ -2393,9 +2397,42 @@ fn replace_cleanup_error(
         if let Some(previous_error) = primary_error.as_ref().or(active_exception) {
             chain_exception_context(py, &error, previous_error)?;
         }
+    } else {
+        // ExitStack.close() repairs a replacement callback exception's chain
+        // so it no longer points at the exception being replaced. Keep any
+        // context that preceded that exception.
+        if let Some(previous_error) = primary_error.as_ref() {
+            remove_exception_context(py, &error, previous_error)?;
+        }
+        if let Some(active_exception) = active_exception {
+            remove_exception_context(py, &error, active_exception)?;
+        }
     }
     *primary_error = Some(error);
     Ok(())
+}
+
+fn remove_exception_context(py: Python<'_>, error: &PyErr, previous_error: &PyErr) -> PyResult<()> {
+    let previous_value = previous_error.value(py);
+    let mut context = error.value(py).clone().into_any();
+    let mut seen = Vec::new();
+
+    loop {
+        if context.is(previous_value) || seen.iter().any(|value| context.is(value)) {
+            return Ok(());
+        }
+        seen.push(context.clone());
+
+        let next = context.getattr("__context__")?;
+        if next.is_none() {
+            return Ok(());
+        }
+        if next.is(previous_value) {
+            context.setattr("__context__", previous_value.getattr("__context__")?)?;
+            return Ok(());
+        }
+        context = next;
+    }
 }
 
 fn chain_exception_context(py: Python<'_>, error: &PyErr, previous_error: &PyErr) -> PyResult<()> {
