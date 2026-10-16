@@ -863,6 +863,7 @@ def _has_file_response_pathsend(value: Any, *, observation_path: str) -> bool:
     if observation_path == "execution_trace":
         return any(
             isinstance(entry, dict)
+            and entry.get("event") == "outer-send"
             and isinstance(entry.get("message"), dict)
             and entry["message"].get("type") == "http.response.pathsend"
             for entry in value

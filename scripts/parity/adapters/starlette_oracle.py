@@ -3943,7 +3943,15 @@ def _run_gzip_case(case: dict[str, Any]) -> dict[str, Any]:
     if responder and "minimum_size" not in constructor_arguments:
         raise ValueError("GZipResponder constructor requires minimum_size")
     middleware = _materialize_gzip_middleware(constructor_arguments, responder=responder)
-    for assignment in case.get("assignments", []):
+    assignments = case.get("assignments", [])
+    if not isinstance(assignments, list):
+        raise ValueError("GZip live assignments must be a list")
+    for index, raw_assignment in enumerate(assignments):
+        assignment = _strict_object(
+            raw_assignment,
+            {"field", "value"},
+            f"GZip live assignment[{index}]",
+        )
         if assignment["field"] != "app" or responder:
             raise ValueError("GZip live assignment must replace a middleware app")
         middleware.app = _materialize_asgi_sequence_app(assignment["value"])
@@ -5254,6 +5262,9 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("call_next response requires a configured route or downstream ASGI app")
 
     downstream_spec = None
+    response_start_type_python_equality_probe = False
+    response_body_type_python_equality_probe = False
+    response_pathsend_type_python_equality_probe = False
     if "downstream" in application:
         raw_downstream = application["downstream"]
         if not isinstance(raw_downstream, dict) or not isinstance(raw_downstream.get("kind"), str):
@@ -5301,11 +5312,28 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                 }:
                     raise ValueError("downstream ASGI message mapping must be dict or user-dict")
                 message_spec = send_step["message"]
-                if not isinstance(message_spec, dict) or not isinstance(
-                    message_spec.get("type"), str
-                ):
+                if not isinstance(message_spec, dict):
                     raise ValueError("downstream ASGI send message must be tagged")
-                if message_spec["type"] == "http.response.start":
+                message_type_spec = message_spec.get("type", _MISSING)
+                _message_type, message_type_value = _materialize_scope_type_spec(message_type_spec)
+                if not isinstance(message_type_value, str):
+                    raise ValueError("downstream ASGI send message must be tagged")
+                if isinstance(message_type_spec, dict):
+                    if (
+                        response_start_type_python_equality_probe
+                        or response_body_type_python_equality_probe
+                        or response_pathsend_type_python_equality_probe
+                    ):
+                        raise ValueError(
+                            "BaseHTTPMiddleware allows one downstream message type equality probe per case"
+                        )
+                    if message_type_value == "http.response.start":
+                        response_start_type_python_equality_probe = True
+                    elif message_type_value == "http.response.body":
+                        response_body_type_python_equality_probe = True
+                    elif message_type_value == "http.response.pathsend":
+                        response_pathsend_type_python_equality_probe = True
+                if message_type_value == "http.response.start":
                     message = _strict_object(
                         message_spec,
                         {"type", "status", "headers_base64_pairs"},
@@ -5332,7 +5360,7 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                                 )
                             _decode_b64(value, f"downstream response header[{header_index}]")
                     response_started = True
-                elif message_spec["type"] == "http.response.body":
+                elif message_type_value == "http.response.body":
                     message = _strict_object(
                         message_spec,
                         {"type", "body_base64", "more_body"},
@@ -5355,6 +5383,18 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                     if not _decode_b64(message["body_base64"], "downstream ASGI response body"):
                         raise ValueError("downstream ASGI response body must be non-empty")
                     body_send_count += 1
+                elif message_type_value == "http.response.pathsend":
+                    message = _strict_object(
+                        message_spec,
+                        {"type", "path"},
+                        "downstream ASGI response.pathsend input",
+                    )
+                    if not response_started or step_index != 1:
+                        raise ValueError(
+                            "downstream ASGI response.pathsend must follow response.start"
+                        )
+                    if not isinstance(message["path"], str):
+                        raise ValueError("downstream ASGI response.pathsend path must be a string")
                 else:
                     raise ValueError("downstream ASGI send message type is unsupported")
             terminal_body_case = (
@@ -5372,7 +5412,10 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                 and steps[1:] == [{"kind": "receive"}, {"kind": "receive"}]
             )
             if not response_started or (
-                body_send_count < 2 and not terminal_body_case and not pending_body_iterator_case
+                body_send_count < 2
+                and not terminal_body_case
+                and not pending_body_iterator_case
+                and not response_pathsend_type_python_equality_probe
             ):
                 raise ValueError(
                     "downstream ASGI receive input requires response.start and at least two body sends, except for a completed call_next header observation"
@@ -5600,6 +5643,9 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
             "concurrent BaseHTTPMiddleware calls require constructor call-next dispatch and an async background task"
         )
     scope_value = request["scope"]
+    raw_scope_type = scope_value.get("type") if isinstance(scope_value, dict) else _MISSING
+    _scope_type, scope_type_value = _materialize_scope_type_spec(raw_scope_type)
+    scope_type_descriptor = isinstance(raw_scope_type, dict)
     scope_keys = {
         "type",
         "asgi",
@@ -5622,12 +5668,23 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
         (background_task_case and background_task_spec["kind"] == "async-delay")
         or direct_request_stream_endpoint
         or route_kind == "request-body-client-disconnect-response"
+        or scope_type_descriptor
     )
-    if direct_request_stream_endpoint:
+    if scope_type_descriptor:
+        required_covers.add(
+            f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.scope-type-python-inequality"
+        )
+    if scope_type_descriptor:
+        scope_spec = _strict_object(
+            scope_value,
+            {"type"},
+            "BaseHTTPMiddleware scope inequality input",
+        )
+    elif direct_request_stream_endpoint:
         scope_spec = _strict_object(
             scope_value, {"type"}, "BaseHTTPMiddleware direct ASGI HTTP scope"
         )
-        if scope_spec != {"type": "http"}:
+        if scope_type_value != "http":
             raise ValueError("request-stream endpoint must preserve the pinned minimal HTTP scope")
     elif source_sparse_scope:
         scope_spec = _strict_object(
@@ -5635,7 +5692,12 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
             {"type", "version", "method", "path"},
             "BaseHTTPMiddleware source-direct HTTP scope",
         )
-        if scope_spec != {"type": "http", "version": "3", "method": "GET", "path": "/"}:
+        if scope_type_value != "http" or scope_spec != {
+            "type": raw_scope_type,
+            "version": "3",
+            "method": "GET",
+            "path": "/",
+        }:
             raise ValueError("direct ASGI case must preserve the pinned source scope")
     else:
         if isinstance(scope_value, dict) and "extensions" in scope_value:
@@ -5644,15 +5706,16 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
         _strict_object(
             scope_spec["asgi"], {"version", "spec_version"}, "BaseHTTPMiddleware ASGI version"
         )
-    path = "/" if direct_request_stream_endpoint else scope_spec["path"]
+    path = "/" if direct_request_stream_endpoint or scope_type_descriptor else scope_spec["path"]
     if (
-        scope_spec["type"] != "http"
+        scope_type_value != "http"
         or (
             not source_sparse_scope
             and scope_spec["asgi"] != {"version": "3.0", "spec_version": "2.4"}
         )
         or (
             not direct_request_stream_endpoint
+            and not scope_type_descriptor
             and (
                 not isinstance(scope_spec["method"], str)
                 or scope_spec["method"] not in {"GET", "POST"}
@@ -6147,9 +6210,17 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                 )
         elif not (
             returned == "call-next"
-            and saw_response_header_observation
-            and request["receive_after_events"] == "block"
-            and not send_checkpoints
+            and (
+                (
+                    saw_response_header_observation
+                    and request["receive_after_events"] == "block"
+                    and not send_checkpoints
+                )
+                or scope_type_descriptor
+                or response_start_type_python_equality_probe
+                or response_body_type_python_equality_probe
+                or response_pathsend_type_python_equality_probe
+            )
         ):
             raise ValueError(
                 "downstream ASGI pass-through requires a completed call_next header observation and blocking receive"
@@ -6414,6 +6485,18 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
             if step.get("kind") != "send":
                 continue
             message = step.get("message", {})
+            raw_message_type = message.get("type")
+            if isinstance(raw_message_type, dict):
+                _message_type, message_type_value = _materialize_scope_type_spec(raw_message_type)
+                message_type_requirement = {
+                    "http.response.start": "response-start-message-type-python-equality",
+                    "http.response.body": "response-body-message-type-python-equality",
+                    "http.response.pathsend": "response-pathsend-message-type-python-equality",
+                }.get(message_type_value)
+                if message_type_requirement is not None:
+                    required_covers.add(
+                        f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.{message_type_requirement}"
+                    )
             if message.get("type") != "http.response.start":
                 continue
             status = message.get("status")
@@ -6900,9 +6983,12 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                     receive_index += 1
                 else:
                     message_spec = step["message"]
-                    if message_spec["type"] == "http.response.start":
+                    message_type, message_type_value = _materialize_scope_type_spec(
+                        message_spec["type"]
+                    )
+                    if message_type_value == "http.response.start":
                         message = {
-                            "type": message_spec["type"],
+                            "type": message_type,
                             "status": message_spec["status"],
                             "headers": [
                                 (
@@ -6912,14 +6998,16 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                                 for pair in message_spec["headers_base64_pairs"]
                             ],
                         }
-                    else:
+                    elif message_type_value == "http.response.body":
                         message = {
-                            "type": message_spec["type"],
+                            "type": message_type,
                             "body": _decode_b64(
                                 message_spec["body_base64"], "downstream response body"
                             ),
                             "more_body": message_spec["more_body"],
                         }
+                    else:
+                        message = {"type": message_type, "path": message_spec["path"]}
                     if step.get("message_mapping", "dict") == "user-dict":
                         message = UserDict(message)
                     execution_trace.append(
@@ -16020,8 +16108,34 @@ def _run_authentication_case(case: dict[str, Any]) -> dict[str, Any]:
                         return result_iterator()
                     return AuthCredentials(result["credentials"]), SimpleUser(result["user"])
 
+            def backend_factory(
+                backend_calls: list[Any],
+                backend_app_calls: list[Any],
+                replacement: dict[str, Any] | None,
+                holder: dict[str, Any],
+                app_builder: Any,
+                error_builder: Any,
+            ) -> Any:
+                return lambda spec: Backend(
+                    spec,
+                    calls=backend_calls,
+                    app_calls=backend_app_calls,
+                    attribute_replacement=replacement,
+                    middleware_holder=holder,
+                    build_app=app_builder,
+                    build_on_error=error_builder,
+                )
+
             error_response = scenario.get("error_response")
             middleware_holder: dict[str, Any] = {}
+            make_backend = backend_factory(
+                calls,
+                app_calls,
+                attribute_replacement,
+                middleware_holder,
+                build_app,
+                build_on_error,
+            )
 
             scope_type = scenario["scope_type"]
             scope = {
@@ -16055,15 +16169,7 @@ def _run_authentication_case(case: dict[str, Any]) -> dict[str, Any]:
 
             middleware = AuthenticationMiddleware(
                 build_app(application_response_spec, app_calls),
-                Backend(
-                    backend_spec,
-                    calls=calls,
-                    app_calls=app_calls,
-                    attribute_replacement=attribute_replacement,
-                    middleware_holder=middleware_holder,
-                    build_app=build_app,
-                    build_on_error=build_on_error,
-                ),
+                make_backend(backend_spec),
                 build_on_error(error_response)
                 if scenario["error_handler"] == "custom-response"
                 else None,
@@ -16073,7 +16179,7 @@ def _run_authentication_case(case: dict[str, Any]) -> dict[str, Any]:
                 attribute_replacement is not None
                 and attribute_replacement["attribute"] == "backend"
             ):
-                middleware.backend = Backend(attribute_replacement["value"])
+                middleware.backend = make_backend(attribute_replacement["value"])
             try:
                 asyncio.run(middleware(scope, receive, send))
             except Exception as exc:
@@ -18102,6 +18208,8 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         BODY_LIMIT_SURFACE,
     }:
         case_fields.update({"scope_container", "scope_observation"} & case.keys())
+    if case.get("surface") == "starlette.middleware.gzip.GZipMiddleware" and "assignments" in case:
+        case_fields.add("assignments")
     if case.get("surface") == BODY_LIMIT_SURFACE and "scope_headers_container" in case:
         case_fields.add("scope_headers_container")
     _strict_object(case, case_fields, "parity case")

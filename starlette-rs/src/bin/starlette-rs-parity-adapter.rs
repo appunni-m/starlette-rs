@@ -2421,6 +2421,7 @@ fn run_native_http_exception_case(case: &Value) -> Result<Value, String> {
             "case is outside native Response::http_exception",
         ));
     }
+    let case_id = string_field(case, "case_id", "native HTTP exception case")?;
 
     let inputs = case
         .get("inputs")
@@ -2474,7 +2475,9 @@ fn run_native_http_exception_case(case: &Value) -> Result<Value, String> {
         })
         .collect::<Result<Vec<_>, String>>()?;
 
-    Ok(json!({"workflow": {"responses": responses}}))
+    let mut values = Map::new();
+    values.insert(String::from("responses"), Value::Array(responses));
+    native_observation_result(case_id, case, values, "native HTTP exception")
 }
 
 fn run_native_streaming_source_case(case: &Value) -> Result<Value, String> {

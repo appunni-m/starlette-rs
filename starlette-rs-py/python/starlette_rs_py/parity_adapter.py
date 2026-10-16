@@ -4398,7 +4398,15 @@ def _run_gzip_case(case: dict[str, Any]) -> dict[str, Any]:
     if responder and "minimum_size" not in constructor_arguments:
         raise ValueError("GZipResponder constructor requires minimum_size")
     middleware = _materialize_gzip_middleware(constructor_arguments, responder=responder)
-    for assignment in case.get("assignments", []):
+    assignments = case.get("assignments", [])
+    if not isinstance(assignments, list):
+        raise ValueError("GZip live assignments must be a list")
+    for index, raw_assignment in enumerate(assignments):
+        assignment = _exact_object(
+            raw_assignment,
+            {"field", "value"},
+            f"GZip live assignment[{index}]",
+        )
         if assignment["field"] != "app" or responder:
             raise ValueError("GZip live assignment must replace a middleware app")
         middleware.app = _materialize_asgi_sequence_app(assignment["value"])
@@ -12073,6 +12081,16 @@ def _run_reverse_url_case(case: dict[str, Any]) -> dict[str, Any]:
     }
     observation: dict[str, Any] = {}
     lookup = case["lookup"]
+    lookup_name = lookup["name"]
+    if "lookup_name_subclass" in case:
+        startswith_result = case["lookup_name_subclass"]["startswith_result"]
+
+        class InputLookupName(str):
+            def startswith(self, prefix: str) -> bool:
+                del prefix
+                return startswith_result
+
+        lookup_name = InputLookupName(lookup_name)
     try:
         for spec in case["custom_convertors"]:
 
@@ -12131,7 +12149,7 @@ def _run_reverse_url_case(case: dict[str, Any]) -> dict[str, Any]:
         else:
             graph = _build_reverse_route_node(graph_spec, lookup, observation)
             path_params = _reverse_lookup_path_params(lookup)
-            result = graph.url_path_for(lookup["name"], **path_params)
+            result = graph.url_path_for(lookup_name, **path_params)
             observed = _reverse_url_path_value(result)
     except Exception as exc:
         observed = {"error": _reverse_url_error(exc)}
@@ -13758,6 +13776,25 @@ def _run_authentication_case(case: dict[str, Any]) -> dict[str, Any]:
             error_response = scenario.get("error_response")
             middleware_holder: dict[str, Any] = {}
 
+            def make_backend(
+                spec: dict[str, Any],
+                backend_calls: list[Any] = calls,
+                backend_app_calls: list[Any] = app_calls,
+                backend_replacement: dict[str, Any] | None = attribute_replacement,
+                backend_middleware_holder: dict[str, Any] = middleware_holder,
+                backend_build_app: Any = build_app,
+                backend_build_on_error: Any = build_on_error,
+            ) -> Any:
+                return Backend(
+                    spec,
+                    calls=backend_calls,
+                    app_calls=backend_app_calls,
+                    attribute_replacement=backend_replacement,
+                    middleware_holder=backend_middleware_holder,
+                    build_app=backend_build_app,
+                    build_on_error=backend_build_on_error,
+                )
+
             scope_type = scenario["scope_type"]
             scope = {
                 "type": scope_type,
@@ -13790,15 +13827,7 @@ def _run_authentication_case(case: dict[str, Any]) -> dict[str, Any]:
 
             middleware = AuthenticationMiddleware(
                 build_app(application_response_spec, app_calls),
-                Backend(
-                    backend_spec,
-                    calls=calls,
-                    app_calls=app_calls,
-                    attribute_replacement=attribute_replacement,
-                    middleware_holder=middleware_holder,
-                    build_app=build_app,
-                    build_on_error=build_on_error,
-                ),
+                make_backend(backend_spec),
                 build_on_error(error_response)
                 if scenario["error_handler"] == "custom-response"
                 else None,
@@ -13808,7 +13837,7 @@ def _run_authentication_case(case: dict[str, Any]) -> dict[str, Any]:
                 attribute_replacement is not None
                 and attribute_replacement["attribute"] == "backend"
             ):
-                middleware.backend = Backend(attribute_replacement["value"])
+                middleware.backend = make_backend(attribute_replacement["value"])
             try:
                 asyncio.run(middleware(scope, receive, send))
             except Exception as exc:
@@ -19248,7 +19277,9 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
             "observations",
             "execution_schedule",
         }
-        expected_fields.update({"scope_container", "scope_observation"} & case.keys())
+        expected_fields.update(
+            {"scope_container", "scope_observation", "assignments"} & case.keys()
+        )
         _exact_object(
             case,
             expected_fields,

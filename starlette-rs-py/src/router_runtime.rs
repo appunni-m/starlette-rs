@@ -322,7 +322,7 @@ impl PyRouterRuntime {
         &self,
         py: Python<'_>,
         routes: &Bound<'_, PyAny>,
-        name: &str,
+        name: &Bound<'_, PyAny>,
         path_params: &Bound<'_, PyDict>,
         no_match_type: &Bound<'_, PyAny>,
     ) -> PyResult<Py<PyAny>> {

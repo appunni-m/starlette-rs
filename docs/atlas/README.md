@@ -30,11 +30,14 @@ operations, 15 Rust-native operations, and 1,436 parity requirements. Its
 manifest SHA-256 is
 `ffbf919201d9d658793b8e1d42cea97f23c856bd062b2b2f2399e8e7786c6520`. Contract
 validation and metadata-derived source inventory checks passed, and the generated
-source atlas is current for this manifest. The WSGI status split-iterator case
-and four BaseHTTP Python-comparison cases are authored and await grouped parity.
-Its 867 rows contain 811 input mappings, 56 source-backed `not_applicable`
-rows, and zero fixture backlog. The recorded parity, coverage, and benchmark
-evidence below predates @59 through @62. The
+source atlas is current for this manifest. The grouped local @62 parity run
+selected 2,936 comparisons on CPython 3.12 and Rust-native: 2,923 passed, four
+failed, seven had adapter infrastructure errors, and nine were not run; all
+five selected fault contracts passed. A targeted selection of the 11 affected
+cases then passed with no failures, infrastructure errors, or not-run rows.
+Full five-profile @62 parity is pending CI. Its 867 rows contain 811 input
+mappings, 56 source-backed `not_applicable` rows, and zero fixture backlog.
+The recorded coverage and benchmark evidence below predates @59 through @62. The
 StaticFiles implementation now preserves package-root order around a dynamic
 configured `PathLike` root; its input-only comparison remains deferred to grouped parity. The
 999-row API candidate catalog has 564 supported candidates, 435
