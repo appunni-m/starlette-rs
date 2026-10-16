@@ -1,10 +1,12 @@
 # Benchmark mapping
 
-The active `parity-input@58` contract declares 2,565 cases across 431 parity
-inputs, with manifest SHA-256
-`5c9d527185317ff005d83c666610467ef86b9e870a5b723727f146dd2cff6fe1`. No
-benchmark or correctness preflight has run for this digest. The generated run
-below is historical evidence for the previous manifest SHA-256
+The active full-scope `parity-input@58` contract declares 2,565 cases across
+431 parity inputs, with manifest SHA-256
+`ec42686f557bdc59c0916f01823ac66018624dd0a787a9901ccfc6982a180b48`. The
+full-matrix coverage plan has been expanded to include every case applicable
+to each profile and awaits a fresh CI run. No benchmark or correctness
+preflight has run for the current plan and code changes. The generated run
+below is historical evidence from the previous manifest SHA-256
 `2dcb25d098d4f09ce3dd6bb231164a58391175f6cff222dd2c6316a9580eec4a`; it
 measured all 74 declared source/package workloads (6 Router and 68 GZip). All
 74 Rust-native workload rows were `not_run` because the native API has no

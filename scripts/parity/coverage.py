@@ -29,6 +29,7 @@ from .envs import (
     load_prepared_environments,
     python_version_from_runtime,
 )
+from .fault_contracts import evaluate_fault_contract
 from .runner import (
     MAX_DIAGNOSTIC,
     _adapter_environment,
@@ -1188,8 +1189,91 @@ def run_coverage(
                         operations = _operations(manifest)
                         observed_comparisons = 0
                         observed_not_run = 0
+                        fault_contracts = {
+                            contract["id"]: contract for contract in manifest["fault_contracts"]
+                        }
                         for case in selected_cases:
                             case_id = case["case_id"]
+                            fault = case.get("fault_contract")
+                            if isinstance(fault, dict):
+                                contract_id = fault["contract_id"]
+                                contract = fault_contracts[contract_id]
+                                if contract["target_profile"] != target_profile:
+                                    errors.append(
+                                        _error(
+                                            "case_outcome",
+                                            case_id,
+                                            "fault_contract_profile_mismatch",
+                                            "selected fault contract belongs to another target profile",
+                                        )
+                                    )
+                                    observed_not_run += 1
+                                    continue
+                                unsupported_reason = _unsupported_target_input_reason(
+                                    operations[(case["surface"], case["operation"])],
+                                    target["id"],
+                                    case,
+                                )
+                                if unsupported_reason is not None:
+                                    errors.append(
+                                        _error(
+                                            "case_outcome",
+                                            case_id,
+                                            "target_unsupported",
+                                            unsupported_reason,
+                                        )
+                                    )
+                                    observed_not_run += 1
+                                    continue
+                                target_result, target_error = _run_case(
+                                    target_command,
+                                    target["id"],
+                                    case,
+                                    target_env,
+                                    "target",
+                                    root,
+                                )
+                                if target_error:
+                                    errors.append(target_error)
+                                if target_result is None:
+                                    observed_not_run += 1
+                                    continue
+                                if target_result["status"] != "completed":
+                                    _set_case_outcome_error(
+                                        errors, case_id, "target_fault_contract", target_result
+                                    )
+                                    observed_not_run += 1
+                                    continue
+                                failed_assertions = [
+                                    assertion
+                                    for assertion in evaluate_fault_contract(
+                                        contract_id, target_result, case
+                                    )
+                                    if assertion["status"] != "pass"
+                                ]
+                                if failed_assertions:
+                                    tests_failed += 1
+                                    errors.append(
+                                        _error(
+                                            "case_outcome",
+                                            case_id,
+                                            "fault_contract_failed",
+                                            json.dumps(
+                                                {
+                                                    "contract_id": contract_id,
+                                                    "assertions": failed_assertions,
+                                                },
+                                                ensure_ascii=False,
+                                                separators=(",", ":"),
+                                                allow_nan=False,
+                                            ),
+                                        )
+                                    )
+                                else:
+                                    tests_passed += 1
+                                observed_comparisons += 1
+                                continue
+
                             source_result, source_error = _run_case(
                                 oracle_command,
                                 oracle["id"],

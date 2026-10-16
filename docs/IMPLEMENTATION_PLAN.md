@@ -7,126 +7,41 @@ Pydantic are outside this project's scope.
 
 ## Execution order and current status
 
-Active implementation checkpoint (2026-10-16; `parity-input@58`; current
-manifest SHA-256 `5c9d527185317ff005d83c666610467ef86b9e870a5b723727f146dd2cff6fe1`;
-last fully verified target revision `a10ecf5776c50cf86600e3d5f049e8db006f4966`):
+Active implementation checkpoint (2026-10-16; `parity-input@58`; manifest
+SHA-256 `ec42686f557bdc59c0916f01823ac66018624dd0a787a9901ccfc6982a180b48`;
+target revision `87ab3839852eafa87b1afb6b8e879ac8dae1f5b6`):
 
 The active manifest declares full Starlette 1.6.0 scope with 2,565 cases across
 431 parity inputs, two benchmark inputs, 152 compatibility operations, 14
 Rust-native operations, 1,421 parity requirements, and six target profiles.
-Input generation, contract validation, and source-inventory generation pass.
-The newest implementation adds Rust-backed WebSocket `send_json` descriptor
-lookup after mode validation and serialization, with an input-only ordering
-comparison. A separate input observes deletion from the live
-`BackgroundTasks.tasks` list during iteration; the existing Rust-backed Python
-list iterator already preserves the pinned behavior. Both comparisons remain
-unexecuted until grouped parity. Focused Rust format/check/Clippy, Ruff, and
-contract checks passed. The scoped StaticFiles change
-also passed affected-crate checks, rustfmt, and targeted Ruff; atlas generation
-reports 867 source rows (811 input mappings, 56 reasoned `not_applicable`, zero
-backlog). The new StaticFiles input checks configured `PathLike` directory
-ordering after package roots; it remains unexecuted until grouped parity. A new
-TestClient import-policy input observes the missing-dependency error when both
-`httpx2` and legacy `httpx` are unavailable; it remains unexecuted until grouped
-parity. Source audits found no additional runtime gaps in WSGI deprecation
-imports, generator-based lifespan callables, or TestClient timeout and legacy
-dependency fallback. This implementation/input-authoring checkpoint is ready
-for grouped full parity; mismatches will be repaired together before coverage
-and the complete benchmark workload.
-Parity, coverage measurement, and benchmarks have not been run for this
-digest. The latest implementation batch preserves public BackgroundTask attribute lookup, StaticFiles package tuple
-subclass iteration, Route/Router Python scope-type comparison semantics, and
-Router missing-method lookup order. Six corresponding input-only parity cases
-are registered and deferred to grouped parity. `Config.__call__`
-now forwards through the public `get` method to preserve pinned Python subclass
-dispatch; its input-only comparison remains deferred to full parity. The newest
-implementation batch fixes falsey Python `str` subclass dispatch in the QueryParams
-constructor and preserves an active TestClient context exception when portal cleanup
-raises. Their input-only parity cases are registered but remain unexecuted until the
-grouped parity phase. The current batch also fixes FileResponse's ordered comparisons
-of a Python `str` subclass in `scope.type` and recognizes a falsey bytes subclass
-before QueryParams truthiness handling. Both new input-only cases are registered;
-their comparisons remain deferred until grouped parity. The focused package build,
-Rust formatting, changed-file Ruff checks, and source-inventory validation pass. No
-parity, coverage, benchmark, or broad test suite has been run for this implementation
-batch. The newly authored
-FileResponse range-plus-pathsend input, the
-Rust-backed WebSocketEndpoint default hooks, and the public `__version__` value
-comparison remain unexecuted until grouped parity. New WebSocketRoute and Mount
-inputs verify that Router dispatch continues using each object’s constructor-
-compiled path regex after its public path is mutated; these comparisons also
-remain unexecuted until grouped parity. Rust already dispatches against the
-stored compiled regex, so this batch required no runtime change. The last complete parity and
-coverage evidence belongs to the previous manifest SHA-256
-`2dcb25d098d4f09ce3dd6bb231164a58391175f6cff222dd2c6316a9580eec4a`; it ran
-in workflow `38805748474` on target revision
-`a10ecf5776c50cf86600e3d5f049e8db006f4966`. The oracle is Starlette 1.6.0 at
-`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`.
-The latest slice fixes `Request.base_url` dispatch for input-defined `str`
-subclasses by invoking their `endswith` and in-place-add behavior through the
-Python boundary. Two input-only cases cover those methods. Input generation and
-its consistency check, focused `cargo check`, Python compilation, and source
-inventory drift checks passed; these parity cases remain unexecuted until the
-grouped parity phase.
-The current implementation batch adds CP437 multipart text decoding and the
-ASGI2 `TestClient.app` wrapper surface, with two input-only cases registered.
-The focused contract/input check and Rust package checks pass; both comparisons
-remain deferred to grouped parity.
-The next implementation batch fixes FileResponse's CPython integer digit-limit
-handling for long leading-zero range bounds and Request.form's parameterized
-media-type case handling and last-duplicate-boundary parsing. Four input-only
-cases are registered with coverage selectors, but their comparisons remain
-deferred to grouped parity. The contract validator derives those requirement
-selectors from the supplied Content-Type and boundary values. The focused
-contract check and affected Rust package checks pass. A WSGI import-warning
-audit found that the existing facade already matches the pinned warning,
-message, and call site; no change was needed. No parity, coverage, or benchmark
-run has been made for this manifest digest.
-The generated source atlas has 867 rows: 811 mapped, 56 source-backed
-`not_applicable`, and zero fixture backlog. The 999-row API catalog has 564
-supported candidates, 435 private/internal candidates, and zero uncertain
-candidates. The pinned denominators remain 514 upstream test functions and 24
-documented pages.
+The source atlas contains 867 rows: 811 input mappings, 56 source-backed
+`not_applicable` rows, and zero backlog. The pinned denominators remain 514
+upstream test functions and 24 documented pages.
 
-The last complete five-profile matrix on the previous manifest completed in CI
-workflow `38769902939`; all 14 jobs succeeded. It recorded 5,423 passed, zero
-failed, zero infrastructure errors, and zero `not_run` rows. All 17 selected
-fault contracts passed. Per-profile results were: CPython 3.10, 633/633; 3.11,
-633/633; 3.12, 2,889/2,889; 3.13, 634/634; and 3.14, 634/634.
+The full five-profile parity matrix completed successfully in workflow
+[`38844673533`](https://github.com/appunni-m/starlette-rs/actions/runs/38844673533)
+on this revision: 5,496 comparisons passed, with zero failures, infrastructure
+errors, or `not_run` rows. All 17 selected fault-contract cases passed. This is
+the active manifest's parity result; it does not establish the full upstream
+test or documentation denominators.
 
-The last Rust coverage measurement, on that previously verified manifest, is the
-local ignored artifact
-`build/parity/coverage/full-starlette-1.6.0-20261015-57361208-native-inclusive-verified/starlette-project.lcov`:
-26,126/33,348 lines covered (78.34%). Coverage MCP reports a receipt-matched
-measurement. The instrumented CPython 3.12 run recorded 2,887 passed, zero
-failed or infrastructure errors, two platform-specific `not_run` rows, and
-fault contracts 5/5; its `tests=unknown` status reflects those two rows. The
-receipt is bound to extension SHA-256
-`cb2e4e34068e6d869d1236766609dda44e86f7f7bfd61c713371ffb977ba8618` and
-adapter SHA-256
-`9d745cca62615dfbae29bb1f1c2971915beca85b126dffa364df6b2f16ff93c9`.
-Coverage MCP's comparison with the earlier source/build is incomparable, so no
-coverage delta is claimed. The active manifest declares input-driven line
-coverage plans for all six target profiles, mapping 2,506 profile-requirement
-entries to 11 Rust components. No coverage measurement has been run for the
-active manifest SHA above. MCP source identity remains unverified for the prior
-reports because the artifacts have no ingested source/build receipt. Coverage
-measures executed Rust lines; it is not a parity score.
+An audit found that the prior coverage selectors omitted 56 of the 2,565 unique
+parity cases. The active coverage input now selects every parity case applicable
+to each target profile: 374 Rust-native, 273 CPython 3.10, 273 CPython 3.11,
+2,549 CPython 3.12, and 274 each for CPython 3.13 and 3.14. The available
+workflow artifacts were produced from the smaller selectors and do not establish
+full-matrix coverage. The new plan passed `make contract-check` and targeted
+Ruff; a fresh CI coverage run is required. Coverage MCP review of the earlier
+artifacts confirmed their source receipts and selected-plan status, but those
+receipts are not used as full-matrix evidence. No saved coverage snapshot was
+ingested; the receipt build IDs identify CI run/job/artifacts rather than a
+compiled target digest.
 
-The previous-manifest 74-workload benchmark run,
-`8971ad63-111e-4379-a327-6809e852ee75` completed on this revision: 6 Router
-and 68 GZip source/package workloads, zero failures, zero source/package
-`not_run`, and 74 Rust-native `not_run` because the equivalent native workload
-boundary is unavailable. Its correctness preflight
-`d82e3a6e-1069-441f-a0d1-0511042deac5` recorded 2,887 passed, zero failed,
-zero infrastructure errors, two platform-specific `not_run` comparisons, and
-5/5 selected fault contracts. The median source/package latency ratios were
-0.225 for Router and 0.976 for GZip; source latency was lower in 6/6 Router
-and 61/68 GZip workloads, and normalized observation hashes matched in 74/74.
-The result SHA-256 is
-`bc73295313ff0ccde806615597033e510dd502accfc859dc3cd653f7ef7b4eea`.
-These are workload-specific timings, not a general performance or compatibility
-claim. No benchmark has been run for the active manifest SHA above.
+The complete 74-workload benchmark has not yet run for this manifest. After
+the fresh full-matrix coverage run completes, run the benchmark workload once;
+its correctness gate performs the CPython 3.12 parity preflight required before
+timing. Coverage is a measurement, not a parity score. The full replacement
+goal remains active.
 
 ### Post-checkpoint repair and verification
 

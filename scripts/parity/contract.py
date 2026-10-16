@@ -43771,13 +43771,11 @@ def validate_coverage_document(
                 if components_by_id[component_id]["target_profile"] == profile_id
             )
 
-    case_ids_by_profile: dict[str, set[str]] = {profile_id: set() for profile_id in profiles}
+    case_ids_by_profile: dict[str, set[str]] = {
+        profile_id: {case["case_id"] for case in cases if profile_id in case["target_profiles"]}
+        for profile_id in profiles
+    }
     for profile_id, requirement_ids in requirements_by_profile.items():
-        case_ids_by_profile[profile_id] = {
-            case["case_id"]
-            for case in cases
-            if profile_id in case["target_profiles"] and set(case["covers"]) & requirement_ids
-        }
         if not requirement_ids:
             raise ContractError(
                 f"full replacement coverage has no runtime requirements for profile {profile_id}"
@@ -43848,7 +43846,7 @@ def validate_coverage_document(
             or set(parity_case_ids) != case_ids_by_profile[profile_id]
         ):
             raise ContractError(
-                f"{context}.selectors.parity_case_ids must select every applicable active parity case exactly once"
+                f"{context}.selectors.parity_case_ids must select every active parity case for {profile_id} exactly once"
             )
         unknown_cases = set(parity_case_ids) - cases_by_id.keys()
         if unknown_cases:

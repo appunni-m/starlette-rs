@@ -4,63 +4,32 @@
 
 The active full-scope contract is `parity-input@58`, with 2,565 cases across
 431 parity inputs, 1,421 parity requirements, and manifest SHA-256
-`5c9d527185317ff005d83c666610467ef86b9e870a5b723727f146dd2cff6fe1`. No full
-parity run is recorded for this digest. The last complete five-profile matrix
-was for the previous manifest SHA-256
-`2dcb25d098d4f09ce3dd6bb231164a58391175f6cff222dd2c6316a9580eec4a`; workflow
-[38805748474](https://github.com/appunni-m/starlette-rs/actions/runs/38805748474)
-passed all five CPython profiles on target revision
-`a10ecf5776c50cf86600e3d5f049e8db006f4966`. The pinned Starlette 1.6.0 source
-revision is `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`.
+`ec42686f557bdc59c0916f01823ac66018624dd0a787a9901ccfc6982a180b48`. Workflow
+[38844673533](https://github.com/appunni-m/starlette-rs/actions/runs/38844673533)
+completed the five-profile full parity matrix on revision
+`87ab3839852eafa87b1afb6b8e879ac8dae1f5b6`: 5,496 passed, zero failed, zero
+infrastructure errors, and zero `not_run`; all 17 selected fault-contract
+cases passed. The pinned Starlette 1.6.0 source revision is
+`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`.
 
-The newest StaticFiles input checks that a subclass keeps package directories
-ahead of a dynamic configured `PathLike` root returned by `get_directories()`.
-The implementation now preserves that lookup order; its source/package
-comparison remains deferred to grouped parity.
+The prior coverage selectors omitted 56 of the 2,565 unique parity cases. The
+active coverage input now selects every parity case applicable to each profile:
+374 Rust-native, 273 CPython 3.10, 273 CPython 3.11, 2,549 CPython 3.12, and 274
+each for CPython 3.13 and 3.14. The available workflow artifacts came from the
+smaller selectors and do not establish full-matrix coverage. The expanded plan
+passes `make contract-check` and a targeted Ruff check; fresh CI measurements
+are pending. Coverage MCP had matched the prior reports' source receipts and
+test status, but they are not used as full-matrix evidence. No saved coverage
+snapshot was ingested, and the receipt build IDs identify CI run/job/artifacts
+rather than a compiled target digest.
 
-The current implementation batch adds CP437 multipart text decoding and
-ASGI2 `TestClient.app` wrapper behavior. Both input-only comparisons are
-registered and remain unexecuted until the grouped parity phase. The newest
-batch fixes FileResponse's CPython integer digit-limit handling for
-leading-zero range bounds and Request.form's parameterized media-type case and
-duplicate-boundary parsing. Four input-only comparisons are registered and
-remain unexecuted until grouped parity. The focused contract/input check passes;
-no parity, coverage, or benchmark run was made for this manifest digest.
-
-The previous manifest's five-profile parity matrix was verified. The
-`aggregate` command reports that historical matrix under
-`parity_matrix.status`; its top-level status remains `not_proven` because this
-matrix report does not establish the complete Starlette replacement. The
-active manifest now declares six input-driven coverage plans and 11 Rust line
-components. Coverage and benchmark evidence remain separate from this
-parity-matrix report.
-
-The previous manifest's six-profile coverage lane completed in workflow
-[38805748474](https://github.com/appunni-m/starlette-rs/actions/runs/38805748474)
-with zero selected-case failures and zero infrastructure errors. Coverage MCP
-measured Rust-native at 5,156/8,004 lines; CPython 3.10 at 11,650/33,280;
-3.11 at 11,662/33,280; 3.12 at 22,903/33,280; 3.13 at 11,610/33,280; and
-3.14 at 11,606/33,280. It reviewed uncovered locations in the Rust core and
-PyO3 binding sources. The coverage result artifacts have no ingested
-source/build receipt or snapshot, so MCP reports source identity as unverified
-and test status as unknown. These are measured line counts, not source-verified
-regression evidence.
-
-The last benchmark run `1853ee16-2795-48dc-bc5f-2b15421967df`, which used the
-previous manifest, measured
-all 74 source/package workloads (6 Router and 68 GZip): 74 measured, 0 failed,
-and 0 `not_run`. All 74 Rust-native rows are `not_run` because an equivalent
-workload boundary is unavailable. The median source/package latency ratios
-were 0.224 for Router and 0.974 for GZip; normalized observation hashes
-matched in 74/74. Its correctness preflight
-`f706bbcd-adc2-4ee0-8574-ce46b133fa26` recorded 2,887 passed, zero failed or
-infrastructure errors, and two `not_run` comparisons.
-
-These results are revision-bound and do not establish universal or drop-in
-compatibility. The full Starlette replacement remains incomplete. Coverage MCP
-did not verify report source identity or ingest test receipts, as described
-above. The pinned denominators remain 514 upstream test functions and 24
-documented pages.
+The 74-workload benchmark remains pending. Its correctness preflight must pass
+the CPython 3.12 package cases before timing; it does not establish the full
+Starlette replacement. The top-level aggregate status therefore remains
+`not_proven`. The source atlas currently contains 867 rows (811 input mappings,
+56 source-backed `not_applicable`, zero backlog). The pinned denominators
+remain 514 upstream test functions and 24 documented pages, and the full
+replacement remains incomplete.
 
 Historical preflight context: the earlier grouped matrix found a URL difference
 on CPython 3.10/3.11 and a CPython 3.12 package-adapter schema crash; both were
