@@ -1411,6 +1411,7 @@ HTTP_ROUTE_CALL_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
 HTTP_ROUTE_CALL_REQUIREMENTS = {
     "matched": "starlette.routing.Route.__call__.standalone-match",
     "not_found": "starlette.routing.Route.__call__.standalone-not-found",
+    "scope_type_python_equality": "starlette.routing.Route.__call__.scope-type-python-equality",
 }
 ROUTER_SURFACE = "starlette.routing.Router"
 ROUTER_OPERATION = "route-dispatch"
@@ -1466,6 +1467,13 @@ ROUTER_SURROGATE_REDIRECT_ERROR_REQUIREMENT = (
 ROUTER_OPPOSITE_SCOPE_MATCH_ERROR_REQUIREMENT = (
     "starlette.routing.Router.route-dispatch.opposite-scope-match-error"
 )
+ROUTER_SCOPE_TYPE_MEMBERSHIP_REQUIREMENT = (
+    "starlette.routing.Router.route-dispatch.scope-type-python-membership"
+)
+ROUTER_MISSING_METHOD_REQUIREMENTS = {
+    "path_miss": "starlette.routing.Router.route-dispatch.missing-method-after-path-miss",
+    "path_match": "starlette.routing.Router.route-dispatch.missing-method-after-path-match",
+}
 WEBSOCKET_ROUTE_LONE_SURROGATE_REQUIREMENT = (
     "starlette.routing.WebSocketRoute.route-dispatch.lone-surrogate-path"
 )
@@ -1579,6 +1587,9 @@ STREAMING_RESPONSE_SURFACE = "starlette.responses.StreamingResponse"
 FILE_RESPONSE_SURFACE = "starlette.responses.FileResponse"
 STATIC_FILES_SURFACE = "starlette.staticfiles.StaticFiles"
 STATIC_FILES_PACKAGE_TRUTHINESS_REQUIREMENT = "packages-truthiness-before-iteration"
+STATIC_FILES_PACKAGE_TUPLE_ITERATION_REQUIREMENT = (
+    f"{STATIC_FILES_SURFACE}.asgi-call.package-tuple-subclass-iteration"
+)
 STATIC_FILES_SCOPE_TYPE_EQUALITY_REQUIREMENT = (
     f"{STATIC_FILES_SURFACE}.asgi-call.scope-type-equality"
 )
@@ -1668,6 +1679,7 @@ RESPONSE_BACKGROUND_REQUIREMENTS = {
     "task_order": "starlette.responses.Response.asgi-call.background-task-order",
     "task_subclass_property": "starlette.responses.Response.asgi-call.background-tasks-subclass-dynamic-tasks-lookup",
     "task_subclass_add_task": "starlette.responses.Response.asgi-call.background-tasks-subclass-add-task-dynamic-lookup",
+    "task_public_attribute_lookup": "starlette.responses.Response.asgi-call.background-task-subclass-public-attribute-lookup",
     "task_failure": "starlette.responses.Response.asgi-call.background-task-failure-stops",
     "task_late_failure": "starlette.responses.Response.asgi-call.background-task-late-failure-stops",
     "task_sequence_constructor": "starlette.responses.Response.asgi-call.background-task-sequence-constructor",
@@ -3017,6 +3029,12 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         and observation["path"]
                         in {"dispatch_error.class", "dispatch_error.message"}
                     )
+                    route_dispatch_error_probe = (
+                        condition["input_key"] == "observe_dispatch_error"
+                        and key == HTTP_ROUTE_CALL_OPERATION_KEY
+                        and observation["path"]
+                        in {"dispatch_error.class", "dispatch_error.message"}
+                    )
                     testclient_lifespan_callback_trace = (
                         condition["input_key"] == "asgi_app.callback"
                         and key == TESTCLIENT_LIFESPAN_OPERATION_KEY
@@ -3120,6 +3138,11 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         condition["input_key"] == "package_sequence"
                         and key == (STATIC_FILES_SURFACE, RESPONSE_OPERATION)
                         and observation["path"] == "package_sequence_trace"
+                    )
+                    static_files_package_tuple_trace = (
+                        condition["input_key"] == "package_tuple_subclass"
+                        and key == (STATIC_FILES_SURFACE, RESPONSE_OPERATION)
+                        and observation["path"] == "package_tuple_trace"
                     )
                     trusted_host_constructor_probe = (
                         condition["input_key"] == "constructor_probes"
@@ -3254,6 +3277,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         and not router_scope_probe
                         and not router_cache_gc_probe
                         and not router_dispatch_error_probe
+                        and not route_dispatch_error_probe
                         and not testclient_lifespan_callback_trace
                         and not testclient_lifespan_runvar_context
                         and not testclient_lifespan_typing_contract
@@ -3272,6 +3296,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         and not static_files_subclass_hook_calls
                         and not static_files_scope_observation
                         and not static_files_package_sequence_trace
+                        and not static_files_package_tuple_trace
                         and not trusted_host_constructor_probe
                         and not file_response_single_call
                         and not file_response_call_sequence
@@ -6511,11 +6536,14 @@ def _validate_websocket_route_case_stimulus(case: dict[str, Any]) -> None:
 
 
 def _validate_http_route_call_case_stimulus(case: dict[str, Any]) -> None:
-    _exact(case, HTTP_ROUTE_CALL_CASE_KEYS, "Route __call__ case")
+    optional_keys = {"observe_dispatch_error"} if "observe_dispatch_error" in case else set()
+    _exact(case, HTTP_ROUTE_CALL_CASE_KEYS | optional_keys, "Route __call__ case")
     if (case["surface"], case["operation"]) != HTTP_ROUTE_CALL_OPERATION_KEY:
         raise ContractError("case is outside the Route.__call__ operation")
     if case["observations"] != [HTTP_ROUTE_CALL_OPERATION]:
         raise ContractError("Route.__call__ observations must select the ASGI call result")
+    if "observe_dispatch_error" in case and case["observe_dispatch_error"] is not True:
+        raise ContractError("Route.__call__ observe_dispatch_error must be true when supplied")
     route = _exact(case["route"], {"path", "endpoint"}, "Route input")
     path = _string(route["path"], "Route.path")
     if not path.startswith("/") or "{" in path or "}" in path:
@@ -6524,8 +6552,32 @@ def _validate_http_route_call_case_stimulus(case: dict[str, Any]) -> None:
     if endpoint["kind"] != "plain-text-response-asgi-app":
         raise ContractError("Route endpoint kind must be plain-text-response-asgi-app")
     _string(endpoint["content"], "Route endpoint.content")
-    _validate_route_dispatch_io(case)
+    raw_scope_type = case["scope"].get("type")
+    scope_type, has_scope_type_subclass = _route_dispatch_scope_type(
+        raw_scope_type,
+        "Route.__call__ scope.type",
+        allow_str_subclass=True,
+    )
+    _validate_route_dispatch_io(
+        case,
+        allow_scope_type_str_subclass=has_scope_type_subclass,
+    )
     scope = case["scope"]
+    if has_scope_type_subclass:
+        if (
+            scope_type != "http"
+            or case["target_profiles"] != ["python-package-cpython312"]
+            or case.get("observe_dispatch_error") is not True
+            or path != scope["path"]
+            or scope["method"] != "GET"
+            or scope["root_path"] != ""
+            or set(case["covers"])
+            != {HTTP_ROUTE_CALL_REQUIREMENTS["scope_type_python_equality"]}
+        ):
+            raise ContractError(
+                "Route.__call__ scope-type equality input requires one matching Python-package HTTP Route call with an observed no-match error"
+            )
+        return
     if scope["method"] != "GET" or scope["root_path"] != "":
         raise ContractError("Route.__call__ cases require a direct GET scope with empty root_path")
     requirement = (
@@ -7262,8 +7314,14 @@ def _validate_route_dispatch_io(
     allow_host: bool = False,
     allow_inherited_mount_scope: bool = False,
     allow_websocket: bool = False,
+    allow_scope_type_str_subclass: bool = False,
+    allow_missing_method: bool = False,
 ) -> None:
-    scope_type = case["scope"].get("type")
+    scope_type, has_scope_type_subclass = _route_dispatch_scope_type(
+        case["scope"].get("type"),
+        "route-dispatch scope.type",
+        allow_str_subclass=allow_scope_type_str_subclass,
+    )
     if scope_type == "websocket" and allow_websocket:
         if not allow_query and case["scope"].get("query_string_base64") != "":
             raise ContractError("route-dispatch cases do not declare a query string")
@@ -7284,13 +7342,39 @@ def _validate_route_dispatch_io(
         raise ContractError(
             "route-dispatch cases use their declared ASGI receive event and send collector"
         )
+    dispatch_scope = case["scope"]
+    if has_scope_type_subclass or allow_missing_method:
+        dispatch_scope = dict(dispatch_scope)
+        dispatch_scope["type"] = scope_type
     _validate_dispatch_stimulus(
-        {"scope": case["scope"], "receive": case["incoming"], "send": case["send"]},
+        {"scope": dispatch_scope, "receive": case["incoming"], "send": case["send"]},
         request_dispatch=True,
         allow_root_path=True,
         allow_host=allow_host,
         allow_inherited_mount_scope=allow_inherited_mount_scope,
+        allow_missing_method=allow_missing_method,
     )
+
+
+def _route_dispatch_scope_type(
+    value: Any, context: str, *, allow_str_subclass: bool = False
+) -> tuple[str, bool]:
+    if isinstance(value, str):
+        return _string(value, context), False
+    if not allow_str_subclass:
+        raise ContractError(f"{context} must be an HTTP or WebSocket scope type")
+    descriptor = _exact(value, {"str_subclass"}, f"{context} descriptor")
+    subclass = _exact(
+        descriptor["str_subclass"],
+        {"value", "equal_result"},
+        f"{context}.str_subclass",
+    )
+    scope_type = _string(subclass["value"], f"{context}.str_subclass.value")
+    if scope_type != "http" or subclass["equal_result"] is not False:
+        raise ContractError(
+            f"{context} equality probe must store http and return false from Python equality"
+        )
+    return scope_type, True
 
 
 def _validate_redirect_response_case_stimulus(case: dict[str, Any]) -> None:
@@ -7639,6 +7723,8 @@ def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
                 background_fields.add("tasks_property_indices")
                 if "add_task" in case["background"]:
                     background_fields.add("add_task")
+            if case["background"].get("kind") == "single-task-subclass-properties":
+                background_fields.add("public_attributes")
             background = _exact(
                 case["background"], background_fields, "Response background task input"
             )
@@ -7646,7 +7732,7 @@ def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
             tasks = background["tasks"]
             if not isinstance(tasks, list) or not tasks:
                 raise ContractError("Response background tasks must be a non-empty array")
-            if kind == "single-task" and len(tasks) != 1:
+            if kind in {"single-task", "single-task-subclass-properties"} and len(tasks) != 1:
                 raise ContractError("single-task background input must contain exactly one task")
             if kind in {"task-list", "task-list-constructor"} and len(tasks) < 2:
                 raise ContractError("background task lists must contain multiple tasks")
@@ -7689,6 +7775,7 @@ def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
                         )
             if kind not in {
                 "single-task",
+                "single-task-subclass-properties",
                 "task-list",
                 "task-list-constructor",
                 "task-list-subclass-property",
@@ -7947,6 +8034,55 @@ def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
                         f"{context}.kwargs_mapping ordered-key-mapping requires the dict builtin callback"
                     )
 
+            if kind == "single-task-subclass-properties":
+                if (
+                    set(case["target_profiles"]) != {"python-package-cpython312"}
+                    or background_control is not None
+                    or tasks[0]["mode"] != "sync"
+                    or tasks[0]["args"] == []
+                    or tasks[0]["kwargs"] == {}
+                    or tasks[0]["failure"] is not None
+                ):
+                    raise ContractError(
+                        "BackgroundTask public-attribute lookup requires one plain Python-package sync task with distinct constructor values"
+                    )
+                public_attributes = _exact(
+                    background["public_attributes"],
+                    {"is_async", "func", "args", "kwargs"},
+                    "Response background task public attributes",
+                )
+                if type(public_attributes["is_async"]) is not bool:
+                    raise ContractError(
+                        "Response background task public is_async must be a boolean"
+                    )
+                public_function = _exact(
+                    public_attributes["func"],
+                    {"mode", "failure"},
+                    "Response background task public func",
+                )
+                if public_function["mode"] != "async" or public_function["failure"] is not None:
+                    raise ContractError(
+                        "Response background task public func must select one successful async callback"
+                    )
+                if (
+                    public_attributes["is_async"] is not True
+                    or not isinstance(public_attributes["args"], list)
+                    or any(type(value) not in {str, int} for value in public_attributes["args"])
+                    or not isinstance(public_attributes["kwargs"], dict)
+                    or any(
+                        not isinstance(key, str) or type(value) not in {str, int}
+                        for key, value in public_attributes["kwargs"].items()
+                    )
+                ):
+                    raise ContractError("Response background public attributes are invalid")
+                if (
+                    public_attributes["args"] == tasks[0]["args"]
+                    and public_attributes["kwargs"] == tasks[0]["kwargs"]
+                ):
+                    raise ContractError(
+                        "Response background public args or kwargs must differ from constructor inputs"
+                    )
+
             if background_control is not None:
                 if has_argument_expansion_order:
                     raise ContractError(
@@ -8029,6 +8165,8 @@ def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
                     RESPONSE_BACKGROUND_REQUIREMENTS["task_order"],
                     RESPONSE_BACKGROUND_REQUIREMENTS["task_list_live_mutation"],
                 ]
+            elif kind == "single-task-subclass-properties":
+                derived = [RESPONSE_BACKGROUND_REQUIREMENTS["task_public_attribute_lookup"]]
             elif kind == "single-task":
                 mapping = tasks[0].get("kwargs_mapping")
                 if mapping is not None and mapping["kind"] == "ordered-key-mapping":
@@ -9202,6 +9340,7 @@ def _validate_static_files_case_stimulus(
         STATIC_FILES_ASGI_CALL_CASE_KEYS
         | ({"subclass_hooks"} if "subclass_hooks" in case else set())
         | ({"package_sequence"} if "package_sequence" in case else set())
+        | ({"package_tuple_subclass"} if "package_tuple_subclass" in case else set())
         | ({"scope_container", "scope_observation"} & case.keys())
     )
     _exact(case, case_keys, "StaticFiles asgi-call case")
@@ -9367,6 +9506,21 @@ def _validate_static_files_case_stimulus(
         )
         if package_sequence["kind"] != "falsey-list-subclass":
             raise ContractError("StaticFiles.package_sequence.kind must be falsey-list-subclass")
+    package_tuple_subclass_present = "package_tuple_subclass" in case
+    package_tuple_subclass = case.get("package_tuple_subclass")
+    if package_tuple_subclass_present:
+        package_tuple_subclass = _exact(
+            package_tuple_subclass,
+            {"index", "iter_values"},
+            "StaticFiles.package_tuple_subclass",
+        )
+        if (
+            type(package_tuple_subclass["index"]) is not int
+            or not isinstance(package_tuple_subclass["iter_values"], list)
+            or len(package_tuple_subclass["iter_values"]) != 2
+            or any(not isinstance(value, str) for value in package_tuple_subclass["iter_values"])
+        ):
+            raise ContractError("StaticFiles package tuple subclass inputs are invalid")
     package_paths: set[str] = set()
     for index, package in enumerate(packages):
         context = f"StaticFiles.packages[{index}]"
@@ -9482,6 +9636,42 @@ def _validate_static_files_case_stimulus(
         return {STATIC_FILES_SCOPE_TYPE_EQUALITY_REQUIREMENT}
 
     path = scope["path"]
+    if package_tuple_subclass_present:
+        tuple_index = package_tuple_subclass["index"]
+        tuple_values = package_tuple_subclass["iter_values"]
+        if (
+            tuple_index != 0
+            or len(packages) != 1
+            or len(packages[0]["files"]) != 1
+            or packages[0]["statics_dir"] == "statics"
+            or tuple_values[0] != packages[0]["name"]
+            or tuple_values[1] == packages[0]["statics_dir"]
+            or tuple_values[1] not in {"."}
+            or files
+            or package_sequence_present
+            or case["html"]
+            or case["filesystem"] is not None
+            or path_limit_stress is not None
+            or permission_denial_stress is not None
+            or subclass_hook_name is not None
+            or scope["method"] != "GET"
+            or scope["root_path"]
+            or scope["query_string_base64"]
+            or scope["headers_base64_pairs"]
+            or set(case["target_profiles"]) != {"python-package-cpython312"}
+        ):
+            raise ContractError(
+                "StaticFiles package tuple subclass requires one direct package-root GET with no other behavior selectors"
+            )
+        asset_path = packages[0]["files"][0]["path"]
+        if path != f"/{asset_path}" or case["covers"] != [
+            STATIC_FILES_PACKAGE_TUPLE_ITERATION_REQUIREMENT
+        ]:
+            raise ContractError(
+                "StaticFiles package tuple subclass must request its package asset and cover iteration"
+            )
+        return {STATIC_FILES_PACKAGE_TUPLE_ITERATION_REQUIREMENT}
+
     root_path = scope["root_path"]
     visible_packages = packages
     if package_sequence_present:
@@ -11725,7 +11915,12 @@ def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
     ]
     if "garbage_collection" in case:
         _validate_router_cache_gc_case(case, routes)
-    websocket_dispatch = case["scope"].get("type") == "websocket"
+    scope_type, has_scope_type_subclass = _route_dispatch_scope_type(
+        case["scope"].get("type"),
+        "Router route-dispatch scope.type",
+        allow_str_subclass=True,
+    )
+    websocket_dispatch = scope_type == "websocket"
     path = case["scope"].get("path")
     root_path = case["scope"].get("root_path")
     opposite_scope_match_error = (
@@ -11782,7 +11977,8 @@ def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
             )
     else:
         method = case["scope"].get("method")
-        if not isinstance(method, str):
+        missing_method = "method" not in case["scope"]
+        if not missing_method and not isinstance(method, str):
             raise ContractError("Router HTTP route-dispatch scope must declare a method")
     if not isinstance(path, str) or not isinstance(root_path, str):
         raise ContractError("Router route-dispatch scope must declare string path and root_path")
@@ -11793,7 +11989,56 @@ def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
         allow_host=has_host_route,
         allow_inherited_mount_scope=has_mount_route,
         allow_websocket=websocket_dispatch,
+        allow_scope_type_str_subclass=has_scope_type_subclass,
+        allow_missing_method=not websocket_dispatch and missing_method,
     )
+    if has_scope_type_subclass:
+        if (
+            scope_type != "http"
+            or case["target_profiles"] != ["python-package-cpython312"]
+            or case.get("observe_dispatch_error") is not True
+            or len(routes) != 1
+            or routes[0]["kind"] != "http-route"
+            or routes[0]["methods"] != ["GET"]
+            or _route_template_parameters(routes[0]["path"])
+            or has_host_route
+            or has_mount_route
+            or custom_convertors
+            or case["redirect_slashes"]
+            or set(case["covers"]) != {ROUTER_SCOPE_TYPE_MEMBERSHIP_REQUIREMENT}
+        ):
+            raise ContractError(
+                "Router scope-type membership input requires one static GET route and an observed Python-package assertion"
+            )
+        return
+    if not websocket_dispatch and missing_method:
+        if (
+            case["target_profiles"] != ["python-package-cpython312"]
+            or len(routes) != 1
+            or routes[0]["kind"] != "http-route"
+            or routes[0]["methods"] != ["GET"]
+            or _route_template_parameters(routes[0]["path"])
+            or has_host_route
+            or has_mount_route
+            or custom_convertors
+            or case["redirect_slashes"]
+            or root_path
+        ):
+            raise ContractError(
+                "Router missing-method input requires one static GET route and disabled redirects"
+            )
+        path_matches = routes[0]["path"] == path
+        requirement = ROUTER_MISSING_METHOD_REQUIREMENTS[
+            "path_match" if path_matches else "path_miss"
+        ]
+        if (
+            (case.get("observe_dispatch_error") is True) != path_matches
+            or set(case["covers"]) != {requirement}
+        ):
+            raise ContractError(
+                "Router missing-method coverage must follow whether the input path reaches Route method lookup"
+            )
+        return
     route_path = _route_path_after_root(path, root_path)
     has_surrogate_path = any(
         0xD800 <= ord(character) <= 0xDFFF
@@ -24505,11 +24750,20 @@ def _validate_case_payload(
         and "package_sequence" in case
     ):
         expected_case_keys = expected_case_keys | {"package_sequence"}
+    if (
+        is_static_files
+        and isinstance(case, dict)
+        and case.get("operation") == RESPONSE_OPERATION
+        and "package_tuple_subclass" in case
+    ):
+        expected_case_keys = expected_case_keys | {"package_tuple_subclass"}
     if is_static_files_lookup_path and isinstance(case, dict) and "observe_lookup_error" in case:
         expected_case_keys = expected_case_keys | {"observe_lookup_error"}
     if is_router and isinstance(case, dict) and "observe_router_scope" in case:
         expected_case_keys = expected_case_keys | {"observe_router_scope"}
     if is_router and isinstance(case, dict) and "observe_dispatch_error" in case:
+        expected_case_keys = expected_case_keys | {"observe_dispatch_error"}
+    if is_http_route_call and isinstance(case, dict) and "observe_dispatch_error" in case:
         expected_case_keys = expected_case_keys | {"observe_dispatch_error"}
     if is_router and isinstance(case, dict) and "max_body_size" in case:
         expected_case_keys = expected_case_keys | {"max_body_size"}
@@ -31159,6 +31413,7 @@ def _validate_dispatch_stimulus(
     allow_caller_cancellation_send: bool = False,
     allow_non_string_scope_type: bool = False,
     allow_non_string_method: bool = False,
+    allow_missing_method: bool = False,
     allow_non_http_scope_passthrough: bool = False,
 ) -> None:
     if set(args) != {"scope", "receive", "send"}:
@@ -31215,6 +31470,8 @@ def _validate_dispatch_stimulus(
             "client",
             "server",
         }
+        if allow_missing_method and "method" not in scope:
+            scope_fields.remove("method")
         if allow_inherited_mount_scope:
             scope_fields.update(key for key in ("app_root_path", "path_params") if key in scope)
         if allow_scope_app and "app" in scope:
@@ -31233,7 +31490,7 @@ def _validate_dispatch_stimulus(
                 raise ContractError(
                     "HTTP scope.path_params must map non-empty names to strings or numbers"
                 )
-        if not allow_non_string_method:
+        if "method" in scope and not allow_non_string_method:
             _string(scope["method"], "HTTP scope.method")
         path = _string(scope["path"], "HTTP scope.path")
         try:

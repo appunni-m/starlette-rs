@@ -868,9 +868,21 @@ fn resolve_directories(
             for item in packages.try_iter()? {
                 let item = item?;
                 let (package, statics_dir) = if let Ok(package_tuple) = item.cast::<PyTuple>() {
+                    let mut package_items = package_tuple.try_iter()?;
+                    let package = package_items.next().transpose()?.ok_or_else(|| {
+                        PyValueError::new_err("not enough values to unpack (expected 2, got 0)")
+                    })?;
+                    let statics_dir = package_items.next().transpose()?.ok_or_else(|| {
+                        PyValueError::new_err("not enough values to unpack (expected 2, got 1)")
+                    })?;
+                    if package_items.next().transpose()?.is_some() {
+                        return Err(PyValueError::new_err(
+                            "too many values to unpack (expected 2)",
+                        ));
+                    }
                     (
-                        package_tuple.get_item(0)?.extract::<String>()?,
-                        package_tuple.get_item(1)?.extract::<String>()?,
+                        package.extract::<String>()?,
+                        statics_dir.extract::<String>()?,
                     )
                 } else {
                     (item.extract::<String>()?, "statics".to_owned())

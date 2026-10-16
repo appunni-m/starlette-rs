@@ -8,14 +8,19 @@ Pydantic are outside this project's scope.
 ## Execution order and current status
 
 Active implementation checkpoint (2026-10-16; `parity-input@58`; current
-manifest SHA-256 `5324c0390852cee273bcf333eb938b7cca745682f8680e278478c70267a37321`;
+manifest SHA-256 `f55f14e74848748b557cf1a8b25ed2abd3ea3f43c878578d314dce05c50844e5`;
 last fully verified target revision `a10ecf5776c50cf86600e3d5f049e8db006f4966`):
 
-The active manifest declares full Starlette 1.6.0 scope with 2,547 cases across
-421 parity inputs, two benchmark inputs, 151 compatibility operations, 14
-Rust-native operations, 1,408 parity requirements, and six target profiles.
-Contract validation and source-inventory generation pass; parity, coverage
-measurement, and benchmarks have not been run for this digest. `Config.__call__`
+The active manifest declares full Starlette 1.6.0 scope with 2,553 cases across
+425 parity inputs, two benchmark inputs, 151 compatibility operations, 14
+Rust-native operations, 1,414 parity requirements, and six target profiles.
+Contract validation, source-inventory generation, the focused package build,
+and workspace formatting checks pass; parity, coverage measurement, and
+benchmarks have not been run for this digest. The latest implementation batch
+preserves public BackgroundTask attribute lookup, StaticFiles package tuple
+subclass iteration, Route/Router Python scope-type comparison semantics, and
+Router missing-method lookup order. Six corresponding input-only parity cases
+are registered and deferred to grouped parity. `Config.__call__`
 now forwards through the public `get` method to preserve pinned Python subclass
 dispatch; its input-only comparison remains deferred to full parity. The newest
 implementation batch fixes falsey Python `str` subclass dispatch in the QueryParams
@@ -65,7 +70,7 @@ adapter SHA-256
 `9d745cca62615dfbae29bb1f1c2971915beca85b126dffa364df6b2f16ff93c9`.
 Coverage MCP's comparison with the earlier source/build is incomparable, so no
 coverage delta is claimed. The active manifest declares input-driven line
-coverage plans for all six target profiles, mapping 2,500 profile-requirement
+coverage plans for all six target profiles, mapping 2,506 profile-requirement
 entries to 11 Rust components. No coverage measurement has been run for the
 active manifest SHA above. MCP source identity remains unverified for the prior
 reports because the artifacts have no ingested source/build receipt. Coverage
@@ -692,10 +697,10 @@ also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
 The active parity contract is `parity-input@58` with full scope
-(`starlette-1.6.0-full`): 2,547 input cases across 421 parity files, two
+(`starlette-1.6.0-full`): 2,553 input cases across 425 parity files, two
 benchmark files, 151 Starlette compatibility operations, 14 Rust-native
-operations, 1,408 parity requirements, and six target profiles. Its manifest
-SHA-256 is `5324c0390852cee273bcf333eb938b7cca745682f8680e278478c70267a37321`.
+operations, 1,414 parity requirements, and six target profiles. Its manifest
+SHA-256 is `f55f14e74848748b557cf1a8b25ed2abd3ea3f43c878578d314dce05c50844e5`.
 The latest parity, coverage, and benchmark receipts in the execution ledger
 are tied to the previous manifest and do not validate this current digest. The
 Config typing

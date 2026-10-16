@@ -3044,7 +3044,13 @@
         "starlette.websockets.WebSocketDisconnect.constructor-contract.signature-errors",
         "starlette.websockets.WebSocketDisconnect.constructor-contract.truthy-reason",
         "starlette.datastructures.QueryParams.constructor-string-subclass-before-truthiness",
-        "starlette.testclient.TestClient.lifespan-context.portal-exit-error-context"
+        "starlette.testclient.TestClient.lifespan-context.portal-exit-error-context",
+        "starlette.responses.Response.asgi-call.background-task-subclass-public-attribute-lookup",
+        "starlette.staticfiles.StaticFiles.asgi-call.package-tuple-subclass-iteration",
+        "starlette.routing.Route.__call__.scope-type-python-equality",
+        "starlette.routing.Router.route-dispatch.scope-type-python-membership",
+        "starlette.routing.Router.route-dispatch.missing-method-after-path-miss",
+        "starlette.routing.Router.route-dispatch.missing-method-after-path-match"
       ],
       "target_profile": "python-package-cpython312",
       "selectors": {
@@ -5527,7 +5533,13 @@
           "starlette.middleware.wsgi.WSGIMiddleware.__call__.sender-protocols.sender-cancels-dispatch",
           "starlette.middleware.wsgi.WSGIMiddleware.__call__.sender-protocols.retained-start-response-ownership-cycle",
           "starlette.datastructures.QueryParams.construction-and-mapping-sequence.falsey-string-subclass",
-          "starlette.testclient.TestClient.lifespan-context.portal-cleanup-error-context"
+          "starlette.testclient.TestClient.lifespan-context.portal-cleanup-error-context",
+          "starlette.responses.Response.asgi-call.background-task-subclass-public-attribute-lookup",
+          "starlette.staticfiles.StaticFiles.asgi-call.package-tuple-subclass-iteration",
+          "starlette.routing.Route.__call__.scope-type-python-equality",
+          "starlette.routing.Router.route-dispatch.scope-type-python-membership",
+          "starlette.routing.Router.route-dispatch.missing-method-after-path-miss",
+          "starlette.routing.Router.route-dispatch.missing-method-after-path-match"
         ],
         "command_ids": []
       },

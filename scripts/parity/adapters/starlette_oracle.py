@@ -375,6 +375,7 @@ def _input_background_tasks(
 
     if spec["kind"] not in {
         "single-task",
+        "single-task-subclass-properties",
         "task-list",
         "task-list-constructor",
         "task-list-subclass-property",
@@ -382,7 +383,9 @@ def _input_background_tasks(
         raise ValueError("Response background task kind is unsupported")
     if not isinstance(spec["tasks"], list) or not spec["tasks"]:
         raise ValueError("Response background tasks must be a non-empty array")
-    if spec["kind"] == "single-task" and len(spec["tasks"]) != 1:
+    if spec["kind"] in {"single-task", "single-task-subclass-properties"} and len(
+        spec["tasks"]
+    ) != 1:
         raise ValueError("Response background task count does not match its kind")
     if spec["kind"] in {"task-list", "task-list-constructor"} and len(spec["tasks"]) < 2:
         raise ValueError("Response background task lists must contain multiple tasks")
@@ -584,6 +587,21 @@ def _input_background_tasks(
             raise self.exception_class(self.message)
 
     tasks = []
+    subclass_public_attributes = None
+    subclass_callback = None
+    if spec["kind"] == "single-task-subclass-properties":
+        subclass_public_attributes = _strict_object(
+            spec["public_attributes"],
+            {"is_async", "func", "args", "kwargs"},
+            "Response background task subclass public attributes",
+        )
+        subclass_callback_spec = _strict_object(
+            subclass_public_attributes["func"],
+            {"mode", "failure"},
+            "Response background task subclass func",
+        )
+        subclass_callback = make_callback(0, subclass_callback_spec)
+
     for task_index, task_spec in enumerate(spec["tasks"]):
         task_fields = {"mode", "args", "kwargs", "failure"}
         if isinstance(task_spec, dict) and "callable" in task_spec:
@@ -648,7 +666,30 @@ def _input_background_tasks(
                 raise ValueError("Response background task failure input is unsupported")
         callback = make_callback(task_index, task_spec)
         if background_tasks is None:
-            task = BackgroundTask(callback, *task_spec["args"], **task_spec["kwargs"])
+            if spec["kind"] == "single-task-subclass-properties":
+                public_attributes = subclass_public_attributes
+                public_callback = subclass_callback
+
+                class InputBackgroundTask(BackgroundTask):
+                    @property
+                    def is_async(self) -> bool:
+                        return public_attributes["is_async"]
+
+                    @property
+                    def func(self) -> Any:
+                        return public_callback
+
+                    @property
+                    def args(self) -> tuple[Any, ...]:
+                        return tuple(public_attributes["args"])
+
+                    @property
+                    def kwargs(self) -> dict[str, Any]:
+                        return public_attributes["kwargs"]
+
+                task = InputBackgroundTask(callback, *task_spec["args"], **task_spec["kwargs"])
+            else:
+                task = BackgroundTask(callback, *task_spec["args"], **task_spec["kwargs"])
             if "argument_protocol" in task_spec:
                 protocol = _strict_object(
                     task_spec["argument_protocol"],
@@ -678,7 +719,7 @@ def _input_background_tasks(
             tasks.append(task)
         else:
             background_tasks.add_task(callback, *task_spec["args"], **task_spec["kwargs"])
-    if spec["kind"] == "single-task":
+    if spec["kind"] in {"single-task", "single-task-subclass-properties"}:
         return tasks[0]
     if spec["kind"] == "task-list-constructor":
         return BackgroundTasks(tasks)
@@ -1104,7 +1145,7 @@ def _make_scope(
         "client": tuple(spec["client"]),
         "server": tuple(spec["server"]),
     }
-    if scope_type_value == "http":
+    if scope_type_value == "http" and "method" in spec:
         scope["method"] = _materialize_scope_method_spec(spec["method"])
     elif scope_type_value == "websocket":
         scope["subprotocols"] = list(spec["subprotocols"])
@@ -9612,7 +9653,10 @@ def _run_websocket_route_case(case: dict[str, Any]) -> dict[str, Any]:
 
 
 def _run_http_route_call_case(case: dict[str, Any]) -> dict[str, Any]:
-    _strict_object(case, HTTP_ROUTE_CALL_CASE_KEYS, "Route __call__ case")
+    expected_fields = set(HTTP_ROUTE_CALL_CASE_KEYS)
+    if "observe_dispatch_error" in case:
+        expected_fields.add("observe_dispatch_error")
+    _strict_object(case, expected_fields, "Route __call__ case")
     if (case["surface"], case["operation"]) != (HTTP_ROUTE_SURFACE, HTTP_ROUTE_CALL_OPERATION):
         raise ValueError("workflow is outside the Route.__call__ operation")
     from starlette.responses import PlainTextResponse
@@ -9640,7 +9684,13 @@ def _run_http_route_call_case(case: dict[str, Any]) -> dict[str, Any]:
     async def send(message: dict[str, Any]) -> None:
         sent_messages.append(message)
 
-    asyncio.run(route(scope, receive, send))
+    captured_error: Exception | None = None
+    try:
+        asyncio.run(route(scope, receive, send))
+    except Exception as exc:
+        if case.get("observe_dispatch_error") is not True:
+            raise
+        captured_error = exc
     if incoming_index != len(incoming):
         raise ValueError("Route.__call__ left input receive messages unconsumed")
     response_start = next(
@@ -9669,12 +9719,13 @@ def _run_http_route_call_case(case: dict[str, Any]) -> dict[str, Any]:
             else None
         ),
     }
+    observed_value: Any = available
+    if captured_error is not None:
+        observed_value = _CapturedDispatchError(_dispatch_error(captured_error), available)
     return {
         "case_id": case["case_id"],
         "status": "completed",
-        "observations": [
-            {"step_id": HTTP_ROUTE_CALL_OPERATION, "status": "ok", "value": available}
-        ],
+        "observations": [_workflow_observation(HTTP_ROUTE_CALL_OPERATION, observed_value)],
     }
 
 
@@ -11748,6 +11799,8 @@ def _run_static_files_case(case: dict[str, Any]) -> dict[str, Any]:
         expected_fields.add("subclass_hooks")
     if "package_sequence" in case:
         expected_fields.add("package_sequence")
+    if "package_tuple_subclass" in case:
+        expected_fields.add("package_tuple_subclass")
     if request_sequence:
         expected_fields.add("calls")
     else:
@@ -11998,6 +12051,25 @@ def _run_static_files_case(case: dict[str, Any]) -> dict[str, Any]:
                 if package["statics_dir"] == "statics"
                 else (package["name"], package["statics_dir"])
             )
+        package_tuple_trace: list[dict[str, Any]] = []
+        package_tuple_subclass = case.get("package_tuple_subclass")
+        if package_tuple_subclass is not None:
+            _strict_object(
+                package_tuple_subclass,
+                {"index", "iter_values"},
+                "StaticFiles package tuple subclass",
+            )
+            tuple_index = package_tuple_subclass["index"]
+            tuple_values = package_tuple_subclass["iter_values"]
+
+            class InputPackageTuple(tuple[Any, ...]):
+                def __iter__(self) -> Any:
+                    package_tuple_trace.append(
+                        {"event": "iter", "index": tuple_index, "values": tuple_values}
+                    )
+                    return iter(tuple_values)
+
+            package_arguments[tuple_index] = InputPackageTuple(package_arguments[tuple_index])
         package_sequence_trace: list[str] = []
         package_sequence = case.get("package_sequence")
         if package_sequence is not None:
@@ -12182,6 +12254,8 @@ def _run_static_files_case(case: dict[str, Any]) -> dict[str, Any]:
             observation["subclass_hook_calls"] = subclass_hook_calls
         if package_sequence is not None:
             observation["package_sequence_trace"] = package_sequence_trace
+        if package_tuple_subclass is not None:
+            observation["package_tuple_trace"] = package_tuple_trace
     observation_item = {
         "step_id": RESPONSE_OPERATION,
         "status": "ok",
@@ -13047,11 +13121,14 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
                 background_fields.add("tasks_property_indices")
                 if "add_task" in case["background"]:
                     background_fields.add("add_task")
+            if case["background"].get("kind") == "single-task-subclass-properties":
+                background_fields.add("public_attributes")
             background_tasks_spec = _strict_object(
                 case["background"], background_fields, "Response background tasks"
             )
             if background_tasks_spec["kind"] not in {
                 "single-task",
+                "single-task-subclass-properties",
                 "task-list",
                 "task-list-constructor",
                 "task-list-subclass-property",

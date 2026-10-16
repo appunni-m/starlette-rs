@@ -762,7 +762,11 @@
       "build/parity/inputs/parity/session-response-start-type-python-equality.json",
       "build/parity/inputs/parity/testclient-lifespan-public-api.json",
       "build/parity/inputs/parity/config-env-file-non-assignment.json",
-      "build/parity/inputs/parity/file-response-multipart-missing-content-type.json"
+      "build/parity/inputs/parity/file-response-multipart-missing-content-type.json",
+      "build/parity/inputs/parity/background-task-subclass-public-attribute-lookup.json",
+      "build/parity/inputs/parity/static-files-package-tuple-subclass.json",
+      "build/parity/inputs/parity/route-http-type-equality.json",
+      "build/parity/inputs/parity/router-missing-method-order.json"
     ],
     "coverage": [
       "build/parity/inputs/coverage/full-starlette-coverage.json"
@@ -24917,6 +24921,18 @@
                 "rust-native-local",
                 "python-package-cpython312"
               ]
+            },
+            {
+              "id": "starlette.responses.Response.asgi-call.background-task-subclass-public-attribute-lookup",
+              "dimension": "boundary",
+              "description": "Subclass BackgroundTask with public is_async, func, args, and kwargs properties that differ from constructor state; compare the callback and values read when the response invokes the task. Pinned source: starlette/background.py:12-23; starlette/responses.py:163-170.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
             }
           ],
           "parity": {
@@ -27798,6 +27814,18 @@
               "target_profiles": [
                 "python-package-cpython312"
               ]
+            },
+            {
+              "id": "starlette.routing.Route.__call__.scope-type-python-equality",
+              "dimension": "boundary",
+              "description": "Pass a str subclass storing http whose Python equality returns false; compare Route.__call__ no-match error and endpoint non-dispatch. Pinned source: starlette/routing.py:242, 254-259.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
             }
           ],
           "parity": {
@@ -29196,6 +29224,42 @@
               "id": "starlette.routing.Router.route-dispatch.opposite-scope-match-error",
               "dimension": "error_path",
               "description": "Call every declared route's public matches(scope) in order during surrogate fallback, including an HTTP Route on a WebSocket scope, and propagate its instance matcher error. Pinned source: starlette/routing.py::Router.app.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Router.route-dispatch.scope-type-python-membership",
+              "dimension": "boundary",
+              "description": "Pass a str subclass storing http whose Python equality returns false; compare Router.app tuple-membership assertion behavior and scope state before route dispatch. Pinned source: starlette/routing.py:672-676.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Router.route-dispatch.missing-method-after-path-miss",
+              "dimension": "error_path",
+              "description": "Omit scope.method and use a path that misses the configured Route; compare the 404 result without triggering method lookup. Pinned source: starlette/routing.py:242-259, 672-705.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Router.route-dispatch.missing-method-after-path-match",
+              "dimension": "error_path",
+              "description": "Omit scope.method and use a path matching the configured Route; compare the KeyError raised only after path matching. Pinned source: starlette/routing.py:242-259, 672-705.",
               "lanes": [
                 "parity",
                 "coverage"
@@ -31940,6 +32004,18 @@
               ],
               "target_profiles": [
                 "rust-native-local",
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.staticfiles.StaticFiles.asgi-call.package-tuple-subclass-iteration",
+              "dimension": "boundary",
+              "description": "Supply a tuple subclass for one packages entry whose __iter__ yields an input-selected static directory different from the stored tuple fields; compare the selected response and iterator trace. Pinned source: starlette/staticfiles.py:69-73.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
                 "python-package-cpython312"
               ]
             }

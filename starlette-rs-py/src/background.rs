@@ -151,7 +151,23 @@ impl PyBackgroundTask {
 
     /// Return an awaitable that executes this task through the active Python loop.
     fn run(slf: Py<Self>, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        into_sendable_python_awaitable(py, BackgroundTaskCall { task: slf })
+        into_sendable_python_awaitable(
+            py,
+            BackgroundTaskCall {
+                task: BackgroundTaskHandle::Inner(slf),
+            },
+        )
+    }
+
+    /// Return an awaitable that reads the public task attributes at call time.
+    #[staticmethod]
+    fn run_for(py: Python<'_>, task: Py<PyAny>) -> PyResult<Py<PyAny>> {
+        into_sendable_python_awaitable(
+            py,
+            BackgroundTaskCall {
+                task: BackgroundTaskHandle::Public(task),
+            },
+        )
     }
 }
 
@@ -904,14 +920,44 @@ fn async_generator_escape_error(py: Python<'_>, exception_name: &str, cause: PyE
     error
 }
 
+enum BackgroundTaskHandle {
+    Inner(Py<PyBackgroundTask>),
+    Public(Py<PyAny>),
+}
+
+impl BackgroundTaskHandle {
+    fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
+        match self {
+            Self::Inner(task) => visit.call(task),
+            Self::Public(task) => visit.call(task),
+        }
+    }
+
+    fn attribute(&self, py: Python<'_>, name: &str) -> PyResult<Py<PyAny>> {
+        match self {
+            Self::Inner(task) => {
+                let task = task.borrow(py);
+                let value = match name {
+                    "func" => task.func.as_ref(),
+                    "args" => task.args.as_ref(),
+                    "kwargs" => task.kwargs.as_ref(),
+                    "is_async" => task.is_async.as_ref(),
+                    _ => None,
+                };
+                task_attribute(py, "BackgroundTask", name, value)
+            }
+            Self::Public(task) => task.bind(py).getattr(name).map(Bound::unbind),
+        }
+    }
+}
+
 struct BackgroundTaskCall {
-    task: Py<PyBackgroundTask>,
+    task: BackgroundTaskHandle,
 }
 
 impl AwaitableStateMachine for BackgroundTaskCall {
     fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
-        visit.call(&self.task)?;
-        Ok(())
+        self.task.traverse(visit)
     }
 
     fn finalize_on_drop(&self) -> bool {
@@ -921,23 +967,16 @@ impl AwaitableStateMachine for BackgroundTaskCall {
     fn resume(&mut self, py: Python<'_>, input: MachineResume) -> PyResult<MachineAction> {
         match input {
             MachineResume::Start => {
-                let is_async = {
-                    let task = self.task.borrow(py);
-                    task_attribute(py, "BackgroundTask", "is_async", task.is_async.as_ref())?
-                };
+                let is_async = self.task.attribute(py, "is_async")?;
                 let is_async = is_async.bind(py).is_truthy()?;
-                let task = self.task.borrow(py);
-                let func = task_attribute(py, "BackgroundTask", "func", task.func.as_ref())?;
-                let args = task_attribute(py, "BackgroundTask", "args", task.args.as_ref())?;
-                drop(task);
+                let func = self.task.attribute(py, "func")?;
+                let args = self.task.attribute(py, "args")?;
 
                 // Python evaluates the callable and expands `*args` before it
                 // loads and expands `**kwargs`. Iterating `args` can run user
                 // code, so fetch the mutable kwargs attribute only afterward.
                 let args = argument_tuple(py, &args)?;
-                let task = self.task.borrow(py);
-                let kwargs = task_attribute(py, "BackgroundTask", "kwargs", task.kwargs.as_ref())?;
-                drop(task);
+                let kwargs = self.task.attribute(py, "kwargs")?;
                 // The source expands kwargs into the callback on async tasks,
                 // but into run_in_threadpool on sync tasks. CPython includes
                 // that callable in duplicate-key TypeErrors.

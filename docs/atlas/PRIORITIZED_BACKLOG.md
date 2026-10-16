@@ -9,10 +9,10 @@ incomplete.
 ## Current parity snapshot
 
 Implementation remains the active phase for the full Starlette replacement.
-The active `parity-input@58` contract indexes 2,547 cases across 421 parity
+The active `parity-input@58` contract indexes 2,553 cases across 425 parity
 inputs, two benchmark inputs, 151 Starlette compatibility operations, 14 native
-operations, and 1,408 parity requirements (manifest SHA-256
-`5324c0390852cee273bcf333eb938b7cca745682f8680e278478c70267a37321`). The latest
+operations, and 1,414 parity requirements (manifest SHA-256
+`f55f14e74848748b557cf1a8b25ed2abd3ea3f43c878578d314dce05c50844e5`). The current batch adds six unexecuted inputs for BackgroundTask attribute lookup, StaticFiles tuple-subclass iteration, Route/Router scope-type comparison, and Router missing-method order. The latest
 implementation batch fixes falsey `str` subclass dispatch for QueryParams and
 TestClient cleanup exception context; both input-only comparisons remain deferred
 until grouped parity. The latest batch adds application attribute-read ordering, non-string scope dispatch in AuthenticationMiddleware, SessionMiddleware, and GZipMiddleware, ServerErrorMiddleware message-type equality, and pre-ASGI-2.4 StreamingResponse caller cancellation. These six new input-only comparisons remain unexecuted until the grouped full parity phase. The Request.stream body-object and TestClient noncanonical JSON-mode comparisons also remain unexecuted until grouped parity. The latest batch adds a Rust-backed StaticFiles single-digit

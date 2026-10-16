@@ -2348,19 +2348,14 @@ fn route_matches(
     route_kind: &str,
     _builtin_convertors: &Bound<'_, PyDict>,
 ) -> PyResult<Py<PyAny>> {
-    let scope_type = if route_kind == "websocket" {
-        // Starlette compares the original scope value with `==` here. Keep
-        // Python rich comparison and `scope["type"]` lookup semantics for
-        // str subclasses and custom scope mappings.
-        None
-    } else {
-        Some(optional_string(scope, "type", "")?)
-    };
+    // The pinned route classes use direct indexing for every protocol check.
+    // Keep both mapping lookup errors and Python rich-comparison behavior at
+    // this boundary instead of extracting the value into a Rust String.
+    let scope_type = scope.get_item("type")?;
     let protocol_matches = match route_kind {
-        "http" => scope_type.as_deref() == Some("http"),
-        "websocket" => scope.get_item("type")?.eq("websocket")?,
-        "mount" => matches!(scope_type.as_deref(), Some("http" | "websocket")),
-        "host" => matches!(scope_type.as_deref(), Some("http" | "websocket")),
+        "http" => scope_type.eq("http")?,
+        "websocket" => scope_type.eq("websocket")?,
+        "mount" | "host" => PyTuple::new(py, ["http", "websocket"])?.contains(&scope_type)?,
         _ => false,
     };
     if !protocol_matches {
@@ -2374,6 +2369,13 @@ fn route_matches(
         };
     }
 
+    // Mount.matches reads root_path before get_route_path reads path and then
+    // root_path again. Retain that first value for the child-scope default.
+    let mount_root_path = if route_kind == "mount" {
+        Some(scope.call_method1("get", ("root_path", ""))?)
+    } else {
+        None
+    };
     let path = route_path_from_scope(scope)?;
     let mut matched = python_regex_match(py, route, path.as_any(), "path_regex")?;
     let Some(matched_params) = matched.take() else {
@@ -2381,18 +2383,32 @@ fn route_matches(
     };
 
     if route_kind == "mount" {
-        return mount_match_result(py, route, scope, match_type, &path, matched_params);
+        let root_path = mount_root_path
+            .as_ref()
+            .ok_or_else(|| PyRuntimeError::new_err("Mount root path was not captured"))?;
+        return mount_match_result(
+            py,
+            route,
+            scope,
+            match_type,
+            &path,
+            matched_params,
+            root_path,
+        );
     }
 
+    let path_params = merged_path_params(py, scope, matched_params.bind(py))?;
+    let child_scope = PyDict::new(py);
+    child_scope.set_item("endpoint", route.getattr("endpoint")?)?;
+    child_scope.set_item("path_params", path_params.bind(py))?;
+    // Route.matches builds its child scope before it performs method
+    // membership, so a missing scope["method"] is observed only after path
+    // matching, conversion, and path-parameter merging have succeeded.
     let match_name = if route_kind == "websocket" {
         "FULL"
     } else {
         http_match_name(route, scope)?
     };
-    let path_params = merged_path_params(py, scope, matched_params.bind(py))?;
-    let child_scope = PyDict::new(py);
-    child_scope.set_item("endpoint", route.getattr("endpoint")?)?;
-    child_scope.set_item("path_params", path_params.bind(py))?;
     match_result(py, match_type, match_name, child_scope)
 }
 
@@ -2497,7 +2513,10 @@ fn http_match_name(route: &Bound<'_, PyAny>, scope: &Bound<'_, PyAny>) -> PyResu
     if methods.is_none() || !methods.is_truthy()? {
         return Ok("FULL");
     }
-    let method = required_string(scope, "method")?;
+    // Route.matches uses Python set membership on the original scope value.
+    // Calling membership directly preserves custom hash/equality behavior and
+    // the exact error for malformed method values.
+    let method = scope.get_item("method")?;
     if methods.contains(&method)? {
         Ok("FULL")
     } else {
@@ -2512,6 +2531,7 @@ fn mount_match_result(
     match_type: &Bound<'_, PyAny>,
     route_path: &Bound<'_, PyString>,
     converted: Py<PyDict>,
+    outer_root_path: &Bound<'_, PyAny>,
 ) -> PyResult<Py<PyAny>> {
     let params = converted.bind(py);
     let remainder = params
@@ -2527,9 +2547,8 @@ fn mount_match_result(
     let matched_chars = route_chars.saturating_sub(remaining_chars);
     let matched_path = &route_path.0[..matched_chars];
     let path_params = merged_path_params(py, scope, params)?;
-    let root_path = CompatibilityPath::from_python(&scope.call_method1("get", ("root_path", ""))?)?;
-    let app_root_path = crate::scope_mapping::optional_item(scope, "app_root_path")?
-        .unwrap_or(root_path.to_python(py)?.into_any());
+    let app_root_path = scope.call_method1("get", ("app_root_path", outer_root_path))?;
+    let root_path = CompatibilityPath::from_python(outer_root_path)?;
     let child_scope = PyDict::new(py);
     child_scope.set_item("path_params", path_params.bind(py))?;
     child_scope.set_item("app_root_path", app_root_path)?;
@@ -2581,16 +2600,6 @@ fn route_path_from_parts(
     }
 }
 
-fn required_string(scope: &Bound<'_, PyAny>, name: &'static str) -> PyResult<String> {
-    scope.get_item(name)?.extract::<String>()
-}
-
-fn optional_string(scope: &Bound<'_, PyAny>, name: &str, default: &str) -> PyResult<String> {
-    scope
-        .call_method1("get", (name, default))?
-        .extract::<String>()
-}
-
 fn dict_keys_as_strings(dict: &Bound<'_, PyDict>) -> PyResult<Vec<String>> {
     dict.keys()
         .try_iter()?
@@ -2618,8 +2627,8 @@ fn route_handle(py: Python<'_>, args: RouteHandleArgs) -> PyResult<Py<PyAny>> {
     if route_kind == "http" {
         let methods = route.getattr("methods")?;
         if !methods.is_none() && methods.is_truthy()? {
-            let method = required_string(scope, "method")?;
-            if !methods.contains(method)? {
+            let method = scope.get_item("method")?;
+            if !methods.contains(&method)? {
                 let joined_methods = PyString::new(py, ", ").call_method1("join", (methods,))?;
                 let headers = PyDict::new(py);
                 headers.set_item("Allow", joined_methods)?;

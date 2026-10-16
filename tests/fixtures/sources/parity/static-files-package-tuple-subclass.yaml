@@ -1,0 +1,75 @@
+{
+  "schema": "migration-parity/parity-input@58",
+  "cases": [
+    {
+      "case_id": "starlette.staticfiles.StaticFiles.asgi-call.package-tuple-subclass-iteration",
+      "surface": "starlette.staticfiles.StaticFiles",
+      "operation": "asgi-call",
+      "covers": [
+        "starlette.staticfiles.StaticFiles.asgi-call.package-tuple-subclass-iteration"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "directory": "static-root",
+      "path_limit_stress": null,
+      "permission_denial_stress": null,
+      "filesystem": null,
+      "packages": [
+        {
+          "name": "fixture_package",
+          "statics_dir": "assets",
+          "files": [
+            {
+              "path": "asset.txt",
+              "contents_base64": "cGFja2FnZSBhc3NldA==",
+              "mtime_seconds": 1720000000
+            }
+          ]
+        }
+      ],
+      "package_tuple_subclass": {
+        "index": 0,
+        "iter_values": [
+          "fixture_package",
+          "."
+        ]
+      },
+      "files": [],
+      "html": false,
+      "check_dir": true,
+      "follow_symlink": false,
+      "observations": [
+        "asgi-call"
+      ],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/asset.txt",
+        "raw_path_base64": "L2Fzc2V0LnR4dA==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send"
+      }
+    }
+  ]
+}

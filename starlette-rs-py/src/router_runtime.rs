@@ -795,12 +795,15 @@ impl AwaitableStateMachine for RouterDispatchMachine {
 impl RouterDispatchMachine {
     fn start_dispatch(&mut self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let scope = self.scope.bind(py);
-        let scope_type = required_scope_value(scope, "type")?.extract::<String>()?;
-        if !matches!(scope_type.as_str(), "http" | "websocket" | "lifespan") {
+        let scope_type = required_scope_value(scope, "type")?;
+        let supported_scope_types = PyTuple::new(py, ["http", "websocket", "lifespan"])?;
+        if !supported_scope_types.contains(&scope_type)? {
             return Err(PyAssertionError::new_err(()));
         }
-        scope.call_method1("setdefault", ("router", self.router.clone_ref(py)))?;
-        if scope_type == "lifespan" {
+        if !scope.contains("router")? {
+            scope.set_item("router", self.router.clone_ref(py))?;
+        }
+        if scope.get_item("type")?.eq("lifespan")? {
             self.pending = Some(RouterPending::Callback);
             return self
                 .router
@@ -814,11 +817,12 @@ impl RouterDispatchMachine {
             self.route_types
                 .routes_for(py, self.routes_source.bind(py), &cache.cached)?
         };
-        let (plan, custom_child_scopes, compatibility_redirect_scope) = if scope_type == "http" {
-            self.http_plan(py, scope, &routes)?
-        } else {
-            self.websocket_plan(py, scope, &routes)?
-        };
+        let (plan, custom_child_scopes, compatibility_redirect_scope) =
+            if scope.get_item("type")?.eq("http")? {
+                self.http_plan(py, scope, &routes)?
+            } else {
+                self.websocket_plan(py, scope, &routes)?
+            };
 
         if let Some(redirect_scope) = compatibility_redirect_scope {
             let url_kwargs = PyDict::new(py);
@@ -968,6 +972,16 @@ impl RouterDispatchMachine {
         scope: &Bound<'_, PyAny>,
         routes: &RouterRoutes,
     ) -> PyResult<RouterPlanResult> {
+        if !scope.is_exact_instance_of::<PyDict>() || !scope.contains("path")? {
+            return compatibility_http_plan(py, scope, routes, self.redirect_slashes);
+        }
+        let path_value = scope.get_item("path")?;
+        let root_path_value = scope.call_method1("get", ("root_path", ""))?;
+        if !path_value.is_exact_instance_of::<PyString>()
+            || !root_path_value.is_exact_instance_of::<PyString>()
+        {
+            return compatibility_http_plan(py, scope, routes, self.redirect_slashes);
+        }
         if scope_has_lone_surrogate_path(scope)? {
             let (plan, child_scopes) = ordered_compatibility_match(py, scope, routes)?;
             let redirect_scope = if matches!(&plan, HttpDispatchPlan::NotFound) {
@@ -977,9 +991,20 @@ impl RouterDispatchMachine {
             };
             return Ok((plan, child_scopes, redirect_scope));
         }
+        // Starlette dispatches through every Route.matches method in order.
+        // Use that same path for custom scope mappings, a missing method, or a
+        // non-exact str method value so mapping, hashing, and equality behavior
+        // remains observable at the Python boundary.
+        if !scope.contains("method")? {
+            return compatibility_http_plan(py, scope, routes, self.redirect_slashes);
+        }
+        let method_value = scope.get_item("method")?;
+        if !method_value.is_exact_instance_of::<PyString>() {
+            return compatibility_http_plan(py, scope, routes, self.redirect_slashes);
+        }
         let path = required_scope_value(scope, "path")?.extract::<String>()?;
         let root_path = optional_scope_string(scope, "root_path", "")?;
-        let method = required_scope_value(scope, "method")?.extract::<String>()?;
+        let method = method_value.extract::<String>()?;
         let mut child_scopes = HashMap::new();
         let mut callback_error = None;
         let ordered_route_scan =
@@ -1051,6 +1076,18 @@ impl RouterDispatchMachine {
         scope: &Bound<'_, PyAny>,
         routes: &RouterRoutes,
     ) -> PyResult<RouterPlanResult> {
+        if !scope.is_exact_instance_of::<PyDict>() || !scope.contains("path")? {
+            let (plan, child_scopes) = ordered_compatibility_match(py, scope, routes)?;
+            return Ok((plan, child_scopes, None));
+        }
+        let path_value = scope.get_item("path")?;
+        let root_path_value = scope.call_method1("get", ("root_path", ""))?;
+        if !path_value.is_exact_instance_of::<PyString>()
+            || !root_path_value.is_exact_instance_of::<PyString>()
+        {
+            let (plan, child_scopes) = ordered_compatibility_match(py, scope, routes)?;
+            return Ok((plan, child_scopes, None));
+        }
         if scope_has_lone_surrogate_path(scope)? {
             let (plan, child_scopes) = ordered_compatibility_match(py, scope, routes)?;
             return Ok((plan, child_scopes, None));
@@ -1163,6 +1200,21 @@ fn ordered_compatibility_match(
         )),
         None => Ok((HttpDispatchPlan::NotFound, child_scopes)),
     }
+}
+
+fn compatibility_http_plan(
+    py: Python<'_>,
+    scope: &Bound<'_, PyAny>,
+    routes: &RouterRoutes,
+    redirect_slashes: bool,
+) -> PyResult<RouterPlanResult> {
+    let (plan, child_scopes) = ordered_compatibility_match(py, scope, routes)?;
+    let redirect_scope = if matches!(&plan, HttpDispatchPlan::NotFound) {
+        compatibility_slash_redirect_scope(py, scope, routes, redirect_slashes)?
+    } else {
+        None
+    };
+    Ok((plan, child_scopes, redirect_scope))
 }
 
 fn compatibility_slash_redirect_scope(
@@ -1325,8 +1377,7 @@ fn not_found_callback(
     plain_text_response_type: &Bound<'_, PyAny>,
     websocket_close_type: &Bound<'_, PyAny>,
 ) -> PyResult<Py<PyAny>> {
-    let scope_type = required_scope_value(scope, "type")?.extract::<String>()?;
-    let callback = if scope_type == "websocket" {
+    let callback = if scope.get_item("type")?.eq("websocket")? {
         websocket_close_type
             .call0()?
             .call1((scope, receive, send))?

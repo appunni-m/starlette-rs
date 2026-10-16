@@ -65,7 +65,7 @@ class BackgroundTask:
         self._inner.delete_is_async()
 
     async def __call__(self) -> None:
-        await self._inner.run()
+        await _core.BackgroundTask.run_for(self)
 
 
 class BackgroundTasks(BackgroundTask):
