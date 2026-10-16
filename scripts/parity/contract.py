@@ -15959,8 +15959,7 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
             or dispatch_callable_spec is not None
             or len(custom_layers) != 1
             or len(middleware_layers) != 1
-            or actions
-            != [{"kind": "await-call-next"}, {"kind": "return-call-next-response"}]
+            or actions != [{"kind": "await-call-next"}, {"kind": "return-call-next-response"}]
             or returned != "call-next"
             or outer_receive_transform is not None
             or background_task_spec is not None
@@ -16194,7 +16193,9 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
             or len(downstream["steps"]) != 4
             or [step.get("kind") for step in downstream["steps"]]
             != ["send", "send", "send", "receive"]
-            or any(step.get("message_mapping", "dict") != "dict" for step in downstream["steps"][:-1])
+            or any(
+                step.get("message_mapping", "dict") != "dict" for step in downstream["steps"][:-1]
+            )
         ):
             raise ContractError(
                 "scope inequality input requires an empty request and two direct response body sends"
@@ -16217,8 +16218,7 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
             or application["debug"]
             or len(custom_layers) != 1
             or len(middleware_layers) != 1
-            or actions
-            != [{"kind": "await-call-next"}, {"kind": "return-call-next-response"}]
+            or actions != [{"kind": "await-call-next"}, {"kind": "return-call-next-response"}]
             or downstream is None
             or downstream["kind"] != "asgi-sequence"
             or len(steps) != expected_step_count
@@ -27460,8 +27460,7 @@ def _base_http_downstream_message_type(value: Any, context: str) -> tuple[str, b
     )
     message_type = _string(subclass["value"], f"{context}.str_subclass.value")
     if (
-        message_type
-        not in {"http.response.start", "http.response.body", "http.response.pathsend"}
+        message_type not in {"http.response.start", "http.response.body", "http.response.pathsend"}
         or subclass["equal_result"] is not False
     ):
         raise ContractError(
@@ -44206,10 +44205,14 @@ def _contains_base_http_string_comparison_probe(cases: Any) -> bool:
     if not isinstance(cases, list):
         return False
     for case in cases:
-        if not isinstance(case, dict) or (
-            case.get("surface"),
-            case.get("operation"),
-        ) != BASE_HTTP_WORKFLOW_OPERATION_KEY:
+        if (
+            not isinstance(case, dict)
+            or (
+                case.get("surface"),
+                case.get("operation"),
+            )
+            != BASE_HTTP_WORKFLOW_OPERATION_KEY
+        ):
             continue
         request = case.get("request")
         scope = request.get("scope") if isinstance(request, dict) else None

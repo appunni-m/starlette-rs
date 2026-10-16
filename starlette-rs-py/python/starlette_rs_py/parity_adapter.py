@@ -125,15 +125,11 @@ BASE_HTTP_STATUS_INTEGER_REQUIREMENT = (
 BASE_HTTP_SCOPE_TYPE_INEQUALITY_REQUIREMENT = (
     f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.scope-type-python-inequality"
 )
-BASE_HTTP_RESPONSE_START_TYPE_EQUALITY_REQUIREMENT = (
-    f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.response-start-message-type-python-equality"
-)
+BASE_HTTP_RESPONSE_START_TYPE_EQUALITY_REQUIREMENT = f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.response-start-message-type-python-equality"
 BASE_HTTP_RESPONSE_BODY_TYPE_EQUALITY_REQUIREMENT = (
     f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.response-body-message-type-python-equality"
 )
-BASE_HTTP_RESPONSE_PATHSEND_TYPE_EQUALITY_REQUIREMENT = (
-    f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.response-pathsend-message-type-python-equality"
-)
+BASE_HTTP_RESPONSE_PATHSEND_TYPE_EQUALITY_REQUIREMENT = f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.response-pathsend-message-type-python-equality"
 BASE_HTTP_CONTEXTVARS_OPERATION = "contextvars-propagation"
 TESTCLIENT_SURFACE = "starlette.testclient.TestClient"
 TESTCLIENT_OPERATION = "request-response"
@@ -15385,7 +15381,11 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                         {"type", "path"},
                         "downstream ASGI response.pathsend input",
                     )
-                    if not response_started or step_index != 1 or not isinstance(message["path"], str):
+                    if (
+                        not response_started
+                        or step_index != 1
+                        or not isinstance(message["path"], str)
+                    ):
                         raise ValueError(
                             "downstream ASGI response.pathsend must follow response.start with a string path"
                         )
@@ -15643,7 +15643,9 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
     _, scope_type_value = _materialize_scope_type_spec(raw_scope_type)
     scope_type_python_inequality_probe = isinstance(raw_scope_type, dict)
     if scope_type_python_inequality_probe:
-        descriptor = _exact_object(raw_scope_type, {"str_subclass"}, "BaseHTTPMiddleware scope.type")
+        descriptor = _exact_object(
+            raw_scope_type, {"str_subclass"}, "BaseHTTPMiddleware scope.type"
+        )
         subclass = _exact_object(
             descriptor["str_subclass"],
             {"value", "not_equal_result"},
@@ -16544,8 +16546,7 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
     if scope_type_python_inequality_probe:
         if (
             application["debug"]
-            or receive_specs
-            != [{"type": "http.request", "body_base64": "", "more_body": False}]
+            or receive_specs != [{"type": "http.request", "body_base64": "", "more_body": False}]
             or receive_after_events != "disconnect"
             or send_checkpoints
             or downstream_spec is None
@@ -16583,8 +16584,7 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
             or [step.get("kind") for step in message_steps]
             != ["send"] * (expected_step_count - 1) + ["receive"]
             or any(step.get("message_mapping", "dict") != "dict" for step in message_steps[:-1])
-            or receive_specs
-            != [{"type": "http.request", "body_base64": "", "more_body": False}]
+            or receive_specs != [{"type": "http.request", "body_base64": "", "more_body": False}]
             or receive_after_events != "disconnect"
             or send_checkpoints
             or outer_receive_transform is not None
@@ -17066,8 +17066,8 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                     receive_index += 1
                 else:
                     message_spec = step["message"]
-                    message_type, message_type_value = _materialize_base_http_downstream_message_type(
-                        message_spec["type"]
+                    message_type, message_type_value = (
+                        _materialize_base_http_downstream_message_type(message_spec["type"])
                     )
                     if message_type_value == "http.response.start":
                         message = {

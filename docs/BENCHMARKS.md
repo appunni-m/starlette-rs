@@ -5,9 +5,11 @@ which declared 2,565 cases across 431 parity inputs, with manifest SHA-256
 `ec42686f557bdc59c0916f01823ac66018624dd0a787a9901ccfc6982a180b48`. Full
 parity and all six expanded coverage profiles passed for that `@58` input set
 before the benchmark below. The `@59` manifest added three
-AuthenticationMiddleware attribute-replacement cases, and the active `@60`
-manifest adds three GZip, Request, and Router boundary cases. None are included
-in the recorded preflight or benchmark evidence. The latest run measured all
+AuthenticationMiddleware attribute-replacement cases. The `@60` manifest added
+four GZip, Request, and Router boundary cases; `@61` added the MultiDict
+inequality case; `@62` added one WSGI status-unpacking case and four
+BaseHTTPMiddleware comparison cases. None are included in the recorded
+preflight or benchmark evidence. The latest run measured all
 74 declared source/package workloads (six
 Router and 68 GZip); all 74 Rust-native rows are `not_run` because the native
 API has no equivalent ASGI workload boundary. These results cover only the
