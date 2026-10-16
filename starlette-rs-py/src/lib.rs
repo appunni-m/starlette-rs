@@ -569,6 +569,9 @@ impl PyQueryParams {
 
 fn query_params_from_python(value: &Bound<'_, PyAny>) -> PyResult<Vec<(String, String)>> {
     if value.is_instance_of::<PyString>() {
+        if !value.is_truthy()? {
+            return Ok(Vec::new());
+        }
         return Ok(NativeQueryParams::parse_str(&value.extract::<String>()?)
             .multi_items()
             .to_vec());

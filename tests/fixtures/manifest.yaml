@@ -10112,7 +10112,7 @@
             {
               "id": "starlette.datastructures.QueryParams.constructor-string-subclass-before-truthiness",
               "dimension": "boundary",
-              "description": "Dispatch Python str subclasses through the string constructor before evaluating their truth value, so a falsey subclass still parses its query text. Upstream: starlette/datastructures.py:392-397; docs/requests.md.",
+              "description": "Dispatch str subclasses through QueryParams' string path and preserve urllib.parse.parse_qsl truthiness: a falsey subclass produces no query pairs even when its underlying string is non-empty. Upstream: starlette/datastructures.py:392-397 and urllib.parse.parse_qsl.",
               "lanes": [
                 "parity",
                 "coverage"
@@ -31504,6 +31504,18 @@
                   },
                   "condition": {
                     "input_key": "package_sequence"
+                  }
+                },
+                {
+                  "path": "package_tuple_trace",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  },
+                  "condition": {
+                    "input_key": "package_tuple_subclass"
                   }
                 },
                 {

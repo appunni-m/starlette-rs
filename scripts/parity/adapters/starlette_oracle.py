@@ -705,6 +705,9 @@ def _input_background_tasks(
                     _input_public_attributes = public_attributes
                     _input_public_callback = public_callback
 
+                    def __init__(self, *_args: Any, **_kwargs: Any) -> None:
+                        pass
+
                     @property
                     def is_async(self) -> bool:
                         return type(self)._input_public_attributes["is_async"]
@@ -9725,7 +9728,7 @@ def _run_http_route_call_case(case: dict[str, Any]) -> dict[str, Any]:
         if case.get("observe_dispatch_error") is not True:
             raise
         captured_error = exc
-    if incoming_index != len(incoming):
+    if captured_error is None and incoming_index != len(incoming):
         raise ValueError("Route.__call__ left input receive messages unconsumed")
     response_start = next(
         (message for message in sent_messages if message["type"] == "http.response.start"),
@@ -10896,7 +10899,12 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
     else:
         call_specs = [{"scope": case["scope"], "incoming": case["incoming"], "send": case["send"]}]
         scope_spec = case["scope"]
-        if isinstance(scope_spec, dict) and scope_spec.get("type") == "websocket":
+        scope_type_value = (
+            _materialize_scope_type_spec(scope_spec.get("type"))[1]
+            if isinstance(scope_spec, dict)
+            else None
+        )
+        if isinstance(scope_spec, dict) and scope_type_value == "websocket":
             scope_keys = {
                 "type",
                 "asgi",
@@ -10929,9 +10937,12 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
         if isinstance(scope_spec, dict) and "extensions" in scope_spec:
             scope_keys.add("extensions")
         _strict_object(scope_spec, scope_keys, "FileResponse ASGI scope")
-        if scope_spec["type"] not in {"http", "websocket"}:
+        if not isinstance(scope_type_value, str) or scope_type_value not in {
+            "http",
+            "websocket",
+        }:
             raise ValueError("FileResponse ASGI-call requires an HTTP or WebSocket scope")
-        if scope_spec["type"] == "http" and "extensions" in scope_spec:
+        if scope_type_value == "http" and "extensions" in scope_spec:
             extensions = scope_spec["extensions"]
             if not isinstance(extensions, dict) or any(
                 key != "http.response.pathsend" for key in extensions
