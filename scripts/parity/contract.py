@@ -50,8 +50,9 @@ INPUT_SCHEMA_V54 = "migration-parity/parity-input@54"
 INPUT_SCHEMA_V55 = "migration-parity/parity-input@55"
 INPUT_SCHEMA_V56 = "migration-parity/parity-input@56"
 INPUT_SCHEMA_V57 = "migration-parity/parity-input@57"
+INPUT_SCHEMA_V58 = "migration-parity/parity-input@58"
 PREVIOUS_INPUT_SCHEMA = INPUT_SCHEMA_V50
-INPUT_SCHEMA = "migration-parity/parity-input@58"
+INPUT_SCHEMA = "migration-parity/parity-input@59"
 BENCHMARK_INPUT_SCHEMA = "migration-parity/benchmark-input@1"
 RESULT_SCHEMA = "migration-parity/parity-result@9"
 BENCHMARK_RESULT_SCHEMA = "migration-parity/benchmark-result@1"
@@ -39346,6 +39347,42 @@ def _validate_formdata_close_case(case: dict[str, Any]) -> None:
         raise ContractError("FormData.close covers must select dynamic-multi-items-order")
 
 
+def _validate_authentication_error_response(response: Any, context: str) -> None:
+    if not isinstance(response, dict) or "kind" not in response:
+        raise ContractError(f"{context} must describe a response")
+    if response["kind"] == "json-error":
+        response = _exact(response, {"kind", "status_code", "error_field"}, context)
+        _validate_nonnegative_integer(response["status_code"], f"{context}.status_code")
+        if not 100 <= response["status_code"] <= 599:
+            raise ContractError(f"{context}.status_code must be an HTTP status")
+        _string(response["error_field"], f"{context}.error_field")
+    elif response["kind"] == "plain-text-error":
+        response = _exact(response, {"kind", "status_code", "prefix"}, context)
+        _validate_nonnegative_integer(response["status_code"], f"{context}.status_code")
+        if not 100 <= response["status_code"] <= 599:
+            raise ContractError(f"{context}.status_code must be an HTTP status")
+        _string(response["prefix"], f"{context}.prefix")
+    else:
+        raise ContractError(f"{context}.kind is unsupported")
+
+
+def _validate_authentication_application_response(response: Any, context: str) -> None:
+    response = _exact(
+        response,
+        {"kind", "status_code", "authenticated_field", "display_name_field"},
+        context,
+    )
+    if response["kind"] != "auth-user-json":
+        raise ContractError(f"{context}.kind is unsupported")
+    _validate_nonnegative_integer(response["status_code"], f"{context}.status_code")
+    if not 100 <= response["status_code"] <= 599:
+        raise ContractError(f"{context}.status_code must be an HTTP status")
+    _string(response["authenticated_field"], f"{context}.authenticated_field")
+    _string(response["display_name_field"], f"{context}.display_name_field")
+    if response["authenticated_field"] == response["display_name_field"]:
+        raise ContractError(f"{context} fields must be distinct")
+
+
 def _validate_authentication_case(case: dict[str, Any]) -> None:
     if case["target_profiles"] != ["python-package-cpython312"]:
         raise ContractError("authentication parity currently targets the Python package profile")
@@ -39626,6 +39663,8 @@ def _validate_authentication_case(case: dict[str, Any]) -> None:
                 scenario_keys.add("error_response")
             if isinstance(raw_scenario, dict) and "application_response" in raw_scenario:
                 scenario_keys.add("application_response")
+            if isinstance(raw_scenario, dict) and "attribute_replacement" in raw_scenario:
+                scenario_keys.add("attribute_replacement")
             scenario = _exact(raw_scenario, scenario_keys, context)
             scope_type = scenario["scope_type"]
             if type(scope_type) not in {type(None), bool, int, float, str}:
@@ -39641,38 +39680,7 @@ def _validate_authentication_case(case: dict[str, Any]) -> None:
                     raise ContractError(
                         f"{context}.error_response is required for a custom response handler"
                     )
-                if not isinstance(error_response, dict) or "kind" not in error_response:
-                    raise ContractError(f"{context}.error_response must describe a response")
-                if error_response["kind"] == "json-error":
-                    response = _exact(
-                        error_response,
-                        {"kind", "status_code", "error_field"},
-                        f"{context}.error_response",
-                    )
-                    _validate_nonnegative_integer(
-                        response["status_code"], f"{context}.error_response.status_code"
-                    )
-                    if not 100 <= response["status_code"] <= 599:
-                        raise ContractError(
-                            f"{context}.error_response.status_code must be an HTTP status"
-                        )
-                    _string(response["error_field"], f"{context}.error_response.error_field")
-                elif error_response["kind"] == "plain-text-error":
-                    response = _exact(
-                        error_response,
-                        {"kind", "status_code", "prefix"},
-                        f"{context}.error_response",
-                    )
-                    _validate_nonnegative_integer(
-                        response["status_code"], f"{context}.error_response.status_code"
-                    )
-                    if not 100 <= response["status_code"] <= 599:
-                        raise ContractError(
-                            f"{context}.error_response.status_code must be an HTTP status"
-                        )
-                    _string(response["prefix"], f"{context}.error_response.prefix")
-                else:
-                    raise ContractError(f"{context}.error_response.kind is unsupported")
+                _validate_authentication_error_response(error_response, f"{context}.error_response")
             elif error_response is not None:
                 raise ContractError(f"{context}.error_response requires a custom response handler")
             backend = scenario["backend"]
@@ -39854,6 +39862,86 @@ def _validate_authentication_case(case: dict[str, Any]) -> None:
                 exercised.add(
                     "starlette.middleware.authentication.AuthenticationMiddleware.non-http-bypass"
                 )
+
+            replacement = scenario.get("attribute_replacement")
+            if "attribute_replacement" in scenario:
+                replacement = _exact(
+                    replacement,
+                    {"attribute", "timing", "value"},
+                    f"{context}.attribute_replacement",
+                )
+                attribute = replacement["attribute"]
+                timing = replacement["timing"]
+                value = replacement["value"]
+                if (attribute, timing) == ("backend", "after-construction"):
+                    if scope_type != "http":
+                        raise ContractError(
+                            f"{context}.backend replacement requires an HTTP dispatch"
+                        )
+                    backend_replacement = _exact(
+                        value,
+                        {"outcome"},
+                        f"{context}.attribute_replacement.value",
+                    )
+                    outcome = _exact(
+                        backend_replacement["outcome"],
+                        {"credentials", "user"},
+                        f"{context}.attribute_replacement.value.outcome",
+                    )
+                    if not isinstance(outcome["credentials"], list) or any(
+                        not isinstance(scope, str) for scope in outcome["credentials"]
+                    ):
+                        raise ContractError(
+                            f"{context}.attribute_replacement.value.outcome.credentials must be a string array"
+                        )
+                    _string(
+                        outcome["user"],
+                        f"{context}.attribute_replacement.value.outcome.user",
+                    )
+                    exercised.add(
+                        "starlette.middleware.authentication.AuthenticationMiddleware.live-backend-lookup-after-construction"
+                    )
+                    exercised.add(
+                        "starlette.middleware.authentication.AuthenticationMiddleware.scope-user-install"
+                    )
+                elif (attribute, timing) == ("app", "after-backend-await"):
+                    if not (
+                        scope_type == "http"
+                        and isinstance(backend, dict)
+                        and set(backend) == {"outcome"}
+                        and isinstance(backend["outcome"], dict)
+                        and set(backend["outcome"]) == {"credentials", "user"}
+                    ):
+                        raise ContractError(
+                            f"{context}.app replacement requires a successful HTTP backend result"
+                        )
+                    _validate_authentication_application_response(
+                        value,
+                        f"{context}.attribute_replacement.value",
+                    )
+                    exercised.add(
+                        "starlette.middleware.authentication.AuthenticationMiddleware.live-app-lookup-after-backend-await"
+                    )
+                elif (attribute, timing) == ("on_error", "after-backend-error"):
+                    if not (
+                        scope_type == "http"
+                        and isinstance(backend, dict)
+                        and set(backend) == {"error"}
+                    ):
+                        raise ContractError(
+                            f"{context}.on_error replacement requires an HTTP AuthenticationError"
+                        )
+                    _validate_authentication_error_response(
+                        value,
+                        f"{context}.attribute_replacement.value",
+                    )
+                    exercised.add(
+                        "starlette.middleware.authentication.AuthenticationMiddleware.live-on-error-lookup-after-backend-error"
+                    )
+                else:
+                    raise ContractError(
+                        f"{context}.attribute_replacement attribute and timing are unsupported"
+                    )
 
     if (
         operation == ("starlette.middleware.authentication.AuthenticationMiddleware", "dispatch")
@@ -43549,6 +43637,33 @@ def migrate_input_document_v57(document: Any) -> dict[str, Any]:
         )
 
     migrated = dict(document)
+    migrated["schema"] = INPUT_SCHEMA_V58
+    return migrated
+
+
+def _contains_authentication_attribute_replacement(value: Any) -> bool:
+    if isinstance(value, dict):
+        if "attribute_replacement" in value:
+            return True
+        return any(_contains_authentication_attribute_replacement(item) for item in value.values())
+    if isinstance(value, list):
+        return any(_contains_authentication_attribute_replacement(item) for item in value)
+    return False
+
+
+def migrate_input_document_v58(document: Any) -> dict[str, Any]:
+    """Advance @58 inputs to @59, which models live AuthenticationMiddleware attributes."""
+    _exact(document, {"schema", "cases"}, "parity input")
+    if document["schema"] != INPUT_SCHEMA_V58:
+        raise ContractError(f"unsupported @58 parity input schema: {document['schema']!r}")
+    if not isinstance(document["cases"], list) or not document["cases"]:
+        raise ContractError("parity input must select at least one case")
+    if _contains_authentication_attribute_replacement(document["cases"]):
+        raise ContractError(
+            "parity-input@58 does not allow input-defined AuthenticationMiddleware attribute replacements"
+        )
+
+    migrated = dict(document)
     migrated["schema"] = INPUT_SCHEMA
     return migrated
 
@@ -43603,8 +43718,19 @@ def validate_input_document_v57(
     *,
     public_modules: frozenset[str] | None = None,
 ) -> list[dict[str, Any]]:
-    """Validate @57 inputs before their deterministic @58 schema-header migration."""
+    """Validate @57 inputs before their deterministic @58 and @59 migrations."""
     migrated = migrate_input_document_v57(document)
+    return validate_input_document_v58(migrated, manifest, public_modules=public_modules)
+
+
+def validate_input_document_v58(
+    document: Any,
+    manifest: dict[str, Any],
+    *,
+    public_modules: frozenset[str] | None = None,
+) -> list[dict[str, Any]]:
+    """Validate @58 inputs before their deterministic @59 schema-header migration."""
+    migrated = migrate_input_document_v58(document)
     return validate_input_document(migrated, manifest, public_modules=public_modules)
 
 

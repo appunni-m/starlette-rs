@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@58",
+  "schema": "migration-parity/parity-input@59",
   "cases": [
     {
       "case_id": "starlette.authentication.value-operations.credentials-and-user-values",
@@ -863,6 +863,131 @@
       ],
       "observations": [
         "scenarios"
+      ]
+    },
+    {
+      "surface": "starlette.middleware.authentication.AuthenticationMiddleware",
+      "operation": "dispatch",
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "scenarios"
+      ],
+      "case_id": "starlette.middleware.authentication.AuthenticationMiddleware.dispatch.live-backend-replacement-after-construction",
+      "covers": [
+        "starlette.middleware.authentication.AuthenticationMiddleware.live-backend-lookup-after-construction",
+        "starlette.middleware.authentication.AuthenticationMiddleware.scope-user-install"
+      ],
+      "scenarios": [
+        {
+          "scope_type": "http",
+          "backend": {
+            "outcome": "must-not-run"
+          },
+          "error_handler": "default",
+          "attribute_replacement": {
+            "attribute": "backend",
+            "timing": "after-construction",
+            "value": {
+              "outcome": {
+                "credentials": [
+                  "replacement"
+                ],
+                "user": "Replacement Backend"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "surface": "starlette.middleware.authentication.AuthenticationMiddleware",
+      "operation": "dispatch",
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "scenarios"
+      ],
+      "case_id": "starlette.middleware.authentication.AuthenticationMiddleware.dispatch.live-app-replacement-after-backend-await",
+      "covers": [
+        "starlette.middleware.authentication.AuthenticationMiddleware.live-app-lookup-after-backend-await",
+        "starlette.middleware.authentication.AuthenticationMiddleware.scope-user-install"
+      ],
+      "scenarios": [
+        {
+          "scope_type": "http",
+          "backend": {
+            "outcome": {
+              "credentials": [
+                "authenticated"
+              ],
+              "user": "Initial Backend"
+            }
+          },
+          "error_handler": "default",
+          "application_response": {
+            "kind": "auth-user-json",
+            "status_code": 201,
+            "authenticated_field": "initial_authenticated",
+            "display_name_field": "initial_name"
+          },
+          "attribute_replacement": {
+            "attribute": "app",
+            "timing": "after-backend-await",
+            "value": {
+              "kind": "auth-user-json",
+              "status_code": 202,
+              "authenticated_field": "replacement_authenticated",
+              "display_name_field": "replacement_name"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "surface": "starlette.middleware.authentication.AuthenticationMiddleware",
+      "operation": "dispatch",
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "scenarios"
+      ],
+      "case_id": "starlette.middleware.authentication.AuthenticationMiddleware.dispatch.live-on-error-replacement-after-backend-error",
+      "covers": [
+        "starlette.middleware.authentication.AuthenticationMiddleware.http-error-handler",
+        "starlette.middleware.authentication.AuthenticationMiddleware.live-on-error-lookup-after-backend-error"
+      ],
+      "scenarios": [
+        {
+          "scope_type": "http",
+          "backend": {
+            "error": {
+              "type": "AuthenticationError",
+              "message": "replacement handler probe"
+            }
+          },
+          "error_handler": "custom-response",
+          "error_response": {
+            "kind": "plain-text-error",
+            "status_code": 401,
+            "prefix": "initial:"
+          },
+          "attribute_replacement": {
+            "attribute": "on_error",
+            "timing": "after-backend-error",
+            "value": {
+              "kind": "plain-text-error",
+              "status_code": 418,
+              "prefix": "replacement:"
+            }
+          }
+        }
       ]
     }
   ]

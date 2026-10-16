@@ -13564,18 +13564,90 @@ def _run_authentication_case(case: dict[str, Any]) -> dict[str, Any]:
             sent = []
             backend_spec = scenario["backend"]
             application_response_spec = scenario.get("application_response")
+            attribute_replacement = scenario.get("attribute_replacement")
+
+            def build_app(
+                response_spec: dict[str, Any] | None,
+                app_call_log: list[Any],
+            ) -> Any:
+                async def app(
+                    asgi_scope: dict[str, Any],
+                    receive: Any,
+                    send: Any,
+                    _response_spec: dict[str, Any] | None = response_spec,
+                ) -> None:
+                    observed_scope = {"type": asgi_scope["type"]}
+                    if "auth" in asgi_scope:
+                        observed_scope["auth_scopes"] = list(asgi_scope["auth"].scopes)
+                        observed_scope["user"] = {
+                            "is_authenticated": asgi_scope["user"].is_authenticated,
+                            "display_name": asgi_scope["user"].display_name,
+                        }
+                    app_call_log.append(observed_scope)
+                    if _response_spec is not None:
+                        response_body = {
+                            _response_spec["authenticated_field"]: asgi_scope[
+                                "user"
+                            ].is_authenticated,
+                            _response_spec["display_name_field"]: asgi_scope["user"].display_name,
+                        }
+                        await JSONResponse(
+                            response_body,
+                            status_code=_response_spec["status_code"],
+                        )(asgi_scope, receive, send)
+
+                return app
+
+            def build_on_error(response_spec: dict[str, Any] | None) -> Any:
+                def on_error(conn: Any, exc: Exception) -> Any:
+                    if response_spec["kind"] == "json-error":
+                        return JSONResponse(
+                            {response_spec["error_field"]: str(exc)},
+                            status_code=response_spec["status_code"],
+                        )
+                    return PlainTextResponse(
+                        f"{response_spec['prefix']}{exc}",
+                        status_code=response_spec["status_code"],
+                    )
+
+                return on_error
 
             class Backend:
-                async def authenticate(
+                def __init__(
                     self,
-                    conn: Any,
-                    _calls: list[Any] = calls,
-                    _backend_spec: dict[str, Any] = backend_spec,
-                ) -> Any:
-                    _calls.append({"scope_type": conn.scope["type"]})
-                    if "error" in _backend_spec:
-                        raise AuthenticationError(_backend_spec["error"]["message"])
-                    result = _backend_spec["outcome"]
+                    spec: dict[str, Any],
+                    *,
+                    calls: list[Any],
+                    app_calls: list[Any],
+                    attribute_replacement: dict[str, Any] | None,
+                    middleware_holder: dict[str, Any],
+                    build_app: Any,
+                    build_on_error: Any,
+                ) -> None:
+                    self.spec = spec
+                    self.calls = calls
+                    self.app_calls = app_calls
+                    self.attribute_replacement = attribute_replacement
+                    self.middleware_holder = middleware_holder
+                    self.build_app = build_app
+                    self.build_on_error = build_on_error
+
+                async def authenticate(self, conn: Any) -> Any:
+                    self.calls.append({"scope_type": conn.scope["type"]})
+                    replacement = self.attribute_replacement
+                    if replacement is not None and replacement["attribute"] == "app":
+                        await asyncio.sleep(0)
+                        self.middleware_holder["owner"].app = self.build_app(
+                            replacement["value"], self.app_calls
+                        )
+                    if "error" in self.spec:
+                        if replacement is not None and replacement["attribute"] == "on_error":
+                            await asyncio.sleep(0)
+                            self.middleware_holder["owner"].on_error = self.build_on_error(
+                                replacement["value"]
+                            )
+                        raise AuthenticationError(self.spec["error"]["message"])
+                    result = self.spec["outcome"]
                     if not isinstance(result, dict):
                         return None
                     if "non_iterable" in result:
@@ -13599,47 +13671,8 @@ def _run_authentication_case(case: dict[str, Any]) -> dict[str, Any]:
                         return result_iterator()
                     return AuthCredentials(result["credentials"]), SimpleUser(result["user"])
 
-            async def app(
-                scope: dict[str, Any],
-                receive: Any,
-                send: Any,
-                _app_calls: list[Any] = app_calls,
-                _response_spec: dict[str, Any] | None = application_response_spec,
-            ) -> None:
-                observed_scope = {"type": scope["type"]}
-                if "auth" in scope:
-                    observed_scope["auth_scopes"] = list(scope["auth"].scopes)
-                    observed_scope["user"] = {
-                        "is_authenticated": scope["user"].is_authenticated,
-                        "display_name": scope["user"].display_name,
-                    }
-                _app_calls.append(observed_scope)
-                if _response_spec is not None:
-                    response_body = {
-                        _response_spec["authenticated_field"]: scope["user"].is_authenticated,
-                        _response_spec["display_name_field"]: scope["user"].display_name,
-                    }
-                    await JSONResponse(
-                        response_body,
-                        status_code=_response_spec["status_code"],
-                    )(scope, receive, send)
-
             error_response = scenario.get("error_response")
-
-            def on_error(
-                conn: Any,
-                exc: Exception,
-                _response_spec: dict[str, Any] | None = error_response,
-            ) -> Any:
-                if _response_spec["kind"] == "json-error":
-                    return JSONResponse(
-                        {_response_spec["error_field"]: str(exc)},
-                        status_code=_response_spec["status_code"],
-                    )
-                return PlainTextResponse(
-                    f"{_response_spec['prefix']}{exc}",
-                    status_code=_response_spec["status_code"],
-                )
+            middleware_holder: dict[str, Any] = {}
 
             scope_type = scenario["scope_type"]
             scope = {
@@ -13672,10 +13705,26 @@ def _run_authentication_case(case: dict[str, Any]) -> dict[str, Any]:
                 _sent.append(_json_safe(message))
 
             middleware = AuthenticationMiddleware(
-                app,
-                Backend(),
-                on_error if scenario["error_handler"] == "custom-response" else None,
+                build_app(application_response_spec, app_calls),
+                Backend(
+                    backend_spec,
+                    calls=calls,
+                    app_calls=app_calls,
+                    attribute_replacement=attribute_replacement,
+                    middleware_holder=middleware_holder,
+                    build_app=build_app,
+                    build_on_error=build_on_error,
+                ),
+                build_on_error(error_response)
+                if scenario["error_handler"] == "custom-response"
+                else None,
             )
+            middleware_holder["owner"] = middleware
+            if (
+                attribute_replacement is not None
+                and attribute_replacement["attribute"] == "backend"
+            ):
+                middleware.backend = Backend(attribute_replacement["value"])
             try:
                 asyncio.run(middleware(scope, receive, send))
             except Exception as exc:

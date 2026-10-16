@@ -3093,7 +3093,10 @@
         "starlette.routing.Router.route-dispatch.scope-type-python-membership",
         "starlette.routing.Router.route-dispatch.missing-method-after-path-miss",
         "starlette.routing.Router.route-dispatch.missing-method-after-path-match",
-        "starlette.requests.Request.base_url.app-root-path-str-subclass-methods"
+        "starlette.requests.Request.base_url.app-root-path-str-subclass-methods",
+        "starlette.middleware.authentication.AuthenticationMiddleware.live-backend-lookup-after-construction",
+        "starlette.middleware.authentication.AuthenticationMiddleware.live-app-lookup-after-backend-await",
+        "starlette.middleware.authentication.AuthenticationMiddleware.live-on-error-lookup-after-backend-error"
       ],
       "target_profile": "python-package-cpython312",
       "selectors": {
@@ -5650,7 +5653,10 @@
           "starlette.routing.Router.url_path_for.host-name-subclass-startswith-false",
           "starlette.routing.Router.url_path_for.host-name-subclass-startswith-true-slices-positionally",
           "starlette.routing.Router.url_path_for.mount-name-subclass-startswith-false",
-          "starlette.routing.Router.url_path_for.mount-name-subclass-startswith-true-slices-positionally"
+          "starlette.routing.Router.url_path_for.mount-name-subclass-startswith-true-slices-positionally",
+          "starlette.middleware.authentication.AuthenticationMiddleware.dispatch.live-backend-replacement-after-construction",
+          "starlette.middleware.authentication.AuthenticationMiddleware.dispatch.live-app-replacement-after-backend-await",
+          "starlette.middleware.authentication.AuthenticationMiddleware.dispatch.live-on-error-replacement-after-backend-error"
         ],
         "command_ids": []
       },

@@ -24,14 +24,14 @@ class AuthenticationMiddleware:
         backend: AuthenticationBackend,
         on_error: Callable[[HTTPConnection, AuthenticationError], Response] | None = None,
     ) -> None:
-        self.app = app
-        self.backend = backend
+        self.app: ASGIApp
+        self.backend: AuthenticationBackend
         self.on_error: Callable[[HTTPConnection, AuthenticationError], Response]
-        self.on_error, self._runtime = _core.authentication_middleware_initialize(
+        self._runtime = _core.authentication_middleware_initialize(
+            self,
             app,
             backend,
             on_error,
-            self.default_on_error,
             HTTPConnection,
             AuthenticationError,
             AuthCredentials,

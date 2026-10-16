@@ -565,9 +565,7 @@ fn authentication_unauthenticated_user_display_name(py: Python<'_>) -> Py<PyAny>
 
 #[pyclass(name = "_AuthenticationMiddlewareRuntime")]
 struct PyAuthenticationMiddlewareRuntime {
-    app: Py<PyAny>,
-    backend: Py<PyAny>,
-    on_error: Py<PyAny>,
+    owner: Py<PyAny>,
     http_connection_type: Py<PyAny>,
     authentication_error_type: Py<PyAny>,
     credentials_type: Py<PyAny>,
@@ -577,9 +575,7 @@ struct PyAuthenticationMiddlewareRuntime {
 #[pymethods]
 impl PyAuthenticationMiddlewareRuntime {
     fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
-        visit.call(&self.app)?;
-        visit.call(&self.backend)?;
-        visit.call(&self.on_error)?;
+        visit.call(&self.owner)?;
         visit.call(&self.http_connection_type)?;
         visit.call(&self.authentication_error_type)?;
         visit.call(&self.credentials_type)?;
@@ -587,9 +583,7 @@ impl PyAuthenticationMiddlewareRuntime {
     }
 
     fn __clear__(&mut self, py: Python<'_>) {
-        self.app = py.None();
-        self.backend = py.None();
-        self.on_error = py.None();
+        self.owner = py.None();
         self.http_connection_type = py.None();
         self.authentication_error_type = py.None();
         self.credentials_type = py.None();
@@ -602,33 +596,35 @@ impl PyAuthenticationMiddlewareRuntime {
 #[allow(clippy::too_many_arguments)]
 fn authentication_middleware_initialize(
     py: Python<'_>,
+    owner: Py<PyAny>,
     app: Py<PyAny>,
     backend: Py<PyAny>,
-    on_error: Option<Py<PyAny>>,
-    default_on_error: Py<PyAny>,
+    on_error: Py<PyAny>,
     http_connection_type: Py<PyAny>,
     authentication_error_type: Py<PyAny>,
     credentials_type: Py<PyAny>,
     unauthenticated_user_type: Py<PyAny>,
 ) -> PyResult<Py<PyAny>> {
-    let on_error = match on_error {
-        Some(on_error) if !on_error.bind(py).is_none() => on_error,
-        _ => default_on_error,
+    let owner_bound = owner.bind(py);
+    owner_bound.setattr("app", app)?;
+    owner_bound.setattr("backend", backend)?;
+    let on_error = if on_error.bind(py).is_none() {
+        owner_bound.getattr("default_on_error")?.unbind()
+    } else {
+        on_error
     };
-    let runtime = Py::new(
+    owner_bound.setattr("on_error", on_error)?;
+    Py::new(
         py,
         PyAuthenticationMiddlewareRuntime {
-            app,
-            backend,
-            on_error: on_error.clone_ref(py),
+            owner,
             http_connection_type,
             authentication_error_type,
             credentials_type,
             unauthenticated_user_type,
         },
-    )?;
-    PyTuple::new(py, [on_error.into_any(), runtime.into_any()])
-        .map(|value| value.into_any().unbind())
+    )
+    .map(|runtime| runtime.into_any())
 }
 
 #[pyfunction]
@@ -668,9 +664,6 @@ fn authentication_middleware_invoke(
 }
 
 struct AuthenticationRuntimeValues {
-    app: Py<PyAny>,
-    backend: Py<PyAny>,
-    on_error: Py<PyAny>,
     http_connection_type: Py<PyAny>,
     authentication_error_type: Py<PyAny>,
     credentials_type: Py<PyAny>,
@@ -683,14 +676,20 @@ fn authentication_runtime_values(
 ) -> AuthenticationRuntimeValues {
     let runtime = runtime.borrow(py);
     AuthenticationRuntimeValues {
-        app: runtime.app.clone_ref(py),
-        backend: runtime.backend.clone_ref(py),
-        on_error: runtime.on_error.clone_ref(py),
         http_connection_type: runtime.http_connection_type.clone_ref(py),
         authentication_error_type: runtime.authentication_error_type.clone_ref(py),
         credentials_type: runtime.credentials_type.clone_ref(py),
         unauthenticated_user_type: runtime.unauthenticated_user_type.clone_ref(py),
     }
+}
+
+fn authentication_middleware_attribute(
+    py: Python<'_>,
+    runtime: &Py<PyAuthenticationMiddlewareRuntime>,
+    name: &str,
+) -> PyResult<Py<PyAny>> {
+    let owner = runtime.borrow(py).owner.clone_ref(py);
+    owner.bind(py).getattr(name).map(Bound::unbind)
 }
 
 enum AuthenticationPending {
@@ -769,11 +768,13 @@ impl AuthenticationMiddlewareCall {
         // Match Starlette's list-membership expression exactly. Extracting a
         // String here rejects values that Python would compare and bypass.
         if !supported_scope_types.contains(&scope_type)? {
-            let application = runtime.app.bind(py).call1((
-                self.scope.bind(py),
-                self.receive.bind(py),
-                self.send.bind(py),
-            ))?;
+            let application = authentication_middleware_attribute(py, &self.runtime, "app")?
+                .bind(py)
+                .call1((
+                    self.scope.bind(py),
+                    self.receive.bind(py),
+                    self.send.bind(py),
+                ))?;
             self.pending = Some(AuthenticationPending::Application);
             return Ok(MachineAction::Await(application.unbind()));
         }
@@ -783,8 +784,8 @@ impl AuthenticationMiddlewareCall {
             .call1((self.scope.bind(py),))?
             .unbind();
         self.connection = Some(connection.clone_ref(py));
-        let authentication = runtime
-            .backend
+        let backend = authentication_middleware_attribute(py, &self.runtime, "backend")?;
+        let authentication = backend
             .bind(py)
             .call_method1("authenticate", (connection.bind(py),));
         let authentication = match authentication {
@@ -819,23 +820,24 @@ impl AuthenticationMiddlewareCall {
         let scope = self.scope.bind(py);
         scope.set_item("auth", credentials)?;
         scope.set_item("user", user)?;
-        let application = runtime.app.bind(py).call1((
-            self.scope.bind(py),
-            self.receive.bind(py),
-            self.send.bind(py),
-        ))?;
+        let application = authentication_middleware_attribute(py, &self.runtime, "app")?
+            .bind(py)
+            .call1((
+                self.scope.bind(py),
+                self.receive.bind(py),
+                self.send.bind(py),
+            ))?;
         self.pending = Some(AuthenticationPending::Application);
         Ok(MachineAction::Await(application.unbind()))
     }
 
     fn authentication_failed(&mut self, py: Python<'_>, error: PyErr) -> PyResult<MachineAction> {
-        let runtime = authentication_runtime_values(py, &self.runtime);
         let connection = self
             .connection
             .as_ref()
             .ok_or_else(|| PyRuntimeError::new_err("authentication middleware lost connection"))?;
-        let response = runtime
-            .on_error
+        let on_error = authentication_middleware_attribute(py, &self.runtime, "on_error")?;
+        let response = on_error
             .bind(py)
             .call1((connection.bind(py), error.value(py)))?;
         let scope = self.scope.bind(py);

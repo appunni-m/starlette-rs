@@ -248,7 +248,7 @@
   ],
   "interfaces": {
     "parity": {
-      "input_schema": "migration-parity/parity-input@58",
+      "input_schema": "migration-parity/parity-input@59",
       "result_schema": "migration-parity/parity-result@9",
       "command_id": "parity"
     },
@@ -12672,6 +12672,42 @@
               "id": "starlette.middleware.authentication.AuthenticationMiddleware.dispatch.mutable-scope-mapping",
               "dimension": "boundary",
               "description": "Pass an input-defined collections.UserDict to AuthenticationMiddleware.dispatch and compare the same mapping’s access trace and selected final auth/user keys with the live downstream response. Pinned source: starlette/types.py::Scope; starlette/middleware/authentication.py:29-32,45-48.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.authentication.AuthenticationMiddleware.live-backend-lookup-after-construction",
+              "dimension": "boundary",
+              "description": "Read the current public backend attribute when dispatch starts, including a replacement made after construction. Pinned source: starlette/middleware/authentication.py:29.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.authentication.AuthenticationMiddleware.live-app-lookup-after-backend-await",
+              "dimension": "boundary",
+              "description": "Read the current public app attribute after the backend await and auth/user scope assignment, including a replacement made while the backend is suspended. Pinned source: starlette/middleware/authentication.py:29-32,45-48; docs/authentication.md:1-3,49.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.authentication.AuthenticationMiddleware.live-on-error-lookup-after-backend-error",
+              "dimension": "boundary",
+              "description": "Read the current public on_error attribute after an AuthenticationError leaves the backend await, including a replacement made during backend execution. Pinned source: starlette/middleware/authentication.py:34-43,50-52; docs/authentication.md:175-193.",
               "lanes": [
                 "parity",
                 "coverage"
