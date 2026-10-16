@@ -5,41 +5,34 @@
 The active full-scope contract is `parity-input@62`, with 2,588 cases across
 437 parity inputs, 1,441 parity requirements, and manifest SHA-256
 `e666f6c2ae10afdfc6a785bd3101b0542ac1eba64d3687c92d3381a4c2790e3d`.
-Contract validation passed. The grouped local run selected 2,941 comparisons on
-the available CPython 3.12 and Rust-native profiles: 2,937 passed, zero differed,
-two had target-adapter crashes, and four were not run; all five selected fault
-contracts passed. A focused rerun after the adapter fix passed the two affected
-WebSocket cases. The four remaining rows are explicit source skips because the
-local macOS temporary filesystem refuses POSIX surrogateescape filenames. The
-five latest Request/HTTPConnection cases passed on CPython 3.12. Full
-cross-profile parity is pending CI. No coverage or benchmark run has been
-performed for this manifest. The last recorded workflow
-[38850605133](https://github.com/appunni-m/starlette-rs/actions/runs/38850605133)
-completed the historical `@58` five-profile parity matrix on revision
-`daf9b9d1f44e566515c640bc8d396bf342151b99`; all CPython 3.10–3.14 profiles and
-all 17 selected fault-contract cases passed for that earlier manifest. The pinned Starlette 1.6.0 source
+Contract validation and metadata-derived source inventory checks passed. The
+local grouped run selected 2,941 comparisons on CPython 3.12 and Rust-native:
+2,937 passed, zero differed, and two had WebSocket target-adapter crashes.
+The four local `not_run` rows were those two crash outcomes and two runs of a
+surrogateescape filesystem case that macOS cannot create. The adapter crashes
+were fixed and both cases passed in a focused rerun. CI workflow
+[`38895661384`](https://github.com/appunni-m/starlette-rs/actions/runs/38895661384)
+passed the five CPython 3.10–3.14 parity jobs on commit
+`4742d075a748fbe182ac121e8b37dd25f5f2d56c`. The pinned Starlette 1.6.0 source
 revision is `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`.
-Three new AuthenticationMiddleware cases replace `backend` after construction,
-`app` during the backend await, and `on_error` before the backend raises. They
-are input-only and remain unexecuted until grouped parity.
 
-The prior coverage selectors omitted 56 of the 2,565 unique parity cases. The
-active coverage input now selects every parity case applicable to each profile:
-374 Rust-native, 273 CPython 3.10, 273 CPython 3.11, 2,549 CPython 3.12, and 274
-each for CPython 3.13 and 3.14. All six full-matrix coverage jobs passed in the
-same workflow. Coverage MCP verified every report as `source=matches_receipt`,
-`tests=passed`, and `status=measured`, with no warnings. The selected case and
-line counts are recorded in the [implementation ledger](IMPLEMENTATION_PLAN.md).
-These measurements cover the selected case plans, not all source lines or the
-full Starlette behavior denominator.
+All six active coverage profiles passed: 375 Rust-native cases, 274 each for
+CPython 3.10 and 3.11, 2,571 for 3.12, and 275 each for 3.13 and 3.14. Coverage
+MCP read the LCOV reports and surfaced gaps, but reports imported from CI were
+marked `source=unverified` and `tests=unknown` because their receipts were not
+ingested. The CI result artifacts identify the clean target commit and record
+zero failed cases. The selected-component line counts are in the
+[implementation ledger](IMPLEMENTATION_PLAN.md); they do not measure every
+source line or the full Starlette behavior denominator.
 
 The complete 74-workload Router/GZip benchmark passed after parity and
-coverage: all source/package observations matched and the result records 74
-Rust-native `not_run` rows because there is no equivalent native ASGI boundary.
-The top-level aggregate status remains `not_proven`. The source atlas contains
-867 rows (811 input mappings, 56 source-backed `not_applicable`, zero backlog).
-The pinned denominators remain 514 upstream test functions and 24 documented
-pages, and the full replacement remains incomplete.
+coverage. All source/package observations matched; its Rust-native `not_run`
+rows reflect that there is no equivalent native ASGI workload boundary. The
+benchmark and its correctness preflight are detailed in
+[benchmark evidence](BENCHMARKS.md). The source atlas contains 867 rows (811
+input mappings, 56 source-backed `not_applicable`, zero backlog). The top-level
+replacement status remains `not_proven`; the pinned denominators remain 514
+upstream test functions and 24 documented pages.
 
 Historical preflight context: the earlier grouped matrix found a URL difference
 on CPython 3.10/3.11 and a CPython 3.12 package-adapter schema crash; both were

@@ -32,40 +32,32 @@ manifest SHA-256 is
 Contract validation and metadata-derived source inventory checks
 passed. The generated source atlas has 867 rows: 811 input mappings, 56
 source-backed `not_applicable` rows, and zero fixture backlog. All 999 API
-candidate rows are dispositioned. The current grouped local run selected 2,941
-comparisons on CPython 3.12 and Rust-native: 2,937 passed, zero differed, two
-had target-adapter crashes, and four were not run; all five selected fault
-contracts passed. The two WebSocket descriptor-order adapter crashes are fixed,
-and a focused rerun passed both cases. The four remaining rows are explicit
-source skips because this local macOS temporary filesystem refuses POSIX
-surrogateescape filenames. Full cross-profile parity is pending CI. The recorded
-coverage and benchmark evidence below predates @59 through @62. The
-StaticFiles implementation now preserves package-root order around a dynamic
-configured `PathLike` root; its input-only comparison passed in the active local
-CPython 3.12 grouped run. The
-999-row API candidate catalog has 564 supported candidates, 435
-private/internal candidates, and zero uncertain candidates; the compatibility
-input selects 432 unique supported names and 47 pinned documentation imports.
+candidate rows are dispositioned as 531 supported, 285 private/internal, and
+183 uncertain. The local grouped run selected 2,941 comparisons on CPython 3.12
+and Rust-native: 2,937 passed, zero differed, and two had WebSocket
+target-adapter crashes. The four local `not_run` rows were those two crash
+outcomes and two runs of a surrogateescape filesystem case that macOS cannot
+create. The adapter crashes were fixed and both cases passed in a focused
+rerun. CI workflow
+[`38895661384`](https://github.com/appunni-m/starlette-rs/actions/runs/38895661384)
+passed all five CPython 3.10–3.14 parity jobs on clean target revision
+`4742d075a748fbe182ac121e8b37dd25f5f2d56c`.
 
-The last complete parity and coverage workflow
-[38805748474](https://github.com/appunni-m/starlette-rs/actions/runs/38805748474)
-verified the previous manifest SHA-256
-`2dcb25d098d4f09ce3dd6bb231164a58391175f6cff222dd2c6316a9580eec4a` on target
-revision `a10ecf5776c50cf86600e3d5f049e8db006f4966`. For that earlier input set,
-all five CPython parity profiles and six coverage profiles completed. Coverage
-MCP measured 5,156/8,004 Rust-native lines; CPython 3.10 11,650/33,280; 3.11
-11,662/33,280; 3.12 22,903/33,280; 3.13 11,610/33,280; and 3.14 11,606/33,280.
-Its source identity remains unverified because no source/build receipt was
-ingested. Coverage is a measurement, not a parity score.
+All six coverage profiles passed: Rust-native 375 cases, CPython 3.10 and 3.11
+274 each, CPython 3.12 2,571, and CPython 3.13 and 3.14 275 each. Coverage MCP
+read the reports and surfaced gaps, but marked the imported CI reports
+`source=unverified` and `tests=unknown` because their receipts were not
+ingested. The CI result artifacts record zero failed cases. The selected
+component line counts and the benchmark preflight results are recorded in the
+[implementation plan](../IMPLEMENTATION_PLAN.md).
 
-The last benchmark run `1853ee16-2795-48dc-bc5f-2b15421967df` used the previous
-manifest. It measured 74 Router and GZip source/package workloads, with zero
-failures or source/package skips. Its median source/package latency ratios are
-0.224 for Router and 0.974 for GZip; normalized observation hashes match in
-74/74. The 74 Rust-native benchmark entries remain `not_run` because the native
-API has no equivalent workload boundary. Run identities are in the
-[implementation plan](../IMPLEMENTATION_PLAN.md), [parity report](../PARITY.md),
-and [benchmark report](../BENCHMARKS.md).
+Benchmark run `5242b8e5-4c5e-4c45-af60-0b83a6ba8b33` measured all 74
+Router/GZip source/package workloads, with zero failures, skips, or
+source/package `not_run` rows and matching normalized observations for all 74.
+All 74 Rust-native benchmark entries remain `not_run` because the native API has
+no equivalent workload boundary. The top-level replacement status remains
+`not_proven`. Run identities are in the [parity report](../PARITY.md) and
+[benchmark report](../BENCHMARKS.md).
 
 Fixed source denominators are 514 upstream test functions and 24 documentation
 pages. The complete replacement remains unproven; these inventory counts and

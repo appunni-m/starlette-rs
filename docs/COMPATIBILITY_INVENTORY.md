@@ -9,34 +9,32 @@ against Starlette 1.6.0 revision
 across 437 parity files, two benchmark inputs, 152 compatibility operations, 15
 Rust-native operations, 1,441 parity requirements, and six target profiles.
 Contract validation and metadata-derived source inventory checks passed. The
-current manifest's grouped local run selected 2,941 comparisons on CPython 3.12
-and Rust-native: 2,937 passed, zero differed, two had target-adapter crashes,
-and four were not run; all five selected fault contracts passed. The two
-WebSocket descriptor-order adapter crashes were fixed, and the focused rerun
-passed both affected cases. The four remaining rows are explicit source skips:
-the local macOS temporary filesystem refuses POSIX surrogateescape filenames.
-The cross-profile CI matrix remains pending. Coverage and benchmark evidence
-below use earlier manifests and do not include the active manifest. Workflow
-[38850605133](https://github.com/appunni-m/starlette-rs/actions/runs/38850605133)
-passed the previous five-profile matrix; all 17 selected fault-contract cases
-passed for that earlier manifest.
+local grouped run selected 2,941 comparisons on CPython 3.12 and Rust-native:
+2,937 passed, zero differed, and two had WebSocket target-adapter crashes.
+The four local `not_run` rows were those two crash outcomes and two runs of a
+surrogateescape filesystem case that macOS cannot create. The adapter crashes
+were fixed and both cases passed in a focused rerun. CI workflow
+[`38895661384`](https://github.com/appunni-m/starlette-rs/actions/runs/38895661384)
+passed the five CPython 3.10–3.14 parity jobs on clean target revision
+`4742d075a748fbe182ac121e8b37dd25f5f2d56c`.
 
-The expanded coverage plan selects every case applicable to its target
-profile: Rust-native 374, CPython 3.10 273, 3.11 273, 3.12 2,549, and 3.13 and
-3.14 274 each. All six coverage jobs passed in workflow `38850605133`.
-Coverage MCP verified each report as `source=matches_receipt`, `tests=passed`,
-`status=measured`, and no warnings. The atlas contains 867 rows: 811 input
-mappings, 56 source-backed `not_applicable` rows, and zero backlog; all 999 API
-candidate rows have dispositions. These selected-case measurements do not
-claim full source-line or full Starlette behavioral coverage.
+All six active coverage profiles passed: 375 Rust-native cases, 274 each for
+CPython 3.10 and 3.11, 2,571 for 3.12, and 275 each for 3.13 and 3.14. Coverage
+MCP read every LCOV report and surfaced gaps, but marked the imported CI reports
+`source=unverified` and `tests=unknown` because their receipts were not ingested.
+The CI artifacts record zero failed cases against the clean target revision.
+Selected-component line counts are recorded in the
+[implementation ledger](IMPLEMENTATION_PLAN.md); they do not claim full
+source-line or Starlette behavioral coverage.
 
-Benchmark run `67373339-9c28-410d-b9b0-40fbe02ca40a` measured all 74 declared
-source/package workloads (six Router and 68 GZip), with zero failures or
-source/package `not_run` rows and matching normalized observations for all 74.
-All 74 Rust-native rows are `not_run` because no equivalent ASGI workload
-boundary is available. Median source/package latency ratios were 0.219 for
-Router and 0.970 for GZip. See [benchmark evidence](BENCHMARKS.md) for run
-identity and measurement details.
+The active benchmark run
+[`5242b8e5-4c5e-4c45-af60-0b83a6ba8b33`](BENCHMARKS.md) measured all 74 declared
+source/package workloads (six Router and 68 GZip), with zero failures, skips,
+or source/package `not_run` rows and matching normalized observations for all
+74. All 74 Rust-native rows are `not_run` because no equivalent ASGI workload
+boundary is available. The atlas contains 867 rows: 811 input mappings, 56
+source-backed `not_applicable` rows, and zero backlog; all 999 API candidate
+rows have dispositions.
 
 The full Starlette replacement remains incomplete; these measurements do not
 establish universal or drop-in compatibility. macOS arm64 package qualification
@@ -1136,20 +1134,19 @@ The pinned 1.6.0 source retains the deprecated
 `starlette.concurrency.run_until_first_complete` helper. The Python package
 facade forwards it to a Rust-owned task-group state machine, while AnyIO owns
 backend scheduling. Four input-only cases cover first-completion cancellation,
-zero callbacks, child-exception propagation, and external cancellation; their
-source/package comparisons remain deferred to the full parity phase. The
-cases observe the deprecation warning category, message, and location as well
-as callback and cleanup events, so implementation is present but exact parity
-is not yet proven. Other deprecation behavior identified for exact
-compatibility includes importing `starlette.middleware.wsgi`, generator and
-async-generator lifespan callables, `TestClient(timeout=...)`, and the legacy
-`httpx` TestClient backend.
+zero callbacks, child-exception propagation, and external cancellation. The
+active @62 full parity matrix exercised the profile-applicable cases and
+captured the warning category, message, and location with callback and cleanup
+events. Active inputs also cover the WSGI module-import warning,
+generator-lifespan warnings, the `TestClient(timeout=...)` warning, and the
+deprecated legacy-`httpx` fallback. These results apply to the declared cases
+and do not establish parity for every deprecation path.
 
 ## Unresolved points carried into implementation
 
-- The current API candidate catalog has no uncertain entries. Keep future
-  candidates uncertain when the pinned docs, source, and release history do not
-  establish public intent.
+- The merged API review currently has 183 `uncertain` dispositions. Keep these
+  candidates unresolved until pinned docs, source, release history, or consumer
+  evidence establishes public intent; importability alone is insufficient.
 - `Router.add_route` is supported: the pinned routing guide presents `Router`
   as a standalone ASGI application, and `test_add_route_to_app_after_mount`
   calls `Router.add_route` after mounting it and observes the added route. Its
@@ -1173,9 +1170,11 @@ async-generator lifespan callables, `TestClient(timeout=...)`, and the legacy
   specifying whether use errors, is ignored, or is awaited; see
   `doc.templates.async-context-processor-constraint`.
 
-These source-backed caveats and targeted inputs do not change API-candidate
-dispositions or create fixture backlog. The grouped parity, coverage, and
-benchmark phases have completed for the previously recorded `parity-input@58` manifest. The active @59 AuthenticationMiddleware and @60 GZip, Request, and Router boundary comparisons remain unexecuted until grouped parity.
+These source-backed caveats and targeted inputs do not create fixture backlog.
+The grouped parity, coverage, and benchmark phases have completed for the
+active `parity-input@62` manifest; see the current verification status at the
+beginning of this document. After the next implementation batch and its
+input-only case authoring are complete, run the grouped phases together once.
 The macOS arm64 Python package qualification is complete, and its SBOM metadata
 normalization is verified for direct and sdist-based CPython 3.12 wheels.
 Windows-specific StaticFiles verification remains open. After any new runtime
