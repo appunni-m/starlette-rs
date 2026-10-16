@@ -199,9 +199,12 @@ impl PyHTTPConnection {
             .call1((self.scope.bind(py),))?;
         let root_path = scope.call_method1("get", ("root_path", ""))?;
         let app_root_path = scope.call_method1("get", ("app_root_path", root_path))?;
-        let mut path = app_root_path.extract::<String>()?;
-        if !path.ends_with('/') {
-            path.push('/');
+        let mut path = app_root_path.clone();
+        if !path.call_method1("endswith", ("/",))?.is_truthy()? {
+            path = py
+                .import("operator")?
+                .getattr("iadd")?
+                .call1((path, "/"))?;
         }
         scope.set_item("path", path)?;
         scope.set_item("query_string", PyBytes::new(py, b""))?;

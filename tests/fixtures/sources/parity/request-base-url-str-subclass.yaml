@@ -1,0 +1,89 @@
+{
+  "schema": "migration-parity/parity-input@58",
+  "cases": [
+    {
+      "case_id": "starlette.requests.Request.base_url.app-root-path-str-subclass.endswith-override",
+      "surface": "starlette.requests.Request",
+      "operation": "base_url",
+      "covers": [
+        "starlette.requests.Request.base_url.app-root-path-str-subclass-methods"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "http",
+        "scheme": "https",
+        "server": [
+          "example.org",
+          443
+        ],
+        "path": "/request",
+        "headers": [],
+        "root_path": "/mounted",
+        "app_root_path": {
+          "kind": "str-subclass",
+          "value": "/app",
+          "endswith": {
+            "suffix": "/",
+            "result": true
+          },
+          "iadd": {
+            "operand": "/",
+            "result": "/unused/"
+          }
+        }
+      },
+      "observations": [
+        "base-url"
+      ]
+    },
+    {
+      "case_id": "starlette.requests.Request.base_url.app-root-path-str-subclass.in-place-add-override",
+      "surface": "starlette.requests.Request",
+      "operation": "base_url",
+      "covers": [
+        "starlette.requests.Request.base_url.app-root-path-str-subclass-methods"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "http",
+        "scheme": "https",
+        "server": [
+          "example.org",
+          443
+        ],
+        "path": "/request",
+        "headers": [],
+        "root_path": "/mounted",
+        "app_root_path": {
+          "kind": "str-subclass",
+          "value": "/app/",
+          "endswith": {
+            "suffix": "/",
+            "result": false
+          },
+          "iadd": {
+            "operand": "/",
+            "result": "/rewritten/"
+          }
+        }
+      },
+      "observations": [
+        "base-url"
+      ]
+    }
+  ]
+}

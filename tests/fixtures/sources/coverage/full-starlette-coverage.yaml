@@ -895,7 +895,8 @@
         "starlette.testclient.TestClient.request-response.cookie-domain-matching",
         "starlette.websocket.api.iterator.athrow",
         "starlette.websockets.WebSocket.scope-identity-hash-sequence.mutable-scope-identity",
-        "starlette.testclient.TestClient.lifespan-context.portal-exit-error-context"
+        "starlette.testclient.TestClient.lifespan-context.portal-exit-error-context",
+        "starlette.requests.Request.base_url.app-root-path-str-subclass-methods"
       ],
       "target_profile": "python-package-cpython310",
       "selectors": {
@@ -1162,7 +1163,9 @@
           "starlette.websockets.WebSocket.convenience-sequence.iterator-athrow-arities",
           "starlette.websockets.WebSocket.convenience-sequence.iterator-athrow-four-arguments",
           "starlette.websockets.WebSocket.convenience-sequence.iterator-athrow-valid-arities",
-          "starlette.testclient.TestClient.lifespan-context.portal-cleanup-error-context"
+          "starlette.testclient.TestClient.lifespan-context.portal-cleanup-error-context",
+          "starlette.requests.Request.base_url.app-root-path-str-subclass.endswith-override",
+          "starlette.requests.Request.base_url.app-root-path-str-subclass.in-place-add-override"
         ],
         "command_ids": []
       },
@@ -1385,7 +1388,8 @@
         "starlette.testclient.TestClient.request-response.cookie-domain-matching",
         "starlette.websocket.api.iterator.athrow",
         "starlette.websockets.WebSocket.scope-identity-hash-sequence.mutable-scope-identity",
-        "starlette.testclient.TestClient.lifespan-context.portal-exit-error-context"
+        "starlette.testclient.TestClient.lifespan-context.portal-exit-error-context",
+        "starlette.requests.Request.base_url.app-root-path-str-subclass-methods"
       ],
       "target_profile": "python-package-cpython311",
       "selectors": {
@@ -1652,7 +1656,9 @@
           "starlette.websockets.WebSocket.convenience-sequence.iterator-athrow-arities",
           "starlette.websockets.WebSocket.convenience-sequence.iterator-athrow-four-arguments",
           "starlette.websockets.WebSocket.convenience-sequence.iterator-athrow-valid-arities",
-          "starlette.testclient.TestClient.lifespan-context.portal-cleanup-error-context"
+          "starlette.testclient.TestClient.lifespan-context.portal-cleanup-error-context",
+          "starlette.requests.Request.base_url.app-root-path-str-subclass.endswith-override",
+          "starlette.requests.Request.base_url.app-root-path-str-subclass.in-place-add-override"
         ],
         "command_ids": []
       },
@@ -3050,7 +3056,8 @@
         "starlette.routing.Route.__call__.scope-type-python-equality",
         "starlette.routing.Router.route-dispatch.scope-type-python-membership",
         "starlette.routing.Router.route-dispatch.missing-method-after-path-miss",
-        "starlette.routing.Router.route-dispatch.missing-method-after-path-match"
+        "starlette.routing.Router.route-dispatch.missing-method-after-path-match",
+        "starlette.requests.Request.base_url.app-root-path-str-subclass-methods"
       ],
       "target_profile": "python-package-cpython312",
       "selectors": {
@@ -5539,7 +5546,9 @@
           "starlette.routing.Route.__call__.scope-type-python-equality",
           "starlette.routing.Router.route-dispatch.scope-type-python-membership",
           "starlette.routing.Router.route-dispatch.missing-method-after-path-miss",
-          "starlette.routing.Router.route-dispatch.missing-method-after-path-match"
+          "starlette.routing.Router.route-dispatch.missing-method-after-path-match",
+          "starlette.requests.Request.base_url.app-root-path-str-subclass.endswith-override",
+          "starlette.requests.Request.base_url.app-root-path-str-subclass.in-place-add-override"
         ],
         "command_ids": []
       },
@@ -5763,7 +5772,8 @@
         "starlette.testclient.TestClient.request-response.cookie-domain-matching",
         "starlette.websocket.api.iterator.athrow",
         "starlette.websockets.WebSocket.scope-identity-hash-sequence.mutable-scope-identity",
-        "starlette.testclient.TestClient.lifespan-context.portal-exit-error-context"
+        "starlette.testclient.TestClient.lifespan-context.portal-exit-error-context",
+        "starlette.requests.Request.base_url.app-root-path-str-subclass-methods"
       ],
       "target_profile": "python-package-cpython313",
       "selectors": {
@@ -6031,7 +6041,9 @@
           "starlette.websockets.WebSocket.convenience-sequence.iterator-athrow-arities",
           "starlette.websockets.WebSocket.convenience-sequence.iterator-athrow-four-arguments",
           "starlette.websockets.WebSocket.convenience-sequence.iterator-athrow-valid-arities",
-          "starlette.testclient.TestClient.lifespan-context.portal-cleanup-error-context"
+          "starlette.testclient.TestClient.lifespan-context.portal-cleanup-error-context",
+          "starlette.requests.Request.base_url.app-root-path-str-subclass.endswith-override",
+          "starlette.requests.Request.base_url.app-root-path-str-subclass.in-place-add-override"
         ],
         "command_ids": []
       },
@@ -6255,7 +6267,8 @@
         "starlette.testclient.TestClient.request-response.cookie-domain-matching",
         "starlette.websocket.api.iterator.athrow",
         "starlette.websockets.WebSocket.scope-identity-hash-sequence.mutable-scope-identity",
-        "starlette.testclient.TestClient.lifespan-context.portal-exit-error-context"
+        "starlette.testclient.TestClient.lifespan-context.portal-exit-error-context",
+        "starlette.requests.Request.base_url.app-root-path-str-subclass-methods"
       ],
       "target_profile": "python-package-cpython314",
       "selectors": {
@@ -6523,7 +6536,9 @@
           "starlette.websockets.WebSocket.convenience-sequence.iterator-athrow-arities",
           "starlette.websockets.WebSocket.convenience-sequence.iterator-athrow-four-arguments",
           "starlette.websockets.WebSocket.convenience-sequence.iterator-athrow-valid-arities",
-          "starlette.testclient.TestClient.lifespan-context.portal-cleanup-error-context"
+          "starlette.testclient.TestClient.lifespan-context.portal-cleanup-error-context",
+          "starlette.requests.Request.base_url.app-root-path-str-subclass.endswith-override",
+          "starlette.requests.Request.base_url.app-root-path-str-subclass.in-place-add-override"
         ],
         "command_ids": []
       },

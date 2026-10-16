@@ -360,6 +360,7 @@
       "build/parity/inputs/parity/request-stream-receive-cancellation-retry.json",
       "build/parity/inputs/parity/request-stream-receive-error-retry.json",
       "build/parity/inputs/parity/request-client-address.json",
+      "build/parity/inputs/parity/request-base-url-str-subclass.json",
       "build/parity/inputs/parity/request-connection-properties-mapping-membership.json",
       "build/parity/inputs/parity/request-query-params-falsey-bytes-subclass.json",
       "build/parity/inputs/parity/authentication-http-connection-auth-user.json",
@@ -18687,6 +18688,127 @@
       "source_path": "starlette/requests.py:214",
       "storage_slug": "requests-request",
       "operations": [
+        {
+          "id": "base_url",
+          "kind": "property_get",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.requests.HTTPConnection.base_url",
+            "signature": "@property base_url(self) -> URL",
+            "parameters": [
+              {
+                "id": "self",
+                "style": "receiver",
+                "value_types": [
+                  "handle"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "scalar",
+              "observations": [
+                {
+                  "path": "base-url",
+                  "value_types": [
+                    "string"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "The Rust-native API does not expose the Python Request.base_url property.",
+                "blocker": "No native public Request object returns a Starlette URL compatibility value."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.requests.Request.base_url",
+              "signature": "@property base_url(self) -> URL",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.requests.Request.base_url.app-root-path-str-subclass-methods",
+              "dimension": "boundary",
+              "description": "Request.base_url preserves app_root_path as its Python str subclass, calls endswith('/'), and applies Python in-place addition with '/' when that call is false. Pinned source: starlette/requests.py:116-129 (HTTPConnection.base_url).",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython310",
+              "python-package-cpython311",
+              "python-package-cpython312",
+              "python-package-cpython313",
+              "python-package-cpython314"
+            ]
+          },
+          "coverage": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython310",
+              "python-package-cpython311",
+              "python-package-cpython312",
+              "python-package-cpython313",
+              "python-package-cpython314"
+            ],
+            "component_ids": [
+              "rust-core-python-package-cpython310",
+              "python-rust-bindings-python-package-cpython310",
+              "rust-core-python-package-cpython311",
+              "python-rust-bindings-python-package-cpython311",
+              "rust-core-python-package-cpython312",
+              "python-rust-bindings-python-package-cpython312",
+              "rust-core-python-package-cpython313",
+              "python-rust-bindings-python-package-cpython313",
+              "rust-core-python-package-cpython314",
+              "python-rust-bindings-python-package-cpython314"
+            ]
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "Request.base_url string-subclass dispatch is outside the active benchmark workloads."
+          }
+        },
         {
           "id": "url_for",
           "kind": "method",

@@ -712,6 +712,10 @@ VALUE_FORMATTING_OPERATIONS = {
 }
 REQUEST_DEFAULT_RECEIVE_OPERATION = ("starlette.requests.Request", "default-receive")
 REQUEST_CLIENT_OPERATION = ("starlette.requests.Request", "client")
+REQUEST_BASE_URL_OPERATION = ("starlette.requests.Request", "base_url")
+REQUEST_BASE_URL_REQUIREMENT = (
+    "starlette.requests.Request.base_url.app-root-path-str-subclass-methods"
+)
 REQUEST_CONNECTION_PROPERTIES_OPERATION = (
     "starlette.requests.Request",
     "connection-properties",
@@ -1047,6 +1051,7 @@ PYTHON_VERSION_MATRIX_OPERATIONS = {
     THREADPOOL_OPERATION_KEY,
     TESTCLIENT_LIFESPAN_OPERATION_KEY,
     ("starlette.requests.Request", "client"),
+    REQUEST_BASE_URL_OPERATION,
     REQUEST_CONNECTION_PROPERTIES_OPERATION,
     REQUEST_HEADER_CACHE_SEQUENCE_OPERATION,
     REQUEST_BODY_STREAM_JSON_OPERATION,
@@ -3570,6 +3575,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                 or key == ROUTER_REGISTRATION_OPERATION_KEY
                 or key == REQUEST_DEFAULT_RECEIVE_OPERATION
                 or key == REQUEST_CLIENT_OPERATION
+                or key == REQUEST_BASE_URL_OPERATION
                 or key == REQUEST_CONNECTION_PROPERTIES_OPERATION
                 or key == REQUEST_HEADER_CACHE_SEQUENCE_OPERATION
                 or key == REQUEST_COOKIE_CACHE_SEQUENCE_OPERATION
@@ -3892,6 +3898,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                             in {
                                 REQUEST_DEFAULT_RECEIVE_OPERATION,
                                 REQUEST_CLIENT_OPERATION,
+                                REQUEST_BASE_URL_OPERATION,
                                 REQUEST_CONNECTION_PROPERTIES_OPERATION,
                                 REQUEST_HEADER_CACHE_SEQUENCE_OPERATION,
                                 REQUEST_COOKIE_CACHE_SEQUENCE_OPERATION,
@@ -24456,6 +24463,10 @@ def _validate_case_payload(
         isinstance(case, dict)
         and (case.get("surface"), case.get("operation")) == REQUEST_CLIENT_OPERATION
     )
+    is_request_base_url = (
+        isinstance(case, dict)
+        and (case.get("surface"), case.get("operation")) == REQUEST_BASE_URL_OPERATION
+    )
     is_request_connection_properties = (
         isinstance(case, dict)
         and (case.get("surface"), case.get("operation")) == REQUEST_CONNECTION_PROPERTIES_OPERATION
@@ -24663,6 +24674,8 @@ def _validate_case_payload(
         if is_request_body_stream_json
         else (CASE_KEYS - {"steps", "execution_schedule"}) | {"scope_cases"}
         if is_request_client
+        else (CASE_KEYS - {"steps", "execution_schedule"}) | {"scope"}
+        if is_request_base_url
         else (CASE_KEYS - {"steps", "execution_schedule"})
         | {"scope", "scope_mapping", "properties"}
         if is_request_connection_properties
@@ -24816,6 +24829,10 @@ def _validate_case_payload(
         if case["observations"] != [TESTCLIENT_OPERATION]:
             raise ContractError("TestClient cases must select request-response")
         _validate_testclient_case(case, fault_case_spec=fault_case_spec)
+        return case
+    if is_request_base_url:
+        _exact(case, expected_case_keys, "Request.base_url case")
+        _validate_request_base_url_case(case)
         return case
     if is_request_client:
         _exact(case, expected_case_keys, "Request.client case")
@@ -31922,6 +31939,67 @@ def _validate_request_client_case(case: dict[str, Any]) -> None:
                 raise ContractError(f"{context}.scope.client must be a host/port pair or null")
     if case["covers"] != [REQUEST_CLIENT_REQUIREMENT]:
         raise ContractError("Request.client case must cover the client-address requirement")
+
+
+def _validate_request_base_url_case(case: dict[str, Any]) -> None:
+    if case["target_profiles"] != list(PYTHON_PROFILE_IDS):
+        raise ContractError("Request.base_url parity targets all supported Python profiles")
+    if case["assets"] != [] or case["observations"] != ["base-url"]:
+        raise ContractError("Request.base_url cases select base-url without assets")
+    if not case["case_id"].startswith("starlette.requests.Request.base_url."):
+        raise ContractError("Request.base_url case ID must bind to the public property")
+    if case["covers"] != [REQUEST_BASE_URL_REQUIREMENT]:
+        raise ContractError("Request.base_url case must cover its str-subclass requirement")
+
+    scope = _exact(
+        case["scope"],
+        {"type", "scheme", "server", "path", "headers", "root_path", "app_root_path"},
+        "Request.base_url scope",
+    )
+    if scope["type"] != "http" or scope["scheme"] not in {"http", "https"}:
+        raise ContractError("Request.base_url scope must use an HTTP type and URL scheme")
+    _string(scope["path"], "Request.base_url scope.path")
+    _string(scope["root_path"], "Request.base_url scope.root_path")
+    if scope["headers"] != []:
+        raise ContractError("Request.base_url scope headers must be empty")
+    server = scope["server"]
+    if (
+        not isinstance(server, list)
+        or len(server) != 2
+        or not isinstance(server[0], str)
+        or type(server[1]) is not int
+        or not 0 <= server[1] <= 65535
+    ):
+        raise ContractError("Request.base_url scope.server must be a host/port pair")
+
+    app_root_path = _exact(
+        scope["app_root_path"],
+        {"kind", "value", "endswith", "iadd"},
+        "Request.base_url app_root_path str subclass",
+    )
+    if app_root_path["kind"] != "str-subclass":
+        raise ContractError("Request.base_url app_root_path must be a str subclass")
+    value = _string(app_root_path["value"], "Request.base_url app_root_path.value")
+    endswith = _exact(
+        app_root_path["endswith"],
+        {"suffix", "result"},
+        "Request.base_url app_root_path.endswith override",
+    )
+    if endswith["suffix"] != "/" or type(endswith["result"]) is not bool:
+        raise ContractError("Request.base_url endswith override must define the slash result")
+    if endswith["result"] == value.endswith(endswith["suffix"]):
+        raise ContractError("Request.base_url endswith input must override str behavior")
+
+    iadd = _exact(
+        app_root_path["iadd"],
+        {"operand", "result"},
+        "Request.base_url app_root_path in-place-add override",
+    )
+    if iadd["operand"] != "/":
+        raise ContractError("Request.base_url in-place-add override must define the slash operand")
+    iadd_result = _string(iadd["result"], "Request.base_url app_root_path iadd result")
+    if not endswith["result"] and iadd_result == value + iadd["operand"]:
+        raise ContractError("Request.base_url iadd input must override ordinary string addition")
 
 
 def _validate_request_connection_properties_case(case: dict[str, Any]) -> None:

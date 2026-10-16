@@ -22,6 +22,26 @@ class _InputQueryStringBytes(bytes):
         return self._truthy
 
 
+class _InputAppRootPath(str):
+    """Represent an input-defined str subclass for HTTPConnection.base_url."""
+
+    def __new__(cls, spec: dict[str, Any]) -> _InputAppRootPath:
+        instance = super().__new__(cls, spec["value"])
+        instance._endswith = spec["endswith"]
+        instance._iadd = spec["iadd"]
+        return instance
+
+    def endswith(self, suffix: Any, *args: Any) -> bool:
+        if suffix == self._endswith["suffix"] and not args:
+            return self._endswith["result"]
+        return super().endswith(suffix, *args)
+
+    def __iadd__(self, other: Any) -> Any:
+        if other == self._iadd["operand"]:
+            return self._iadd["result"]
+        return super().__add__(other)
+
+
 def run_request_connection_properties_case(
     case: dict[str, Any],
     request_type: Callable[..., Any],
@@ -64,6 +84,30 @@ def run_request_connection_properties_case(
                 "step_id": "connection-properties",
                 "status": "ok",
                 "value": {"connection-properties": property_values},
+            }
+        ],
+    }
+
+
+def run_request_base_url_case(
+    case: dict[str, Any],
+    request_type: Callable[..., Any],
+) -> dict[str, Any]:
+    """Observe Request.base_url for an input-defined app_root_path subclass."""
+    scope = dict(case["scope"])
+    scope["server"] = tuple(scope["server"])
+    scope["app_root_path"] = _InputAppRootPath(scope["app_root_path"])
+
+    request = request_type(scope)
+    observation = case["observations"][0]
+    return {
+        "case_id": case["case_id"],
+        "status": "completed",
+        "observations": [
+            {
+                "step_id": observation,
+                "status": "ok",
+                "value": {observation: str(request.base_url)},
             }
         ],
     }

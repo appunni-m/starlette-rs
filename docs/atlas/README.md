@@ -25,10 +25,10 @@ with no conventional Python or Rust unit-test suite.
 ## Current implementation status
 
 The active full-scope `parity-input@58` contract covers Starlette 1.6.0 with
-2,553 cases across 425 parity inputs and two benchmark inputs, 151 compatibility
-operations, 14 Rust-native operations, and 1,414 parity requirements. Its
+2,555 cases across 426 parity inputs and two benchmark inputs, 152 compatibility
+operations, 14 Rust-native operations, and 1,415 parity requirements. Its
 manifest SHA-256 is
-`f55f14e74848748b557cf1a8b25ed2abd3ea3f43c878578d314dce05c50844e5`. Contract
+`604d24e0e5ea96be9a0fecbdd54e56235a010380af9a6d46588e4e787b03f25c`. Contract
 validation and source-inventory generation pass; parity, coverage, and benchmark
 runs have not been recorded for this digest. The source atlas contains 866 rows: 810 input
 mappings, 56 source-backed `not_applicable` rows, and zero fixture backlog. The
