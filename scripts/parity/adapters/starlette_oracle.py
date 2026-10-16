@@ -2530,6 +2530,54 @@ def _materialize_application(
                 return endpoint
 
             route_endpoint = make_endpoint(response_spec)
+        elif response_spec["kind"] == "http-class-based-endpoint":
+            _strict_object(
+                response_spec,
+                {"kind", "name", "handlers"},
+                "HTTPEndpoint application endpoint",
+            )
+            from starlette.endpoints import HTTPEndpoint
+
+            class_attributes: dict[str, Any] = {"__module__": __name__}
+            for handler_spec in response_spec["handlers"]:
+                _strict_object(
+                    handler_spec,
+                    {"name", "call_style", "response"},
+                    "HTTPEndpoint method handler",
+                )
+                method_response = _strict_object(
+                    handler_spec["response"],
+                    {"kind", "content", "status_code", "media_type"},
+                    "HTTPEndpoint method response",
+                )
+                if method_response["kind"] != "plain-text-response":
+                    raise ValueError("HTTPEndpoint method response must be plain text")
+
+                def make_endpoint_method(spec: dict[str, Any], call_style: str) -> Any:
+                    if call_style == "sync":
+
+                        def endpoint_method(_self: Any, _request: Any) -> Any:
+                            return PlainTextResponse(
+                                content=spec["content"],
+                                status_code=spec["status_code"],
+                                media_type=spec["media_type"],
+                            )
+
+                        return endpoint_method
+
+                    async def endpoint_method(_self: Any, _request: Any) -> Any:
+                        return PlainTextResponse(
+                            content=spec["content"],
+                            status_code=spec["status_code"],
+                            media_type=spec["media_type"],
+                        )
+
+                    return endpoint_method
+
+                class_attributes[handler_spec["name"]] = make_endpoint_method(
+                    method_response, handler_spec["call_style"]
+                )
+            route_endpoint = type(response_spec["name"], (HTTPEndpoint,), class_attributes)
         elif response_spec["kind"] == "json-response":
             _strict_object(
                 response_spec,

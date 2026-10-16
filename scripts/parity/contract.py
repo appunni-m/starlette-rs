@@ -1993,6 +1993,9 @@ EXCEPTION_CLASS_MRO_ORDER_REQUIREMENT = "starlette.asgi.exception-handler.except
 BOOLEAN_STATUS_KEY_EQUIVALENCE_REQUIREMENT = (
     "starlette.asgi.exception-handler.status-code.bool-int-key-equivalence"
 )
+HTTP_ENDPOINT_METHOD_NOT_ALLOWED_REQUIREMENT = (
+    "starlette.routing.Router.route-dispatch.http-endpoint-method-not-allowed"
+)
 VALUE_TYPES = {
     "null",
     "boolean",
@@ -8991,9 +8994,7 @@ def _validate_file_response_case_stimulus(case: dict[str, Any]) -> None:
             raise ContractError(
                 "FileResponse zero-chunk-size coverage requires a simple non-range response"
             )
-    has_short_read_inputs = (
-        "stat_result" in case and send_error is not None
-    )
+    has_short_read_inputs = "stat_result" in case and send_error is not None
     if (
         send_error is not None
         and not has_short_read_inputs
@@ -30893,6 +30894,10 @@ def _validate_application_stimulus(
     if handlers != []:
         if allow_exception_handlers_userdict:
             return
+        endpoint = route.get("endpoint")
+        if isinstance(endpoint, dict) and endpoint.get("kind") == "http-class-based-endpoint":
+            _validate_http_endpoint_status_handler_application(route, handlers)
+            return
         _validate_status_precedence_application(route, handlers)
         return
 
@@ -32131,6 +32136,81 @@ def _validate_status_precedence_application(route: dict[str, Any], handlers: Any
         raise ContractError("status-code precedence must put the HTTPException class handler first")
 
 
+def _validate_http_endpoint_status_handler_application(
+    route: dict[str, Any], handlers: Any
+) -> None:
+    route = _exact(
+        route,
+        {"kind", "path", "methods", "endpoint"},
+        "HTTP class endpoint application route",
+    )
+    if (
+        route["kind"] != "http-route"
+        or not isinstance(route["path"], str)
+        or not route["path"].startswith("/")
+        or route["methods"] is not None
+    ):
+        raise ContractError(
+            "HTTP class endpoint status-handler input requires one default-method absolute route"
+        )
+    endpoint = _exact(
+        route["endpoint"],
+        {"kind", "name", "handlers"},
+        "HTTP class endpoint application endpoint",
+    )
+    name = _string(endpoint["name"], "HTTP class endpoint name")
+    if endpoint["kind"] != "http-class-based-endpoint" or not name:
+        raise ContractError("HTTP class endpoint input must define a named HTTPEndpoint subclass")
+    endpoint_handlers = endpoint["handlers"]
+    if not isinstance(endpoint_handlers, list) or len(endpoint_handlers) != 1:
+        raise ContractError("HTTPEndpoint status-handler input must define one GET method")
+    method_handler = _exact(
+        endpoint_handlers[0],
+        {"name", "call_style", "response"},
+        "HTTPEndpoint method handler",
+    )
+    response = _exact(
+        method_handler["response"],
+        {"kind", "content", "status_code", "media_type"},
+        "HTTPEndpoint method response",
+    )
+    if (
+        method_handler["name"] != "get"
+        or method_handler["call_style"] not in {"async", "sync"}
+        or response["kind"] != "plain-text-response"
+        or not isinstance(response["content"], str)
+        or type(response["status_code"]) is not int
+        or response["status_code"] != 200
+        or response["media_type"] != "text/plain"
+    ):
+        raise ContractError(
+            "HTTPEndpoint status-handler input must define a successful GET text response"
+        )
+    if not isinstance(handlers, list) or len(handlers) != 1:
+        raise ContractError("HTTPEndpoint method-not-allowed input requires one status handler")
+    status_handler = _exact(handlers[0], {"key", "handler"}, "HTTP status handler")
+    key = _exact(status_handler["key"], {"kind", "status_code"}, "HTTP status handler key")
+    handler = _exact(
+        status_handler["handler"],
+        {"kind", "status_code", "content"},
+        "HTTP status handler callback",
+    )
+    if (
+        key != {"kind": "status-code", "status_code": 405}
+        or handler["kind"] != "json-literal-response"
+        or type(handler["status_code"]) is not int
+        or handler["status_code"] != 405
+        or not isinstance(handler["content"], dict)
+    ):
+        raise ContractError(
+            "HTTPEndpoint method-not-allowed input must register a JSON status-405 handler"
+        )
+    try:
+        json.dumps(handler["content"], allow_nan=False)
+    except (TypeError, ValueError) as exc:
+        raise ContractError("HTTP status handler content must be JSON-compatible") from exc
+
+
 def _validate_body_reuse_application(route: dict[str, Any], handlers: Any) -> None:
     endpoint = _exact(
         route["endpoint"],
@@ -32506,6 +32586,20 @@ def _validate_exception_handler_dispatch(
         if scope["method"] != "GET" or route["methods"] != ["GET"]:
             raise ContractError(
                 "dynamic status-handler registration must dispatch its declared GET route"
+            )
+    elif endpoint.get("kind") == "http-class-based-endpoint":
+        endpoint_methods = {
+            handler["name"].upper()
+            for handler in endpoint.get("handlers", [])
+            if isinstance(handler, dict) and isinstance(handler.get("name"), str)
+        }
+        if (
+            scope["method"] != "POST"
+            or route["methods"] is not None
+            or scope["method"] in endpoint_methods
+        ):
+            raise ContractError(
+                "HTTPEndpoint method-not-allowed input must POST without a post handler"
             )
     elif scope["method"] != "POST" or route["methods"] != ["GET"]:
         raise ContractError("status-code precedence input must POST to its GET-only route")
@@ -43512,9 +43606,7 @@ def _semantic_coverage(case: dict[str, Any]) -> set[str]:
             key: descriptor["value"] for key, descriptor in case["steps"][1]["arguments"].items()
         }
         coverage = set(_lifespan_case_requirements(app_arguments["lifespan"], lifecycle_args))
-        if _has_lifespan_scope_state_membership_index_fault(
-            case, lifecycle_args["scope"]
-        ):
+        if _has_lifespan_scope_state_membership_index_fault(case, lifecycle_args["scope"]):
             coverage.add("starlette.asgi.lifespan.scope-state-membership-before-index")
         return coverage
     route_order_coverage = _starlette_route_converter_order_semantic_coverage(case, app_arguments)
@@ -43558,10 +43650,17 @@ def _semantic_coverage(case: dict[str, Any]) -> set[str]:
         return {"starlette.asgi.websocket-exception.custom-handler"}
     method = scope["method"]
     path_matches = _route_path_matches(route["path"], path)
-    methods = {"GET"} if route["methods"] is None else set(route["methods"])
-    if "GET" in methods:
-        methods.add("HEAD")
-    method_matches = method in methods
+    if (
+        route["methods"] is None
+        and isinstance(endpoint, dict)
+        and endpoint.get("kind") == "http-class-based-endpoint"
+    ):
+        method_matches = True
+    else:
+        methods = {"GET"} if route["methods"] is None else set(route["methods"])
+        if "GET" in methods:
+            methods.add("HEAD")
+        method_matches = method in methods
     coverage: set[str] = set()
     middleware_input = app_arguments["middleware"]
     if (
@@ -43824,6 +43923,22 @@ def _semantic_coverage(case: dict[str, Any]) -> set[str]:
                             "starlette.asgi.exception-handler.exception-class",
                             "starlette.asgi.exception-handler.async-callback",
                             "starlette.asgi.exception-handler.headers-forwarding",
+                        }
+                    )
+            elif endpoint["kind"] == "http-class-based-endpoint":
+                endpoint_methods = {handler["name"].upper() for handler in endpoint["handlers"]}
+                if (
+                    path_matches
+                    and method_matches
+                    and scope.get("type") == "http"
+                    and method not in endpoint_methods
+                    and ("status-code", 405) in entries_by_key
+                ):
+                    coverage.update(
+                        {
+                            "starlette.asgi.exception-handler.async-callback",
+                            "starlette.asgi.exception-handler.status-code",
+                            HTTP_ENDPOINT_METHOD_NOT_ALLOWED_REQUIREMENT,
                         }
                     )
             elif path_matches and not method_matches:

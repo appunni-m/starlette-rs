@@ -5705,7 +5705,8 @@
           "starlette.applications.Starlette.__call__.lifespan-scope-mapping-operations",
           "starlette.responses.FileResponse.asgi-call.stat-override-simple-short-read",
           "starlette.routing.Route.url_path_for.native.int-converter-string-coercion",
-          "starlette.routing.Route.url_path_for.native.int-converter-unicode-decimal-digits"
+          "starlette.routing.Route.url_path_for.native.int-converter-unicode-decimal-digits",
+          "starlette.applications.Starlette.__call__.http-endpoint-405-status-handler"
         ],
         "command_ids": []
       },

@@ -5,12 +5,13 @@
 The working full-scope manifest is `parity-input@63`, SHA-256
 `82dc256e234b3d468d0f8a852fb88d34d51ab3b7ff1dcec9a893a8a2e72a409d`,
 against Starlette 1.6.0 revision
-`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. It declares 2,595 input-only cases
+`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. It declares 2,596 input-only cases
 across 441 parity files, two benchmark inputs, 152 compatibility operations,
 15 Rust-native operations, 1,445 parity requirements, and six target profiles.
 The latest integer URL conversion, lifespan scope lookup, FileResponse
-short-read, and GZip wide-status comparisons passed contract validation and
-remain unexecuted. Parity, coverage, and benchmark results below apply to the
+short-read, GZip wide-status, and class-based endpoint application 405 handler
+comparisons passed contract validation and remain unexecuted. Parity, coverage,
+and benchmark results below apply to the
 preceding @63 manifest snapshot, SHA-256
 `f8a34c2978af95382ceadcd3e3a2c5a9d7bb1d467f03b35ba55033d9b7336124`.
 Workflow
