@@ -627,8 +627,10 @@ def _load_subject(subject_id: str) -> tuple[Any, dict[str, Any]]:
             raise RuntimeError(f"target extension loaded outside its environment: {core_path}")
         distribution = importlib.metadata.distribution("starlette-rs-py")
         package_version = distribution.version
-        if starlette.__version__ != package_version:
-            raise RuntimeError("target package and Starlette module versions differ")
+        if starlette.__version__ != SOURCE_VERSION:
+            raise RuntimeError(
+                f"expected Starlette {SOURCE_VERSION}, found {starlette.__version__!r}"
+            )
         target_tree_sha256 = _installed_target_tree_sha256(distribution)
         expected_tree_sha256 = os.environ.get("STARLETTE_BENCHMARK_TARGET_TREE_SHA256")
         if target_tree_sha256 != expected_tree_sha256:
