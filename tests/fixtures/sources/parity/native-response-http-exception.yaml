@@ -1,0 +1,362 @@
+{
+  "schema": "migration-parity/parity-input@58",
+  "cases": [
+    {
+      "case_id": "starlette-rs.Response.http-exception.default-details-and-bodyless-statuses",
+      "surface": "starlette-rs.Response",
+      "operation": "http-exception",
+      "covers": [
+        "starlette-rs.Response.http-exception.default-detail-explicit-detail-and-bodyless-statuses"
+      ],
+      "target_profiles": [
+        "rust-native-local"
+      ],
+      "assets": [],
+      "inputs": [
+        {
+          "status_code": 100,
+          "detail": null,
+          "headers": []
+        },
+        {
+          "status_code": 101,
+          "detail": null,
+          "headers": []
+        },
+        {
+          "status_code": 102,
+          "detail": null,
+          "headers": []
+        },
+        {
+          "status_code": 103,
+          "detail": null,
+          "headers": []
+        },
+        {
+          "status_code": 200,
+          "detail": null,
+          "headers": []
+        },
+        {
+          "status_code": 201,
+          "detail": null,
+          "headers": []
+        },
+        {
+          "status_code": 202,
+          "detail": null,
+          "headers": []
+        },
+        {
+          "status_code": 203,
+          "detail": null,
+          "headers": []
+        },
+        {
+          "status_code": 204,
+          "detail": null,
+          "headers": []
+        },
+        {
+          "status_code": 205,
+          "detail": null,
+          "headers": []
+        },
+        {
+          "status_code": 206,
+          "detail": null,
+          "headers": []
+        },
+        {
+          "status_code": 207,
+          "detail": null,
+          "headers": []
+        },
+        {
+          "status_code": 208,
+          "detail": null,
+          "headers": []
+        },
+        {
+          "status_code": 226,
+          "detail": null,
+          "headers": []
+        },
+        {
+          "status_code": 300,
+          "detail": null,
+          "headers": []
+        },
+        {
+          "status_code": 301,
+          "detail": null,
+          "headers": []
+        },
+        {
+          "status_code": 302,
+          "detail": null,
+          "headers": []
+        },
+        {
+          "status_code": 303,
+          "detail": null,
+          "headers": []
+        },
+        {
+          "status_code": 304,
+          "detail": null,
+          "headers": []
+        },
+        {
+          "status_code": 305,
+          "detail": null,
+          "headers": []
+        },
+        {
+          "status_code": 307,
+          "detail": null,
+          "headers": []
+        },
+        {
+          "status_code": 308,
+          "detail": null,
+          "headers": []
+        },
+        {
+          "status_code": 400,
+          "detail": null,
+          "headers": []
+        },
+        {
+          "status_code": 401,
+          "detail": null,
+          "headers": []
+        },
+        {
+          "status_code": 402,
+          "detail": null,
+          "headers": []
+        },
+        {
+          "status_code": 403,
+          "detail": null,
+          "headers": []
+        },
+        {
+          "status_code": 404,
+          "detail": null,
+          "headers": []
+        },
+        {
+          "status_code": 405,
+          "detail": null,
+          "headers": []
+        },
+        {
+          "status_code": 406,
+          "detail": null,
+          "headers": []
+        },
+        {
+          "status_code": 407,
+          "detail": null,
+          "headers": []
+        },
+        {
+          "status_code": 408,
+          "detail": null,
+          "headers": []
+        },
+        {
+          "status_code": 409,
+          "detail": null,
+          "headers": []
+        },
+        {
+          "status_code": 410,
+          "detail": null,
+          "headers": []
+        },
+        {
+          "status_code": 411,
+          "detail": null,
+          "headers": []
+        },
+        {
+          "status_code": 412,
+          "detail": null,
+          "headers": []
+        },
+        {
+          "status_code": 413,
+          "detail": null,
+          "headers": []
+        },
+        {
+          "status_code": 414,
+          "detail": null,
+          "headers": []
+        },
+        {
+          "status_code": 415,
+          "detail": null,
+          "headers": []
+        },
+        {
+          "status_code": 416,
+          "detail": null,
+          "headers": []
+        },
+        {
+          "status_code": 417,
+          "detail": null,
+          "headers": []
+        },
+        {
+          "status_code": 418,
+          "detail": null,
+          "headers": []
+        },
+        {
+          "status_code": 421,
+          "detail": null,
+          "headers": []
+        },
+        {
+          "status_code": 422,
+          "detail": null,
+          "headers": []
+        },
+        {
+          "status_code": 423,
+          "detail": null,
+          "headers": []
+        },
+        {
+          "status_code": 424,
+          "detail": null,
+          "headers": []
+        },
+        {
+          "status_code": 425,
+          "detail": null,
+          "headers": []
+        },
+        {
+          "status_code": 426,
+          "detail": null,
+          "headers": []
+        },
+        {
+          "status_code": 428,
+          "detail": null,
+          "headers": []
+        },
+        {
+          "status_code": 429,
+          "detail": null,
+          "headers": []
+        },
+        {
+          "status_code": 431,
+          "detail": null,
+          "headers": []
+        },
+        {
+          "status_code": 451,
+          "detail": null,
+          "headers": []
+        },
+        {
+          "status_code": 500,
+          "detail": null,
+          "headers": []
+        },
+        {
+          "status_code": 501,
+          "detail": null,
+          "headers": []
+        },
+        {
+          "status_code": 502,
+          "detail": null,
+          "headers": []
+        },
+        {
+          "status_code": 503,
+          "detail": null,
+          "headers": []
+        },
+        {
+          "status_code": 504,
+          "detail": null,
+          "headers": []
+        },
+        {
+          "status_code": 505,
+          "detail": null,
+          "headers": []
+        },
+        {
+          "status_code": 506,
+          "detail": null,
+          "headers": []
+        },
+        {
+          "status_code": 507,
+          "detail": null,
+          "headers": []
+        },
+        {
+          "status_code": 508,
+          "detail": null,
+          "headers": []
+        },
+        {
+          "status_code": 510,
+          "detail": null,
+          "headers": []
+        },
+        {
+          "status_code": 511,
+          "detail": null,
+          "headers": []
+        },
+        {
+          "status_code": 406,
+          "detail": "caller detail",
+          "headers": [
+            [
+              "x-exception-source",
+              "explicit"
+            ]
+          ]
+        },
+        {
+          "status_code": 204,
+          "detail": "ignored for 204",
+          "headers": [
+            [
+              "x-exception-source",
+              "bodyless-204-explicit"
+            ]
+          ]
+        },
+        {
+          "status_code": 304,
+          "detail": "ignored for 304",
+          "headers": [
+            [
+              "x-exception-source",
+              "bodyless-304-explicit"
+            ]
+          ]
+        }
+      ],
+      "observations": [
+        "workflow"
+      ]
+    }
+  ]
+}

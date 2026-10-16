@@ -80,6 +80,8 @@ const REDIRECT_RESPONSE_OPERATION: &str = "asgi-call";
 const RESPONSE_SURFACE: &str = "starlette.responses.Response";
 const JSON_RESPONSE_SURFACE: &str = "starlette.responses.JSONResponse";
 const STREAMING_RESPONSE_SURFACE: &str = "starlette.responses.StreamingResponse";
+const NATIVE_RESPONSE_SURFACE: &str = "starlette-rs.Response";
+const NATIVE_HTTP_EXCEPTION_OPERATION: &str = "http-exception";
 const NATIVE_STREAMING_RESPONSE_SURFACE: &str = "starlette-rs.StreamingResponse";
 const FILE_RESPONSE_SURFACE: &str = "starlette.responses.FileResponse";
 const STATIC_FILES_SURFACE: &str = "starlette.staticfiles.StaticFiles";
@@ -523,6 +525,9 @@ fn run_case(case: &Value) -> Result<Value, String> {
             Some(NATIVE_STREAMING_RESPONSE_SOURCE_OPERATION),
         ) => {
             return run_native_streaming_source_case(case);
+        }
+        (Some(NATIVE_RESPONSE_SURFACE), Some(NATIVE_HTTP_EXCEPTION_OPERATION)) => {
+            return run_native_http_exception_case(case);
         }
         (Some("starlette-rs.RouteTable"), Some(NATIVE_ROUTE_TABLE_CUSTOM_CONVERTER_OPERATION)) => {
             return run_native_custom_converter_match_case(case);
@@ -2391,6 +2396,85 @@ fn native_stream_event(event: starlette_rs::StreamingResponseEvent) -> Value {
             "more_body": more_body,
         }),
     }
+}
+
+fn run_native_http_exception_case(case: &Value) -> Result<Value, String> {
+    let case = exact_object(
+        case,
+        &[
+            "case_id",
+            "surface",
+            "operation",
+            "covers",
+            "target_profiles",
+            "assets",
+            "inputs",
+            "observations",
+        ],
+        "native HTTP exception case",
+    )?;
+    if string_field(case, "surface", "native HTTP exception case")? != NATIVE_RESPONSE_SURFACE
+        || string_field(case, "operation", "native HTTP exception case")?
+            != NATIVE_HTTP_EXCEPTION_OPERATION
+    {
+        return Err(String::from(
+            "case is outside native Response::http_exception",
+        ));
+    }
+
+    let inputs = case
+        .get("inputs")
+        .and_then(Value::as_array)
+        .filter(|inputs| !inputs.is_empty())
+        .ok_or_else(|| String::from("native HTTP exception inputs must be non-empty"))?;
+    let responses = inputs
+        .iter()
+        .enumerate()
+        .map(|(index, input)| {
+            let context = format!("native HTTP exception inputs[{index}]");
+            let input = exact_object(input, &["status_code", "detail", "headers"], &context)?;
+            let status_code = input
+                .get("status_code")
+                .and_then(Value::as_u64)
+                .and_then(|status| u16::try_from(status).ok())
+                .ok_or_else(|| format!("{context}.status_code must be a u16"))?;
+            let detail = match input.get("detail") {
+                Some(Value::String(detail)) => Some(detail.as_str()),
+                Some(Value::Null) => None,
+                _ => return Err(format!("{context}.detail must be a string or null")),
+            };
+            let headers = input
+                .get("headers")
+                .and_then(Value::as_array)
+                .ok_or_else(|| format!("{context}.headers must be an array"))?
+                .iter()
+                .enumerate()
+                .map(|(header_index, header)| {
+                    let header_context = format!("{context}.headers[{header_index}]");
+                    let pair = header
+                        .as_array()
+                        .filter(|pair| pair.len() == 2)
+                        .ok_or_else(|| format!("{header_context} must be a pair"))?;
+                    let name = pair[0]
+                        .as_str()
+                        .ok_or_else(|| format!("{header_context}[0] must be a string"))?;
+                    let value = pair[1]
+                        .as_str()
+                        .ok_or_else(|| format!("{header_context}[1] must be a string"))?;
+                    Ok((name.to_owned(), value.to_owned()))
+                })
+                .collect::<Result<Vec<_>, String>>()?;
+            let response = Response::http_exception(status_code, detail, &headers)
+                .map_err(|error| error.to_string())?;
+            Ok(json!({
+                "status_code": response.status_code(),
+                "headers_base64_pairs": canonical_headers(response.headers()),
+                "body_base64": encode_base64(response.body()),
+            }))
+        })
+        .collect::<Result<Vec<_>, String>>()?;
+
+    Ok(json!({"workflow": {"responses": responses}}))
 }
 
 fn run_native_streaming_source_case(case: &Value) -> Result<Value, String> {
@@ -11992,12 +12076,8 @@ fn build_request_application(
                 .and_then(|status| u16::try_from(status).ok())
                 .ok_or_else(|| String::from("HTTP exception status_code must be a u16"))?;
             let detail = match endpoint.get("detail") {
-                Some(Value::String(detail)) => detail.as_str(),
-                Some(Value::Null) => {
-                    return Err(String::from(
-                        "native HTTP exception detail must be a string; null is package-only",
-                    ));
-                }
+                Some(Value::String(detail)) => Some(detail.as_str()),
+                Some(Value::Null) => None,
                 _ => {
                     return Err(String::from(
                         "HTTP exception detail must be a string or null",
@@ -12446,10 +12526,15 @@ fn build_application(step: &Value) -> Result<(NativeApplication, Value, RouteTab
                 .and_then(Value::as_u64)
                 .and_then(|status| u16::try_from(status).ok())
                 .ok_or_else(|| String::from("HTTP exception status_code must be a u16"))?;
-            let detail = endpoint
-                .get("detail")
-                .and_then(Value::as_str)
-                .ok_or_else(|| String::from("native HTTP exception detail must be a string"))?;
+            let detail = match endpoint.get("detail") {
+                Some(Value::String(detail)) => Some(detail.as_str()),
+                Some(Value::Null) => None,
+                _ => {
+                    return Err(String::from(
+                        "HTTP exception detail must be a string or null",
+                    ));
+                }
+            };
             let headers = endpoint
                 .get("headers")
                 .and_then(Value::as_array)

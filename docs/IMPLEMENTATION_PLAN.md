@@ -1283,10 +1283,13 @@ cover a matched HTTP request-style endpoint raising `HTTPException` before
 response start. They exercise omitted detail for status 406, explicit detail
 for 406, omitted detail for 204 and 304, and omitted detail plus a custom
 header for status 200. All five source/package comparisons pass exactly. The
-Python package resolves omitted details through Python's `HTTPStatus` boundary;
-Rust-native accepts the resolved explicit detail and passes the explicit-detail
-406 case. The native response constructor does not implement Python's
-status-phrase lookup.
+Python package resolves omitted details through Python's `HTTPStatus`
+boundary. `Response::http_exception` now accepts an optional detail and maps
+omitted values to the pinned status phrase, retaining explicit details and the
+204/304 empty-body behavior. The new Rust-native response contract input drives
+all 62 pinned `HTTPStatus` values plus explicit-detail and bodyless-status
+inputs through the live Starlette oracle and Rust adapter. That input is
+authored but unexecuted.
 
 This result is limited to those five request-style endpoint inputs. A separate
 callable-ASGI input file adds one case that raises `HTTPException(406)` before

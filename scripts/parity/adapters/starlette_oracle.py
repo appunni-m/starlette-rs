@@ -80,6 +80,8 @@ NATIVE_HOST_APPLICATION_SURFACE = "starlette-rs.NativeHostApplication"
 NATIVE_HOST_ROUTING_OPERATION = "service-host-routing"
 NATIVE_STREAMING_RESPONSE_SURFACE = "starlette-rs.StreamingResponse"
 NATIVE_LAZY_SOURCE_OPERATION = "lazy-source-call"
+NATIVE_RESPONSE_SURFACE = "starlette-rs.Response"
+NATIVE_HTTP_EXCEPTION_OPERATION = "http-exception"
 NATIVE_ROUTE_TABLE_SURFACE = "starlette-rs.RouteTable"
 NATIVE_CUSTOM_CONVERTER_MATCH_OPERATION = "custom-converter-match"
 NATIVE_NAMED_ROUTE_SURFACE = "starlette-rs.NamedRoute"
@@ -14076,6 +14078,17 @@ def _run_reverse_url_case(case: dict[str, Any]) -> dict[str, Any]:
     }
     observation: dict[str, Any] = {}
     lookup = case["lookup"]
+    lookup_name = lookup["name"]
+    if "lookup_name_subclass" in case:
+        startswith_result = case["lookup_name_subclass"]["startswith_result"]
+
+        class InputLookupName(str):
+            def startswith(self, prefix: str) -> bool:
+                del prefix
+                return startswith_result
+
+        lookup_name = InputLookupName(lookup_name)
+
     try:
         for spec in case["custom_convertors"]:
 
@@ -14135,17 +14148,17 @@ def _run_reverse_url_case(case: dict[str, Any]) -> dict[str, Any]:
             graph = _build_reverse_route_node(graph_spec, lookup, observation)
             path_params = _reverse_lookup_path_params(lookup)
             if case["surface"] == "starlette.routing.Route":
-                result = graph.url_path_for(lookup["name"], **path_params)
+                result = graph.url_path_for(lookup_name, **path_params)
             elif case["surface"] == "starlette.routing.WebSocketRoute":
-                result = graph.url_path_for(lookup["name"], **path_params)
+                result = graph.url_path_for(lookup_name, **path_params)
             elif case["surface"] == "starlette.routing.Router":
-                result = graph.url_path_for(lookup["name"], **path_params)
+                result = graph.url_path_for(lookup_name, **path_params)
             elif case["surface"] == "starlette.routing.Mount":
-                result = graph.url_path_for(lookup["name"], **path_params)
+                result = graph.url_path_for(lookup_name, **path_params)
             elif case["surface"] == HOST_SURFACE:
-                result = graph.url_path_for(lookup["name"], **path_params)
+                result = graph.url_path_for(lookup_name, **path_params)
             elif case["surface"] == "starlette.applications.Starlette":
-                result = graph.url_path_for(lookup["name"], **path_params)
+                result = graph.url_path_for(lookup_name, **path_params)
             else:
                 raise ValueError(f"unsupported reverse URL surface: {case['surface']!r}")
             observed = _reverse_url_path_value(result)
@@ -17282,6 +17295,11 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         NATIVE_LAZY_SOURCE_OPERATION,
     ):
         return _run_native_lazy_source_case(case)
+    if (case.get("surface"), case.get("operation")) == (
+        NATIVE_RESPONSE_SURFACE,
+        NATIVE_HTTP_EXCEPTION_OPERATION,
+    ):
+        return _run_native_http_exception_case(case)
     if (case.get("surface"), case.get("operation")) in {
         (NATIVE_ROUTE_TABLE_SURFACE, NATIVE_CUSTOM_CONVERTER_MATCH_OPERATION),
         (NATIVE_NAMED_ROUTE_SURFACE, NATIVE_CUSTOM_CONVERTER_URL_OPERATION),
@@ -18184,6 +18202,71 @@ def _native_workflow_result(case: dict[str, Any], record: dict[str, Any]) -> dic
             }
         ],
     }
+
+
+def _run_native_http_exception_case(case: dict[str, Any]) -> dict[str, Any]:
+    _validate_native_workflow_case(
+        case,
+        surface=NATIVE_RESPONSE_SURFACE,
+        operation=NATIVE_HTTP_EXCEPTION_OPERATION,
+        fields={"inputs", "observations"},
+        context="Response HTTP exception workflow",
+    )
+    inputs = case["inputs"]
+    if not isinstance(inputs, list) or not inputs:
+        raise ValueError("Response HTTP exception inputs must be a non-empty array")
+
+    from starlette.exceptions import HTTPException
+    from starlette.middleware.exceptions import ExceptionMiddleware
+
+    middleware = ExceptionMiddleware(lambda _scope, _receive, _send: None)
+
+    async def run() -> list[dict[str, Any]]:
+        records = []
+        for index, input_value in enumerate(inputs):
+            context = f"Response HTTP exception inputs[{index}]"
+            item = _strict_object(
+                input_value,
+                {"status_code", "detail", "headers"},
+                context,
+            )
+            status_code = item["status_code"]
+            detail = item["detail"]
+            header_pairs = item["headers"]
+            if type(status_code) is not int or not 0 <= status_code <= 0xFFFF:
+                raise ValueError(f"{context}.status_code must be an unsigned 16-bit integer")
+            if detail is not None and not isinstance(detail, str):
+                raise ValueError(f"{context}.detail must be a string or null")
+            if not isinstance(header_pairs, list) or any(
+                not isinstance(pair, list)
+                or len(pair) != 2
+                or any(not isinstance(value, str) for value in pair)
+                for pair in header_pairs
+            ):
+                raise ValueError(f"{context}.headers must be an array of string pairs")
+
+            exception = HTTPException(
+                status_code=status_code,
+                detail=detail,
+                headers=dict(header_pairs),
+            )
+            response = await middleware.http_exception(None, exception)
+            records.append(
+                {
+                    "status_code": response.status_code,
+                    "headers_base64_pairs": [
+                        [
+                            base64.b64encode(name).decode("ascii"),
+                            base64.b64encode(value).decode("ascii"),
+                        ]
+                        for name, value in response.raw_headers
+                    ],
+                    "body_base64": base64.b64encode(response.body).decode("ascii"),
+                }
+            )
+        return records
+
+    return _native_workflow_result(case, {"responses": asyncio.run(run())})
 
 
 def _run_timestamp_unsign_case(case: dict[str, Any]) -> dict[str, Any]:

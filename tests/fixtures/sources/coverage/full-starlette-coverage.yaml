@@ -22,6 +22,7 @@
         "starlette-rs.NativeHostApplication.service-host-routing.host-fallback",
         "starlette-rs.NativeHostApplication.service-host-routing.host-match",
         "starlette-rs.NativeHostApplication.service-host-routing.path-dispatch",
+        "starlette-rs.Response.http-exception.default-detail-explicit-detail-and-bodyless-statuses",
         "starlette-rs.RouteTable.custom-converter-match.converted-capture",
         "starlette-rs.StreamingResponse.lazy-source-call.background-order",
         "starlette-rs.StreamingResponse.lazy-source-call.background-skipped-on-cancellation",
@@ -442,6 +443,7 @@
           "starlette-rs.NativeHostApplication.service-host-routing.host-miss",
           "starlette-rs.NativeHostApplication.service-host-routing.child-method-miss",
           "starlette-rs.NativeHostApplication.service-host-routing.missing-host-header",
+          "starlette-rs.Response.http-exception.default-details-and-bodyless-statuses",
           "starlette-rs.NativeApplication.service-tower-middleware.order-short-circuit-error-unread-body",
           "starlette-rs.NativeApplication.service-mounted-child.scope-and-child-route",
           "starlette-rs.NativeApplication.service-mounted-child.child-not-found",
@@ -2683,6 +2685,7 @@
         "starlette.routing.Router.url_path_for.converter-error-propagation",
         "starlette.routing.Router.url_path_for.first-success",
         "starlette.routing.Router.url_path_for.host-mount-nested-lookup",
+        "starlette.routing.Router.url_path_for.lookup-name-subclass-startswith",
         "starlette.routing.Router.url_path_for.mismatch",
         "starlette.routing.Router.url_path_for.mount-lookup-success",
         "starlette.routing.Router.url_path_for.mount-path-parameter-forwarding",
@@ -5643,7 +5646,11 @@
           "starlette.schemas.OpenAPIResponse.module-import-policy.missing-before-content-validation",
           "starlette.templating.Jinja2Templates.typing-consumer.get-template-render",
           "starlette.public-api-inspection.testclient-lifespan-methods",
-          "starlette.middleware.wsgi.module-import-warning.deprecation"
+          "starlette.middleware.wsgi.module-import-warning.deprecation",
+          "starlette.routing.Router.url_path_for.host-name-subclass-startswith-false",
+          "starlette.routing.Router.url_path_for.host-name-subclass-startswith-true-slices-positionally",
+          "starlette.routing.Router.url_path_for.mount-name-subclass-startswith-false",
+          "starlette.routing.Router.url_path_for.mount-name-subclass-startswith-true-slices-positionally"
         ],
         "command_ids": []
       },

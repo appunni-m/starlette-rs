@@ -279,6 +279,8 @@ NATIVE_MOUNTED_CHILD_OPERATION = "service-mounted-child"
 NATIVE_SERVICE_CUSTOM_CONVERTER_OPERATION = "service-custom-converter-dispatch"
 NATIVE_HOST_SERVICE_SURFACE = "starlette-rs.NativeHostApplication"
 NATIVE_HOST_SERVICE_OPERATION = "service-host-routing"
+NATIVE_RESPONSE_SURFACE = "starlette-rs.Response"
+NATIVE_HTTP_EXCEPTION_OPERATION = "http-exception"
 NATIVE_STREAMING_RESPONSE_SURFACE = "starlette-rs.StreamingResponse"
 NATIVE_LAZY_SOURCE_OPERATION = "lazy-source-call"
 NATIVE_ROUTE_TABLE_SURFACE = "starlette-rs.RouteTable"
@@ -1852,6 +1854,15 @@ REVERSE_URL_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
     "request_scope",
     "custom_convertors",
 }
+
+
+def _reverse_url_case_keys(case: Any) -> set[str]:
+    keys = set(REVERSE_URL_CASE_KEYS)
+    if isinstance(case, dict) and "lookup_name_subclass" in case:
+        keys.add("lookup_name_subclass")
+    return keys
+
+
 REVERSE_URL_OPERATIONS = {
     ("starlette.applications.Starlette", "url_path_for"),
     ("starlette.routing.Route", "url_path_for"),
@@ -3611,6 +3622,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                 in {
                     NATIVE_SERVICE_SURFACE,
                     NATIVE_HOST_SERVICE_SURFACE,
+                    NATIVE_RESPONSE_SURFACE,
                     NATIVE_STREAMING_RESPONSE_SURFACE,
                     NATIVE_ROUTE_TABLE_SURFACE,
                     NATIVE_NAMED_ROUTE_SURFACE,
@@ -13089,6 +13101,8 @@ def _reverse_route_candidates(
     name: str,
     path_params: dict[str, Any],
     custom: dict[str, dict[str, Any]],
+    *,
+    lookup_name_subclass: dict[str, Any] | None = None,
 ) -> list[tuple[int, dict[str, Any]]]:
     """Return structurally successful lookup candidates in route-list order."""
     kind = node["kind"]
@@ -13101,7 +13115,11 @@ def _reverse_route_candidates(
             results.extend(
                 (index, match)
                 for _nested_index, match in _reverse_route_candidates(
-                    route, name, path_params, custom
+                    route,
+                    name,
+                    path_params,
+                    custom,
+                    lookup_name_subclass=lookup_name_subclass,
                 )
             )
         return results
@@ -13119,8 +13137,15 @@ def _reverse_route_candidates(
             )
         if node["name"] is None:
             child_name = name
+            child_lookup_name_subclass = lookup_name_subclass
+        elif lookup_name_subclass is not None:
+            if not lookup_name_subclass["startswith_result"]:
+                return []
+            child_name = name[len(node["name"]) + 1 :]
+            child_lookup_name_subclass = None
         elif name.startswith(node["name"] + ":"):
             child_name = name[len(node["name"]) + 1 :]
+            child_lookup_name_subclass = None
         else:
             return []
         remaining = {
@@ -13133,7 +13158,11 @@ def _reverse_route_candidates(
             results.extend(
                 (index, match)
                 for _nested_index, match in _reverse_route_candidates(
-                    route, child_name, remaining, custom
+                    route,
+                    child_name,
+                    remaining,
+                    custom,
+                    lookup_name_subclass=child_lookup_name_subclass,
                 )
             )
         return results
@@ -13150,8 +13179,15 @@ def _reverse_route_candidates(
             )
         if node["name"] is None:
             child_name = name
+            child_lookup_name_subclass = lookup_name_subclass
+        elif lookup_name_subclass is not None:
+            if not lookup_name_subclass["startswith_result"]:
+                return []
+            child_name = name[len(node["name"]) + 1 :]
+            child_lookup_name_subclass = None
         elif name.startswith(node["name"] + ":"):
             child_name = name[len(node["name"]) + 1 :]
+            child_lookup_name_subclass = None
         else:
             return []
         remaining = {key: value for key, value in path_params.items() if key not in host_parameters}
@@ -13160,7 +13196,11 @@ def _reverse_route_candidates(
             results.extend(
                 (index, match)
                 for _nested_index, match in _reverse_route_candidates(
-                    route, child_name, remaining, custom
+                    route,
+                    child_name,
+                    remaining,
+                    custom,
+                    lookup_name_subclass=child_lookup_name_subclass,
                 )
             )
         return results
@@ -13463,7 +13503,16 @@ def _reverse_input_requirements(case: dict[str, Any]) -> set[str]:
                 derived.add(rid("mount-app-root-path"))
         return derived
 
-    candidates = _reverse_route_candidates(graph, lookup["name"], params, custom)
+    if "lookup_name_subclass" in case:
+        derived.add(rid("lookup-name-subclass-startswith"))
+
+    candidates = _reverse_route_candidates(
+        graph,
+        lookup["name"],
+        params,
+        custom,
+        lookup_name_subclass=case.get("lookup_name_subclass"),
+    )
     found = bool(candidates)
     if surface == "starlette.routing.Route":
         route = graph
@@ -13634,6 +13683,17 @@ def _reverse_input_requirements(case: dict[str, Any]) -> set[str]:
     return derived
 
 
+def _reverse_route_graph_has_named_prefix(node: Any) -> bool:
+    if not isinstance(node, dict):
+        return False
+    if node.get("kind") in {"mount", "host-route"} and node.get("name") is not None:
+        return True
+    routes = node.get("routes")
+    return isinstance(routes, list) and any(
+        _reverse_route_graph_has_named_prefix(route) for route in routes
+    )
+
+
 def _reverse_candidate_middleware_paths(
     node: dict[str, Any], candidates: set[int], inherited_middleware: bool = False
 ) -> list[bool]:
@@ -13700,7 +13760,7 @@ def _reverse_parameter_value_fits_builtin_converter(value: Any, converter: str) 
 
 
 def _validate_reverse_url_case_stimulus(case: dict[str, Any]) -> None:
-    _exact(case, REVERSE_URL_CASE_KEYS, "reverse URL case")
+    _exact(case, _reverse_url_case_keys(case), "reverse URL case")
     key = (case["surface"], case["operation"])
     if key not in REVERSE_URL_OPERATIONS:
         raise ContractError("case is outside the declared reverse URL operations")
@@ -13718,6 +13778,24 @@ def _validate_reverse_url_case_stimulus(case: dict[str, Any]) -> None:
         custom[name] = convertor
 
     graph = case["route_graph"]
+    if "lookup_name_subclass" in case:
+        lookup_name_subclass = _exact(
+            case["lookup_name_subclass"],
+            {"startswith_result"},
+            "reverse URL lookup_name_subclass",
+        )
+        if type(lookup_name_subclass["startswith_result"]) is not bool:
+            raise ContractError(
+                "reverse URL lookup_name_subclass.startswith_result must be a boolean"
+            )
+        if key != ROUTER_URL_PATH_FOR_OPERATION_KEY:
+            raise ContractError("lookup-name subclasses require Router.url_path_for")
+        if "rust-native-local" in case["target_profiles"]:
+            raise ContractError("lookup-name subclass cases are Python-package-only")
+        if not _reverse_route_graph_has_named_prefix(graph):
+            raise ContractError(
+                "lookup-name subclasses require a named Mount or Host in route_graph"
+            )
     lookup = _exact(case["lookup"], {"name", "path_params"}, "reverse URL lookup")
     _string(lookup["name"], "reverse URL lookup.name")
     if not isinstance(lookup["path_params"], dict):
@@ -13838,7 +13916,11 @@ def _validate_reverse_url_case_stimulus(case: dict[str, Any]) -> None:
                 if key[0] not in {"starlette.routing.Route", "starlette.routing.Router"}:
                     raise ContractError("UUID values require direct Route or Router url_path_for")
                 candidates = _reverse_route_candidates(
-                    graph, lookup["name"], lookup["path_params"], custom
+                    graph,
+                    lookup["name"],
+                    lookup["path_params"],
+                    custom,
+                    lookup_name_subclass=case.get("lookup_name_subclass"),
                 )
                 if not candidates:
                     raise ContractError("UUID value requires a successful named route lookup")
@@ -23369,6 +23451,7 @@ def _validate_native_api_case(
             "request",
             "drive",
         },
+        (NATIVE_RESPONSE_SURFACE, NATIVE_HTTP_EXCEPTION_OPERATION): {"inputs"},
         (NATIVE_STREAMING_RESPONSE_SURFACE, NATIVE_LAZY_SOURCE_OPERATION): {
             "status_code",
             "header_pairs",
@@ -23431,6 +23514,7 @@ def _validate_native_api_case(
         raise ContractError("native API cases must select declared profiles in manifest order")
     rust_only_operation = operation_key in {
         (NATIVE_SERVICE_SURFACE, NATIVE_SERVICE_CUSTOM_CONVERTER_OPERATION),
+        (NATIVE_RESPONSE_SURFACE, NATIVE_HTTP_EXCEPTION_OPERATION),
         (NATIVE_TIMESTAMP_UNSIGN_SURFACE, NATIVE_TIMESTAMP_UNSIGN_OPERATION),
         (NATIVE_LIFESPAN_SURFACE, "start"),
         (NATIVE_LIFESPAN_SURFACE, "shutdown"),
@@ -23485,6 +23569,8 @@ def _validate_native_api_case(
         _validate_native_mounted_child_input(case)
     elif operation_key == (NATIVE_HOST_SERVICE_SURFACE, NATIVE_HOST_SERVICE_OPERATION):
         _validate_native_host_service_input(case)
+    elif operation_key == (NATIVE_RESPONSE_SURFACE, NATIVE_HTTP_EXCEPTION_OPERATION):
+        _validate_native_http_exception_input(case["inputs"])
     elif operation_key == (NATIVE_STREAMING_RESPONSE_SURFACE, NATIVE_LAZY_SOURCE_OPERATION):
         _validate_native_lazy_stream_input(case)
     elif operation_key == (NATIVE_ROUTE_TABLE_SURFACE, NATIVE_CUSTOM_CONVERTER_MATCH_OPERATION):
@@ -23521,6 +23607,29 @@ def _validate_native_timestamp_unsign_input(value: Any) -> None:
         raise ContractError(
             "native timestamp-unsign max_age must fit a signed 64-bit integer or be null"
         )
+
+
+def _validate_native_http_exception_input(value: Any) -> None:
+    if not isinstance(value, list) or not value:
+        raise ContractError("native HTTP exception inputs must be a non-empty array")
+    for index, input_value in enumerate(value):
+        context = f"native HTTP exception inputs[{index}]"
+        input_spec = _exact(input_value, {"status_code", "detail", "headers"}, context)
+        status_code = input_spec["status_code"]
+        if type(status_code) is not int or not 0 <= status_code <= 0xFFFF:
+            raise ContractError(f"{context}.status_code must be an unsigned 16-bit integer")
+        detail = input_spec["detail"]
+        if detail is not None:
+            _string(detail, f"{context}.detail")
+        headers = input_spec["headers"]
+        if not isinstance(headers, list):
+            raise ContractError(f"{context}.headers must be an array")
+        for header_index, header_value in enumerate(headers):
+            pair_context = f"{context}.headers[{header_index}]"
+            if not isinstance(header_value, list) or len(header_value) != 2:
+                raise ContractError(f"{pair_context} must be a two-element string array")
+            _string(header_value[0], f"{pair_context}[0]")
+            _string(header_value[1], f"{pair_context}[1]")
 
 
 def _validate_native_service_input(case: dict[str, Any]) -> None:
@@ -24327,6 +24436,7 @@ def _validate_case_payload(
             in {
                 NATIVE_SERVICE_SURFACE,
                 NATIVE_HOST_SERVICE_SURFACE,
+                NATIVE_RESPONSE_SURFACE,
                 NATIVE_STREAMING_RESPONSE_SURFACE,
                 NATIVE_ROUTE_TABLE_SURFACE,
                 NATIVE_NAMED_ROUTE_SURFACE,
@@ -24692,7 +24802,7 @@ def _validate_case_payload(
         if is_router
         else MOUNT_CASE_KEYS
         if is_mount
-        else REVERSE_URL_CASE_KEYS
+        else _reverse_url_case_keys(case)
         if is_reverse_url
         else REDIRECT_RESPONSE_CASE_KEYS
         if is_redirect_response

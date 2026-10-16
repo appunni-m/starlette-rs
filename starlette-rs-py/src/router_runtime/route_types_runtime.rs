@@ -2921,13 +2921,11 @@ fn mount_url_path_for(
             kwargs.set_item("path", path)?;
             return url_path_type.call((), Some(&kwargs)).map(Bound::unbind);
         }
-    } else if mount_name.is_none() || name_starts_with_mount(name, &mount_name)? {
+    } else if mount_name.is_none() || named_route_prefix_matches(py, name, &mount_name)? {
         let nested_name = if mount_name.is_none() {
             name.clone()
         } else {
-            let name_text = name.extract::<String>()?;
-            let prefix = format!("{}:", mount_name.extract::<String>()?);
-            PyString::new(py, name_text.strip_prefix(&prefix).unwrap_or(&name_text)).into_any()
+            name_after_named_prefix(py, name, &mount_name)?
         };
         let path_kwarg = current_params
             .get_item("path")?
@@ -3000,20 +2998,11 @@ fn host_url_path_for(
             kwargs.set_item("host", host_value)?;
             return url_path_type.call((), Some(&kwargs)).map(Bound::unbind);
         }
-    } else if host_name.is_none() || host_name_matches_prefix(name, &host_name)? {
+    } else if host_name.is_none() || named_route_prefix_matches(py, name, &host_name)? {
         let nested_name = if host_name.is_none() {
             name.clone().unbind()
         } else {
-            let host_name_text = host_name.extract::<String>()?;
-            let name_text = name.extract::<String>()?;
-            PyString::new(
-                py,
-                name_text
-                    .strip_prefix(&format!("{host_name_text}:"))
-                    .unwrap_or(&name_text),
-            )
-            .into_any()
-            .unbind()
+            name_after_named_prefix(py, name, &host_name)?.unbind()
         };
         let (host_value, remaining_params) = format_host_path_params(py, host, path_params)?;
         let app = host.getattr("app")?;
@@ -3047,22 +3036,29 @@ fn host_url_path_for(
     raise_no_match(no_match_type, name, &failure_params)
 }
 
-fn host_name_matches_prefix(
+fn named_route_prefix_matches(
+    py: Python<'_>,
     name: &Bound<'_, PyAny>,
-    host_name: &Bound<'_, PyAny>,
+    route_name: &Bound<'_, PyAny>,
 ) -> PyResult<bool> {
-    let name = name.extract::<String>()?;
-    let host_name = host_name.extract::<String>()?;
-    Ok(name.starts_with(&format!("{host_name}:")))
+    let prefix = py
+        .import("operator")?
+        .getattr("add")?
+        .call1((route_name, ":"))?;
+    name.call_method1("startswith", (&prefix,))?.is_truthy()
 }
 
-fn name_starts_with_mount(
-    name: &Bound<'_, PyAny>,
-    mount_name: &Bound<'_, PyAny>,
-) -> PyResult<bool> {
-    let name = name.extract::<String>()?;
-    let mount_name = mount_name.extract::<String>()?;
-    Ok(name.starts_with(&format!("{mount_name}:")))
+fn name_after_named_prefix<'py>(
+    py: Python<'py>,
+    name: &Bound<'py, PyAny>,
+    route_name: &Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyAny>> {
+    let start = route_name.len()? + 1;
+    let slice = py
+        .import("builtins")?
+        .getattr("slice")?
+        .call1((start, py.None(), py.None()))?;
+    name.get_item(slice)
 }
 
 fn raise_no_match(

@@ -444,6 +444,7 @@
       "build/parity/inputs/parity/mount-route-dispatch.json",
       "build/parity/inputs/parity/mount-router-scope-composition.json",
       "build/parity/inputs/parity/reverse-url-routing.json",
+      "build/parity/inputs/parity/router-url-lookup-name-subclass-prefix.json",
       "build/parity/inputs/parity/host-reverse-nested-miss-parameters.json",
       "build/parity/inputs/parity/route-url-path-native.json",
       "build/parity/inputs/parity/route-url-path-float-negative-zero.json",
@@ -760,6 +761,7 @@
       "build/parity/inputs/parity/native-service-mounted-child.json",
       "build/parity/inputs/parity/native-service-host-routing.json",
       "build/parity/inputs/parity/native-streaming-response-source.json",
+      "build/parity/inputs/parity/native-response-http-exception.json",
       "build/parity/inputs/parity/route-table-custom-converters.json",
       "build/parity/inputs/parity/native-service-custom-converters.json",
       "build/parity/inputs/parity/config-typing-consumer.json",
@@ -29793,6 +29795,18 @@
               ]
             },
             {
+              "id": "starlette.routing.Router.url_path_for.lookup-name-subclass-startswith",
+              "dimension": "input_family",
+              "description": "Named Mount and Host reverse lookups call the lookup name's virtual startswith method and, when truthy, derive the child name with the positional slice name[len(prefix_name) + 1:]. Pinned source: starlette/routing.py:430-442,506-518.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.routing.Router.url_path_for.partial-mount-host-prefix-parameters",
               "dimension": "success_path",
               "description": "When a named route is nested under Mount or Host prefixes, missing prefix parameters remain as placeholders while supplied child-route parameters are consumed by the child.",
@@ -42422,6 +42436,114 @@
           "benchmark": {
             "applicability": "not_applicable",
             "reason": "This API-contract slice does not declare a benchmark workload."
+          }
+        }
+      ]
+    },
+    {
+      "id": "starlette-rs.Response",
+      "kind": "type",
+      "source_path": "starlette-rs/src/response.rs",
+      "storage_slug": "starlette-rs-Response",
+      "operations": [
+        {
+          "id": "http-exception",
+          "kind": "protocol_operation",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.middleware.exceptions.ExceptionMiddleware.http_exception",
+            "signature": "Construct pinned Starlette HTTPException values from the supplied status, optional detail, and headers; call ExceptionMiddleware.http_exception and observe each response.",
+            "parameters": [
+              {
+                "id": "input_case",
+                "style": "keyword",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "workflow",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": "starlette_rs::Response::http_exception",
+              "signature": "Response::http_exception(status_code, detail: Option<&str>, headers) -> Result<Response, ResponseError>",
+              "support": {
+                "status": "supported"
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "out_of_scope",
+                "reason": "Response::http_exception is a Rust-native response constructor, not a documented starlette.* package API; pinned Starlette exposes the analogous default exception handler only as the source oracle.",
+                "authority": "AGENTS.md project binding rules: keep Rust-native APIs distinct from the compatibility surface."
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette-rs.Response.http-exception.default-detail-explicit-detail-and-bodyless-statuses",
+              "dimension": "protocol_variant",
+              "description": "Use the pinned HTTPStatus phrase when detail is omitted, preserve explicit detail, and keep 204/304 response bodies and generated content headers empty while retaining caller headers.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "rust-native-local"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "rust-native-local"
+            ]
+          },
+          "coverage": {
+            "applicability": "required",
+            "target_profiles": [
+              "rust-native-local"
+            ],
+            "component_ids": [
+              "rust-core-rust-native-local"
+            ]
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "This input-only API-contract slice does not declare a benchmark workload."
           }
         }
       ]

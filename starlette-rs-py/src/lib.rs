@@ -1518,7 +1518,8 @@ fn http_exception_response(
     detail: &str,
     headers: Vec<(String, String)>,
 ) -> PyResult<PyResponse> {
-    let inner = Response::http_exception(status_code, detail, &headers).map_err(response_error)?;
+    let inner =
+        Response::http_exception(status_code, Some(detail), &headers).map_err(response_error)?;
     PyResponse::from_inner(py, inner)
 }
 

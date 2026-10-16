@@ -413,11 +413,13 @@ pub struct StreamingResponseCall {
     phase: StreamingResponseCallPhase,
 }
 
-/// An error produced while constructing a cookie header.
+/// An error produced while constructing a response or cookie header.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ResponseError {
     /// A header name, value, or media type is not encodable as Latin-1.
     HeaderDataIsNotLatin1,
+    /// No standard status phrase is registered for an omitted HTTP exception detail.
+    NoHttpStatusPhrase(u16),
     /// Cookie names must contain only the characters accepted by
     /// `http.cookies.SimpleCookie`'s key format.
     InvalidCookieName,
@@ -435,6 +437,12 @@ impl Display for ResponseError {
             Self::HeaderDataIsNotLatin1 => {
                 formatter.write_str("header data cannot be encoded as Latin-1")
             }
+            Self::NoHttpStatusPhrase(status_code) => {
+                write!(
+                    formatter,
+                    "no HTTP status phrase is registered for {status_code}"
+                )
+            }
             Self::InvalidCookieName => formatter.write_str("invalid cookie name"),
             Self::InvalidCookieValue => {
                 formatter.write_str("cookie value contains a disallowed character")
@@ -450,6 +458,20 @@ impl Display for ResponseError {
 }
 
 impl Error for ResponseError {}
+
+fn http_status_phrase(status_code: u16) -> Option<&'static str> {
+    let status = http::StatusCode::from_u16(status_code).ok()?;
+    match status_code {
+        // `http::StatusCode` uses the updated RFC phrases for these codes,
+        // while Python's `HTTPStatus` retains the phrases exposed by Starlette.
+        203 => Some("Non-Authoritative Information"),
+        413 => Some("Request Entity Too Large"),
+        414 => Some("Request-URI Too Long"),
+        416 => Some("Requested Range Not Satisfiable"),
+        418 => Some("I'm a Teapot"),
+        _ => status.canonical_reason(),
+    }
+}
 
 impl Response {
     /// Creates a UTF-8 plain-text response with status `200`.
@@ -533,20 +555,29 @@ impl Response {
 
     /// Renders the body and headers for Starlette's default HTTP exception handler.
     ///
-    /// For status codes 204 and 304, the response has an empty body and no
-    /// automatically generated content headers. Other statuses render `detail`
-    /// as a plain-text body and apply the supplied headers before generating
-    /// any missing content headers.
+    /// When `detail` is `None`, the status phrase from Python's
+    /// `http.HTTPStatus` is used. An explicit detail is used verbatim. For
+    /// status codes 204 and 304, the response has an empty body and no
+    /// automatically generated content headers. Other statuses render the
+    /// selected detail as a plain-text body and apply the supplied headers
+    /// before generating any missing content headers.
     ///
     /// # Errors
     ///
     /// Returns [`ResponseError::HeaderDataIsNotLatin1`] if a header name or
     /// value cannot be encoded as Latin-1.
+    /// Returns [`ResponseError::NoHttpStatusPhrase`] if `detail` is `None` and
+    /// `status_code` has no phrase in Python's standard `HTTPStatus` enum.
     pub fn http_exception(
         status_code: u16,
-        detail: &str,
+        detail: Option<&str>,
         headers: &[(String, String)],
     ) -> Result<Self, ResponseError> {
+        let detail = match detail {
+            Some(detail) => detail,
+            None => http_status_phrase(status_code)
+                .ok_or(ResponseError::NoHttpStatusPhrase(status_code))?,
+        };
         let (body, media_type) = if matches!(status_code, 204 | 304) {
             (Vec::new(), None)
         } else {
