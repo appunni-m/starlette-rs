@@ -52,10 +52,14 @@ for CPython 3.10.20–3.14.7, `pip check`, and installed-package smoke checks
 passed. Four input-derived Mypy consumers matched the pinned source on all five
 interpreters (20 comparisons). Wheel, sdist, and crate inspections verified
 namespace files, `py.typed`, dependency metadata, BSD-3-Clause notices, and
-provenance; no upstream Starlette runtime dependency was present. A generated
-CycloneDX SBOM contains a local build-path `bom-ref` and a `file://.` PURL,
-tracked for review in follow-up `0t5m`. This qualification covers macOS arm64;
-Windows-specific StaticFiles verification remains open.
+provenance; no upstream Starlette runtime dependency was present. The generated
+CycloneDX SBOM is now normalized to stable Cargo PURLs while retaining its full
+Rust dependency graph. A targeted CPython 3.12 wheel built from the checkout
+and another built from its sdist each carried the 75-component, 76-record,
+134-edge SBOM with no local filesystem references. See [SBOM packaging
+notes](SBOM.md). The five-version qualification matrix above remains scoped to
+its recorded source snapshot; Windows-specific StaticFiles verification
+remains open.
 
 ### Post-checkpoint repair and verification
 

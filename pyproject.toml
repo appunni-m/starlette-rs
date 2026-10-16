@@ -50,6 +50,11 @@ python-source = "starlette-rs-py/python"
 python-packages = ["starlette", "starlette_rs_py"]
 module-name = "starlette_rs_py._core"
 features = ["pyo3/extension-module"]
+include = [{ path = "sboms/starlette-rs-py.cyclonedx.json", format = "sdist" }]
+
+[tool.maturin.sbom]
+rust = false
+include = ["sboms/starlette-rs-py.cyclonedx.json"]
 
 [tool.ruff]
 line-length = 100
