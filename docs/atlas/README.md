@@ -300,10 +300,10 @@ and input-only fixture paths. It writes `api-review.csv`,
 
 For the pinned Starlette 1.6.0 source, the checked-in merge snapshot covers all
 999 API candidates, all 514 test functions, 24 documentation navigation pages,
-and four shared test support modules. The API review has 530 `supported`, 286
-`private/internal`, and 183 `uncertain` candidates. The coverage matrix has 849
-source rows: 794 input mappings, 55 reasoned `not_applicable`
-entries, and zero input-only backlog rows. Derive these changing counts from
+and four shared test support modules. The API review has 564 `supported`, 435
+`private/internal`, and zero `uncertain` candidates. The coverage matrix has
+867 source rows: 811 input mappings, 56 reasoned `not_applicable` entries, and
+zero input-only backlog rows. Derive these changing counts from
 the generated atlas CSV files. They describe the crosswalk, not implementation
 parity or a one-to-one inventory of active parity cases.
 `PRIORITIZED_BACKLOG.md` gives the current work order and points to bounded

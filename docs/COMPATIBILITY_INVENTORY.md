@@ -34,7 +34,8 @@ or source/package `not_run` rows and matching normalized observations for all
 74. All 74 Rust-native rows are `not_run` because no equivalent ASGI workload
 boundary is available. The atlas contains 867 rows: 811 input mappings, 56
 source-backed `not_applicable` rows, and zero backlog; all 999 API candidate
-rows have dispositions.
+rows are dispositioned as 564 `supported`, 435 `private/internal`, and zero
+`uncertain`.
 
 The full Starlette replacement remains incomplete; these measurements do not
 establish universal or drop-in compatibility. macOS arm64 package qualification
@@ -872,7 +873,7 @@ The candidate rows, source line numbers, signatures, defaults, constructors,
 special methods, candidate re-exports, and documentary evidence are in
 [`api-surface.csv`](api-surface.csv). The merged
 [`API review`](atlas/api-review.csv) dispositions each of its 999 rows with
-evidence: 531 `supported`, 285 `private/internal`, and 183 `uncertain`. The
+evidence: 564 `supported`, 435 `private/internal`, and zero `uncertain`. The
 catalog's original `audit_status` field records inventory provenance; use the
 merged disposition and rationale for the compatibility classification. The
 root package defines only `__version__ = "1.6.0"`; it has no convenience
@@ -1144,7 +1145,7 @@ and do not establish parity for every deprecation path.
 
 ## Unresolved points carried into implementation
 
-- The merged API review currently has 183 `uncertain` dispositions. Keep these
+- The active API review has zero `uncertain` dispositions. Keep future
   candidates unresolved until pinned docs, source, release history, or consumer
   evidence establishes public intent; importability alone is insufficient.
 - `Router.add_route` is supported: the pinned routing guide presents `Router`
