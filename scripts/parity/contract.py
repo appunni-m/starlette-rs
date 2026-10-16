@@ -54,8 +54,9 @@ INPUT_SCHEMA_V58 = "migration-parity/parity-input@58"
 INPUT_SCHEMA_V59 = "migration-parity/parity-input@59"
 INPUT_SCHEMA_V60 = "migration-parity/parity-input@60"
 INPUT_SCHEMA_V61 = "migration-parity/parity-input@61"
+INPUT_SCHEMA_V62 = "migration-parity/parity-input@62"
 PREVIOUS_INPUT_SCHEMA = INPUT_SCHEMA_V50
-INPUT_SCHEMA = "migration-parity/parity-input@62"
+INPUT_SCHEMA = "migration-parity/parity-input@63"
 BENCHMARK_INPUT_SCHEMA = "migration-parity/benchmark-input@1"
 RESULT_SCHEMA = "migration-parity/parity-result@9"
 BENCHMARK_RESULT_SCHEMA = "migration-parity/benchmark-result@1"
@@ -44513,6 +44514,37 @@ def migrate_input_document_v61(document: Any) -> dict[str, Any]:
         )
 
     migrated = dict(document)
+    migrated["schema"] = INPUT_SCHEMA_V62
+    return migrated
+
+
+def _contains_lifespan_send_await_or_context_chain_syntax(value: Any) -> bool:
+    if isinstance(value, dict):
+        if value.get("kind") == "raise-on-await" or (
+            value.get("kind") == "raise-on-call" and "observe_context_chain" in value
+        ):
+            return True
+        return any(
+            _contains_lifespan_send_await_or_context_chain_syntax(item) for item in value.values()
+        )
+    if isinstance(value, list):
+        return any(_contains_lifespan_send_await_or_context_chain_syntax(item) for item in value)
+    return False
+
+
+def migrate_input_document_v62(document: Any) -> dict[str, Any]:
+    """Advance @62 inputs to @63, which models awaited lifespan-send failures."""
+    _exact(document, {"schema", "cases"}, "parity input")
+    if document["schema"] != INPUT_SCHEMA_V62:
+        raise ContractError(f"unsupported @62 parity input schema: {document['schema']!r}")
+    if not isinstance(document["cases"], list) or not document["cases"]:
+        raise ContractError("parity input must select at least one case")
+    if _contains_lifespan_send_await_or_context_chain_syntax(document["cases"]):
+        raise ContractError(
+            "parity-input@62 does not allow awaited lifespan-send failures or context-chain observation"
+        )
+
+    migrated = dict(document)
     migrated["schema"] = INPUT_SCHEMA
     return migrated
 
@@ -44578,7 +44610,7 @@ def validate_input_document_v58(
     *,
     public_modules: frozenset[str] | None = None,
 ) -> list[dict[str, Any]]:
-    """Validate @58 inputs before their deterministic @59 through @62 migrations."""
+    """Validate @58 inputs before their deterministic @59 through @63 migrations."""
     migrated = migrate_input_document_v58(document)
     return validate_input_document_v59(migrated, manifest, public_modules=public_modules)
 
@@ -44589,7 +44621,7 @@ def validate_input_document_v59(
     *,
     public_modules: frozenset[str] | None = None,
 ) -> list[dict[str, Any]]:
-    """Validate @59 inputs before their deterministic @60 through @62 migrations."""
+    """Validate @59 inputs before their deterministic @60 through @63 migrations."""
     migrated = migrate_input_document_v59(document)
     return validate_input_document_v60(migrated, manifest, public_modules=public_modules)
 
@@ -44600,7 +44632,7 @@ def validate_input_document_v60(
     *,
     public_modules: frozenset[str] | None = None,
 ) -> list[dict[str, Any]]:
-    """Validate @60 inputs before their deterministic @61 and @62 migrations."""
+    """Validate @60 inputs before their deterministic @61 through @63 migrations."""
     migrated = migrate_input_document_v60(document)
     return validate_input_document_v61(migrated, manifest, public_modules=public_modules)
 
@@ -44611,8 +44643,19 @@ def validate_input_document_v61(
     *,
     public_modules: frozenset[str] | None = None,
 ) -> list[dict[str, Any]]:
-    """Validate @61 inputs before their deterministic @62 schema-header migration."""
+    """Validate @61 inputs before their deterministic @62 and @63 migrations."""
     migrated = migrate_input_document_v61(document)
+    return validate_input_document_v62(migrated, manifest, public_modules=public_modules)
+
+
+def validate_input_document_v62(
+    document: Any,
+    manifest: dict[str, Any],
+    *,
+    public_modules: frozenset[str] | None = None,
+) -> list[dict[str, Any]]:
+    """Validate @62 inputs before their deterministic @63 schema migration."""
+    migrated = migrate_input_document_v62(document)
     return validate_input_document(migrated, manifest, public_modules=public_modules)
 
 

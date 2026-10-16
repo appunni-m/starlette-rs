@@ -24,13 +24,14 @@ with no conventional Python or Rust unit-test suite.
 
 ## Current implementation status
 
-The active full-scope `parity-input@62` contract covers Starlette 1.6.0 with
-2,588 cases across 437 parity inputs and two benchmark inputs, 152 compatibility
-operations, 15 Rust-native operations, and 1,441 parity requirements. Its
+The active full-scope `parity-input@63` contract covers Starlette 1.6.0 with
+2,590 cases across 437 parity inputs and two benchmark inputs, 152 compatibility
+operations, 15 Rust-native operations, and 1,442 parity requirements. Its
 manifest SHA-256 is
-`e666f6c2ae10afdfc6a785bd3101b0542ac1eba64d3687c92d3381a4c2790e3d`.
-Contract validation and metadata-derived source inventory checks
-passed. The generated source atlas has 867 rows: 811 input mappings, 56
+`f8a34c2978af95382ceadcd3e3a2c5a9d7bb1d467f03b35ba55033d9b7336124`. The two
+new lifespan failure-send context comparisons await the grouped parity phase.
+Results below are from the preceding @62 manifest. The generated source atlas
+has 867 rows: 811 input mappings, 56
 source-backed `not_applicable` rows, and zero fixture backlog. All 999 API
 candidate rows are dispositioned as 531 supported, 285 private/internal, and
 183 uncertain. The local grouped run selected 2,941 comparisons on CPython 3.12
@@ -43,7 +44,7 @@ rerun. CI workflow
 passed all five CPython 3.10–3.14 parity jobs on clean target revision
 `4742d075a748fbe182ac121e8b37dd25f5f2d56c`.
 
-All six coverage profiles passed: Rust-native 375 cases, CPython 3.10 and 3.11
+All six @62 coverage profiles passed: Rust-native 375 cases, CPython 3.10 and 3.11
 274 each, CPython 3.12 2,571, and CPython 3.13 and 3.14 275 each. Coverage MCP
 read the reports and surfaced gaps, but marked the imported CI reports
 `source=unverified` and `tests=unknown` because their receipts were not
@@ -51,7 +52,7 @@ ingested. The CI result artifacts record zero failed cases. The selected
 component line counts and the benchmark preflight results are recorded in the
 [implementation plan](../IMPLEMENTATION_PLAN.md).
 
-Benchmark run `5242b8e5-4c5e-4c45-af60-0b83a6ba8b33` measured all 74
+Previous @62 benchmark run `5242b8e5-4c5e-4c45-af60-0b83a6ba8b33` measured all 74
 Router/GZip source/package workloads, with zero failures, skips, or
 source/package `not_run` rows and matching normalized observations for all 74.
 All 74 Rust-native benchmark entries remain `not_run` because the native API has
