@@ -620,6 +620,87 @@
       ]
     },
     {
+      "case_id": "starlette.middleware.httpsredirect.HTTPSRedirectMiddleware.__call__.lifespan-pass-through",
+      "surface": "starlette.middleware.httpsredirect.HTTPSRedirectMiddleware",
+      "operation": "__call__",
+      "covers": [
+        "starlette.middleware.httpsredirect.HTTPSRedirectMiddleware.construct",
+        "starlette.middleware.httpsredirect.HTTPSRedirectMiddleware.non-http-scope-pass-through"
+      ],
+      "execution_schedule": [
+        "dispatch"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "steps": [
+        {
+          "step_id": "middleware",
+          "surface": "starlette.middleware.httpsredirect.HTTPSRedirectMiddleware",
+          "operation": "__init__",
+          "receiver": null,
+          "arguments": {
+            "app": {
+              "kind": "literal",
+              "value": {
+                "kind": "asgi-response-sequence",
+                "messages": [
+                  {
+                    "type": "lifespan.startup.complete"
+                  },
+                  {
+                    "type": "lifespan.shutdown.complete"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "step_id": "dispatch",
+          "surface": "starlette.middleware.httpsredirect.HTTPSRedirectMiddleware",
+          "operation": "__call__",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "middleware"
+          },
+          "arguments": {
+            "scope": {
+              "kind": "literal",
+              "value": {
+                "type": "lifespan",
+                "asgi": {
+                  "version": "3.0",
+                  "spec_version": "2.4"
+                }
+              }
+            },
+            "receive": {
+              "kind": "literal",
+              "value": [
+                {
+                  "type": "lifespan.startup"
+                },
+                {
+                  "type": "lifespan.shutdown"
+                }
+              ]
+            },
+            "send": {
+              "kind": "literal",
+              "value": {
+                "kind": "capture-asgi-send"
+              }
+            }
+          }
+        }
+      ],
+      "observations": [
+        "dispatch"
+      ]
+    },
+    {
       "case_id": "starlette.middleware.trustedhost.TrustedHostMiddleware.__call__.exact-host",
       "surface": "starlette.middleware.trustedhost.TrustedHostMiddleware",
       "operation": "__call__",

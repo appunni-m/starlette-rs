@@ -27124,12 +27124,14 @@ def _validate_case_payload(
             step_ids[1:] if is_cors_state_sequence or is_gzip or is_gzip_responder else ["dispatch"]
         )
         scope_type = dispatch_args["scope"]["type"]
-        valid_scope_type = scope_type in ("http", "websocket") or (
-            is_gzip and type(scope_type) in (bool, int, float)
+        valid_scope_type = (
+            scope_type in ("http", "websocket")
+            or (case["surface"] == HTTPS_REDIRECT_SURFACE and scope_type == "lifespan")
+            or (is_gzip and type(scope_type) in (bool, int, float))
         )
         if not valid_scope_type or schedule != expected_protocol_schedule:
             raise ContractError(
-                "ASGI middleware cases must dispatch one supported HTTP, WebSocket, or GZip pass-through scope"
+                "ASGI middleware cases must dispatch one supported HTTP, WebSocket, lifespan, or GZip pass-through scope"
             )
         expected_schedule = expected_protocol_schedule
     elif step_ids == ["application", "lifecycle"]:
@@ -42186,7 +42188,10 @@ def _validate_asgi_middleware_constructor(surface: str, args: dict[str, Any]) ->
     else:
         raise ContractError(f"unsupported protocol middleware surface: {surface}")
 
-    _validate_asgi_middleware_app(args["app"])
+    _validate_asgi_middleware_app(
+        args["app"],
+        allow_lifespan=surface == HTTPS_REDIRECT_SURFACE,
+    )
 
 
 def _validate_asgi_middleware_constructor_probes(surface: str, probes: Any) -> None:
@@ -42219,13 +42224,28 @@ def _validate_asgi_middleware_constructor_probes(surface: str, probes: Any) -> N
             )
 
 
-def _validate_asgi_middleware_app(value: Any) -> None:
+def _validate_asgi_middleware_app(value: Any, *, allow_lifespan: bool = False) -> None:
     app = _exact(value, {"kind", "messages"}, "ASGI middleware app input")
     if app["kind"] != "asgi-response-sequence" or not isinstance(app["messages"], list):
         raise ContractError("ASGI middleware app must be an input-defined message sequence")
     messages = app["messages"]
     if not messages:
         raise ContractError("ASGI middleware app message sequence must not be empty")
+    if (
+        allow_lifespan
+        and len(messages) == 2
+        and all(
+            isinstance(message, dict)
+            and message.get("type") in {"lifespan.startup.complete", "lifespan.shutdown.complete"}
+            for message in messages
+        )
+    ):
+        if messages != [
+            {"type": "lifespan.startup.complete"},
+            {"type": "lifespan.shutdown.complete"},
+        ]:
+            raise ContractError("ASGI middleware lifespan app must complete startup then shutdown")
+        return
     if (
         len(messages) == 1
         and isinstance(messages[0], dict)
@@ -42464,6 +42484,11 @@ def _validate_asgi_middleware_dispatch(
             allow_out_of_range_server_port=surface == HTTPS_REDIRECT_SURFACE,
             allow_minimal_http_scope=surface == CORS_SURFACE,
         )
+        return
+    if isinstance(scope, dict) and scope.get("type") == "lifespan":
+        if surface != HTTPS_REDIRECT_SURFACE:
+            raise ContractError(f"{surface} dispatch must use HTTP or WebSocket scope")
+        _validate_dispatch_stimulus(args, request_dispatch=False)
         return
     if not isinstance(scope, dict) or scope.get("type") != "websocket":
         raise ContractError(f"{surface} dispatch must use HTTP or WebSocket scope")
@@ -42964,7 +42989,9 @@ def _asgi_middleware_semantic_coverage(case: dict[str, Any]) -> set[str]:
 
     if surface == HTTPS_REDIRECT_SURFACE:
         scheme = scope.get("scheme")
-        if scope["type"] in {"http", "websocket"} and scheme in {"http", "ws"}:
+        if scope["type"] not in {"http", "websocket"}:
+            covered.add(suffix("non-http-scope-pass-through"))
+        elif scheme in {"http", "ws"}:
             if scheme == "ws":
                 covered.add(suffix("websocket-redirect"))
             else:

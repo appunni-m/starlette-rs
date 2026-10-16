@@ -3948,6 +3948,12 @@ def _materialize_asgi_sequence_app(app_spec: dict[str, Any]) -> Any:
                     f"inner response message[{index}]",
                 )
                 message = {"type": message_type, "code": spec["code"]}
+            elif message_kind in {
+                "lifespan.startup.complete",
+                "lifespan.shutdown.complete",
+            }:
+                _strict_object(spec, {"type"}, f"inner response message[{index}]")
+                message = {"type": message_type}
             else:
                 raise ValueError(f"unsupported inner response event: {message_type!r}")
             message_mapping = spec.get("message_mapping", "dict")
@@ -3955,6 +3961,8 @@ def _materialize_asgi_sequence_app(app_spec: dict[str, Any]) -> Any:
                 raise ValueError("inner response message mapping is unsupported")
             if message_mapping == "user-dict":
                 message = UserDict(message)
+            if message_kind.startswith("lifespan."):
+                await _receive()
             await send(message)
 
     return response_app
@@ -4516,7 +4524,9 @@ def _run_protocol_middleware_case(case: dict[str, Any]) -> dict[str, Any]:
         middleware = _materialize_protocol_middleware(
             case["surface"],
             constructor_arguments,
-            downstream_call_trace if case["surface"] == CORS_SURFACE else None,
+            downstream_call_trace
+            if case["surface"] in {CORS_SURFACE, HTTPS_REDIRECT_SURFACE}
+            else None,
         )
     except Exception as exc:
         error = _dispatch_error(exc)
@@ -4589,7 +4599,10 @@ def _run_protocol_middleware_case(case: dict[str, Any]) -> dict[str, Any]:
                     }
                     if "scope_observation" in partial_value:
                         selected_partial["scope_observation"] = partial_value["scope_observation"]
-                    selected_partial["downstream_call_trace"] = downstream_call_trace[trace_start:]
+                    if case["surface"] in {CORS_SURFACE, HTTPS_REDIRECT_SURFACE}:
+                        selected_partial["downstream_call_trace"] = downstream_call_trace[
+                            trace_start:
+                        ]
                     partial_value = selected_partial
                 observations.append(
                     _workflow_observation(
@@ -4603,7 +4616,7 @@ def _run_protocol_middleware_case(case: dict[str, Any]) -> dict[str, Any]:
                 selected["scope_observation"] = value["scope_observation"]
             if constructor_probe_observations:
                 selected["constructor_probes"] = constructor_probe_observations
-            if case["surface"] == CORS_SURFACE:
+            if case["surface"] in {CORS_SURFACE, HTTPS_REDIRECT_SURFACE}:
                 selected["downstream_call_trace"] = downstream_call_trace[trace_start:]
             observations.append(
                 {"step_id": dispatch_step["step_id"], "status": "ok", "value": selected}

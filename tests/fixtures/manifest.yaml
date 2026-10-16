@@ -18359,6 +18359,15 @@
                   "comparison": {
                     "kind": "bytes"
                   }
+                },
+                {
+                  "path": "downstream_call_trace",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
                 }
               ],
               "error": {
@@ -18450,6 +18459,18 @@
               "id": "starlette.middleware.httpsredirect.HTTPSRedirectMiddleware.secure-websocket-pass-through",
               "dimension": "protocol_variant",
               "description": "Pass a WebSocket scope using the secure wss scheme through to the wrapped application without an HTTP redirect. Pinned source: starlette/middleware/httpsredirect.py:10-18; docs/middleware.md:162-181.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.httpsredirect.HTTPSRedirectMiddleware.non-http-scope-pass-through",
+              "dimension": "protocol_variant",
+              "description": "Pass lifespan ASGI scopes through to the wrapped application. Pinned source: starlette/middleware/httpsredirect.py:10-18.",
               "lanes": [
                 "parity",
                 "coverage"
