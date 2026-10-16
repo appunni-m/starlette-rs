@@ -1,31 +1,25 @@
 # Benchmark mapping
 
-The latest recorded full-scope benchmark used an earlier input set with 2,590
-cases across 437 parity inputs and manifest SHA-256
-`f8a34c2978af95382ceadcd3e3a2c5a9d7bb1d467f03b35ba55033d9b7336124`. Full
-parity and all six expanded coverage profiles completed for that input set
-before the benchmark below. The active `parity-input@64` manifest declares
-2,615 cases across 446 parity inputs, 1,453 requirements, and SHA-256
-`6d591e84da1a97cc73a6f04f9b0280704c214c1b1f793c1a9e16b4c6ab42e3b5`; its
-eleven latest cases are not included in the recorded preflight or benchmark
-evidence. The grouped parity run had zero mismatches but retained two
-source-skipped rows for a macOS filesystem limitation. The CPython 3.12
-coverage plan was not ingested after the same skip, so the @64 benchmark remains
-deferred until a coverage run completes on a filesystem that supports the input
-filename.
-The latest recorded run measured all
-74 declared source/package workloads (six
-Router and 68 GZip); all 74 Rust-native rows are `not_run` because the native
-API has no equivalent ASGI workload boundary. These results cover only the
-declared benchmark slice and do not prove full Starlette replacement parity.
+The active `parity-input@64` manifest declares 2,615 cases across 446 parity
+inputs, 1,453 requirements, and SHA-256
+`6d591e84da1a97cc73a6f04f9b0280704c214c1b1f793c1a9e16b4c6ab42e3b5`. The
+five-profile source-parity workflow passed on Ubuntu before benchmarking, and
+all six coverage plans executed without failed cases. Coverage MCP measured the
+six LCOV reports, but marks their source identity unverified and test status
+unknown because no matching source/build receipt was ingested. The latest @64
+run measured all 74 declared source/package workloads (six Router and 68 GZip);
+all 74 Rust-native rows are `not_run` because the native API has no equivalent
+ASGI workload boundary. These results cover only the declared benchmark slice
+and do not prove full Starlette replacement parity.
 
 The pinned Starlette 1.6.0 benchmark suite has six Router workloads and 68
 GZip workloads. The dedicated runner measures all 74 against both pinned
 Python source and the installed `starlette-rs-py` package after exact
-input-backed correctness gates. Before timing, it requires every selected
-`python-package-cpython312` parity case to pass; Rust-native outcomes remain
-recorded separately and do not block this source/package lane. This proves
-that source/package slice only. Rust-native remains `not_run` for all 74
+input-backed correctness gate. Before timing, it requires every selected
+`python-package-cpython312` case to pass or be an explicit two-sided
+source/platform skip; Rust-native outcomes remain recorded separately and do
+not block this source/package lane. This proves that source/package slice only.
+Rust-native remains `not_run` for all 74
 because its public dispatch boundary is not equivalent, and the overall
 Starlette replacement remains `not_proven`.
 
@@ -41,19 +35,19 @@ It verifies that this identity remains unchanged during the run.
 
 ## Latest paired benchmark run
 
-Run `005660ff-d624-43a0-aff3-fc86fcb9b2f0` completed from `2026-10-16T16:45:14.753Z` through `2026-10-16T17:01:01.436Z`.
+Run `40f41f01-bb35-4617-ab01-9b87f9e21bdd` completed from `2026-10-16T22:07:07.906Z` through `2026-10-16T22:23:41.804Z`.
 
-The source oracle is Starlette 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The target checkout is clean revision `14067d434dd74a3ae5f931233ace7088dcc04bcc` with working-tree SHA-256 `59004d9482f6c8a8829d3659c43b0264259f552fda00681d48c843dd66c26648`.
+The source oracle is Starlette 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The target checkout is clean revision `6310c68f9b036724fe01f4fd97a49206d7cae7f7` with working-tree SHA-256 `c42dcf91e5cc2f66c689492bd48c0781312575e70695262fba322887d89ea9b4`.
 
 The runner measured 74/74 source/package workloads: 6 Router and 68 GZip. It reported 0 failures, 0 source/package not-run rows, and 74 Rust-native not-run workload rows because the native API does not expose these equivalent ASGI workload boundaries.
 
-The correctness preflight `a7e85429-d6f2-430d-ad20-5021284711ef` selected 2943 profile comparisons, with 2941 passed, 0 failed, 0 infrastructure errors, and 2 not-run rows.
+The correctness preflight `5e280d8f-55d2-4cbc-b035-4ad97b3d7829` selected 2971 profile comparisons, with 2969 passed, 0 failed, 0 infrastructure errors, and 2 not-run rows.
 
-The preflight passed 2570/2571 Python-package comparisons and 371/372 Rust-native comparisons; 1 Python-package and 1 Rust-native rows were `not_run`.
+The preflight passed 2595/2596 Python-package comparisons and 374/375 Rust-native comparisons; 1 Python-package and 1 Rust-native rows were `not_run`.
 
-The median source/package latency ratio was 0.274 for Router and 0.970 for GZip. Source latency was lower in 6/6 Router and 56/68 GZip workloads. Normalized observation hashes matched for 74/74 measured workloads.
+The median source/package latency ratio was 0.358 for Router and 0.972 for GZip. Source latency was lower in 5/6 Router and 56/68 GZip workloads. Normalized observation hashes matched for 74/74 measured workloads.
 
-Manifest SHA-256: `f8a34c2978af95382ceadcd3e3a2c5a9d7bb1d467f03b35ba55033d9b7336124`. Benchmark input SHA-256: `adafb558a4fadd4fe8c1a956dd03eced2039711440ac7cce2861f1124cc00ed2`. Installed wheel SHA-256: `40e06833cdf7fe2b61ff024086e108090fc9862cc02b58fdaa226c6253db617d`. Result artifact SHA-256: `d5ebf22b41dc14cd744e3b2ac4b1db45b68523f96b8aa7ff333fc6381cd0a2dd`.
+Manifest SHA-256: `6d591e84da1a97cc73a6f04f9b0280704c214c1b1f793c1a9e16b4c6ab42e3b5`. Benchmark input SHA-256: `adafb558a4fadd4fe8c1a956dd03eced2039711440ac7cce2861f1124cc00ed2`. Installed wheel SHA-256: `27e6bd2e91f8f111bae3496ee0b79d42b9344dd8cc9cea601a39395077f0b319`. Result artifact SHA-256: `db615bdd1ba1673fe03662367c783a45efe6dad1343642485e2a160e875111d4`.
 
 These are workload-specific local timings, not a general performance claim, CodSpeed measurements, or evidence of full Starlette parity.
 

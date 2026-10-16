@@ -21,18 +21,38 @@ connect/disconnect after the Rust-owned constructor assertion is disabled, plus
 a decode case that exposes default text decoding after optimization skips the
 invalid-encoding assertion. Python passes dynamic Config attributes and
 `__debug__` into the Rust runtime and constructs only the input-defined listener
-callback. The grouped local parity run selected 2,971 comparisons; 2,969 passed,
-zero failed, zero had infrastructure errors, and all five fault contracts
-passed. Two rows were not run because the pinned source skipped an invalid-byte
-StaticFiles filename on this macOS filesystem. The `make test` target returned 2
-because its CLI requires all selected rows to run. The CPython 3.12 coverage
-workload passed 2,597 selected cases but did not ingest its plan after the same
-source-side skip, so no coverage percentage is available. The benchmark phase
-remains deferred until the coverage plan can be ingested. The active @64 input
-schema remains unchanged. Generated inputs, contract validation, and source
-inventory passed. The atlas has 867 rows: 811 input mappings, 56 source-backed
-`not_applicable` rows, and zero fixture backlog. The pinned denominators remain
-514 upstream test functions and 24 documented pages.
+callback. The Ubuntu source-parity workflow
+[`38966623985`](https://github.com/appunni-m/starlette-rs/actions/runs/38966623985)
+passed all five CPython profiles with zero mismatches, failures, skipped rows,
+or infrastructure errors: 664/664 for CPython 3.10 and 3.11, 665/665 for 3.13
+and 3.14, and 2,971/2,971 for the CPython 3.12 full matrix. The separate Windows
+invalid-name probe
+[`38966623892`](https://github.com/appunni-m/starlette-rs/actions/runs/38966623892)
+passed 4/4 comparisons. A local macOS `make test` still reports two skipped
+StaticFiles surrogateescape rows because its filesystem cannot create the
+invalid-byte filename; the Linux parity matrix executed them. The active @64
+input schema remains unchanged. Generated inputs, contract validation, and
+source inventory passed. The atlas has 867 rows: 811 input mappings, 56
+source-backed `not_applicable` rows, and zero fixture backlog.
+
+All six CI coverage plans executed without failed selected cases: CPython 3.10
+289, 3.11 289, 3.12 2,598, 3.13 290, 3.14 290, and Rust-native 378. Coverage
+MCP measured all six imported LCOV reports, but marked source identity
+`unverified` and test status `unknown` because matching source/build receipts
+were not ingested. The selected-component line measurements are 13,333/33,869
+(39.37%) for CPython 3.10, 13,429/33,869 (39.65%) for 3.11,
+23,416/33,869 (69.14%) for 3.12, 13,281/33,869 (39.21%) for 3.13,
+13,270/33,869 (39.18%) for 3.14, and 14,598/19,596 (74.49%) for
+Rust-native. These are scoped target-report measurements, not Starlette-wide
+coverage percentages.
+
+The complete @64 benchmark run
+[`40f41f01-bb35-4617-ab01-9b87f9e21bdd`](BENCHMARKS.md) measured all 74
+source/package workloads with zero failures or source/package `not_run` rows;
+all 74 Rust-native rows remain `not_run` because there is no equivalent ASGI
+workload boundary. Its correctness preflight retained two explicit macOS
+surrogateescape skips. The pinned denominators remain 514 upstream test
+functions and 24 documented pages; full replacement remains unproven.
 
 The preceding @63 checkpoint is historical. Its manifest declared 2,604 cases
 across 443 parity inputs, two benchmark inputs, 152 compatibility operations,
@@ -642,10 +662,10 @@ representation, and dynamic `FormData.close()` dispatch remain Rust-backed.
 
 | Phase | State | Evidence |
 | --- | --- | --- |
-| Implementation | The @64 feature implementation and adapter repairs are complete for the selected input corpus; no parity mismatches or infrastructure errors remain in executable rows. | The local grouped run passed 2,969/2,969 executed comparisons and 5/5 fault contracts; two rows were source-skipped on macOS because an invalid-byte StaticFiles filename cannot be created. |
-| Full parity and grouped repairs | Full @64 parity ran, with zero mismatches. The CLI returned 2 because it treats the two preserved source-skipped rows as `not_run`; run on a filesystem that supports POSIX surrogateescape filenames to execute those rows. | `build/parity/parity-result.json`: selected 2,971; passed 2,969; failed 0; not_run 2; infrastructure errors 0. |
-| Full coverage and source reconciliation | Coverage did not ingest. The selected CPython 3.12 coverage cases passed, but the coverage plan was not run after the same source-side StaticFiles skip. | `build/parity/coverage/python-package-cpython312/`: plans selected 1, executed 0, not_run 1; tests passed 2,597, failed 0. No coverage percentage is available. |
-| All benchmarks | Deferred until the @64 coverage plan is ingested. The full 74-workload run has not been made for @64. | Historical @63 run `005660ff-d624-43a0-aff3-fc86fcb9b2f0`, manifest SHA-256 `f8a34c2978af95382ceadcd3e3a2c5a9d7bb1d467f03b35ba55033d9b7336124`; 74/74 measured. |
+| Implementation | The @64 feature implementation and adapter repairs are complete for the selected input corpus; the full replacement goal remains active. | @64 is exercised by the five-profile parity workflow, six coverage plans, and the 74-workload source/package benchmark. |
+| Full parity and grouped repairs | CI parity completed on all five CPython profiles with zero mismatches, failures, `not_run` rows, or infrastructure errors; the Windows invalid-name probe also passed 4/4. | Workflow [`38966623985`](https://github.com/appunni-m/starlette-rs/actions/runs/38966623985) and Windows probe [`38966623892`](https://github.com/appunni-m/starlette-rs/actions/runs/38966623892). Local macOS still cannot create the two POSIX-surrogateescape filenames. |
+| Full coverage and source reconciliation | All six CI coverage plans executed with zero failed selected cases. Coverage MCP ingested the reports but could not verify source/build identity or test receipts. | Counts and scoped line measurements are listed above. MCP reports `source=unverified`, `tests=unknown`; do not interpret these as Starlette-wide coverage. |
+| All benchmarks | The full @64 source/package workload completed: 74/74 measured, zero failures, zero source/package `not_run`; Rust-native has no equivalent ASGI workload and remains `not_run` for all 74. | [`BENCHMARKS.md`](BENCHMARKS.md), run `40f41f01-bb35-4617-ab01-9b87f9e21bdd`; the benchmark preflight records two macOS platform skips. |
 | Packaging and interpreter qualification | Historical local macOS arm64 qualification; current changes are not qualified by it. | Five CPython 3.10–3.14 wheels, an sdist, and the Rust crate were inspected in the earlier qualification. Other platform builds remain unqualified. |
 
 Parity, coverage, and benchmark result artifacts are local generated output

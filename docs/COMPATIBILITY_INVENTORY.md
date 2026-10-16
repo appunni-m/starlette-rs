@@ -8,15 +8,26 @@ against Starlette 1.6.0 revision
 `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. It declares 2,615 input-only cases
 across 446 parity files, two benchmark inputs, 152 compatibility operations,
 15 Rust-native operations, 1,453 parity requirements, and six target profiles.
-The grouped local run selected 2,971 comparisons: 2,969 passed, zero failed,
-zero had infrastructure errors, and all five fault contracts passed. Two rows
-were not run because the pinned source skipped an invalid-byte StaticFiles
-filename on this macOS filesystem; the CLI returned 2 because it requires all
-selected rows to run. The CPython 3.12 coverage workload passed 2,597 selected
-cases but did not ingest its plan after the same skip. Coverage and the full
-benchmark remain incomplete for @64. Input generation, contract validation,
-source inventory, and the earlier @63-to-@64 schema migration passed.
-Historical @63 workflow
+The five-profile CI source-parity workflow
+[`38966623985`](https://github.com/appunni-m/starlette-rs/actions/runs/38966623985)
+completed with zero mismatches, failures, `not_run` rows, or infrastructure
+errors: 664/664 comparisons for CPython 3.10 and 3.11, 665/665 for 3.13 and
+3.14, and 2,971/2,971 for the CPython 3.12 full matrix. The Windows invalid-name
+probe [`38966623892`](https://github.com/appunni-m/starlette-rs/actions/runs/38966623892)
+passed 4/4. A local macOS run still records two source-skipped StaticFiles rows
+because its filesystem cannot create the invalid-byte filename; CI executed
+those rows on Linux.
+
+All six CI coverage plans executed without failed selected cases: CPython 3.10
+289, 3.11 289, 3.12 2,598, 3.13 290, 3.14 290, and Rust-native 378. Coverage
+MCP measured the imported LCOV reports but marked source identity
+`unverified` and test status `unknown` because matching source/build receipts
+were not ingested. These target-report line measurements are recorded in the
+[implementation plan](IMPLEMENTATION_PLAN.md) and are not Starlette-wide
+coverage claims. The full @64 benchmark measured all 74 declared source/package
+workloads; its scoped results are in [benchmark evidence](BENCHMARKS.md).
+Input generation, contract validation, source inventory, and the earlier
+@63-to-@64 schema migration passed. Historical @63 workflow
 [`38923021415`](https://github.com/appunni-m/starlette-rs/actions/runs/38923021415)
 passed the five CPython source-parity profiles: 646/646 comparisons for 3.10
 and 3.11, 2,943/2,943 for 3.12, and 647/647 for 3.13 and 3.14. Every profile

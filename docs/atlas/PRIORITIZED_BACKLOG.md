@@ -15,14 +15,22 @@ manifest SHA-256 is
 `6d591e84da1a97cc73a6f04f9b0280704c214c1b1f793c1a9e16b4c6ab42e3b5`. The latest
 Config, optimized Request/WebSocket/WebSocketEndpoint (including the
 invalid-encoding fallback), and StreamingResponse listener boundary comparisons
-were included in grouped parity. The run selected 2,971 rows: 2,969 passed,
-zero failed, zero had infrastructure errors, and all five fault contracts
-passed. Two rows were not run because the pinned source skipped a surrogateescape
-filename on this macOS filesystem. The CPython 3.12 coverage workload passed
-2,597 cases but did not ingest its plan after that source skip; the benchmark
-phase remains deferred. Contract and source-inventory checks passed. The generated atlas has
-867 source rows: 811 input mappings, 56 source-backed `not_applicable` rows, and
-zero backlog. All 999 API candidate rows have dispositions. The previous @62 grouped local run
+were included in the five-profile CI source-parity workflow. CI reported zero
+mismatches, failures, `not_run` rows, or infrastructure errors: 664/664 for
+CPython 3.10 and 3.11, 665/665 for 3.13 and 3.14, and 2,971/2,971 for the
+CPython 3.12 full matrix. The Windows invalid-name probe passed 4/4. A local
+macOS run still source-skips two surrogateescape filename rows because that
+filesystem cannot create the invalid-byte filename; Linux CI executed them.
+All six coverage plans executed without failed selected cases: 289 for CPython
+3.10, 289 for 3.11, 2,598 for 3.12, 290 for 3.13, 290 for 3.14, and 378 for
+Rust-native. Coverage MCP measured the imported LCOV reports but marked their
+source identity `unverified` and test status `unknown` because matching
+source/build receipts were not ingested. The full benchmark measured all 74
+declared source/package workloads; details and the benchmark preflight's two
+macOS skips are in [the benchmark report](../BENCHMARKS.md). Contract and
+source-inventory checks passed. The generated atlas has 867 source rows: 811
+input mappings, 56 source-backed `not_applicable` rows, and zero backlog. All
+999 API candidate rows have dispositions. The previous @62 grouped local run
 selected 2,941 comparisons on CPython 3.12 and
 Rust-native: 2,937 passed, zero differed, two had target-adapter crashes, and
 four were not run; all five selected fault contracts passed. The two WebSocket

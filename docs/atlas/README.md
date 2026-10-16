@@ -31,12 +31,19 @@ manifest SHA-256 is
 `6d591e84da1a97cc73a6f04f9b0280704c214c1b1f793c1a9e16b4c6ab42e3b5`. The latest
 Config, optimized Request/WebSocket/WebSocketEndpoint (including the
 invalid-encoding fallback), and StreamingResponse listener comparisons were
-included in grouped parity. That run selected 2,971 rows: 2,969 passed, zero
-failed, zero had infrastructure errors, and all five fault contracts passed.
-Two rows were not run because the pinned source skipped a surrogateescape
-filename that this macOS filesystem cannot create. The coverage workload passed
-2,597 CPython 3.12 cases but did not ingest its plan after the same source skip;
-the full benchmark remains deferred. The generated source atlas has 867 rows:
+included in the five-profile CI parity workflow. CI reported zero mismatches,
+failures, `not_run` rows, or infrastructure errors: 664/664 comparisons for
+CPython 3.10 and 3.11, 665/665 for 3.13 and 3.14, and 2,971/2,971 for the
+CPython 3.12 full matrix. A Windows invalid-name probe passed 4/4. A local
+macOS run still source-skips two surrogateescape filename rows because that
+filesystem cannot create the invalid-byte filename; Linux CI executed them.
+All six coverage plans executed without failed selected cases: 289 for CPython
+3.10, 289 for 3.11, 2,598 for 3.12, 290 for 3.13, 290 for 3.14, and 378 for
+Rust-native. Coverage MCP marks source identity `unverified` and test status
+`unknown` for the imported reports because matching source/build receipts were
+not ingested. The full benchmark measured all 74 declared source/package
+workloads; scoped measurements and its explicit preflight skips are recorded
+in [benchmark evidence](../BENCHMARKS.md). The generated source atlas has 867 rows:
 811 input mappings, 56 source-backed `not_applicable` rows, and zero fixture
 backlog. All 999 API candidate rows are dispositioned as 564 supported, 435
 private/internal, and zero uncertain. Older results below do not cover the

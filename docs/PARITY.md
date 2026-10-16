@@ -5,15 +5,25 @@
 The active `parity-input@64` manifest has 2,615 cases across 446 parity inputs,
 1,453 requirements, and SHA-256
 `6d591e84da1a97cc73a6f04f9b0280704c214c1b1f793c1a9e16b4c6ab42e3b5`. The
-grouped local parity run selected 2,971 comparisons: 2,969 passed, with zero
-failures and zero infrastructure errors; all five fault contracts passed.
-Two rows were `not_run` because the pinned source skipped the
-`surrogateescape-posix-matched-filename` input when this macOS temporary
-filesystem could not create the invalid-byte filename. The CLI returned 2
-because it requires every selected comparison to run. The coverage workload
-then passed 2,597 selected cases but did not ingest coverage: its CPython 3.12
-plan was not run after the same source-side skip. No coverage percentage is
-claimed, and benchmarks remain deferred until coverage is ingested.
+five-profile source-parity workflow
+[`38966623985`](https://github.com/appunni-m/starlette-rs/actions/runs/38966623985)
+completed with zero mismatches, failed comparisons, `not_run` rows, or
+infrastructure errors: CPython 3.10 and 3.11 each passed 664/664 profile rows,
+3.13 and 3.14 each passed 665/665, and the CPython 3.12 full matrix passed
+2,971/2,971. The Windows invalid-name probe
+[`38966623892`](https://github.com/appunni-m/starlette-rs/actions/runs/38966623892)
+passed all 4 comparisons. A local macOS run still records two source-skipped
+StaticFiles rows because that filesystem cannot create the invalid-byte
+filename; the Linux matrix exercised them successfully.
+
+All six coverage plans executed with zero failed selected cases: 289 for
+CPython 3.10, 289 for 3.11, 2,598 for 3.12, 290 for 3.13, 290 for 3.14, and
+378 for Rust-native. Coverage MCP measured each LCOV report. It marks source
+identity `unverified` and test status `unknown` because matching source/build
+receipts were not ingested, so these line counts are not a Starlette-wide
+coverage percentage. The complete @64 benchmark has since measured all 74
+declared Router/GZip source/package workloads; its run details and the two
+macOS preflight skips are recorded in [benchmark evidence](BENCHMARKS.md).
 
 The latest input-only comparisons cover Config subclass property/cast dispatch
 and empty-format-spec error messages, optimized Request, WebSocket, and
