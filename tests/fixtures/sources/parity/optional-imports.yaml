@@ -1223,6 +1223,42 @@
       }
     },
     {
+      "case_id": "starlette.testclient.TestClient.module-import-policy.missing-both-backends",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "module-import-policy",
+      "covers": [
+        "starlette.testclient.TestClient.module-import-policy.dependency-errors-and-selection"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "observations": [
+        "import-policy"
+      ],
+      "imports": {
+        "module": "starlette.testclient",
+        "consumer_attribute": "TestClient",
+        "failures": [
+          {
+            "module": "httpx2",
+            "exception": "ModuleNotFoundError",
+            "message": "input primary missing"
+          },
+          {
+            "module": "httpx",
+            "exception": "ModuleNotFoundError",
+            "message": "input fallback missing"
+          }
+        ],
+        "warning_filter": "always",
+        "distributions": [
+          "httpx2",
+          "httpx"
+        ]
+      }
+    },
+    {
       "case_id": "starlette.requests.Request.module-import-policy.fallback-legacy-module",
       "surface": "starlette.requests.Request",
       "operation": "module-import-policy",

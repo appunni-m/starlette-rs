@@ -11,7 +11,7 @@ Active implementation checkpoint (2026-10-16; `parity-input@58`; current
 manifest SHA-256 `5c9d527185317ff005d83c666610467ef86b9e870a5b723727f146dd2cff6fe1`;
 last fully verified target revision `a10ecf5776c50cf86600e3d5f049e8db006f4966`):
 
-The active manifest declares full Starlette 1.6.0 scope with 2,564 cases across
+The active manifest declares full Starlette 1.6.0 scope with 2,565 cases across
 431 parity inputs, two benchmark inputs, 152 compatibility operations, 14
 Rust-native operations, 1,421 parity requirements, and six target profiles.
 Input generation, contract validation, and source-inventory generation pass.
@@ -25,7 +25,14 @@ contract checks passed. The scoped StaticFiles change
 also passed affected-crate checks, rustfmt, and targeted Ruff; atlas generation
 reports 867 source rows (811 input mappings, 56 reasoned `not_applicable`, zero
 backlog). The new StaticFiles input checks configured `PathLike` directory
-ordering after package roots; it remains unexecuted until grouped parity.
+ordering after package roots; it remains unexecuted until grouped parity. A new
+TestClient import-policy input observes the missing-dependency error when both
+`httpx2` and legacy `httpx` are unavailable; it remains unexecuted until grouped
+parity. Source audits found no additional runtime gaps in WSGI deprecation
+imports, generator-based lifespan callables, or TestClient timeout and legacy
+dependency fallback. This implementation/input-authoring checkpoint is ready
+for grouped full parity; mismatches will be repaired together before coverage
+and the complete benchmark workload.
 Parity, coverage measurement, and benchmarks have not been run for this
 digest. The latest implementation batch preserves public BackgroundTask attribute lookup, StaticFiles package tuple
 subclass iteration, Route/Router Python scope-type comparison semantics, and
@@ -727,10 +734,10 @@ also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
 The active parity contract is `parity-input@58` with full scope
-(`starlette-1.6.0-full`): 2,562 input cases across 431 parity files, two
+(`starlette-1.6.0-full`): 2,565 input cases across 431 parity files, two
 benchmark files, 152 Starlette compatibility operations, 14 Rust-native
-operations, 1,420 parity requirements, and six target profiles. Its manifest
-SHA-256 is `4f4b95daeb52a383999d743214d22c759c9046fea5f187b8ecb1422eed5a5042`.
+operations, 1,421 parity requirements, and six target profiles. Its manifest
+SHA-256 is `5c9d527185317ff005d83c666610467ef86b9e870a5b723727f146dd2cff6fe1`.
 The latest parity, coverage, and benchmark receipts in the execution ledger
 are tied to the previous manifest and do not validate this current digest. The
 Config typing

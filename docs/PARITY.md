@@ -2,9 +2,9 @@
 
 ## Current verification status
 
-The active full-scope contract is `parity-input@58`, with 2,562 cases across
-431 parity inputs, 1,420 parity requirements, and manifest SHA-256
-`4f4b95daeb52a383999d743214d22c759c9046fea5f187b8ecb1422eed5a5042`. No full
+The active full-scope contract is `parity-input@58`, with 2,565 cases across
+431 parity inputs, 1,421 parity requirements, and manifest SHA-256
+`5c9d527185317ff005d83c666610467ef86b9e870a5b723727f146dd2cff6fe1`. No full
 parity run is recorded for this digest. The last complete five-profile matrix
 was for the previous manifest SHA-256
 `2dcb25d098d4f09ce3dd6bb231164a58391175f6cff222dd2c6316a9580eec4a`; workflow
