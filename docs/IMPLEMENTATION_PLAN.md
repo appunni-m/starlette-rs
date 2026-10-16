@@ -8,25 +8,21 @@ Pydantic are outside this project's scope.
 ## Execution order and current status
 
 Active implementation checkpoint (2026-10-16; `parity-input@62`; manifest
-SHA-256 `ffbf919201d9d658793b8e1d42cea97f23c856bd062b2b2f2399e8e7786c6520`;
+SHA-256 `e666f6c2ae10afdfc6a785bd3101b0542ac1eba64d3687c92d3381a4c2790e3d`;
 last recorded parity/coverage revision `daf9b9d1f44e566515c640bc8d396bf342151b99`;
 last recorded benchmark revision `3b951a2fe0a91fbba708b3067c3dbdfc6da92da7`):
 
-The active manifest declares full Starlette 1.6.0 scope with 2,583 cases across
+The active manifest declares full Starlette 1.6.0 scope with 2,588 cases across
 437 parity inputs, two benchmark inputs, 152 compatibility operations, 15
-Rust-native operations, 1,436 parity requirements, and six target profiles.
-The @61 MultiDict and @62 WSGI and BaseHTTP comparisons are now included in one
-grouped local parity run. Run `08f12ec7-7cda-4254-b98d-de97e5ff9783` selected
-2,936 comparisons on the available CPython 3.12 and Rust-native profiles:
-2,923 passed, four failed, seven had adapter infrastructure errors, and nine
-were not run; all five selected fault contracts passed. After grouped repairs,
-the single 11-case selection `9ce760c2-ec7e-47d0-8230-5c54c9c1521f` passed
-11/11 with no infrastructure errors or skipped rows. The corrected multi-profile
-parity run is pending CI. The contract check passed and the source atlas is
-regenerated for @62: 867 rows, 811 input mappings, 56 source-backed
-`not_applicable` rows, and zero backlog. Coverage and benchmark runs have not
-been performed for @62. The pinned denominators remain 514 upstream test
-functions and 24 documented pages.
+Rust-native operations, 1,441 parity requirements, and six target profiles.
+The earlier grouped @62 parity run and its 11-case repair selection predate the
+five Request/HTTPConnection boundary cases in this checkpoint; those new cases
+remain unexecuted until the grouped full parity phase. `make source-inventory`
+passed contract validation and regenerated the source atlas for the active
+manifest: 867 rows, 811 input mappings, 56 source-backed `not_applicable` rows,
+and zero backlog. Coverage and benchmark runs have not been performed for this
+checkpoint. The pinned denominators remain 514 upstream test functions and 24
+documented pages.
 
 The full parity workflow
 [`38850605133`](https://github.com/appunni-m/starlette-rs/actions/runs/38850605133)
@@ -606,8 +602,8 @@ representation, and dynamic `FormData.close()` dispatch remain Rust-backed.
 
 | Phase | State | Evidence |
 | --- | --- | --- |
-| Implementation | Runtime work remains active. The local grouped @62 matrix exposed four Router mismatches and seven adapter infrastructure failures; the affected 11-case repair selection now passes. | Manifest SHA-256 `ffbf919201d9d658793b8e1d42cea97f23c856bd062b2b2f2399e8e7786c6520`; contract check passed; regenerated atlas has 811 source rows mapped and 56 marked `not_applicable`. |
-| Full parity and grouped repairs | The local @62 matrix ran only on CPython 3.12 and Rust-native: 2,923/2,927 executed comparisons passed, four mismatched, seven adapter infrastructure errors occurred, and nine rows were not run; 5/5 selected fault contracts passed. The targeted repair run passed 11/11. Full CPython 3.10–3.14 parity is pending CI; the previous clean @58 workflow is historical evidence only. | Local run `08f12ec7-7cda-4254-b98d-de97e5ff9783`, result SHA-256 `55c8d229fe0884e5229a05cd0f4f4e5cfe7f62e4d8be99a7ca9c343c5bfaa31d`; repair run `9ce760c2-ec7e-47d0-8230-5c54c9c1521f`, result SHA-256 `928dc16e9d4d53958cb6e5ba417ef279650c0525d2cd9536b9c97f466d23b28d`. Historical five-profile workflow `38850605133`; oracle: Starlette 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. |
+| Implementation | Request/HTTPConnection boundary implementation is recorded: dynamic overridden-scope descriptors and mapping methods, `Request.url_for` string and `base_url` overrides, and push-promise header overrides. The five new input comparisons are authored; full implementation remains active. | Manifest SHA-256 `e666f6c2ae10afdfc6a785bd3101b0542ac1eba64d3687c92d3381a4c2790e3d`; `make source-inventory` passed; atlas has 811 source rows mapped and 56 marked `not_applicable`. No behavioral comparison was run for this batch. |
+| Full parity and grouped repairs | The earlier @62 local matrix and its targeted 11-case repair selection predate the five Request/HTTPConnection boundary cases now in the manifest. Their results remain historical evidence only; all current cases await the grouped full parity phase. | Earlier local runs `08f12ec7-7cda-4254-b98d-de97e5ff9783` and `9ce760c2-ec7e-47d0-8230-5c54c9c1521f`; oracle: Starlette 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. |
 | Full coverage and source reconciliation | All six coverage profiles passed for the prior @58 manifest. Those reports measure selected inputs and do not claim whole-project coverage; the current @59/@60/@61/@62 inputs are not included. | Workflow `38850605133`, cargo-llvm-cov 0.8.7, target revision `daf9b9d1f44e566515c640bc8d396bf342151b99`; selected cases passed/failed: CPython 3.10 273/0, 3.11 273/0, 3.12 2,549/0, 3.13 274/0, 3.14 274/0, Rust-native 374/0. Line coverage: Rust-native 5,189/8,093; CPython 3.10 11,794/33,583; 3.11 11,772/33,583; 3.12 23,215/33,583; 3.13 11,760/33,583; 3.14 11,749/33,583. Every Coverage MCP result reported `source=matches_receipt`, `tests=passed`, `status=measured`, and no warnings. |
 | All benchmarks | The recorded 74-workload source/package benchmark used the prior @58 manifest and completed after its full parity and coverage run. | Run `67373339-9c28-410d-b9b0-40fbe02ca40a`, manifest SHA-256 `ec42686f557bdc59c0916f01823ac66018624dd0a787a9901ccfc6982a180b48`: 74/74 measured (6 Router, 68 GZip), zero failures or source/package `not_run`; 74 Rust-native rows `not_run` because the equivalent workload boundary is unavailable. Preflight `4e8b63e7-dd15-4a46-b6e9-6e8bf4a29d31`: 2,916 passed, zero failed or infrastructure errors, two declared two-sided skips. Median source/package ratios: 0.219 Router and 0.970 GZip; source latency lower in 6/6 Router and 60/68 GZip; normalized observations matched 74/74. Result SHA-256 `588ceef503267cbfc868f701a808682d4201b5175137968837bbc8b2374dcb7d`. |
 | Packaging and interpreter qualification | Historical local macOS arm64 qualification; current changes are not qualified by it. | Five CPython 3.10–3.14 wheels, an sdist, and the Rust crate were inspected in the earlier qualification. Other platform builds remain unqualified. |
@@ -625,7 +621,8 @@ The latest benchmark result and generated evidence block are recorded in
 [`BENCHMARKS.md`](BENCHMARKS.md). The evidence is limited to the declared
 Router/GZip workloads and does not establish full Starlette parity.
 
-Boundary details: [response protocols](RESPONSE_RENDER_BOUNDARY.md),
+Boundary details: [Request and HTTPConnection lookups](REQUEST_CONNECTION_LOOKUP_BOUNDARY.md),
+[response protocols](RESPONSE_RENDER_BOUNDARY.md),
 [server-error traceback data](SERVER_ERROR_BOUNDARY.md),
 [template callbacks](TEMPLATE_PROTOCOL_BOUNDARY.md),
 [optional imports](OPTIONAL_IMPORT_BOUNDARY.md),
@@ -676,17 +673,17 @@ also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
 The active parity contract is `parity-input@62` with full scope
-(`starlette-1.6.0-full`): 2,583 input cases across 437 parity files, two
+(`starlette-1.6.0-full`): 2,588 input cases across 437 parity files, two
 benchmark files, 152 Starlette compatibility operations, 15 Rust-native
-operations, 1,436 parity requirements, and six target profiles. Its manifest
-SHA-256 is `ffbf919201d9d658793b8e1d42cea97f23c856bd062b2b2f2399e8e7786c6520`.
-The parity, coverage, and benchmark receipts in the execution ledger remain
-tied to the prior `@58` manifest and exclude the current @59/@60/@61/@62 inputs.
-The new @61 case covers MultiDict keys whose Python `__ne__` returns a result
-independent of `__eq__`; the @62 cases cover WSGI status `str` subclasses
-whose `split()` returns a two-item iterator and BaseHTTPMiddleware's Python
-scope inequality and response-message equality behavior. All remain
-unexecuted until grouped parity. The four
+operations, 1,441 parity requirements, and six target profiles. Its manifest
+SHA-256 is `e666f6c2ae10afdfc6a785bd3101b0542ac1eba64d3687c92d3381a4c2790e3d`.
+The five Request/HTTPConnection boundary cases added at this checkpoint are
+not included in the earlier local @62 parity execution and remain deferred to
+the grouped parity phase. The earlier local @62 parity receipt covers the @61
+MultiDict case, where Python `__ne__` returns a result independent of `__eq__`,
+and the @62 WSGI and BaseHTTPMiddleware cases. Full multi-profile parity remains
+outstanding for that snapshot; the full coverage and benchmark receipts in the
+ledger are tied to the earlier @58 manifest. The four
 @60 cases include a Mount path string-subclass slice override. The active
 matrix also includes the Config typing consumer's nine
 pinned `Config.__call__` overload assertions. The generated source-row, mapping,

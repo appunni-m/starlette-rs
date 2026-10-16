@@ -922,6 +922,117 @@
       ]
     },
     {
+      "case_id": "starlette.requests.Request.url_for.str-subclass-forwarding",
+      "surface": "starlette.requests.Request",
+      "operation": "url_for",
+      "covers": [
+        "starlette.requests.Request.url_for.router-provider",
+        "starlette.requests.Request.url_for.str-subclass-forwarding"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "route_graph": {
+        "kind": "router",
+        "routes": [
+          {
+            "kind": "mount",
+            "path": "/assets",
+            "name": "assets",
+            "routes": [
+              {
+                "kind": "http-route",
+                "path": "/{file_path:path}",
+                "name": "file",
+                "methods": [
+                  "GET"
+                ],
+                "observer": null
+              }
+            ]
+          }
+        ]
+      },
+      "lookup": {
+        "name": "assets:file",
+        "path_params": {
+          "file_path": "css/base.css"
+        }
+      },
+      "lookup_name_subclass": {
+        "startswith_result": false
+      },
+      "request_scope": {
+        "provider": "router",
+        "type": "http",
+        "method": "GET",
+        "scheme": "https",
+        "path": "/",
+        "root_path": "",
+        "app_root_path": null,
+        "server": [
+          "www.example.org",
+          443
+        ]
+      },
+      "custom_convertors": [],
+      "observations": [
+        "reverse-url"
+      ]
+    },
+    {
+      "case_id": "starlette.requests.Request.url_for.base-url-property-override",
+      "surface": "starlette.requests.Request",
+      "operation": "url_for",
+      "covers": [
+        "starlette.requests.Request.url_for.router-provider",
+        "starlette.requests.Request.url_for.base-url-property-override"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "route_graph": {
+        "kind": "router",
+        "routes": [
+          {
+            "kind": "http-route",
+            "path": "/home",
+            "name": "homepage",
+            "methods": [
+              "GET"
+            ],
+            "observer": null
+          }
+        ]
+      },
+      "lookup": {
+        "name": "homepage",
+        "path_params": {}
+      },
+      "base_url_override": {
+        "value": "https://override.example.net/custom-root/"
+      },
+      "request_scope": {
+        "provider": "router",
+        "type": "http",
+        "method": "GET",
+        "scheme": "https",
+        "path": "/",
+        "root_path": "",
+        "app_root_path": null,
+        "server": [
+          "www.example.org",
+          443
+        ]
+      },
+      "custom_convertors": [],
+      "observations": [
+        "reverse-url"
+      ]
+    },
+    {
       "case_id": "starlette.requests.Request.url_for.app-provider",
       "surface": "starlette.requests.Request",
       "operation": "url_for",

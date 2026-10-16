@@ -29,6 +29,78 @@
       ]
     },
     {
+      "case_id": "starlette.websockets.WebSocket.scope-mapping.subclass-overridden-scope-property",
+      "surface": "starlette.websockets.WebSocket",
+      "operation": "scope-mapping",
+      "covers": [
+        "starlette.websockets.WebSocket.scope-property.subclass-override-inherited-properties"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "websocket",
+        "path": "/abc/",
+        "headers": []
+      },
+      "lookup_key": "type",
+      "header_lookup_keys": [],
+      "header_assignment": {
+        "key": "x-test",
+        "value": "rejected"
+      },
+      "scope_override": {
+        "scope": {
+          "type": "websocket",
+          "asgi": {
+            "version": "3.0",
+            "spec_version": "2.5"
+          },
+          "http_version": "1.1",
+          "scheme": "wss",
+          "path": "/override/socket",
+          "raw_path_base64": "L292ZXJyaWRlL3NvY2tldA==",
+          "query_string_base64": "c291cmNlPXdlYnNvY2tldA==",
+          "root_path": "/alt-root",
+          "headers_base64_pairs": [
+            [
+              "eC1zY29wZQ==",
+              "d2Vic29ja2V0LW92ZXJyaWRl"
+            ]
+          ],
+          "client": [
+            "203.0.113.9",
+            8043
+          ],
+          "server": [
+            "scope.example",
+            443
+          ],
+          "subprotocols": [],
+          "app": true,
+          "path_params": {
+            "room": "from-override"
+          }
+        },
+        "properties": [
+          "app",
+          "url",
+          "base_url",
+          "headers",
+          "query_params",
+          "path_params",
+          "client"
+        ],
+        "mapping": {
+          "lookup_key": "path"
+        }
+      },
+      "observations": [
+        "scope-mapping"
+      ]
+    },
+    {
       "case_id": "starlette.websockets.WebSocket.scope-mapping.headers-case-insensitive-repeated",
       "surface": "starlette.websockets.WebSocket",
       "operation": "scope-mapping",

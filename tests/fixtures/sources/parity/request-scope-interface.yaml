@@ -86,6 +86,76 @@
       ]
     },
     {
+      "case_id": "starlette.requests.Request.scope-mapping.subclass-overridden-scope-property",
+      "surface": "starlette.requests.Request",
+      "operation": "scope-mapping",
+      "covers": [
+        "starlette.requests.Request.scope-property.subclass-override-inherited-properties"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "http",
+        "method": "GET",
+        "path": "/abc/"
+      },
+      "scope_override": {
+        "scope": {
+          "type": "http",
+          "asgi": {
+            "version": "3.0",
+            "spec_version": "2.4"
+          },
+          "http_version": "1.1",
+          "method": "POST",
+          "scheme": "https",
+          "path": "/override/request",
+          "raw_path_base64": "L292ZXJyaWRlL3JlcXVlc3Q=",
+          "query_string_base64": "c291cmNlPXJlcXVlc3Q=",
+          "root_path": "/alt-root",
+          "headers_base64_pairs": [
+            [
+              "eC1zY29wZQ==",
+              "cmVxdWVzdC1vdmVycmlkZQ=="
+            ]
+          ],
+          "client": [
+            "203.0.113.8",
+            8042
+          ],
+          "server": [
+            "scope.example",
+            443
+          ],
+          "app": true,
+          "path_params": {
+            "item": "from-override"
+          }
+        },
+        "properties": [
+          "app",
+          "url",
+          "base_url",
+          "headers",
+          "query_params",
+          "path_params",
+          "client"
+        ],
+        "mapping": {
+          "lookup_key": "path"
+        }
+      },
+      "observations": [
+        "scope-mapping"
+      ]
+    },
+    {
       "case_id": "starlette.requests.Request.constructor-contract.rejects-websocket-scope",
       "surface": "starlette.requests.Request",
       "operation": "constructor-contract",

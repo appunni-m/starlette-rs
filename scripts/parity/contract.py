@@ -467,6 +467,12 @@ TESTCLIENT_REQUEST_REQUIREMENTS = {
 }
 REQUEST_URL_FOR_MISSING_CONTEXT_REQUIREMENT = "starlette.requests.Request.url_for.missing-context"
 REQUEST_URL_FOR_APP_PROVIDER_REQUIREMENT = "starlette.requests.Request.url_for.app-provider"
+REQUEST_URL_FOR_STR_SUBCLASS_REQUIREMENT = (
+    "starlette.requests.Request.url_for.str-subclass-forwarding"
+)
+REQUEST_URL_FOR_BASE_URL_PROPERTY_OVERRIDE_REQUIREMENT = (
+    "starlette.requests.Request.url_for.base-url-property-override"
+)
 TESTCLIENT_LIFESPAN_REQUIREMENTS = {
     "startup": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.startup-handshake",
     "managed_request": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.managed-request-portal-reuse",
@@ -789,6 +795,9 @@ REQUEST_COOKIE_CACHE_SEQUENCE_CASE_KEYS = (CASE_KEYS - {"steps", "execution_sche
 }
 REQUEST_SCOPE_MAPPING_REQUIREMENT = "starlette.requests.Request.scope-mapping.minimal-http-scope"
 REQUEST_SCOPE_PROPERTY_REQUIREMENT = "starlette.requests.Request.scope-property.supplied-mapping"
+REQUEST_SCOPE_PROPERTY_OVERRIDE_REQUIREMENT = (
+    "starlette.requests.Request.scope-property.subclass-override-inherited-properties"
+)
 REQUEST_SCOPE_IDENTITY_REQUIREMENT = "starlette.requests.Request.scope-mapping.object-identity"
 REQUEST_SCOPE_INSTANCE_ITER_REQUIREMENT = (
     "starlette.requests.Request.scope-mapping.instance-iter-override"
@@ -804,6 +813,9 @@ WEBSOCKET_SCOPE_MAPPING_REQUIREMENTS = {
     "minimal_scope": "starlette.websockets.WebSocket.scope-mapping.minimal-websocket-scope",
     "identity": "starlette.websockets.WebSocket.scope-mapping.object-identity",
 }
+WEBSOCKET_SCOPE_PROPERTY_OVERRIDE_REQUIREMENT = (
+    "starlette.websockets.WebSocket.scope-property.subclass-override-inherited-properties"
+)
 SCOPE_IDENTITY_HASH_SEQUENCE_REQUIREMENTS = {
     REQUEST_IDENTITY_HASH_SEQUENCE_OPERATION: (
         "starlette.requests.Request.scope-identity-hash-sequence.mutable-scope-identity"
@@ -822,6 +834,9 @@ WEBSOCKET_CONSTRUCTOR_SCOPE_REQUIREMENT = (
     "starlette.websockets.WebSocket.constructor.scope-type-validation"
 )
 REQUEST_SEND_PUSH_PROMISE_OPERATION = ("starlette.requests.Request", "send-push-promise")
+REQUEST_SEND_PUSH_PROMISE_HEADERS_PROPERTY_REQUIREMENT = (
+    "starlette.request.send-push-promise.headers-property-subclass-override"
+)
 REQUEST_IS_DISCONNECTED_OPERATION = ("starlette.requests.Request", "is-disconnected")
 REQUEST_FORM_OPERATION = ("starlette.requests.Request", "form")
 REQUEST_FORM_ARBITRARY_PRECISION_LIMIT_REQUIREMENT = (
@@ -1877,6 +1892,8 @@ def _reverse_url_case_keys(case: Any) -> set[str]:
     keys = set(REVERSE_URL_CASE_KEYS)
     if isinstance(case, dict) and "lookup_name_subclass" in case:
         keys.add("lookup_name_subclass")
+    if isinstance(case, dict) and "base_url_override" in case:
+        keys.add("base_url_override")
     return keys
 
 
@@ -13655,6 +13672,10 @@ def _reverse_input_requirements(case: dict[str, Any]) -> set[str]:
             scope = case["request_scope"]
             if scope["root_path"]:
                 derived.add(rid("mount-app-root-path"))
+        if "lookup_name_subclass" in case:
+            derived.add(REQUEST_URL_FOR_STR_SUBCLASS_REQUIREMENT)
+        if "base_url_override" in case:
+            derived.add(REQUEST_URL_FOR_BASE_URL_PROPERTY_OVERRIDE_REQUIREMENT)
         return derived
 
     if "lookup_name_subclass" in case:
@@ -13932,6 +13953,11 @@ def _validate_reverse_url_case_stimulus(case: dict[str, Any]) -> None:
         custom[name] = convertor
 
     graph = case["route_graph"]
+    if "base_url_override" in case and key != (
+        "starlette.requests.Request",
+        "url_for",
+    ):
+        raise ContractError("base_url_override is limited to Request.url_for cases")
     if "lookup_name_subclass" in case:
         lookup_name_subclass = _exact(
             case["lookup_name_subclass"],
@@ -13942,8 +13968,20 @@ def _validate_reverse_url_case_stimulus(case: dict[str, Any]) -> None:
             raise ContractError(
                 "reverse URL lookup_name_subclass.startswith_result must be a boolean"
             )
-        if key != ROUTER_URL_PATH_FOR_OPERATION_KEY:
-            raise ContractError("lookup-name subclasses require Router.url_path_for")
+        request_scope_spec = case.get("request_scope")
+        request_provider = (
+            request_scope_spec.get("provider")
+            if key[0] == "starlette.requests.Request" and isinstance(request_scope_spec, dict)
+            else None
+        )
+        if key != ROUTER_URL_PATH_FOR_OPERATION_KEY and not (
+            key == ("starlette.requests.Request", "url_for")
+            and request_provider in {"router", "app"}
+        ):
+            raise ContractError(
+                "lookup-name subclasses require Router.url_path_for or Request.url_for with "
+                "a router provider"
+            )
         if "rust-native-local" in case["target_profiles"]:
             raise ContractError("lookup-name subclass cases are Python-package-only")
         if not _reverse_route_graph_has_named_prefix(graph):
@@ -14032,6 +14070,46 @@ def _validate_reverse_url_case_stimulus(case: dict[str, Any]) -> None:
             if not isinstance(graph, dict) or graph.get("kind") != expected_kind:
                 raise ContractError(
                     f"Request provider {provider!r} requires a {expected_kind} route_graph"
+                )
+        if "base_url_override" in case:
+            base_url_override = _exact(
+                case["base_url_override"],
+                {"value"},
+                "Request.url_for base_url_override",
+            )
+            base_url_value = _string(
+                base_url_override["value"], "Request.url_for base_url_override.value"
+            )
+            if provider not in {"router", "app"}:
+                raise ContractError(
+                    "Request.url_for base_url_override requires a router or app provider"
+                )
+            lookup_subclass = case.get("lookup_name_subclass")
+            if (
+                isinstance(lookup_subclass, dict)
+                and lookup_subclass.get("startswith_result") is False
+            ):
+                raise ContractError(
+                    "Request.url_for base_url_override requires a lookup that reaches the base URL"
+                )
+            try:
+                base_url_components = urlsplit(base_url_value)
+                base_url_port = base_url_components.port
+            except ValueError as exc:
+                raise ContractError(
+                    "Request.url_for base_url_override must be a valid URL"
+                ) from exc
+            port_is_valid = base_url_port is None or 0 <= base_url_port <= 65535
+            if (
+                base_url_components.scheme not in {"http", "https"}
+                or not base_url_components.netloc
+                or base_url_components.query
+                or base_url_components.fragment
+                or not port_is_valid
+            ):
+                raise ContractError(
+                    "Request.url_for base_url_override must be an absolute HTTP URL without "
+                    "query or fragment"
                 )
     else:
         if request_scope is not None:
@@ -25252,6 +25330,12 @@ def _validate_case_payload(
         expected_case_keys = expected_case_keys | {"render_override"}
     if is_request_scope_mapping and isinstance(case, dict) and "scope_mapping" in case:
         expected_case_keys = expected_case_keys | {"scope_mapping"}
+    if (
+        isinstance(case, dict)
+        and (is_request_scope_mapping or is_websocket_scope_mapping)
+        and "scope_override" in case
+    ):
+        expected_case_keys = expected_case_keys | {"scope_override"}
     if is_request_constructor and isinstance(case, dict) and "scope_mapping" in case:
         expected_case_keys = expected_case_keys | {"scope_mapping"}
     if (
@@ -25612,6 +25696,8 @@ def _validate_case_payload(
         and (case.get("surface"), case.get("operation")) == REQUEST_COOKIE_CACHE_SEQUENCE_OPERATION
         and "headers_property" in case
     ):
+        expected_case_keys = expected_case_keys | {"headers_property"}
+    if is_send_push_promise and isinstance(case, dict) and "headers_property" in case:
         expected_case_keys = expected_case_keys | {"headers_property"}
     if is_static_files_lookup_path and "directory_pathlike" in case:
         expected_case_keys = expected_case_keys | {"directory_pathlike"}
@@ -33170,6 +33256,92 @@ def _validate_scope_identity_hash_sequence_case(case: dict[str, Any]) -> None:
         )
 
 
+SCOPE_OVERRIDE_CONNECTION_PROPERTIES = frozenset(
+    {"app", "base_url", "client", "headers", "path_params", "query_params", "url"}
+)
+
+
+def _validate_scope_property_override(case: dict[str, Any], scope_type: str) -> None:
+    override = _exact(
+        case["scope_override"],
+        {"scope", "properties", "mapping"},
+        f"{scope_type} scope-property override",
+    )
+    scope = override["scope"]
+    if not isinstance(scope, dict) or scope.get("type") != scope_type:
+        raise ContractError(f"{scope_type} scope-property override must preserve its scope type")
+    properties = override["properties"]
+    if (
+        not isinstance(properties, list)
+        or not properties
+        or any(
+            not isinstance(name, str) or name not in SCOPE_OVERRIDE_CONNECTION_PROPERTIES
+            for name in properties
+        )
+        or len(properties) != len(set(properties))
+    ):
+        raise ContractError(
+            f"{scope_type} scope-property override properties must be unique inherited "
+            "connection properties"
+        )
+    mapping = _exact(
+        override["mapping"],
+        {"lookup_key"},
+        f"{scope_type} scope-property override mapping",
+    )
+    lookup_key = _string(
+        mapping["lookup_key"], f"{scope_type} scope-property override mapping.lookup_key"
+    )
+    materialized_scope_keys = set(scope) - {
+        "raw_path_base64",
+        "query_string_base64",
+        "headers_base64_pairs",
+    }
+    materialized_scope_keys.update({"raw_path", "query_string", "headers"})
+    if lookup_key not in materialized_scope_keys:
+        raise ContractError(
+            f"{scope_type} scope-property mapping.lookup_key must exist in the overridden scope"
+        )
+    if "app" in properties and scope.get("app") is not True:
+        raise ContractError("scope-property app observation requires the true app marker")
+
+    if scope_type == "http":
+        _validate_dispatch_stimulus(
+            {
+                "scope": scope,
+                "receive": [],
+                "send": {"kind": "capture-asgi-send"},
+            },
+            request_dispatch=True,
+            allow_headers=True,
+            allow_root_path=True,
+            allow_query=True,
+            allow_host=True,
+            allow_client=True,
+            allow_inherited_mount_scope=True,
+            allow_scope_app=True,
+        )
+        if "path_params" in properties and "path_params" not in scope:
+            raise ContractError(
+                "scope-property path_params observation requires supplied scope data"
+            )
+    else:
+        extra_scope = {key: scope[key] for key in ("app", "path_params") if key in scope}
+        websocket_scope = {key: value for key, value in scope.items() if key not in extra_scope}
+        _validate_websocket_scope(websocket_scope)
+        if "app" in extra_scope and extra_scope["app"] is not True:
+            raise ContractError("WebSocket scope app marker must be true")
+        if "path_params" in extra_scope:
+            path_params = extra_scope["path_params"]
+            if not isinstance(path_params, dict) or any(
+                not isinstance(name, str) or not name or type(value) not in (str, int, float)
+                for name, value in path_params.items()
+            ):
+                raise ContractError("WebSocket scope path_params must map names to scalars")
+        if "path_params" in properties and "path_params" not in extra_scope:
+            raise ContractError("WebSocket path_params observation requires supplied scope data")
+
+
 def _validate_request_scope_mapping_case(case: dict[str, Any]) -> None:
     if case["target_profiles"] != list(PYTHON_PROFILE_IDS):
         raise ContractError("Request scope mapping parity targets all supported Python profiles")
@@ -33189,11 +33361,21 @@ def _validate_request_scope_mapping_case(case: dict[str, Any]) -> None:
         REQUEST_SCOPE_IDENTITY_REQUIREMENT,
         REQUEST_SCOPE_INSTANCE_ITER_REQUIREMENT,
         REQUEST_SCOPE_PROPERTY_REQUIREMENT,
+        REQUEST_SCOPE_PROPERTY_OVERRIDE_REQUIREMENT,
     }
     if not requirements <= allowed_requirements:
         raise ContractError(
             "Request scope-mapping case must cover its declared mapping requirements"
         )
+    if "scope_override" in case:
+        if requirements != {REQUEST_SCOPE_PROPERTY_OVERRIDE_REQUIREMENT}:
+            raise ContractError(
+                "Request scope-property override cases must cover their override requirement"
+            )
+        _validate_scope_property_override(case, "http")
+        return
+    if REQUEST_SCOPE_PROPERTY_OVERRIDE_REQUIREMENT in requirements:
+        raise ContractError("Request scope-property override coverage requires scope_override")
     if set(scope) == set(expected_scope):
         if REQUEST_SCOPE_MAPPING_REQUIREMENT not in requirements:
             raise ContractError("minimal Request scope mapping must cover the mapping requirement")
@@ -33346,6 +33528,18 @@ def _validate_websocket_scope_mapping_case(case: dict[str, Any]) -> None:
     )
     assignment_key = _string(assignment["key"], "WebSocket header_assignment.key")
     _string(assignment["value"], "WebSocket header_assignment.value")
+
+    if "scope_override" in case:
+        if scope != {"type": "websocket", "path": "/abc/", "headers": []}:
+            raise ContractError(
+                "WebSocket scope-property override requires its minimal input scope"
+            )
+        if case["covers"] != [WEBSOCKET_SCOPE_PROPERTY_OVERRIDE_REQUIREMENT] or header_lookup_keys:
+            raise ContractError(
+                "WebSocket scope-property override cases must cover only inherited properties"
+            )
+        _validate_scope_property_override(case, "websocket")
+        return
 
     if set(scope) == {"type", "path", "headers"}:
         if scope != {"type": "websocket", "path": "/abc/", "headers": []}:
@@ -33503,6 +33697,19 @@ def _validate_send_push_promise_case(case: dict[str, Any]) -> None:
             {"kind"},
             "Request.send_push_promise callback selector",
         )
+    headers_property_pairs: list[tuple[bytes, bytes]] | None = None
+    if "headers_property" in case:
+        headers_property = _exact(
+            case["headers_property"],
+            {"headers_base64_pairs"},
+            "Request.send_push_promise headers_property",
+        )
+        headers_property_pairs = _validate_header_pairs(
+            headers_property["headers_base64_pairs"],
+            "Request.send_push_promise headers_property",
+        )
+        if callback["kind"] != "capture":
+            raise ContractError("headers-property override requires a capturing send callback")
     scope = case["scope"]
     if not isinstance(scope, dict) or "extensions" not in scope:
         raise ContractError("push-promise scope must explicitly declare its extensions")
@@ -33523,6 +33730,26 @@ def _validate_send_push_promise_case(case: dict[str, Any]) -> None:
         raise ContractError("push-promise scope may declare only the HTTP response push extension")
     if "http.response.push" in extensions and extensions["http.response.push"] != {}:
         raise ContractError("HTTP response push extension configuration must be empty")
+    if headers_property_pairs is not None:
+        if "http.response.push" not in extensions:
+            raise ContractError("headers-property override requires the push extension")
+        original_pairs = _validate_header_pairs(
+            scope["headers_base64_pairs"], "Request.send_push_promise headers"
+        )
+        property_values: dict[bytes, list[bytes]] = {}
+        original_values: dict[bytes, list[bytes]] = {}
+        for name, value in headers_property_pairs:
+            normalized_name = name.lower()
+            if normalized_name in REQUEST_PUSH_PROMISE_COPIED_HEADERS:
+                property_values.setdefault(normalized_name, []).append(value)
+        for name, value in original_pairs:
+            normalized_name = name.lower()
+            if normalized_name in REQUEST_PUSH_PROMISE_COPIED_HEADERS:
+                original_values.setdefault(normalized_name, []).append(value)
+        if not any(
+            values != original_values.get(name, []) for name, values in property_values.items()
+        ):
+            raise ContractError("headers-property override must change a copied push header family")
     if "http.response.push" not in extensions:
         if callback["kind"] == "raise":
             raise ContractError(
@@ -33537,6 +33764,8 @@ def _validate_send_push_promise_case(case: dict[str, Any]) -> None:
             if callback["kind"] == "raise"
             else "starlette.request.send-push-promise.extension-event"
         ]
+        if headers_property_pairs is not None:
+            expected.append(REQUEST_SEND_PUSH_PROMISE_HEADERS_PROPERTY_REQUIREMENT)
         header_pairs = _validate_header_pairs(
             scope["headers_base64_pairs"], "Request.send_push_promise headers"
         )

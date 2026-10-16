@@ -14216,7 +14216,7 @@ def _run_reverse_url_case(case: dict[str, Any]) -> dict[str, Any]:
         for spec in case["custom_convertors"]
     }
     observation: dict[str, Any] = {}
-    lookup = case["lookup"]
+    lookup = dict(case["lookup"])
     lookup_name = lookup["name"]
     if "lookup_name_subclass" in case:
         startswith_result = case["lookup_name_subclass"]["startswith_result"]
@@ -14227,6 +14227,28 @@ def _run_reverse_url_case(case: dict[str, Any]) -> dict[str, Any]:
                 return startswith_result
 
         lookup_name = InputLookupName(lookup_name)
+        lookup["name"] = lookup_name
+
+    request_type = Request
+    base_url_property_reads: list[str] = []
+    if "base_url_override" in case:
+        from starlette.datastructures import URL
+
+        base_url = URL(case["base_url_override"]["value"])
+
+        class InputBaseURLPropertyRequest(Request):
+            @property
+            def base_url(self) -> URL:
+                base_url_property_reads.append("get")
+                return base_url
+
+        request_type = InputBaseURLPropertyRequest
+
+    def observe_request_url(scope: dict[str, Any]) -> dict[str, Any]:
+        result = _request_url_value(request_type(scope), lookup)
+        if "base_url_override" in case:
+            result["base_url_property_reads"] = list(base_url_property_reads)
+        return result
 
     try:
         for spec in case["custom_convertors"]:
@@ -14262,13 +14284,13 @@ def _run_reverse_url_case(case: dict[str, Any]) -> dict[str, Any]:
                 scope = _reverse_request_scope(request_scope)
                 provider = request_scope["provider"]
                 if provider == "none":
-                    observation["result"] = _request_url_value(Request(scope), lookup)
+                    observation["result"] = observe_request_url(scope)
                 elif provider == "router":
                     scope["router"] = graph
-                    observation["result"] = _request_url_value(Request(scope), lookup)
+                    observation["result"] = observe_request_url(scope)
                 elif provider == "app":
                     scope["app"] = graph
-                    observation["result"] = _request_url_value(Request(scope), lookup)
+                    observation["result"] = observe_request_url(scope)
                 else:
 
                     async def receive() -> dict[str, Any]:
@@ -14558,20 +14580,23 @@ def _run_default_receive_case(case: dict[str, Any]) -> dict[str, Any]:
 
 
 def _run_send_push_promise_case(case: dict[str, Any]) -> dict[str, Any]:
+    case_keys = {
+        "case_id",
+        "surface",
+        "operation",
+        "covers",
+        "target_profiles",
+        "assets",
+        "scope",
+        "path",
+        "send_callback",
+        "observations",
+    }
+    if "headers_property" in case:
+        case_keys.add("headers_property")
     _strict_object(
         case,
-        {
-            "case_id",
-            "surface",
-            "operation",
-            "covers",
-            "target_profiles",
-            "assets",
-            "scope",
-            "path",
-            "send_callback",
-            "observations",
-        },
+        case_keys,
         "Request send-push-promise case",
     )
     from starlette.requests import Request
@@ -14582,6 +14607,27 @@ def _run_send_push_promise_case(case: dict[str, Any]) -> dict[str, Any]:
     callback_error: BaseException | None = None
     callback_cause: BaseException | None = None
     callback_context: BaseException | None = None
+    headers_property_reads: list[str] = []
+    request_type = Request
+    if "headers_property" in case:
+        from starlette.datastructures import Headers
+
+        header_pairs = [
+            (
+                _decode_b64(name, "headers_property header name"),
+                _decode_b64(value, "headers_property header value"),
+            )
+            for name, value in case["headers_property"]["headers_base64_pairs"]
+        ]
+        headers_value = Headers(raw=header_pairs)
+
+        class InputHeadersPropertyRequest(Request):
+            @property
+            def headers(self) -> Headers:
+                headers_property_reads.append("get")
+                return headers_value
+
+        request_type = InputHeadersPropertyRequest
 
     async def capture_send(message: dict[str, Any]) -> None:
         nonlocal callback_calls
@@ -14590,7 +14636,7 @@ def _run_send_push_promise_case(case: dict[str, Any]) -> dict[str, Any]:
 
     scope = _make_scope(case["scope"])
     if callback_spec["kind"] == "capture":
-        request = Request(scope, send=capture_send)
+        request = request_type(scope, send=capture_send)
     elif callback_spec["kind"] == "raise":
         exception_types = {
             "LookupError": LookupError,
@@ -14618,9 +14664,9 @@ def _run_send_push_promise_case(case: dict[str, Any]) -> dict[str, Any]:
             except Exception:
                 raise error_to_raise from cause_to_raise
 
-        request = Request(scope, send=raise_send)
+        request = request_type(scope, send=raise_send)
     else:
-        request = Request(scope)
+        request = request_type(scope)
 
     async def observe() -> dict[str, Any]:
         try:
@@ -14661,6 +14707,8 @@ def _run_send_push_promise_case(case: dict[str, Any]) -> dict[str, Any]:
             result = {"outcome": "value", "sent": _json_safe(sent_messages)}
         if callback_spec["kind"] == "raise":
             result["callback_calls"] = callback_calls
+        if "headers_property" in case:
+            result["headers_property_reads"] = headers_property_reads
         return result
 
     return {

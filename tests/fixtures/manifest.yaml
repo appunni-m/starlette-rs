@@ -19075,6 +19075,30 @@
               "target_profiles": [
                 "python-package-cpython312"
               ]
+            },
+            {
+              "id": "starlette.requests.Request.url_for.str-subclass-forwarding",
+              "dimension": "boundary",
+              "description": "Forward an input-defined str subclass supplied as the lookup name through Request.url_for to its router or app provider, preserving overridden string methods used by named Mount prefix matching. Pinned source: starlette/requests.py:198-203; starlette/routing.py:427-449.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.requests.Request.url_for.base-url-property-override",
+              "dimension": "boundary",
+              "description": "Resolve Request.url_for's absolute URL through an input-defined base_url property override after the provider returns a URLPath. Pinned source: starlette/requests.py:198-203; starlette/datastructures.py::URLPath.make_absolute_url.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
             }
           ],
           "parity": {
@@ -19329,6 +19353,18 @@
               "id": "starlette.request.send-push-promise.header-iteration-order",
               "dimension": "input_family",
               "description": "With the push extension enabled, compare the order of copied header names when multiple designated names and repeated values are supplied. Pinned source: starlette/requests.py::SERVER_PUSH_HEADERS_TO_COPY and Request.send_push_promise.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.request.send-push-promise.headers-property-subclass-override",
+              "dimension": "boundary",
+              "description": "When Request.headers is overridden by an input-defined subclass property, send_push_promise reads the property and copies values from that Headers instance. Pinned source: starlette/requests.py:342-348.",
               "lanes": [
                 "parity",
                 "coverage"
@@ -21509,6 +21545,22 @@
               "id": "starlette.requests.Request.scope-property.supplied-mapping",
               "dimension": "boundary",
               "description": "Expose the supplied ASGI scope through Request.scope without dropping custom scope entries. Pinned source: starlette/requests.py::HTTPConnection.scope; docs/middleware.md:641-657.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
+              "id": "starlette.requests.Request.scope-property.subclass-override-inherited-properties",
+              "dimension": "boundary",
+              "description": "Inherited HTTPConnection properties on an input-defined Request subclass read its overridden scope property dynamically for app, url, base_url, headers, query_params, path_params, and client; inherited __getitem__, __iter__, and __len__ also read that scope. Pinned source: starlette/requests.py:90-167.",
               "lanes": [
                 "parity",
                 "coverage"
@@ -35475,6 +35527,18 @@
               "id": "starlette.websockets.WebSocket.scope-mapping.object-identity",
               "dimension": "boundary",
               "description": "Preserve WebSocket object identity semantics over equivalent input scopes: the same instance compares equal to itself and remains hashable for set membership, while a distinct instance is not equal. Pinned source: starlette/requests.py:98-101; tests/test_websockets.py::test_websocket_scope_interface.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.websockets.WebSocket.scope-property.subclass-override-inherited-properties",
+              "dimension": "boundary",
+              "description": "Inherited HTTPConnection properties on an input-defined WebSocket subclass read its overridden scope property dynamically for app, url, base_url, headers, query_params, path_params, and client; inherited __getitem__, __iter__, and __len__ also read that scope. Pinned source: starlette/requests.py:90-167; starlette/websockets.py:26.",
               "lanes": [
                 "parity",
                 "coverage"

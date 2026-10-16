@@ -70,6 +70,9 @@ def run_request_scope_mapping_case(
     request_type: type[Any],
 ) -> dict[str, Any]:
     """Observe the mapping API using the exact scope supplied by the case."""
+    if "scope_override" in case:
+        return run_scope_property_override_case(case, request_type)
+
     request = request_type(_scope_from_case(case))
     peer = request_type(dict(case["scope"]))
     value = {
@@ -95,6 +98,128 @@ def run_request_scope_mapping_case(
                 "step_id": "scope-mapping",
                 "status": "ok",
                 "value": {"scope-mapping": value},
+            }
+        ],
+    }
+
+
+def _scope_override_subclass(
+    connection_type: type[Any],
+    overridden_scope: Any,
+) -> type[Any]:
+    class InputScopePropertyOverride(connection_type):
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            self._input_overridden_scope = overridden_scope
+            self.scope_property_read_trace: list[str] = []
+            super().__init__(*args, **kwargs)
+
+        @property
+        def scope(self) -> Any:
+            self.scope_property_read_trace.append("get")
+            return self._input_overridden_scope
+
+        @scope.setter
+        def scope(self, value: Any) -> None:
+            self._input_assigned_scope = value
+
+    return InputScopePropertyOverride
+
+
+def _scope_override_property_value(connection: Any, name: str) -> Any:
+    value = getattr(connection, name)
+    if name == "headers":
+        return _safe(value.raw)
+    if name == "query_params":
+        return _safe(list(value.multi_items()))
+    return _safe(value)
+
+
+def _scope_override_from_spec(spec: dict[str, Any]) -> dict[str, Any]:
+    scope = {
+        "type": spec["type"],
+        "asgi": dict(spec["asgi"]),
+        "http_version": spec["http_version"],
+        "scheme": spec["scheme"],
+        "path": spec["path"],
+        "raw_path": base64.b64decode(spec["raw_path_base64"], validate=True),
+        "query_string": base64.b64decode(spec["query_string_base64"], validate=True),
+        "root_path": spec["root_path"],
+        "headers": [
+            (
+                base64.b64decode(name, validate=True),
+                base64.b64decode(value, validate=True),
+            )
+            for name, value in spec["headers_base64_pairs"]
+        ],
+        "client": None if spec["client"] is None else tuple(spec["client"]),
+        "server": tuple(spec["server"]),
+    }
+    if spec["type"] == "http":
+        scope["method"] = spec["method"]
+    else:
+        scope["subprotocols"] = list(spec["subprotocols"])
+    if "extensions" in spec:
+        scope["extensions"] = dict(spec["extensions"])
+    if "app" in spec:
+        scope["app"] = spec["app"]
+    if "app_root_path" in spec:
+        scope["app_root_path"] = spec["app_root_path"]
+    if "path_params" in spec:
+        scope["path_params"] = dict(spec["path_params"])
+    return scope
+
+
+def run_scope_property_override_case(
+    case: dict[str, Any],
+    connection_type: type[Any],
+) -> dict[str, Any]:
+    """Observe inherited connection properties through an input-defined scope override."""
+    override_spec = case["scope_override"]
+    overridden_scope = _scope_override_from_spec(override_spec["scope"])
+    subclass = _scope_override_subclass(connection_type, overridden_scope)
+    initial_scope = _scope_from_case(case)
+
+    if case["surface"] == "starlette.websockets.WebSocket":
+
+        async def receive() -> dict[str, str]:
+            return {"type": "websocket.connect"}
+
+        async def send(_message: dict[str, Any]) -> None:
+            return None
+
+        connection = subclass(initial_scope, receive=receive, send=send)
+    else:
+        connection = subclass(initial_scope)
+
+    scope_property = _probe(lambda: _safe(connection.scope))
+    properties = [
+        {
+            "name": name,
+            **_probe(lambda name=name: _scope_override_property_value(connection, name)),
+        }
+        for name in override_spec["properties"]
+    ]
+    mapping_spec = override_spec["mapping"]
+    mapping = {
+        "__getitem__": _probe(lambda: connection[mapping_spec["lookup_key"]]),
+        "__iter__": _probe(lambda: list(iter(connection))),
+        "__len__": _probe(lambda: len(connection)),
+    }
+    value = {
+        "scope_property": scope_property,
+        "inherited_properties": properties,
+        "scope_mapping_protocol": mapping,
+        "scope_property_read_trace": list(connection.scope_property_read_trace),
+    }
+    observation = case["observations"][0]
+    return {
+        "case_id": case["case_id"],
+        "status": "completed",
+        "observations": [
+            {
+                "step_id": observation,
+                "status": "ok",
+                "value": {observation: value},
             }
         ],
     }
@@ -386,6 +511,8 @@ def run_websocket_scope_mapping_case(
     websocket_type: type[Any],
 ) -> dict[str, Any]:
     """Observe WebSocket's inherited mapping and identity behavior from its input scope."""
+    if "scope_override" in case:
+        return run_scope_property_override_case(case, websocket_type)
 
     async def receive() -> dict[str, str]:
         return {"type": "websocket.connect"}

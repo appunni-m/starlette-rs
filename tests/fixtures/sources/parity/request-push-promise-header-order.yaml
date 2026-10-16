@@ -56,6 +56,64 @@
       "observations": [
         "send-push-promise"
       ]
+    },
+    {
+      "case_id": "starlette.requests.Request.send-push-promise.headers-property-subclass-override",
+      "surface": "starlette.requests.Request",
+      "operation": "send-push-promise",
+      "covers": [
+        "starlette.request.send-push-promise.extension-event",
+        "starlette.request.send-push-promise.headers-property-subclass-override"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ],
+        "extensions": {
+          "http.response.push": {}
+        }
+      },
+      "path": "/asset.css",
+      "send_callback": {
+        "kind": "capture"
+      },
+      "headers_property": {
+        "headers_base64_pairs": [
+          [
+            "dXNlci1hZ2VudA==",
+            "Y3VzdG9tLWFnZW50"
+          ],
+          [
+            "Y2FjaGUtY29udHJvbA==",
+            "Y3VzdG9tLWNvbnRyb2w="
+          ]
+        ]
+      },
+      "observations": [
+        "send-push-promise"
+      ]
     }
   ]
 }

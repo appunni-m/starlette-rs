@@ -906,7 +906,8 @@
         "starlette.websocket.api.iterator.athrow",
         "starlette.websockets.WebSocket.scope-identity-hash-sequence.mutable-scope-identity",
         "starlette.testclient.TestClient.lifespan-context.portal-exit-error-context",
-        "starlette.requests.Request.base_url.app-root-path-str-subclass-methods"
+        "starlette.requests.Request.base_url.app-root-path-str-subclass-methods",
+        "starlette.requests.Request.scope-property.subclass-override-inherited-properties"
       ],
       "target_profile": "python-package-cpython310",
       "selectors": {
@@ -1183,7 +1184,8 @@
           "starlette.applications.Starlette.typing-consumer.public-facade-aliases",
           "starlette.config.Config.typing-consumer.call-overloads",
           "starlette.responses.Response.typing-consumer.scope-mutable-mapping",
-          "starlette.templating.Jinja2Templates.typing-consumer.get-template-render"
+          "starlette.templating.Jinja2Templates.typing-consumer.get-template-render",
+          "starlette.requests.Request.scope-mapping.subclass-overridden-scope-property"
         ],
         "command_ids": []
       },
@@ -1410,7 +1412,8 @@
         "starlette.websocket.api.iterator.athrow",
         "starlette.websockets.WebSocket.scope-identity-hash-sequence.mutable-scope-identity",
         "starlette.testclient.TestClient.lifespan-context.portal-exit-error-context",
-        "starlette.requests.Request.base_url.app-root-path-str-subclass-methods"
+        "starlette.requests.Request.base_url.app-root-path-str-subclass-methods",
+        "starlette.requests.Request.scope-property.subclass-override-inherited-properties"
       ],
       "target_profile": "python-package-cpython311",
       "selectors": {
@@ -1687,7 +1690,8 @@
           "starlette.applications.Starlette.typing-consumer.public-facade-aliases",
           "starlette.config.Config.typing-consumer.call-overloads",
           "starlette.responses.Response.typing-consumer.scope-mutable-mapping",
-          "starlette.templating.Jinja2Templates.typing-consumer.get-template-render"
+          "starlette.templating.Jinja2Templates.typing-consumer.get-template-render",
+          "starlette.requests.Request.scope-mapping.subclass-overridden-scope-property"
         ],
         "command_ids": []
       },
@@ -3106,7 +3110,12 @@
         "starlette.websockets.WebSocketDisconnect.constructor-contract.fields-and-args",
         "starlette.websockets.WebSocketDisconnect.constructor-contract.reason-truthiness-error",
         "starlette.websockets.WebSocketDisconnect.constructor-contract.signature-errors",
-        "starlette.websockets.WebSocketDisconnect.constructor-contract.truthy-reason"
+        "starlette.websockets.WebSocketDisconnect.constructor-contract.truthy-reason",
+        "starlette.requests.Request.scope-property.subclass-override-inherited-properties",
+        "starlette.requests.Request.url_for.str-subclass-forwarding",
+        "starlette.requests.Request.url_for.base-url-property-override",
+        "starlette.request.send-push-promise.headers-property-subclass-override",
+        "starlette.websockets.WebSocket.scope-property.subclass-override-inherited-properties"
       ],
       "target_profile": "python-package-cpython312",
       "selectors": {
@@ -5676,7 +5685,12 @@
           "starlette.websockets.WebSocketClose.call-sequence.defaults-and-frame",
           "starlette.websockets.WebSocketClose.call-sequence.mutable-attributes",
           "starlette.websockets.WebSocketDisconnect.constructor-contract.falsey-reasons-and-errors",
-          "starlette.routing.Mount.route-dispatch.scope-path-str-subclass-slice-getitem"
+          "starlette.routing.Mount.route-dispatch.scope-path-str-subclass-slice-getitem",
+          "starlette.requests.Request.scope-mapping.subclass-overridden-scope-property",
+          "starlette.websockets.WebSocket.scope-mapping.subclass-overridden-scope-property",
+          "starlette.requests.Request.url_for.str-subclass-forwarding",
+          "starlette.requests.Request.url_for.base-url-property-override",
+          "starlette.requests.Request.send-push-promise.headers-property-subclass-override"
         ],
         "command_ids": []
       },
@@ -5904,7 +5918,8 @@
         "starlette.websocket.api.iterator.athrow",
         "starlette.websockets.WebSocket.scope-identity-hash-sequence.mutable-scope-identity",
         "starlette.testclient.TestClient.lifespan-context.portal-exit-error-context",
-        "starlette.requests.Request.base_url.app-root-path-str-subclass-methods"
+        "starlette.requests.Request.base_url.app-root-path-str-subclass-methods",
+        "starlette.requests.Request.scope-property.subclass-override-inherited-properties"
       ],
       "target_profile": "python-package-cpython313",
       "selectors": {
@@ -6182,7 +6197,8 @@
           "starlette.applications.Starlette.typing-consumer.public-facade-aliases",
           "starlette.config.Config.typing-consumer.call-overloads",
           "starlette.responses.Response.typing-consumer.scope-mutable-mapping",
-          "starlette.templating.Jinja2Templates.typing-consumer.get-template-render"
+          "starlette.templating.Jinja2Templates.typing-consumer.get-template-render",
+          "starlette.requests.Request.scope-mapping.subclass-overridden-scope-property"
         ],
         "command_ids": []
       },
@@ -6410,7 +6426,8 @@
         "starlette.websocket.api.iterator.athrow",
         "starlette.websockets.WebSocket.scope-identity-hash-sequence.mutable-scope-identity",
         "starlette.testclient.TestClient.lifespan-context.portal-exit-error-context",
-        "starlette.requests.Request.base_url.app-root-path-str-subclass-methods"
+        "starlette.requests.Request.base_url.app-root-path-str-subclass-methods",
+        "starlette.requests.Request.scope-property.subclass-override-inherited-properties"
       ],
       "target_profile": "python-package-cpython314",
       "selectors": {
@@ -6688,7 +6705,8 @@
           "starlette.applications.Starlette.typing-consumer.public-facade-aliases",
           "starlette.config.Config.typing-consumer.call-overloads",
           "starlette.responses.Response.typing-consumer.scope-mutable-mapping",
-          "starlette.templating.Jinja2Templates.typing-consumer.get-template-render"
+          "starlette.templating.Jinja2Templates.typing-consumer.get-template-render",
+          "starlette.requests.Request.scope-mapping.subclass-overridden-scope-property"
         ],
         "command_ids": []
       },

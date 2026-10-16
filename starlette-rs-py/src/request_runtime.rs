@@ -85,7 +85,6 @@ struct StreamProtocol {
 #[pyclass(name = "HTTPConnection")]
 pub(crate) struct PyHTTPConnection {
     scope: Py<PyAny>,
-    request_headers: Option<Py<PyAny>>,
     headers: Option<Py<PyAny>>,
     query_params: Option<Py<PyAny>>,
     cookies: Option<Py<PyAny>>,
@@ -98,7 +97,6 @@ pub(crate) struct PyHTTPConnection {
 impl PyHTTPConnection {
     fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
         visit.call(&self.scope)?;
-        visit.call(&self.request_headers)?;
         visit.call(&self.headers)?;
         visit.call(&self.query_params)?;
         visit.call(&self.cookies)?;
@@ -109,7 +107,6 @@ impl PyHTTPConnection {
 
     fn __clear__(&mut self, py: Python<'_>) {
         self.scope = py.None();
-        self.request_headers = None;
         self.headers = None;
         self.query_params = None;
         self.cookies = None;
@@ -140,7 +137,6 @@ impl PyHTTPConnection {
         }
         Ok(Self {
             scope,
-            request_headers: None,
             headers: None,
             query_params: None,
             cookies: None,
@@ -160,89 +156,139 @@ impl PyHTTPConnection {
         self.scope = scope;
     }
 
-    fn __getitem__(&self, py: Python<'_>, key: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
-        self.scope.bind(py).get_item(key).map(Bound::unbind)
+    #[staticmethod]
+    fn _assert_scope_type(py: Python<'_>, scope: Py<PyAny>, expected_type: &str) -> PyResult<()> {
+        if !scope.bind(py).get_item("type")?.eq(expected_type)? {
+            return Err(PyAssertionError::new_err(""));
+        }
+        Ok(())
     }
 
-    fn __iter__(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+    #[staticmethod]
+    fn _getitem_value(
+        py: Python<'_>,
+        connection: Py<PyAny>,
+        key: &Bound<'_, PyAny>,
+    ) -> PyResult<Py<PyAny>> {
+        connection
+            .bind(py)
+            .getattr("scope")?
+            .get_item(key)
+            .map(Bound::unbind)
+    }
+
+    #[staticmethod]
+    fn _iter_value(py: Python<'_>, connection: Py<PyAny>) -> PyResult<Py<PyAny>> {
         // Match `iter(scope)`, which resolves __iter__ on the mapping's type.
-        PyIterator::from_object(self.scope.bind(py)).map(|iterator| iterator.into_any().unbind())
+        let scope = connection.bind(py).getattr("scope")?;
+        PyIterator::from_object(&scope).map(|iterator| iterator.into_any().unbind())
     }
 
-    fn __len__(&self, py: Python<'_>) -> PyResult<usize> {
-        self.scope.bind(py).len()
+    #[staticmethod]
+    fn _len_value(py: Python<'_>, connection: Py<PyAny>) -> PyResult<usize> {
+        connection.bind(py).getattr("scope")?.len()
     }
 
-    #[getter]
-    fn app(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        self.scope.bind(py).get_item("app").map(Bound::unbind)
+    #[staticmethod]
+    fn _app_value(py: Python<'_>, connection: Py<PyAny>) -> PyResult<Py<PyAny>> {
+        connection
+            .bind(py)
+            .getattr("scope")?
+            .get_item("app")
+            .map(Bound::unbind)
     }
 
-    #[getter]
-    fn url(&mut self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        if let Some(url) = self.url.as_ref() {
-            return Ok(url.clone_ref(py));
+    #[staticmethod]
+    fn _url_value(py: Python<'_>, runtime: Py<Self>, connection: Py<PyAny>) -> PyResult<Py<PyAny>> {
+        let cached_url = {
+            let runtime = runtime.borrow(py);
+            runtime.url.as_ref().map(|url| url.clone_ref(py))
+        };
+        if let Some(url) = cached_url {
+            return Ok(url);
         }
-        let url = url_from_scope(py, self.scope.bind(py))?;
-        self.url = Some(url.clone_ref(py));
-        Ok(url)
-    }
-
-    #[getter]
-    fn base_url(&mut self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        if let Some(url) = self.base_url.as_ref() {
-            return Ok(url.clone_ref(py));
-        }
-        let scope = py
-            .import("builtins")?
-            .getattr("dict")?
-            .call1((self.scope.bind(py),))?;
-        let root_path = scope.call_method1("get", ("root_path", ""))?;
-        let app_root_path = scope.call_method1("get", ("app_root_path", root_path))?;
-        let mut path = app_root_path.clone();
-        if !path.call_method1("endswith", ("/",))?.is_truthy()? {
-            path = py.import("operator")?.getattr("iadd")?.call1((path, "/"))?;
-        }
-        scope.set_item("path", path)?;
-        scope.set_item("query_string", PyBytes::new(py, b""))?;
-        scope.set_item("root_path", app_root_path)?;
+        let scope = connection.bind(py).getattr("scope")?;
         let url = url_from_scope(py, &scope)?;
-        self.base_url = Some(url.clone_ref(py));
+        replace_connection_cache(py, &runtime, ConnectionCache::Url, url.clone_ref(py));
         Ok(url)
     }
 
-    #[getter]
-    fn headers(&mut self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        if let Some(headers) = self.headers.as_ref() {
-            return Ok(headers.clone_ref(py));
+    #[staticmethod]
+    fn _base_url_value(
+        py: Python<'_>,
+        runtime: Py<Self>,
+        connection: Py<PyAny>,
+    ) -> PyResult<Py<PyAny>> {
+        base_url_value(py, &runtime, &connection)
+    }
+
+    #[staticmethod]
+    fn _headers_value(
+        py: Python<'_>,
+        runtime: Py<Self>,
+        connection: Py<PyAny>,
+    ) -> PyResult<Py<PyAny>> {
+        let cached_headers = {
+            let runtime = runtime.borrow(py);
+            runtime
+                .headers
+                .as_ref()
+                .map(|headers| headers.clone_ref(py))
+        };
+        if let Some(headers) = cached_headers {
+            return Ok(headers);
         }
+        let scope = connection.bind(py).getattr("scope")?;
         let kwargs = PyDict::new(py);
-        kwargs.set_item("scope", self.scope.bind(py))?;
+        kwargs.set_item("scope", scope)?;
         let headers_type = py.import("starlette.datastructures")?.getattr("Headers")?;
         let headers = headers_type.call((), Some(&kwargs))?.unbind();
-        self.headers = Some(headers.clone_ref(py));
+        replace_connection_cache(
+            py,
+            &runtime,
+            ConnectionCache::Headers,
+            headers.clone_ref(py),
+        );
         Ok(headers)
     }
 
-    #[getter]
-    fn query_params(&mut self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        if let Some(params) = self.query_params.as_ref() {
-            return Ok(params.clone_ref(py));
+    #[staticmethod]
+    fn _query_params_value(
+        py: Python<'_>,
+        runtime: Py<Self>,
+        connection: Py<PyAny>,
+    ) -> PyResult<Py<PyAny>> {
+        let cached_params = {
+            let runtime = runtime.borrow(py);
+            runtime
+                .query_params
+                .as_ref()
+                .map(|params| params.clone_ref(py))
+        };
+        if let Some(params) = cached_params {
+            return Ok(params);
         }
-        let raw_query = self.scope.bind(py).get_item("query_string")?;
+        let scope = connection.bind(py).getattr("scope")?;
+        let raw_query = scope.get_item("query_string")?;
         let query_type = py
             .import("starlette.datastructures")?
             .getattr("QueryParams")?;
         let params = query_type.call1((raw_query,))?.unbind();
-        self.query_params = Some(params.clone_ref(py));
+        replace_connection_cache(
+            py,
+            &runtime,
+            ConnectionCache::QueryParams,
+            params.clone_ref(py),
+        );
         Ok(params)
     }
 
-    #[getter]
-    fn path_params(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+    #[staticmethod]
+    fn _path_params_value(py: Python<'_>, connection: Py<PyAny>) -> PyResult<Py<PyAny>> {
         let empty = PyDict::new(py);
-        self.scope
+        connection
             .bind(py)
+            .getattr("scope")?
             .call_method1("get", ("path_params", empty))
             .map(Bound::unbind)
     }
@@ -284,13 +330,19 @@ impl PyHTTPConnection {
             }
         }
         let cookies = cookies.into_any().unbind();
-        runtime.borrow_mut(py).cookies = Some(cookies.clone_ref(py));
+        replace_connection_cache(
+            py,
+            &runtime,
+            ConnectionCache::Cookies,
+            cookies.clone_ref(py),
+        );
         Ok(cookies)
     }
 
-    #[getter]
-    fn client(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        let client = self.scope.bind(py).call_method1("get", ("client",))?;
+    #[staticmethod]
+    fn _client_value(py: Python<'_>, connection: Py<PyAny>) -> PyResult<Py<PyAny>> {
+        let scope = connection.bind(py).getattr("scope")?;
+        let client = scope.call_method1("get", ("client",))?;
         if client.is_none() {
             return Ok(py.None());
         }
@@ -300,90 +352,126 @@ impl PyHTTPConnection {
         Ok(address.unbind())
     }
 
-    #[getter]
-    fn state(&mut self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        if let Some(state) = self.state.as_ref() {
-            return Ok(state.clone_ref(py));
+    #[staticmethod]
+    fn _state_value(
+        py: Python<'_>,
+        runtime: Py<Self>,
+        connection: Py<PyAny>,
+    ) -> PyResult<Py<PyAny>> {
+        let cached_state = {
+            let runtime = runtime.borrow(py);
+            runtime.state.as_ref().map(|state| state.clone_ref(py))
+        };
+        if let Some(state) = cached_state {
+            return Ok(state);
         }
         let empty = PyDict::new(py);
-        let scope = self.scope.bind(py);
-        // Starlette reads the mapping again after setdefault; a custom ASGI
-        // scope can expose a different value through __getitem__.
-        scope.call_method1("setdefault", ("state", empty))?;
-        let state_value = scope.get_item("state")?;
+        // Starlette resolves the public property once for setdefault and again
+        // for the subsequent item lookup.
+        connection
+            .bind(py)
+            .getattr("scope")?
+            .call_method1("setdefault", ("state", empty))?;
+        let state_value = connection.bind(py).getattr("scope")?.get_item("state")?;
         let state_type = py.import("starlette.datastructures")?.getattr("State")?;
         let state = state_type.call1((state_value,))?.unbind();
-        self.state = Some(state.clone_ref(py));
+        replace_connection_cache(py, &runtime, ConnectionCache::State, state.clone_ref(py));
         Ok(state)
     }
 
-    #[getter]
-    fn session(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        let scope = self.scope.bind(py);
+    #[staticmethod]
+    fn _session_value(py: Python<'_>, connection: Py<PyAny>) -> PyResult<Py<PyAny>> {
+        let contains_scope = connection.bind(py).getattr("scope")?;
         // Match `"session" in self.scope`, including type-level special
         // method lookup and the iterable fallback for mapping scopes.
-        if !scope.contains("session")? {
+        if !contains_scope.contains("session")? {
             return Err(PyAssertionError::new_err(
                 "SessionMiddleware must be installed to access request.session",
             ));
         }
-        let session = scope.get_item("session")?;
+        let session = connection.bind(py).getattr("scope")?.get_item("session")?;
         if session.hasattr("mark_accessed")? {
             session.call_method0("mark_accessed")?;
         }
         Ok(session.unbind())
     }
 
-    #[getter]
-    fn auth(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        let scope = self.scope.bind(py);
-        if !scope.contains("auth")? {
+    #[staticmethod]
+    fn _auth_value(py: Python<'_>, connection: Py<PyAny>) -> PyResult<Py<PyAny>> {
+        let contains_scope = connection.bind(py).getattr("scope")?;
+        if !contains_scope.contains("auth")? {
             return Err(PyAssertionError::new_err(
                 "AuthenticationMiddleware must be installed to access request.auth",
             ));
         }
-        scope.get_item("auth").map(Bound::unbind)
+        connection
+            .bind(py)
+            .getattr("scope")?
+            .get_item("auth")
+            .map(Bound::unbind)
     }
 
-    #[getter]
-    fn user(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        let scope = self.scope.bind(py);
-        if !scope.contains("user")? {
+    #[staticmethod]
+    fn _user_value(py: Python<'_>, connection: Py<PyAny>) -> PyResult<Py<PyAny>> {
+        let contains_scope = connection.bind(py).getattr("scope")?;
+        if !contains_scope.contains("user")? {
             return Err(PyAssertionError::new_err(
                 "AuthenticationMiddleware must be installed to access request.user",
             ));
         }
-        scope.get_item("user").map(Bound::unbind)
+        connection
+            .bind(py)
+            .getattr("scope")?
+            .get_item("user")
+            .map(Bound::unbind)
     }
 
-    #[getter]
-    fn method(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        self.scope.bind(py).get_item("method").map(Bound::unbind)
+    #[staticmethod]
+    fn _method_value(py: Python<'_>, connection: Py<PyAny>) -> PyResult<Py<PyAny>> {
+        connection
+            .bind(py)
+            .getattr("scope")?
+            .get_item("method")
+            .map(Bound::unbind)
     }
 
-    #[getter]
-    fn url_path(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        self.scope.bind(py).get_item("path").map(Bound::unbind)
+    #[staticmethod]
+    fn _url_path_value(py: Python<'_>, connection: Py<PyAny>) -> PyResult<Py<PyAny>> {
+        connection
+            .bind(py)
+            .getattr("scope")?
+            .get_item("path")
+            .map(Bound::unbind)
     }
 
-    #[getter]
-    fn router(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        self.scope.bind(py).get_item("router").map(Bound::unbind)
+    #[staticmethod]
+    fn _router_value(py: Python<'_>, connection: Py<PyAny>) -> PyResult<Py<PyAny>> {
+        connection
+            .bind(py)
+            .getattr("scope")?
+            .get_item("router")
+            .map(Bound::unbind)
     }
 
-    #[pyo3(signature = (name, /, **path_params))]
-    fn url_for(
-        &mut self,
+    #[staticmethod]
+    #[pyo3(signature = (runtime, connection, name, /, **path_params))]
+    fn _url_for(
         py: Python<'_>,
-        name: &str,
+        runtime: Py<Self>,
+        connection: Py<PyAny>,
+        name: &Bound<'_, PyAny>,
         path_params: Option<&Bound<'_, PyDict>>,
     ) -> PyResult<Py<PyAny>> {
-        let scope = self.scope.bind(py);
-        let router = scope.call_method1("get", ("router",))?;
+        drop(runtime);
+        let router_scope = connection.bind(py).getattr("scope")?;
+        let router = router_scope.call_method1("get", ("router",))?;
         let provider = if router.is_truthy()? {
             router
         } else {
-            scope.call_method1("get", ("app",))?
+            connection
+                .bind(py)
+                .getattr("scope")?
+                .call_method1("get", ("app",))?
         };
         if provider.is_none() {
             return Err(PyRuntimeError::new_err(
@@ -394,7 +482,7 @@ impl PyHTTPConnection {
         let path_params = path_params.unwrap_or(&empty);
         let args = PyTuple::new(py, [name])?;
         let url_path = provider.call_method("url_path_for", &args, Some(path_params))?;
-        let base_url = self.base_url(py)?;
+        let base_url = connection.bind(py).getattr("base_url")?;
         let kwargs = PyDict::new(py);
         kwargs.set_item("base_url", base_url)?;
         url_path
@@ -402,16 +490,17 @@ impl PyHTTPConnection {
             .map(Bound::unbind)
     }
 
+    #[staticmethod]
     fn _send_push_promise(
-        slf: Py<Self>,
         py: Python<'_>,
+        connection: Py<PyAny>,
         send_callback: Py<PyAny>,
         path: Py<PyAny>,
     ) -> PyResult<Py<PyAny>> {
         into_sendable_python_awaitable(
             py,
             SendPushPromiseMachine {
-                connection: slf,
+                connection,
                 send_callback,
                 path,
                 pending_send: false,
@@ -420,8 +509,74 @@ impl PyHTTPConnection {
     }
 }
 
+#[derive(Clone, Copy)]
+enum ConnectionCache {
+    Url,
+    BaseUrl,
+    Headers,
+    QueryParams,
+    Cookies,
+    State,
+}
+
+fn replace_connection_cache(
+    py: Python<'_>,
+    runtime: &Py<PyHTTPConnection>,
+    cache: ConnectionCache,
+    value: Py<PyAny>,
+) {
+    let displaced = {
+        let mut runtime = runtime.borrow_mut(py);
+        let slot = match cache {
+            ConnectionCache::Url => &mut runtime.url,
+            ConnectionCache::BaseUrl => &mut runtime.base_url,
+            ConnectionCache::Headers => &mut runtime.headers,
+            ConnectionCache::QueryParams => &mut runtime.query_params,
+            ConnectionCache::Cookies => &mut runtime.cookies,
+            ConnectionCache::State => &mut runtime.state,
+        };
+        slot.replace(value)
+    };
+    // A nested descriptor callback may have populated this cache while the
+    // outer lookup was building its value. Drop the displaced Python object
+    // only after the PyCell borrow has ended, since its finalizer may reenter.
+    drop(displaced);
+}
+
+fn base_url_value(
+    py: Python<'_>,
+    runtime: &Py<PyHTTPConnection>,
+    connection: &Py<PyAny>,
+) -> PyResult<Py<PyAny>> {
+    let cached_url = {
+        let runtime = runtime.borrow(py);
+        runtime.base_url.as_ref().map(|url| url.clone_ref(py))
+    };
+    if let Some(url) = cached_url {
+        return Ok(url);
+    }
+
+    let public_scope = connection.bind(py).getattr("scope")?;
+    let scope = py
+        .import("builtins")?
+        .getattr("dict")?
+        .call1((public_scope,))?;
+    let root_path = scope.call_method1("get", ("root_path", ""))?;
+    let app_root_path = scope.call_method1("get", ("app_root_path", root_path))?;
+    let mut path = app_root_path.clone();
+    if !path.call_method1("endswith", ("/",))?.is_truthy()? {
+        path = py.import("operator")?.getattr("iadd")?.call1((path, "/"))?;
+    }
+    scope.set_item("path", path)?;
+    scope.set_item("query_string", PyBytes::new(py, b""))?;
+    scope.set_item("root_path", app_root_path)?;
+    let url = url_from_scope(py, &scope)?;
+    replace_connection_cache(py, runtime, ConnectionCache::BaseUrl, url.clone_ref(py));
+    Ok(url)
+}
+
 struct SendPushPromiseMachine {
-    connection: Py<PyHTTPConnection>,
+    connection: Py<PyAny>,
     send_callback: Py<PyAny>,
     path: Py<PyAny>,
     pending_send: bool,
@@ -459,21 +614,12 @@ impl AwaitableStateMachine for SendPushPromiseMachine {
 
 impl SendPushPromiseMachine {
     fn start(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
-        let scope = self.connection.borrow(py).scope.clone_ref(py);
-        let scope = scope.bind(py);
+        let scope = self.connection.bind(py).getattr("scope")?;
         let default_extensions = PyDict::new(py);
         let extensions = scope.call_method1("get", ("extensions", &default_extensions))?;
         if !extensions.contains("http.response.push")? {
             return Ok(MachineAction::Complete(py.None()));
         }
-
-        let mut connection = self.connection.borrow_mut(py);
-        let request_headers = connection.native_headers(py)?;
-        let raw_headers = request_headers
-            .bind(py)
-            .call_method0("raw")?
-            .extract::<Vec<(Vec<u8>, Vec<u8>)>>()?;
-        drop(connection);
 
         // CPython compiles the all-constant upstream set literal as an empty
         // set updated from a frozenset constant. Preserve that construction:
@@ -490,15 +636,13 @@ impl SendPushPromiseMachine {
         copied_header_names.call_method1("update", (literal_contents,))?;
         let copied_headers = PyList::empty(py);
         for name in copied_header_names.iter() {
-            let name = name.extract::<String>()?;
-            for (header_name, value) in &raw_headers {
-                if header_name.eq_ignore_ascii_case(name.as_bytes()) {
-                    let pair = PyTuple::new(
-                        py,
-                        [PyBytes::new(py, name.as_bytes()), PyBytes::new(py, value)],
-                    )?;
-                    copied_headers.append(pair)?;
-                }
+            let headers = self.connection.bind(py).getattr("headers")?;
+            let values = headers.call_method1("getlist", (&name,))?;
+            for value in PyIterator::from_object(&values)? {
+                let value = value?;
+                let encoded_name = name.call_method1("encode", ("latin-1",))?;
+                let encoded_value = value.call_method1("encode", ("latin-1",))?;
+                copied_headers.append(PyTuple::new(py, [encoded_name, encoded_value])?)?;
             }
         }
 
@@ -509,26 +653,6 @@ impl SendPushPromiseMachine {
         let awaitable = self.send_callback.bind(py).call1((message,))?;
         self.pending_send = true;
         Ok(MachineAction::Await(awaitable.unbind()))
-    }
-}
-
-impl PyHTTPConnection {
-    fn native_headers(&mut self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        if let Some(headers) = self.request_headers.as_ref() {
-            return Ok(headers.clone_ref(py));
-        }
-        // Push-promise handling reads through the cached `self.headers`
-        // property. Reuse that object so replacing `scope` after the first
-        // header access does not switch that path to new headers.
-        let headers = self.headers(py)?;
-        let raw = headers.bind(py).getattr("raw")?;
-        let headers = py
-            .import("starlette_rs_py._core")?
-            .getattr("RequestHeaders")?
-            .call1((raw,))?
-            .unbind();
-        self.request_headers = Some(headers.clone_ref(py));
-        Ok(headers)
     }
 }
 
