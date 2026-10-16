@@ -41,7 +41,7 @@ help: ## Show common Rust workspace commands
 	  '  make clippy    Run strict workspace Clippy' \
 	  '  make rust-api-boundary-check  Keep Rust implementation modules private and exports named' \
 	  '  make python-lint  Run Ruff checks on Python sources' \
-	  '  make project-policy-check  Enforce parity-only behavioral checks' \
+	  '  make project-policy-check  Enforce parity-only behavior and workspace Rust lint policy' \
 	  '  make workflows-check  Lint GitHub Actions workflows' \
 	  '  make lint      Run Rust and Python format/lint checks' \
 	  '  make supply-chain-check  Audit Rust advisories, licenses, versions, and sources' \
@@ -141,7 +141,7 @@ rustdoc-check: ## Check Rust documentation with warnings denied
 python-lint: ## Run Ruff lint checks on Python sources
 	$(RUFF) check $(PYTHON_SOURCES)
 
-project-policy-check: ## Enforce parity-only behavioral checks and repository test policy
+project-policy-check: ## Enforce parity-only behavior and workspace Rust lint policy
 	$(PYTHON) scripts/check_project_policy.py
 
 workflows-check: ## Validate GitHub Actions workflows with checksum-pinned actionlint

@@ -36,11 +36,13 @@ downloads its pinned actionlint release into ignored `target/` on first use.
 This project has no conventional Python or Rust unit-test suite: `make test`
 runs live comparisons between pinned Starlette, the installed Python package,
 and supported Rust-native workflows. `make project-policy-check` enforces that
-policy.
-Four currently selected Rust-native callable rows are
-`not_run`, so the all-target parity command exits nonzero. The documentation
-checker uses only Python's standard library and checks repository-local
-Markdown link targets without network access.
+policy, checks every Cargo workspace member inherits the root lint policy, and
+rejects weakened required lint levels and broad lint-group allows. On macOS,
+POSIX surrogateescape filename cases can be `not_run` because the local
+filesystem cannot create those names; see [parity evidence](docs/PARITY.md) for
+the current run record. The documentation checker uses only Python's standard
+library and checks repository-local Markdown link targets without network
+access.
 
 If PyO3 cannot find a supported Python interpreter on the machine, set
 `PYO3_PYTHON` to that interpreter when running Cargo-backed targets, for
