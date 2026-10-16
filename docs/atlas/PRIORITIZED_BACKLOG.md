@@ -8,7 +8,7 @@ incomplete.
 
 ## Current execution snapshot
 
-The active `parity-input@65` contract contains 2,615 cases across 446 parity
+The active `parity-input@64` contract contains 2,615 cases across 446 parity
 inputs and two benchmark inputs, 152 Starlette compatibility operations, 15
 Rust-native operations, 1,453 parity requirements, and six target profiles. Its
 manifest SHA-256 is
