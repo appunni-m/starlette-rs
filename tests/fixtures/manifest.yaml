@@ -42639,6 +42639,10 @@
                   ],
                   "comparison": {
                     "kind": "exact"
+                  },
+                  "normalization": {
+                    "kind": "python-httpstatus-reason-phrase",
+                    "reason": "CPython 3.13 adopted RFC 9110 reason phrases for status codes 413, 414, 416, and 422 while older supported interpreters retain the previous phrases. The Rust-native API is interpreter-version-neutral, so normalize only these source-backed aliases and their dependent content-length values."
                   }
                 }
               ],

@@ -1300,12 +1300,18 @@ response start. They exercise omitted detail for status 406, explicit detail
 for 406, omitted detail for 204 and 304, and omitted detail plus a custom
 header for status 200. All five source/package comparisons pass exactly. The
 Python package resolves omitted details through Python's `HTTPStatus`
-boundary. `Response::http_exception` now accepts an optional detail and maps
-omitted values to the pinned status phrase, retaining explicit details and the
-204/304 empty-body behavior. The new Rust-native response contract input drives
+boundary. `Response::http_exception` accepts an optional detail and maps omitted
+values to the pinned status phrase, retaining explicit details and the
+204/304 empty-body behavior. The Rust-native response contract input drives
 all 62 pinned `HTTPStatus` values plus explicit-detail and bodyless-status
-inputs through the live Starlette oracle and Rust adapter. That input is
-authored but unexecuted.
+inputs through the live Starlette oracle and Rust adapter. Its focused local
+CPython 3.12 comparison passed (one selected case, zero failures). The manifest
+normalizes only the CPython 3.13 RFC 9110 reason-phrase aliases for statuses
+413, 414, 416, and 422 and their dependent content lengths because the
+Rust-native API has no interpreter version; [Python's HTTP documentation]
+(https://docs.python.org/3.13/library/http.html) records the renaming. Other
+response fields remain exact, and the focused run does not establish the full
+multi-version parity matrix.
 
 This result is limited to those five request-style endpoint inputs. A separate
 callable-ASGI input file adds one case that raises `HTTPException(406)` before

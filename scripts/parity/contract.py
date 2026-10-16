@@ -3505,6 +3505,21 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                             raise ContractError(
                                 f"{octx} permits process-state normalization only for exact public API inspection records"
                             )
+                    elif normalization_kind == "python-httpstatus-reason-phrase":
+                        normalization_spec = _exact(
+                            normalization_spec,
+                            {"kind", "reason"},
+                            f"{octx}.normalization",
+                        )
+                        _string(normalization_spec["reason"], f"{octx}.normalization.reason")
+                        if (
+                            key != ("starlette-rs.Response", "http-exception")
+                            or observation["path"] != "workflow"
+                            or comparison["kind"] != "exact"
+                        ):
+                            raise ContractError(
+                                "Python HTTPStatus phrase normalization is only allowed for the exact Rust-native HTTPException workflow"
+                            )
                     elif normalization_kind == "isolated-python-environment-path":
                         normalization_spec = _exact(
                             normalization_spec,

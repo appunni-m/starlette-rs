@@ -596,6 +596,105 @@ def _normalization_steps(normalization: dict[str, Any]) -> list[dict[str, Any]]:
     return [normalization]
 
 
+_PYTHON_HTTPSTATUS_REASON_PHRASES: dict[int, frozenset[str]] = {
+    413: frozenset({"Request Entity Too Large", "Content Too Large"}),
+    414: frozenset({"Request-URI Too Long", "URI Too Long"}),
+    416: frozenset({"Requested Range Not Satisfiable", "Range Not Satisfiable"}),
+    422: frozenset({"Unprocessable Entity", "Unprocessable Content"}),
+}
+
+
+def _normalize_python_httpstatus_reason_phrase(case: dict[str, Any], value: Any) -> Any:
+    """Normalize only input-driven Python-version aliases in native exception defaults."""
+    if not isinstance(value, dict):
+        return value
+    responses = value.get("responses")
+    inputs = case.get("inputs")
+    if (
+        not isinstance(responses, list)
+        or not isinstance(inputs, list)
+        or len(responses) != len(inputs)
+    ):
+        return value
+
+    normalized_responses: list[Any] = []
+    for stimulus, response in zip(inputs, responses, strict=True):
+        if not isinstance(stimulus, dict) or not isinstance(response, dict):
+            normalized_responses.append(response)
+            continue
+        input_status = stimulus.get("status_code")
+        if (
+            stimulus.get("detail") is not None
+            or type(input_status) is not int
+            or response.get("status_code") != input_status
+        ):
+            normalized_responses.append(response)
+            continue
+        status_code = response.get("status_code")
+        aliases = (
+            _PYTHON_HTTPSTATUS_REASON_PHRASES.get(status_code) if type(status_code) is int else None
+        )
+        body_base64 = response.get("body_base64")
+        if aliases is None or not isinstance(body_base64, str):
+            normalized_responses.append(response)
+            continue
+        try:
+            body = base64.b64decode(body_base64, validate=True).decode("utf-8")
+        except (ValueError, UnicodeDecodeError):
+            normalized_responses.append(response)
+            continue
+        if body not in aliases:
+            normalized_responses.append(response)
+            continue
+
+        # The body and its Content-Length vary together with HTTPStatus.phrase.
+        # Replacing just this input-derived alias keeps every other output exact.
+        canonical_body = f"<HTTPStatus {status_code} reason phrase>".encode("ascii")
+        original_body_length = len(body.encode("utf-8"))
+        normalized_response = dict(response)
+        normalized_response["body_base64"] = base64.b64encode(canonical_body).decode("ascii")
+        header_pairs = response.get("headers_base64_pairs")
+        if isinstance(header_pairs, list):
+            normalized_headers: list[Any] = []
+            for pair in header_pairs:
+                if not (
+                    isinstance(pair, list)
+                    and len(pair) == 2
+                    and isinstance(pair[0], str)
+                    and isinstance(pair[1], str)
+                ):
+                    normalized_headers.append(pair)
+                    continue
+                try:
+                    header_name = base64.b64decode(pair[0], validate=True).lower()
+                except (ValueError, TypeError):
+                    normalized_headers.append(pair)
+                    continue
+                if header_name != b"content-length":
+                    normalized_headers.append(pair)
+                    continue
+                try:
+                    header_value = base64.b64decode(pair[1], validate=True)
+                except (ValueError, TypeError):
+                    normalized_headers.append(pair)
+                    continue
+                if header_value != str(original_body_length).encode("ascii"):
+                    normalized_headers.append(pair)
+                    continue
+                normalized_headers.append(
+                    [
+                        pair[0],
+                        base64.b64encode(str(len(canonical_body)).encode("ascii")).decode("ascii"),
+                    ]
+                )
+            normalized_response["headers_base64_pairs"] = normalized_headers
+        normalized_responses.append(normalized_response)
+
+    normalized = dict(value)
+    normalized["responses"] = normalized_responses
+    return normalized
+
+
 def _normalize_anyio_cancel_scope_message(value: Any) -> Any:
     """Keep cancellation type and event order while dropping AnyIO scope/task IDs."""
     if isinstance(value, list):
@@ -1460,6 +1559,17 @@ def compare_workflows(
                         right_field = _normalize_python_public_signature_process_state(
                             path, right_field
                         )
+                    elif kind == "python-httpstatus-reason-phrase":
+                        if (
+                            case.get("surface"),
+                            case.get("operation"),
+                            path,
+                        ) != ("starlette-rs.Response", "http-exception", "workflow"):
+                            raise ContractError(
+                                "Python HTTPStatus phrase normalization is only allowed for the Rust-native HTTPException workflow"
+                            )
+                        left_field = _normalize_python_httpstatus_reason_phrase(case, left_field)
+                        right_field = _normalize_python_httpstatus_reason_phrase(case, right_field)
                     else:
                         raise ContractError(
                             f"unsupported normalization for {path}: {normalization_step!r}"
