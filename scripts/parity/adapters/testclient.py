@@ -81,6 +81,27 @@ def _input_text_objects(specifications: list[dict[str, str]]) -> dict[str, str]:
     return objects
 
 
+def _testclient_root_path(value: Any) -> tuple[str, Any | None]:
+    if not isinstance(value, dict):
+        return value, None
+    specification = value["str_subclass"]
+    path_type = type(
+        specification["class_name"],
+        (str,),
+        {"__module__": "starlette_testclient_parity_input"},
+    )
+    return path_type(specification["value"]), path_type
+
+
+def _root_path_identity(value: Any, root_path: Any, path_type: type[str]) -> dict[str, Any]:
+    value_type = type(value)
+    return {
+        "type": f"{value_type.__module__}.{value_type.__qualname__}",
+        "is_same_object": value is root_path,
+        "is_input_type": value_type is path_type,
+    }
+
+
 def _text_object_observation(
     value: Any, object_id: str, text_objects: dict[str, str]
 ) -> dict[str, Any]:
@@ -180,6 +201,7 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
     from starlette.testclient import TestClient
 
     settings = case["testclient"]
+    root_path, root_path_type = _testclient_root_path(settings["root_path"])
     request_input = case["request"]
     app_input = case["asgi_app"]
     scope_observations: list[dict[str, Any]] = []
@@ -196,9 +218,12 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
     nested_testclient_state: dict[str, Any] | None = None
 
     def record_scope(scope: dict[str, Any]) -> None:
-        scope_observations.append(
-            {field: _safe(scope[field]) for field in app_input["scope_fields"]}
-        )
+        observation = {field: _safe(scope[field]) for field in app_input["scope_fields"]}
+        if root_path_type is not None:
+            observation["root_path_identity"] = _root_path_identity(
+                scope["root_path"], root_path, root_path_type
+            )
+        scope_observations.append(observation)
 
     async def run_app_body(receive: Any, send: Any) -> None:
         for _ in range(app_input["receive_count"]):
@@ -1179,7 +1204,7 @@ def run_testclient_case(case: dict[str, Any]) -> dict[str, Any]:
         app,
         base_url=settings["base_url"],
         raise_server_exceptions=settings["raise_server_exceptions"],
-        root_path=settings["root_path"],
+        root_path=root_path,
         backend=settings.get("backend", "asyncio"),
         client=tuple(settings["client"]),
         headers=dict(settings["headers"]),
@@ -1434,6 +1459,7 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
     from starlette.websockets import WebSocketDisconnect
 
     settings = case["testclient"]
+    root_path, root_path_type = _testclient_root_path(settings["root_path"])
     websocket_input = case["websocket"]
     app_input = case["asgi_app"]
     text_objects = _input_text_objects(websocket_input.get("text_objects", []))
@@ -1491,9 +1517,12 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
         await send(outgoing_message)
 
     def record_scope(scope: dict[str, Any]) -> None:
-        scope_observations.append(
-            {field: _safe(scope[field]) for field in app_input["scope_fields"]}
-        )
+        observation = {field: _safe(scope[field]) for field in app_input["scope_fields"]}
+        if root_path_type is not None:
+            observation["root_path_identity"] = _root_path_identity(
+                scope["root_path"], root_path, root_path_type
+            )
+        scope_observations.append(observation)
 
     def describe_denial_response(exception: BaseException) -> dict[str, Any]:
         exception_type = type(exception)
@@ -1949,7 +1978,7 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
         app,
         base_url=settings["base_url"],
         raise_server_exceptions=settings["raise_server_exceptions"],
-        root_path=settings["root_path"],
+        root_path=root_path,
         client=tuple(settings["client"]),
         headers=dict(settings["headers"]),
         backend=settings.get("backend", "asyncio"),

@@ -911,7 +911,18 @@
         "starlette.websockets.WebSocket.scope-identity-hash-sequence.mutable-scope-identity",
         "starlette.testclient.TestClient.lifespan-context.portal-exit-error-context",
         "starlette.requests.Request.base_url.app-root-path-str-subclass-methods",
-        "starlette.requests.Request.scope-property.subclass-override-inherited-properties"
+        "starlette.requests.Request.scope-property.subclass-override-inherited-properties",
+        "starlette.staticfiles.StaticFiles.asgi-call.html-index-redirect",
+        "starlette.staticfiles.StaticFiles.asgi-call.path-str-subclass-dispatch",
+        "starlette.staticfiles.StaticFiles.asgi-call.root-path-prefix-html-index-redirect",
+        "starlette.staticfiles.StaticFiles.asgi-call.rooted-file-get",
+        "starlette.staticfiles.StaticFiles.lookup-path.file-metadata",
+        "starlette.staticfiles.StaticFiles.lookup-path.str-subclass-startswith",
+        "starlette.testclient.TestClient.request-response.exception-policy",
+        "starlette.testclient.TestClient.request-response.scope-projection",
+        "starlette.testclient.TestClient.websocket-session.portal-cleanup",
+        "starlette.testclient.TestClient.websocket-session.rejected-connection-disconnect",
+        "starlette.testclient.TestClient.websocket-session.scope-projection"
       ],
       "target_profile": "python-package-cpython310",
       "selectors": {
@@ -1189,7 +1200,16 @@
           "starlette.config.Config.typing-consumer.call-overloads",
           "starlette.responses.Response.typing-consumer.scope-mutable-mapping",
           "starlette.templating.Jinja2Templates.typing-consumer.get-template-render",
-          "starlette.requests.Request.scope-mapping.subclass-overridden-scope-property"
+          "starlette.requests.Request.scope-mapping.subclass-overridden-scope-property",
+          "starlette.staticfiles.StaticFiles.asgi-call.path-str-subclass-prefix-dispatch",
+          "starlette.staticfiles.StaticFiles.asgi-call.path-str-subclass-slice-dispatch",
+          "starlette.staticfiles.StaticFiles.asgi-call.path-str-subclass-split-dispatch",
+          "starlette.staticfiles.StaticFiles.asgi-call.root-path-prefix-html-index-redirect",
+          "starlette.staticfiles.StaticFiles.lookup-path.file-metadata",
+          "starlette.staticfiles.StaticFiles.lookup-path.str-subclass-startswith-false",
+          "starlette.staticfiles.StaticFiles.lookup-path.str-subclass-startswith-true",
+          "starlette.testclient.TestClient.request-response.root-path-str-subclass",
+          "starlette.testclient.TestClient.websocket-session.root-path-str-subclass"
         ],
         "command_ids": []
       },
@@ -1417,7 +1437,18 @@
         "starlette.websockets.WebSocket.scope-identity-hash-sequence.mutable-scope-identity",
         "starlette.testclient.TestClient.lifespan-context.portal-exit-error-context",
         "starlette.requests.Request.base_url.app-root-path-str-subclass-methods",
-        "starlette.requests.Request.scope-property.subclass-override-inherited-properties"
+        "starlette.requests.Request.scope-property.subclass-override-inherited-properties",
+        "starlette.staticfiles.StaticFiles.asgi-call.html-index-redirect",
+        "starlette.staticfiles.StaticFiles.asgi-call.path-str-subclass-dispatch",
+        "starlette.staticfiles.StaticFiles.asgi-call.root-path-prefix-html-index-redirect",
+        "starlette.staticfiles.StaticFiles.asgi-call.rooted-file-get",
+        "starlette.staticfiles.StaticFiles.lookup-path.file-metadata",
+        "starlette.staticfiles.StaticFiles.lookup-path.str-subclass-startswith",
+        "starlette.testclient.TestClient.request-response.exception-policy",
+        "starlette.testclient.TestClient.request-response.scope-projection",
+        "starlette.testclient.TestClient.websocket-session.portal-cleanup",
+        "starlette.testclient.TestClient.websocket-session.rejected-connection-disconnect",
+        "starlette.testclient.TestClient.websocket-session.scope-projection"
       ],
       "target_profile": "python-package-cpython311",
       "selectors": {
@@ -1695,7 +1726,16 @@
           "starlette.config.Config.typing-consumer.call-overloads",
           "starlette.responses.Response.typing-consumer.scope-mutable-mapping",
           "starlette.templating.Jinja2Templates.typing-consumer.get-template-render",
-          "starlette.requests.Request.scope-mapping.subclass-overridden-scope-property"
+          "starlette.requests.Request.scope-mapping.subclass-overridden-scope-property",
+          "starlette.staticfiles.StaticFiles.asgi-call.path-str-subclass-prefix-dispatch",
+          "starlette.staticfiles.StaticFiles.asgi-call.path-str-subclass-slice-dispatch",
+          "starlette.staticfiles.StaticFiles.asgi-call.path-str-subclass-split-dispatch",
+          "starlette.staticfiles.StaticFiles.asgi-call.root-path-prefix-html-index-redirect",
+          "starlette.staticfiles.StaticFiles.lookup-path.file-metadata",
+          "starlette.staticfiles.StaticFiles.lookup-path.str-subclass-startswith-false",
+          "starlette.staticfiles.StaticFiles.lookup-path.str-subclass-startswith-true",
+          "starlette.testclient.TestClient.request-response.root-path-str-subclass",
+          "starlette.testclient.TestClient.websocket-session.root-path-str-subclass"
         ],
         "command_ids": []
       },
@@ -3124,7 +3164,9 @@
         "starlette.requests.Request.url_for.str-subclass-forwarding",
         "starlette.requests.Request.url_for.base-url-property-override",
         "starlette.request.send-push-promise.headers-property-subclass-override",
-        "starlette.websockets.WebSocket.scope-property.subclass-override-inherited-properties"
+        "starlette.websockets.WebSocket.scope-property.subclass-override-inherited-properties",
+        "starlette.staticfiles.StaticFiles.asgi-call.path-str-subclass-dispatch",
+        "starlette.staticfiles.StaticFiles.lookup-path.str-subclass-startswith"
       ],
       "target_profile": "python-package-cpython312",
       "selectors": {
@@ -5708,7 +5750,14 @@
           "starlette.responses.FileResponse.asgi-call.stat-override-simple-short-read",
           "starlette.routing.Route.url_path_for.native.int-converter-string-coercion",
           "starlette.routing.Route.url_path_for.native.int-converter-unicode-decimal-digits",
-          "starlette.applications.Starlette.__call__.http-endpoint-405-status-handler"
+          "starlette.applications.Starlette.__call__.http-endpoint-405-status-handler",
+          "starlette.staticfiles.StaticFiles.asgi-call.path-str-subclass-prefix-dispatch",
+          "starlette.staticfiles.StaticFiles.asgi-call.path-str-subclass-slice-dispatch",
+          "starlette.staticfiles.StaticFiles.asgi-call.path-str-subclass-split-dispatch",
+          "starlette.staticfiles.StaticFiles.lookup-path.str-subclass-startswith-false",
+          "starlette.staticfiles.StaticFiles.lookup-path.str-subclass-startswith-true",
+          "starlette.testclient.TestClient.request-response.root-path-str-subclass",
+          "starlette.testclient.TestClient.websocket-session.root-path-str-subclass"
         ],
         "command_ids": []
       },
@@ -5937,7 +5986,18 @@
         "starlette.websockets.WebSocket.scope-identity-hash-sequence.mutable-scope-identity",
         "starlette.testclient.TestClient.lifespan-context.portal-exit-error-context",
         "starlette.requests.Request.base_url.app-root-path-str-subclass-methods",
-        "starlette.requests.Request.scope-property.subclass-override-inherited-properties"
+        "starlette.requests.Request.scope-property.subclass-override-inherited-properties",
+        "starlette.staticfiles.StaticFiles.asgi-call.html-index-redirect",
+        "starlette.staticfiles.StaticFiles.asgi-call.path-str-subclass-dispatch",
+        "starlette.staticfiles.StaticFiles.asgi-call.root-path-prefix-html-index-redirect",
+        "starlette.staticfiles.StaticFiles.asgi-call.rooted-file-get",
+        "starlette.staticfiles.StaticFiles.lookup-path.file-metadata",
+        "starlette.staticfiles.StaticFiles.lookup-path.str-subclass-startswith",
+        "starlette.testclient.TestClient.request-response.exception-policy",
+        "starlette.testclient.TestClient.request-response.scope-projection",
+        "starlette.testclient.TestClient.websocket-session.portal-cleanup",
+        "starlette.testclient.TestClient.websocket-session.rejected-connection-disconnect",
+        "starlette.testclient.TestClient.websocket-session.scope-projection"
       ],
       "target_profile": "python-package-cpython313",
       "selectors": {
@@ -6216,7 +6276,16 @@
           "starlette.config.Config.typing-consumer.call-overloads",
           "starlette.responses.Response.typing-consumer.scope-mutable-mapping",
           "starlette.templating.Jinja2Templates.typing-consumer.get-template-render",
-          "starlette.requests.Request.scope-mapping.subclass-overridden-scope-property"
+          "starlette.requests.Request.scope-mapping.subclass-overridden-scope-property",
+          "starlette.staticfiles.StaticFiles.asgi-call.path-str-subclass-prefix-dispatch",
+          "starlette.staticfiles.StaticFiles.asgi-call.path-str-subclass-slice-dispatch",
+          "starlette.staticfiles.StaticFiles.asgi-call.path-str-subclass-split-dispatch",
+          "starlette.staticfiles.StaticFiles.asgi-call.root-path-prefix-html-index-redirect",
+          "starlette.staticfiles.StaticFiles.lookup-path.file-metadata",
+          "starlette.staticfiles.StaticFiles.lookup-path.str-subclass-startswith-false",
+          "starlette.staticfiles.StaticFiles.lookup-path.str-subclass-startswith-true",
+          "starlette.testclient.TestClient.request-response.root-path-str-subclass",
+          "starlette.testclient.TestClient.websocket-session.root-path-str-subclass"
         ],
         "command_ids": []
       },
@@ -6445,7 +6514,18 @@
         "starlette.websockets.WebSocket.scope-identity-hash-sequence.mutable-scope-identity",
         "starlette.testclient.TestClient.lifespan-context.portal-exit-error-context",
         "starlette.requests.Request.base_url.app-root-path-str-subclass-methods",
-        "starlette.requests.Request.scope-property.subclass-override-inherited-properties"
+        "starlette.requests.Request.scope-property.subclass-override-inherited-properties",
+        "starlette.staticfiles.StaticFiles.asgi-call.html-index-redirect",
+        "starlette.staticfiles.StaticFiles.asgi-call.path-str-subclass-dispatch",
+        "starlette.staticfiles.StaticFiles.asgi-call.root-path-prefix-html-index-redirect",
+        "starlette.staticfiles.StaticFiles.asgi-call.rooted-file-get",
+        "starlette.staticfiles.StaticFiles.lookup-path.file-metadata",
+        "starlette.staticfiles.StaticFiles.lookup-path.str-subclass-startswith",
+        "starlette.testclient.TestClient.request-response.exception-policy",
+        "starlette.testclient.TestClient.request-response.scope-projection",
+        "starlette.testclient.TestClient.websocket-session.portal-cleanup",
+        "starlette.testclient.TestClient.websocket-session.rejected-connection-disconnect",
+        "starlette.testclient.TestClient.websocket-session.scope-projection"
       ],
       "target_profile": "python-package-cpython314",
       "selectors": {
@@ -6724,7 +6804,16 @@
           "starlette.config.Config.typing-consumer.call-overloads",
           "starlette.responses.Response.typing-consumer.scope-mutable-mapping",
           "starlette.templating.Jinja2Templates.typing-consumer.get-template-render",
-          "starlette.requests.Request.scope-mapping.subclass-overridden-scope-property"
+          "starlette.requests.Request.scope-mapping.subclass-overridden-scope-property",
+          "starlette.staticfiles.StaticFiles.asgi-call.path-str-subclass-prefix-dispatch",
+          "starlette.staticfiles.StaticFiles.asgi-call.path-str-subclass-slice-dispatch",
+          "starlette.staticfiles.StaticFiles.asgi-call.path-str-subclass-split-dispatch",
+          "starlette.staticfiles.StaticFiles.asgi-call.root-path-prefix-html-index-redirect",
+          "starlette.staticfiles.StaticFiles.lookup-path.file-metadata",
+          "starlette.staticfiles.StaticFiles.lookup-path.str-subclass-startswith-false",
+          "starlette.staticfiles.StaticFiles.lookup-path.str-subclass-startswith-true",
+          "starlette.testclient.TestClient.request-response.root-path-str-subclass",
+          "starlette.testclient.TestClient.websocket-session.root-path-str-subclass"
         ],
         "command_ids": []
       },

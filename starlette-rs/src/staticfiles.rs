@@ -222,12 +222,47 @@ impl StaticFiles {
         normalize_route_path(&route_path)
     }
 
+    /// Normalizes components returned by the Python compatibility boundary's
+    /// `route_path.split("/")` call.
+    ///
+    /// `PathBuf::push` supplies the platform path-join behavior, while this
+    /// type retains ownership of the final OS-specific normalization.
+    #[doc(hidden)]
+    #[must_use]
+    pub fn get_path_from_components<P, I>(components: I) -> OsString
+    where
+        P: AsRef<Path>,
+        I: IntoIterator<Item = P>,
+    {
+        let mut joined_path = PathBuf::new();
+        for component in components {
+            joined_path.push(component);
+        }
+        normalize_joined_path(joined_path.as_os_str())
+    }
+
     /// Looks up a relative native path while enforcing the configured-root boundary.
     pub fn lookup_path<P: AsRef<OsStr>>(
         &self,
         path: P,
     ) -> Result<Option<StaticFile>, StaticFilesError> {
-        self.lookup_path_with_directory(path, None)
+        self.lookup_path_in_order(path, None, false, None)
+    }
+
+    /// Looks up a path using an absolute-path decision supplied by a Python
+    /// compatibility boundary.
+    ///
+    /// Python `str` subclasses can override `startswith`, which Starlette uses
+    /// to reject absolute paths. The binding evaluates that method while the
+    /// GIL is held and passes its truth value here so the filesystem lookup
+    /// remains native without replacing the source protocol decision.
+    #[doc(hidden)]
+    pub fn lookup_path_with_absolute_path_result<P: AsRef<OsStr>>(
+        &self,
+        path: P,
+        is_absolute: bool,
+    ) -> Result<Option<StaticFile>, StaticFilesError> {
+        self.lookup_path_in_order(path, None, false, Some(is_absolute))
     }
 
     /// Looks up a relative path using a directory value resolved at call time.
@@ -245,6 +280,7 @@ impl StaticFiles {
             path,
             directory.map(|(joined, boundary)| (0, joined, boundary)),
             skip_first_static_directory,
+            None,
         )
     }
 
@@ -265,6 +301,26 @@ impl StaticFiles {
             path,
             Some((directory_index, joined_directory, boundary_directory)),
             false,
+            None,
+        )
+    }
+
+    /// Looks up a path using a source-provided absolute-path decision and a
+    /// directory inserted into the configured lookup order.
+    #[doc(hidden)]
+    pub fn lookup_path_with_directory_at_and_absolute_path_result<P: AsRef<OsStr>>(
+        &self,
+        path: P,
+        directory_index: usize,
+        joined_directory: &Path,
+        boundary_directory: &Path,
+        is_absolute: bool,
+    ) -> Result<Option<StaticFile>, StaticFilesError> {
+        self.lookup_path_in_order(
+            path,
+            Some((directory_index, joined_directory, boundary_directory)),
+            false,
+            Some(is_absolute),
         )
     }
 
@@ -273,9 +329,10 @@ impl StaticFiles {
         path: P,
         directory: Option<(usize, &Path, &Path)>,
         mut skip_first_static_directory: bool,
+        is_absolute: Option<bool>,
     ) -> Result<Option<StaticFile>, StaticFilesError> {
         let path = path.as_ref();
-        if is_absolute_lookup_path(path) {
+        if is_absolute.unwrap_or_else(|| is_absolute_lookup_path(path)) {
             return Ok(None);
         }
         // Starlette reaches os.stat only while trying a configured root. With
@@ -1230,12 +1287,40 @@ fn normalize_route_path(path: &OsStr) -> OsString {
     }
 }
 
+fn normalize_joined_path(path: &OsStr) -> OsString {
+    #[cfg(windows)]
+    {
+        normalize_windows_route_path(path)
+    }
+
+    #[cfg(not(windows))]
+    {
+        normalize_posix_route_path_with_root(path, true)
+    }
+}
+
 #[cfg(not(windows))]
 fn normalize_posix_route_path(path: &OsStr) -> OsString {
+    normalize_posix_route_path_with_root(path, false)
+}
+
+#[cfg(not(windows))]
+fn normalize_posix_route_path_with_root(path: &OsStr, preserve_root: bool) -> OsString {
     #[cfg(unix)]
     {
+        let path_bytes = path.as_bytes();
+        let leading_slashes = path_bytes.iter().take_while(|byte| **byte == b'/').count();
+        let root_prefix = if preserve_root && leading_slashes > 0 {
+            if leading_slashes == 2 && path_bytes.get(2) != Some(&b'/') {
+                b"//".as_slice()
+            } else {
+                b"/".as_slice()
+            }
+        } else {
+            b"".as_slice()
+        };
         let mut components: Vec<&[u8]> = Vec::new();
-        for component in path.as_bytes().split(|byte| *byte == b'/') {
+        for component in path_bytes.split(|byte| *byte == b'/') {
             match component {
                 b"" | b"." => {}
                 b".." if components.last().is_some_and(|part| *part != b"..") => {
@@ -1246,11 +1331,17 @@ fn normalize_posix_route_path(path: &OsStr) -> OsString {
             }
         }
         if components.is_empty() {
-            return OsString::from(".");
+            return if root_prefix.is_empty() {
+                OsString::from(".")
+            } else {
+                OsString::from_vec(root_prefix.to_vec())
+            };
         }
         let size = components.iter().map(|part| part.len()).sum::<usize>()
-            + components.len().saturating_sub(1);
+            + components.len().saturating_sub(1)
+            + root_prefix.len();
         let mut normalized = Vec::with_capacity(size);
+        normalized.extend_from_slice(root_prefix);
         for (index, component) in components.into_iter().enumerate() {
             if index > 0 {
                 normalized.push(b'/');
@@ -1264,6 +1355,15 @@ fn normalize_posix_route_path(path: &OsStr) -> OsString {
         let Some(path) = path.to_str() else {
             return path.to_os_string();
         };
+        let root_prefix = if preserve_root && path.starts_with('/') {
+            if path.starts_with("//") && !path.starts_with("///") {
+                "//"
+            } else {
+                "/"
+            }
+        } else {
+            ""
+        };
         let mut components = Vec::new();
         for component in path.split('/') {
             match component {
@@ -1276,9 +1376,13 @@ fn normalize_posix_route_path(path: &OsStr) -> OsString {
             }
         }
         if components.is_empty() {
-            OsString::from(".")
+            if root_prefix.is_empty() {
+                OsString::from(".")
+            } else {
+                OsString::from(root_prefix)
+            }
         } else {
-            OsString::from(components.join("/"))
+            OsString::from(format!("{root_prefix}{}", components.join("/")))
         }
     }
 }

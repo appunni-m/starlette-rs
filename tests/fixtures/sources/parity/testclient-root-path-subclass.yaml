@@ -1,0 +1,124 @@
+{
+  "schema": "migration-parity/parity-input@63",
+  "cases": [
+    {
+      "case_id": "starlette.testclient.TestClient.request-response.root-path-str-subclass",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "request-response",
+      "covers": [
+        "starlette.testclient.TestClient.request-response.scope-projection",
+        "starlette.testclient.TestClient.request-response.exception-policy"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "observations": [
+        "request-response"
+      ],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": {
+          "str_subclass": {
+            "class_name": "InputRootPath",
+            "value": "/http-tenant"
+          }
+        },
+        "client": [
+          "testclient",
+          50000
+        ],
+        "headers": []
+      },
+      "request": {
+        "method": "GET",
+        "url": "/",
+        "headers_base64_pairs": [],
+        "body_base64": ""
+      },
+      "asgi_app": {
+        "kind": "asgi3",
+        "scope_fields": [
+          "type",
+          "root_path"
+        ],
+        "receive_count": 0,
+        "messages": [],
+        "exception": {
+          "class": "RuntimeError",
+          "message": "scope recorded before the input exception"
+        }
+      }
+    },
+    {
+      "case_id": "starlette.testclient.TestClient.websocket-session.root-path-str-subclass",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "websocket-session",
+      "covers": [
+        "starlette.testclient.TestClient.websocket-session.scope-projection",
+        "starlette.testclient.TestClient.websocket-session.rejected-connection-disconnect",
+        "starlette.testclient.TestClient.websocket-session.portal-cleanup"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "observations": [
+        "websocket-session"
+      ],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": {
+          "str_subclass": {
+            "class_name": "InputRootPath",
+            "value": "/ws-tenant"
+          }
+        },
+        "client": [
+          "testclient",
+          50000
+        ],
+        "headers": [],
+        "backend": "asyncio",
+        "backend_options": {}
+      },
+      "websocket": {
+        "url": "/",
+        "subprotocols": null,
+        "headers": [],
+        "actions": []
+      },
+      "asgi_app": {
+        "kind": "asgi3",
+        "scope_fields": [
+          "type",
+          "root_path"
+        ],
+        "actions": [
+          {
+            "operation": "websocket_flow",
+            "actions": [
+              {
+                "operation": "receive"
+              },
+              {
+                "operation": "close",
+                "code": 1001
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

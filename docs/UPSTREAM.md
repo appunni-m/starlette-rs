@@ -135,3 +135,28 @@ consumer in `tests/test_responses.py:188-199`. Attribute hooks and raw-header
 properties are independently authored user callbacks, without copied upstream
 test files or expected outputs. The pinned upstream BSD-3-Clause notice above
 remains applicable to reused behavior specifications.
+
+## StaticFiles path-subclass input provenance
+
+`tests/fixtures/sources/parity/static-files-str-subclass-path.yaml` is
+independently authored from pinned `starlette/_utils.py::get_route_path` and
+`starlette/staticfiles.py::StaticFiles.get_path` and `lookup_path` (1.6.0
+lines 96-110 and 154-173). Its Python `str` subclasses override only the
+source-used `startswith`, slice, or `split` protocol and supply their results
+as input; the file trees and response/lookup observations are likewise
+input-defined. No upstream test file or expected output is copied. The
+source/package comparisons cover CPython 3.10 through 3.14 and remain deferred
+to the grouped parity phase. The pinned Starlette BSD-3-Clause provenance
+above applies to the behavior specification.
+
+## TestClient input provenance
+
+`tests/fixtures/sources/parity/testclient-root-path-subclass.yaml` is
+independently authored from the pinned `starlette/testclient.py:190-205,239-261`
+and the `TestClient` scope contract in `docs/testclient.md`. The HTTP and
+WebSocket inputs construct their `str` subclass from input fields and compare
+the live scope value's type and identity with that original object across
+CPython 3.10–3.14. No upstream test body, expected output, or target-private
+state is copied. The source remains a development-time BSD-3-Clause oracle;
+the comparisons are deferred to the grouped parity phase. See
+[`TESTCLIENT_BOUNDARY.md`](TESTCLIENT_BOUNDARY.md).

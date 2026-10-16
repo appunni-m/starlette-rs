@@ -11,7 +11,7 @@ use crate::awaitable::{
 };
 use pyo3::class::gc::{PyTraverseError, PyVisit};
 use pyo3::exceptions::{
-    PyAssertionError, PyOSError, PyPermissionError, PyRuntimeError, PyValueError,
+    PyAssertionError, PyOSError, PyPermissionError, PyRuntimeError, PyTypeError, PyValueError,
 };
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyDict, PyInt, PyList, PyModule, PyString, PyTuple};
@@ -204,9 +204,19 @@ impl PyStaticFiles {
     }
 
     fn get_path(&self, py: Python<'_>, scope: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
-        let path = scope_path_from_python(py, &scope.get_item("path")?)?;
-        let root_path = scope_path_from_python(py, &scope.call_method1("get", ("root_path", ""))?)?;
-        let path = NativeStaticFiles::get_path(path.as_os_str(), root_path.as_os_str());
+        let route_path = crate::router_runtime::route_path_from_scope(scope)?;
+        let components = route_path.call_method1("split", ("/",))?;
+        let components = components
+            .try_iter()?
+            .map(|component| path_from_python(py, &component?))
+            .collect::<PyResult<Vec<_>>>()?;
+        if components.is_empty() {
+            return Err(PyTypeError::new_err(
+                "join() missing 1 required positional argument: 'a'",
+            ));
+        }
+        let path =
+            NativeStaticFiles::get_path_from_components(components.iter().map(PathBuf::as_path));
         path_string(py, Path::new(&path)).map(Bound::unbind)
     }
 
@@ -216,6 +226,9 @@ impl PyStaticFiles {
         path: &Bound<'_, PyString>,
     ) -> PyResult<(Py<PyAny>, Py<PyAny>)> {
         let inner = self.inner.clone();
+        let is_absolute = path
+            .call_method1("startswith", (("/", "\\"),))?
+            .is_truthy()?;
         let path = path_from_python(py, path.as_any())?;
         let dynamic_directory = match (self.directory.as_ref(), self.directory_insertion_index) {
             (Some(directory), Some(index)) if !directory.bind(py).is_instance_of::<PyString>() => {
@@ -223,21 +236,22 @@ impl PyStaticFiles {
             }
             _ => None,
         };
-        let lookup = if is_absolute_lookup_path(&path) {
-            py.detach(move || inner.lookup_path(path.as_os_str()))
-        } else if let Some((directory, directory_index)) = dynamic_directory {
+        let lookup = if let Some((directory, directory_index)) = dynamic_directory {
             let joined_directory = path_from_python(py, directory.bind(py))?;
             let boundary_directory = path_from_python(py, directory.bind(py))?;
             py.detach(move || {
-                inner.lookup_path_with_directory_at(
+                inner.lookup_path_with_directory_at_and_absolute_path_result(
                     path.as_os_str(),
                     directory_index,
                     joined_directory.as_path(),
                     boundary_directory.as_path(),
+                    is_absolute,
                 )
             })
         } else {
-            py.detach(move || inner.lookup_path(path.as_os_str()))
+            py.detach(move || {
+                inner.lookup_path_with_absolute_path_result(path.as_os_str(), is_absolute)
+            })
         }
         .map_err(static_files_error)?;
         match lookup {
@@ -975,21 +989,6 @@ fn path_from_python(py: Python<'_>, value: &Bound<'_, PyAny>) -> PyResult<PathBu
 fn scope_path_from_python(py: Python<'_>, value: &Bound<'_, PyAny>) -> PyResult<PathBuf> {
     let path = value.cast::<PyString>()?;
     path_from_python(py, path.as_any())
-}
-
-fn is_absolute_lookup_path(path: &Path) -> bool {
-    #[cfg(unix)]
-    {
-        path.as_os_str()
-            .as_bytes()
-            .first()
-            .is_some_and(|byte| *byte == b'/' || *byte == 0x5c)
-    }
-    #[cfg(not(unix))]
-    {
-        path.to_str()
-            .is_some_and(|value| value.starts_with('/') || value.starts_with('\\'))
-    }
 }
 
 fn path_string<'py>(py: Python<'py>, path: &Path) -> PyResult<Bound<'py, PyAny>> {

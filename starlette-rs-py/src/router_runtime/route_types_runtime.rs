@@ -2591,10 +2591,10 @@ fn merged_path_params(
     Ok(path_params.unbind())
 }
 
-fn route_path_from_scope<'py>(scope: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
+pub(super) fn route_path_from_scope<'py>(scope: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
     // Match get_route_path's Python operations in source order. In particular,
     // keep the original path object so str-subclass methods and slicing, as
-    // well as their exceptions, remain observable at the regex boundary.
+    // well as their exceptions, remain observable at the Rust call boundary.
     let path = scope.get_item("path")?;
     let root_path = scope.call_method1("get", ("root_path", ""))?;
     if !root_path.is_truthy()? {

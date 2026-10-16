@@ -219,7 +219,7 @@ pub(crate) struct PyTestClientTransport {
     backend: String,
     backend_options: Py<PyDict>,
     raise_server_exceptions: bool,
-    root_path: String,
+    root_path: Py<PyAny>,
     client: Py<PyAny>,
     app_state: Py<PyDict>,
     lifespan: Option<TestClientLifespan>,
@@ -1366,6 +1366,7 @@ impl PyTestClientTransport {
         visit.call(&self.httpx)?;
         visit.call(&self.asgi3_runner)?;
         visit.call(&self.backend_options)?;
+        visit.call(&self.root_path)?;
         visit.call(&self.client)?;
         visit.call(&self.app_state)?;
         if let Some(lifespan) = self.lifespan.as_ref() {
@@ -1378,6 +1379,7 @@ impl PyTestClientTransport {
         self.app = py.None();
         self.httpx = py.None();
         self.asgi3_runner = py.None();
+        self.root_path = py.None();
         self.client = py.None();
         self.lifespan = None;
     }
@@ -1411,7 +1413,7 @@ impl PyTestClientTransport {
         let root_path = settings
             .get_item("root_path")?
             .ok_or_else(|| PyKeyError::new_err("root_path"))?
-            .extract::<String>()?;
+            .unbind();
         let client = settings
             .get_item("client")?
             .ok_or_else(|| PyKeyError::new_err("client"))?
@@ -1596,6 +1598,7 @@ impl PyTestClientTransport {
 
     fn handle_request(&self, py: Python<'_>, request: Py<PyAny>) -> PyResult<Py<PyAny>> {
         let request = request.bind(py);
+        let root_path = self.root_path.bind(py);
         let scheme = request
             .getattr("url")?
             .getattr("scheme")?
@@ -1604,7 +1607,7 @@ impl PyTestClientTransport {
             let scope = build_websocket_scope(
                 py,
                 request,
-                &self.root_path,
+                root_path,
                 self.client.bind(py),
                 self.app_state.bind(py),
             )?;
@@ -1631,7 +1634,7 @@ impl PyTestClientTransport {
         let (scope, method) = build_http_scope(
             py,
             request,
-            self.root_path.as_str(),
+            root_path,
             self.client.bind(py),
             self.app_state.bind(py),
         )?;
@@ -2108,7 +2111,7 @@ fn decode_response_headers(
 fn build_websocket_scope(
     py: Python<'_>,
     request: &Bound<'_, PyAny>,
-    root_path: &str,
+    root_path: &Bound<'_, PyAny>,
     client: &Bound<'_, PyAny>,
     app_state: &Bound<'_, PyDict>,
 ) -> PyResult<Py<PyDict>> {
@@ -2253,7 +2256,7 @@ fn is_cancelled_error(py: Python<'_>, error: &PyErr) -> PyResult<bool> {
 fn build_http_scope(
     py: Python<'_>,
     request: &Bound<'_, PyAny>,
-    root_path: &str,
+    root_path: &Bound<'_, PyAny>,
     client: &Bound<'_, PyAny>,
     app_state: &Bound<'_, PyDict>,
 ) -> PyResult<(Py<PyDict>, String)> {

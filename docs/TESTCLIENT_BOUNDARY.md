@@ -67,6 +67,22 @@ The implementation boundary is:
   merging, app state, and construction of the HTTPX response through its public
   types. Rust calls the
   supplied ASGI callable through the existing PyO3 awaitable boundary.
+- The pinned constructor stores the supplied `root_path` object directly and
+  inserts that same value into HTTP and WebSocket scopes
+  (`starlette/testclient.py:190-205,239-261`). A Python `str` subclass is
+  therefore observable by an ASGI app through both its type and object
+  identity. `PyTestClientTransport` retains the original `Py<PyAny>`, visits
+  it during GC traversal, clears it during cycle cleanup, and passes its bound
+  value to Rust's HTTP and WebSocket scope builders, which assign
+  `scope["root_path"]` (`starlette-rs-py/src/testclient_runtime.rs`,
+  `PyTestClientTransport::__traverse__`, `__clear__`, `new`,
+  `build_http_scope`, and `build_websocket_scope`). This is the minimal PyO3
+  lifetime and value-forwarding boundary needed to preserve the Python object;
+  Rust still constructs both scopes and owns TestClient behavior. The
+  input-only [`testclient-root-path-subclass.yaml`](../tests/fixtures/sources/parity/testclient-root-path-subclass.yaml)
+  constructs its string subclass from the input and records the observed type
+  and identity for HTTP and WebSocket scopes across CPython 3.10–3.14. Its
+  comparison remains deferred to the grouped parity phase.
 - For non-`bytes` response bodies, Rust delegates buffer extraction to
   `io.BytesIO.write`. The pinned transport uses that same operation, whose
   accepted buffer formats and `TypeError`/`BufferError` behavior are part of

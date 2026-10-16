@@ -1176,15 +1176,20 @@ def _materialize_scope_path_spec(value: Any) -> Any:
         return value
     descriptor = _strict_object(value, {"str_subclass"}, "scope path")
     subclass = descriptor["str_subclass"]
-    if not isinstance(subclass, dict) or set(subclass) not in (
-        {"value", "startswith_result"},
-        {"value", "startswith_result", "slice_result"},
-    ):
+    allowed_fields = {"value", "startswith_result"}
+    if isinstance(subclass, dict):
+        if "slice_result" in subclass:
+            allowed_fields.add("slice_result")
+        if "split_result" in subclass:
+            allowed_fields.add("split_result")
+    if not isinstance(subclass, dict) or set(subclass) != allowed_fields:
         raise ValueError("scope path str_subclass has unsupported fields")
     path_value = subclass["value"]
     startswith_result = subclass["startswith_result"]
     has_slice_result = "slice_result" in subclass
     slice_result = subclass.get("slice_result")
+    has_split_result = "split_result" in subclass
+    split_result = subclass.get("split_result")
 
     class InputPathSubclass(str):
         def startswith(self, _prefix: Any, start: int = 0, end: int | None = None) -> bool:
@@ -1196,6 +1201,11 @@ def _materialize_scope_path_spec(value: Any) -> Any:
                 if isinstance(key, slice):
                     return slice_result
                 return str.__getitem__(self, key)
+
+        if has_split_result:
+
+            def split(self, _separator: str | None = None, _maxsplit: int = -1) -> Any:
+                return split_result
 
     return InputPathSubclass(path_value)
 
@@ -11924,8 +11934,10 @@ def _apply_static_files_actions(root: Path, actions: Any) -> None:
         (parent / components[-1]).unlink()
 
 
-def _static_files_scope_path(value: Any, context: str) -> str:
+def _static_files_scope_path(value: Any, context: str) -> Any:
     if isinstance(value, str):
+        return value
+    if isinstance(value, dict) and set(value) == {"str_subclass"}:
         return value
     encoded_path = _strict_object(value, {"encoding", "data"}, context)
     if encoded_path["encoding"] != "filesystem-bytes-base64":
@@ -12760,9 +12772,12 @@ def _run_static_files_lookup_path_case(case: dict[str, Any]) -> dict[str, Any]:
     ):
         raise ValueError("workflow is outside the declared StaticFiles lookup-path operation")
 
-    has_filesystem_byte_path = isinstance(case["lookup_path"], dict) or any(
-        isinstance(file_spec.get("path"), dict) for file_spec in case["files"]
-    )
+    lookup_path_is_subclass = isinstance(case["lookup_path"], dict) and set(
+        case["lookup_path"]
+    ) == {"str_subclass"}
+    has_filesystem_byte_path = (
+        isinstance(case["lookup_path"], dict) and not lookup_path_is_subclass
+    ) or any(isinstance(file_spec.get("path"), dict) for file_spec in case["files"])
     if has_filesystem_byte_path and os.name != "posix":
         return {
             "case_id": case["case_id"],
@@ -12876,6 +12891,8 @@ def _run_static_files_lookup_path_case(case: dict[str, Any]) -> dict[str, Any]:
                     "StaticFiles lookup-path encoded data",
                 )
             )
+        elif lookup_path_is_subclass:
+            lookup_path = _materialize_scope_path_spec(lookup_path_input)
         elif isinstance(lookup_path_input, str):
             lookup_path = lookup_path_input
         else:

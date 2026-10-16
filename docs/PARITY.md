@@ -2,18 +2,17 @@
 
 ## Current verification status
 
-The latest fully verified full-scope contract snapshot was `parity-input@63`,
-with 2,590 cases across 437 parity inputs, 1,442 parity requirements, and
-manifest SHA-256
+The latest fully verified earlier full-scope input set had 2,590 cases across
+437 parity inputs, 1,442 parity requirements, and manifest SHA-256
 `f8a34c2978af95382ceadcd3e3a2c5a9d7bb1d467f03b35ba55033d9b7336124`.
-The working `parity-input@64` manifest has since advanced to 2,597 cases across
-441 parity inputs, 1,446 requirements, and SHA-256
-`561b43e60d126c9bba26d4fd49904c27d87505e01206e2438c785fe3ce8437a4`. New
-integer URL conversion, lifespan scope lookup, FileResponse short-read, GZip
-wide-status, class-based endpoint 405-handler, and HTTPSRedirect lifespan
-pass-through comparisons passed contract validation but remain unexecuted. No
-broad parity, coverage, or benchmark run has been made for this working
-manifest.
+The active `parity-input@63` manifest has 2,604 cases across 443 parity inputs,
+1,448 requirements, and SHA-256
+`33ce03e0d5805e0915c4a3b07a85eaf3fa781ede713bea408bfb52609a410051`. The latest
+input-only comparisons cover integer URL conversion, lifespan scope lookup,
+FileResponse short reads, GZip wide statuses, the class-based endpoint 405
+handler, HTTPSRedirect lifespan pass-through, StaticFiles string-subclass path
+dispatch, and TestClient `root_path` identity. All remain unexecuted. No broad
+parity, coverage, or benchmark run has been made for this active manifest.
 Workflow [`38923021415`](https://github.com/appunni-m/starlette-rs/actions/runs/38923021415)
 passed the five CPython source-parity profiles: 646/646 comparisons for 3.10
 and 3.11, 2,943/2,943 for 3.12, and 647/647 for 3.13 and 3.14. Every profile

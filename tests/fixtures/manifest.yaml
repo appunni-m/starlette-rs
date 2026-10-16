@@ -409,8 +409,8 @@
       "build/parity/inputs/parity/cors-private-network-empty-header.json",
       "build/parity/inputs/parity/cors-response-header-container.json",
       "build/parity/inputs/parity/datastructures-headers.json",
-      "build/parity/inputs/parity/datastructures-multidict-setlist-sequence.json",
       "build/parity/inputs/parity/datastructures-multidict-rich-ne.json",
+      "build/parity/inputs/parity/datastructures-multidict-setlist-sequence.json",
       "build/parity/inputs/parity/datastructures-multidict.json",
       "build/parity/inputs/parity/datastructures-public-inheritance.json",
       "build/parity/inputs/parity/datastructures-state.json",
@@ -644,6 +644,7 @@
       "build/parity/inputs/parity/static-files-scope-type-equality.json",
       "build/parity/inputs/parity/static-files-secondary-lookup-error.json",
       "build/parity/inputs/parity/static-files-stateful-pathlike.json",
+      "build/parity/inputs/parity/static-files-str-subclass-path.json",
       "build/parity/inputs/parity/static-files-symlink-asgi.json",
       "build/parity/inputs/parity/static-files-weekdayless-date.json",
       "build/parity/inputs/parity/static-files.json",
@@ -698,6 +699,7 @@
       "build/parity/inputs/parity/testclient-request-body-error-policy.json",
       "build/parity/inputs/parity/testclient-response-buffer-protocol.json",
       "build/parity/inputs/parity/testclient-response-more-body-truthiness.json",
+      "build/parity/inputs/parity/testclient-root-path-subclass.json",
       "build/parity/inputs/parity/testclient-router.json",
       "build/parity/inputs/parity/testclient-server-port-preservation.json",
       "build/parity/inputs/parity/testclient-shutdown-cleanup-error.json",
@@ -2273,7 +2275,7 @@
             {
               "id": "starlette.applications.Starlette.__call__.router-converter-error-before-method-check",
               "dimension": "error_path",
-              "description": "During Router.app's route scan, each path-matching HTTP route converts captures before checking its method. The 5001-digit int capture observes whether the selected CPython patch enforces its integer-string conversion limit (4300 by default, added in CPython 3.10.7 and 3.11) before the first full match, including a later route after earlier partial matches. Compare the live server-error boundary on the 3.10–3.14 package profiles. Pinned source: starlette/routing.py::Route.matches and Router.app; starlette/convertors.py::IntegerConvertor.convert; CPython: https://docs.python.org/3.10/whatsnew/3.10.html and https://docs.python.org/3.11/whatsnew/3.11.html.",
+              "description": "During Router.app's route scan, each path-matching HTTP route converts captures before checking its method. The 5001-digit int capture observes whether the selected CPython patch enforces its integer-string conversion limit (4300 by default, added in CPython 3.10.7 and 3.11) before the first full match, including a later route after earlier partial matches. Compare the live server-error boundary on the 3.10\u20133.14 package profiles. Pinned source: starlette/routing.py::Route.matches and Router.app; starlette/convertors.py::IntegerConvertor.convert; CPython: https://docs.python.org/3.10/whatsnew/3.10.html and https://docs.python.org/3.11/whatsnew/3.11.html.",
               "lanes": [
                 "parity",
                 "coverage"
@@ -3951,7 +3953,7 @@
             {
               "id": "starlette.routing.async-endpoint-callable-form",
               "dimension": "boundary",
-              "description": "Route async Request endpoints supplied as a function, bound method, functools.partial, nested functools.partial, or a synchronous function marked by inspect.markcoroutinefunction. Observe the actual callable type, partial depth, Request argument and path parameter, live response events, and execution on the caller event loop, task, and thread. The marked function case selects CPython 3.12–3.14, where the marker is available and recognized by Starlette's version-selected detector. Upstream: starlette/routing.py::request_response; starlette/_utils.py::is_async_callable; tests/test__utils.py::test_async_func, test_async_method, test_async_partial, and test_async_nested_partial; https://docs.python.org/3.12/library/inspect.html#inspect.markcoroutinefunction.",
+              "description": "Route async Request endpoints supplied as a function, bound method, functools.partial, nested functools.partial, or a synchronous function marked by inspect.markcoroutinefunction. Observe the actual callable type, partial depth, Request argument and path parameter, live response events, and execution on the caller event loop, task, and thread. The marked function case selects CPython 3.12\u20133.14, where the marker is available and recognized by Starlette's version-selected detector. Upstream: starlette/routing.py::request_response; starlette/_utils.py::is_async_callable; tests/test__utils.py::test_async_func, test_async_method, test_async_partial, and test_async_nested_partial; https://docs.python.org/3.12/library/inspect.html#inspect.markcoroutinefunction.",
               "lanes": [
                 "parity",
                 "coverage"
@@ -4128,7 +4130,7 @@
             {
               "id": "starlette.request.path-param-int-digit-limit",
               "dimension": "error_path",
-              "description": "Use a 5001-digit path capture to compare Starlette's int path converter with the active CPython profile's integer-string conversion limit while observing Request.path_params and the live exception boundary. CPython added the default 4300-digit limit in 3.10.7 and 3.11; the manifest's 3.10–3.14 profiles select runtime patch versions at preparation time. Pinned source: starlette/convertors.py::IntegerConvertor.convert and starlette/routing.py::Route.matches; CPython: https://docs.python.org/3.10/whatsnew/3.10.html and https://docs.python.org/3.11/whatsnew/3.11.html.",
+              "description": "Use a 5001-digit path capture to compare Starlette's int path converter with the active CPython profile's integer-string conversion limit while observing Request.path_params and the live exception boundary. CPython added the default 4300-digit limit in 3.10.7 and 3.11; the manifest's 3.10\u20133.14 profiles select runtime patch versions at preparation time. Pinned source: starlette/convertors.py::IntegerConvertor.convert and starlette/routing.py::Route.matches; CPython: https://docs.python.org/3.10/whatsnew/3.10.html and https://docs.python.org/3.11/whatsnew/3.11.html.",
               "lanes": [
                 "parity",
                 "coverage"
@@ -4144,7 +4146,7 @@
             {
               "id": "starlette.request.receive-worker-access",
               "dimension": "boundary",
-              "description": "Read Request.receive from a synchronous routed endpoint running in AnyIO’s worker thread and observe that the callback is callable without invoking it. Upstream: starlette/requests.py:231-232; starlette/routing.py::request_response; tests/test_requests.py.",
+              "description": "Read Request.receive from a synchronous routed endpoint running in AnyIO\u2019s worker thread and observe that the callback is callable without invoking it. Upstream: starlette/requests.py:231-232; starlette/routing.py::request_response; tests/test_requests.py.",
               "lanes": [
                 "parity",
                 "coverage"
@@ -4156,7 +4158,7 @@
             {
               "id": "starlette.request.stream-construction-worker",
               "dimension": "boundary",
-              "description": "Construct Request.stream() in a synchronous routed endpoint running in AnyIO’s worker thread and observe its live async-iterator methods without consuming the receive callback. Upstream: starlette/requests.py:234-252; starlette/routing.py::request_response; tests/test_requests.py::test_request_stream.",
+              "description": "Construct Request.stream() in a synchronous routed endpoint running in AnyIO\u2019s worker thread and observe its live async-iterator methods without consuming the receive callback. Upstream: starlette/requests.py:234-252; starlette/routing.py::request_response; tests/test_requests.py::test_request_stream.",
               "lanes": [
                 "parity",
                 "coverage"
@@ -4168,7 +4170,7 @@
             {
               "id": "starlette.request.body-awaitable-construction-worker",
               "dimension": "boundary",
-              "description": "Construct Request.body() in a synchronous routed endpoint running in AnyIO’s worker thread and observe the returned awaitable; close it before execution so the ASGI receive callback is not consumed. Upstream: starlette/requests.py:254-260; starlette/routing.py::request_response; tests/test_requests.py::test_request_body.",
+              "description": "Construct Request.body() in a synchronous routed endpoint running in AnyIO\u2019s worker thread and observe the returned awaitable; close it before execution so the ASGI receive callback is not consumed. Upstream: starlette/requests.py:254-260; starlette/routing.py::request_response; tests/test_requests.py::test_request_body.",
               "lanes": [
                 "parity",
                 "coverage"
@@ -4180,7 +4182,7 @@
             {
               "id": "starlette.request.json-awaitable-construction-worker",
               "dimension": "boundary",
-              "description": "Construct Request.json() in a synchronous routed endpoint running in AnyIO’s worker thread and observe the returned awaitable; close it before execution so the ASGI receive callback is not consumed. Upstream: starlette/requests.py:262-266; starlette/routing.py::request_response; tests/test_requests.py::test_request_json.",
+              "description": "Construct Request.json() in a synchronous routed endpoint running in AnyIO\u2019s worker thread and observe the returned awaitable; close it before execution so the ASGI receive callback is not consumed. Upstream: starlette/requests.py:262-266; starlette/routing.py::request_response; tests/test_requests.py::test_request_json.",
               "lanes": [
                 "parity",
                 "coverage"
@@ -12724,7 +12726,7 @@
             {
               "id": "starlette.middleware.authentication.AuthenticationMiddleware.dispatch.mutable-scope-mapping",
               "dimension": "boundary",
-              "description": "Pass an input-defined collections.UserDict to AuthenticationMiddleware.dispatch and compare the same mapping’s access trace and selected final auth/user keys with the live downstream response. Pinned source: starlette/types.py::Scope; starlette/middleware/authentication.py:29-32,45-48.",
+              "description": "Pass an input-defined collections.UserDict to AuthenticationMiddleware.dispatch and compare the same mapping\u2019s access trace and selected final auth/user keys with the live downstream response. Pinned source: starlette/types.py::Scope; starlette/middleware/authentication.py:29-32,45-48.",
               "lanes": [
                 "parity",
                 "coverage"
@@ -13613,7 +13615,7 @@
             {
               "id": "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.scope-type-lookup-error-propagation",
               "dimension": "error_path",
-              "description": "Raise the input-selected built-in exception from UserDict.__getitem__(\"type\") when BaseHTTPMiddleware checks the ASGI scope type; compare the live exception class/message and the original mapping state after Starlette’s prior app assignment. Pinned source: starlette/applications.py::Starlette.__call__; starlette/middleware/base.py:101-104.",
+              "description": "Raise the input-selected built-in exception from UserDict.__getitem__(\"type\") when BaseHTTPMiddleware checks the ASGI scope type; compare the live exception class/message and the original mapping state after Starlette\u2019s prior app assignment. Pinned source: starlette/applications.py::Starlette.__call__; starlette/middleware/base.py:101-104.",
               "lanes": [
                 "parity",
                 "coverage"
@@ -14304,7 +14306,7 @@
             {
               "id": "starlette.middleware.body_limit.RequestBodyLimitMiddleware.mutable-scope-mapping",
               "dimension": "boundary",
-              "description": "Pass an input-defined collections.UserDict through RequestBodyLimitMiddleware.__call__ and compare the original mapping’s operation trace and selected keys after the middleware restores its temporary body-limit entries, alongside the exact response events. Pinned source: starlette/types.py::Scope; starlette/middleware/body_limit.py:37-42,69-98.",
+              "description": "Pass an input-defined collections.UserDict through RequestBodyLimitMiddleware.__call__ and compare the original mapping\u2019s operation trace and selected keys after the middleware restores its temporary body-limit entries, alongside the exact response events. Pinned source: starlette/types.py::Scope; starlette/middleware/body_limit.py:37-42,69-98.",
               "lanes": [
                 "parity",
                 "coverage"
@@ -20099,7 +20101,7 @@
             {
               "id": "starlette.request.form.multipart-rollover-write-failure-size-state",
               "dimension": "error_path",
-              "description": "When spooled-file rollover raises during UploadFile.write, retain Starlette’s size update ordering, close parser-created upload files, and propagate the original write error. Pinned source: starlette/datastructures.py:UploadFile.write; starlette/formparsers.py:MultiPartParser.parse.",
+              "description": "When spooled-file rollover raises during UploadFile.write, retain Starlette\u2019s size update ordering, close parser-created upload files, and propagate the original write error. Pinned source: starlette/datastructures.py:UploadFile.write; starlette/formparsers.py:MultiPartParser.parse.",
               "lanes": [
                 "parity",
                 "coverage"
@@ -20626,7 +20628,7 @@
             {
               "id": "starlette.request.stream.receive-error-propagation",
               "dimension": "error_path",
-              "description": "Propagate the original CancelledError when ASGI receive is cancelled after Request.stream() has yielded a partial request chunk. Pinned source: starlette/requests.py:239–252; tests/test_requests.py::test_request_stream, test_request_stream_then_body.",
+              "description": "Propagate the original CancelledError when ASGI receive is cancelled after Request.stream() has yielded a partial request chunk. Pinned source: starlette/requests.py:239\u2013252; tests/test_requests.py::test_request_stream, test_request_stream_then_body.",
               "lanes": [
                 "parity",
                 "coverage"
@@ -20658,7 +20660,7 @@
             {
               "id": "starlette.request.body.retry-after-stream-cancellation",
               "dimension": "boundary",
-              "description": "After a partially consumed Request.stream() raises CancelledError from ASGI receive, Request.body() can collect and cache the remaining request messages; a fresh stream replays the cached body. Pinned source: starlette/requests.py:234–260; tests/test_requests.py::test_request_stream_then_body, test_request_body_then_stream.",
+              "description": "After a partially consumed Request.stream() raises CancelledError from ASGI receive, Request.body() can collect and cache the remaining request messages; a fresh stream replays the cached body. Pinned source: starlette/requests.py:234\u2013260; tests/test_requests.py::test_request_stream_then_body, test_request_body_then_stream.",
               "lanes": [
                 "parity",
                 "coverage"
@@ -22935,7 +22937,7 @@
             {
               "id": "starlette.responses.FileResponse.asgi-call.range-python-strip-c0-separators",
               "dimension": "boundary",
-              "description": "Parse a byte-range value surrounded by C0 separators U+001C–U+001F using CPython str.strip() behavior and compare the live 206 response. Pinned source: starlette/responses.py::FileResponse._parse_ranges and _parse_range_header.",
+              "description": "Parse a byte-range value surrounded by C0 separators U+001C\u2013U+001F using CPython str.strip() behavior and compare the live 206 response. Pinned source: starlette/responses.py::FileResponse._parse_ranges and _parse_range_header.",
               "lanes": [
                 "parity",
                 "coverage"
@@ -23026,7 +23028,7 @@
             {
               "id": "starlette.responses.FileResponse.asgi-call.range-inverted-single-byte",
               "dimension": "error_path",
-              "description": "Submit `bytes=5-4` and compare Starlette’s malformed-range response. Upstream: starlette/responses.py::FileResponse._parse_range_header; tests/test_responses.py::test_file_response_inverted_single_byte_range.",
+              "description": "Submit `bytes=5-4` and compare Starlette\u2019s malformed-range response. Upstream: starlette/responses.py::FileResponse._parse_range_header; tests/test_responses.py::test_file_response_inverted_single_byte_range.",
               "lanes": [
                 "parity",
                 "coverage"
@@ -23039,7 +23041,7 @@
             {
               "id": "starlette.responses.FileResponse.asgi-call.range-start-after-end",
               "dimension": "error_path",
-              "description": "Submit `bytes=100-0` and compare Starlette’s malformed-range response. Upstream: starlette/responses.py::FileResponse._parse_range_header; tests/test_responses.py::test_file_response_start_must_be_less_than_end.",
+              "description": "Submit `bytes=100-0` and compare Starlette\u2019s malformed-range response. Upstream: starlette/responses.py::FileResponse._parse_range_header; tests/test_responses.py::test_file_response_start_must_be_less_than_end.",
               "lanes": [
                 "parity",
                 "coverage"
@@ -23065,7 +23067,7 @@
             {
               "id": "starlette.responses.FileResponse.asgi-call.range-bound-over-cpython-int-limit",
               "dimension": "error_path",
-              "description": "On CPython 3.12 with its default 4,300-digit conversion limit, a Range bound containing 4,301 digits raises ValueError in int() and is ignored; compare the resulting malformed-range response. The Rust-native FileResponse must preserve the pinned behavior; the installed package serves as a live oracle. Pinned source: starlette/responses.py::FileResponse._parse_ranges and FileResponse._parse_range_header (lines 473–482, 502–528).",
+              "description": "On CPython 3.12 with its default 4,300-digit conversion limit, a Range bound containing 4,301 digits raises ValueError in int() and is ignored; compare the resulting malformed-range response. The Rust-native FileResponse must preserve the pinned behavior; the installed package serves as a live oracle. Pinned source: starlette/responses.py::FileResponse._parse_ranges and FileResponse._parse_range_header (lines 473\u2013482, 502\u2013528).",
               "lanes": [
                 "parity",
                 "coverage"
@@ -23169,7 +23171,7 @@
             {
               "id": "starlette.responses.FileResponse.asgi-call.range-count-limit-exceeded",
               "dimension": "parameter_combination",
-              "description": "Submit 101 valid ranges and compare Starlette’s full-file fallback. Upstream: starlette/responses.py::FileResponse._parse_range_header; tests/test_responses.py::test_file_response_range_count_limit_exceeded.",
+              "description": "Submit 101 valid ranges and compare Starlette\u2019s full-file fallback. Upstream: starlette/responses.py::FileResponse._parse_range_header; tests/test_responses.py::test_file_response_range_count_limit_exceeded.",
               "lanes": [
                 "parity",
                 "coverage"
@@ -23182,7 +23184,7 @@
             {
               "id": "starlette.responses.FileResponse.asgi-call.range-max-ranges-override",
               "dimension": "parameter_combination",
-              "description": "Change the response instance’s `max_ranges` before ASGI dispatch and compare the configured fallback behavior. Upstream: starlette/responses.py::FileResponse.max_ranges and FileResponse._parse_range_header.",
+              "description": "Change the response instance\u2019s `max_ranges` before ASGI dispatch and compare the configured fallback behavior. Upstream: starlette/responses.py::FileResponse.max_ranges and FileResponse._parse_range_header.",
               "lanes": [
                 "parity",
                 "coverage"
@@ -29536,7 +29538,7 @@
             {
               "id": "starlette.routing.Router.route-dispatch.http-endpoint-sync-handler",
               "dimension": "boundary",
-              "description": "HTTPEndpoint dispatches a synchronous HTTP verb handler through Starlette’s worker-thread boundary.",
+              "description": "HTTPEndpoint dispatches a synchronous HTTP verb handler through Starlette\u2019s worker-thread boundary.",
               "lanes": [
                 "parity",
                 "coverage"
@@ -29632,7 +29634,7 @@
             {
               "id": "starlette.routing.Router.route-dispatch.native-partial-converter-error-before-custom-match",
               "dimension": "error_path",
-              "description": "Router evaluates BaseRoute.matches(scope) in declaration order. A 5001-digit int path capture observes whether the selected CPython patch enforces its integer-string conversion limit (4300 by default, added in CPython 3.10.7 and 3.11) before a later custom BaseRoute matcher can raise. Compare the live behavior on the 3.10–3.14 package profiles. Pinned source: starlette/routing.py:242-257,686-703; starlette/convertors.py::IntegerConvertor.convert; CPython: https://docs.python.org/3.10/whatsnew/3.10.html and https://docs.python.org/3.11/whatsnew/3.11.html.",
+              "description": "Router evaluates BaseRoute.matches(scope) in declaration order. A 5001-digit int path capture observes whether the selected CPython patch enforces its integer-string conversion limit (4300 by default, added in CPython 3.10.7 and 3.11) before a later custom BaseRoute matcher can raise. Compare the live behavior on the 3.10\u20133.14 package profiles. Pinned source: starlette/routing.py:242-257,686-703; starlette/convertors.py::IntegerConvertor.convert; CPython: https://docs.python.org/3.10/whatsnew/3.10.html and https://docs.python.org/3.11/whatsnew/3.11.html.",
               "lanes": [
                 "parity",
                 "coverage"
@@ -31576,7 +31578,7 @@
             {
               "id": "starlette.schemas.SchemaGenerator.module-import-policy.dependency-errors-and-selection",
               "dimension": "error_path",
-              "description": "With PyYAML absent, a schema route with no endpoint docstring returns the base schema while a truthy docstring preserves Starlette’s assertion. Pinned source: starlette/schemas.py:11-17, 96-120, 128-148.",
+              "description": "With PyYAML absent, a schema route with no endpoint docstring returns the base schema while a truthy docstring preserves Starlette\u2019s assertion. Pinned source: starlette/schemas.py:11-17, 96-120, 128-148.",
               "lanes": [
                 "parity",
                 "coverage"
@@ -31887,7 +31889,11 @@
               ],
               "target_profiles": [
                 "rust-native-local",
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -32127,7 +32133,11 @@
               ],
               "target_profiles": [
                 "rust-native-local",
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -32140,7 +32150,11 @@
               ],
               "target_profiles": [
                 "rust-native-local",
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -32527,25 +32541,57 @@
               "target_profiles": [
                 "python-package-cpython312"
               ]
+            },
+            {
+              "id": "starlette.staticfiles.StaticFiles.asgi-call.path-str-subclass-dispatch",
+              "dimension": "boundary",
+              "description": "Supply input-defined Python str subclasses as ASGI scope.path and compare StaticFiles route-prefix, slice, and split dispatch through the served response. The binding invokes the pinned string callbacks under the GIL and Rust performs path joining, normalization, and file lookup. Upstream: starlette/_utils.py::get_route_path; starlette/staticfiles.py::StaticFiles.get_path (1.6.0 lines 96-110 and 101-107).",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
             }
           ],
           "parity": {
             "applicability": "required",
             "target_profiles": [
               "rust-native-local",
-              "python-package-cpython312"
+              "python-package-cpython310",
+              "python-package-cpython311",
+              "python-package-cpython312",
+              "python-package-cpython313",
+              "python-package-cpython314"
             ]
           },
           "coverage": {
             "applicability": "required",
             "target_profiles": [
               "rust-native-local",
-              "python-package-cpython312"
+              "python-package-cpython310",
+              "python-package-cpython311",
+              "python-package-cpython312",
+              "python-package-cpython313",
+              "python-package-cpython314"
             ],
             "component_ids": [
               "rust-core-rust-native-local",
+              "rust-core-python-package-cpython310",
+              "python-rust-bindings-python-package-cpython310",
+              "rust-core-python-package-cpython311",
+              "python-rust-bindings-python-package-cpython311",
               "rust-core-python-package-cpython312",
-              "python-rust-bindings-python-package-cpython312"
+              "python-rust-bindings-python-package-cpython312",
+              "rust-core-python-package-cpython313",
+              "python-rust-bindings-python-package-cpython313",
+              "rust-core-python-package-cpython314",
+              "python-rust-bindings-python-package-cpython314"
             ]
           },
           "benchmark": {
@@ -32797,7 +32843,11 @@
               ],
               "target_profiles": [
                 "rust-native-local",
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -33032,25 +33082,57 @@
                 "rust-native-local",
                 "python-package-cpython312"
               ]
+            },
+            {
+              "id": "starlette.staticfiles.StaticFiles.lookup-path.str-subclass-startswith",
+              "dimension": "boundary",
+              "description": "Supply an input-defined Python str subclass whose startswith result selects rejected and looked-up relative path outcomes; compare the live lookup result. The binding calls startswith for slash and backslash absolute prefixes under the GIL before native filesystem lookup. Upstream: starlette/staticfiles.py::StaticFiles.lookup_path (1.6.0 lines 154-173).",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
             }
           ],
           "parity": {
             "applicability": "required",
             "target_profiles": [
               "rust-native-local",
-              "python-package-cpython312"
+              "python-package-cpython310",
+              "python-package-cpython311",
+              "python-package-cpython312",
+              "python-package-cpython313",
+              "python-package-cpython314"
             ]
           },
           "coverage": {
             "applicability": "required",
             "target_profiles": [
               "rust-native-local",
-              "python-package-cpython312"
+              "python-package-cpython310",
+              "python-package-cpython311",
+              "python-package-cpython312",
+              "python-package-cpython313",
+              "python-package-cpython314"
             ],
             "component_ids": [
               "rust-core-rust-native-local",
+              "rust-core-python-package-cpython310",
+              "python-rust-bindings-python-package-cpython310",
+              "rust-core-python-package-cpython311",
+              "python-rust-bindings-python-package-cpython311",
               "rust-core-python-package-cpython312",
-              "python-rust-bindings-python-package-cpython312"
+              "python-rust-bindings-python-package-cpython312",
+              "rust-core-python-package-cpython313",
+              "python-rust-bindings-python-package-cpython313",
+              "rust-core-python-package-cpython314",
+              "python-rust-bindings-python-package-cpython314"
             ]
           },
           "benchmark": {
@@ -35215,7 +35297,7 @@
             {
               "id": "starlette.websocket.api.iterator.athrow",
               "dimension": "boundary",
-              "description": "Exercise the native async-generator athrow protocol exposed by the public WebSocket iterators (pinned source: starlette/websockets.py:144-163) at positional arities zero through four and with a typ keyword, observing public outcomes. Separate input cases use fresh iterators for invalid arities and for valid exception-type, explicit-value, and explicit-None-traceback calls. CPython 3.10–3.14 all mark the iterator running before unpacking athrow arguments.",
+              "description": "Exercise the native async-generator athrow protocol exposed by the public WebSocket iterators (pinned source: starlette/websockets.py:144-163) at positional arities zero through four and with a typ keyword, observing public outcomes. Separate input cases use fresh iterators for invalid arities and for valid exception-type, explicit-value, and explicit-None-traceback calls. CPython 3.10\u20133.14 all mark the iterator running before unpacking athrow arguments.",
               "lanes": [
                 "parity",
                 "coverage"
@@ -36511,7 +36593,11 @@
                 "coverage"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -36715,7 +36801,11 @@
                 "coverage"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -37493,7 +37583,11 @@
                 "coverage"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -37925,7 +38019,11 @@
                 "coverage"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -38045,7 +38143,11 @@
                 "coverage"
               ],
               "target_profiles": [
-                "python-package-cpython312"
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             },
             {
@@ -38142,11 +38244,23 @@
           "coverage": {
             "applicability": "required",
             "target_profiles": [
-              "python-package-cpython312"
+              "python-package-cpython310",
+              "python-package-cpython311",
+              "python-package-cpython312",
+              "python-package-cpython313",
+              "python-package-cpython314"
             ],
             "component_ids": [
+              "rust-core-python-package-cpython310",
+              "python-rust-bindings-python-package-cpython310",
+              "rust-core-python-package-cpython311",
+              "python-rust-bindings-python-package-cpython311",
               "rust-core-python-package-cpython312",
-              "python-rust-bindings-python-package-cpython312"
+              "python-rust-bindings-python-package-cpython312",
+              "rust-core-python-package-cpython313",
+              "python-rust-bindings-python-package-cpython313",
+              "rust-core-python-package-cpython314",
+              "python-rust-bindings-python-package-cpython314"
             ]
           },
           "benchmark": {

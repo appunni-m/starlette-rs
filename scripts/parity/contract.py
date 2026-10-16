@@ -1663,6 +1663,10 @@ STATIC_FILES_LOOKUP_PATH_WINDOWS_INVALID_NAME_REQUIREMENT = f"{STATIC_FILES_SURF
 STATIC_FILES_LOOKUP_PATH_SURROGATEESCAPE_REQUIREMENT = (
     f"{STATIC_FILES_SURFACE}.{STATIC_FILES_LOOKUP_PATH_OPERATION}.surrogateescape-path"
 )
+STATIC_FILES_ASGI_PATH_STR_SUBCLASS_BEHAVIOR = "path-str-subclass-dispatch"
+STATIC_FILES_LOOKUP_PATH_STR_SUBCLASS_REQUIREMENT = (
+    f"{STATIC_FILES_SURFACE}.{STATIC_FILES_LOOKUP_PATH_OPERATION}.str-subclass-startswith"
+)
 STATIC_FILES_STATEFUL_PATHLIKE_REQUIREMENT = (
     f"{STATIC_FILES_SURFACE}.{STATIC_FILES_LOOKUP_PATH_OPERATION}.stateful-pathlike-root-resolution"
 )
@@ -1713,6 +1717,10 @@ STREAMING_RESPONSE_EMPTY_SYNC_CHUNK_REQUIREMENT = (
 STREAMING_RESPONSE_AWAIT_FACTORY_STOP_MODE = "async-iterator-await-factory-stop"
 STREAMING_RESPONSE_AWAIT_INSTANCE_SHADOW_MODE = "async-iterator-await-instance-shadow"
 RESPONSE_OPERATION = "asgi-call"
+STATIC_FILES_PROFILE_MATRIX_OPERATIONS = {
+    (STATIC_FILES_SURFACE, RESPONSE_OPERATION),
+    (STATIC_FILES_SURFACE, STATIC_FILES_LOOKUP_PATH_OPERATION),
+}
 RESPONSE_PARTITIONED_COOKIE_REQUIREMENT = (
     f"{RESPONSE_SURFACE}.{RESPONSE_OPERATION}.partitioned-cookie-version-error"
 )
@@ -3883,6 +3891,16 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                             if operation_key == STARLETTE_APPLICATION_CALL_OPERATION_KEY
                             else python_profile_ids
                         )
+                    elif operation_key in STATIC_FILES_PROFILE_MATRIX_OPERATIONS:
+                        # StaticFiles keeps its ordinary native + CPython 3.12
+                        # slice while selected representative requirements add
+                        # additional package profiles to the operation scope.
+                        expected_parity_profiles = {
+                            profile_id
+                            for requirement in requirements
+                            if "parity" in requirement["lanes"]
+                            for profile_id in requirement["target_profiles"]
+                        }
                     elif operation_key == (
                         MIDDLEWARE_CONFIG_SURFACE,
                         VALUE_FORMATTING_OPERATION,
@@ -7477,7 +7495,11 @@ def _route_dispatch_scope_type(
 
 
 def _route_dispatch_scope_path(
-    value: Any, context: str, *, allow_str_subclass: bool = False
+    value: Any,
+    context: str,
+    *,
+    allow_str_subclass: bool = False,
+    allow_split_result: bool = False,
 ) -> tuple[str, bool | None, str | None, bool]:
     if isinstance(value, str):
         return _string(value, context), None, None, False
@@ -7485,10 +7507,13 @@ def _route_dispatch_scope_path(
         raise ContractError(f"{context} must be a string")
     descriptor = _exact(value, {"str_subclass"}, f"{context} descriptor")
     raw_subclass = descriptor["str_subclass"]
-    if not isinstance(raw_subclass, dict) or set(raw_subclass) not in (
-        {"value", "startswith_result"},
-        {"value", "startswith_result", "slice_result"},
-    ):
+    allowed_fields = {"value", "startswith_result"}
+    if isinstance(raw_subclass, dict):
+        if "slice_result" in raw_subclass:
+            allowed_fields.add("slice_result")
+        if allow_split_result and "split_result" in raw_subclass:
+            allowed_fields.add("split_result")
+    if not isinstance(raw_subclass, dict) or set(raw_subclass) != allowed_fields:
         raise ContractError(
             f"{context}.str_subclass must declare value, startswith_result, and optional slice_result"
         )
@@ -7500,6 +7525,16 @@ def _route_dispatch_scope_path(
     slice_result = subclass.get("slice_result")
     if has_slice_override and slice_result is not None and not isinstance(slice_result, str):
         raise ContractError(f"{context}.str_subclass.slice_result must be a string or null")
+    if "split_result" in raw_subclass:
+        split_result = raw_subclass["split_result"]
+        if not isinstance(split_result, list) or not split_result:
+            raise ContractError(f"{context}.str_subclass.split_result must be a non-empty array")
+        for index, component in enumerate(split_result):
+            _static_files_relative_components(
+                component,
+                f"{context}.str_subclass.split_result[{index}]",
+                allow_parent=False,
+            )
     return path, subclass["startswith_result"], slice_result, has_slice_override
 
 
@@ -9800,7 +9835,34 @@ def _validate_static_files_case_stimulus(
             raise ContractError("StaticFiles scope.extensions may only declare pathsend")
     if case["incoming"] != [] or case["send"] != {"kind": "capture-asgi-send"}:
         raise ContractError("StaticFiles asgi-call requires empty receive and captured send")
-    scope_path_encoded = isinstance(scope["path"], dict) or isinstance(scope["root_path"], dict)
+    scope_path_subclass_present = isinstance(scope["path"], dict) and set(scope["path"]) == {
+        "str_subclass"
+    }
+    scope_path_input = scope["path"]
+    path_startswith_result: bool | None = None
+    path_slice_result: str | None = None
+    has_path_slice_override = False
+    path_split_result: list[str] | None = None
+    if scope_path_subclass_present:
+        path, path_startswith_result, path_slice_result, has_path_slice_override = (
+            _route_dispatch_scope_path(
+                scope["path"],
+                "StaticFiles scope.path",
+                allow_str_subclass=True,
+                allow_split_result=True,
+            )
+        )
+        if any(not profile.startswith("python-package-") for profile in case["target_profiles"]):
+            raise ContractError(
+                "StaticFiles scope.path str subclasses require Python package profiles"
+            )
+        if "split_result" in scope_path_input["str_subclass"]:
+            path_split_result = scope_path_input["str_subclass"]["split_result"]
+        scope = dict(scope)
+        scope["path"] = path
+    scope_path_encoded = (
+        isinstance(scope["path"], dict) and not scope_path_subclass_present
+    ) or isinstance(scope["root_path"], dict)
     if scope_path_encoded:
         if not isinstance(scope["path"], dict) or not isinstance(scope["root_path"], dict):
             raise ContractError(
@@ -9822,6 +9884,14 @@ def _validate_static_files_case_stimulus(
         scope["path"] = path
         scope["root_path"] = root_path
     dispatch_scope = {key: value for key, value in scope.items() if key != "extensions"}
+    if scope_path_subclass_present:
+        dispatch_scope["path"] = {
+            "str_subclass": {
+                key: value
+                for key, value in scope_path_input["str_subclass"].items()
+                if key != "split_result"
+            }
+        }
     _validate_dispatch_stimulus(
         {"scope": dispatch_scope, "receive": case["incoming"], "send": case["send"]},
         request_dispatch=True,
@@ -9830,6 +9900,7 @@ def _validate_static_files_case_stimulus(
         allow_query=True,
         allow_non_string_scope_type=non_string_scope_type,
         allow_non_string_method=non_string_method,
+        allow_scope_path_str_subclass=scope_path_subclass_present,
     )
 
     if non_string_scope_type:
@@ -9913,12 +9984,19 @@ def _validate_static_files_case_stimulus(
         )
     route_path = path
     root_path_prefix_removed = False
-    if root_path and path.startswith(root_path):
+    route_path_is_original = True
+    if root_path and (
+        path_startswith_result if path_startswith_result is not None else path.startswith(root_path)
+    ):
         if path == root_path:
             route_path = ""
-        elif path[len(root_path) :].startswith("/"):
-            route_path = path[len(root_path) :]
+            route_path_is_original = False
+        elif path[len(root_path)] == "/":
+            route_path = path_slice_result if has_path_slice_override else path[len(root_path) :]
             root_path_prefix_removed = True
+            route_path_is_original = False
+    if path_split_result is not None and route_path_is_original:
+        route_path = "/".join(path_split_result)
     query_string = base64.b64decode(scope["query_string_base64"], validate=True)
     try:
         query_string.decode("utf-8")
@@ -10033,6 +10111,8 @@ def _validate_static_files_case_stimulus(
         and (normalized_path in selected_files) != (windows_normalized_path in selected_files)
     )
     derived: set[str] = set()
+    if scope_path_subclass_present:
+        derived.add(STATIC_FILES_ASGI_PATH_STR_SUBCLASS_BEHAVIOR)
     if not isinstance(method, str):
         derived.add(STATIC_FILES_NON_STRING_METHOD_BEHAVIOR)
     if package_sequence_present:
@@ -10108,8 +10188,8 @@ def _validate_static_files_case_stimulus(
             if (
                 subclass_hook_name is None
                 and root_path_prefix_removed
-                and set(case["target_profiles"])
-                == {"rust-native-local", "python-package-cpython312"}
+                and "rust-native-local" in case["target_profiles"]
+                and "python-package-cpython312" in case["target_profiles"]
                 and not path.endswith("/")
                 and query_string_is_valid_nonempty
             ):
@@ -10631,7 +10711,30 @@ def _validate_static_files_lookup_path_case(
             raise ContractError("StaticFiles lookup-path filesystem has a file above a symlink")
 
     lookup_path_input = case["lookup_path"]
-    if isinstance(lookup_path_input, dict):
+    lookup_path_subclass_present = isinstance(lookup_path_input, dict) and set(
+        lookup_path_input
+    ) == {"str_subclass"}
+    requirement: str | None = None
+    if lookup_path_subclass_present:
+        subclass = _exact(
+            lookup_path_input["str_subclass"],
+            {"value", "startswith_result"},
+            "StaticFiles lookup-path str_subclass",
+        )
+        lookup_path = _string(subclass["value"], "StaticFiles lookup_path str_subclass.value")
+        if type(subclass["startswith_result"]) is not bool:
+            raise ContractError(
+                "StaticFiles lookup-path str_subclass.startswith_result must be boolean"
+            )
+        if any(not profile.startswith("python-package-") for profile in case["target_profiles"]):
+            raise ContractError(
+                "StaticFiles lookup-path str subclasses require Python package profiles"
+            )
+        if has_directory_pathlike:
+            raise ContractError(
+                "StaticFiles lookup-path str subclasses cannot use a directory PathLike"
+            )
+    elif isinstance(lookup_path_input, dict):
         encoded_path = _exact(
             lookup_path_input,
             {"encoding", "data"},
@@ -10766,6 +10869,9 @@ def _validate_static_files_lookup_path_case(
             else:
                 requirement = f"{target_relation}-{target_kind}-link.follow-symlink-{setting}"
 
+    if lookup_path_subclass_present:
+        requirement = "str-subclass-startswith"
+
     if validate_covers:
         if requirement == "null-byte-error":
             requirement_id = STATIC_FILES_LOOKUP_PATH_NULL_BYTE_REQUIREMENT
@@ -10777,6 +10883,8 @@ def _validate_static_files_lookup_path_case(
             requirement_id = STATIC_FILES_LOOKUP_PATH_SURROGATEESCAPE_REQUIREMENT
         elif requirement == "stateful-pathlike-root-resolution":
             requirement_id = STATIC_FILES_STATEFUL_PATHLIKE_REQUIREMENT
+        elif requirement == "str-subclass-startswith":
+            requirement_id = STATIC_FILES_LOOKUP_PATH_STR_SUBCLASS_REQUIREMENT
         else:
             requirement_id = (
                 f"{STATIC_FILES_SURFACE}.{STATIC_FILES_LOOKUP_PATH_OPERATION}.{requirement}"
@@ -17057,6 +17165,22 @@ def _validate_testclient_message_type_spec(
     return type_spec
 
 
+def _validate_testclient_root_path(value: Any, context: str) -> tuple[str, bool]:
+    if type(value) is str:
+        return value, False
+    specification = _exact(value, {"str_subclass"}, context)
+    subclass = _exact(
+        specification["str_subclass"],
+        {"class_name", "value"},
+        f"{context}.str_subclass",
+    )
+    class_name = _string(subclass["class_name"], f"{context}.str_subclass.class_name")
+    if not class_name.isidentifier():
+        raise ContractError(f"{context}.str_subclass.class_name must be a Python identifier")
+    value_string = _string(subclass["value"], f"{context}.str_subclass.value")
+    return value_string, True
+
+
 def _validate_testclient_case(
     case: dict[str, Any], *, fault_case_spec: dict[str, Any] | None = None
 ) -> None:
@@ -17072,6 +17196,13 @@ def _validate_testclient_case(
         | optional_settings,
         "TestClient settings",
     )
+    root_path, root_path_subclass = _validate_testclient_root_path(
+        settings["root_path"], "TestClient.root_path"
+    )
+    settings = dict(settings)
+    settings["root_path"] = root_path
+    if root_path_subclass and case["target_profiles"] != list(PYTHON_PROFILE_IDS):
+        raise ContractError("TestClient root_path subclasses select all supported Python profiles")
     base_url = _string(settings["base_url"], "TestClient.base_url")
     if not base_url.startswith(("http://", "https://")):
         raise ContractError("TestClient.base_url must use http or https")
@@ -17093,8 +17224,6 @@ def _validate_testclient_case(
         )
     ):
         raise ContractError("TestClient.cookies must be a string-to-string mapping")
-    if not isinstance(settings["root_path"], str):
-        raise ContractError("TestClient.root_path must be a string")
     client = settings["client"]
     if (
         not isinstance(client, list)
@@ -17143,6 +17272,8 @@ def _validate_testclient_case(
 
     raw_asgi_app = case["asgi_app"]
     app_kind = raw_asgi_app.get("kind") if isinstance(raw_asgi_app, dict) else None
+    if root_path_subclass and app_kind not in {"asgi2", "asgi3"}:
+        raise ContractError("TestClient root_path subclasses require a raw ASGI2 or ASGI3 app")
     is_sync_route = app_kind == "starlette-route"
     is_nested_testclient = app_kind == "starlette-nested-testclient"
     is_starlette_route_graph = app_kind == "starlette-route-graph"
@@ -19951,13 +20082,18 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
         settings_keys,
         "TestClient settings",
     )
+    root_path, root_path_subclass = _validate_testclient_root_path(
+        settings["root_path"], "TestClient.root_path"
+    )
+    settings = dict(settings)
+    settings["root_path"] = root_path
+    if root_path_subclass and case["target_profiles"] != list(PYTHON_PROFILE_IDS):
+        raise ContractError("TestClient root_path subclasses select all supported Python profiles")
     base_url = _string(settings["base_url"], "TestClient.base_url")
     if not base_url.startswith(("http://", "https://")):
         raise ContractError("TestClient.base_url must use http or https")
     if type(settings["raise_server_exceptions"]) is not bool:
         raise ContractError("TestClient.raise_server_exceptions must be boolean")
-    if not isinstance(settings["root_path"], str):
-        raise ContractError("TestClient.root_path must be a string")
     client = settings["client"]
     if (
         not isinstance(client, list)
@@ -20420,6 +20556,8 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
             "TestClient WebSocket ASGI app",
         )
         app_actions = asgi_app["actions"]
+    if root_path_subclass and asgi_app["kind"] != "asgi3":
+        raise ContractError("TestClient WebSocket root_path subclasses require a raw ASGI3 app")
     if (
         asgi_app["kind"] != "asgi3"
         and not is_starlette_websocket_route_error
@@ -25500,8 +25638,19 @@ def _validate_case_payload(
             raise ContractError("TestClient WebSocket case ID must bind to its public operation")
         if case["assets"] != []:
             raise ContractError("TestClient WebSocket workflow does not use assets")
-        if case["target_profiles"] != ["python-package-cpython312"]:
-            raise ContractError("TestClient WebSocket cases select only the Python-package profile")
+        raw_testclient_settings = case.get("testclient")
+        if not isinstance(raw_testclient_settings, dict):
+            raise ContractError("TestClient settings must be an object")
+        _, root_path_subclass = _validate_testclient_root_path(
+            raw_testclient_settings.get("root_path"), "TestClient.root_path"
+        )
+        expected_profiles = (
+            list(PYTHON_PROFILE_IDS) if root_path_subclass else ["python-package-cpython312"]
+        )
+        if case["target_profiles"] != expected_profiles:
+            raise ContractError(
+                "TestClient WebSocket cases select the profiles required by their input contract"
+            )
         if case["observations"] != [TESTCLIENT_WEBSOCKET_OPERATION]:
             raise ContractError("TestClient WebSocket cases must select websocket-session")
         websocket_operation = next(
@@ -25532,10 +25681,12 @@ def _validate_case_payload(
             raise ContractError(
                 "TestClient WebSocket covers must select declared session requirements once"
             )
+        covers_set = set(covers)
         for requirement in websocket_operation["requirements"]:
-            if (
-                "parity" not in requirement["lanes"]
-                or case["target_profiles"][0] not in requirement["target_profiles"]
+            if requirement["id"] not in covers_set:
+                continue
+            if "parity" not in requirement["lanes"] or any(
+                profile not in requirement["target_profiles"] for profile in case["target_profiles"]
             ):
                 raise ContractError(
                     f"TestClient WebSocket requirement is not applicable to its profile: {requirement['id']}"
@@ -26230,8 +26381,13 @@ def _validate_case_payload(
             and "cookie_domain" in app
             and TESTCLIENT_REQUIREMENTS["cookie_domain_matching"] in case["covers"]
         )
+        _, root_path_subclass = _validate_testclient_root_path(
+            case["testclient"]["root_path"], "TestClient.root_path"
+        )
         expected_testclient_profiles = (
-            list(PYTHON_PROFILE_IDS) if cookie_domain_matrix_case else ["python-package-cpython312"]
+            list(PYTHON_PROFILE_IDS)
+            if cookie_domain_matrix_case or root_path_subclass
+            else ["python-package-cpython312"]
         )
         if selected_profiles != expected_testclient_profiles:
             raise ContractError("TestClient profiles differ from the input-defined version scope")

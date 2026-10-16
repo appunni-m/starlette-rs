@@ -23,6 +23,10 @@ pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     route_types_runtime::register(module)
 }
 
+pub(crate) fn route_path_from_scope<'py>(scope: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
+    route_types_runtime::route_path_from_scope(scope)
+}
+
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum RouteKind {
     Http,
