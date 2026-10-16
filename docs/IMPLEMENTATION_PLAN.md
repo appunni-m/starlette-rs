@@ -46,6 +46,17 @@ The median source/package latency ratios were 0.219 for Router and 0.970 for
 GZip. The full replacement goal remains active because the pinned compatibility
 inventory is broader than these mapped inputs.
 
+The macOS arm64 package qualification passed at source snapshot `fe229a998`
+plus the README runtime-dependency wording correction. Five isolated installs
+for CPython 3.10.20–3.14.7, `pip check`, and installed-package smoke checks
+passed. Four input-derived Mypy consumers matched the pinned source on all five
+interpreters (20 comparisons). Wheel, sdist, and crate inspections verified
+namespace files, `py.typed`, dependency metadata, BSD-3-Clause notices, and
+provenance; no upstream Starlette runtime dependency was present. A generated
+CycloneDX SBOM contains a local build-path `bom-ref` and a `file://.` PURL,
+tracked for review in follow-up `0t5m`. This qualification covers macOS arm64;
+Windows-specific StaticFiles verification remains open.
+
 ### Post-checkpoint repair and verification
 
 Workflow `38767055636` on commit `4139a724` found two Linux Rust-native parity

@@ -9,8 +9,8 @@ package. The runtime architecture keeps the Python `starlette` package as a
 thin compatibility facade: it has no dependency on the upstream Starlette
 distribution, and Python wrappers forward behavior to Rust without branches or
 loops. Rust owns runtime behavior and control flow; Python remains at the
-callback, awaitable, and Python-object boundaries. AnyIO is the only declared
-runtime package dependency.
+callback, awaitable, and Python-object boundaries. AnyIO and typing-extensions
+are the declared runtime package dependencies.
 
 Compatibility work is tracked as input-only live parity slices against the
 pinned upstream source. The current implemented surface and outstanding gaps

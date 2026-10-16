@@ -30,9 +30,15 @@ Router and 0.970 for GZip. See [benchmark evidence](BENCHMARKS.md) for run
 identity and measurement details.
 
 The full Starlette replacement remains incomplete; these measurements do not
-establish universal or drop-in compatibility. Packaging qualification and the
-remaining implementation gaps are still open. Keep the pinned denominators
-visible: 514 upstream test functions and 24 documented pages.
+establish universal or drop-in compatibility. macOS arm64 package qualification
+passed for CPython 3.10–3.14 at source snapshot `fe229a998` plus the README
+runtime-dependency wording correction. Five isolated installs, `pip check`,
+import smoke, and 20 input-derived Mypy source/package comparisons passed;
+wheel, sdist, and crate contents, dependencies, `py.typed`, and notices were
+verified. A generated CycloneDX SBOM contains a local build-path `bom-ref` and
+`file://.` PURL; follow-up `0t5m` tracks that review. Windows-specific
+StaticFiles verification remains open. Keep the pinned denominators visible:
+514 upstream test functions and 24 documented pages.
 
 The implementation-batch notes below preserve per-feature detail as it was
 recorded. Their `unexecuted` and `deferred` wording is historical, not the
@@ -1155,10 +1161,12 @@ async-generator lifespan callables, `TestClient(timeout=...)`, and the legacy
   `doc.templates.async-context-processor-constraint`.
 
 These source-backed caveats and targeted inputs do not change API-candidate
-dispositions or create fixture backlog. Implementation across the full
-compatibility surface remains incomplete. The active manifest's grouped parity,
-coverage, and benchmark phases remain pending; run those phases together after
-cross-family implementation and input authoring are complete.
+dispositions or create fixture backlog. The grouped parity, coverage, and
+benchmark phases have completed for active manifest `parity-input@58`.
+The macOS arm64 Python package qualification is complete; its SBOM metadata
+review is tracked in follow-up `0t5m`, and Windows-specific StaticFiles
+verification remains open. After any new runtime implementation batch, run the
+grouped phases together once that batch and its input authoring are complete.
 The active contract and generated atlas links above carry the current case and
 backlog inventory; this document does not duplicate their changing totals.
 

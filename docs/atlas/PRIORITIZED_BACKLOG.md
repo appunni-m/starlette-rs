@@ -6,68 +6,40 @@ and links to bounded evidence; it is not itself a parity artifact or a claim
 of full compatibility. The full replacement objective remains active and
 incomplete.
 
-## Current parity snapshot
+## Current execution snapshot
 
-The cross-family implementation and input-authoring checkpoint is ready for
-grouped full parity. Fix mismatches together before the later coverage and
-complete benchmark phases.
-The active `parity-input@58` contract indexes 2,565 cases across 431 parity
-inputs, two benchmark inputs, 152 Starlette compatibility operations, 14 native
-operations, and 1,421 parity requirements (manifest SHA-256
-`5c9d527185317ff005d83c666610467ef86b9e870a5b723727f146dd2cff6fe1`). The current batch adds CP437 multipart text decoding and ASGI2 `TestClient.app` wrapper behavior; both comparisons remain deferred to grouped parity. A TestClient import-policy input now observes failure when both `httpx2` and `httpx` are unavailable; it remains deferred to grouped parity. The current batch adds six unexecuted inputs for BackgroundTask attribute lookup, StaticFiles tuple-subclass iteration, Route/Router scope-type comparison, and Router missing-method order. The latest StaticFiles change preserves a dynamic configured `PathLike` root at its `get_directories()` position after package roots; its new input-only comparison remains deferred to grouped parity. The latest `Request.base_url` implementation adds two input-only comparisons for `app_root_path` string-subclass methods; these remain deferred to grouped parity. The latest
-implementation batch fixes falsey `str` subclass dispatch for QueryParams and
-TestClient cleanup exception context; both input-only comparisons remain deferred
-until grouped parity. The latest batch adds application attribute-read ordering, non-string scope dispatch in AuthenticationMiddleware, SessionMiddleware, and GZipMiddleware, ServerErrorMiddleware message-type equality, and pre-ASGI-2.4 StreamingResponse caller cancellation. These six new input-only comparisons remain unexecuted until the grouped full parity phase. The Request.stream body-object and TestClient noncanonical JSON-mode comparisons also remain unexecuted until grouped parity. The latest batch adds a Rust-backed StaticFiles single-digit
-time-field normalization case, a Jinja caller-supplied `url_for` global case,
-and an AuthenticationMiddleware scope case preserving present `None` values
-for `auth` and `user`, plus a StreamingResponse awaitable case checking type-level `__await__` lookup; all four comparisons remain deferred to full parity. Rust now performs the awaitable lookup through the object's type.
-The synchronous
-template processor exception-before-lookup
-case has its own derived parity requirement; both template processor
-comparisons remain unexecuted until full parity.
-The latest static inventory reports 999/999 API candidates dispositioned and
-867 source rows: 811 input mappings, 56 source-backed `not_applicable` rows,
-and zero fixture backlog. A new `iterate_in_threadpool` input observes
-empty-iterable exhaustion alongside its async iterator protocol outcomes; a
-new `run_in_threadpool` cancellation input observes whether an AnyIO cancel
-scope waits for its gated worker to finish. Both comparisons remain unexecuted
-until full parity. The latest Response
-header-pair, StaticFiles direct and ASGI surrogateescape, and WebSocketEndpoint
-context comparisons also remain unexecuted until the full parity phase. The
-newest Request.app input seeds a preexisting true `scope.app` marker and
-observes the public property after dispatch; it remains unexecuted. The latest
-batch adds input-only cases for `run_in_threadpool` ContextVar
-propagation/isolation, WebSocket callback descriptor timing, and StaticFiles
-root-path prefix-boundary preservation; all remain unexecuted. Fixed source
-denominators are 514 upstream test functions and 24 documentation pages. The
-newest six inputs compare Request receive replacement, BackgroundTasks worker
-failure after cancellation, empty synchronous StreamingResponse framing,
-BaseHTTPMiddleware wide status pass-through, StaticFiles root_path/query
-redirect behavior, and WebSocket accept-send OSError propagation; all remain
-unexecuted.
+The active `parity-input@58` contract contains 2,565 cases across 431 parity
+inputs and two benchmark inputs, 152 Starlette compatibility operations, 14
+Rust-native operations, 1,421 parity requirements, and six target profiles.
+Its manifest SHA-256 is
+`ec42686f557bdc59c0916f01823ac66018624dd0a787a9901ccfc6982a180b48`. The
+generated atlas has 867 source rows: 811 input mappings, 56 source-backed
+`not_applicable` rows, and zero backlog. All 999 API candidate rows have
+dispositions. The pinned denominators remain 514 upstream test functions and
+24 documented pages.
 
-The latest input-only batch adds Host dispatch through a nested Router to a
-WebSocketRoute and preserves the TestClient WebSocket session-body exception
-under cleanup failures. Both comparisons remain deferred until full parity.
+For this manifest, workflow
+[`38850605133`](https://github.com/appunni-m/starlette-rs/actions/runs/38850605133)
+passed all five CPython parity profiles and 17 selected fault-contract cases.
+All six expanded coverage profiles passed, and Coverage MCP verified their
+source and test receipts. The 74-workload benchmark measured every declared
+source/package workload with zero failures or observation mismatches; no
+equivalent Rust-native ASGI benchmark boundary is available. Full run details
+and limits are recorded in [the implementation plan](../IMPLEMENTATION_PLAN.md)
+and [benchmark evidence](../BENCHMARKS.md).
 
-The latest routing correction matches Host header names using the same exact raw
-byte lookup as pinned Starlette. Its input supplies only `b"Host"` and observes
-the Router miss path; the comparison remains deferred until the full parity
-phase.
-
-The latest clean full parity run, `dc8c8ca6-f2b7-449b-9f53-45860e3cad4c`,
-passed 2,254/2,254 comparisons for the preceding 1,992-case, 140-input
-contract. It predates the active @50 implementation batches, including the
-latest TestClient partial-response exception, StreamingResponse callback,
-empty WSGI iterable, WebSocketEndpoint invalid-initial-event, mutable
-WebSocket scope and send messages, explicit-None Request receive, Request
-custom receive events, BaseHTTPMiddleware body-iterator replacement, WSGI
-header-unpack ordering, AnyIO CancelScope worker-error, and tuple CORS header
-inputs. The
-matching full coverage and 74-workload benchmark receipts also belong to the
-preceding contract. Continue implementation across feature families, then run full
-parity and grouped repairs, coverage, and benchmarks in that order. The
-full-replacement objective remains active and incomplete.
+The full replacement remains incomplete. macOS arm64 package qualification
+passed for CPython 3.10–3.14 at source snapshot `fe229a998` plus the README
+runtime-dependency wording correction: five isolated installs, `pip check`,
+import smoke, and 20 input-derived Mypy source/package comparisons passed.
+Wheel, sdist, and crate inspection confirmed package namespace, `py.typed`,
+runtime metadata, notices, and provenance. A local build-path reference and
+`file://.` PURL in the generated CycloneDX SBOM are tracked for review in
+follow-up `0t5m`; Windows-specific StaticFiles verification remains open. If
+further implementation changes add or alter runtime behavior, finish that
+implementation batch first, then rerun grouped parity and repairs, full
+coverage, and all benchmarks in that order. Do not infer complete compatibility
+from the active matrix alone.
 
 ## Historical parity, coverage, and feature notes
 
