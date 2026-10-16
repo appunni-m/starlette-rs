@@ -1218,7 +1218,8 @@
           "starlette.config.Environ.mapping-sequence.fstring-empty-spec-formatting",
           "starlette.requests.Request.connection-properties.optimized-type-containment-false",
           "starlette.requests.Request.connection-properties.optimized-missing-auth-scope-key",
-          "starlette.requests.Request.connection-properties.optimized-missing-user-scope-key"
+          "starlette.requests.Request.connection-properties.optimized-missing-user-scope-key",
+          "starlette.authentication.requires.typing-consumer.param-spec"
         ],
         "command_ids": []
       },
@@ -1753,7 +1754,8 @@
           "starlette.config.Environ.mapping-sequence.fstring-empty-spec-formatting",
           "starlette.requests.Request.connection-properties.optimized-type-containment-false",
           "starlette.requests.Request.connection-properties.optimized-missing-auth-scope-key",
-          "starlette.requests.Request.connection-properties.optimized-missing-user-scope-key"
+          "starlette.requests.Request.connection-properties.optimized-missing-user-scope-key",
+          "starlette.authentication.requires.typing-consumer.param-spec"
         ],
         "command_ids": []
       },
@@ -3189,7 +3191,16 @@
         "starlette.request.send-push-promise.headers-property-subclass-override",
         "starlette.websockets.WebSocket.scope-property.subclass-override-inherited-properties",
         "starlette.staticfiles.StaticFiles.asgi-call.path-str-subclass-dispatch",
-        "starlette.staticfiles.StaticFiles.lookup-path.str-subclass-startswith"
+        "starlette.staticfiles.StaticFiles.lookup-path.str-subclass-startswith",
+        "starlette.routing.Route.__init__.invalid-leading-slash",
+        "starlette.routing.Route.__init__.unknown-converter",
+        "starlette.routing.WebSocketRoute.__init__.invalid-leading-slash",
+        "starlette.routing.Mount.__init__.invalid-leading-slash",
+        "starlette.routing.Mount.__init__.missing-app-and-routes",
+        "starlette.routing.Host.__init__.leading-slash",
+        "starlette.staticfiles.StaticFiles.configuration-check.package-roots.missing-package-spec",
+        "starlette.staticfiles.StaticFiles.configuration-check.package-roots.package-without-origin",
+        "starlette.staticfiles.StaticFiles.configuration-check.package-roots.missing-static-directory"
       ],
       "target_profile": "python-package-cpython312",
       "selectors": {
@@ -5791,7 +5802,17 @@
           "starlette.requests.Request.connection-properties.optimized-missing-user-scope-key",
           "starlette.requests.Request.constructor-contract.optimized-lifespan-scope",
           "starlette.websockets.WebSocket.constructor-contract.optimized-http-scope",
-          "starlette.responses.StreamingResponse.consumer-construction.listen-for-disconnect-override"
+          "starlette.responses.StreamingResponse.consumer-construction.listen-for-disconnect-override",
+          "starlette.authentication.requires.typing-consumer.param-spec",
+          "starlette.routing.Route.__init__.invalid-leading-slash.constructor-error",
+          "starlette.routing.Route.__init__.unknown-converter.constructor-error",
+          "starlette.routing.WebSocketRoute.__init__.invalid-leading-slash.constructor-error",
+          "starlette.routing.Mount.__init__.invalid-leading-slash.constructor-error",
+          "starlette.routing.Mount.__init__.missing-app-and-routes.constructor-error",
+          "starlette.routing.Host.__init__.leading-slash.constructor-error",
+          "starlette.staticfiles.StaticFiles.configuration-check.missing-package-spec",
+          "starlette.staticfiles.StaticFiles.configuration-check.package-without-origin",
+          "starlette.staticfiles.StaticFiles.configuration-check.missing-selected-static-directory"
         ],
         "command_ids": []
       },
@@ -6328,7 +6349,8 @@
           "starlette.config.Environ.mapping-sequence.fstring-empty-spec-formatting",
           "starlette.requests.Request.connection-properties.optimized-type-containment-false",
           "starlette.requests.Request.connection-properties.optimized-missing-auth-scope-key",
-          "starlette.requests.Request.connection-properties.optimized-missing-user-scope-key"
+          "starlette.requests.Request.connection-properties.optimized-missing-user-scope-key",
+          "starlette.authentication.requires.typing-consumer.param-spec"
         ],
         "command_ids": []
       },
@@ -6865,7 +6887,8 @@
           "starlette.config.Environ.mapping-sequence.fstring-empty-spec-formatting",
           "starlette.requests.Request.connection-properties.optimized-type-containment-false",
           "starlette.requests.Request.connection-properties.optimized-missing-auth-scope-key",
-          "starlette.requests.Request.connection-properties.optimized-missing-user-scope-key"
+          "starlette.requests.Request.connection-properties.optimized-missing-user-scope-key",
+          "starlette.authentication.requires.typing-consumer.param-spec"
         ],
         "command_ids": []
       },

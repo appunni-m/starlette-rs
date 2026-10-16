@@ -2,38 +2,20 @@
 
 ## Current verification status
 
-The working full-scope manifest is `parity-input@64`, SHA-256
-`6d591e84da1a97cc73a6f04f9b0280704c214c1b1f793c1a9e16b4c6ab42e3b5`,
-against Starlette 1.6.0 revision
-`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. It declares 2,615 input-only cases
-across 446 parity files, two benchmark inputs, 152 compatibility operations,
-15 Rust-native operations, 1,453 parity requirements, and six target profiles.
-The five-profile CI source-parity workflow
-[`38966623985`](https://github.com/appunni-m/starlette-rs/actions/runs/38966623985)
-completed with zero mismatches, failures, `not_run` rows, or infrastructure
-errors: 664/664 comparisons for CPython 3.10 and 3.11, 665/665 for 3.13 and
-3.14, and 2,971/2,971 for the CPython 3.12 full matrix. The Windows invalid-name
-probe [`38966623892`](https://github.com/appunni-m/starlette-rs/actions/runs/38966623892)
-passed 4/4. A local macOS run still records two source-skipped StaticFiles rows
-because its filesystem cannot create the invalid-byte filename; CI executed
-those rows on Linux.
-
-All six CI coverage plans executed without failed selected cases: CPython 3.10
-289, 3.11 289, 3.12 2,598, 3.13 290, 3.14 290, and Rust-native 378. Coverage
-MCP measured the imported LCOV reports but marked source identity
-`unverified` and test status `unknown` because matching source/build receipts
-were not ingested. These target-report line measurements are recorded in the
-[implementation plan](IMPLEMENTATION_PLAN.md) and are not Starlette-wide
-coverage claims. The full @64 benchmark measured all 74 declared source/package
-workloads; its scoped results are in [benchmark evidence](BENCHMARKS.md).
-Input generation, contract validation, source inventory, and the earlier
-@63-to-@64 schema migration passed. Historical @63 workflow
-[`38923021415`](https://github.com/appunni-m/starlette-rs/actions/runs/38923021415)
-passed the five CPython source-parity profiles: 646/646 comparisons for 3.10
-and 3.11, 2,943/2,943 for 3.12, and 647/647 for 3.13 and 3.14. Every profile
-had zero failures, `not_run` rows, or infrastructure errors; selected
-fault-contract cases passed. The target revision was
-`14067d434dd74a3ae5f931233ace7088dcc04bcc`.
+The active full-scope manifest is `parity-input@65`, SHA-256
+`7a1292e1b61c490b05f57ce6a9b70f2e39cc908bdc1cc129eabf579bd7bec7a2`, against
+Starlette 1.6.0 revision
+`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. It declares 2,625 input-only cases
+across 449 parity files, two benchmark inputs, 156 compatibility operations,
+15 Rust-native operations, 1,463 parity requirements, and six target profiles.
+Input generation, contract validation, and source inventory pass. The ten
+latest authentication typing, routing constructor-error, and StaticFiles
+package-root comparisons remain unexecuted. Grouped parity, coverage, and
+benchmarks are pending for @65. The latest completed behavioral evidence is the
+prior @64 run; its results do not cover the active manifest. Source inventory
+counts are generated in the atlas: 867 source rows, 811 input mappings, 56
+source-backed `not_applicable` rows, and zero fixture backlog. The pinned
+denominators remain 514 upstream test functions and 24 documented pages.
 
 All six @63 coverage profiles passed: 375 Rust-native cases, 274 each for
 CPython 3.10 and 3.11, 2,573 for 3.12, and 275 each for 3.13 and 3.14.
@@ -1197,11 +1179,10 @@ and do not establish parity for every deprecation path.
   `doc.templates.async-context-processor-constraint`.
 
 These source-backed caveats and targeted inputs do not create fixture backlog.
-The current @64 parity run has no executable-row mismatches, but two rows remain
-source-skipped on macOS; coverage was not ingested and the benchmark was not run.
-Repeat those phases on a filesystem that supports the POSIX surrogateescape
-filename. Earlier grouped parity, coverage, and benchmark results apply only to
-prior input manifests and do not prove universal Starlette parity.
+The active @65 manifest has not undergone grouped parity, coverage, or
+benchmark execution. The previous @64 parity run had no executable-row
+mismatches but source-skipped two rows on macOS; those results are historical
+and do not establish behavior for @65.
 
 The macOS arm64 Python package qualification is complete, and its SBOM
 metadata normalization is verified for direct and sdist-based CPython 3.12

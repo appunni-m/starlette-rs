@@ -74,6 +74,10 @@
         {
           "operation_id": "decorator-dispatch",
           "source_path": "starlette.authentication.requires"
+        },
+        {
+          "operation_id": "typing-consumer",
+          "source_path": "starlette.authentication.requires"
         }
       ]
     },
@@ -680,6 +684,10 @@
       "source_path": "starlette/routing.py:466",
       "operations": [
         {
+          "operation_id": "__init__",
+          "source_path": "starlette.routing.Host.__init__"
+        },
+        {
           "operation_id": "url_path_for",
           "source_path": "starlette.routing.Host.url_path_for"
         },
@@ -693,6 +701,10 @@
       "surface_id": "starlette.routing.Mount",
       "source_path": "starlette/routing.py:363",
       "operations": [
+        {
+          "operation_id": "__init__",
+          "source_path": "starlette.routing.Mount.__init__"
+        },
         {
           "operation_id": "route-dispatch",
           "source_path": "starlette.routing.BaseRoute.__call__"
@@ -751,6 +763,10 @@
       "surface_id": "starlette.routing.WebSocketRoute",
       "source_path": "starlette/routing.py:297",
       "operations": [
+        {
+          "operation_id": "__init__",
+          "source_path": "starlette.routing.WebSocketRoute.__init__"
+        },
         {
           "operation_id": "route-dispatch",
           "source_path": "starlette.routing.WebSocketRoute"

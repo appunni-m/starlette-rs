@@ -248,7 +248,7 @@
   ],
   "interfaces": {
     "parity": {
-      "input_schema": "migration-parity/parity-input@64",
+      "input_schema": "migration-parity/parity-input@65",
       "result_schema": "migration-parity/parity-result@9",
       "command_id": "parity"
     },
@@ -370,6 +370,7 @@
       "build/parity/inputs/parity/authentication-required-routes.json",
       "build/parity/inputs/parity/authentication-required-websockets.json",
       "build/parity/inputs/parity/authentication-runtime.json",
+      "build/parity/inputs/parity/authentication-typing-consumer.json",
       "build/parity/inputs/parity/authentication-user-interface.json",
       "build/parity/inputs/parity/authentication-websocket-success.json",
       "build/parity/inputs/parity/background-task-argument-expansion-order.json",
@@ -600,6 +601,7 @@
       "build/parity/inputs/parity/router-url-lookup-name-subclass-prefix.json",
       "build/parity/inputs/parity/router-url-path-none-parameter.json",
       "build/parity/inputs/parity/routing-base-route-subclass-matches.json",
+      "build/parity/inputs/parity/routing-constructor-errors.json",
       "build/parity/inputs/parity/routing-docs-body-boundary.json",
       "build/parity/inputs/parity/routing-docs-inputs.json",
       "build/parity/inputs/parity/routing-instance-matches-override.json",
@@ -641,6 +643,7 @@
       "build/parity/inputs/parity/static-files-null-byte-lookup.json",
       "build/parity/inputs/parity/static-files-omitted-timezone.json",
       "build/parity/inputs/parity/static-files-os-path.json",
+      "build/parity/inputs/parity/static-files-package-root-errors.json",
       "build/parity/inputs/parity/static-files-package-tuple-subclass.json",
       "build/parity/inputs/parity/static-files-packages-falsey-sequence.json",
       "build/parity/inputs/parity/static-files-root-path-index-redirect.json",
@@ -5631,6 +5634,108 @@
           "benchmark": {
             "applicability": "not_applicable",
             "reason": "Authentication is outside the declared benchmark workloads."
+          }
+        },
+        {
+          "id": "typing-consumer",
+          "kind": "value_operation",
+          "classification": "non_endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.authentication.requires",
+            "signature": "Mypy consumer(source: str) -> normalized diagnostics",
+            "parameters": [
+              {
+                "id": "source",
+                "style": "option",
+                "value_types": [
+                  "string"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "typing_consumer",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "out_of_scope",
+                "reason": "Python static typing metadata is part of the starlette.* facade contract; the Rust-native API has independent Rust signatures.",
+                "authority": "AGENTS.md Python typing and Rust-native API rules"
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.authentication.requires",
+              "signature": "Pinned Mypy consumer against the source and installed Python package",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.authentication.requires.python-typing-contract",
+              "dimension": "type_contract",
+              "description": "Type-check the same input-derived consumer against pinned Starlette source and the installed package. The ParamSpec contract for requires preserves extra positional and keyword-only parameters on sync Request, async Request, and async WebSocket handlers; the consumer reveals each decorated handler and includes a mismatched argument type. Pinned source: starlette/authentication.py:25-98.",
+              "lanes": [
+                "parity"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython310",
+              "python-package-cpython311",
+              "python-package-cpython312",
+              "python-package-cpython313",
+              "python-package-cpython314"
+            ]
+          },
+          "coverage": {
+            "applicability": "not_applicable",
+            "reason": "Static type-checker consumer snippets validate Python typing metadata without executing the Starlette runtime. Pinned evidence path: starlette.authentication.requires."
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "Static consumer type checking has no runtime benchmark boundary."
           }
         }
       ]
@@ -27220,6 +27325,147 @@
             "applicability": "not_applicable",
             "reason": "Routing value representation is outside the active Router/GZip benchmark workloads."
           }
+        },
+        {
+          "id": "__init__",
+          "kind": "constructor",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.routing.Host.__init__",
+            "signature": "Host(host, app, name=None) -> None",
+            "parameters": [
+              {
+                "id": "self",
+                "style": "receiver",
+                "value_types": [
+                  "handle"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "host",
+                "style": "positional",
+                "value_types": [
+                  "string"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "app",
+                "style": "positional",
+                "value_types": [
+                  "handle"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "name",
+                "style": "positional_or_keyword",
+                "value_types": [
+                  "string",
+                  "null"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": null
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "constructor_results",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [
+                  "class",
+                  "kind",
+                  "message",
+                  "stage",
+                  "code",
+                  "cause",
+                  "suppress_context"
+                ],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "The Rust-native HostPattern API does not expose the Python Host constructor or its host validation.",
+                "blocker": "No Rust-native Host compatibility constructor is declared for this public Starlette surface."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.routing.Host",
+              "signature": "Host(host, app, name=None)",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.routing.Host.__init__.leading-slash",
+              "dimension": "error_path",
+              "description": "Construct Host with a host value beginning with '/' and observe the live assertion. Pinned source: starlette/routing.py:429-435.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ],
+            "component_ids": [
+              "rust-core-python-package-cpython312",
+              "python-rust-bindings-python-package-cpython312"
+            ]
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "Constructor validation is outside the active dispatch benchmark workloads."
+          }
         }
       ]
     },
@@ -27843,6 +28089,197 @@
             "applicability": "not_applicable",
             "reason": "Routing value representation is outside the active Router/GZip benchmark workloads."
           }
+        },
+        {
+          "id": "__init__",
+          "kind": "constructor",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.routing.Mount.__init__",
+            "signature": "Mount(path, app=None, routes=None, name=None, *, middleware=None, max_body_size=None) -> None",
+            "parameters": [
+              {
+                "id": "self",
+                "style": "receiver",
+                "value_types": [
+                  "handle"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "path",
+                "style": "positional",
+                "value_types": [
+                  "string"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "app",
+                "style": "positional_or_keyword",
+                "value_types": [
+                  "handle",
+                  "null"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": null
+                }
+              },
+              {
+                "id": "routes",
+                "style": "positional_or_keyword",
+                "value_types": [
+                  "sequence",
+                  "null"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": null
+                }
+              },
+              {
+                "id": "name",
+                "style": "positional_or_keyword",
+                "value_types": [
+                  "string",
+                  "null"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": null
+                }
+              },
+              {
+                "id": "middleware",
+                "style": "keyword",
+                "value_types": [
+                  "sequence",
+                  "null"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": null
+                }
+              },
+              {
+                "id": "max_body_size",
+                "style": "keyword",
+                "value_types": [
+                  "integer",
+                  "null"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": null
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "constructor_results",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [
+                  "class",
+                  "kind",
+                  "message",
+                  "stage",
+                  "code",
+                  "cause",
+                  "suppress_context"
+                ],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "The Rust-native API does not expose the Python Mount constructor or its app/routes validation.",
+                "blocker": "No Rust-native Mount compatibility constructor is declared for this public Starlette surface."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.routing.Mount",
+              "signature": "Mount(path, app=None, routes=None, name=None, *, middleware=None, max_body_size=None)",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.routing.Mount.__init__.invalid-leading-slash",
+              "dimension": "error_path",
+              "description": "Construct Mount with a nonempty input path that does not begin with '/' and observe the live assertion. Pinned source: starlette/routing.py:331-343.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Mount.__init__.missing-app-and-routes",
+              "dimension": "error_path",
+              "description": "Construct Mount with both app and routes omitted or null and observe the live assertion. Pinned source: starlette/routing.py:331-343.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ],
+            "component_ids": [
+              "rust-core-python-package-cpython312",
+              "python-rust-bindings-python-package-cpython312"
+            ]
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "Constructor validation is outside the active dispatch benchmark workloads."
+          }
         }
       ]
     },
@@ -28166,6 +28603,30 @@
               "id": "starlette.routing.Route.__init__.lone-surrogate-path",
               "dimension": "input_family",
               "description": "Construct Route with a static path prefix containing a lone surrogate while retaining its path converter. Pinned source: starlette/routing.py:198-240 and compile_path at 95-153.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Route.__init__.invalid-leading-slash",
+              "dimension": "error_path",
+              "description": "Construct Route with an input path that does not begin with '/' and observe the live assertion. Pinned source: starlette/routing.py:179-192.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.routing.Route.__init__.unknown-converter",
+              "dimension": "error_path",
+              "description": "Construct Route with an input path that names an unknown converter and observe the live assertion. Pinned source: starlette/routing.py:101-123,179-219.",
               "lanes": [
                 "parity",
                 "coverage"
@@ -30759,6 +31220,159 @@
           "benchmark": {
             "applicability": "not_applicable",
             "reason": "Routing value representation is outside the active Router/GZip benchmark workloads."
+          }
+        },
+        {
+          "id": "__init__",
+          "kind": "constructor",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.routing.WebSocketRoute.__init__",
+            "signature": "WebSocketRoute(path, endpoint, *, name=None, middleware=None) -> None",
+            "parameters": [
+              {
+                "id": "self",
+                "style": "receiver",
+                "value_types": [
+                  "handle"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "path",
+                "style": "positional",
+                "value_types": [
+                  "string"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "endpoint",
+                "style": "positional",
+                "value_types": [
+                  "handle"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              },
+              {
+                "id": "name",
+                "style": "keyword",
+                "value_types": [
+                  "string",
+                  "null"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": null
+                }
+              },
+              {
+                "id": "middleware",
+                "style": "keyword",
+                "value_types": [
+                  "sequence",
+                  "null"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": null
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "constructor_results",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [
+                  "class",
+                  "kind",
+                  "message",
+                  "stage",
+                  "code",
+                  "cause",
+                  "suppress_context"
+                ],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "The Rust-native API does not expose the Python WebSocketRoute constructor or its Python path validation.",
+                "blocker": "No Rust-native WebSocketRoute compatibility constructor is declared for this public Starlette surface."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.routing.WebSocketRoute",
+              "signature": "WebSocketRoute(path, endpoint, *, name=None, middleware=None)",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.routing.WebSocketRoute.__init__.invalid-leading-slash",
+              "dimension": "error_path",
+              "description": "Construct WebSocketRoute with an input path that does not begin with '/' and observe the live assertion. Pinned source: starlette/routing.py:271-280.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ]
+          },
+          "coverage": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython312"
+            ],
+            "component_ids": [
+              "rust-core-python-package-cpython312",
+              "python-rust-bindings-python-package-cpython312"
+            ]
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "Constructor validation is outside the active dispatch benchmark workloads."
           }
         }
       ]
@@ -33481,6 +34095,42 @@
               "id": "starlette.staticfiles.StaticFiles.configuration-check.repeated-call-state-and-asgi-events",
               "dimension": "boundary",
               "description": "Invoke the same StaticFiles instance twice with an input-defined valid root, observing config_checked transitions, actual check_config call counts, and each live ASGI event tape. Upstream: tests/test_staticfiles.py::test_staticfiles_config_check_occurs_only_once; starlette/staticfiles.py:189-203.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.staticfiles.StaticFiles.configuration-check.package-roots.missing-package-spec",
+              "dimension": "error_path",
+              "description": "Construct StaticFiles with an input-defined package name for which importlib.util.find_spec returns no module spec and observe the live assertion. Pinned source: starlette/staticfiles.py:66-78.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.staticfiles.StaticFiles.configuration-check.package-roots.package-without-origin",
+              "dimension": "error_path",
+              "description": "Construct StaticFiles with an input-defined namespace package whose module spec has no origin and observe the live assertion. Pinned source: starlette/staticfiles.py:66-78.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.staticfiles.StaticFiles.configuration-check.package-roots.missing-static-directory",
+              "dimension": "error_path",
+              "description": "Construct StaticFiles with an input-defined package root whose selected statics directory does not exist and observe the live assertion. Pinned source: starlette/staticfiles.py:66-78.",
               "lanes": [
                 "parity",
                 "coverage"

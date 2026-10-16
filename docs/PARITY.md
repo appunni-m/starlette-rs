@@ -2,28 +2,35 @@
 
 ## Current verification status
 
-The active `parity-input@64` manifest has 2,615 cases across 446 parity inputs,
-1,453 requirements, and SHA-256
-`6d591e84da1a97cc73a6f04f9b0280704c214c1b1f793c1a9e16b4c6ab42e3b5`. The
-five-profile source-parity workflow
-[`38966623985`](https://github.com/appunni-m/starlette-rs/actions/runs/38966623985)
-completed with zero mismatches, failed comparisons, `not_run` rows, or
-infrastructure errors: CPython 3.10 and 3.11 each passed 664/664 profile rows,
-3.13 and 3.14 each passed 665/665, and the CPython 3.12 full matrix passed
-2,971/2,971. The Windows invalid-name probe
-[`38966623892`](https://github.com/appunni-m/starlette-rs/actions/runs/38966623892)
-passed all 4 comparisons. A local macOS run still records two source-skipped
-StaticFiles rows because that filesystem cannot create the invalid-byte
-filename; the Linux matrix exercised them successfully.
+The active `parity-input@65` manifest has 2,625 cases across 449 parity
+inputs, 1,463 requirements, and SHA-256
+`7a1292e1b61c490b05f57ce6a9b70f2e39cc908bdc1cc129eabf579bd7bec7a2`. Input
+generation, contract validation, and source inventory pass for this manifest.
+Its latest additions are an authentication `requires` typing consumer, six
+routing constructor-error cases, and three StaticFiles package-root errors;
+these ten comparisons remain unexecuted pending the grouped parity phase.
 
-All six coverage plans executed with zero failed selected cases: 289 for
+The latest completed five-profile source-parity workflow used the previous @64
+input set. Workflow
+[`38966623985`](https://github.com/appunni-m/starlette-rs/actions/runs/38966623985)
+reported zero mismatches, failed comparisons, `not_run` rows, or infrastructure
+errors: CPython 3.10 and 3.11 each passed 664/664 profile rows, 3.13 and 3.14
+each passed 665/665, and the CPython 3.12 full matrix passed 2,971/2,971.
+Those results do not cover @65. The Windows invalid-name probe
+[`38966623892`](https://github.com/appunni-m/starlette-rs/actions/runs/38966623892)
+also belongs to @64 and passed all four comparisons. A local macOS @64 run
+source-skipped two StaticFiles rows because its filesystem cannot create the
+invalid-byte filename; the Linux matrix exercised them successfully.
+
+The six @64 coverage plans executed with zero failed selected cases: 289 for
 CPython 3.10, 289 for 3.11, 2,598 for 3.12, 290 for 3.13, 290 for 3.14, and
-378 for Rust-native. Coverage MCP measured each LCOV report. It marks source
-identity `unverified` and test status `unknown` because matching source/build
-receipts were not ingested, so these line counts are not a Starlette-wide
-coverage percentage. The complete @64 benchmark has since measured all 74
-declared Router/GZip source/package workloads; its run details and the two
-macOS preflight skips are recorded in [benchmark evidence](BENCHMARKS.md).
+378 for Rust-native. Coverage MCP marks source identity `unverified` and test
+status `unknown` because matching source/build receipts were not ingested, so
+these line counts are not Starlette-wide coverage. The complete @64 benchmark
+measured all 74 declared Router/GZip source/package workloads; its run details
+and two macOS preflight skips are recorded in [benchmark evidence](BENCHMARKS.md).
+Coverage and benchmark execution for @65 remain pending until the grouped @65
+parity phase completes.
 
 The latest input-only comparisons cover Config subclass property/cast dispatch
 and empty-format-spec error messages, optimized Request, WebSocket, and

@@ -56,8 +56,9 @@ INPUT_SCHEMA_V60 = "migration-parity/parity-input@60"
 INPUT_SCHEMA_V61 = "migration-parity/parity-input@61"
 INPUT_SCHEMA_V62 = "migration-parity/parity-input@62"
 INPUT_SCHEMA_V63 = "migration-parity/parity-input@63"
+INPUT_SCHEMA_V64 = "migration-parity/parity-input@64"
 PREVIOUS_INPUT_SCHEMA = INPUT_SCHEMA_V50
-INPUT_SCHEMA = "migration-parity/parity-input@64"
+INPUT_SCHEMA = "migration-parity/parity-input@65"
 BENCHMARK_INPUT_SCHEMA = "migration-parity/benchmark-input@1"
 RESULT_SCHEMA = "migration-parity/parity-result@9"
 BENCHMARK_RESULT_SCHEMA = "migration-parity/benchmark-result@1"
@@ -116,6 +117,13 @@ TEMPLATING_TYPING_CONSUMER_OPERATION = (
 TEMPLATING_TYPING_CONSUMER_REQUIREMENT = (
     "starlette.templating.Jinja2Templates.python-typing-contract"
 )
+AUTHENTICATION_TYPING_CONSUMER_OPERATION = (
+    "starlette.authentication",
+    "typing-consumer",
+)
+AUTHENTICATION_TYPING_CONSUMER_REQUIREMENT = (
+    "starlette.authentication.requires.python-typing-contract"
+)
 TYPING_CONSUMER_SPECS = {
     APPLICATION_TYPING_CONSUMER_OPERATION: (
         "starlette.applications.Starlette.typing-consumer.public-facade-aliases",
@@ -132,6 +140,10 @@ TYPING_CONSUMER_SPECS = {
     TEMPLATING_TYPING_CONSUMER_OPERATION: (
         "starlette.templating.Jinja2Templates.typing-consumer.get-template-render",
         TEMPLATING_TYPING_CONSUMER_REQUIREMENT,
+    ),
+    AUTHENTICATION_TYPING_CONSUMER_OPERATION: (
+        "starlette.authentication.requires.typing-consumer.param-spec",
+        AUTHENTICATION_TYPING_CONSUMER_REQUIREMENT,
     ),
 }
 TYPING_CONSUMER_OPERATIONS = frozenset(TYPING_CONSUMER_SPECS)
@@ -1604,7 +1616,20 @@ ROUTE_ENDPOINT_NAME_REQUIREMENTS = {
 ROUTE_CONSTRUCTOR_ERROR_REQUIREMENTS = {
     "single": f"{HTTP_ROUTE_SURFACE}.__init__.duplicate-parameter-name-single",
     "multiple": f"{HTTP_ROUTE_SURFACE}.__init__.duplicate-parameter-name-multiple",
+    "invalid-leading-slash": f"{HTTP_ROUTE_SURFACE}.__init__.invalid-leading-slash",
+    "unknown-converter": f"{HTTP_ROUTE_SURFACE}.__init__.unknown-converter",
 }
+WEBSOCKET_ROUTE_CONSTRUCTOR_ERROR_REQUIREMENT = (
+    f"{WEBSOCKET_ROUTE_SURFACE}.__init__.invalid-leading-slash"
+)
+MOUNT_CONSTRUCTOR_ERROR_REQUIREMENTS = {
+    "invalid-leading-slash": f"{MOUNT_SURFACE}.__init__.invalid-leading-slash",
+    "missing-app-and-routes": f"{MOUNT_SURFACE}.__init__.missing-app-and-routes",
+}
+HOST_CONSTRUCTOR_ERROR_REQUIREMENT = f"{HOST_SURFACE}.__init__.leading-slash"
+ROUTING_CONSTRUCTOR_ERROR_SURFACES = frozenset(
+    {HTTP_ROUTE_SURFACE, WEBSOCKET_ROUTE_SURFACE, MOUNT_SURFACE, HOST_SURFACE}
+)
 ROUTE_LONE_SURROGATE_PATH_REQUIREMENT = f"{HTTP_ROUTE_SURFACE}.__init__.lone-surrogate-path"
 ROUTE_ENDPOINT_NAME_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
     "path",
@@ -1691,6 +1716,9 @@ STATIC_FILES_CONFIGURATION_CHECK_REQUIREMENTS = {
     "lazy_missing": f"{STATIC_FILES_SURFACE}.{STATIC_FILES_CONFIGURATION_CHECK_OPERATION}.lazy-missing-directory",
     "lazy_not_directory": f"{STATIC_FILES_SURFACE}.{STATIC_FILES_CONFIGURATION_CHECK_OPERATION}.lazy-not-directory",
     "repeated_call": f"{STATIC_FILES_SURFACE}.{STATIC_FILES_CONFIGURATION_CHECK_OPERATION}.repeated-call-state-and-asgi-events",
+    "missing_package_spec": f"{STATIC_FILES_SURFACE}.{STATIC_FILES_CONFIGURATION_CHECK_OPERATION}.package-roots.missing-package-spec",
+    "package_without_origin": f"{STATIC_FILES_SURFACE}.{STATIC_FILES_CONFIGURATION_CHECK_OPERATION}.package-roots.package-without-origin",
+    "missing_package_static_directory": f"{STATIC_FILES_SURFACE}.{STATIC_FILES_CONFIGURATION_CHECK_OPERATION}.package-roots.missing-static-directory",
 }
 STREAMING_RESPONSE_OPERATION = "asgi-call"
 STREAMING_RESPONSE_TRACE_OPERATION = "asgi-call-with-execution-trace"
@@ -1890,6 +1918,8 @@ def _static_files_configuration_check_case_keys(case: Any) -> set[str]:
     keys = set(STATIC_FILES_CONFIGURATION_CHECK_CASE_KEYS)
     if isinstance(case, dict) and "directory_pathlike" in case:
         keys.add("directory_pathlike")
+    if isinstance(case, dict) and "package_roots" in case:
+        keys.add("package_roots")
     return keys
 
 
@@ -1990,7 +2020,9 @@ STARLETTE_APPLICATION_CALL_OPERATION_KEY = (
     "__call__",
 )
 STARLETTE_ROUTES_OPERATION_KEY = ("starlette.applications.Starlette", "routes")
-ROUTE_CONSTRUCTOR_OPERATION_KEY = ("starlette.routing.Route", "__init__")
+ROUTING_CONSTRUCTOR_OPERATION_KEYS = frozenset(
+    (surface, "__init__") for surface in ROUTING_CONSTRUCTOR_ERROR_SURFACES
+)
 ROUTE_BODY_LIMIT_WORKFLOW_REQUIREMENTS = {
     "application_default": "starlette.routing.Route.max_body_size.application-default",
     "application_default_unlimited": "starlette.applications.Starlette.max_body_size.default-unlimited",
@@ -3994,7 +4026,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                                 STARLETTE_ADD_MIDDLEWARE_OPERATION_KEY,
                                 STARLETTE_ADD_EXCEPTION_HANDLER_OPERATION_KEY,
                                 STARLETTE_ROUTES_OPERATION_KEY,
-                                ROUTE_CONSTRUCTOR_OPERATION_KEY,
+                                *ROUTING_CONSTRUCTOR_OPERATION_KEYS,
                             }
                             or (
                                 (surface["id"], operation["id"]) in REVERSE_URL_OPERATIONS
@@ -11181,6 +11213,61 @@ def _validate_static_files_configuration_check_case(case: dict[str, Any]) -> Non
     if type(case["follow_symlink"]) is not bool:
         raise ContractError("StaticFiles configuration-check.follow_symlink must be boolean")
 
+    has_package_roots = "package_roots" in case
+    package_roots = case.get("package_roots")
+    package_root_requirements: set[str] = set()
+    if has_package_roots:
+        if not isinstance(package_roots, list) or len(package_roots) != 1:
+            raise ContractError(
+                "StaticFiles package-root constructor errors require one input package root"
+            )
+        package_names: set[str] = set()
+        for index, package_root in enumerate(package_roots):
+            context = f"StaticFiles configuration-check.package_roots[{index}]"
+            package_root = _exact(
+                package_root,
+                {"name", "statics_dir", "spec_kind"},
+                context,
+            )
+            name = _string(package_root["name"], f"{context}.name")
+            if not name or any(
+                not part.isascii() or not part.isidentifier() for part in name.split(".")
+            ):
+                raise ContractError(f"{context}.name must be a dotted Python package name")
+            if name in package_names:
+                raise ContractError("StaticFiles configuration-check package names must be unique")
+            package_names.add(name)
+            statics_dir = _string(package_root["statics_dir"], f"{context}.statics_dir")
+            if (
+                not statics_dir
+                or Path(statics_dir).is_absolute()
+                or any(part in {"", ".", ".."} for part in statics_dir.split("/"))
+                or "\\" in statics_dir
+                or "\x00" in statics_dir
+            ):
+                raise ContractError(
+                    f"{context}.statics_dir must be a relative normalized path"
+                )
+            spec_kind = package_root["spec_kind"]
+            if spec_kind == "missing":
+                package_root_requirements.add(
+                    STATIC_FILES_CONFIGURATION_CHECK_REQUIREMENTS["missing_package_spec"]
+                )
+            elif spec_kind == "namespace":
+                package_root_requirements.add(
+                    STATIC_FILES_CONFIGURATION_CHECK_REQUIREMENTS["package_without_origin"]
+                )
+            elif spec_kind == "regular":
+                package_root_requirements.add(
+                    STATIC_FILES_CONFIGURATION_CHECK_REQUIREMENTS[
+                        "missing_package_static_directory"
+                    ]
+                )
+            else:
+                raise ContractError(
+                    f"{context}.spec_kind must be missing, namespace, or regular"
+                )
+
     files = case["files"]
     if not isinstance(files, list):
         raise ContractError("StaticFiles configuration-check.files must be an array")
@@ -11235,6 +11322,17 @@ def _validate_static_files_configuration_check_case(case: dict[str, Any]) -> Non
             allow_headers=True,
             allow_http_disconnect=True,
         )
+
+    if has_package_roots:
+        if directory_kind != "directory" or not case["check_dir"] or files or calls:
+            raise ContractError(
+                "StaticFiles package-root constructor errors require a valid root, empty files, and no calls"
+            )
+        if set(case["covers"]) != package_root_requirements:
+            raise ContractError(
+                "StaticFiles package-root covers must match the supplied import specifications"
+            )
+        return
 
     if directory_kind == "missing" and case["check_dir"] and not calls:
         requirement = STATIC_FILES_CONFIGURATION_CHECK_REQUIREMENTS[
@@ -25166,6 +25264,12 @@ def _validate_case_payload(
         isinstance(case, dict)
         and (case.get("surface"), case.get("operation")) == ROUTE_ENDPOINT_NAME_OPERATION_KEY
     )
+    is_routing_constructor_error = (
+        isinstance(case, dict)
+        and (case.get("surface"), case.get("operation"))
+        in ROUTING_CONSTRUCTOR_OPERATION_KEYS
+        and "attempts" in case
+    )
     is_router = (
         isinstance(case, dict)
         and case.get("surface") == ROUTER_SURFACE
@@ -25452,7 +25556,7 @@ def _validate_case_payload(
         else HTTP_ROUTE_CALL_CASE_KEYS
         if is_http_route_call
         else ROUTE_CONSTRUCTOR_ERROR_CASE_KEYS
-        if is_route_endpoint_name and "attempts" in case
+        if is_routing_constructor_error
         else ROUTE_ENDPOINT_NAME_CASE_KEYS
         if is_route_endpoint_name
         else WEBSOCKET_ROUTE_CASE_KEYS
@@ -26235,6 +26339,9 @@ def _validate_case_payload(
     elif is_http_route_call:
         if case["operation"] != HTTP_ROUTE_CALL_OPERATION:
             raise ContractError("Route cases must use the inherited ASGI __call__ operation")
+    elif is_routing_constructor_error:
+        if (case["surface"], case["operation"]) not in ROUTING_CONSTRUCTOR_OPERATION_KEYS:
+            raise ContractError("routing constructor-error cases must use __init__")
     elif is_route_endpoint_name:
         if case["operation"] != "__init__":
             raise ContractError("Route endpoint-name cases must construct a Route")
@@ -26785,11 +26892,11 @@ def _validate_case_payload(
     if is_http_route_call:
         _validate_http_route_call_case_stimulus(case)
         return case
+    if is_routing_constructor_error:
+        _validate_route_constructor_error_case(case)
+        return case
     if is_route_endpoint_name:
-        if "attempts" in case:
-            _validate_route_constructor_error_case(case)
-        else:
-            _validate_route_name_case(case)
+        _validate_route_name_case(case)
         return case
     if is_websocket_route:
         _validate_websocket_route_case_stimulus(case)
@@ -41412,24 +41519,91 @@ def _validate_route_constructor_error_case(case: dict[str, Any]) -> None:
         raise ContractError("Route constructor-error parity targets only the Python package")
     if case["observations"] != ["constructor_results"]:
         raise ContractError("Route constructor-error cases select their declared observation")
+    surface = case["surface"]
+    if surface not in ROUTING_CONSTRUCTOR_ERROR_SURFACES:
+        raise ContractError("routing constructor-error case uses an unsupported constructor")
     attempts = case["attempts"]
     if not isinstance(attempts, list) or not attempts:
-        raise ContractError("Route constructor-error cases require route constructor inputs")
+        raise ContractError("routing constructor-error cases require constructor inputs")
 
     exercised: set[str] = set()
     for index, attempt in enumerate(attempts):
-        _validate_route_value_spec(attempt, f"Route constructor-error attempts[{index}]")
-        parameter_names = [name for name, _converter in _route_template_parameters(attempt["path"])]
-        counts: dict[str, int] = {}
-        for name in parameter_names:
-            counts[name] = counts.get(name, 0) + 1
-        duplicate_names = [name for name, count in counts.items() if count > 1]
-        if not duplicate_names:
-            raise ContractError("Route constructor-error inputs must repeat a path parameter name")
-        duplicate_kind = "single" if len(duplicate_names) == 1 else "multiple"
-        exercised.add(ROUTE_CONSTRUCTOR_ERROR_REQUIREMENTS[duplicate_kind])
+        context = f"routing constructor-error attempts[{index}]"
+        if surface == HTTP_ROUTE_SURFACE:
+            spec = _exact(attempt, {"path", "endpoint", "methods", "name"}, context)
+            path = _string(spec["path"], f"{context}.path")
+            _validate_route_endpoint_spec(spec["endpoint"], f"{context}.endpoint")
+            methods = spec["methods"]
+            if methods is not None and (
+                not isinstance(methods, list)
+                or any(not isinstance(method, str) for method in methods)
+                or len(methods) != len(set(methods))
+            ):
+                raise ContractError(f"{context}.methods must be null or unique strings")
+            if spec["name"] is not None and not isinstance(spec["name"], str):
+                raise ContractError(f"{context}.name must be null or a string")
+            if not path.startswith("/"):
+                exercised.add(ROUTE_CONSTRUCTOR_ERROR_REQUIREMENTS["invalid-leading-slash"])
+                continue
+
+            parameters = _route_template_parameters(path)
+            if any(
+                converter not in {"str", "int", "float", "uuid", "path"}
+                for _name, converter in parameters
+            ):
+                exercised.add(ROUTE_CONSTRUCTOR_ERROR_REQUIREMENTS["unknown-converter"])
+                continue
+            counts: dict[str, int] = {}
+            for name, _converter in parameters:
+                counts[name] = counts.get(name, 0) + 1
+            duplicate_names = [name for name, count in counts.items() if count > 1]
+            if not duplicate_names:
+                raise ContractError(
+                    f"{context} must derive a declared error from its route path"
+                )
+            duplicate_kind = "single" if len(duplicate_names) == 1 else "multiple"
+            exercised.add(ROUTE_CONSTRUCTOR_ERROR_REQUIREMENTS[duplicate_kind])
+        elif surface == WEBSOCKET_ROUTE_SURFACE:
+            spec = _exact(attempt, {"path", "endpoint", "name"}, context)
+            path = _string(spec["path"], f"{context}.path")
+            _validate_route_endpoint_spec(spec["endpoint"], f"{context}.endpoint")
+            if spec["name"] is not None and not isinstance(spec["name"], str):
+                raise ContractError(f"{context}.name must be null or a string")
+            if not path.startswith("/"):
+                exercised.add(WEBSOCKET_ROUTE_CONSTRUCTOR_ERROR_REQUIREMENT)
+            else:
+                raise ContractError(f"{context} must derive a declared WebSocketRoute error")
+        elif surface == MOUNT_SURFACE:
+            spec = _exact(attempt, {"path", "app", "routes", "name"}, context)
+            path = _string(spec["path"], f"{context}.path")
+            if spec["app"] is not None:
+                _validate_asgi_middleware_app(spec["app"])
+            if spec["routes"] is not None:
+                if not isinstance(spec["routes"], list):
+                    raise ContractError(f"{context}.routes must be null or an array")
+                for route_index, route in enumerate(spec["routes"]):
+                    _validate_route_value_spec(route, f"{context}.routes[{route_index}]")
+            if spec["name"] is not None and not isinstance(spec["name"], str):
+                raise ContractError(f"{context}.name must be null or a string")
+            if path != "" and not path.startswith("/"):
+                exercised.add(MOUNT_CONSTRUCTOR_ERROR_REQUIREMENTS["invalid-leading-slash"])
+            elif spec["app"] is None and spec["routes"] is None:
+                exercised.add(MOUNT_CONSTRUCTOR_ERROR_REQUIREMENTS["missing-app-and-routes"])
+            else:
+                raise ContractError(f"{context} must derive a declared Mount error")
+        else:
+            spec = _exact(attempt, {"host", "app", "name"}, context)
+            host = _string(spec["host"], f"{context}.host")
+            if spec["app"] is not None:
+                _validate_asgi_middleware_app(spec["app"])
+            if spec["name"] is not None and not isinstance(spec["name"], str):
+                raise ContractError(f"{context}.name must be null or a string")
+            if host.startswith("/"):
+                exercised.add(HOST_CONSTRUCTOR_ERROR_REQUIREMENT)
+            else:
+                raise ContractError(f"{context} must derive a declared Host error")
     if set(case["covers"]) != exercised:
-        raise ContractError("Route constructor-error coverage must derive from repeated path names")
+        raise ContractError("routing constructor-error coverage must derive from constructor inputs")
 
 
 def _validate_route_value_spec(spec: Any, context: str) -> str:
@@ -45276,6 +45450,31 @@ def migrate_input_document_v63(document: Any) -> dict[str, Any]:
         raise ContractError("parity-input@63 does not allow @64 input descriptors")
 
     migrated = dict(document)
+    migrated["schema"] = INPUT_SCHEMA_V64
+    return migrated
+
+
+def _contains_parity_input_v65_package_roots(value: Any) -> bool:
+    if isinstance(value, dict):
+        if "package_roots" in value:
+            return True
+        return any(_contains_parity_input_v65_package_roots(item) for item in value.values())
+    if isinstance(value, list):
+        return any(_contains_parity_input_v65_package_roots(item) for item in value)
+    return False
+
+
+def migrate_input_document_v64(document: Any) -> dict[str, Any]:
+    """Advance @64 inputs to @65, which adds StaticFiles package-root stimuli."""
+    _exact(document, {"schema", "cases"}, "parity input")
+    if document["schema"] != INPUT_SCHEMA_V64:
+        raise ContractError(f"unsupported @64 parity input schema: {document['schema']!r}")
+    if not isinstance(document["cases"], list) or not document["cases"]:
+        raise ContractError("parity input must select at least one case")
+    if _contains_parity_input_v65_package_roots(document["cases"]):
+        raise ContractError("parity-input@64 does not allow StaticFiles package_roots")
+
+    migrated = dict(document)
     migrated["schema"] = INPUT_SCHEMA
     return migrated
 
@@ -45396,8 +45595,19 @@ def validate_input_document_v63(
     *,
     public_modules: frozenset[str] | None = None,
 ) -> list[dict[str, Any]]:
-    """Validate @63 inputs before their deterministic @64 schema migration."""
+    """Validate @63 inputs before their deterministic @64 and @65 migrations."""
     migrated = migrate_input_document_v63(document)
+    return validate_input_document_v64(migrated, manifest, public_modules=public_modules)
+
+
+def validate_input_document_v64(
+    document: Any,
+    manifest: dict[str, Any],
+    *,
+    public_modules: frozenset[str] | None = None,
+) -> list[dict[str, Any]]:
+    """Validate @64 inputs before their deterministic @65 schema migration."""
+    migrated = migrate_input_document_v64(document)
     return validate_input_document(migrated, manifest, public_modules=public_modules)
 
 

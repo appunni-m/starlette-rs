@@ -1,16 +1,16 @@
 # Benchmark mapping
 
-The active `parity-input@64` manifest declares 2,615 cases across 446 parity
-inputs, 1,453 requirements, and SHA-256
-`6d591e84da1a97cc73a6f04f9b0280704c214c1b1f793c1a9e16b4c6ab42e3b5`. The
-five-profile source-parity workflow passed on Ubuntu before benchmarking, and
-all six coverage plans executed without failed cases. Coverage MCP measured the
-six LCOV reports, but marks their source identity unverified and test status
-unknown because no matching source/build receipt was ingested. The latest @64
-run measured all 74 declared source/package workloads (six Router and 68 GZip);
-all 74 Rust-native rows are `not_run` because the native API has no equivalent
-ASGI workload boundary. These results cover only the declared benchmark slice
-and do not prove full Starlette replacement parity.
+The active `parity-input@65` manifest declares 2,625 cases across 449 parity
+inputs, 1,463 requirements, and SHA-256
+`7a1292e1b61c490b05f57ce6a9b70f2e39cc908bdc1cc129eabf579bd7bec7a2`. The @65
+benchmark phase is pending until grouped parity and coverage complete. The
+latest completed benchmark used @64: it measured all 74 declared
+source/package workloads (six Router and 68 GZip); all 74 Rust-native rows are
+`not_run` because the native API has no equivalent ASGI workload boundary.
+Coverage MCP marked the imported @64 reports' source identity unverified and
+test status unknown because no matching source/build receipt was ingested.
+These results cover only the declared @64 slices and do not prove full
+Starlette replacement parity or @65 behavior.
 
 The pinned Starlette 1.6.0 benchmark suite has six Router workloads and 68
 GZip workloads. The dedicated runner measures all 74 against both pinned

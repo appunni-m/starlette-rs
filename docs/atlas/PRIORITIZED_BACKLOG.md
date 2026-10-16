@@ -8,38 +8,20 @@ incomplete.
 
 ## Current execution snapshot
 
-The active `parity-input@64` contract contains 2,615 cases across 446 parity
-inputs and two benchmark inputs, 152 Starlette compatibility operations, 15
-Rust-native operations, 1,453 parity requirements, and six target profiles. Its
+The active `parity-input@65` contract contains 2,625 cases across 449 parity
+inputs and two benchmark inputs, 156 Starlette compatibility operations, 15
+Rust-native operations, 1,463 parity requirements, and six target profiles. Its
 manifest SHA-256 is
-`6d591e84da1a97cc73a6f04f9b0280704c214c1b1f793c1a9e16b4c6ab42e3b5`. The latest
-Config, optimized Request/WebSocket/WebSocketEndpoint (including the
-invalid-encoding fallback), and StreamingResponse listener boundary comparisons
-were included in the five-profile CI source-parity workflow. CI reported zero
-mismatches, failures, `not_run` rows, or infrastructure errors: 664/664 for
-CPython 3.10 and 3.11, 665/665 for 3.13 and 3.14, and 2,971/2,971 for the
-CPython 3.12 full matrix. The Windows invalid-name probe passed 4/4. A local
-macOS run still source-skips two surrogateescape filename rows because that
-filesystem cannot create the invalid-byte filename; Linux CI executed them.
-All six coverage plans executed without failed selected cases: 289 for CPython
-3.10, 289 for 3.11, 2,598 for 3.12, 290 for 3.13, 290 for 3.14, and 378 for
-Rust-native. Coverage MCP measured the imported LCOV reports but marked their
-source identity `unverified` and test status `unknown` because matching
-source/build receipts were not ingested. The full benchmark measured all 74
-declared source/package workloads; details and the benchmark preflight's two
-macOS skips are in [the benchmark report](../BENCHMARKS.md). Contract and
-source-inventory checks passed. The generated atlas has 867 source rows: 811
-input mappings, 56 source-backed `not_applicable` rows, and zero backlog. All
-999 API candidate rows have dispositions. The previous @62 grouped local run
-selected 2,941 comparisons on CPython 3.12 and
-Rust-native: 2,937 passed, zero differed, two had target-adapter crashes, and
-four were not run; all five selected fault contracts passed. The two WebSocket
-descriptor-order adapter crashes are fixed, and a focused rerun passed both
-cases. The four remaining rows are explicit source skips because this local
-macOS temporary filesystem refuses POSIX surrogateescape filenames. Full
-cross-profile parity is pending CI; coverage and benchmark phases remain
-deferred. The pinned denominators remain 514 upstream test functions and 24
-documented pages.
+`7a1292e1b61c490b05f57ce6a9b70f2e39cc908bdc1cc129eabf579bd7bec7a2`. Input
+generation, contract validation, and source inventory pass. The latest ten
+input-only comparisons cover authentication typing, routing constructor
+errors, and StaticFiles package-root errors; all remain unexecuted. Grouped
+parity, coverage, and benchmark phases are pending for @65. The latest completed
+behavioral evidence is for @64 and does not apply to the active manifest. The
+atlas has 867 source rows: 811 input mappings, 56 source-backed
+`not_applicable` rows, and zero fixture backlog. All 999 API candidate rows
+have dispositions. The pinned denominators remain 514 upstream test functions
+and 24 documented pages.
 
 For the prior `@58` manifest, workflow
 [`38850605133`](https://github.com/appunni-m/starlette-rs/actions/runs/38850605133)

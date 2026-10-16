@@ -1,0 +1,95 @@
+{
+  "schema": "migration-parity/parity-input@65",
+  "cases": [
+    {
+      "case_id": "starlette.staticfiles.StaticFiles.configuration-check.missing-package-spec",
+      "surface": "starlette.staticfiles.StaticFiles",
+      "operation": "configuration-check",
+      "covers": [
+        "starlette.staticfiles.StaticFiles.configuration-check.package-roots.missing-package-spec"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "directory_path": "build/parity/static-files-config/package-root-missing-spec",
+      "directory_kind": "directory",
+      "root_file_contents_base64": null,
+      "files": [],
+      "html": false,
+      "check_dir": true,
+      "follow_symlink": false,
+      "calls": [],
+      "package_roots": [
+        {
+          "name": "starlette_parity_missing_spec_fixture",
+          "statics_dir": "static",
+          "spec_kind": "missing"
+        }
+      ],
+      "observations": [
+        "configuration-check"
+      ]
+    },
+    {
+      "case_id": "starlette.staticfiles.StaticFiles.configuration-check.package-without-origin",
+      "surface": "starlette.staticfiles.StaticFiles",
+      "operation": "configuration-check",
+      "covers": [
+        "starlette.staticfiles.StaticFiles.configuration-check.package-roots.package-without-origin"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "directory_path": "build/parity/static-files-config/package-root-no-origin",
+      "directory_kind": "directory",
+      "root_file_contents_base64": null,
+      "files": [],
+      "html": false,
+      "check_dir": true,
+      "follow_symlink": false,
+      "calls": [],
+      "package_roots": [
+        {
+          "name": "starlette_parity_namespace_fixture",
+          "statics_dir": "static",
+          "spec_kind": "namespace"
+        }
+      ],
+      "observations": [
+        "configuration-check"
+      ]
+    },
+    {
+      "case_id": "starlette.staticfiles.StaticFiles.configuration-check.missing-selected-static-directory",
+      "surface": "starlette.staticfiles.StaticFiles",
+      "operation": "configuration-check",
+      "covers": [
+        "starlette.staticfiles.StaticFiles.configuration-check.package-roots.missing-static-directory"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "directory_path": "build/parity/static-files-config/package-root-missing-static-dir",
+      "directory_kind": "directory",
+      "root_file_contents_base64": null,
+      "files": [],
+      "html": false,
+      "check_dir": true,
+      "follow_symlink": false,
+      "calls": [],
+      "package_roots": [
+        {
+          "name": "starlette_parity_missing_static_fixture",
+          "statics_dir": "static",
+          "spec_kind": "regular"
+        }
+      ],
+      "observations": [
+        "configuration-check"
+      ]
+    }
+  ]
+}

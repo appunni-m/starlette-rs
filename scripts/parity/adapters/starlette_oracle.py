@@ -15374,7 +15374,7 @@ def _make_routing_endpoint(spec: dict[str, Any]) -> Any:
 
 
 def _run_route_endpoint_name_case(case: dict[str, Any]) -> dict[str, Any]:
-    from starlette.routing import Route
+    from starlette.routing import Host, Mount, Route, WebSocketRoute
 
     if "attempts" in case:
         _strict_object(
@@ -15422,18 +15422,68 @@ def _run_route_endpoint_name_case(case: dict[str, Any]) -> dict[str, Any]:
 
     results = []
     for constructor in constructors:
-        _strict_object(
-            constructor,
-            {"path", "endpoint", "methods", "name"},
-            "Route constructor input",
-        )
         try:
-            route = Route(
-                path=constructor["path"],
-                endpoint=_make_routing_endpoint(constructor["endpoint"]),
-                methods=constructor["methods"],
-                name=constructor["name"],
-            )
+            if case["surface"] == HTTP_ROUTE_SURFACE:
+                _strict_object(
+                    constructor,
+                    {"path", "endpoint", "methods", "name"},
+                    "Route constructor input",
+                )
+                route = Route(
+                    path=constructor["path"],
+                    endpoint=_make_routing_endpoint(constructor["endpoint"]),
+                    methods=constructor["methods"],
+                    name=constructor["name"],
+                )
+            elif case["surface"] == WEBSOCKET_ROUTE_SURFACE:
+                _strict_object(
+                    constructor,
+                    {"path", "endpoint", "name"},
+                    "WebSocketRoute constructor input",
+                )
+                route = WebSocketRoute(
+                    path=constructor["path"],
+                    endpoint=_make_routing_endpoint(constructor["endpoint"]),
+                    name=constructor["name"],
+                )
+            elif case["surface"] == MOUNT_SURFACE:
+                _strict_object(
+                    constructor,
+                    {"path", "app", "routes", "name"},
+                    "Mount constructor input",
+                )
+                app_spec = constructor["app"]
+                app = None if app_spec is None else _materialize_asgi_sequence_app(app_spec)
+                routes = constructor["routes"]
+                if routes is not None:
+                    routes = [
+                        Route(
+                            path=route_spec["path"],
+                            endpoint=_make_routing_endpoint(route_spec["endpoint"]),
+                            methods=route_spec["methods"],
+                            name=route_spec["name"],
+                        )
+                        for route_spec in routes
+                    ]
+                route = Mount(
+                    path=constructor["path"],
+                    app=app,
+                    routes=routes,
+                    name=constructor["name"],
+                )
+            else:
+                _strict_object(
+                    constructor,
+                    {"host", "app", "name"},
+                    "Host constructor input",
+                )
+                app_spec = constructor["app"]
+                app = None if app_spec is None else _materialize_asgi_sequence_app(app_spec)
+                route = Host(
+                    host=constructor["host"],
+                    app=app,
+                    name=constructor["name"],
+                )
         except Exception as error:
             results.append(
                 {
@@ -17800,6 +17850,7 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         ("starlette.responses.Response", "typing-consumer"),
         ("starlette.config.Config", "typing-consumer"),
         ("starlette.templating.Jinja2Templates", "typing-consumer"),
+        ("starlette.authentication", "typing-consumer"),
     }:
         from scripts.parity.adapters.application_typing import run_application_typing_case
 
@@ -18308,9 +18359,10 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         == WEBSOCKET_DISCONNECT_CONSTRUCTOR_OPERATION
     ):
         return _run_websocket_disconnect_constructor_case(case)
-    if isinstance(case, dict) and (case.get("surface"), case.get("operation")) == (
-        HTTP_ROUTE_SURFACE,
-        "__init__",
+    if (
+        isinstance(case, dict)
+        and case.get("surface") in ROUTE_REPRESENTATION_SURFACES
+        and case.get("operation") == "__init__"
     ):
         return _run_route_endpoint_name_case(case)
     if isinstance(case, dict) and case.get("operation") in {"url_path_for", "url_for"}:

@@ -82,7 +82,7 @@ consumer; existing native response cases continue to cover that interface.
 For pre-ASGI-2.4 streaming, Rust invokes the public response object's
 `listen_for_disconnect` method at the source call point. This preserves a
 subclass override while Rust owns task scheduling, stream cancellation, event
-ordering, and background-task policy. The @64 input matrix includes one
+ordering, and background-task policy. The @65 input matrix includes one
 override that consumes the disconnect message; its live comparison is deferred
 until the grouped parity phase.
 

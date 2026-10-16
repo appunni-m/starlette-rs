@@ -1,0 +1,181 @@
+{
+  "schema": "migration-parity/parity-input@65",
+  "cases": [
+    {
+      "case_id": "starlette.routing.Route.__init__.invalid-leading-slash.constructor-error",
+      "surface": "starlette.routing.Route",
+      "operation": "__init__",
+      "covers": [
+        "starlette.routing.Route.__init__.invalid-leading-slash"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "attempts": [
+        {
+          "path": "users",
+          "endpoint": {
+            "kind": "function",
+            "name": "endpoint",
+            "async": false
+          },
+          "methods": null,
+          "name": null
+        }
+      ],
+      "observations": [
+        "constructor_results"
+      ]
+    },
+    {
+      "case_id": "starlette.routing.Route.__init__.unknown-converter.constructor-error",
+      "surface": "starlette.routing.Route",
+      "operation": "__init__",
+      "covers": [
+        "starlette.routing.Route.__init__.unknown-converter"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "attempts": [
+        {
+          "path": "/{item:missing}",
+          "endpoint": {
+            "kind": "function",
+            "name": "endpoint",
+            "async": false
+          },
+          "methods": null,
+          "name": null
+        }
+      ],
+      "observations": [
+        "constructor_results"
+      ]
+    },
+    {
+      "case_id": "starlette.routing.WebSocketRoute.__init__.invalid-leading-slash.constructor-error",
+      "surface": "starlette.routing.WebSocketRoute",
+      "operation": "__init__",
+      "covers": [
+        "starlette.routing.WebSocketRoute.__init__.invalid-leading-slash"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "attempts": [
+        {
+          "path": "socket",
+          "endpoint": {
+            "kind": "function",
+            "name": "endpoint",
+            "async": true
+          },
+          "name": null
+        }
+      ],
+      "observations": [
+        "constructor_results"
+      ]
+    },
+    {
+      "case_id": "starlette.routing.Mount.__init__.invalid-leading-slash.constructor-error",
+      "surface": "starlette.routing.Mount",
+      "operation": "__init__",
+      "covers": [
+        "starlette.routing.Mount.__init__.invalid-leading-slash"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "attempts": [
+        {
+          "path": "api",
+          "app": {
+            "kind": "asgi-response-sequence",
+            "messages": [
+              {
+                "type": "http.response.start",
+                "status": 204,
+                "headers_base64_pairs": []
+              },
+              {
+                "type": "http.response.body",
+                "body_base64": "",
+                "more_body": false
+              }
+            ]
+          },
+          "routes": null,
+          "name": null
+        }
+      ],
+      "observations": [
+        "constructor_results"
+      ]
+    },
+    {
+      "case_id": "starlette.routing.Mount.__init__.missing-app-and-routes.constructor-error",
+      "surface": "starlette.routing.Mount",
+      "operation": "__init__",
+      "covers": [
+        "starlette.routing.Mount.__init__.missing-app-and-routes"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "attempts": [
+        {
+          "path": "/api",
+          "app": null,
+          "routes": null,
+          "name": null
+        }
+      ],
+      "observations": [
+        "constructor_results"
+      ]
+    },
+    {
+      "case_id": "starlette.routing.Host.__init__.leading-slash.constructor-error",
+      "surface": "starlette.routing.Host",
+      "operation": "__init__",
+      "covers": [
+        "starlette.routing.Host.__init__.leading-slash"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "attempts": [
+        {
+          "host": "/example.test",
+          "app": {
+            "kind": "asgi-response-sequence",
+            "messages": [
+              {
+                "type": "http.response.start",
+                "status": 204,
+                "headers_base64_pairs": []
+              },
+              {
+                "type": "http.response.body",
+                "body_base64": "",
+                "more_body": false
+              }
+            ]
+          },
+          "name": null
+        }
+      ],
+      "observations": [
+        "constructor_results"
+      ]
+    }
+  ]
+}

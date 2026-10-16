@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@64",
+  "schema": "migration-parity/parity-input@65",
   "cases": [
     {
       "case_id": "starlette.routing.Route.url_path_for.native.float-converter-fixed-decimal-rounding",

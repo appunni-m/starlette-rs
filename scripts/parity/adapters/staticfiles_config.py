@@ -4,9 +4,12 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import importlib
 import math
 import os
 import shutil
+import sys
+import tempfile
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -178,6 +181,122 @@ def _prepare_filesystem(case: dict[str, Any], directory: Path) -> None:
             os.utime(path, (float(mtime_seconds), float(mtime_seconds)))
 
 
+def _package_name_parts(value: Any, context: str) -> list[str]:
+    if not isinstance(value, str) or not value:
+        raise ValueError(f"{context} must be a non-empty dotted Python package name")
+    parts = value.split(".")
+    if any(not part.isascii() or not part.isidentifier() for part in parts):
+        raise ValueError(f"{context} must be a dotted Python package name")
+    return parts
+
+
+def _package_static_path(value: Any, context: str) -> tuple[str, ...]:
+    if not isinstance(value, str) or not value:
+        raise ValueError(f"{context} must be a non-empty relative path")
+    parts = value.split("/")
+    if (
+        Path(value).is_absolute()
+        or "\\" in value
+        or "\x00" in value
+        or any(part in {"", ".", ".."} for part in parts)
+    ):
+        raise ValueError(f"{context} must be a relative normalized path")
+    return tuple(parts)
+
+
+def _materialize_package_roots(
+    package_source_root: Path,
+    package_roots: Any,
+) -> tuple[list[tuple[str, str]], set[str]]:
+    if not isinstance(package_roots, list) or not package_roots:
+        raise ValueError("StaticFiles package_roots must be a non-empty array")
+
+    package_arguments: list[tuple[str, str]] = []
+    module_prefixes: set[str] = set()
+    package_names: set[str] = set()
+    for index, package_root in enumerate(package_roots):
+        context = f"StaticFiles package_roots[{index}]"
+        package_root = _exact_object(
+            package_root,
+            {"name", "statics_dir", "spec_kind"},
+            context,
+        )
+        name = package_root["name"]
+        name_parts = _package_name_parts(name, f"{context}.name")
+        if name in package_names:
+            raise ValueError("StaticFiles package_roots names must be unique")
+        package_names.add(name)
+        _package_static_path(
+            package_root["statics_dir"],
+            f"{context}.statics_dir",
+        )
+        spec_kind = package_root["spec_kind"]
+        if spec_kind not in {"missing", "namespace", "regular"}:
+            raise ValueError(
+                f"{context}.spec_kind must be missing, namespace, or regular"
+            )
+
+        if spec_kind == "missing":
+            # Keep any dotted parent importable so find_spec() returns None for
+            # the selected leaf instead of raising while resolving its parent.
+            parent_parts = name_parts[:-1]
+        elif spec_kind == "namespace":
+            parent_parts = name_parts
+        else:
+            parent_parts = name_parts
+
+        for depth in range(1, len(parent_parts) + 1):
+            parent_path = package_source_root.joinpath(*parent_parts[:depth])
+            parent_path.mkdir(parents=True, exist_ok=True)
+            if spec_kind != "namespace":
+                (parent_path / "__init__.py").touch(exist_ok=True)
+
+        package_arguments.append((name, package_root["statics_dir"]))
+        module_prefixes.update(
+            ".".join(name_parts[:depth]) for depth in range(1, len(name_parts) + 1)
+        )
+
+    return package_arguments, module_prefixes
+
+
+def _construct_static_files(
+    case: dict[str, Any],
+    static_files_type: Any,
+    configured_directory: Any,
+) -> Any:
+    constructor_arguments = {
+        "directory": configured_directory,
+        "html": case["html"],
+        "check_dir": case["check_dir"],
+        "follow_symlink": case["follow_symlink"],
+    }
+    if "package_roots" not in case:
+        return static_files_type(**constructor_arguments)
+
+    with tempfile.TemporaryDirectory(prefix="starlette-staticfiles-package-roots-") as root:
+        package_source_root = Path(root)
+        package_arguments, module_prefixes = _materialize_package_roots(
+            package_source_root,
+            case["package_roots"],
+        )
+        package_source = str(package_source_root)
+        previously_loaded_modules = set(sys.modules)
+        importlib.invalidate_caches()
+        sys.path.insert(0, package_source)
+        try:
+            return static_files_type(
+                **constructor_arguments,
+                packages=package_arguments,
+            )
+        finally:
+            if package_source in sys.path:
+                sys.path.remove(package_source)
+            for module_name in module_prefixes:
+                if module_name not in previously_loaded_modules:
+                    sys.modules.pop(module_name, None)
+            importlib.invalidate_caches()
+
+
 def _instrument_check_config(application: Any) -> tuple[Callable[..., Any], list[int]]:
     application_type = type(application)
     original = application_type.check_config
@@ -294,6 +413,9 @@ def run_static_files_configuration_case(
     has_pathlike = "directory_pathlike" in case
     if has_pathlike:
         case_fields.add("directory_pathlike")
+    has_package_roots = "package_roots" in case
+    if has_package_roots:
+        case_fields.add("package_roots")
     _exact_object(
         case,
         case_fields,
@@ -343,11 +465,10 @@ def run_static_files_configuration_case(
     try:
         _prepare_filesystem(case, directory)
         try:
-            application = static_files_type(
-                directory=configured_directory,
-                html=case["html"],
-                check_dir=case["check_dir"],
-                follow_symlink=case["follow_symlink"],
+            application = _construct_static_files(
+                case,
+                static_files_type,
+                configured_directory,
             )
         except Exception as exc:
             observation["constructor_error"] = _error_observation(exc, "constructor")

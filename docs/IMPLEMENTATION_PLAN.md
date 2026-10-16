@@ -7,52 +7,47 @@ Pydantic are outside this project's scope.
 
 ## Execution order and current status
 
-Active implementation checkpoint (2026-10-17; `parity-input@64`; manifest
-SHA-256 `6d591e84da1a97cc73a6f04f9b0280704c214c1b1f793c1a9e16b4c6ab42e3b5`):
+Active implementation checkpoint (2026-10-17; `parity-input@65`; manifest
+SHA-256 `7a1292e1b61c490b05f57ce6a9b70f2e39cc908bdc1cc129eabf579bd7bec7a2`):
 
-The working manifest declares full Starlette 1.6.0 scope with 2,615 cases
-across 446 parity inputs, two benchmark inputs, 152 compatibility operations,
-15 Rust-native operations, 1,453 parity requirements, and six target profiles.
-This batch adds Config subclass dispatch and empty-format-spec error behavior,
-Request and WebSocket assertion behavior under `python -O`, and a
-`StreamingResponse.listen_for_disconnect` override input. It also covers an
-optimized-mode WebSocketEndpoint HTTP-scope constructor case that dispatches
-connect/disconnect after the Rust-owned constructor assertion is disabled, plus
-a decode case that exposes default text decoding after optimization skips the
-invalid-encoding assertion. Python passes dynamic Config attributes and
-`__debug__` into the Rust runtime and constructs only the input-defined listener
-callback. The Ubuntu source-parity workflow
+The active manifest declares full Starlette 1.6.0 scope with 2,625 cases across
+449 parity inputs, two benchmark inputs, 156 compatibility operations, 15
+Rust-native operations, 1,463 parity requirements, and six target profiles.
+This batch adds an authentication `requires` typing consumer, six routing
+constructor-error cases, and three StaticFiles package-root configuration
+errors. Input generation, contract validation, and source inventory pass for
+@65. These ten new comparisons remain unexecuted; parity, coverage, and
+benchmark phases are pending while implementation proceeds across feature
+families. The generated atlas has 867 source rows: 811 input mappings, 56
+source-backed `not_applicable` rows, and zero fixture backlog. The pinned
+denominators remain 514 upstream test functions and 24 documented pages.
+
+The latest completed behavioral evidence is for the previous @64 manifest, not
+the active @65 input set. The @64 Ubuntu source-parity workflow
 [`38966623985`](https://github.com/appunni-m/starlette-rs/actions/runs/38966623985)
 passed all five CPython profiles with zero mismatches, failures, skipped rows,
 or infrastructure errors: 664/664 for CPython 3.10 and 3.11, 665/665 for 3.13
-and 3.14, and 2,971/2,971 for the CPython 3.12 full matrix. The separate Windows
+and 3.14, and 2,971/2,971 for the CPython 3.12 full matrix. Its Windows
 invalid-name probe
 [`38966623892`](https://github.com/appunni-m/starlette-rs/actions/runs/38966623892)
-passed 4/4 comparisons. A local macOS `make test` still reports two skipped
+passed 4/4 comparisons. The local macOS @64 parity run source-skipped two
 StaticFiles surrogateescape rows because its filesystem cannot create the
-invalid-byte filename; the Linux parity matrix executed them. The active @64
-input schema remains unchanged. Generated inputs, contract validation, and
-source inventory passed. The atlas has 867 rows: 811 input mappings, 56
-source-backed `not_applicable` rows, and zero fixture backlog.
+invalid-byte filename; Linux CI exercised them.
 
-All six CI coverage plans executed without failed selected cases: CPython 3.10
+All six @64 coverage plans executed without failed selected cases: CPython 3.10
 289, 3.11 289, 3.12 2,598, 3.13 290, 3.14 290, and Rust-native 378. Coverage
-MCP measured all six imported LCOV reports, but marked source identity
-`unverified` and test status `unknown` because matching source/build receipts
-were not ingested. The selected-component line measurements are 13,333/33,869
-(39.37%) for CPython 3.10, 13,429/33,869 (39.65%) for 3.11,
-23,416/33,869 (69.14%) for 3.12, 13,281/33,869 (39.21%) for 3.13,
-13,270/33,869 (39.18%) for 3.14, and 14,598/19,596 (74.49%) for
-Rust-native. These are scoped target-report measurements, not Starlette-wide
-coverage percentages.
+MCP marked the imported LCOV reports' source identity `unverified` and test
+status `unknown` because matching source/build receipts were not ingested. The
+selected-component line measurements were 13,333/33,869 (39.37%) for CPython
+3.10, 13,429/33,869 (39.65%) for 3.11, 23,416/33,869 (69.14%) for 3.12,
+13,281/33,869 (39.21%) for 3.13, 13,270/33,869 (39.18%) for 3.14, and
+14,598/19,596 (74.49%) for Rust-native. These are scoped target-report
+measurements, not Starlette-wide coverage percentages.
 
 The complete @64 benchmark run
 [`40f41f01-bb35-4617-ab01-9b87f9e21bdd`](BENCHMARKS.md) measured all 74
-source/package workloads with zero failures or source/package `not_run` rows;
-all 74 Rust-native rows remain `not_run` because there is no equivalent ASGI
-workload boundary. Its correctness preflight retained two explicit macOS
-surrogateescape skips. The pinned denominators remain 514 upstream test
-functions and 24 documented pages; full replacement remains unproven.
+source/package workloads. The two macOS surrogateescape skips remain recorded
+in its preflight. These @64 results do not establish @65 parity or coverage.
 
 The preceding @63 checkpoint is historical. Its manifest declared 2,604 cases
 across 443 parity inputs, two benchmark inputs, 152 compatibility operations,
@@ -70,9 +65,10 @@ checks; their parity, coverage, and benchmark evidence is recorded below.
 
 The workflow records below are historical evidence for the earlier verified
 input set `f8a34c2978af95382ceadcd3e3a2c5a9d7bb1d467f03b35ba55033d9b7336124`
-(2,590 cases, 437 parity inputs, and 1,442 requirements). The active @64 parity
-and coverage statuses are summarized above and in the execution ledger. The
-pinned denominators remain 514 upstream test functions and 24 documented pages.
+(2,590 cases, 437 parity inputs, and 1,442 requirements). The latest completed
+@64 parity and coverage evidence is summarized above; the active @65 statuses
+are in the execution ledger. The pinned denominators remain 514 upstream test
+functions and 24 documented pages.
 
 The five CPython source-parity profiles passed in workflow
 [`38923021415`](https://github.com/appunni-m/starlette-rs/actions/runs/38923021415):
@@ -662,10 +658,10 @@ representation, and dynamic `FormData.close()` dispatch remain Rust-backed.
 
 | Phase | State | Evidence |
 | --- | --- | --- |
-| Implementation | The @64 feature implementation and adapter repairs are complete for the selected input corpus; the full replacement goal remains active. | @64 is exercised by the five-profile parity workflow, six coverage plans, and the 74-workload source/package benchmark. |
-| Full parity and grouped repairs | CI parity completed on all five CPython profiles with zero mismatches, failures, `not_run` rows, or infrastructure errors; the Windows invalid-name probe also passed 4/4. | Workflow [`38966623985`](https://github.com/appunni-m/starlette-rs/actions/runs/38966623985) and Windows probe [`38966623892`](https://github.com/appunni-m/starlette-rs/actions/runs/38966623892). Local macOS still cannot create the two POSIX-surrogateescape filenames. |
-| Full coverage and source reconciliation | All six CI coverage plans executed with zero failed selected cases. Coverage MCP ingested the reports but could not verify source/build identity or test receipts. | Counts and scoped line measurements are listed above. MCP reports `source=unverified`, `tests=unknown`; do not interpret these as Starlette-wide coverage. |
-| All benchmarks | The full @64 source/package workload completed: 74/74 measured, zero failures, zero source/package `not_run`; Rust-native has no equivalent ASGI workload and remains `not_run` for all 74. | [`BENCHMARKS.md`](BENCHMARKS.md), run `40f41f01-bb35-4617-ab01-9b87f9e21bdd`; the benchmark preflight records two macOS platform skips. |
+| Implementation | Ongoing across feature families. The @65 contract and inventory now include authentication typing, routing constructor errors, and StaticFiles package-root errors. | Input generation, contract validation, and source inventory pass; the ten new comparisons remain unexecuted. |
+| Full parity and grouped repairs | Pending for @65 until implementation across feature families is complete. | The @64 CI results above are historical and do not cover the active manifest. |
+| Full coverage and source reconciliation | Pending for @65 until grouped parity and repairs complete. | @64 coverage reports are historical; no @65 coverage report has been measured. |
+| All benchmarks | Pending for @65 until parity and coverage complete. | The 74-workload @64 run is historical; no @65 workload has run. |
 | Packaging and interpreter qualification | Historical local macOS arm64 qualification; current changes are not qualified by it. | Five CPython 3.10–3.14 wheels, an sdist, and the Rust crate were inspected in the earlier qualification. Other platform builds remain unqualified. |
 
 Parity, coverage, and benchmark result artifacts are local generated output
@@ -732,16 +728,14 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The active parity contract uses `parity-input@64` with full scope
-(`starlette-1.6.0-full`): 2,615 input cases across 446 parity files, two
-benchmark files, 152 Starlette compatibility operations, 15 Rust-native
-operations, 1,453 parity requirements, and six target profiles. Its manifest
-SHA-256 is `6d591e84da1a97cc73a6f04f9b0280704c214c1b1f793c1a9e16b4c6ab42e3b5`.
-The active cases are contract-validated and the grouped local parity run is
-complete with two source-skipped rows documented above. The five-profile CI
-parity matrix, six coverage profiles, and full 74-workload benchmark summarized
-above are evidence for the earlier input set with SHA-256
-`f8a34c2978af95382ceadcd3e3a2c5a9d7bb1d467f03b35ba55033d9b7336124`. The generated
+The active parity contract uses `parity-input@65` with full scope
+(`starlette-1.6.0-full`): 2,625 input cases across 449 parity files, two
+benchmark files, 156 Starlette compatibility operations, 15 Rust-native
+operations, 1,463 parity requirements, and six target profiles. Its manifest
+SHA-256 is `7a1292e1b61c490b05f57ce6a9b70f2e39cc908bdc1cc129eabf579bd7bec7a2`.
+The active inputs pass contract validation and source-inventory generation.
+The grouped @65 parity matrix, coverage measurement, and benchmark workload are
+pending; completed behavioral evidence above applies to @64. The generated
 source-row, mapping, `not_applicable`, and backlog totals live in
 [`coverage-matrix.csv`](atlas/coverage-matrix.csv) and
 [`fixture-backlog.csv`](atlas/fixture-backlog.csv); regenerate them after

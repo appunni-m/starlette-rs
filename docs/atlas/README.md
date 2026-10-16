@@ -24,30 +24,20 @@ with no conventional Python or Rust unit-test suite.
 
 ## Current implementation status
 
-The active full-scope `parity-input@64` contract covers Starlette 1.6.0 with
-2,615 cases across 446 parity inputs and two benchmark inputs, 152 compatibility
-operations, 15 Rust-native operations, and 1,453 parity requirements. Its
+The active full-scope `parity-input@65` contract covers Starlette 1.6.0 with
+2,625 cases across 449 parity inputs and two benchmark inputs, 156 compatibility
+operations, 15 Rust-native operations, and 1,463 parity requirements. Its
 manifest SHA-256 is
-`6d591e84da1a97cc73a6f04f9b0280704c214c1b1f793c1a9e16b4c6ab42e3b5`. The latest
-Config, optimized Request/WebSocket/WebSocketEndpoint (including the
-invalid-encoding fallback), and StreamingResponse listener comparisons were
-included in the five-profile CI parity workflow. CI reported zero mismatches,
-failures, `not_run` rows, or infrastructure errors: 664/664 comparisons for
-CPython 3.10 and 3.11, 665/665 for 3.13 and 3.14, and 2,971/2,971 for the
-CPython 3.12 full matrix. A Windows invalid-name probe passed 4/4. A local
-macOS run still source-skips two surrogateescape filename rows because that
-filesystem cannot create the invalid-byte filename; Linux CI executed them.
-All six coverage plans executed without failed selected cases: 289 for CPython
-3.10, 289 for 3.11, 2,598 for 3.12, 290 for 3.13, 290 for 3.14, and 378 for
-Rust-native. Coverage MCP marks source identity `unverified` and test status
-`unknown` for the imported reports because matching source/build receipts were
-not ingested. The full benchmark measured all 74 declared source/package
-workloads; scoped measurements and its explicit preflight skips are recorded
-in [benchmark evidence](../BENCHMARKS.md). The generated source atlas has 867 rows:
-811 input mappings, 56 source-backed `not_applicable` rows, and zero fixture
-backlog. All 999 API candidate rows are dispositioned as 564 supported, 435
-private/internal, and zero uncertain. Older results below do not cover the
-active manifest. The local @63 grouped run selected 2,941 comparisons on CPython
+`7a1292e1b61c490b05f57ce6a9b70f2e39cc908bdc1cc129eabf579bd7bec7a2`. Input
+generation, contract validation, and source inventory pass. The newest ten
+comparisons cover authentication typing, routing constructor errors, and
+StaticFiles package-root errors; they remain unexecuted. Grouped parity,
+coverage, and benchmark phases are pending for @65. The latest completed
+behavioral evidence belongs to @64 and does not cover the active manifest. The
+generated source atlas has 867 rows: 811 input mappings, 56 source-backed
+`not_applicable` rows, and zero fixture backlog. All 999 API candidate rows are
+dispositioned as 564 supported, 435 private/internal, and zero uncertain. The
+local @63 grouped run selected 2,941 comparisons on CPython
 3.12 and Rust-native: 2,937 passed, zero differed, and two had WebSocket
 target-adapter crashes. The four local `not_run` rows were those two crash
 outcomes and two runs of a surrogateescape filesystem case. The adapter crashes

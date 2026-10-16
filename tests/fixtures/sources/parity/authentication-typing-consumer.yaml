@@ -1,0 +1,27 @@
+{
+  "schema": "migration-parity/parity-input@65",
+  "cases": [
+    {
+      "case_id": "starlette.authentication.requires.typing-consumer.param-spec",
+      "surface": "starlette.authentication",
+      "operation": "typing-consumer",
+      "covers": [
+        "starlette.authentication.requires.python-typing-contract"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "observations": [
+        "typing_consumer"
+      ],
+      "typing_consumer": {
+        "source": "from typing_extensions import reveal_type\n\nfrom starlette.authentication import requires\nfrom starlette.requests import Request\nfrom starlette.websockets import WebSocket\n\n\n@requires(\"authenticated\")\ndef sync_request_handler(\n    request: Request, user_id: int, /, *, include_profile: bool\n) -> int:\n    return user_id if include_profile else 0\n\n\n@requires(\"authenticated\")\nasync def async_request_handler(\n    request: Request, resource_name: str, /, *, limit: int\n) -> str:\n    return f\"{resource_name}:{limit}\"\n\n\n@requires(\"authenticated\")\nasync def websocket_handler(\n    websocket: WebSocket, room_name: str, /, *, reconnect: bool\n) -> bool:\n    return reconnect and bool(room_name)\n\n\nreveal_type(sync_request_handler)\nreveal_type(async_request_handler)\nreveal_type(websocket_handler)\n\n\ndef call_sync_handler(request: Request) -> None:\n    sync_request_handler(request, 42, include_profile=True)\n    sync_request_handler(request, \"wrong type\", include_profile=True)\n\n\nasync def call_async_handlers(request: Request, websocket: WebSocket) -> None:\n    await async_request_handler(request, \"dashboard\", limit=10)\n    await websocket_handler(websocket, \"notifications\", reconnect=False)\n"
+      }
+    }
+  ]
+}
