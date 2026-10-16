@@ -7,23 +7,25 @@ Pydantic are outside this project's scope.
 
 ## Execution order and current status
 
-Active implementation checkpoint (2026-10-17; `parity-input@65`; manifest
-SHA-256 `7a1292e1b61c490b05f57ce6a9b70f2e39cc908bdc1cc129eabf579bd7bec7a2`):
+Active implementation checkpoint (2026-10-17; `parity-input@66`; manifest
+SHA-256 `474c5a1e8f413ab0a02cb0b6ca5e9c46b85a5e29f26bfde93d4cd3e735faf12f`):
 
-The active manifest declares full Starlette 1.6.0 scope with 2,625 cases across
-449 parity inputs, two benchmark inputs, 156 compatibility operations, 15
-Rust-native operations, 1,463 parity requirements, and six target profiles.
-This batch adds an authentication `requires` typing consumer, six routing
-constructor-error cases, and three StaticFiles package-root configuration
-errors. Input generation, contract validation, and source inventory pass for
-@65. These ten new comparisons remain unexecuted; parity, coverage, and
-benchmark phases are pending while implementation proceeds across feature
-families. The generated atlas has 867 source rows: 811 input mappings, 56
-source-backed `not_applicable` rows, and zero fixture backlog. The pinned
-denominators remain 514 upstream test functions and 24 documented pages.
+The active manifest declares full Starlette 1.6.0 scope with 2,628 cases across
+452 parity inputs, two benchmark inputs, 156 compatibility operations, 15
+Rust-native operations, 1,467 parity requirements, and six target profiles.
+This checkpoint adds three input-only comparisons for TestClient lifespan
+stream cleanup order and error precedence, direct ServerErrorMiddleware
+handler-property rereads, and dict-subclass route middleware keyword
+expansion. Input generation, contract validation, and source inventory pass
+for @66. These three comparisons and the ten @65 additions remain unexecuted;
+parity, coverage, and benchmark phases are pending while implementation
+proceeds across feature families. The generated atlas has 867 source rows: 811
+input mappings, 56 source-backed `not_applicable` rows, and zero fixture
+backlog. The pinned denominators remain 514 upstream test functions and 24
+documented pages.
 
 The latest completed behavioral evidence is for the previous @64 manifest, not
-the active @65 input set. The @64 Ubuntu source-parity workflow
+the active @66 input set. The @64 Ubuntu source-parity workflow
 [`38966623985`](https://github.com/appunni-m/starlette-rs/actions/runs/38966623985)
 passed all five CPython profiles with zero mismatches, failures, skipped rows,
 or infrastructure errors: 664/664 for CPython 3.10 and 3.11, 665/665 for 3.13
@@ -47,7 +49,7 @@ measurements, not Starlette-wide coverage percentages.
 The complete @64 benchmark run
 [`40f41f01-bb35-4617-ab01-9b87f9e21bdd`](BENCHMARKS.md) measured all 74
 source/package workloads. The two macOS surrogateescape skips remain recorded
-in its preflight. These @64 results do not establish @65 parity or coverage.
+in its preflight. These @64 results do not establish @66 parity or coverage.
 
 The preceding @63 checkpoint is historical. Its manifest declared 2,604 cases
 across 443 parity inputs, two benchmark inputs, 152 compatibility operations,
@@ -66,7 +68,7 @@ checks; their parity, coverage, and benchmark evidence is recorded below.
 The workflow records below are historical evidence for the earlier verified
 input set `f8a34c2978af95382ceadcd3e3a2c5a9d7bb1d467f03b35ba55033d9b7336124`
 (2,590 cases, 437 parity inputs, and 1,442 requirements). The latest completed
-@64 parity and coverage evidence is summarized above; the active @65 statuses
+@64 parity and coverage evidence is summarized above; the active @66 statuses
 are in the execution ledger. The pinned denominators remain 514 upstream test
 functions and 24 documented pages.
 
@@ -658,10 +660,10 @@ representation, and dynamic `FormData.close()` dispatch remain Rust-backed.
 
 | Phase | State | Evidence |
 | --- | --- | --- |
-| Implementation | Ongoing across feature families. The @65 contract and inventory now include authentication typing, routing constructor errors, and StaticFiles package-root errors. | Input generation, contract validation, and source inventory pass; the ten new comparisons remain unexecuted. |
-| Full parity and grouped repairs | Pending for @65 until implementation across feature families is complete. | The @64 CI results above are historical and do not cover the active manifest. |
-| Full coverage and source reconciliation | Pending for @65 until grouped parity and repairs complete. | @64 coverage reports are historical; no @65 coverage report has been measured. |
-| All benchmarks | Pending for @65 until parity and coverage complete. | The 74-workload @64 run is historical; no @65 workload has run. |
+| Implementation | Ongoing across feature families. The @66 contract adds TestClient stream cleanup, ServerErrorMiddleware descriptor rereads, and route middleware dict-subclass expansion. | Input generation, contract validation, and source inventory pass; the three @66 comparisons and ten @65 additions remain unexecuted. |
+| Full parity and grouped repairs | Pending for @66 until implementation across feature families is complete. | The @64 CI results above are historical and do not cover the active manifest. |
+| Full coverage and source reconciliation | Pending for @66 until grouped parity and repairs complete. | @64 coverage reports are historical; no @66 coverage report has been measured. |
+| All benchmarks | Pending for @66 until parity and coverage complete. | The 74-workload @64 run is historical; no @66 workload has run. |
 | Packaging and interpreter qualification | Historical local macOS arm64 qualification; current changes are not qualified by it. | Five CPython 3.10–3.14 wheels, an sdist, and the Rust crate were inspected in the earlier qualification. Other platform builds remain unqualified. |
 
 Parity, coverage, and benchmark result artifacts are local generated output
@@ -728,13 +730,13 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The active parity contract uses `parity-input@65` with full scope
-(`starlette-1.6.0-full`): 2,625 input cases across 449 parity files, two
+The active parity contract uses `parity-input@66` with full scope
+(`starlette-1.6.0-full`): 2,628 input cases across 452 parity files, two
 benchmark files, 156 Starlette compatibility operations, 15 Rust-native
-operations, 1,463 parity requirements, and six target profiles. Its manifest
-SHA-256 is `7a1292e1b61c490b05f57ce6a9b70f2e39cc908bdc1cc129eabf579bd7bec7a2`.
+operations, 1,467 parity requirements, and six target profiles. Its manifest
+SHA-256 is `474c5a1e8f413ab0a02cb0b6ca5e9c46b85a5e29f26bfde93d4cd3e735faf12f`.
 The active inputs pass contract validation and source-inventory generation.
-The grouped @65 parity matrix, coverage measurement, and benchmark workload are
+The grouped @66 parity matrix, coverage measurement, and benchmark workload are
 pending; completed behavioral evidence above applies to @64. The generated
 source-row, mapping, `not_applicable`, and backlog totals live in
 [`coverage-matrix.csv`](atlas/coverage-matrix.csv) and

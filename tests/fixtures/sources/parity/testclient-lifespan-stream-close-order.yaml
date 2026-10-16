@@ -1,0 +1,86 @@
+{
+  "schema": "migration-parity/parity-input@66",
+  "cases": [
+    {
+      "case_id": "starlette.testclient.TestClient.lifespan-context.stream-close-callback-order",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "lifespan-context",
+      "covers": [
+        "starlette.testclient.TestClient.lifespan-context.startup-handshake",
+        "starlette.testclient.TestClient.lifespan-context.shutdown-handshake",
+        "starlette.testclient.TestClient.lifespan-context.application-callback-entry-exit",
+        "starlette.testclient.TestClient.lifespan-context.stream-cleanup-callback-order",
+        "starlette.testclient.TestClient.lifespan-context.stream-cleanup-error-precedence"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "observations": [
+        "lifespan-context"
+      ],
+      "environment": {
+        "lifespan_stream_close_errors": [
+          {
+            "pair_index": 1,
+            "endpoint": "send",
+            "exception_type": "RuntimeError",
+            "message": "lifespan stream close pair 1 send"
+          },
+          {
+            "pair_index": 1,
+            "endpoint": "receive",
+            "exception_type": "RuntimeError",
+            "message": "lifespan stream close pair 1 receive"
+          },
+          {
+            "pair_index": 2,
+            "endpoint": "send",
+            "exception_type": "RuntimeError",
+            "message": "lifespan stream close pair 2 send"
+          },
+          {
+            "pair_index": 2,
+            "endpoint": "receive",
+            "exception_type": "RuntimeError",
+            "message": "lifespan stream close pair 2 receive"
+          }
+        ]
+      },
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": [
+          "testclient",
+          50000
+        ],
+        "headers": [],
+        "backend": "asyncio",
+        "backend_options": {}
+      },
+      "client_actions": [
+        {
+          "operation": "enter"
+        },
+        {
+          "operation": "exit"
+        }
+      ],
+      "asgi_app": {
+        "kind": "starlette-lifespan",
+        "scope_fields": [
+          "type"
+        ],
+        "callback": {
+          "entry_effect": "startup-complete",
+          "exit_effect": "shutdown-complete"
+        }
+      }
+    }
+  ]
+}

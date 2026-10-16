@@ -4378,7 +4378,45 @@ def _run_server_error_middleware_case(case: dict[str, Any]) -> dict[str, Any]:
 
     app = materialize_app(constructor["app"])
     handler = materialize_handler(constructor["handler"])
-    middleware = ServerErrorMiddleware(app, handler=handler, debug=constructor["debug"])
+    handler_property = case.get("handler_property")
+    if handler_property is None:
+        middleware = ServerErrorMiddleware(app, handler=handler, debug=constructor["debug"])
+    else:
+        handler_property = _strict_object(
+            handler_property,
+            {"kind", "values"},
+            "ServerErrorMiddleware handler property input",
+        )
+        if handler_property["kind"] != "read-sequence":
+            raise ValueError("unsupported ServerErrorMiddleware handler property kind")
+        if (
+            not isinstance(handler_property["values"], list)
+            or len(handler_property["values"]) != 3
+        ):
+            raise ValueError("handler property read-sequence must define exactly three values")
+        handler_values = [materialize_handler(spec) for spec in handler_property["values"]]
+
+        class InputServerErrorMiddleware(ServerErrorMiddleware):
+            def __init__(self, app: Any, handler: Any, debug: bool) -> None:
+                self._parity_handler_values = handler_values
+                self._parity_handler_property_reads = 0
+                super().__init__(app, handler=handler, debug=debug)
+
+            @property
+            def handler(self) -> Any:
+                index = self._parity_handler_property_reads
+                self._parity_handler_property_reads = index + 1
+                return self._parity_handler_values[
+                    min(index, len(self._parity_handler_values) - 1)
+                ]
+
+            @handler.setter
+            def handler(self, value: Any) -> None:
+                self._parity_initial_handler = value
+
+        middleware = InputServerErrorMiddleware(
+            app, handler=handler, debug=constructor["debug"]
+        )
     if case["operation"] == "__init__":
         value = {
             "instance_class": f"{type(middleware).__module__}.{type(middleware).__qualname__}",
@@ -4459,6 +4497,8 @@ def _run_server_error_middleware_case(case: dict[str, Any]) -> dict[str, Any]:
             middleware, start, body, captured_exception
         ),
     }
+    if handler_property is not None:
+        value["handler_property_reads"] = middleware._parity_handler_property_reads
     return {
         "case_id": case["case_id"],
         "status": "completed",
@@ -14091,34 +14131,96 @@ def _build_reverse_route_middleware(specs: list[dict[str, Any]]) -> list[Any]:
     for spec in specs:
         if spec["kind"] == "middleware-iterator-subclass":
             iterated = spec["iterated"]
-            if iterated["kind"] != "append-response-header":
+            if iterated["kind"] == "append-response-header":
+
+                class InputAppendResponseHeaderMiddleware:
+                    def __init__(self, app: Any, *, name: str, value: str) -> None:
+                        self.app = app
+                        self.response_header = (
+                            f"X-{name}".encode("ascii"),
+                            value.encode("latin-1"),
+                        )
+
+                    async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
+                        async def modified_send(message: Any) -> None:
+                            if message["type"] == "http.response.start":
+                                message["headers"].append(self.response_header)
+                            await send(message)
+
+                        await self.app(scope, receive, modified_send)
+
+                configurations.append(
+                    middleware_with_iterator_override(
+                        Middleware,
+                        InputAppendResponseHeaderMiddleware,
+                        InputAppendResponseHeaderMiddleware,
+                        [],
+                        MappingProxyType({"name": iterated["name"], "value": iterated["value"]}),
+                    )
+                )
+                continue
+
+            if iterated["kind"] != "dict-subclass-kwargs":
                 raise ValueError(
                     "route middleware iterator subclass must yield a declared middleware factory"
                 )
 
-            class InputAppendResponseHeaderMiddleware:
-                def __init__(self, app: Any, *, name: str, value: str) -> None:
-                    self.app = app
-                    self.response_header = (
-                        f"X-{name}".encode("ascii"),
-                        value.encode("latin-1"),
-                    )
+            stored_key = iterated["stored_key"]
+            stored_value = iterated["stored_value"]
+            keys_result = iterated["keys_result"]
+            getitem_result = iterated["getitem_result"]
+            defaults = iterated["defaults"]
+            header_name = iterated["header_name"]
 
-                async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
-                    async def modified_send(message: Any) -> None:
-                        if message["type"] == "http.response.start":
-                            message["headers"].append(self.response_header)
-                        await send(message)
+            def make_input_middleware_kwargs_type(
+                input_keys_result: list[str], input_getitem_result: Any
+            ) -> type[dict[str, Any]]:
+                class InputMiddlewareKwargs(dict[str, Any]):
+                    def keys(self) -> list[str]:
+                        return list(input_keys_result)
 
-                    await self.app(scope, receive, modified_send)
+                    def __getitem__(self, _key: str) -> Any:
+                        return input_getitem_result
+
+                return InputMiddlewareKwargs
+
+            def make_input_dict_subclass_kwargs_middleware(
+                input_header_name: str, input_defaults: dict[str, str]
+            ) -> type[Any]:
+                class InputDictSubclassKwargsMiddleware:
+                    def __init__(
+                        self,
+                        app: Any,
+                        *,
+                        stored: str = input_defaults["stored"],
+                        phantom: str = input_defaults["phantom"],
+                    ) -> None:
+                        self.app = app
+                        self.response_header = (
+                            input_header_name.encode("ascii"),
+                            f"{stored}|{phantom}".encode("latin-1"),
+                        )
+
+                    async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
+                        async def modified_send(message: Any) -> None:
+                            if message["type"] == "http.response.start":
+                                message["headers"].append(self.response_header)
+                            await send(message)
+
+                        await self.app(scope, receive, modified_send)
+
+                return InputDictSubclassKwargsMiddleware
+
+            input_kwargs_type = make_input_middleware_kwargs_type(keys_result, getitem_result)
+            middleware_factory = make_input_dict_subclass_kwargs_middleware(header_name, defaults)
 
             configurations.append(
                 middleware_with_iterator_override(
                     Middleware,
-                    InputAppendResponseHeaderMiddleware,
-                    InputAppendResponseHeaderMiddleware,
+                    middleware_factory,
+                    middleware_factory,
                     [],
-                    MappingProxyType({"name": iterated["name"], "value": iterated["value"]}),
+                    input_kwargs_type({stored_key: stored_value}),
                 )
             )
             continue

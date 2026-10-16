@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@65",
+  "schema": "migration-parity/parity-input@66",
   "cases": [
     {
       "case_id": "starlette.endpoints.WebSocketEndpoint.dispatch.invalid-asgi-message-type-finalizes-1011",

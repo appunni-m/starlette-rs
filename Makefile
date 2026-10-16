@@ -335,6 +335,10 @@ migrate-parity-inputs-v63-v64: ## Migrate authored parity inputs from schema @63
 migrate-parity-inputs-v64-v65: ## Migrate authored parity inputs from schema @64 to @65
 	$(PARITY_PYTHON) -m scripts.migrate_parity_input_v64_to_v65
 
+.PHONY: migrate-parity-inputs-v65-v66
+migrate-parity-inputs-v65-v66: ## Migrate authored parity inputs from schema @65 to @66
+	$(PARITY_PYTHON) -m scripts.migrate_parity_input_v65_to_v66
+
 parity-env: parity-inputs ## Build the package wheel and prepare isolated parity environments
 	$(PARITY_PYTHON) -m scripts.parity.cli prepare-env --force --upstream "$(STARLETTE_ORACLE_ROOT)"
 

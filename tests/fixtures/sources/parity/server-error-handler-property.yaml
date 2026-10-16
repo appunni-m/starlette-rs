@@ -1,0 +1,97 @@
+{
+  "schema": "migration-parity/parity-input@66",
+  "cases": [
+    {
+      "case_id": "starlette.middleware.errors.ServerErrorMiddleware.__call__.handler-property-rereads",
+      "surface": "starlette.middleware.errors.ServerErrorMiddleware",
+      "operation": "__call__",
+      "covers": [
+        "starlette.middleware.errors.ServerErrorMiddleware.direct-handler-property-rereads"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "constructor": {
+        "app": {
+          "kind": "raise-runtime-error",
+          "label": "handler-property-app",
+          "message": "handler property lookup probe"
+        },
+        "handler": null,
+        "debug": false
+      },
+      "handler_property": {
+        "kind": "read-sequence",
+        "values": [
+          {
+            "kind": "json-server-error-response",
+            "callable_kind": "sync",
+            "label": "first-read-sync-decoy",
+            "status_code": 503,
+            "content": {
+              "detail": "first handler value"
+            }
+          },
+          {
+            "kind": "json-server-error-response",
+            "callable_kind": "async",
+            "label": "second-read-async-detector",
+            "status_code": 502,
+            "content": {
+              "detail": "async callable classification only"
+            }
+          },
+          {
+            "kind": "json-server-error-response",
+            "callable_kind": "async",
+            "label": "third-read-selected-handler",
+            "status_code": 500,
+            "content": {
+              "detail": "third handler value"
+            }
+          }
+        ]
+      },
+      "assignments": [],
+      "dispatch": {
+        "scope": {
+          "type": "http",
+          "asgi": {
+            "version": "3.0",
+            "spec_version": "2.4"
+          },
+          "http_version": "1.1",
+          "method": "GET",
+          "scheme": "http",
+          "path": "/",
+          "raw_path_base64": "Lw==",
+          "query_string_base64": "",
+          "root_path": "",
+          "headers_base64_pairs": [],
+          "client": [
+            "127.0.0.1",
+            12345
+          ],
+          "server": [
+            "testserver",
+            80
+          ]
+        },
+        "receive": [
+          {
+            "type": "http.request",
+            "body_base64": "",
+            "more_body": false
+          }
+        ],
+        "send": {
+          "kind": "capture-asgi-send"
+        }
+      },
+      "observations": [
+        "dispatch"
+      ]
+    }
+  ]
+}

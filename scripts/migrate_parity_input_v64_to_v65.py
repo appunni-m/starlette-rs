@@ -14,14 +14,14 @@ from scripts.migrate_parity_input_v49_to_v50 import (
 )
 from scripts.parity.api_sources import load_api_metadata, public_module_names
 from scripts.parity.contract import (
-    INPUT_SCHEMA,
     INPUT_SCHEMA_V64,
+    INPUT_SCHEMA_V65,
     ContractError,
     load_json,
     load_manifest,
     migrate_input_document_v64,
-    validate_input_document,
     validate_input_document_v64,
+    validate_input_document_v65,
     validate_manifest,
 )
 
@@ -38,7 +38,7 @@ def _replace_schema_header(raw: str, source: Path) -> str:
     )
     if match is None or match.group("schema") != INPUT_SCHEMA_V64:
         raise ContractError(f"{source} does not have the expected top-level schema header")
-    lines[1] = f"{match['prefix']}{INPUT_SCHEMA}{match['suffix']}{ending}"
+    lines[1] = f"{match['prefix']}{INPUT_SCHEMA_V65}{match['suffix']}{ending}"
     return "".join(lines)
 
 
@@ -70,10 +70,10 @@ def migrate(root: Path, *, check_only: bool) -> tuple[int, int]:
         if schema == INPUT_SCHEMA_V64:
             validate_input_document_v64(document, manifest, public_modules=public_modules)
             migrated = migrate_input_document_v64(document)
-            validate_input_document(migrated, manifest, public_modules=public_modules)
+            validate_input_document_v65(migrated, manifest, public_modules=public_modules)
             pending.append((source, _replace_schema_header(raw, source)))
-        elif schema == INPUT_SCHEMA:
-            validate_input_document(document, manifest, public_modules=public_modules)
+        elif schema == INPUT_SCHEMA_V65:
+            validate_input_document_v65(document, manifest, public_modules=public_modules)
         else:
             raise ContractError(f"{source} uses unexpected schema {schema!r}")
 

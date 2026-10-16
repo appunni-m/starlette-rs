@@ -2,13 +2,14 @@
 
 ## Current verification status
 
-The active `parity-input@65` manifest has 2,625 cases across 449 parity
-inputs, 1,463 requirements, and SHA-256
-`7a1292e1b61c490b05f57ce6a9b70f2e39cc908bdc1cc129eabf579bd7bec7a2`. Input
+The active `parity-input@66` manifest has 2,628 cases across 452 parity
+inputs, 1,467 requirements, and SHA-256
+`474c5a1e8f413ab0a02cb0b6ca5e9c46b85a5e29f26bfde93d4cd3e735faf12f`. Input
 generation, contract validation, and source inventory pass for this manifest.
-Its latest additions are an authentication `requires` typing consumer, six
-routing constructor-error cases, and three StaticFiles package-root errors;
-these ten comparisons remain unexecuted pending the grouped parity phase.
+The three newest comparisons cover TestClient lifespan stream cleanup,
+ServerErrorMiddleware handler-property rereads, and route middleware dict
+subclass keyword expansion; these and the ten @65 additions remain unexecuted
+pending the grouped parity phase.
 
 The latest completed five-profile source-parity workflow used the previous @64
 input set. Workflow
@@ -16,7 +17,7 @@ input set. Workflow
 reported zero mismatches, failed comparisons, `not_run` rows, or infrastructure
 errors: CPython 3.10 and 3.11 each passed 664/664 profile rows, 3.13 and 3.14
 each passed 665/665, and the CPython 3.12 full matrix passed 2,971/2,971.
-Those results do not cover @65. The Windows invalid-name probe
+Those results do not cover @66. The Windows invalid-name probe
 [`38966623892`](https://github.com/appunni-m/starlette-rs/actions/runs/38966623892)
 also belongs to @64 and passed all four comparisons. A local macOS @64 run
 source-skipped two StaticFiles rows because its filesystem cannot create the
@@ -29,7 +30,7 @@ status `unknown` because matching source/build receipts were not ingested, so
 these line counts are not Starlette-wide coverage. The complete @64 benchmark
 measured all 74 declared Router/GZip source/package workloads; its run details
 and two macOS preflight skips are recorded in [benchmark evidence](BENCHMARKS.md).
-Coverage and benchmark execution for @65 remain pending until the grouped @65
+Coverage and benchmark execution for @66 remain pending until the grouped @66
 parity phase completes.
 
 The latest input-only comparisons cover Config subclass property/cast dispatch

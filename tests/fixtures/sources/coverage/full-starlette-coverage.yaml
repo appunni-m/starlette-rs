@@ -925,7 +925,9 @@
         "starlette.testclient.TestClient.request-response.scope-projection",
         "starlette.testclient.TestClient.websocket-session.portal-cleanup",
         "starlette.testclient.TestClient.websocket-session.rejected-connection-disconnect",
-        "starlette.testclient.TestClient.websocket-session.scope-projection"
+        "starlette.testclient.TestClient.websocket-session.scope-projection",
+        "starlette.testclient.TestClient.lifespan-context.stream-cleanup-callback-order",
+        "starlette.testclient.TestClient.lifespan-context.stream-cleanup-error-precedence"
       ],
       "target_profile": "python-package-cpython310",
       "selectors": {
@@ -1219,7 +1221,8 @@
           "starlette.requests.Request.connection-properties.optimized-type-containment-false",
           "starlette.requests.Request.connection-properties.optimized-missing-auth-scope-key",
           "starlette.requests.Request.connection-properties.optimized-missing-user-scope-key",
-          "starlette.authentication.requires.typing-consumer.param-spec"
+          "starlette.authentication.requires.typing-consumer.param-spec",
+          "starlette.testclient.TestClient.lifespan-context.stream-close-callback-order"
         ],
         "command_ids": []
       },
@@ -1461,7 +1464,9 @@
         "starlette.testclient.TestClient.request-response.scope-projection",
         "starlette.testclient.TestClient.websocket-session.portal-cleanup",
         "starlette.testclient.TestClient.websocket-session.rejected-connection-disconnect",
-        "starlette.testclient.TestClient.websocket-session.scope-projection"
+        "starlette.testclient.TestClient.websocket-session.scope-projection",
+        "starlette.testclient.TestClient.lifespan-context.stream-cleanup-callback-order",
+        "starlette.testclient.TestClient.lifespan-context.stream-cleanup-error-precedence"
       ],
       "target_profile": "python-package-cpython311",
       "selectors": {
@@ -1755,7 +1760,8 @@
           "starlette.requests.Request.connection-properties.optimized-type-containment-false",
           "starlette.requests.Request.connection-properties.optimized-missing-auth-scope-key",
           "starlette.requests.Request.connection-properties.optimized-missing-user-scope-key",
-          "starlette.authentication.requires.typing-consumer.param-spec"
+          "starlette.authentication.requires.typing-consumer.param-spec",
+          "starlette.testclient.TestClient.lifespan-context.stream-close-callback-order"
         ],
         "command_ids": []
       },
@@ -3200,7 +3206,11 @@
         "starlette.routing.Host.__init__.leading-slash",
         "starlette.staticfiles.StaticFiles.configuration-check.package-roots.missing-package-spec",
         "starlette.staticfiles.StaticFiles.configuration-check.package-roots.package-without-origin",
-        "starlette.staticfiles.StaticFiles.configuration-check.package-roots.missing-static-directory"
+        "starlette.staticfiles.StaticFiles.configuration-check.package-roots.missing-static-directory",
+        "starlette.testclient.TestClient.lifespan-context.stream-cleanup-callback-order",
+        "starlette.testclient.TestClient.lifespan-context.stream-cleanup-error-precedence",
+        "starlette.applications.Starlette.__call__.route-middleware-kwargs-dict-subclass-expansion",
+        "starlette.middleware.errors.ServerErrorMiddleware.direct-handler-property-rereads"
       ],
       "target_profile": "python-package-cpython312",
       "selectors": {
@@ -5812,7 +5822,10 @@
           "starlette.routing.Host.__init__.leading-slash.constructor-error",
           "starlette.staticfiles.StaticFiles.configuration-check.missing-package-spec",
           "starlette.staticfiles.StaticFiles.configuration-check.package-without-origin",
-          "starlette.staticfiles.StaticFiles.configuration-check.missing-selected-static-directory"
+          "starlette.staticfiles.StaticFiles.configuration-check.missing-selected-static-directory",
+          "starlette.testclient.TestClient.lifespan-context.stream-close-callback-order",
+          "starlette.applications.Starlette.__call__.route-middleware-kwargs-dict-subclass-expansion",
+          "starlette.middleware.errors.ServerErrorMiddleware.__call__.handler-property-rereads"
         ],
         "command_ids": []
       },
@@ -6055,7 +6068,9 @@
         "starlette.testclient.TestClient.request-response.scope-projection",
         "starlette.testclient.TestClient.websocket-session.portal-cleanup",
         "starlette.testclient.TestClient.websocket-session.rejected-connection-disconnect",
-        "starlette.testclient.TestClient.websocket-session.scope-projection"
+        "starlette.testclient.TestClient.websocket-session.scope-projection",
+        "starlette.testclient.TestClient.lifespan-context.stream-cleanup-callback-order",
+        "starlette.testclient.TestClient.lifespan-context.stream-cleanup-error-precedence"
       ],
       "target_profile": "python-package-cpython313",
       "selectors": {
@@ -6350,7 +6365,8 @@
           "starlette.requests.Request.connection-properties.optimized-type-containment-false",
           "starlette.requests.Request.connection-properties.optimized-missing-auth-scope-key",
           "starlette.requests.Request.connection-properties.optimized-missing-user-scope-key",
-          "starlette.authentication.requires.typing-consumer.param-spec"
+          "starlette.authentication.requires.typing-consumer.param-spec",
+          "starlette.testclient.TestClient.lifespan-context.stream-close-callback-order"
         ],
         "command_ids": []
       },
@@ -6593,7 +6609,9 @@
         "starlette.testclient.TestClient.request-response.scope-projection",
         "starlette.testclient.TestClient.websocket-session.portal-cleanup",
         "starlette.testclient.TestClient.websocket-session.rejected-connection-disconnect",
-        "starlette.testclient.TestClient.websocket-session.scope-projection"
+        "starlette.testclient.TestClient.websocket-session.scope-projection",
+        "starlette.testclient.TestClient.lifespan-context.stream-cleanup-callback-order",
+        "starlette.testclient.TestClient.lifespan-context.stream-cleanup-error-precedence"
       ],
       "target_profile": "python-package-cpython314",
       "selectors": {
@@ -6888,7 +6906,8 @@
           "starlette.requests.Request.connection-properties.optimized-type-containment-false",
           "starlette.requests.Request.connection-properties.optimized-missing-auth-scope-key",
           "starlette.requests.Request.connection-properties.optimized-missing-user-scope-key",
-          "starlette.authentication.requires.typing-consumer.param-spec"
+          "starlette.authentication.requires.typing-consumer.param-spec",
+          "starlette.testclient.TestClient.lifespan-context.stream-close-callback-order"
         ],
         "command_ids": []
       },

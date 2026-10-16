@@ -248,7 +248,7 @@
   ],
   "interfaces": {
     "parity": {
-      "input_schema": "migration-parity/parity-input@65",
+      "input_schema": "migration-parity/parity-input@66",
       "result_schema": "migration-parity/parity-result@9",
       "command_id": "parity"
     },
@@ -574,6 +574,7 @@
       "build/parity/inputs/parity/route-local-middleware-semantics.json",
       "build/parity/inputs/parity/route-local-middleware-stack-order.json",
       "build/parity/inputs/parity/route-lone-surrogate.json",
+      "build/parity/inputs/parity/route-middleware-dict-subclass-kwargs.json",
       "build/parity/inputs/parity/route-middleware-dispatch.json",
       "build/parity/inputs/parity/route-middleware-mapping-composition.json",
       "build/parity/inputs/parity/route-representations.json",
@@ -610,6 +611,7 @@
       "build/parity/inputs/parity/schemas-optional-pyyaml-boundary.json",
       "build/parity/inputs/parity/schemas-runtime.json",
       "build/parity/inputs/parity/schemas-unicode-word-boundary.json",
+      "build/parity/inputs/parity/server-error-handler-property.json",
       "build/parity/inputs/parity/server-error-message-type-python-equality.json",
       "build/parity/inputs/parity/server-error-middleware.json",
       "build/parity/inputs/parity/server-error-scope-type-python-inequality.json",
@@ -694,6 +696,7 @@
       "build/parity/inputs/parity/testclient-lifespan-context.json",
       "build/parity/inputs/parity/testclient-lifespan-message-type-comparison-error.json",
       "build/parity/inputs/parity/testclient-lifespan-public-api.json",
+      "build/parity/inputs/parity/testclient-lifespan-stream-close-order.json",
       "build/parity/inputs/parity/testclient-middleware.json",
       "build/parity/inputs/parity/testclient-partial-endpoints.json",
       "build/parity/inputs/parity/testclient-partial-response-exception.json",
@@ -3421,6 +3424,18 @@
               "id": "starlette.asgi.http-exception.detail-render-before-header-value-error",
               "dimension": "boundary",
               "description": "When both HTTPException detail and header value are non-strings, default response construction renders the detail before converting supplied headers, so the detail error is observed first. Pinned source: starlette/middleware/exceptions.py:65-69; starlette/responses.py:21-24,33-37,55-62.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.applications.Starlette.__call__.route-middleware-kwargs-dict-subclass-expansion",
+              "dimension": "boundary",
+              "description": "When Route middleware kwargs come from a dict subclass that inherits dict.__iter__ but overrides keys() and __getitem__, expand the stored dictionary entries as Python **kwargs. Pinned source: starlette/routing.py::Route.__init__ and Starlette.__call__; CPython 3.12 dict merge behavior: https://github.com/python/cpython/blob/3.12/Objects/dictobject.c.",
               "lanes": [
                 "parity",
                 "coverage"
@@ -16792,6 +16807,18 @@
                   "comparison": {
                     "kind": "exact"
                   }
+                },
+                {
+                  "path": "handler_property_reads",
+                  "value_types": [
+                    "integer"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  },
+                  "condition": {
+                    "input_key": "handler_property"
+                  }
                 }
               ],
               "error": {
@@ -16945,6 +16972,18 @@
               "id": "starlette.middleware.errors.ServerErrorMiddleware.asgi-call.scope-type-python-inequality",
               "dimension": "boundary",
               "description": "Use Python inequality and truth testing on the original scope type when ServerErrorMiddleware decides whether an application error belongs to HTTP. Pinned source: starlette/middleware/errors.py:149-152.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.middleware.errors.ServerErrorMiddleware.direct-handler-property-rereads",
+              "dimension": "boundary",
+              "description": "For a direct HTTP call on a middleware subclass with an input-defined stateful handler property, classify the second handler value, invoke the third value, and propagate the original application exception. Pinned source: starlette/middleware/errors.py::ServerErrorMiddleware.__call__.",
               "lanes": [
                 "parity",
                 "coverage"
@@ -39348,6 +39387,18 @@
                     "input_key": "asgi_app.kind",
                     "equals": "starlette-lifespan-backend-probe"
                   }
+                },
+                {
+                  "path": "lifespan_stream_close_order",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  },
+                  "condition": {
+                    "input_key": "environment.lifespan_stream_close_errors"
+                  }
                 }
               ],
               "error": {
@@ -39777,6 +39828,38 @@
               "id": "starlette.testclient.TestClient.lifespan-context.portal-exit-error-context",
               "dimension": "error_path",
               "description": "When a with-body exception is active during TestClient.__exit__ and portal cleanup raises, propagate the cleanup error with the body exception retained in its context. Pinned source: starlette/testclient.py:130-131,679-709; tests/test_testclient.py::test_error_on_shutdown; contextlib.ExitStack cleanup behavior.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.lifespan-context.stream-cleanup-callback-order",
+              "dimension": "boundary",
+              "description": "Close the four AnyIO lifespan stream endpoints in the order registered with TestClient ExitStack, preserving the pinned pair and endpoint order. Pinned source: starlette/testclient.py::TestClient.__enter__ and TestClient.__exit__.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.lifespan-context.stream-cleanup-error-precedence",
+              "dimension": "error_path",
+              "description": "When each registered lifespan stream close callback raises, preserve ExitStack exception replacement and context chaining so the final callback error propagates with prior close errors in its live exception context. Pinned source: starlette/testclient.py::TestClient.__enter__ and contextlib.ExitStack.",
               "lanes": [
                 "parity",
                 "coverage"

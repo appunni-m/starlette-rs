@@ -2290,11 +2290,36 @@ fn apply_middleware_inner(
                 arguments.push(value?.unbind());
             }
             let arguments = PyTuple::new(py, arguments.iter().map(|value| value.bind(py)))?;
-            let keyword = middleware_kwargs_to_dict(py, &keyword_object, &middleware_type)?;
+            let keyword = route_middleware_kwargs_to_dict(py, &keyword_object, &middleware_type)?;
             app = middleware_type.call(&arguments, Some(&keyword))?.unbind();
         }
     }
     apply_body_limit(py, app, max_body_size)
+}
+
+fn route_middleware_kwargs_to_dict<'py>(
+    py: Python<'py>,
+    mapping: &Bound<'py, PyAny>,
+    callable: &Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyDict>> {
+    if let Ok(dictionary) = mapping.cast::<PyDict>() {
+        let dict_iterator = py.get_type::<PyDict>().getattr("__iter__")?;
+        let mapping_iterator = mapping.get_type().getattr("__iter__")?;
+        if mapping_iterator.is(&dict_iterator) {
+            // Python's `**kwargs` fast path reads stored dict entries for dict
+            // subclasses that inherit dict.__iter__, ignoring overrides of
+            // `keys()` and `__getitem__`.
+            let keyword = dictionary.copy()?;
+            if keyword
+                .iter()
+                .any(|(key, _)| !key.is_instance_of::<PyString>())
+            {
+                return Err(PyTypeError::new_err("keywords must be strings"));
+            }
+            return Ok(keyword);
+        }
+    }
+    middleware_kwargs_to_dict(py, mapping, callable)
 }
 
 fn apply_router_middleware_inner(

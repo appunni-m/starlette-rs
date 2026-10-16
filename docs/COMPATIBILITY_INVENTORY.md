@@ -2,16 +2,17 @@
 
 ## Current verification status
 
-The active full-scope manifest is `parity-input@65`, SHA-256
-`7a1292e1b61c490b05f57ce6a9b70f2e39cc908bdc1cc129eabf579bd7bec7a2`, against
+The active full-scope manifest is `parity-input@66`, SHA-256
+`474c5a1e8f413ab0a02cb0b6ca5e9c46b85a5e29f26bfde93d4cd3e735faf12f`, against
 Starlette 1.6.0 revision
-`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. It declares 2,625 input-only cases
-across 449 parity files, two benchmark inputs, 156 compatibility operations,
-15 Rust-native operations, 1,463 parity requirements, and six target profiles.
-Input generation, contract validation, and source inventory pass. The ten
-latest authentication typing, routing constructor-error, and StaticFiles
-package-root comparisons remain unexecuted. Grouped parity, coverage, and
-benchmarks are pending for @65. The latest completed behavioral evidence is the
+`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. It declares 2,628 input-only cases
+across 452 parity files, two benchmark inputs, 156 compatibility operations,
+15 Rust-native operations, 1,467 parity requirements, and six target profiles.
+Input generation, contract validation, and source inventory pass. The three
+latest TestClient stream-cleanup, ServerErrorMiddleware property, and route
+middleware dict-subclass comparisons, along with ten @65 additions, remain
+unexecuted. Grouped parity, coverage, and benchmarks are pending for @66. The
+latest completed behavioral evidence is the
 prior @64 run; its results do not cover the active manifest. Source inventory
 counts are generated in the atlas: 867 source rows, 811 input mappings, 56
 source-backed `not_applicable` rows, and zero fixture backlog. The pinned
@@ -1179,10 +1180,10 @@ and do not establish parity for every deprecation path.
   `doc.templates.async-context-processor-constraint`.
 
 These source-backed caveats and targeted inputs do not create fixture backlog.
-The active @65 manifest has not undergone grouped parity, coverage, or
+The active @66 manifest has not undergone grouped parity, coverage, or
 benchmark execution. The previous @64 parity run had no executable-row
 mismatches but source-skipped two rows on macOS; those results are historical
-and do not establish behavior for @65.
+and do not establish behavior for @66.
 
 The macOS arm64 Python package qualification is complete, and its SBOM
 metadata normalization is verified for direct and sdist-based CPython 3.12

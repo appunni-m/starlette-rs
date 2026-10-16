@@ -363,8 +363,21 @@ impl ServerErrorCall {
                     error.set_cause(py, Some(original));
                     return Err(error);
                 };
-                let handler = handlers.bind(py).get_item(handler_index)?;
+                let is_direct = matches!(&self.policy_source, ServerErrorPolicySource::Direct);
+                // The direct source path reads `self.handler` for the async
+                // check and again for invocation. Preserve descriptor-backed
+                // subclasses and any field changes between those reads.
+                let handler = if is_direct {
+                    self.middleware.bind(py).getattr("handler")?
+                } else {
+                    handlers.bind(py).get_item(handler_index)?
+                };
                 let is_async = crate::background::is_async_callable(py, &handler)?;
+                let handler = if is_direct {
+                    self.middleware.bind(py).getattr("handler")?
+                } else {
+                    handlers.bind(py).get_item(handler_index)?
+                };
                 let awaitable = if is_async {
                     handler.call1((request, exception))?
                 } else {

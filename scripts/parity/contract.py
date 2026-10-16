@@ -57,8 +57,9 @@ INPUT_SCHEMA_V61 = "migration-parity/parity-input@61"
 INPUT_SCHEMA_V62 = "migration-parity/parity-input@62"
 INPUT_SCHEMA_V63 = "migration-parity/parity-input@63"
 INPUT_SCHEMA_V64 = "migration-parity/parity-input@64"
+INPUT_SCHEMA_V65 = "migration-parity/parity-input@65"
 PREVIOUS_INPUT_SCHEMA = INPUT_SCHEMA_V50
-INPUT_SCHEMA = "migration-parity/parity-input@65"
+INPUT_SCHEMA = "migration-parity/parity-input@66"
 BENCHMARK_INPUT_SCHEMA = "migration-parity/benchmark-input@1"
 RESULT_SCHEMA = "migration-parity/parity-result@9"
 BENCHMARK_RESULT_SCHEMA = "migration-parity/benchmark-result@1"
@@ -523,6 +524,12 @@ TESTCLIENT_LIFESPAN_REQUIREMENTS = {
     "exit_before_enter": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.exit-before-enter",
     "portal_exit_error_context": (
         f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.portal-exit-error-context"
+    ),
+    "stream_cleanup_callback_order": (
+        f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.stream-cleanup-callback-order"
+    ),
+    "stream_cleanup_error_precedence": (
+        f"{TESTCLIENT_SURFACE}.{TESTCLIENT_LIFESPAN_OPERATION}.stream-cleanup-error-precedence"
     ),
 }
 ASGI_LIFESPAN_SCOPE_STATE_REQUIRED_REQUIREMENT = "starlette.asgi.lifespan.scope-state-required"
@@ -1981,6 +1988,9 @@ STARLETTE_ROUTE_MIDDLEWARE_REQUIREMENTS = {
     "router_stack": "starlette.routing.Router.route-dispatch.local-middleware-stack-order",
     "mount_stack": "starlette.routing.Mount.route-dispatch.local-middleware-stack-order",
     "kwargs_mapping": "starlette.applications.Starlette.__call__.route-middleware-kwargs-mapping-expansion",
+    "kwargs_mapping_dict_subclass": (
+        "starlette.applications.Starlette.__call__.route-middleware-kwargs-dict-subclass-expansion"
+    ),
     "mount_exception": (
         "starlette.applications.Starlette.__call__.mount-middleware-http-exception-response"
     ),
@@ -2262,6 +2272,9 @@ SERVER_ERROR_MIDDLEWARE_REQUIREMENTS = {
     ),
     "scope-type-python-inequality": (
         f"{SERVER_ERROR_MIDDLEWARE_SURFACE}.asgi-call.scope-type-python-inequality"
+    ),
+    "direct-handler-property-rereads": (
+        f"{SERVER_ERROR_MIDDLEWARE_SURFACE}.direct-handler-property-rereads"
     ),
 }
 ASGI_MIDDLEWARE_SURFACES = {
@@ -3385,6 +3398,16 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         and key == TESTCLIENT_LIFESPAN_OPERATION_KEY
                         and observation["path"] == "client_method_trace"
                     )
+                    testclient_lifespan_stream_close_order = (
+                        condition["input_key"] == "environment.lifespan_stream_close_errors"
+                        and key == TESTCLIENT_LIFESPAN_OPERATION_KEY
+                        and observation["path"] == "lifespan_stream_close_order"
+                    )
+                    server_error_handler_property_reads = (
+                        condition["input_key"] == "handler_property"
+                        and key == (SERVER_ERROR_MIDDLEWARE_SURFACE, "__call__")
+                        and observation["path"] == "handler_property_reads"
+                    )
                     cors_scope_observation = (
                         condition["input_key"] == "scope_observation"
                         and key == (CORS_SURFACE, "__call__")
@@ -3451,6 +3474,8 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         and not testclient_lifespan_other_app_kind
                         and not testclient_lifespan_backend_probe
                         and not testclient_lifespan_client_method_trace
+                        and not testclient_lifespan_stream_close_order
+                        and not server_error_handler_property_reads
                         and not cors_scope_observation
                         and not gzip_scope_observation
                         and not starlette_app_scope_observation
@@ -20134,16 +20159,81 @@ def _validate_testclient_raw_websocket_workflow(
 def _validate_testclient_portal_exit_environment(case: dict[str, Any]) -> dict[str, Any] | None:
     if "environment" not in case:
         return None
-    environment = _exact(case["environment"], {"portal_exit_error"}, "TestClient environment")
-    error = _exact(
-        environment["portal_exit_error"],
-        {"exception_type", "message"},
-        "TestClient portal exit error",
-    )
-    if error["exception_type"] != "RuntimeError":
-        raise ContractError("TestClient portal exit error currently uses RuntimeError")
-    _string(error["message"], "TestClient portal exit error message")
+    environment = case["environment"]
+    if not isinstance(environment, dict) or not environment or not set(environment).issubset(
+        {"portal_exit_error", "lifespan_stream_close_errors"}
+    ):
+        raise ContractError("TestClient environment has unsupported input fields")
+    error = None
+    if "portal_exit_error" in environment:
+        error = _exact(
+            environment["portal_exit_error"],
+            {"exception_type", "message"},
+            "TestClient portal exit error",
+        )
+        if error["exception_type"] != "RuntimeError":
+            raise ContractError("TestClient portal exit error currently uses RuntimeError")
+        _string(error["message"], "TestClient portal exit error message")
+    if "lifespan_stream_close_errors" in environment:
+        if (case.get("surface"), case.get("operation")) != (
+            TESTCLIENT_SURFACE,
+            TESTCLIENT_LIFESPAN_OPERATION,
+        ):
+            raise ContractError("lifespan stream close errors require a TestClient lifespan case")
+        client_actions = case.get("client_actions")
+        app = case.get("asgi_app")
+        if (
+            not isinstance(client_actions, list)
+            or [
+                action.get("operation") for action in client_actions if isinstance(action, dict)
+            ]
+            != ["enter", "exit"]
+            or not isinstance(app, dict)
+            or app.get("kind") != "starlette-lifespan"
+        ):
+            raise ContractError(
+                "lifespan stream close errors require an enter/exit Starlette lifespan input"
+            )
+        raw_errors = environment["lifespan_stream_close_errors"]
+        if not isinstance(raw_errors, list) or len(raw_errors) != 4:
+            raise ContractError("lifespan stream close errors must define all four endpoints")
+        observed_endpoints: set[tuple[int, str]] = set()
+        for index, raw_error in enumerate(raw_errors):
+            close_error = _exact(
+                raw_error,
+                {"pair_index", "endpoint", "exception_type", "message"},
+                f"TestClient lifespan stream close error[{index}]",
+            )
+            pair_index = close_error["pair_index"]
+            endpoint = close_error["endpoint"]
+            if type(pair_index) is not int or pair_index not in {1, 2}:
+                raise ContractError("lifespan stream close pair_index must be 1 or 2")
+            if not isinstance(endpoint, str) or endpoint not in {"send", "receive"}:
+                raise ContractError("lifespan stream close endpoint must be send or receive")
+            if close_error["exception_type"] != "RuntimeError":
+                raise ContractError("lifespan stream close errors currently use RuntimeError")
+            _string(close_error["message"], "TestClient lifespan stream close error message")
+            endpoint_key = (pair_index, endpoint)
+            if endpoint_key in observed_endpoints:
+                raise ContractError("lifespan stream close errors must select unique endpoints")
+            observed_endpoints.add(endpoint_key)
+        if observed_endpoints != {
+            (pair_index, endpoint)
+            for pair_index in (1, 2)
+            for endpoint in ("send", "receive")
+        }:
+            raise ContractError("lifespan stream close errors must cover both endpoints of both pairs")
     return error
+
+
+def _testclient_lifespan_stream_close_errors(case: dict[str, Any]) -> list[dict[str, Any]] | None:
+    environment = case.get("environment")
+    if not isinstance(environment, dict):
+        return None
+    errors = environment.get("lifespan_stream_close_errors")
+    if errors is None:
+        return None
+    return errors
 
 
 def _validate_testclient_websocket_mapping_reentry_case(
@@ -22397,6 +22487,7 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
 
 def _validate_testclient_lifespan_case(case: dict[str, Any]) -> None:
     portal_exit_error = _validate_testclient_portal_exit_environment(case)
+    stream_close_errors = _testclient_lifespan_stream_close_errors(case)
     settings = _exact(
         case["testclient"],
         {
@@ -22747,6 +22838,13 @@ def _validate_testclient_lifespan_case(case: dict[str, Any]) -> None:
                 TESTCLIENT_LIFESPAN_REQUIREMENTS["shutdown"],
                 TESTCLIENT_LIFESPAN_REQUIREMENTS["application_callback"],
             }
+            if _testclient_lifespan_stream_close_errors(case) is not None:
+                expected_covers.update(
+                    {
+                        TESTCLIENT_LIFESPAN_REQUIREMENTS["stream_cleanup_callback_order"],
+                        TESTCLIENT_LIFESPAN_REQUIREMENTS["stream_cleanup_error_precedence"],
+                    }
+                )
             if "task_group" in callback:
                 task_group = _exact(
                     callback["task_group"],
@@ -23462,6 +23560,8 @@ def _validate_testclient_lifespan_case(case: dict[str, Any]) -> None:
             TESTCLIENT_LIFESPAN_REQUIREMENTS["python_subclass_method_dispatch"],
             TESTCLIENT_LIFESPAN_REQUIREMENTS["exit_before_enter"],
             TESTCLIENT_LIFESPAN_REQUIREMENTS["portal_exit_error_context"],
+            TESTCLIENT_LIFESPAN_REQUIREMENTS["stream_cleanup_callback_order"],
+            TESTCLIENT_LIFESPAN_REQUIREMENTS["stream_cleanup_error_precedence"],
         }
     elif (client_operations, lifespan_operations) == (["enter"], ["receive", "raise"]):
         expected_covers = {TESTCLIENT_LIFESPAN_REQUIREMENTS["startup_error"]}
@@ -29047,6 +29147,8 @@ def _validate_server_error_middleware_case(
     case_keys |= {"constructor"}
     if operation_id == "__call__":
         case_keys |= {"assignments", "dispatch"}
+        if "handler_property" in case:
+            case_keys |= {"handler_property"}
     _exact(case, case_keys, "ServerErrorMiddleware case")
     _string(case["case_id"], "ServerErrorMiddleware case.case_id")
     if not case["case_id"].startswith(f"{SERVER_ERROR_MIDDLEWARE_SURFACE}.{operation_id}."):
@@ -29088,6 +29190,35 @@ def _validate_server_error_middleware_case(
     )
     if type(constructor["debug"]) is not bool:
         raise ContractError("ServerErrorMiddleware debug input must be boolean")
+
+    handler_property = case.get("handler_property")
+    if handler_property is not None:
+        if operation_id != "__call__":
+            raise ContractError("ServerErrorMiddleware handler property probes require __call__")
+        handler_property = _exact(
+            handler_property,
+            {"kind", "values"},
+            "ServerErrorMiddleware handler property input",
+        )
+        if handler_property["kind"] != "read-sequence":
+            raise ContractError("ServerErrorMiddleware handler property kind must be read-sequence")
+        values = handler_property["values"]
+        if not isinstance(values, list) or len(values) != 3:
+            raise ContractError("ServerErrorMiddleware handler property must supply three reads")
+        for index, value in enumerate(values):
+            _validate_server_error_middleware_handler(
+                value, f"ServerErrorMiddleware handler property value[{index}]"
+            )
+        if (
+            any(value is None for value in values)
+            or values[0]["callable_kind"] != "sync"
+            or values[1]["callable_kind"] != "async"
+            or values[2]["callable_kind"] != "async"
+            or len({value["label"] for value in values}) != 3
+        ):
+            raise ContractError(
+                "ServerErrorMiddleware handler property must distinguish async classification from invocation"
+            )
 
     if operation_id == "__init__":
         exercised = {SERVER_ERROR_MIDDLEWARE_REQUIREMENTS["construct"]}
@@ -29139,7 +29270,21 @@ def _validate_server_error_middleware_case(
         if assignment_fields and dispatch["scope"]["type"] != "http":
             raise ContractError("ServerErrorMiddleware field-mutation probes require HTTP scope")
 
-        if not assignment_fields:
+        if handler_property is not None:
+            if (
+                assignment_fields
+                or scope_type_probe
+                or scope_type != "http"
+                or constructor["app"]["kind"] != "raise-runtime-error"
+                or constructor["handler"] is not None
+                or constructor["debug"]
+            ):
+                raise ContractError(
+                    "handler property reread input requires an unassigned direct HTTP RuntimeError call"
+                )
+            requirement_key = "direct-handler-property-rereads"
+            exercised = {SERVER_ERROR_MIDDLEWARE_REQUIREMENTS[requirement_key]}
+        elif not assignment_fields:
             app_kind = constructor["app"]["kind"]
             if scope_type_probe:
                 raw_descriptor = raw_scope_type["str_subclass"]
@@ -30021,31 +30166,89 @@ def _validate_route_middleware_spec(spec: Any, context: str) -> dict[str, Any]:
         return spec
     if spec["kind"] == "middleware-iterator-subclass":
         spec = _exact(spec, {"kind", "iterated"}, context)
-        iterated = _exact(
-            spec["iterated"],
-            {"kind", "name", "value"},
-            f"{context}.iterated",
-        )
-        if iterated["kind"] != "append-response-header":
-            raise ContractError(f"{context}.iterated.kind must append a response header")
-        name = _string(iterated["name"], f"{context}.iterated.name")
-        value = _string(iterated["value"], f"{context}.iterated.value")
-        try:
-            header_name = f"X-{name}".encode("ascii")
-            value.encode("latin-1")
-        except UnicodeEncodeError as exc:
-            raise ContractError(f"{context}.iterated header must be ASGI-compatible") from exc
-        valid_token_characters = (
-            "!#$%&'*+-.^_`|~0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
-        )
-        if (
-            any(
-                character not in valid_token_characters for character in header_name.decode("ascii")
+        if not isinstance(spec["iterated"], dict):
+            raise ContractError(f"{context}.iterated must be a record")
+        if spec["iterated"].get("kind") == "append-response-header":
+            iterated = _exact(
+                spec["iterated"],
+                {"kind", "name", "value"},
+                f"{context}.iterated",
             )
-            or "\r" in value
-            or "\n" in value
-        ):
-            raise ContractError(f"{context}.iterated header must be valid")
+            name = _string(iterated["name"], f"{context}.iterated.name")
+            value = _string(iterated["value"], f"{context}.iterated.value")
+            try:
+                header_name = f"X-{name}".encode("ascii")
+                value.encode("latin-1")
+            except UnicodeEncodeError as exc:
+                raise ContractError(f"{context}.iterated header must be ASGI-compatible") from exc
+            valid_token_characters = (
+                "!#$%&'*+-.^_`|~0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+            )
+            if (
+                any(
+                    character not in valid_token_characters
+                    for character in header_name.decode("ascii")
+                )
+                or "\r" in value
+                or "\n" in value
+            ):
+                raise ContractError(f"{context}.iterated header must be valid")
+        elif spec["iterated"].get("kind") == "dict-subclass-kwargs":
+            iterated = _exact(
+                spec["iterated"],
+                {
+                    "kind",
+                    "stored_key",
+                    "stored_value",
+                    "keys_result",
+                    "getitem_result",
+                    "defaults",
+                    "header_name",
+                },
+                f"{context}.iterated",
+            )
+            for key in ("stored_key", "stored_value", "getitem_result", "header_name"):
+                _string(iterated[key], f"{context}.iterated.{key}")
+            keys_result = iterated["keys_result"]
+            if not isinstance(keys_result, list) or any(
+                not isinstance(key, str) for key in keys_result
+            ):
+                raise ContractError(f"{context}.iterated.keys_result must be an array of strings")
+            defaults = iterated["defaults"]
+            if not isinstance(defaults, dict) or any(
+                not isinstance(key, str) or not isinstance(value, str)
+                for key, value in defaults.items()
+            ):
+                raise ContractError(f"{context}.iterated.defaults must map strings to strings")
+            if (
+                iterated["stored_key"] != "stored"
+                or keys_result != ["phantom"]
+                or set(defaults) != {"stored", "phantom"}
+            ):
+                raise ContractError(
+                    f"{context}.iterated must contrast one stored dict key with one virtual mapping key"
+                )
+            try:
+                header_name = iterated["header_name"].encode("ascii")
+                f"{iterated['stored_value']}|{iterated['getitem_result']}".encode("latin-1")
+            except UnicodeEncodeError as exc:
+                raise ContractError(f"{context}.iterated header must be ASGI-compatible") from exc
+            valid_token_characters = (
+                "!#$%&'*+-.^_`|~0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+            )
+            if (
+                any(
+                    character not in valid_token_characters
+                    for character in header_name.decode("ascii")
+                )
+                or "\r" in iterated["stored_value"]
+                or "\n" in iterated["stored_value"]
+                or "\r" in iterated["getitem_result"]
+                or "\n" in iterated["getitem_result"]
+            ):
+                raise ContractError(f"{context}.iterated header must be valid")
+        else:
+            raise ContractError(f"{context}.iterated.kind is unsupported")
         return spec
     spec = _exact(spec, {"kind", "scope_key", "scope_value", "response_header"}, context)
     if spec["kind"] != "scope-and-response-header":
@@ -44203,9 +44406,16 @@ def _semantic_coverage(case: dict[str, Any]) -> set[str]:
                 STARLETTE_ROUTE_MIDDLEWARE_REQUIREMENTS["mount_stack"],
             }
         if topology == "kwargs_mapping":
+            route_middleware = app_arguments["routes"][0]["app"]["routes"][0]["middleware"]
+            iterated = route_middleware[0]["iterated"]
+            mapping_requirement = (
+                "kwargs_mapping_dict_subclass"
+                if iterated.get("kind") == "dict-subclass-kwargs"
+                else "kwargs_mapping"
+            )
             return {
                 STARLETTE_ROUTE_MIDDLEWARE_REQUIREMENTS["mount_app"],
-                STARLETTE_ROUTE_MIDDLEWARE_REQUIREMENTS["kwargs_mapping"],
+                STARLETTE_ROUTE_MIDDLEWARE_REQUIREMENTS[mapping_requirement],
             }
         return (
             {STARLETTE_ROUTE_MIDDLEWARE_REQUIREMENTS[requirement_key]}
@@ -45464,6 +45674,33 @@ def _contains_parity_input_v65_package_roots(value: Any) -> bool:
     return False
 
 
+def _contains_parity_input_v66_descriptors(value: Any) -> bool:
+    if isinstance(value, dict):
+        if {"handler_property", "lifespan_stream_close_errors"} & value.keys():
+            return True
+        if value.get("kind") == "dict-subclass-kwargs":
+            return True
+        return any(_contains_parity_input_v66_descriptors(item) for item in value.values())
+    if isinstance(value, list):
+        return any(_contains_parity_input_v66_descriptors(item) for item in value)
+    return False
+
+
+def migrate_input_document_v65(document: Any) -> dict[str, Any]:
+    """Advance @65 inputs to @66, adding descriptor-backed runtime stimuli."""
+    _exact(document, {"schema", "cases"}, "parity input")
+    if document["schema"] != INPUT_SCHEMA_V65:
+        raise ContractError(f"unsupported @65 parity input schema: {document['schema']!r}")
+    if not isinstance(document["cases"], list) or not document["cases"]:
+        raise ContractError("parity input must select at least one case")
+    if _contains_parity_input_v66_descriptors(document["cases"]):
+        raise ContractError("parity-input@65 does not allow @66 input descriptors")
+
+    migrated = dict(document)
+    migrated["schema"] = INPUT_SCHEMA
+    return migrated
+
+
 def migrate_input_document_v64(document: Any) -> dict[str, Any]:
     """Advance @64 inputs to @65, which adds StaticFiles package-root stimuli."""
     _exact(document, {"schema", "cases"}, "parity input")
@@ -45475,7 +45712,7 @@ def migrate_input_document_v64(document: Any) -> dict[str, Any]:
         raise ContractError("parity-input@64 does not allow StaticFiles package_roots")
 
     migrated = dict(document)
-    migrated["schema"] = INPUT_SCHEMA
+    migrated["schema"] = INPUT_SCHEMA_V65
     return migrated
 
 
@@ -45595,7 +45832,7 @@ def validate_input_document_v63(
     *,
     public_modules: frozenset[str] | None = None,
 ) -> list[dict[str, Any]]:
-    """Validate @63 inputs before their deterministic @64 and @65 migrations."""
+    """Validate @63 inputs before their deterministic @64 through @66 migrations."""
     migrated = migrate_input_document_v63(document)
     return validate_input_document_v64(migrated, manifest, public_modules=public_modules)
 
@@ -45606,8 +45843,19 @@ def validate_input_document_v64(
     *,
     public_modules: frozenset[str] | None = None,
 ) -> list[dict[str, Any]]:
-    """Validate @64 inputs before their deterministic @65 schema migration."""
+    """Validate @64 inputs before their deterministic @65 and @66 migrations."""
     migrated = migrate_input_document_v64(document)
+    return validate_input_document_v65(migrated, manifest, public_modules=public_modules)
+
+
+def validate_input_document_v65(
+    document: Any,
+    manifest: dict[str, Any],
+    *,
+    public_modules: frozenset[str] | None = None,
+) -> list[dict[str, Any]]:
+    """Validate @65 inputs before their deterministic @66 schema migration."""
+    migrated = migrate_input_document_v65(document)
     return validate_input_document(migrated, manifest, public_modules=public_modules)
 
 

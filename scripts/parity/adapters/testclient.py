@@ -2193,14 +2193,18 @@ def run_testclient_websocket_case(case: dict[str, Any]) -> dict[str, Any]:
 
 
 class _LifespanStreamCloseObserver:
-    def __init__(self) -> None:
+    def __init__(self, close_errors: list[dict[str, Any]] | None = None) -> None:
         self._pair_count = 0
         self._endpoint_pairs: dict[int, tuple[int, str]] = {}
-        self._pair_names: dict[int, str] = {}
-        self.close_order: list[str] = []
+        self._lifespan_endpoint_pairs: dict[int, tuple[int, str]] = {}
+        self._close_errors = {
+            (specification["pair_index"], specification["endpoint"]): specification
+            for specification in close_errors or []
+        }
+        self.close_order: list[dict[str, Any]] = []
 
     def create_memory_object_stream(self, streams: Any) -> None:
-        pair_index = self._pair_count
+        pair_index = self._pair_count + 1
         self._pair_count += 1
         send_stream, receive_stream = streams
         self._endpoint_pairs[id(send_stream)] = (pair_index, "send")
@@ -2213,19 +2217,23 @@ class _LifespanStreamCloseObserver:
         send_endpoint = getattr(send_owner, "send_stream", send_owner)
         receive_pair = self._endpoint_pairs.get(id(receive_endpoint))
         send_pair = self._endpoint_pairs.get(id(send_endpoint))
-        if receive_pair is None or send_pair is None:
+        if receive_pair is None or send_pair is None or receive_pair[0] == send_pair[0]:
             raise RuntimeError("TestClient lifespan streams were not captured")
-        self._pair_names[receive_pair[0]] = "client-to-app"
-        self._pair_names[send_pair[0]] = "app-to-client"
+        selected_pair_indices = sorted((receive_pair[0], send_pair[0]))
+        for endpoint_id, (pair_index, endpoint_name) in self._endpoint_pairs.items():
+            if pair_index in selected_pair_indices:
+                self._lifespan_endpoint_pairs[endpoint_id] = (
+                    selected_pair_indices.index(pair_index) + 1,
+                    endpoint_name,
+                )
 
-    def record_close(self, endpoint: Any) -> None:
-        endpoint_pair = self._endpoint_pairs.get(id(endpoint))
+    def record_close(self, endpoint: Any) -> dict[str, Any] | None:
+        endpoint_pair = self._lifespan_endpoint_pairs.get(id(endpoint))
         if endpoint_pair is None:
-            return
+            return None
         pair_index, endpoint_name = endpoint_pair
-        pair_name = self._pair_names.get(pair_index)
-        if pair_name is not None:
-            self.close_order.append(f"{pair_name}.{endpoint_name}")
+        self.close_order.append({"pair_index": pair_index, "endpoint": endpoint_name})
+        return self._close_errors.get(endpoint_pair)
 
 
 class _ObservedMemoryStreamFactory:
@@ -2244,22 +2252,34 @@ class _ObservedMemoryStreamFactory:
 
 
 @contextlib.contextmanager
-def _observe_lifespan_stream_close_order() -> Any:
+def _observe_lifespan_stream_close_order(
+    close_errors: list[dict[str, Any]] | None = None,
+) -> Any:
     import anyio
     from anyio.streams.memory import MemoryObjectReceiveStream, MemoryObjectSendStream
 
     original_factory = anyio.create_memory_object_stream
     original_send_close = MemoryObjectSendStream.close
     original_receive_close = MemoryObjectReceiveStream.close
-    observer = _LifespanStreamCloseObserver()
+    observer = _LifespanStreamCloseObserver(close_errors)
+
+    def raise_close_error(specification: dict[str, Any] | None) -> None:
+        if specification is None:
+            return
+        exception_type = getattr(builtins, specification["exception_type"])
+        raise exception_type(specification["message"])
 
     def observed_send_close(stream: Any, *args: Any, **kwargs: Any) -> Any:
-        observer.record_close(stream)
-        return original_send_close(stream, *args, **kwargs)
+        error = observer.record_close(stream)
+        result = original_send_close(stream, *args, **kwargs)
+        raise_close_error(error)
+        return result
 
     def observed_receive_close(stream: Any, *args: Any, **kwargs: Any) -> Any:
-        observer.record_close(stream)
-        return original_receive_close(stream, *args, **kwargs)
+        error = observer.record_close(stream)
+        result = original_receive_close(stream, *args, **kwargs)
+        raise_close_error(error)
+        return result
 
     try:
         anyio.create_memory_object_stream = _ObservedMemoryStreamFactory(original_factory, observer)
@@ -2389,9 +2409,14 @@ def _run_starlette_lifespan_case(case: dict[str, Any]) -> dict[str, Any]:
     )
     lifecycle_trace_before_actions = list(lifecycle_trace)
     lifecycle_trace_after_actions: list[dict[str, Any]] = []
-    observe_close_order = "task_group" in app_input.get("callback", {})
+    stream_close_errors = case.get("environment", {}).get("lifespan_stream_close_errors")
+    observe_close_order = (
+        "task_group" in app_input.get("callback", {}) or stream_close_errors is not None
+    )
     close_order_context = (
-        _observe_lifespan_stream_close_order() if observe_close_order else contextlib.nullcontext()
+        _observe_lifespan_stream_close_order(stream_close_errors)
+        if observe_close_order
+        else contextlib.nullcontext()
     )
     with close_order_context as observer:
         stream_close_observer = observer
@@ -2416,6 +2441,11 @@ def _run_starlette_lifespan_case(case: dict[str, Any]) -> dict[str, Any]:
                         "operation": action["operation"],
                         "exception_type": f"{error_type.__module__}.{error_type.__qualname__}",
                         "message": str(error),
+                        **(
+                            {"context_chain": _exception_context_chain(error)}
+                            if stream_close_errors is not None
+                            else {}
+                        ),
                     }
                 )
                 lifecycle_trace_after_actions.append(
@@ -2446,6 +2476,8 @@ def _run_starlette_lifespan_case(case: dict[str, Any]) -> dict[str, Any]:
     }
     if "scope_mutations" in app_input:
         result["scope_mutation_trace"] = scope_mutation_trace
+    if stream_close_errors is not None:
+        result["lifespan_stream_close_order"] = observer.close_order
     return {
         "case_id": case["case_id"],
         "status": "completed",

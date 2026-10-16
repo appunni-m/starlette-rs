@@ -567,12 +567,12 @@ impl TestClientLifespan {
         preserve_cleanup_error_context: bool,
         active_exception: Option<&PyErr>,
     ) -> PyResult<()> {
-        // ExitStack closes the last-registered client-to-app endpoints first.
+        // ExitStack closes the last-registered app-to-client endpoints first.
         for stream in [
-            self.client_to_app_receive.take(),
-            self.client_to_app_send.take(),
             self.app_to_client_receive.take(),
             self.app_to_client_send.take(),
+            self.client_to_app_receive.take(),
+            self.client_to_app_send.take(),
         ]
         .into_iter()
         .flatten()
