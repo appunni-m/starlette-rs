@@ -14459,6 +14459,8 @@ async def _invoke_lifespan_only(
     app: Any,
     lifecycle_args: dict[str, Any],
     lifecycle_trace: list[Any],
+    scope_container: str | dict[str, Any] = "dict",
+    scope_observation: dict[str, Any] | None = None,
 ) -> dict[str, Any] | _CapturedDispatchError:
     """Run a complete lifecycle input while observing callback invocation effects."""
     if lifecycle_args["scope"].get("type") != "lifespan":
@@ -14526,7 +14528,7 @@ async def _invoke_lifespan_only(
             return raise_on_await(error)
         return record_send(message)
 
-    scope = _make_scope(lifecycle_args["scope"])
+    scope = _make_scope(lifecycle_args["scope"], scope_container)
     try:
         await app(scope, receive_lifecycle, send_lifecycle)
         captured_exception = None
@@ -14548,6 +14550,8 @@ async def _invoke_lifespan_only(
         "deprecation_warnings": list(getattr(app, "_parity_lifespan_warnings", [])),
         "sync_endpoint_observations": None,
     }
+    if scope_observation is not None:
+        value["scope_observation"] = _scope_observation(scope, scope_observation)
     if captured_exception is None:
         return value
     error = _dispatch_error(captured_exception)
@@ -18275,9 +18279,9 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
     if (
         case.get("surface") == "starlette.applications.Starlette"
         and case.get("operation") in {"__call__", "request-dispatch"}
-        and "scope_container" in case
+        and ("scope_container" in case or "scope_observation" in case)
     ):
-        case_fields.add("scope_container")
+        case_fields.update({"scope_container", "scope_observation"} & case.keys())
     if case.get("surface") in {
         "starlette.middleware.gzip.GZipMiddleware",
         "starlette.middleware.gzip.GZipResponder",
@@ -18396,6 +18400,10 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
     capture_dispatch_error = (
         is_request_dispatch
         or route_middleware_workflow
+        or (
+            isinstance(case.get("scope_container"), dict)
+            and case["scope_container"].get("kind") == "user-dict-fault"
+        )
         or endpoint_kind
         in {
             "asgi-callable-action-sequence",
@@ -18419,7 +18427,13 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
     async def run_steps() -> list[dict[str, Any]]:
         if schedule == ["lifespan.startup", "lifespan.shutdown"]:
             lifecycle_args = {name: item["value"] for name, item in steps[1]["arguments"].items()}
-            value = await _invoke_lifespan_only(app, lifecycle_args, lifecycle_trace)
+            value = await _invoke_lifespan_only(
+                app,
+                lifecycle_args,
+                lifecycle_trace,
+                scope_container=case.get("scope_container", "dict"),
+                scope_observation=case.get("scope_observation"),
+            )
             return [_workflow_observation("lifecycle", value)]
         if schedule == ["lifespan.startup", "dispatch", "lifespan.shutdown"]:
             lifecycle_args = {name: item["value"] for name, item in steps[1]["arguments"].items()}
@@ -18462,6 +18476,7 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
                     case["execution_schedule"] == ["dispatch", "cancel-server-task"]
                 ),
                 scope_container=case.get("scope_container", "dict"),
+                scope_observation=case.get("scope_observation"),
             )
             results.append(_workflow_observation(step["step_id"], value))
         return results

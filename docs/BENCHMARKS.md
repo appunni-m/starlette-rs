@@ -1,12 +1,14 @@
 # Benchmark mapping
 
-The latest recorded full-scope benchmark used the `parity-input@62` contract,
-which declared 2,588 cases across 437 parity inputs, with manifest SHA-256
-`e666f6c2ae10afdfc6a785bd3101b0542ac1eba64d3687c92d3381a4c2790e3d`. Full
-parity and all six expanded coverage profiles completed for that `@62` input
-set before the benchmark below. The active `@63` manifest adds two lifespan
-failure-send exception-context cases; they are not included in the recorded
-preflight or benchmark evidence. The latest run measured all
+The latest recorded full-scope benchmark used the preceding `parity-input@63`
+snapshot, which declared 2,590 cases across 437 parity inputs, with manifest
+SHA-256 `f8a34c2978af95382ceadcd3e3a2c5a9d7bb1d467f03b35ba55033d9b7336124`.
+Full parity and all six expanded coverage profiles completed for that input
+set before the benchmark below. The working @63 manifest now declares 2,594
+cases across 440 parity inputs and SHA-256
+`0cfce947c191a10b16911294e74d7a19a1dc5987f7a16d8f7bc7fa4171d77bd7`; its four
+new cases are not included in the recorded preflight or benchmark evidence.
+The latest recorded run measured all
 74 declared source/package workloads (six
 Router and 68 GZip); all 74 Rust-native rows are `not_run` because the native
 API has no equivalent ASGI workload boundary. These results cover only the

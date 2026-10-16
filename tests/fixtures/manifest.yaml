@@ -433,6 +433,7 @@
       "build/parity/inputs/parity/file-response-range-python-strip-c0-separators.json",
       "build/parity/inputs/parity/file-response-scope-type-python-equality.json",
       "build/parity/inputs/parity/file-response-signed-zero-range.json",
+      "build/parity/inputs/parity/file-response-stat-override-simple-short-read.json",
       "build/parity/inputs/parity/file-response-stateful-pathlike.json",
       "build/parity/inputs/parity/file-response-zero-chunk-size.json",
       "build/parity/inputs/parity/file-response.json",
@@ -464,6 +465,7 @@
       "build/parity/inputs/parity/lifespan-context-manager-descriptors.json",
       "build/parity/inputs/parity/lifespan-generators.json",
       "build/parity/inputs/parity/lifespan-native-failure-transitions.json",
+      "build/parity/inputs/parity/lifespan-scope-mapping-operations.json",
       "build/parity/inputs/parity/middleware-docs-base-http.json",
       "build/parity/inputs/parity/middleware-docs-inputs.json",
       "build/parity/inputs/parity/middleware-special-handler-equality.json",
@@ -573,6 +575,7 @@
       "build/parity/inputs/parity/route-table-custom-converters.json",
       "build/parity/inputs/parity/route-url-path-float-negative-zero.json",
       "build/parity/inputs/parity/route-url-path-float-rounding.json",
+      "build/parity/inputs/parity/route-url-path-integer-string-coercion.json",
       "build/parity/inputs/parity/route-url-path-native.json",
       "build/parity/inputs/parity/router-cache-garbage-collection.json",
       "build/parity/inputs/parity/router-cache-invalidation.json",
@@ -2003,6 +2006,15 @@
                   }
                 },
                 {
+                  "path": "scope_observation",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                },
+                {
                   "path": "lifecycle_and_cleanup_effects",
                   "value_types": [
                     "sequence"
@@ -3199,6 +3211,18 @@
                 "python-package-cpython312",
                 "python-package-cpython313",
                 "python-package-cpython314"
+              ]
+            },
+            {
+              "id": "starlette.asgi.lifespan.scope-state-membership-before-index",
+              "dimension": "boundary",
+              "description": "When an ASGI lifespan scope reports its state key present but raises KeyError on indexed lookup, preserve the membership check, lookup error, startup.failed event, and cleanup order. Pinned source: starlette/routing.py:650-662.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
               ]
             },
             {
@@ -22668,6 +22692,19 @@
                 "coverage"
               ],
               "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.responses.FileResponse.asgi-call.stat-override-simple-short-read",
+              "dimension": "error_path",
+              "description": "Supply stat metadata larger than the actual file on a simple GET and verify the public stat headers remain based on metadata while the read loop ends at EOF. Pinned source: starlette/responses.py:327-339,354-366.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "rust-native-local",
                 "python-package-cpython312"
               ]
             },

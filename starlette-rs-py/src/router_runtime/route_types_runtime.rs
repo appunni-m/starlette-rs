@@ -846,8 +846,7 @@ impl RouterLifespanMachine {
 
     fn enter_context(&mut self, py: Python<'_>) -> PyResult<MachineAction> {
         let scope = self.scope.bind(py);
-        let app = crate::scope_mapping::optional_item(scope, "app")?
-            .unwrap_or_else(|| py.None().into_bound(py));
+        let app = scope.call_method1("get", ("app",))?;
         let context_manager = match self.lifespan_context.bind(py).call1((app,)) {
             Ok(context_manager) => context_manager,
             Err(error) => return self.send_failure(py, error, false),
@@ -874,12 +873,12 @@ impl RouterLifespanMachine {
         if !maybe_state.bind(py).is_none() {
             let state_update = (|| -> PyResult<()> {
                 let scope = self.scope.bind(py);
-                let state =
-                    crate::scope_mapping::optional_item(scope, "state")?.ok_or_else(|| {
-                        PyRuntimeError::new_err(
-                            "The server does not support \"state\" in the lifespan scope.",
-                        )
-                    })?;
+                if !scope.contains("state")? {
+                    return Err(PyRuntimeError::new_err(
+                        "The server does not support \"state\" in the lifespan scope.",
+                    ));
+                }
+                let state = scope.get_item("state")?;
                 state.call_method1("update", (maybe_state.bind(py),))?;
                 Ok(())
             })();

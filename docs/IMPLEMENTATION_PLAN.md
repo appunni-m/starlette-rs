@@ -8,17 +8,28 @@ Pydantic are outside this project's scope.
 ## Execution order and current status
 
 Active implementation checkpoint (2026-10-16; `parity-input@63`; manifest
-SHA-256 `f8a34c2978af95382ceadcd3e3a2c5a9d7bb1d467f03b35ba55033d9b7336124`):
+SHA-256 `0cfce947c191a10b16911294e74d7a19a1dc5987f7a16d8f7bc7fa4171d77bd7`):
 
-The active manifest declares full Starlette 1.6.0 scope with 2,590 cases across
-437 parity inputs, two benchmark inputs, 152 compatibility operations, 15
-Rust-native operations, 1,442 parity requirements, and six target profiles.
-The two newest cases observe synchronous and awaited failures while sending
-lifespan failure events, including the exception context chain. Their @63
-input syntax and migration are authored. `make contract-check`, both schema
-migration checks, grouped parity, coverage, and the full benchmark are complete
-for @63. The source inventory remains 867 rows: 811 input mappings, 56
-source-backed `not_applicable` rows, and zero fixture backlog.
+The working manifest declares full Starlette 1.6.0 scope with 2,594 cases
+across 440 parity inputs, two benchmark inputs, 152 compatibility operations,
+15 Rust-native operations, 1,444 parity requirements, and six target profiles.
+This implementation batch adds input-only comparisons for integer URL
+conversion from signed, underscored, whitespace-padded, and Unicode decimal
+strings; lifespan scope membership followed by a faulting indexed state lookup;
+and a FileResponse whose supplied stat size exceeds the bytes read at EOF.
+Rust owns the integer normalization and lifespan lookup order. Contract
+validation, source inventory generation, Rust formatting/compilation, Python
+adapter syntax, and diff checks passed. The source inventory has 867 rows: 811
+input mappings, 56 source-backed `not_applicable` rows, and zero fixture
+backlog.
+
+The full parity, coverage, and benchmark results below apply to the preceding
+@63 manifest snapshot `f8a34c2978af95382ceadcd3e3a2c5a9d7bb1d467f03b35ba55033d9b7336124`
+(2,590 cases, 437 parity inputs, and 1,442 requirements). The four new cases
+are not included in those results. No broad parity, coverage, or benchmark run
+has been made against the working manifest; those phases remain deferred until
+implementation is ready. The pinned denominators remain 514 upstream test
+functions and 24 documented pages.
 
 The five CPython source-parity profiles passed in workflow
 [`38923021415`](https://github.com/appunni-m/starlette-rs/actions/runs/38923021415):

@@ -1762,6 +1762,9 @@ FILE_RESPONSE_STATEFUL_PATHLIKE_REQUIREMENT = (
 FILE_RESPONSE_MULTIPART_SHORT_READ_REQUIREMENT = (
     f"{FILE_RESPONSE_SURFACE}.{RESPONSE_OPERATION}.multipart-short-read-loop"
 )
+FILE_RESPONSE_STAT_OVERRIDE_SIMPLE_SHORT_READ_REQUIREMENT = (
+    f"{FILE_RESPONSE_SURFACE}.{RESPONSE_OPERATION}.stat-override-simple-short-read"
+)
 FILE_RESPONSE_ZERO_CHUNK_SIZE_REQUIREMENT = (
     f"{FILE_RESPONSE_SURFACE}.{RESPONSE_OPERATION}.zero-chunk-size-send-loop"
 )
@@ -8985,7 +8988,9 @@ def _validate_file_response_case_stimulus(case: dict[str, Any]) -> None:
             raise ContractError(
                 "FileResponse zero-chunk-size coverage requires a simple non-range response"
             )
-    has_short_read_inputs = "stat_result" in case
+    has_short_read_inputs = (
+        "stat_result" in case and send_error is not None
+    )
     if (
         send_error is not None
         and not has_short_read_inputs
@@ -8994,7 +8999,47 @@ def _validate_file_response_case_stimulus(case: dict[str, Any]) -> None:
         raise ContractError(
             "FileResponse bounded send failures require short-read or zero-chunk-size loop inputs"
         )
-    if has_short_read_inputs:
+    if case["covers"] == [FILE_RESPONSE_STAT_OVERRIDE_SIMPLE_SHORT_READ_REQUIREMENT]:
+        if (
+            "stat_result" not in case
+            or send_error is not None
+            or error_path_kind is not None
+            or call_sequence
+            or any(
+                key in case
+                for key in (
+                    "background_task",
+                    "call_time_field_assignments",
+                    "header_view_probe",
+                    "scheduling",
+                )
+            )
+            or case["target_profiles"] != ["rust-native-local", "python-package-cpython312"]
+            or scope_type != "http"
+            or scope_spec["method"].upper() != "GET"
+            or has_pathsend_extension
+        ):
+            raise ContractError(
+                "FileResponse simple stat-override coverage must select a direct GET without faults"
+            )
+        if case["stat_result"]["size"] <= len(file_contents):
+            raise ContractError(
+                "FileResponse simple stat-override size must exceed the actual file bytes"
+            )
+        try:
+            request_header_names = {
+                base64.b64decode(pair[0], validate=True).lower()
+                for pair in scope_spec["headers_base64_pairs"]
+            }
+        except (ValueError, TypeError) as exc:
+            raise ContractError(
+                "FileResponse simple stat-override request header names must be valid base64"
+            ) from exc
+        if b"range" in request_header_names:
+            raise ContractError(
+                "FileResponse simple stat-override coverage requires a non-range response"
+            )
+    elif has_short_read_inputs:
         if (
             "stat_result" not in case
             or send_error is None
@@ -9057,6 +9102,8 @@ def _validate_file_response_case_stimulus(case: dict[str, Any]) -> None:
         raise ContractError(
             "FileResponse multipart short-read coverage requires stat and send faults"
         )
+    elif "stat_result" in case:
+        raise ContractError("FileResponse stat_result input must select a declared behavior")
     if "scheduling" in case:
         scheduling = _exact(
             case["scheduling"],
@@ -25749,10 +25796,12 @@ def _validate_case_payload(
         isinstance(case, dict)
         and case.get("surface") == "starlette.applications.Starlette"
         and case.get("operation") in {"__call__", "request-dispatch"}
-        and "scope_container" in case
+        and ("scope_container" in case or "scope_observation" in case)
     )
     if is_starlette_scope_mapping:
-        expected_case_keys = expected_case_keys | {"scope_container"}
+        expected_case_keys = expected_case_keys | (
+            {"scope_container", "scope_observation"} & case.keys()
+        )
     _exact(case, expected_case_keys, "case")
     if is_application_subclass_builder:
         _validate_application_subclass_builder_case(case, manifest)
@@ -25821,14 +25870,77 @@ def _validate_case_payload(
         elif "scope_observation" in case:
             raise ContractError("ASGI scope observation requires a UserDict scope container")
     if is_starlette_scope_mapping:
-        if case["scope_container"] not in {"dict", "user-dict"}:
-            raise ContractError("Starlette scope_container must be dict or user-dict")
-        if case["scope_container"] == "user-dict" and case["target_profiles"] != [
-            "python-package-cpython312"
-        ]:
-            raise ContractError(
-                "mutable Starlette scope mappings require the Python-package profile"
+        if "scope_container" not in case:
+            raise ContractError("Starlette scope observation requires scope_container")
+        scope_container = case["scope_container"]
+        fault_container = isinstance(scope_container, dict)
+        if fault_container:
+            scope_container = _exact(
+                scope_container,
+                {"kind", "fault"},
+                "Starlette ASGI scope_container fault descriptor",
             )
+            if scope_container["kind"] != "user-dict-fault":
+                raise ContractError("Starlette ASGI scope fault container kind is unsupported")
+            fault = _exact(
+                scope_container["fault"],
+                {"method", "key", "exception"},
+                "Starlette ASGI scope lookup fault",
+            )
+            if fault["method"] != "__getitem__":
+                raise ContractError("Starlette ASGI scope lookup fault must select __getitem__")
+            _string(fault["key"], "Starlette ASGI scope lookup fault key")
+            exception = _exact(
+                fault["exception"],
+                {"class", "message"},
+                "Starlette ASGI scope lookup exception",
+            )
+            exception_class = _string(
+                exception["class"], "Starlette ASGI scope lookup exception class"
+            )
+            if exception_class not in {
+                "KeyError",
+                "RuntimeError",
+                "TypeError",
+                "ValueError",
+            }:
+                raise ContractError("Starlette ASGI scope lookup exception class is unsupported")
+            _string(exception["message"], "Starlette ASGI scope lookup exception message")
+            container_kind = scope_container["kind"]
+        else:
+            if not isinstance(scope_container, str) or scope_container not in {
+                "dict",
+                "user-dict",
+            }:
+                raise ContractError(
+                    "Starlette scope_container must be dict, user-dict, or user-dict-fault input"
+                )
+            container_kind = scope_container
+        if container_kind in {"user-dict", "user-dict-fault"}:
+            if case["target_profiles"] != ["python-package-cpython312"]:
+                raise ContractError(
+                    "mutable Starlette scope mappings require the Python-package profile"
+                )
+            if container_kind == "user-dict-fault" and "scope_observation" not in case:
+                raise ContractError("mutable Starlette scope mapping requires scope_observation")
+            if "scope_observation" in case:
+                selector = _exact(
+                    case["scope_observation"],
+                    {"keys"},
+                    "Starlette ASGI scope observation selector",
+                )
+                keys = selector["keys"]
+                if (
+                    not isinstance(keys, list)
+                    or not keys
+                    or any(not isinstance(key, str) for key in keys)
+                    or len(set(keys)) != len(keys)
+                ):
+                    raise ContractError(
+                        "Starlette ASGI scope observation keys must be unique strings"
+                    )
+        elif "scope_observation" in case:
+            raise ContractError("Starlette scope observation requires a UserDict scope container")
     if is_run_until_first_complete and "kwargs_container" in case:
         if _string(case["kwargs_container"], "run_until_first_complete kwargs_container") not in {
             "dict",
@@ -29153,6 +29265,25 @@ def _lifespan_case_requirements(
     )
 
 
+def _has_lifespan_scope_state_membership_index_fault(
+    case: dict[str, Any], scope: dict[str, Any]
+) -> bool:
+    scope_container = case.get("scope_container")
+    if not isinstance(scope_container, dict) or scope_container.get("kind") != "user-dict-fault":
+        return False
+    fault = scope_container.get("fault")
+    if not isinstance(fault, dict):
+        return False
+    exception = fault.get("exception")
+    return (
+        "state" in scope
+        and fault.get("method") == "__getitem__"
+        and fault.get("key") == "state"
+        and isinstance(exception, dict)
+        and exception.get("class") == "KeyError"
+    )
+
+
 def _validate_lifespan_only_case(case: dict[str, Any], app_args: dict[str, Any]) -> None:
     if case["operation"] != "__call__" or case["target_profiles"] not in (
         ["python-package-cpython312"],
@@ -29192,7 +29323,9 @@ def _validate_lifespan_only_case(case: dict[str, Any], app_args: dict[str, Any])
         raise ContractError("lifespan scope must use the declared ASGI versions")
     if "state" in scope and not isinstance(scope["state"], dict):
         raise ContractError("lifespan scope state must be an object")
-    requirements = _lifespan_case_requirements(app_args["lifespan"], lifecycle_args)
+    requirements = list(_lifespan_case_requirements(app_args["lifespan"], lifecycle_args))
+    if _has_lifespan_scope_state_membership_index_fault(case, scope):
+        requirements.append("starlette.asgi.lifespan.scope-state-membership-before-index")
     if case["covers"] != list(requirements):
         raise ContractError("lifespan-only input and requirement mapping differ")
 
@@ -43374,7 +43507,12 @@ def _semantic_coverage(case: dict[str, Any]) -> set[str]:
         lifecycle_args = {
             key: descriptor["value"] for key, descriptor in case["steps"][1]["arguments"].items()
         }
-        return set(_lifespan_case_requirements(app_arguments["lifespan"], lifecycle_args))
+        coverage = set(_lifespan_case_requirements(app_arguments["lifespan"], lifecycle_args))
+        if _has_lifespan_scope_state_membership_index_fault(
+            case, lifecycle_args["scope"]
+        ):
+            coverage.add("starlette.asgi.lifespan.scope-state-membership-before-index")
+        return coverage
     route_order_coverage = _starlette_route_converter_order_semantic_coverage(case, app_arguments)
     if route_order_coverage is not None:
         return route_order_coverage

@@ -1,0 +1,133 @@
+{
+  "schema": "migration-parity/parity-input@63",
+  "cases": [
+    {
+      "case_id": "starlette.applications.Starlette.__call__.lifespan-scope-mapping-operations",
+      "surface": "starlette.applications.Starlette",
+      "operation": "__call__",
+      "covers": [
+        "starlette.asgi.lifespan.scope-state-merge",
+        "starlette.asgi.lifespan.scope-state-membership-before-index"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "execution_schedule": [
+        "lifespan.startup",
+        "lifespan.shutdown"
+      ],
+      "steps": [
+        {
+          "step_id": "application",
+          "surface": "starlette.applications.Starlette",
+          "operation": "__init__",
+          "receiver": null,
+          "arguments": {
+            "debug": {
+              "kind": "literal",
+              "value": false
+            },
+            "routes": {
+              "kind": "literal",
+              "value": []
+            },
+            "middleware": {
+              "kind": "literal",
+              "value": []
+            },
+            "exception_handlers": {
+              "kind": "literal",
+              "value": []
+            },
+            "lifespan": {
+              "kind": "literal",
+              "value": {
+                "kind": "async-generator",
+                "record_entry": true,
+                "record_exit": true,
+                "failure_stage": "none",
+                "failure_message": "unused lifespan failure message",
+                "yield_behavior": "single",
+                "shutdown_exception_behavior": "propagate",
+                "yield_state": {
+                  "worker": "ready"
+                }
+              }
+            },
+            "max_body_size": {
+              "kind": "literal",
+              "value": null
+            }
+          }
+        },
+        {
+          "step_id": "lifecycle",
+          "surface": "starlette.applications.Starlette",
+          "operation": "__call__",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "application"
+          },
+          "arguments": {
+            "scope": {
+              "kind": "literal",
+              "value": {
+                "type": "lifespan",
+                "asgi": {
+                  "version": "3.0",
+                  "spec_version": "2.4"
+                },
+                "state": {}
+              }
+            },
+            "receive": {
+              "kind": "literal",
+              "value": [
+                {
+                  "kind": "message",
+                  "message": {
+                    "type": "lifespan.startup"
+                  }
+                },
+                {
+                  "kind": "message",
+                  "message": {
+                    "type": "lifespan.shutdown"
+                  }
+                }
+              ]
+            },
+            "send": {
+              "kind": "literal",
+              "value": {
+                "kind": "capture-asgi-send"
+              }
+            }
+          }
+        }
+      ],
+      "observations": [
+        "lifecycle"
+      ],
+      "scope_container": {
+        "kind": "user-dict-fault",
+        "fault": {
+          "method": "__getitem__",
+          "key": "state",
+          "exception": {
+            "class": "KeyError",
+            "message": "state"
+          }
+        }
+      },
+      "scope_observation": {
+        "keys": [
+          "app",
+          "router",
+          "state"
+        ]
+      }
+    }
+  ]
+}

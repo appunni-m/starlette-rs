@@ -133,6 +133,7 @@
         "starlette.responses.FileResponse.asgi-call.range-without-dash",
         "starlette.responses.FileResponse.asgi-call.set-media-type",
         "starlette.responses.FileResponse.asgi-call.signed-zero-range-end",
+        "starlette.responses.FileResponse.asgi-call.stat-override-simple-short-read",
         "starlette.responses.FileResponse.asgi-call.unicode-filename",
         "starlette.responses.FileResponse.asgi-call.unsatisfiable-range-416",
         "starlette.responses.FileResponse.asgi-call.websocket-denial-response",
@@ -680,7 +681,10 @@
           "starlette.responses.FileResponse.asgi-call.range-leading-zero-digit-limit",
           "starlette-rs.NativeLifespan.shutdown.fault-contract.aggregates-errors",
           "starlette-rs.NativeLifespan.start.fault-contract.drop-pending-start",
-          "starlette-rs.NativeLifespan.active-shutdown.fault-contract.drop-at-deadline"
+          "starlette-rs.NativeLifespan.active-shutdown.fault-contract.drop-at-deadline",
+          "starlette.responses.FileResponse.asgi-call.stat-override-simple-short-read",
+          "starlette.routing.Route.url_path_for.native.int-converter-string-coercion",
+          "starlette.routing.Route.url_path_for.native.int-converter-unicode-decimal-digits"
         ],
         "command_ids": []
       },
@@ -1828,6 +1832,7 @@
         "starlette.asgi.lifespan.native-lifecycle-shutdown-failure",
         "starlette.asgi.lifespan.native-lifecycle-startup-failure",
         "starlette.asgi.lifespan.native-lifecycle-state",
+        "starlette.asgi.lifespan.scope-state-membership-before-index",
         "starlette.asgi.lifespan.scope-state-merge",
         "starlette.asgi.lifespan.scope-state-required",
         "starlette.asgi.lifespan.shutdown-receive-call-error",
@@ -2454,6 +2459,7 @@
         "starlette.responses.FileResponse.asgi-call.scope-type-str-subclass-equality",
         "starlette.responses.FileResponse.asgi-call.set-media-type",
         "starlette.responses.FileResponse.asgi-call.signed-zero-range-end",
+        "starlette.responses.FileResponse.asgi-call.stat-override-simple-short-read",
         "starlette.responses.FileResponse.asgi-call.single-range-header-view-isolation",
         "starlette.responses.FileResponse.asgi-call.stateful-pathlike-stat-open",
         "starlette.responses.FileResponse.asgi-call.unicode-filename",
@@ -5693,7 +5699,11 @@
           "starlette.websockets.WebSocket.scope-mapping.subclass-overridden-scope-property",
           "starlette.requests.Request.url_for.str-subclass-forwarding",
           "starlette.requests.Request.url_for.base-url-property-override",
-          "starlette.requests.Request.send-push-promise.headers-property-subclass-override"
+          "starlette.requests.Request.send-push-promise.headers-property-subclass-override",
+          "starlette.applications.Starlette.__call__.lifespan-scope-mapping-operations",
+          "starlette.responses.FileResponse.asgi-call.stat-override-simple-short-read",
+          "starlette.routing.Route.url_path_for.native.int-converter-string-coercion",
+          "starlette.routing.Route.url_path_for.native.int-converter-unicode-decimal-digits"
         ],
         "command_ids": []
       },

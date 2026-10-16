@@ -2,14 +2,18 @@
 
 ## Current verification status
 
-The active full-scope manifest is `parity-input@63`, SHA-256
-`f8a34c2978af95382ceadcd3e3a2c5a9d7bb1d467f03b35ba55033d9b7336124`,
+The working full-scope manifest is `parity-input@63`, SHA-256
+`0cfce947c191a10b16911294e74d7a19a1dc5987f7a16d8f7bc7fa4171d77bd7`,
 against Starlette 1.6.0 revision
-`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. It declares 2,590 input-only cases
-across 437 parity files, two benchmark inputs, 152 compatibility operations, 15
-Rust-native operations, 1,442 parity requirements, and six target profiles.
-The two @63 lifespan failure-send exception-context cases passed in the grouped
-parity run. Workflow
+`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. It declares 2,594 input-only cases
+across 440 parity files, two benchmark inputs, 152 compatibility operations,
+15 Rust-native operations, 1,444 parity requirements, and six target profiles.
+The latest integer URL conversion, lifespan scope lookup, and FileResponse
+short-read comparisons passed contract validation and remain unexecuted. The
+parity, coverage, and benchmark results below apply to the preceding @63
+manifest snapshot, SHA-256
+`f8a34c2978af95382ceadcd3e3a2c5a9d7bb1d467f03b35ba55033d9b7336124`.
+Workflow
 [`38923021415`](https://github.com/appunni-m/starlette-rs/actions/runs/38923021415)
 passed the five CPython source-parity profiles: 646/646 comparisons for 3.10
 and 3.11, 2,943/2,943 for 3.12, and 647/647 for 3.13 and 3.14. Every profile
@@ -56,8 +60,8 @@ broader Windows filesystem behavior remains unproven. Keep the pinned
 denominators visible: 514 upstream test functions and 24 documented pages.
 
 The implementation-batch notes below preserve per-feature detail as it was
-recorded. Their `unexecuted` and `deferred` wording is historical, not the
-active contract status above.
+recorded. Their `unexecuted` and `deferred` wording is historical; the current
+working manifest status is stated above.
 
 ## Historical implementation-batch notes
 
