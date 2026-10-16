@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@60",
+  "schema": "migration-parity/parity-input@61",
   "cases": [
     {
       "case_id": "starlette.middleware.httpsredirect.HTTPSRedirectMiddleware.__call__.valid-host-ignores-out-of-range-server-port",

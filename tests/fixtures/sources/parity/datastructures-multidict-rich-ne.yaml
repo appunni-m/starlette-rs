@@ -1,0 +1,106 @@
+{
+  "schema": "migration-parity/parity-input@61",
+  "cases": [
+    {
+      "case_id": "starlette.datastructures.MultiDict.mutation-sequence.independent-rich-inequality",
+      "surface": "starlette.datastructures.MultiDict",
+      "operation": "mutation-sequence",
+      "covers": [
+        "starlette.datastructures.MultiDict.constructor-input-forms",
+        "starlette.datastructures.MultiDict.duplicate-key-mapping-views",
+        "starlette.datastructures.MultiDict.python-key-inequality-protocol"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "source": {
+        "kind": "pairs",
+        "items": [
+          [
+            {
+              "kind": "hashable-comparison-key",
+              "identity": "shared",
+              "label": "stored-first",
+              "not_equal": true
+            },
+            "old-first"
+          ],
+          [
+            {
+              "kind": "hashable-comparison-key",
+              "identity": "shared",
+              "label": "stored-last",
+              "not_equal": true
+            },
+            "old-last"
+          ],
+          [
+            "other",
+            "kept"
+          ]
+        ],
+        "kwargs": []
+      },
+      "probe_keys": [
+        {
+          "kind": "hashable-comparison-key",
+          "identity": "shared",
+          "label": "probe",
+          "not_equal": true
+        },
+        "other",
+        "missing"
+      ],
+      "comparison": null,
+      "actions": [
+        {
+          "action_id": "replace-equal-key-with-nonempty-setlist",
+          "method": "setlist",
+          "args": [
+            {
+              "kind": "hashable-comparison-key",
+              "identity": "shared",
+              "label": "setlist-key",
+              "not_equal": true
+            },
+            [
+              "replacement-first",
+              "replacement-last"
+            ]
+          ],
+          "kwargs": {}
+        },
+        {
+          "action_id": "pop-equal-key-with-independent-inequality",
+          "method": "pop",
+          "args": [
+            {
+              "kind": "hashable-comparison-key",
+              "identity": "shared",
+              "label": "pop-key",
+              "not_equal": true
+            }
+          ],
+          "kwargs": {}
+        },
+        {
+          "action_id": "delete-absent-equal-key-after-pop",
+          "method": "__delitem__",
+          "args": [
+            {
+              "kind": "hashable-comparison-key",
+              "identity": "shared",
+              "label": "delete-key",
+              "not_equal": true
+            }
+          ],
+          "kwargs": {}
+        }
+      ],
+      "observations": [
+        "mutation-sequence"
+      ]
+    }
+  ]
+}

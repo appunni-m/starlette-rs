@@ -24,15 +24,16 @@ with no conventional Python or Rust unit-test suite.
 
 ## Current implementation status
 
-The active full-scope `parity-input@60` contract covers Starlette 1.6.0 with
-2,577 cases across 436 parity inputs and two benchmark inputs, 152 compatibility
-operations, 15 Rust-native operations, and 1,430 parity requirements. Its
+The active full-scope `parity-input@61` contract covers Starlette 1.6.0 with
+2,578 cases across 437 parity inputs and two benchmark inputs, 152 compatibility
+operations, 15 Rust-native operations, and 1,431 parity requirements. Its
 manifest SHA-256 is
-`08ecbff53b8a2c89aee3d9a5802a0c8dfbe5ee2877de156f4a91cd3846026ee5`. Contract
-validation passed, and the generated source atlas is current for this manifest.
+`90cf08c59ba844812602e910748996c99e673a98404376fca0c3de3a7cd1e9ab`. Contract
+validation and metadata-derived source inventory checks passed, and the generated
+source atlas is current for this manifest.
 Its 867 rows contain 811 input mappings, 56 source-backed `not_applicable`
 rows, and zero fixture backlog. The recorded parity, coverage, and benchmark
-evidence below predates @59 and @60. The
+evidence below predates @59 through @61. The
 StaticFiles implementation now preserves package-root order around a dynamic
 configured `PathLike` root; its input-only comparison remains deferred to grouped parity. The
 999-row API candidate catalog has 564 supported candidates, 435

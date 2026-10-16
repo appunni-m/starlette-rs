@@ -13,15 +13,53 @@ from pathlib import Path
 from typing import Any
 
 
+class _InputHashableComparisonKey:
+    """A fixture-defined key with independent equality and inequality results."""
+
+    def __init__(self, identity: str, label: str, not_equal: bool) -> None:
+        self.identity = identity
+        self.label = label
+        self.not_equal = not_equal
+
+    def __eq__(self, other: Any) -> bool:
+        if not isinstance(other, _InputHashableComparisonKey):
+            return NotImplemented
+        return self.identity == other.identity
+
+    def __ne__(self, other: Any) -> bool:
+        if not isinstance(other, _InputHashableComparisonKey):
+            return NotImplemented
+        return self.not_equal
+
+    def __hash__(self) -> int:
+        return hash(self.identity)
+
+    def __repr__(self) -> str:
+        return f"InputHashableComparisonKey({self.label!r})"
+
+
+def _materialize_key(value: Any) -> Any:
+    if not isinstance(value, dict) or value.get("kind") != "hashable-comparison-key":
+        return value
+    return _InputHashableComparisonKey(
+        identity=value["identity"],
+        label=value["label"],
+        not_equal=value["not_equal"],
+    )
+
+
 def _construct(multidict_type: Any, source: dict[str, Any]) -> Any:
     kind = source["kind"]
     if kind == "empty":
         return multidict_type()
     if kind == "pairs":
-        return multidict_type([tuple(pair) for pair in source["items"]], **dict(source["kwargs"]))
+        pairs = [(_materialize_key(key), value) for key, value in source["items"]]
+        return multidict_type(pairs, **dict(source["kwargs"]))
     if kind == "mapping":
-        return multidict_type(dict(source["items"]))
-    original = multidict_type([tuple(pair) for pair in source["items"]])
+        pairs = [(_materialize_key(key), value) for key, value in source["items"]]
+        return multidict_type(dict(pairs))
+    pairs = [(_materialize_key(key), value) for key, value in source["items"]]
+    original = multidict_type(pairs)
     return multidict_type(original)
 
 
@@ -44,19 +82,19 @@ def _snapshot(value: Any, probe_keys: list[Any]) -> dict[str, Any]:
         "repr": repr(value),
         "len": len(value),
         "is_empty": not value,
-        "keys": list(value.keys()),
-        "values": list(value.values()),
-        "items": list(value.items()),
-        "multi_items": value.multi_items(),
-        "dict": dict(value),
+        "keys": _json_value(list(value.keys())),
+        "values": _json_value(list(value.values())),
+        "items": _json_value(list(value.items())),
+        "multi_items": _json_value(value.multi_items()),
+        "dict": _json_value(dict(value)),
         "lookups": [
             {
-                "key": key,
+                "key": _json_value(key),
                 "contains": key in value,
-                "get": value.get(key),
-                "get_with_default": value.get(key, "__starlette_rs_default__"),
-                "getlist": value.getlist(key),
-                "getitem": value[key] if key in value else None,
+                "get": _json_value(value.get(key)),
+                "get_with_default": _json_value(value.get(key, "__starlette_rs_default__")),
+                "getlist": _json_value(value.getlist(key)),
+                "getitem": _json_value(value[key] if key in value else None),
             }
             for key in probe_keys
         ],
@@ -248,18 +286,33 @@ def run_multidict_case(case: dict[str, Any], multidict_type: Any) -> dict[str, A
     value = _construct(multidict_type, case["source"])
     comparison_input = case["comparison"]
     comparison = None if comparison_input is None else _construct(multidict_type, comparison_input)
-    initial = _snapshot(value, case["probe_keys"])
+    probe_keys = [_materialize_key(key) for key in case["probe_keys"]]
+    initial = _snapshot(value, probe_keys)
     trace: list[dict[str, Any]] = []
     for action in case["actions"]:
         result = {"action_id": action["action_id"], "method": action["method"]}
         protocol_events = None
         try:
             arguments = list(action.get("args", []))
+            if (
+                action["method"]
+                in {
+                    "__setitem__",
+                    "__delitem__",
+                    "append",
+                    "pop",
+                    "poplist",
+                    "setdefault",
+                    "setlist",
+                }
+                and arguments
+            ):
+                arguments[0] = _materialize_key(arguments[0])
             if action["method"] == "update" and arguments:
                 if arguments[0] == {"kind": "receiver"}:
                     arguments = [value]
                 else:
-                    arguments = [[tuple(pair) for pair in arguments[0]]]
+                    arguments = [[(_materialize_key(key), item) for key, item in arguments[0]]]
             elif action["method"] == "setlist" and len(arguments) == 2:
                 arguments[1], protocol_events = _materialize_argument(arguments[1])
             output = getattr(value, action["method"])(*arguments, **action.get("kwargs", {}))
@@ -277,7 +330,7 @@ def run_multidict_case(case: dict[str, Any], multidict_type: Any) -> dict[str, A
             result.update({"outcome": "value", "value": _json_value(output)})
         if protocol_events is not None:
             result["protocol_events"] = protocol_events
-        result["snapshot"] = _snapshot(value, case["probe_keys"])
+        result["snapshot"] = _snapshot(value, probe_keys)
         trace.append(result)
     result = {
         "case_id": case["case_id"],
@@ -290,7 +343,7 @@ def run_multidict_case(case: dict[str, Any], multidict_type: Any) -> dict[str, A
                     "mutation-sequence": {
                         "initial": initial,
                         "action_trace": trace,
-                        "final": _snapshot(value, case["probe_keys"]),
+                        "final": _snapshot(value, probe_keys),
                         "comparison_repr": None if comparison is None else repr(comparison),
                         "equals_comparison": None if comparison is None else value == comparison,
                     }

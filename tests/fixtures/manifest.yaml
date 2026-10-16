@@ -248,7 +248,7 @@
   ],
   "interfaces": {
     "parity": {
-      "input_schema": "migration-parity/parity-input@60",
+      "input_schema": "migration-parity/parity-input@61",
       "result_schema": "migration-parity/parity-result@9",
       "command_id": "parity"
     },
@@ -410,6 +410,7 @@
       "build/parity/inputs/parity/cors-response-header-container.json",
       "build/parity/inputs/parity/datastructures-headers.json",
       "build/parity/inputs/parity/datastructures-multidict-setlist-sequence.json",
+      "build/parity/inputs/parity/datastructures-multidict-rich-ne.json",
       "build/parity/inputs/parity/datastructures-multidict.json",
       "build/parity/inputs/parity/datastructures-public-inheritance.json",
       "build/parity/inputs/parity/datastructures-state.json",
@@ -9812,6 +9813,18 @@
               "id": "starlette.datastructures.MultiDict.setlist-sequence-protocol-order",
               "dimension": "protocol_variant",
               "description": "Preserve pinned setlist callback order for a Python list subclass: query truthiness first, iterate to replace duplicate values, then separately index values[-1] for the mapping view. Pinned source: starlette/datastructures.py:355-362.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
+              "id": "starlette.datastructures.MultiDict.python-key-inequality-protocol",
+              "dimension": "protocol_variant",
+              "description": "Use Python's independent `!=` behavior when filtering stored key pairs during non-empty setlist, delete, and pop operations, even when an input-defined hashable key's __ne__ result differs from the inverse of __eq__. Pinned source: starlette/datastructures.py:326-332, 339-342, 355-361.",
               "lanes": [
                 "parity",
                 "coverage"

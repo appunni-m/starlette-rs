@@ -52,8 +52,9 @@ INPUT_SCHEMA_V56 = "migration-parity/parity-input@56"
 INPUT_SCHEMA_V57 = "migration-parity/parity-input@57"
 INPUT_SCHEMA_V58 = "migration-parity/parity-input@58"
 INPUT_SCHEMA_V59 = "migration-parity/parity-input@59"
+INPUT_SCHEMA_V60 = "migration-parity/parity-input@60"
 PREVIOUS_INPUT_SCHEMA = INPUT_SCHEMA_V50
-INPUT_SCHEMA = "migration-parity/parity-input@60"
+INPUT_SCHEMA = "migration-parity/parity-input@61"
 BENCHMARK_INPUT_SCHEMA = "migration-parity/benchmark-input@1"
 RESULT_SCHEMA = "migration-parity/parity-result@9"
 BENCHMARK_RESULT_SCHEMA = "migration-parity/benchmark-result@1"
@@ -1211,11 +1212,13 @@ MULTIDICT_REQUIREMENTS = {
     "pop_family": "starlette.datastructures.MultiDict.pop-family",
     "clear_setlist": "starlette.datastructures.MultiDict.clear-and-setlist",
     "setlist_protocol_order": "starlette.datastructures.MultiDict.setlist-sequence-protocol-order",
+    "key_inequality_protocol": "starlette.datastructures.MultiDict.python-key-inequality-protocol",
     "setdefault_append": "starlette.datastructures.MultiDict.setdefault-and-append",
     "update": "starlette.datastructures.MultiDict.update",
     "repr_equality": "starlette.datastructures.MultiDict.repr-and-equality",
     "generic_typing": "starlette.datastructures.MultiDict.generic-typing",
 }
+MULTIDICT_KEY_SUBCLASS_KIND = "hashable-comparison-key"
 MULTIDICT_TYPING_PROBES = {
     "immutable-mapping-reads",
     "mutable-mutation-methods",
@@ -38861,6 +38864,41 @@ def _validate_query_params_case(case: dict[str, Any]) -> None:
             _validate_query_params_source(comparison, "QueryParams comparison")
 
 
+def _validate_multidict_key(value: Any, context: str) -> tuple[str, str]:
+    if isinstance(value, str):
+        return "string", value
+    key = _exact(
+        value,
+        {"kind", "identity", "label", "not_equal"},
+        context,
+    )
+    if key["kind"] != MULTIDICT_KEY_SUBCLASS_KIND:
+        raise ContractError(f"{context}.kind must select {MULTIDICT_KEY_SUBCLASS_KIND}")
+    identity = _string(key["identity"], f"{context}.identity")
+    _string(key["label"], f"{context}.label")
+    if type(key["not_equal"]) is not bool:
+        raise ContractError(f"{context}.not_equal must be boolean")
+    return MULTIDICT_KEY_SUBCLASS_KIND, identity
+
+
+def _contains_multidict_key_subclass(value: Any, *, require_not_equal: bool = False) -> bool:
+    if isinstance(value, dict):
+        if value.get("kind") == MULTIDICT_KEY_SUBCLASS_KIND and (
+            not require_not_equal or value.get("not_equal") is True
+        ):
+            return True
+        return any(
+            _contains_multidict_key_subclass(item, require_not_equal=require_not_equal)
+            for item in value.values()
+        )
+    if isinstance(value, list):
+        return any(
+            _contains_multidict_key_subclass(item, require_not_equal=require_not_equal)
+            for item in value
+        )
+    return False
+
+
 def _validate_multidict_source(value: Any, context: str) -> dict[str, Any]:
     if not isinstance(value, dict) or not isinstance(value.get("kind"), str):
         raise ContractError(f"{context} must select a MultiDict constructor input")
@@ -38874,17 +38912,16 @@ def _validate_multidict_source(value: Any, context: str) -> dict[str, Any]:
     items = source["items"]
     if not isinstance(items, list):
         raise ContractError(f"{context}.items must be an array")
-    seen: set[str] = set()
+    seen: set[tuple[str, str]] = set()
     duplicate = False
     for index, pair in enumerate(items):
         if not isinstance(pair, list) or len(pair) != 2:
             raise ContractError(f"{context}.items[{index}] must be a two-item array")
         key, item = pair
-        if not isinstance(key, str):
-            raise ContractError(f"{context}.items[{index}][0] must be a string")
+        key_identity = _validate_multidict_key(key, f"{context}.items[{index}][0]")
         _multidict_json_scalar(item, f"{context}.items[{index}][1]")
-        duplicate = duplicate or key in seen
-        seen.add(key)
+        duplicate = duplicate or key_identity in seen
+        seen.add(key_identity)
         if kind == "mapping" and duplicate:
             raise ContractError(f"{context}.items must have unique mapping keys")
     if kind == "pairs":
@@ -39029,10 +39066,11 @@ def _validate_multidict_case(case: dict[str, Any]) -> None:
         and action["args"][1].get("kind") == "list-subclass"
         for action in actions_probe
     )
+    has_custom_key = _contains_multidict_key_subclass(case)
     if typing_contract is None:
         required_profiles = (
             ["python-package-cpython312"]
-            if has_list_subclass
+            if has_list_subclass or has_custom_key
             else ["rust-native-local", "python-package-cpython312"]
         )
         if case["target_profiles"] != required_profiles:
@@ -39048,8 +39086,10 @@ def _validate_multidict_case(case: dict[str, Any]) -> None:
     if comparison is not None:
         _validate_multidict_source(comparison, "MultiDict comparison")
     probe_keys = case["probe_keys"]
-    if not isinstance(probe_keys, list) or any(not isinstance(key, str) for key in probe_keys):
-        raise ContractError("MultiDict probe_keys must contain strings")
+    if not isinstance(probe_keys, list):
+        raise ContractError("MultiDict probe_keys must be an array")
+    for index, key in enumerate(probe_keys):
+        _validate_multidict_key(key, f"MultiDict probe_keys[{index}]")
 
     actions = case["actions"]
     if not isinstance(actions, list):
@@ -39088,7 +39128,21 @@ def _validate_multidict_case(case: dict[str, Any]) -> None:
         if method not in {"pop", "setdefault", "update"} and kwargs:
             raise ContractError(f"{context} does not accept keyword values")
         for argument_index, argument in enumerate(args):
-            if method == "setlist" and argument_index == 1:
+            if (
+                method
+                in {
+                    "__delitem__",
+                    "__setitem__",
+                    "append",
+                    "pop",
+                    "poplist",
+                    "setdefault",
+                    "setlist",
+                }
+                and argument_index == 0
+            ):
+                _validate_multidict_key(argument, f"{context}.args[{argument_index}]")
+            elif method == "setlist" and argument_index == 1:
                 if isinstance(argument, list):
                     for item_index, item in enumerate(argument):
                         _multidict_json_scalar(item, f"{context}.args[1][{item_index}]")
@@ -39140,7 +39194,13 @@ def _validate_multidict_case(case: dict[str, Any]) -> None:
 
     expected_covers = {MULTIDICT_REQUIREMENTS["constructor"]}
     if source["kind"] in {"pairs", "copy"} and any(
-        sum(pair[0] == key for pair in source["items"]) > 1 for key, _ in source["items"]
+        sum(
+            _validate_multidict_key(pair[0], "MultiDict source key")
+            == _validate_multidict_key(key, "MultiDict source key")
+            for pair in source["items"]
+        )
+        > 1
+        for key, _ in source["items"]
     ):
         expected_covers.add(MULTIDICT_REQUIREMENTS["mapping_views"])
     if {"__setitem__", "__delitem__"} <= methods:
@@ -39157,6 +39217,15 @@ def _validate_multidict_case(case: dict[str, Any]) -> None:
         for action in actions
     ):
         expected_covers.add(MULTIDICT_REQUIREMENTS["setlist_protocol_order"])
+    if (
+        has_custom_key
+        and _contains_multidict_key_subclass(
+            case,
+            require_not_equal=True,
+        )
+        and any(action["method"] in {"__delitem__", "pop", "setlist"} for action in actions)
+    ):
+        expected_covers.add(MULTIDICT_REQUIREMENTS["key_inequality_protocol"])
     if {"setdefault", "append"} <= methods:
         expected_covers.add(MULTIDICT_REQUIREMENTS["setdefault_append"])
     if "update" in methods:
@@ -43882,6 +43951,23 @@ def migrate_input_document_v59(document: Any) -> dict[str, Any]:
             raise ContractError("parity-input@59 does not allow path str-subclass overrides")
 
     migrated = dict(document)
+    migrated["schema"] = INPUT_SCHEMA_V60
+    return migrated
+
+
+def migrate_input_document_v60(document: Any) -> dict[str, Any]:
+    """Advance @60 inputs to @61, which adds input-defined hashable Python keys."""
+    _exact(document, {"schema", "cases"}, "parity input")
+    if document["schema"] != INPUT_SCHEMA_V60:
+        raise ContractError(f"unsupported @60 parity input schema: {document['schema']!r}")
+    if not isinstance(document["cases"], list) or not document["cases"]:
+        raise ContractError("parity input must select at least one case")
+    if _contains_multidict_key_subclass(document["cases"]):
+        raise ContractError(
+            "parity-input@60 does not allow input-defined MultiDict comparison keys"
+        )
+
+    migrated = dict(document)
     migrated["schema"] = INPUT_SCHEMA
     return migrated
 
@@ -43947,7 +44033,7 @@ def validate_input_document_v58(
     *,
     public_modules: frozenset[str] | None = None,
 ) -> list[dict[str, Any]]:
-    """Validate @58 inputs before their deterministic @59 and @60 migrations."""
+    """Validate @58 inputs before their deterministic @59 through @61 migrations."""
     migrated = migrate_input_document_v58(document)
     return validate_input_document_v59(migrated, manifest, public_modules=public_modules)
 
@@ -43958,8 +44044,19 @@ def validate_input_document_v59(
     *,
     public_modules: frozenset[str] | None = None,
 ) -> list[dict[str, Any]]:
-    """Validate @59 inputs before their deterministic @60 schema-header migration."""
+    """Validate @59 inputs before their deterministic @60 and @61 migrations."""
     migrated = migrate_input_document_v59(document)
+    return validate_input_document_v60(migrated, manifest, public_modules=public_modules)
+
+
+def validate_input_document_v60(
+    document: Any,
+    manifest: dict[str, Any],
+    *,
+    public_modules: frozenset[str] | None = None,
+) -> list[dict[str, Any]]:
+    """Validate @60 inputs before their deterministic @61 schema-header migration."""
+    migrated = migrate_input_document_v60(document)
     return validate_input_document(migrated, manifest, public_modules=public_modules)
 
 

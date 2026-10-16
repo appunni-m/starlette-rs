@@ -280,7 +280,7 @@ impl PyMultiDictStore {
         }
         let mut retained = Vec::with_capacity(self.items.len());
         for (item_key, value) in &self.items {
-            if !item_key.bind(py).eq(key)? {
+            if item_key.bind(py).ne(key)? {
                 retained.push((item_key.clone_ref(py), value.clone_ref(py)));
             }
         }
@@ -316,7 +316,7 @@ impl PyMultiDictStore {
     fn retain_other_keys(&mut self, py: Python<'_>, key: &Bound<'_, PyAny>) -> PyResult<()> {
         let mut retained = Vec::with_capacity(self.items.len());
         for (item_key, value) in &self.items {
-            if !item_key.bind(py).eq(key)? {
+            if item_key.bind(py).ne(key)? {
                 retained.push((item_key.clone_ref(py), value.clone_ref(py)));
             }
         }
