@@ -2,18 +2,19 @@
 
 ## Current verification status
 
-The working full-scope manifest is `parity-input@64`, SHA-256
-`d68552edd4d3b87ee9e99858bf03bfb1834dda959386976dc3f0858e97071809`,
+The working full-scope manifest is `parity-input@65`, SHA-256
+`87db47cde97ae0841d87268dc238472c5218f0e6fa04ee71286691bf1ce5174d`,
 against Starlette 1.6.0 revision
-`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. It declares 2,614 input-only cases
+`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. It declares 2,615 input-only cases
 across 446 parity files, two benchmark inputs, 152 compatibility operations,
-15 Rust-native operations, 1,452 parity requirements, and six target profiles.
+15 Rust-native operations, 1,453 parity requirements, and six target profiles.
 The latest Config subclass dispatch and formatting, optimized
-Request/WebSocket/WebSocketEndpoint assertions, and StreamingResponse
-listener-override comparisons are authored and contract-validated but
-unexecuted. The @63-to-@64 migration and source
-inventory passed. Grouped parity, coverage, and benchmark results below apply
-to earlier input sets, including the one with SHA-256
+Request/WebSocket/WebSocketEndpoint assertions, the optimized WebSocketEndpoint
+invalid-encoding fallback, and StreamingResponse listener-override comparisons
+are authored and contract-validated but unexecuted. The @64-to-@65 migration
+and source inventory passed; the earlier @63-to-@64 inventory also passed.
+Grouped parity, coverage, and benchmark results below apply to earlier input
+sets, including the one with SHA-256
 `f8a34c2978af95382ceadcd3e3a2c5a9d7bb1d467f03b35ba55033d9b7336124`.
 Workflow
 [`38923021415`](https://github.com/appunni-m/starlette-rs/actions/runs/38923021415)
@@ -1187,7 +1188,7 @@ and do not establish parity for every deprecation path.
 These source-backed caveats and targeted inputs do not create fixture backlog.
 The grouped parity, six selected coverage profiles, and benchmark phases
 completed for the preceding verified `parity-input@63` manifest; they do not
-cover the active `parity-input@64` manifest. Run the grouped phases after the
+cover the active `parity-input@65` manifest. Run the grouped phases after the
 implementation is ready. These measurements do not prove universal Starlette
 parity.
 

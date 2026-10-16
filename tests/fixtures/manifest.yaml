@@ -11972,6 +11972,18 @@
               ]
             },
             {
+              "id": "starlette.endpoints.WebSocketEndpoint.dispatch.decode-invalid-encoding.optimized-fallback",
+              "dimension": "mode",
+              "description": "With Python optimization enabled, omit the invalid-encoding assertion, use the default decoder to select truthy text, and expose the decoded value through the receive hook. Pinned source: starlette/endpoints.py:91-117.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython312"
+              ]
+            },
+            {
               "id": "starlette.endpoints.WebSocketEndpoint.dispatch.cancellation-finalization",
               "dimension": "runtime",
               "description": "Preserve event-loop cancellation through dispatch and run the on_disconnect finally hook with the source close-code behavior. Pinned source: starlette/endpoints.py:70-89.",

@@ -342,6 +342,10 @@ WEBSOCKET_ENDPOINT_REQUIREMENTS = {
     "optimized_scope_type_validation": (
         f"{WEBSOCKET_ENDPOINT_SURFACE}.__init__.scope-type-validation.optimized"
     ),
+    "optimized_invalid_encoding_fallback": (
+        f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}."
+        "decode-invalid-encoding.optimized-fallback"
+    ),
     "lifecycle": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.lifecycle",
     "connect": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.on-connect-subprotocols",
     "connect_error": f"{WEBSOCKET_ENDPOINT_SURFACE}.{WEBSOCKET_ENDPOINT_OPERATION}.on-connect-error-skips-disconnect",
@@ -4950,6 +4954,31 @@ def _validate_websocket_endpoint_case_stimulus(case: dict[str, Any]) -> None:
         message = incoming[1]
         message_encoding = "text" if "text" in message else "bytes"
         if not encoding_supported:
+            if (
+                case.get("python_optimization", False)
+                and encoding_kind is None
+                and isinstance(encoding, str)
+            ):
+                if (
+                    len(sessions) != 1
+                    or cancel_at is not None
+                    or message_types
+                    != ["websocket.connect", "websocket.receive", "websocket.disconnect"]
+                    or message_encoding != "text"
+                    or not message["text"]
+                    or on_connect["kind"] != "default"
+                    or on_receive["kind"] != "send-json-envelope"
+                    or on_receive["mode"] != "text"
+                    or on_disconnect["kind"] != "record-and-close"
+                ):
+                    raise ContractError(
+                        f"{context} optimized invalid encoding requires a truthy text receive, "
+                        "a JSON observation, and a complete dispatch with observed finalization"
+                    )
+                exercised_requirements.add(
+                    WEBSOCKET_ENDPOINT_REQUIREMENTS["optimized_invalid_encoding_fallback"]
+                )
+                continue
             if (
                 message_types != ["websocket.connect", "websocket.receive"]
                 or on_disconnect["kind"] != "record-and-close"
