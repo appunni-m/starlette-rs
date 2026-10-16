@@ -7,19 +7,20 @@ Pydantic are outside this project's scope.
 
 ## Execution order and current status
 
-Active implementation checkpoint (2026-10-16; `parity-input@59`; manifest
-SHA-256 `db542a7081c3b80c0b0efc6de3a026e8d02fefbe4306f471b87e58c0129b89a3`;
+Active implementation checkpoint (2026-10-16; `parity-input@60`; manifest
+SHA-256 `08ecbff53b8a2c89aee3d9a5802a0c8dfbe5ee2877de156f4a91cd3846026ee5`;
 parity/coverage revision `daf9b9d1f44e566515c640bc8d396bf342151b99`; benchmark
 revision `3b951a2fe0a91fbba708b3067c3dbdfc6da92da7`):
 
-The active manifest declares full Starlette 1.6.0 scope with 2,573 cases across
-433 parity inputs, two benchmark inputs, 152 compatibility operations, 15
-Rust-native operations, 1,426 parity requirements, and six target profiles.
-It adds three input-only AuthenticationMiddleware replacements of `backend`,
-`app`, and `on_error`, which remain unexecuted until grouped parity. The source
-atlas snapshot still uses the prior `@58` manifest and contains 867 rows: 811 input mappings, 56 source-backed
-`not_applicable` rows, and zero backlog. The pinned denominators remain 514
-upstream test functions and 24 documented pages.
+The active manifest declares full Starlette 1.6.0 scope with 2,577 cases across
+436 parity inputs, two benchmark inputs, 152 compatibility operations, 15
+Rust-native operations, 1,430 parity requirements, and six target profiles.
+The three @59 AuthenticationMiddleware comparisons and four @60 GZip, Request,
+Router, and Mount boundary comparisons are authored but unexecuted. The
+contract check passed and the source atlas is regenerated for @60: 867 rows,
+811 input mappings, 56 source-backed `not_applicable` rows, and zero backlog.
+No parity, coverage, or benchmark run was performed for @60. The pinned
+denominators remain 514 upstream test functions and 24 documented pages.
 
 The full parity workflow
 [`38850605133`](https://github.com/appunni-m/starlette-rs/actions/runs/38850605133)
@@ -599,9 +600,9 @@ representation, and dynamic `FormData.close()` dispatch remain Rust-backed.
 
 | Phase | State | Evidence |
 | --- | --- | --- |
-| Implementation | Runtime work remains active; the active @59 input matrix has three authored AuthMiddleware cases awaiting grouped parity. | Manifest SHA-256 `db542a7081c3b80c0b0efc6de3a026e8d02fefbe4306f471b87e58c0129b89a3`; the one contract check passed; prior @58 atlas snapshot has 811 source rows mapped and 56 marked `not_applicable`. |
-| Full parity and grouped repairs | The prior @58 five-profile parity matrix passed; the active @59 matrix has not run and the historical result does not establish the complete Starlette replacement or the upstream test/doc denominators. | Workflow `38850605133`, commit `daf9b9d1f44e566515c640bc8d396bf342151b99`; CPython 3.10–3.14 passed, all 17 selected fault contracts passed. Benchmark preflight on clean revision `3b951a2fe0a91fbba708b3067c3dbdfc6da92da7` selected 2,918 cases: 2,916 passed, zero failed or infrastructure errors, two declared two-sided skips. Oracle: Starlette 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. |
-| Full coverage and source reconciliation | All six coverage profiles passed for the prior @58 manifest. Those reports measure selected inputs and do not claim whole-project coverage; the new @59 cases are not included. | Workflow `38850605133`, cargo-llvm-cov 0.8.7, target revision `daf9b9d1f44e566515c640bc8d396bf342151b99`; selected cases passed/failed: CPython 3.10 273/0, 3.11 273/0, 3.12 2,549/0, 3.13 274/0, 3.14 274/0, Rust-native 374/0. Line coverage: Rust-native 5,189/8,093; CPython 3.10 11,794/33,583; 3.11 11,772/33,583; 3.12 23,215/33,583; 3.13 11,760/33,583; 3.14 11,749/33,583. Every Coverage MCP result reported `source=matches_receipt`, `tests=passed`, `status=measured`, and no warnings. |
+| Implementation | Runtime work remains active; seven current @59/@60 boundary comparisons await grouped parity. | Manifest SHA-256 `08ecbff53b8a2c89aee3d9a5802a0c8dfbe5ee2877de156f4a91cd3846026ee5`; contract check passed; regenerated atlas has 811 source rows mapped and 56 marked `not_applicable`. |
+| Full parity and grouped repairs | The prior @58 five-profile parity matrix passed; the active @60 matrix has not run and the historical result does not establish the complete Starlette replacement or the upstream test/doc denominators. | Workflow `38850605133`, commit `daf9b9d1f44e566515c640bc8d396bf342151b99`; CPython 3.10–3.14 passed, all 17 selected fault contracts passed. Benchmark preflight on clean revision `3b951a2fe0a91fbba708b3067c3dbdfc6da92da7` selected 2,918 cases: 2,916 passed, zero failed or infrastructure errors, two declared two-sided skips. Oracle: Starlette 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. |
+| Full coverage and source reconciliation | All six coverage profiles passed for the prior @58 manifest. Those reports measure selected inputs and do not claim whole-project coverage; the seven current @59/@60 boundary cases are not included. | Workflow `38850605133`, cargo-llvm-cov 0.8.7, target revision `daf9b9d1f44e566515c640bc8d396bf342151b99`; selected cases passed/failed: CPython 3.10 273/0, 3.11 273/0, 3.12 2,549/0, 3.13 274/0, 3.14 274/0, Rust-native 374/0. Line coverage: Rust-native 5,189/8,093; CPython 3.10 11,794/33,583; 3.11 11,772/33,583; 3.12 23,215/33,583; 3.13 11,760/33,583; 3.14 11,749/33,583. Every Coverage MCP result reported `source=matches_receipt`, `tests=passed`, `status=measured`, and no warnings. |
 | All benchmarks | The recorded 74-workload source/package benchmark used the prior @58 manifest and completed after its full parity and coverage run. | Run `67373339-9c28-410d-b9b0-40fbe02ca40a`, manifest SHA-256 `ec42686f557bdc59c0916f01823ac66018624dd0a787a9901ccfc6982a180b48`: 74/74 measured (6 Router, 68 GZip), zero failures or source/package `not_run`; 74 Rust-native rows `not_run` because the equivalent workload boundary is unavailable. Preflight `4e8b63e7-dd15-4a46-b6e9-6e8bf4a29d31`: 2,916 passed, zero failed or infrastructure errors, two declared two-sided skips. Median source/package ratios: 0.219 Router and 0.970 GZip; source latency lower in 6/6 Router and 60/68 GZip; normalized observations matched 74/74. Result SHA-256 `588ceef503267cbfc868f701a808682d4201b5175137968837bbc8b2374dcb7d`. |
 | Packaging and interpreter qualification | Historical local macOS arm64 qualification; current changes are not qualified by it. | Five CPython 3.10–3.14 wheels, an sdist, and the Rust crate were inspected in the earlier qualification. Other platform builds remain unqualified. |
 
@@ -668,16 +669,17 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The active parity contract is `parity-input@59` with full scope
-(`starlette-1.6.0-full`): 2,573 input cases across 433 parity files, two
+The active parity contract is `parity-input@60` with full scope
+(`starlette-1.6.0-full`): 2,577 input cases across 436 parity files, two
 benchmark files, 152 Starlette compatibility operations, 15 Rust-native
-operations, 1,426 parity requirements, and six target profiles. Its manifest
-SHA-256 is `db542a7081c3b80c0b0efc6de3a026e8d02fefbe4306f471b87e58c0129b89a3`.
+operations, 1,430 parity requirements, and six target profiles. Its manifest
+SHA-256 is `08ecbff53b8a2c89aee3d9a5802a0c8dfbe5ee2877de156f4a91cd3846026ee5`.
 The parity, coverage, and benchmark receipts in the execution ledger remain
-tied to the prior `@58` manifest and exclude the three new AuthenticationMiddleware
-replacement cases. The active matrix also includes the Config typing
-consumer's nine pinned `Config.__call__` overload assertions. The generated
-source-row, mapping, `not_applicable`, and backlog totals live in
+tied to the prior `@58` manifest and exclude the seven @59/@60 boundary
+comparisons. The four @60 cases include a Mount path string-subclass slice
+override. The active matrix also includes the Config typing consumer's nine
+pinned `Config.__call__` overload assertions. The generated source-row, mapping,
+`not_applicable`, and backlog totals live in
 [`coverage-matrix.csv`](atlas/coverage-matrix.csv) and
 [`fixture-backlog.csv`](atlas/fixture-backlog.csv); regenerate them after
 changing fixture dispositions. The implementation history below records how

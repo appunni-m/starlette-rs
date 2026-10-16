@@ -89,7 +89,7 @@ class HTTPConnection(Mapping[str, Any], Generic[StateT]):
 
     @property
     def cookies(self) -> dict[str, str]:
-        return self._inner.cookies
+        return _core.HTTPConnection._cookies_for(self._inner, self)
 
     @property
     def client(self) -> Address | None:

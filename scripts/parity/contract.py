@@ -51,8 +51,9 @@ INPUT_SCHEMA_V55 = "migration-parity/parity-input@55"
 INPUT_SCHEMA_V56 = "migration-parity/parity-input@56"
 INPUT_SCHEMA_V57 = "migration-parity/parity-input@57"
 INPUT_SCHEMA_V58 = "migration-parity/parity-input@58"
+INPUT_SCHEMA_V59 = "migration-parity/parity-input@59"
 PREVIOUS_INPUT_SCHEMA = INPUT_SCHEMA_V50
-INPUT_SCHEMA = "migration-parity/parity-input@59"
+INPUT_SCHEMA = "migration-parity/parity-input@60"
 BENCHMARK_INPUT_SCHEMA = "migration-parity/benchmark-input@1"
 RESULT_SCHEMA = "migration-parity/parity-result@9"
 BENCHMARK_RESULT_SCHEMA = "migration-parity/benchmark-result@1"
@@ -775,6 +776,7 @@ SCOPE_IDENTITY_HASH_SEQUENCE_CASE_KEYS = (CASE_KEYS - {"steps", "execution_sched
     "actions_after_mutation",
 }
 REQUEST_COOKIE_CACHE_SEQUENCE_REQUIREMENT = "starlette.request.cookies-cache-semantics"
+REQUEST_COOKIE_HEADERS_PROPERTY_REQUIREMENT = "starlette.request.cookies.headers-property-override"
 REQUEST_COOKIE_CACHE_SEQUENCE_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
     "scope",
     "actions",
@@ -1485,6 +1487,9 @@ ROUTER_OPPOSITE_SCOPE_MATCH_ERROR_REQUIREMENT = (
 ROUTER_SCOPE_TYPE_MEMBERSHIP_REQUIREMENT = (
     "starlette.routing.Router.route-dispatch.scope-type-python-membership"
 )
+ROUTER_SCOPE_PATH_SUBCLASS_REQUIREMENT = (
+    "starlette.routing.Router.route-dispatch.scope-path-str-subclass-startswith"
+)
 ROUTER_MISSING_METHOD_REQUIREMENTS = {
     "path_miss": "starlette.routing.Router.route-dispatch.missing-method-after-path-miss",
     "path_match": "starlette.routing.Router.route-dispatch.missing-method-after-path-match",
@@ -1579,6 +1584,9 @@ ROUTE_CONSTRUCTOR_ERROR_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}
     "attempts",
 }
 MOUNT_OPERATION = "route-dispatch"
+MOUNT_SCOPE_PATH_SLICE_REQUIREMENT = (
+    "starlette.routing.Mount.route-dispatch.scope-path-str-subclass-slice-getitem"
+)
 MOUNT_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
     "mount",
     "scope",
@@ -2248,6 +2256,9 @@ GZIP_REQUIREMENTS = {
     "message-type-python-equality": "starlette.middleware.gzip.GZipMiddleware.message-type-python-equality",
     "non-http-scope-type-bypass": (
         "starlette.middleware.gzip.GZipMiddleware.non-http-scope-type-bypass"
+    ),
+    "app-replacement-before-call": (
+        "starlette.middleware.gzip.GZipMiddleware.app-replacement-before-call"
     ),
 }
 MUTABLE_SCOPE_REQUIREMENTS = {
@@ -7216,9 +7227,14 @@ def _router_dispatch_route_selection(
     route_methods: list[set[str] | None] | None = None,
     request_host: str = "",
     scope_type: str = "http",
+    route_path_override: str | None = None,
 ) -> tuple[int | None, dict[str, Any] | None, bool]:
     """Return the first full Router match and any selected Mount analysis."""
-    route_path = _route_path_after_root(path, root_path)
+    route_path = (
+        _route_path_after_root(path, root_path)
+        if route_path_override is None
+        else route_path_override
+    )
     mount_was_attempted = False
     for index, route in enumerate(routes):
         kind = route["kind"]
@@ -7276,6 +7292,7 @@ def _router_mount_requirements(
     route_methods: list[set[str] | None] | None = None,
     request_host: str = "",
     scope_type: str = "http",
+    route_path_override: str | None = None,
 ) -> tuple[set[str], bool]:
     selected_index, selected_mount, mount_was_attempted = _router_dispatch_route_selection(
         routes,
@@ -7286,6 +7303,7 @@ def _router_mount_requirements(
         route_methods=route_methods,
         request_host=request_host,
         scope_type=scope_type,
+        route_path_override=route_path_override,
     )
     derived: set[str] = set()
     if selected_mount is not None:
@@ -7343,6 +7361,7 @@ def _validate_route_dispatch_io(
     allow_inherited_mount_scope: bool = False,
     allow_websocket: bool = False,
     allow_scope_type_str_subclass: bool = False,
+    allow_scope_path_str_subclass: bool = False,
     allow_missing_method: bool = False,
 ) -> None:
     scope_type, has_scope_type_subclass = _route_dispatch_scope_type(
@@ -7380,6 +7399,7 @@ def _validate_route_dispatch_io(
         allow_root_path=True,
         allow_host=allow_host,
         allow_inherited_mount_scope=allow_inherited_mount_scope,
+        allow_scope_path_str_subclass=allow_scope_path_str_subclass,
         allow_missing_method=allow_missing_method,
     )
 
@@ -7403,6 +7423,33 @@ def _route_dispatch_scope_type(
             f"{context} equality probe must store http and return false from Python equality"
         )
     return scope_type, True
+
+
+def _route_dispatch_scope_path(
+    value: Any, context: str, *, allow_str_subclass: bool = False
+) -> tuple[str, bool | None, str | None, bool]:
+    if isinstance(value, str):
+        return _string(value, context), None, None, False
+    if not allow_str_subclass:
+        raise ContractError(f"{context} must be a string")
+    descriptor = _exact(value, {"str_subclass"}, f"{context} descriptor")
+    raw_subclass = descriptor["str_subclass"]
+    if not isinstance(raw_subclass, dict) or set(raw_subclass) not in (
+        {"value", "startswith_result"},
+        {"value", "startswith_result", "slice_result"},
+    ):
+        raise ContractError(
+            f"{context}.str_subclass must declare value, startswith_result, and optional slice_result"
+        )
+    subclass = raw_subclass
+    path = _string(subclass["value"], f"{context}.str_subclass.value")
+    if type(subclass["startswith_result"]) is not bool:
+        raise ContractError(f"{context}.str_subclass.startswith_result must be boolean")
+    has_slice_override = "slice_result" in subclass
+    slice_result = subclass.get("slice_result")
+    if has_slice_override and slice_result is not None and not isinstance(slice_result, str):
+        raise ContractError(f"{context}.str_subclass.slice_result must be a string or null")
+    return path, subclass["startswith_result"], slice_result, has_slice_override
 
 
 def _validate_redirect_response_case_stimulus(case: dict[str, Any]) -> None:
@@ -11832,10 +11879,15 @@ def _router_redirect_requirements(
     redirect_slashes: bool,
     custom_convertors: dict[str, dict[str, Any]],
     query_string_base64: str,
+    route_path_override: str | None = None,
 ) -> set[str]:
     """Derive redirect coverage from the live Router match and candidate inputs."""
     prefix = "starlette.routing.Router.route-dispatch."
-    original_route_path = _route_path_after_root(path, root_path)
+    original_route_path = (
+        _route_path_after_root(path, root_path)
+        if route_path_override is None
+        else route_path_override
+    )
     original_matches = [
         route
         for route in routes
@@ -11997,7 +12049,15 @@ def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
         allow_str_subclass=True,
     )
     websocket_dispatch = scope_type == "websocket"
-    path = case["scope"].get("path")
+    path, path_startswith_result, _path_slice_result, has_path_slice_override = (
+        _route_dispatch_scope_path(
+            case["scope"].get("path"),
+            "Router route-dispatch scope.path",
+            allow_str_subclass=True,
+        )
+    )
+    if has_path_slice_override:
+        raise ContractError("Router route-dispatch does not declare a Mount slice override")
     root_path = case["scope"].get("root_path")
     opposite_scope_match_error = (
         websocket_dispatch
@@ -12056,7 +12116,7 @@ def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
         missing_method = "method" not in case["scope"]
         if not missing_method and not isinstance(method, str):
             raise ContractError("Router HTTP route-dispatch scope must declare a method")
-    if not isinstance(path, str) or not isinstance(root_path, str):
+    if not isinstance(root_path, str):
         raise ContractError("Router route-dispatch scope must declare string path and root_path")
     _validate_route_dispatch_io(
         case,
@@ -12066,6 +12126,7 @@ def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
         allow_inherited_mount_scope=has_mount_route,
         allow_websocket=websocket_dispatch,
         allow_scope_type_str_subclass=has_scope_type_subclass,
+        allow_scope_path_str_subclass=path_startswith_result is not None,
         allow_missing_method=not websocket_dispatch and missing_method,
     )
     if has_scope_type_subclass:
@@ -12115,6 +12176,35 @@ def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
             )
         return
     route_path = _route_path_after_root(path, root_path)
+    if path_startswith_result is not None:
+        if (
+            path_startswith_result is not False
+            or case["target_profiles"] != ["python-package-cpython312"]
+            or has_scope_type_subclass
+            or websocket_dispatch
+            or len(routes) != 1
+            or routes[0]["kind"] != "http-route"
+            or routes[0]["methods"] != ["GET"]
+            or _route_template_parameters(routes[0]["path"])
+            or routes[0]["path"] != path
+            or not root_path
+            or not path.startswith(root_path)
+            or route_path == path
+            or case["redirect_slashes"]
+            or case["scope"]["headers_base64_pairs"]
+            or case["scope"]["query_string_base64"]
+            or case.get("observe_dispatch_error")
+            or "garbage_collection" in case
+            or set(case["covers"])
+            != {
+                "starlette.routing.Router.route-dispatch.literal-path-match",
+                ROUTER_SCOPE_PATH_SUBCLASS_REQUIREMENT,
+            }
+        ):
+            raise ContractError(
+                "Router scope path str-subclass input must select one direct GET whose startswith override preserves the full root-prefixed path"
+            )
+        route_path = path
     has_surrogate_path = any(
         0xD800 <= ord(character) <= 0xDFFF
         for text in (path, root_path, *(route["path"] for route in routes if "path" in route))
@@ -12161,6 +12251,8 @@ def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
         )
     ]
     derived: set[str] = set()
+    if path_startswith_result is False:
+        derived.add(ROUTER_SCOPE_PATH_SUBCLASS_REQUIREMENT)
     original_http_path_matches = [
         route
         for route in http_routes
@@ -12235,6 +12327,7 @@ def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
         method,
         custom_convertors,
         request_host=request_host,
+        route_path_override=route_path,
     )
     derived.update(mount_requirements)
     derived.update(
@@ -12246,6 +12339,7 @@ def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
             case["redirect_slashes"],
             custom_convertors,
             case["scope"]["query_string_base64"],
+            route_path_override=route_path,
         )
     )
     for route in matched:
@@ -12305,6 +12399,7 @@ def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
             method,
             custom_convertors,
             request_host=request_host,
+            route_path_override=route_path,
         )
     )
     if first_full_route_index is not None:
@@ -12375,6 +12470,7 @@ def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
         derived.add("starlette.routing.Host.matches.raw-header-name-case-sensitive")
     if (
         root_path
+        and path_startswith_result is not False
         and path.startswith(root_path)
         and (path == root_path or path[len(root_path)] == "/")
         and (matched or selected_route or first_full_route_index is not None)
@@ -12382,6 +12478,7 @@ def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
         derived.add("starlette.routing.Router.route-dispatch.root-path-match")
     if (
         root_path
+        and path_startswith_result is not False
         and path.startswith(root_path)
         and path != root_path
         and path[len(root_path)] != "/"
@@ -12769,8 +12866,16 @@ def _validate_mount_case_stimulus(case: dict[str, Any]) -> None:
             for index, route in enumerate(mount["routes"])
         ],
     }
-    _validate_route_dispatch_io(case, allow_inherited_mount_scope=True)
-    path = case["scope"]["path"]
+    path, path_startswith_result, slice_result, has_slice_override = _route_dispatch_scope_path(
+        case["scope"]["path"],
+        "Mount route-dispatch scope.path",
+        allow_str_subclass=True,
+    )
+    _validate_route_dispatch_io(
+        case,
+        allow_inherited_mount_scope=True,
+        allow_scope_path_str_subclass=path_startswith_result is not None,
+    )
     root_path = case["scope"]["root_path"]
     route_path = _route_path_after_root(path, root_path)
     mount_template = mount["path"].rstrip("/") + "/{_mount_path:path}"
@@ -12805,6 +12910,30 @@ def _validate_mount_case_stimulus(case: dict[str, Any]) -> None:
         derived.add("starlette.routing.Mount.route-dispatch.scope-extension")
         if mount["path"] == "":
             derived.add(MOUNT_EMPTY_ROOT_PATH_REQUIREMENT)
+    if has_slice_override:
+        if (
+            case["target_profiles"] != ["python-package-cpython312"]
+            or root_path != ""
+            or path_startswith_result is not False
+            or not mount_matches
+            or slice_result is None
+            or slice_result == matched_path
+            or len(mount["routes"]) != 1
+            or mount["routes"][0]["kind"] != "http-route"
+            or mount["routes"][0]["path"] != path
+            or mount["routes"][0]["methods"] != ["GET"]
+            or set(case["covers"])
+            != {
+                "starlette.routing.Mount.route-dispatch.scope-extension",
+                MOUNT_SCOPE_PATH_SLICE_REQUIREMENT,
+            }
+        ):
+            raise ContractError(
+                "Mount path slice override requires one matching GET whose full path is dispatched after the input-selected slice result"
+            )
+        derived.add(MOUNT_SCOPE_PATH_SLICE_REQUIREMENT)
+    elif path_startswith_result is not None:
+        raise ContractError("Mount path str-subclass cases must exercise slice_result")
     if not mount_matches:
         derived.add("starlette.routing.Mount.route-dispatch.miss")
     if mount_matches and not matching_child_routes:
@@ -25014,6 +25143,8 @@ def _validate_case_payload(
         _validate_request_header_cache_sequence_case(case)
         return case
     if is_request_cookie_cache_sequence:
+        if "headers_property" in case:
+            expected_case_keys = expected_case_keys | {"headers_property"}
         _exact(case, expected_case_keys, "Request cookie-cache sequence case")
         _validate_request_cookie_cache_sequence_case(case)
         return case
@@ -25297,6 +25428,19 @@ def _validate_case_payload(
         expected_case_keys = SESSION_WORKFLOW_CASE_KEYS
     if is_router and "steps" not in case and "garbage_collection" in case:
         expected_case_keys = expected_case_keys | {"garbage_collection"}
+    if (
+        isinstance(case, dict)
+        and case.get("surface") == GZIP_SURFACE
+        and case.get("operation") == "__call__"
+        and "assignments" in case
+    ):
+        expected_case_keys = expected_case_keys | {"assignments"}
+    if (
+        isinstance(case, dict)
+        and (case.get("surface"), case.get("operation")) == REQUEST_COOKIE_CACHE_SEQUENCE_OPERATION
+        and "headers_property" in case
+    ):
+        expected_case_keys = expected_case_keys | {"headers_property"}
     if is_static_files_lookup_path and "directory_pathlike" in case:
         expected_case_keys = expected_case_keys | {"directory_pathlike"}
     if (case["surface"], case["operation"]) == TEMPLATING_PUBLIC_OPERATION:
@@ -26355,6 +26499,24 @@ def _validate_case_payload(
         _validate_lifespan_only_case(case, app_args)
     if is_gzip or is_gzip_responder:
         _validate_gzip_constructor_stimulus(app_args)
+        if "assignments" in case:
+            assignments = case["assignments"]
+            if (
+                not is_gzip
+                or case["target_profiles"] != ["python-package-cpython312"]
+                or len(case["steps"]) != 2
+                or not isinstance(assignments, list)
+                or len(assignments) != 1
+            ):
+                raise ContractError(
+                    "live GZip app replacement requires one GZipMiddleware app assignment on CPython 3.12"
+                )
+            assignment = _exact(assignments[0], {"field", "value"}, "GZipMiddleware app assignment")
+            if assignment["field"] != "app":
+                raise ContractError("GZipMiddleware live assignment must replace app")
+            _validate_gzip_constructor_stimulus({"app": assignment["value"]})
+            if assignment["value"] == app_args["app"]:
+                raise ContractError("GZipMiddleware app assignment must change the ASGI app")
         start_type = app_args["app"]["messages"][0]["type"]
         if isinstance(start_type, dict) and (
             is_gzip_responder or case["target_profiles"] != ["python-package-cpython312"]
@@ -31599,6 +31761,7 @@ def _validate_dispatch_stimulus(
     allow_non_string_method: bool = False,
     allow_missing_method: bool = False,
     allow_non_http_scope_passthrough: bool = False,
+    allow_scope_path_str_subclass: bool = False,
 ) -> None:
     if set(args) != {"scope", "receive", "send"}:
         raise ContractError(
@@ -31676,7 +31839,13 @@ def _validate_dispatch_stimulus(
                 )
         if "method" in scope and not allow_non_string_method:
             _string(scope["method"], "HTTP scope.method")
-        path = _string(scope["path"], "HTTP scope.path")
+        path, _path_startswith_result, _path_slice_result, _has_path_slice_override = (
+            _route_dispatch_scope_path(
+                scope["path"],
+                "HTTP scope.path",
+                allow_str_subclass=allow_scope_path_str_subclass,
+            )
+        )
         try:
             path_bytes = path.encode("utf-8", errors="surrogateescape")
         except UnicodeEncodeError as exc:
@@ -32480,6 +32649,22 @@ def _validate_request_cookie_cache_sequence_case(case: dict[str, Any]) -> None:
         return [value for name, value in pairs if name.lower() == b"cookie"]
 
     original_pairs = decode_pairs(scope["headers_base64_pairs"], "Request cookie-cache headers")
+    property_pairs = None
+    if "headers_property" in case:
+        headers_property = _exact(
+            case["headers_property"],
+            {"headers_base64_pairs"},
+            "Request.headers property override",
+        )
+        property_pairs = decode_pairs(
+            headers_property["headers_base64_pairs"],
+            "Request.headers property override pairs",
+        )
+        property_cookies = cookie_values(property_pairs)
+        if not any(property_cookies) or property_cookies == cookie_values(original_pairs):
+            raise ContractError(
+                "Request.headers property override must supply a non-empty Cookie value distinct from the scope"
+            )
     actions = case["actions"]
     if not isinstance(actions, list) or len(actions) != 8:
         raise ContractError("Request cookie-cache sequence requires eight ordered actions")
@@ -32537,6 +32722,8 @@ def _validate_request_cookie_cache_sequence_case(case: dict[str, Any]) -> None:
         REQUEST_COOKIE_CACHE_SEQUENCE_REQUIREMENT,
         "starlette.request.cookies-dict-semantics",
     }
+    if property_pairs is not None:
+        expected_covers.add(REQUEST_COOKIE_HEADERS_PROPERTY_REQUIREMENT)
     if set(case["covers"]) != expected_covers:
         raise ContractError("Request cookie-cache covers must match the supplied action sequence")
 
@@ -42186,6 +42373,8 @@ def _gzip_semantic_coverage(case: dict[str, Any]) -> set[str]:
         covered.update(_gzip_single_dispatch_semantic_coverage(single_dispatch_case))
     if case.get("scope_container") == "user-dict":
         covered.add(MUTABLE_SCOPE_REQUIREMENTS[GZIP_SURFACE])
+    if case.get("assignments"):
+        covered.add(GZIP_REQUIREMENTS["app-replacement-before-call"])
     return covered
 
 
@@ -42202,7 +42391,8 @@ def _gzip_single_dispatch_semantic_coverage(case: dict[str, Any]) -> set[str]:
             GZIP_REQUIREMENT_CONSTRUCTION,
             GZIP_REQUIREMENTS["non-http-scope-type-bypass"],
         }
-    app = constructor_args["app"]
+    assignments = case.get("assignments", [])
+    app = assignments[-1]["value"] if assignments else constructor_args["app"]
     messages = app["messages"]
     response_start = messages[0]
     response_headers = _gzip_header_pairs(
@@ -43664,6 +43854,34 @@ def migrate_input_document_v58(document: Any) -> dict[str, Any]:
         )
 
     migrated = dict(document)
+    migrated["schema"] = INPUT_SCHEMA_V59
+    return migrated
+
+
+def migrate_input_document_v59(document: Any) -> dict[str, Any]:
+    """Advance @59 inputs to @60, which adds three live Python boundary stimuli."""
+    _exact(document, {"schema", "cases"}, "parity input")
+    if document["schema"] != INPUT_SCHEMA_V59:
+        raise ContractError(f"unsupported @59 parity input schema: {document['schema']!r}")
+    if not isinstance(document["cases"], list) or not document["cases"]:
+        raise ContractError("parity input must select at least one case")
+    for case in document["cases"]:
+        if not isinstance(case, dict):
+            continue
+        if case.get("surface") == GZIP_SURFACE and "assignments" in case:
+            raise ContractError("parity-input@59 does not allow live GZipMiddleware assignments")
+        if (
+            case.get("surface"),
+            case.get("operation"),
+        ) == REQUEST_COOKIE_CACHE_SEQUENCE_OPERATION and "headers_property" in case:
+            raise ContractError("parity-input@59 does not allow Request.headers property overrides")
+        scope = case.get("scope")
+        path = scope.get("path") if isinstance(scope, dict) else None
+        path_subclass = path.get("str_subclass") if isinstance(path, dict) else None
+        if isinstance(path_subclass, dict) and "startswith_result" in path_subclass:
+            raise ContractError("parity-input@59 does not allow path str-subclass overrides")
+
+    migrated = dict(document)
     migrated["schema"] = INPUT_SCHEMA
     return migrated
 
@@ -43729,8 +43947,19 @@ def validate_input_document_v58(
     *,
     public_modules: frozenset[str] | None = None,
 ) -> list[dict[str, Any]]:
-    """Validate @58 inputs before their deterministic @59 schema-header migration."""
+    """Validate @58 inputs before their deterministic @59 and @60 migrations."""
     migrated = migrate_input_document_v58(document)
+    return validate_input_document_v59(migrated, manifest, public_modules=public_modules)
+
+
+def validate_input_document_v59(
+    document: Any,
+    manifest: dict[str, Any],
+    *,
+    public_modules: frozenset[str] | None = None,
+) -> list[dict[str, Any]]:
+    """Validate @59 inputs before their deterministic @60 schema-header migration."""
+    migrated = migrate_input_document_v59(document)
     return validate_input_document(migrated, manifest, public_modules=public_modules)
 
 

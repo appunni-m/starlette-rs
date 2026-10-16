@@ -1155,6 +1155,39 @@ def _materialize_scope_method_spec(value: Any) -> Any:
     return InputMethodSubclass(method_value)
 
 
+def _materialize_scope_path_spec(value: Any) -> Any:
+    if not isinstance(value, dict) or set(value) != {"str_subclass"}:
+        return value
+    descriptor = _exact_object(value, {"str_subclass"}, "scope path")
+    subclass = descriptor["str_subclass"]
+    if not isinstance(subclass, dict) or set(subclass) not in (
+        {"value", "startswith_result"},
+        {"value", "startswith_result", "slice_result"},
+    ):
+        raise ValueError("scope path str_subclass has unsupported fields")
+    path_value = subclass["value"]
+    startswith_result = subclass["startswith_result"]
+    if not isinstance(path_value, str) or type(startswith_result) is not bool:
+        raise ValueError("scope path str_subclass requires a string and boolean startswith result")
+    has_slice_result = "slice_result" in subclass
+    slice_result = subclass.get("slice_result")
+    if has_slice_result and slice_result is not None and not isinstance(slice_result, str):
+        raise ValueError("scope path str_subclass slice_result must be a string or null")
+
+    class InputPathSubclass(str):
+        def startswith(self, _prefix: Any, start: int = 0, end: int | None = None) -> bool:
+            return startswith_result
+
+        if has_slice_result:
+
+            def __getitem__(self, key: Any) -> Any:
+                if isinstance(key, slice):
+                    return slice_result
+                return str.__getitem__(self, key)
+
+    return InputPathSubclass(path_value)
+
+
 def _make_scope(
     spec: dict[str, Any], container: str | dict[str, Any] = "dict"
 ) -> dict[str, Any] | UserDict:
@@ -1173,7 +1206,7 @@ def _make_scope(
         "asgi": dict(spec["asgi"]),
         "http_version": spec["http_version"],
         "scheme": spec["scheme"],
-        "path": spec["path"],
+        "path": _materialize_scope_path_spec(spec["path"]),
         "raw_path": _decode_base64(spec["raw_path_base64"], "scope.raw_path_base64"),
         "query_string": _decode_base64(spec["query_string_base64"], "scope.query_string_base64"),
         "root_path": spec["root_path"],
@@ -4357,6 +4390,10 @@ def _run_gzip_case(case: dict[str, Any]) -> dict[str, Any]:
     if responder and "minimum_size" not in constructor_arguments:
         raise ValueError("GZipResponder constructor requires minimum_size")
     middleware = _materialize_gzip_middleware(constructor_arguments, responder=responder)
+    for assignment in case.get("assignments", []):
+        if assignment["field"] != "app" or responder:
+            raise ValueError("GZip live assignment must replace a middleware app")
+        middleware.app = _materialize_asgi_sequence_app(assignment["value"])
 
     async def invoke_dispatches() -> list[dict[str, Any]]:
         observations = []

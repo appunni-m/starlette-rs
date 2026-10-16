@@ -1,0 +1,71 @@
+{
+  "schema": "migration-parity/parity-input@60",
+  "cases": [
+    {
+      "case_id": "starlette.routing.Router.route-dispatch.scope-path-str-subclass-startswith-false",
+      "surface": "starlette.routing.Router",
+      "operation": "route-dispatch",
+      "covers": [
+        "starlette.routing.Router.route-dispatch.literal-path-match",
+        "starlette.routing.Router.route-dispatch.scope-path-str-subclass-startswith"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "custom_convertors": [],
+      "redirect_slashes": false,
+      "routes": [
+        {
+          "kind": "http-route",
+          "path": "/gateway/items",
+          "methods": [
+            "GET"
+          ],
+          "endpoint": {
+            "kind": "plain-text-response",
+            "content": "route-selected",
+            "status_code": 200,
+            "media_type": "text/plain",
+            "cookies": []
+          }
+        }
+      ],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": {
+          "str_subclass": {
+            "value": "/gateway/items",
+            "startswith_result": false
+          }
+        },
+        "raw_path_base64": "L2dhdGV3YXkvaXRlbXM=",
+        "query_string_base64": "",
+        "root_path": "/gateway",
+        "headers_base64_pairs": [],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "route-dispatch"
+      ]
+    }
+  ]
+}

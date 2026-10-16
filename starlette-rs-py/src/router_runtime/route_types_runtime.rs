@@ -2377,7 +2377,7 @@ fn route_matches(
         None
     };
     let path = route_path_from_scope(scope)?;
-    let mut matched = python_regex_match(py, route, path.as_any(), "path_regex")?;
+    let mut matched = python_regex_match(py, route, &path, "path_regex")?;
     let Some(matched_params) = matched.take() else {
         return match_result(py, match_type, "NONE", PyDict::new(py));
     };
@@ -2529,7 +2529,7 @@ fn mount_match_result(
     route: &Bound<'_, PyAny>,
     scope: &Bound<'_, PyAny>,
     match_type: &Bound<'_, PyAny>,
-    route_path: &Bound<'_, PyString>,
+    route_path: &Bound<'_, PyAny>,
     converted: Py<PyDict>,
     outer_root_path: &Bound<'_, PyAny>,
 ) -> PyResult<Py<PyAny>> {
@@ -2538,26 +2538,28 @@ fn mount_match_result(
         .get_item("path")?
         .ok_or_else(|| PyRuntimeError::new_err("Mount converter omitted its path parameter"))?;
     params.del_item("path")?;
-    let remainder = CompatibilityPath::from_python(&remainder)?;
-    let route_path = CompatibilityPath::from_python(route_path.as_any())?;
-    let mut remaining_path = vec![u32::from(b'/')];
-    remaining_path.extend_from_slice(&remainder.0);
-    let remaining_chars = remaining_path.len();
-    let route_chars = route_path.0.len();
-    let matched_chars = route_chars.saturating_sub(remaining_chars);
-    let matched_path = &route_path.0[..matched_chars];
+    let operator = py.import("operator")?;
+    let remaining_path = operator
+        .getattr("add")?
+        .call1((PyString::new(py, "/"), remainder))?;
+    let negative_length = operator.getattr("neg")?.call1((remaining_path.len()?,))?;
+    let route_slice =
+        py.import("builtins")?
+            .getattr("slice")?
+            .call1((py.None(), negative_length, py.None()))?;
+    // Mount.matches slices the original route_path after regex conversion.
+    // Keep Python's __getitem__ dispatch and exceptions visible for str
+    // subclasses instead of deriving the prefix from Rust string lengths.
+    let matched_path = route_path.get_item(route_slice)?;
     let path_params = merged_path_params(py, scope, params)?;
     let app_root_path = scope.call_method1("get", ("app_root_path", outer_root_path))?;
-    let root_path = CompatibilityPath::from_python(outer_root_path)?;
+    let child_root_path = operator
+        .getattr("add")?
+        .call1((outer_root_path, matched_path))?;
     let child_scope = PyDict::new(py);
     child_scope.set_item("path_params", path_params.bind(py))?;
     child_scope.set_item("app_root_path", app_root_path)?;
-    let mut child_root_path = root_path.0;
-    child_root_path.extend_from_slice(matched_path);
-    child_scope.set_item(
-        "root_path",
-        codepoints_to_python_string(py, &child_root_path)?,
-    )?;
+    child_scope.set_item("root_path", child_root_path)?;
     child_scope.set_item("endpoint", route.getattr("app")?)?;
     match_result(py, match_type, "FULL", child_scope)
 }
@@ -2575,29 +2577,43 @@ fn merged_path_params(
     Ok(path_params.unbind())
 }
 
-fn route_path_from_scope<'py>(scope: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyString>> {
-    let py = scope.py();
-    let path = CompatibilityPath::from_python(&scope.get_item("path")?)?;
-    let root_path = CompatibilityPath::from_python(&scope.call_method1("get", ("root_path", ""))?)?;
-    route_path_from_parts(&path, &root_path).to_python(py)
-}
+fn route_path_from_scope<'py>(scope: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
+    // Match get_route_path's Python operations in source order. In particular,
+    // keep the original path object so str-subclass methods and slicing, as
+    // well as their exceptions, remain observable at the regex boundary.
+    let path = scope.get_item("path")?;
+    let root_path = scope.call_method1("get", ("root_path", ""))?;
+    if !root_path.is_truthy()? {
+        return Ok(path);
+    }
+    if !path
+        .call_method1("startswith", (&root_path,))?
+        .is_truthy()?
+    {
+        return Ok(path);
+    }
+    if path.rich_compare(&root_path, CompareOp::Eq)?.is_truthy()? {
+        return Ok(PyString::new(scope.py(), "").into_any());
+    }
 
-fn route_path_from_parts(
-    path: &CompatibilityPath,
-    root_path: &CompatibilityPath,
-) -> CompatibilityPath {
-    if root_path.0.is_empty() || !path.0.starts_with(&root_path.0) {
-        return path.clone();
+    let first_index = root_path.len()?;
+    if path
+        .get_item(first_index)?
+        .rich_compare("/", CompareOp::Eq)?
+        .is_truthy()?
+    {
+        // The pinned source evaluates len(root_path) again when creating the
+        // slice; don't cache the first result, since a str subclass may expose
+        // observable __len__ behavior.
+        let slice_start = root_path.len()?;
+        let slice = scope.py().import("builtins")?.getattr("slice")?.call1((
+            slice_start,
+            scope.py().None(),
+            scope.py().None(),
+        ))?;
+        return path.get_item(slice);
     }
-    if path.0 == root_path.0 {
-        return CompatibilityPath(Vec::new());
-    }
-    let remaining = &path.0[root_path.0.len()..];
-    if remaining.first().copied() == Some(u32::from(b'/')) {
-        CompatibilityPath(remaining.to_vec())
-    } else {
-        path.clone()
-    }
+    Ok(path)
 }
 
 fn dict_keys_as_strings(dict: &Bound<'_, PyDict>) -> PyResult<Vec<String>> {

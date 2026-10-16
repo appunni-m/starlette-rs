@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@59",
+  "schema": "migration-parity/parity-input@60",
   "cases": [
     {
       "case_id": "starlette.applications.Starlette.__call__.lifespan-async-generator-startup-failure.native-failure-transition",

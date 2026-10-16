@@ -48,7 +48,7 @@ class GZipMiddleware:
             list(exclude_content_types),
             compresslevel_overflow,
         )
-        self._runtime = _core.GZipMiddlewareRuntime(self.app, self.config, _offload_gzip_body)
+        self._runtime = _core.GZipMiddlewareRuntime(self, self.config, _offload_gzip_body)
 
     async def __call__(
         self,
@@ -82,7 +82,7 @@ class GZipResponder:
             list(exclude_content_types),
             compresslevel_overflow,
         )
-        self._runtime = _core.GZipMiddlewareRuntime(self.app, self.config, _offload_gzip_body, True)
+        self._runtime = _core.GZipMiddlewareRuntime(self, self.config, _offload_gzip_body, True)
 
     async def __call__(
         self,

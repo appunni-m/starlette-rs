@@ -85,7 +85,7 @@ fn offload_gzip_body(
 /// call through the active Python task's awaitable driver.
 #[pyclass(name = "GZipMiddlewareRuntime")]
 pub(crate) struct PyGzipMiddlewareRuntime {
-    app: Py<PyAny>,
+    owner: Py<PyAny>,
     config: Py<PyAny>,
     offload_body: Py<PyAny>,
     gzip_always: bool,
@@ -95,7 +95,7 @@ pub(crate) struct PyGzipMiddlewareRuntime {
 #[pymethods]
 impl PyGzipMiddlewareRuntime {
     fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
-        visit.call(&self.app)?;
+        visit.call(&self.owner)?;
         visit.call(&self.config)?;
         visit.call(&self.offload_body)?;
         visit.call(&self.persistent_responder)?;
@@ -103,17 +103,17 @@ impl PyGzipMiddlewareRuntime {
     }
 
     fn __clear__(&mut self, py: Python<'_>) {
-        self.app = py.None();
+        self.owner = py.None();
         self.config = py.None();
         self.offload_body = py.None();
         self.persistent_responder = None;
     }
 
     #[new]
-    #[pyo3(signature = (app, config, offload_body, gzip_always=false))]
+    #[pyo3(signature = (owner, config, offload_body, gzip_always=false))]
     fn new(
         py: Python<'_>,
-        app: Py<PyAny>,
+        owner: Py<PyAny>,
         config: Py<PyAny>,
         offload_body: Py<PyAny>,
         gzip_always: bool,
@@ -124,7 +124,7 @@ impl PyGzipMiddlewareRuntime {
             None
         };
         Ok(Self {
-            app,
+            owner,
             config,
             offload_body,
             gzip_always,
@@ -143,7 +143,7 @@ impl PyGzipMiddlewareRuntime {
         into_sendable_python_awaitable(
             py,
             GzipMiddlewareCall {
-                app: runtime.app.clone_ref(py),
+                owner: runtime.owner.clone_ref(py),
                 config: runtime.config.clone_ref(py),
                 offload_body: runtime.offload_body.clone_ref(py),
                 gzip_always: runtime.gzip_always,
@@ -161,7 +161,7 @@ impl PyGzipMiddlewareRuntime {
 }
 
 struct GzipMiddlewareCall {
-    app: Py<PyAny>,
+    owner: Py<PyAny>,
     config: Py<PyAny>,
     offload_body: Py<PyAny>,
     gzip_always: bool,
@@ -174,7 +174,7 @@ struct GzipMiddlewareCall {
 
 impl AwaitableStateMachine for GzipMiddlewareCall {
     fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
-        visit.call(&self.app)?;
+        visit.call(&self.owner)?;
         visit.call(&self.config)?;
         visit.call(&self.offload_body)?;
         visit.call(&self.persistent_responder)?;
@@ -255,10 +255,11 @@ impl GzipMiddlewareCall {
             self.send.clone_ref(py)
         };
 
-        let awaitable =
-            self.app
-                .bind(py)
-                .call1((self.scope.bind(py), self.receive.bind(py), send.bind(py)))?;
+        // Starlette reads `self.app` from the middleware on each invocation.
+        // Resolve it only after dispatch and responder selection, immediately
+        // before calling it, so replacing `middleware.app` remains observable.
+        let app = self.owner.bind(py).getattr("app")?;
+        let awaitable = app.call1((self.scope.bind(py), self.receive.bind(py), send.bind(py)))?;
         self.pending = true;
         Ok(MachineAction::Await(awaitable.unbind()))
     }

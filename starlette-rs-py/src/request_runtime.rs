@@ -247,25 +247,44 @@ impl PyHTTPConnection {
             .map(Bound::unbind)
     }
 
-    #[getter]
-    fn cookies(&mut self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        if let Some(cookies) = self.cookies.as_ref() {
-            return Ok(cookies.clone_ref(py));
+    #[staticmethod]
+    fn _cookies_for(
+        py: Python<'_>,
+        runtime: Py<PyHTTPConnection>,
+        connection: Py<PyAny>,
+    ) -> PyResult<Py<PyAny>> {
+        let cached_cookies = {
+            let runtime = runtime.borrow(py);
+            runtime
+                .cookies
+                .as_ref()
+                .map(|cookies| cookies.clone_ref(py))
+        };
+        if let Some(cookies) = cached_cookies {
+            return Ok(cookies);
         }
-        let native_headers = self.native_headers(py)?;
-        let cookies_type = py.import("starlette_rs_py._core")?.getattr("Cookies")?;
-        let parsed_cookies = cookies_type
-            .getattr("from_headers")?
-            .call1((native_headers,))?;
-        let cookie_items = parsed_cookies
-            .call_method0("items")?
-            .extract::<Vec<(String, String)>>()?;
+
+        // Starlette evaluates `self.headers.getlist("cookie")` here, after
+        // checking its cookie cache. Resolve the facade property on the
+        // original Python connection so Request/WebSocket subclasses retain
+        // their normal descriptor dispatch; the Rust cookie parser still owns
+        // parsing and the cached result.
+        let headers = connection.bind(py).getattr("headers")?;
+        let cookie_headers = headers.call_method1("getlist", ("cookie",))?;
+        let cookie_type = py.import("starlette_rs_py._core")?.getattr("Cookies")?;
         let cookies = PyDict::new(py);
-        for (key, value) in cookie_items {
-            cookies.set_item(key, value)?;
+        for header in PyIterator::from_object(&cookie_headers)? {
+            let header = header?.extract::<String>()?;
+            let parsed = cookie_type.getattr("from_header")?.call1((header,))?;
+            let items = parsed
+                .call_method0("items")?
+                .extract::<Vec<(String, String)>>()?;
+            for (key, value) in items {
+                cookies.set_item(key, value)?;
+            }
         }
         let cookies = cookies.into_any().unbind();
-        self.cookies = Some(cookies.clone_ref(py));
+        runtime.borrow_mut(py).cookies = Some(cookies.clone_ref(py));
         Ok(cookies)
     }
 
@@ -498,9 +517,9 @@ impl PyHTTPConnection {
         if let Some(headers) = self.request_headers.as_ref() {
             return Ok(headers.clone_ref(py));
         }
-        // Upstream cookies and push-promise handling read through the cached
-        // `self.headers` property. Reuse that object so replacing `scope` after
-        // the first header access does not switch these paths to new headers.
+        // Push-promise handling reads through the cached `self.headers`
+        // property. Reuse that object so replacing `scope` after the first
+        // header access does not switch that path to new headers.
         let headers = self.headers(py)?;
         let raw = headers.bind(py).getattr("raw")?;
         let headers = py

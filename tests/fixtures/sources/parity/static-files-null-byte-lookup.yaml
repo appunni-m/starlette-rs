@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@59",
+  "schema": "migration-parity/parity-input@60",
   "cases": [
     {
       "case_id": "starlette.staticfiles.StaticFiles.lookup-path.null-byte-error",

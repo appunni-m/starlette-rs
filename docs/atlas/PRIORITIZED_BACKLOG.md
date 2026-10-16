@@ -8,18 +8,17 @@ incomplete.
 
 ## Current execution snapshot
 
-The active `parity-input@59` contract contains 2,573 cases across 433 parity
+The active `parity-input@60` contract contains 2,577 cases across 436 parity
 inputs and two benchmark inputs, 152 Starlette compatibility operations, 15
-Rust-native operations, 1,426 parity requirements, and six target profiles.
+Rust-native operations, 1,430 parity requirements, and six target profiles.
 Its manifest SHA-256 is
-`db542a7081c3b80c0b0efc6de3a026e8d02fefbe4306f471b87e58c0129b89a3`. The
-generated atlas and row totals below still reflect the prior `@58` manifest;
-they have not been regenerated to include the three new
-AuthenticationMiddleware requirements. That atlas snapshot has 867 source
-rows: 811 input mappings, 56 source-backed
-`not_applicable` rows, and zero backlog. All 999 API candidate rows have
-dispositions. The pinned denominators remain 514 upstream test functions and
-24 documented pages.
+`08ecbff53b8a2c89aee3d9a5802a0c8dfbe5ee2877de156f4a91cd3846026ee5`. Contract
+validation passed and the generated atlas below reflects @60. It has 867 source
+rows: 811 input mappings, 56 source-backed `not_applicable` rows, and zero
+backlog. All 999 API candidate rows have dispositions. The pinned denominators
+remain 514 upstream test functions and 24 documented pages. Four @60
+comparisons are authored but remain unexecuted until grouped parity, including
+Mount path string-subclass slicing.
 
 For the prior `@58` manifest, workflow
 [`38850605133`](https://github.com/appunni-m/starlette-rs/actions/runs/38850605133)

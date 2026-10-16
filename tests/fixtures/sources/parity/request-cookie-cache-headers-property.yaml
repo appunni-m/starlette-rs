@@ -1,0 +1,104 @@
+{
+  "schema": "migration-parity/parity-input@60",
+  "cases": [
+    {
+      "case_id": "starlette.requests.Request.cookie-cache-sequence.headers-property-override",
+      "surface": "starlette.requests.Request",
+      "operation": "cookie-cache-sequence",
+      "covers": [
+        "starlette.request.cookies-cache-semantics",
+        "starlette.request.cookies-dict-semantics",
+        "starlette.request.cookies.headers-property-override"
+      ],
+      "target_profiles": [
+        "python-package-cpython312"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/cookie-cache",
+        "raw_path_base64": "L2Nvb2tpZS1jYWNoZQ==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "Y29va2ll",
+            "c2Vzc2lvbj1vbGQ7IGRpc2NhcmQ9cHJlc2VudA=="
+          ],
+          [
+            "Y29va2ll",
+            "c2hhcmVkPWZpcnN0"
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ],
+        "extensions": {}
+      },
+      "actions": [
+        {
+          "operation": "read-cookies"
+        },
+        {
+          "operation": "mutate-headers-in-place",
+          "headers_base64_pairs": [
+            [
+              "Y29va2ll",
+              "c2Vzc2lvbj1pbi1wbGFjZTsgc2hhcmVkPWNoYW5nZWQ7IG5ldz1hZGRlZA=="
+            ]
+          ]
+        },
+        {
+          "operation": "read-cookies"
+        },
+        {
+          "operation": "replace-headers",
+          "headers_base64_pairs": [
+            [
+              "Y29va2ll",
+              "c2Vzc2lvbj1yZXBsYWNlZDsgc2hhcmVkPW5ld2VzdA=="
+            ]
+          ]
+        },
+        {
+          "operation": "read-cookies"
+        },
+        {
+          "operation": "set-cookie",
+          "key": "addedByInput",
+          "value": "inputValue"
+        },
+        {
+          "operation": "delete-cookie",
+          "key": "discard"
+        },
+        {
+          "operation": "read-cookies"
+        }
+      ],
+      "observations": [
+        "cookie-cache-sequence"
+      ],
+      "headers_property": {
+        "headers_base64_pairs": [
+          [
+            "Y29va2ll",
+            "c291cmNlPXByb3BlcnR5OyBkaXNjYXJkPXByZXNlbnQ="
+          ]
+        ]
+      }
+    }
+  ]
+}

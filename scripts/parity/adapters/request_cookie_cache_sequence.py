@@ -21,7 +21,19 @@ def _items(value: dict[str, str]) -> list[list[str]]:
 def _observe(case: dict[str, Any], request_type: Callable[..., Any]) -> dict[str, Any]:
     scope = dict(case["scope"])
     scope["headers"] = _decode_headers(scope.pop("headers_base64_pairs"))
-    request = request_type(scope)
+    if "headers_property" in case:
+        from starlette.datastructures import Headers
+
+        property_headers = _decode_headers(case["headers_property"]["headers_base64_pairs"])
+
+        class RequestWithHeadersProperty(request_type):
+            @property
+            def headers(self) -> Any:
+                return Headers(raw=property_headers)
+
+        request = RequestWithHeadersProperty(scope)
+    else:
+        request = request_type(scope)
     initial_cookies: dict[str, str] | None = None
     observations: list[dict[str, Any]] = []
 
