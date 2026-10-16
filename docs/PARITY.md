@@ -4,19 +4,14 @@
 
 The active full-scope contract is `parity-input@63`, with 2,590 cases across
 437 parity inputs, 1,442 parity requirements, and manifest SHA-256
-`f8a34c2978af95382ceadcd3e3a2c5a9d7bb1d467f03b35ba55033d9b7336124`. The two
-new lifespan failure-send context cases are authored and await the grouped
-parity phase. The recorded local and CI results below used the previous @62
-contract and do not verify @63. The prior local grouped run selected 2,941
-comparisons on CPython 3.12 and Rust-native:
-2,937 passed, zero differed, and two had WebSocket target-adapter crashes.
-The four local `not_run` rows were those two crash outcomes and two runs of a
-surrogateescape filesystem case that macOS cannot create. The adapter crashes
-were fixed and both cases passed in a focused rerun. CI workflow
-[`38895661384`](https://github.com/appunni-m/starlette-rs/actions/runs/38895661384)
-passed the five CPython 3.10–3.14 parity jobs on commit
-`4742d075a748fbe182ac121e8b37dd25f5f2d56c`. The pinned Starlette 1.6.0 source
-revision is `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`.
+`f8a34c2978af95382ceadcd3e3a2c5a9d7bb1d467f03b35ba55033d9b7336124`.
+Workflow [`38923021415`](https://github.com/appunni-m/starlette-rs/actions/runs/38923021415)
+passed the five CPython source-parity profiles: 646/646 comparisons for 3.10
+and 3.11, 2,943/2,943 for 3.12, and 647/647 for 3.13 and 3.14. Every profile
+had zero failures, `not_run` rows, or infrastructure errors; selected
+fault-contract cases passed. The pinned Starlette 1.6.0 source revision is
+`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`, and the target revision is
+`14067d434dd74a3ae5f931233ace7088dcc04bcc`.
 
 The dedicated Windows StaticFiles workflow
 [`38892560877`](https://github.com/appunni-m/starlette-rs/actions/runs/38892560877)
@@ -28,20 +23,23 @@ installed package, and Rust-native target at commit
 and input definitions are unchanged on the current branch. This verifies those
 two Windows cases only.
 
-All six previous @62 coverage profiles passed: 375 Rust-native cases, 274 each for
-CPython 3.10 and 3.11, 2,571 for 3.12, and 275 each for 3.13 and 3.14. Coverage
-MCP read the LCOV reports and surfaced gaps, but reports imported from CI were
-marked `source=unverified` and `tests=unknown` because their receipts were not
-ingested. The CI result artifacts identify the clean target commit and record
-zero failed cases. The selected-component line counts are in the
-[implementation ledger](IMPLEMENTATION_PLAN.md); they do not measure every
-source line or the full Starlette behavior denominator.
+All six @63 coverage profiles passed in the same workflow: 375 Rust-native
+cases, 274 each for CPython 3.10 and 3.11, 2,573 for 3.12, and 275 each for
+3.13 and 3.14. Coverage MCP read all six LCOV reports and surfaced uncovered
+locations. It marked the imported reports `source=unverified` and
+`tests=unknown` because matching source/build receipts were not ingested. The
+selected-component line counts are in the [implementation
+ledger](IMPLEMENTATION_PLAN.md); they do not measure every source line or the
+full Starlette behavior denominator.
 
-The complete 74-workload Router/GZip benchmark passed after parity and
-coverage. All source/package observations matched; its Rust-native `not_run`
-rows reflect that there is no equivalent native ASGI workload boundary. The
-benchmark and its correctness preflight are detailed in
-[benchmark evidence](BENCHMARKS.md). The source atlas contains 867 rows (811
+The @63 74-workload Router/GZip benchmark, run
+`005660ff-d624-43a0-aff3-fc86fcb9b2f0`, passed after parity and coverage. All
+74 source/package observations matched; its Rust-native `not_run` rows reflect
+that there is no equivalent native ASGI workload boundary. The correctness
+preflight passed 2,941 comparisons, with zero failures or infrastructure
+errors and two expected macOS POSIX-surrogateescape skips. The benchmark and
+its evidence are detailed in [benchmark evidence](BENCHMARKS.md). The source
+atlas contains 867 rows (811
 input mappings, 56 source-backed `not_applicable`, zero backlog). The top-level
 replacement status remains `not_proven`; the pinned denominators remain 514
 upstream test functions and 24 documented pages.
