@@ -138,6 +138,11 @@ struct StaticFilesPermissionDenialGuard {
 }
 
 #[cfg(unix)]
+type StaticFilesPermissionGuard = StaticFilesPermissionDenialGuard;
+#[cfg(not(unix))]
+type StaticFilesPermissionGuard = ();
+
+#[cfg(unix)]
 impl Drop for StaticFilesPermissionDenialGuard {
     fn drop(&mut self) {
         let _ = fs::set_permissions(&self.path, self.original_permissions.clone());
@@ -8916,17 +8921,18 @@ fn run_static_files_case(case: &Value) -> Result<Value, String> {
     static_files
         .check_config()
         .map_err(|error| format!("StaticFiles configuration failed: {error:?}"))?;
-    let permission_guard = if let Some(stress) = permission_denial_stress {
-        match prepare_static_files_permission_denial_stress(&root, &request_path, stress)? {
-            #[cfg(unix)]
-            StaticFilesPermissionDenialStressSetup::Ready(guard) => Some(guard),
-            StaticFilesPermissionDenialStressSetup::Skipped(reason) => {
-                return Ok(static_files_skipped_result(case_id, &reason));
+    let permission_guard: Option<StaticFilesPermissionGuard> =
+        if let Some(stress) = permission_denial_stress {
+            match prepare_static_files_permission_denial_stress(&root, &request_path, stress)? {
+                #[cfg(unix)]
+                StaticFilesPermissionDenialStressSetup::Ready(guard) => Some(guard),
+                StaticFilesPermissionDenialStressSetup::Skipped(reason) => {
+                    return Ok(static_files_skipped_result(case_id, &reason));
+                }
             }
-        }
-    } else {
-        None
-    };
+        } else {
+            None
+        };
     let mut request_observations = Vec::with_capacity(call_inputs.len());
     for (call, actions_before) in call_inputs.iter().zip(filesystem_actions_before) {
         for action_path in actions_before {
