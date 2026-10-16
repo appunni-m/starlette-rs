@@ -14500,10 +14500,10 @@ async def _invoke_lifespan_only(
         raise error
 
     def send_lifecycle(message: dict[str, Any]) -> Any:
-        if message.get("type") == send_spec["message_type"] and send_spec["kind"] in {
-            "raise-on-call",
-            "raise-on-await",
-        }:
+        if (
+            send_spec["kind"] in {"raise-on-call", "raise-on-await"}
+            and message.get("type") == send_spec["message_type"]
+        ):
             exception_type = getattr(builtins, send_spec["exception_type"])
             if "exception_class_override" in send_spec:
                 reported_class = getattr(builtins, send_spec["exception_class_override"])
