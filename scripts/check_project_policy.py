@@ -25,6 +25,11 @@ PYTHON_SOURCE_ROOTS = (
     ROOT / "starlette-rs-py",
 )
 PYTHON_RUNTIME_ROOT = ROOT / "starlette-rs-py" / "python" / "starlette"
+PYTHON_PARITY_ADAPTER = (
+    ROOT / "starlette-rs-py" / "python" / "starlette_rs_py" / "parity_adapter.py"
+)
+RUST_PARITY_ADAPTER = ROOT / "starlette-rs" / "src" / "bin" / "starlette-rs-parity-adapter.rs"
+PARITY_IDENTIFIER_FIELDS = frozenset({"case_id", "requirement_id", "workload_id"})
 PYTHON_RUNTIME_CONTROL_FLOW_NAMES = (
     "If",
     "For",
@@ -46,6 +51,7 @@ PYTHON_RUNTIME_CONTROL_FLOW = tuple(
     for name in PYTHON_RUNTIME_CONTROL_FLOW_NAMES
     if (node_type := getattr(ast, name, None)) is not None
 )
+AST_MATCH_NODE = getattr(ast, "Match", None)
 RUST_TEST_ATTRIBUTES = re.compile(
     r"^\s*#\[\s*(?:"
     r"cfg\s*\(\s*(?:test|(?:all|any)\s*\([^]]*\btest\b[^]]*\))\s*\)|"
@@ -403,6 +409,128 @@ def is_static_typing_import_guard(path: Path, node: ast.AST) -> bool:
     )
 
 
+def python_expression_uses_parity_identifier(expression: ast.AST, aliases: set[str]) -> bool:
+    """Detect direct or aliased use of manifest IDs in dispatcher decisions."""
+    for node in ast.walk(expression):
+        if isinstance(node, ast.Name) and node.id in aliases:
+            return True
+        if isinstance(node, ast.Attribute) and node.attr in PARITY_IDENTIFIER_FIELDS:
+            return True
+        if isinstance(node, ast.Subscript):
+            key = node.slice
+            if isinstance(key, ast.Constant) and key.value in PARITY_IDENTIFIER_FIELDS:
+                return True
+            if isinstance(key, ast.Name) and key.id in aliases:
+                return True
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+            if node.func.attr in {"get", "pop"} and node.args:
+                key = node.args[0]
+                if isinstance(key, ast.Constant) and key.value in PARITY_IDENTIFIER_FIELDS:
+                    return True
+                if isinstance(key, ast.Name) and key.id in aliases:
+                    return True
+    return False
+
+
+def assigned_names(node: ast.AST) -> set[str]:
+    if isinstance(node, ast.Name):
+        return {node.id}
+    if isinstance(node, (ast.Tuple, ast.List)):
+        return {name for item in node.elts for name in assigned_names(item)}
+    return set()
+
+
+def check_parity_adapter_dispatch(violations: list[str]) -> None:
+    try:
+        python_source = PYTHON_PARITY_ADAPTER.read_text(encoding="utf-8")
+        python_tree = ast.parse(python_source, filename=str(PYTHON_PARITY_ADAPTER))
+    except (OSError, UnicodeError, SyntaxError) as error:
+        violations.append(
+            f"{PYTHON_PARITY_ADAPTER.relative_to(ROOT)}: unable to inspect dispatch: {error}"
+        )
+        return
+
+    dispatchers = [
+        node
+        for node in python_tree.body
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == "_run_case"
+    ]
+    if len(dispatchers) != 1:
+        violations.append(
+            f"{PYTHON_PARITY_ADAPTER.relative_to(ROOT)}: expected one module-level `_run_case` dispatcher"
+        )
+    else:
+        dispatcher = dispatchers[0]
+        aliases = set(PARITY_IDENTIFIER_FIELDS)
+        assignments = [
+            node
+            for node in ast.walk(dispatcher)
+            if isinstance(node, (ast.Assign, ast.AnnAssign, ast.NamedExpr))
+        ]
+        changed = True
+        while changed:
+            changed = False
+            for assignment in assignments:
+                value = assignment.value
+                if value is None or not python_expression_uses_parity_identifier(value, aliases):
+                    continue
+                targets = (
+                    assignment.targets
+                    if isinstance(assignment, ast.Assign)
+                    else [assignment.target]
+                )
+                for target in targets:
+                    new_aliases = assigned_names(target) - aliases
+                    if new_aliases:
+                        aliases.update(new_aliases)
+                        changed = True
+
+        decision_expressions: list[ast.AST] = []
+        for node in ast.walk(dispatcher):
+            if isinstance(node, (ast.If, ast.While, ast.IfExp)):
+                decision_expressions.append(node.test)
+            elif AST_MATCH_NODE is not None and isinstance(node, AST_MATCH_NODE):
+                decision_expressions.append(node.subject)
+            elif isinstance(node, (ast.For, ast.AsyncFor)):
+                decision_expressions.append(node.iter)
+            elif isinstance(node, (ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp)):
+                for generator in node.generators:
+                    decision_expressions.extend([generator.iter, *generator.ifs])
+
+        for expression in decision_expressions:
+            if python_expression_uses_parity_identifier(expression, aliases):
+                violations.append(
+                    f"{PYTHON_PARITY_ADAPTER.relative_to(ROOT)}:{expression.lineno}: dispatcher decisions "
+                    "must use supplied surface/operation fields, never case, requirement, or workload IDs"
+                )
+
+    try:
+        rust_source = RUST_PARITY_ADAPTER.read_text(encoding="utf-8")
+    except (OSError, UnicodeError) as error:
+        violations.append(
+            f"{RUST_PARITY_ADAPTER.relative_to(ROOT)}: unable to inspect dispatch: {error}"
+        )
+        return
+
+    rust_dispatch = re.search(
+        r"(?ms)^fn\s+run_case\s*\([^)]*\)[^{]*\{(?P<body>.*?)(?=^fn\s|\Z)",
+        rust_source,
+    )
+    if rust_dispatch is None:
+        violations.append(
+            f"{RUST_PARITY_ADAPTER.relative_to(ROOT)}: expected a module-level `run_case` dispatcher"
+        )
+        return
+    for match in re.finditer(
+        r"\b(?:case_id|requirement_id|workload_id)\b", rust_dispatch.group("body")
+    ):
+        line = rust_source.count("\n", 0, rust_dispatch.start("body") + match.start()) + 1
+        violations.append(
+            f"{RUST_PARITY_ADAPTER.relative_to(ROOT)}:{line}: dispatcher must use supplied surface/operation "
+            "fields, never case, requirement, or workload IDs"
+        )
+
+
 def check_generated_parity_json(violations: list[str]) -> None:
     try:
         tracked = subprocess.run(
@@ -471,6 +599,7 @@ def main() -> int:
     violations: list[str] = []
     check_generated_parity_json(violations)
     check_rust_crate_notice_copies(violations)
+    check_parity_adapter_dispatch(violations)
 
     for path in TESTS_ROOT.rglob("*"):
         if not path.is_file():
@@ -551,7 +680,8 @@ def main() -> int:
         "project policy check passed: no conventional unit-test sources or "
         "framework imports, no upstream Starlette runtime dependency, and no "
         "control flow in Python Starlette wrappers; Rust lint exceptions and "
-        "workspace lint levels and member inheritance are enforced, broad lint "
+        "workspace lint levels and member inheritance are enforced, parity "
+        "adapter dispatch ignores manifest IDs, broad lint "
         "groups cannot be suppressed, crate notice copies are checked, parity "
         "JSON is ignored; `make test` routes to live parity"
     )
