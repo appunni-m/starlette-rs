@@ -26,26 +26,23 @@ catalog, and the compatibility atlas pass. The atlas has 867 source rows,
 backlog. The pinned denominators remain 514 upstream test functions and 24
 documented pages.
 
-The previous grouped local @66 run
-(`3a615b88-4f92-434e-9b89-3b8ab3935ca2`) and local coverage results used the
-former profile selections and manifest SHA-256
-`474c5a1e8f413ab0a02cb0b6ca5e9c46b85a5e29f26bfde93d4cd3e735faf12f`. They do
-not verify this profile matrix. A separate full-case attempt is bound to the
-active manifest hash, but selected only CPython 3.10 and Rust-native and used
-stale target revisions `085f4dbb` and `db0e073e`. It reports 2,793 passed, 97
-failed, 93 not run, and 91 infrastructure errors; those results do not assess
-the current target checkout. No clean grouped run verifies the current target
-across the active matrix. The grouped parity matrix and six coverage plans
-remain pending; after those finish, run the complete benchmark workload. The full
-parity and coverage jobs are available through the manually dispatched
-`.github/workflows/parity-coverage.yml` workflow, so routine pushes and pull
-requests do not rerun those full suites.
+The full active @66 parity matrix ran once on target snapshot `ee12d295`, before
+the grouped mismatch fixes. CPython 3.10 reported 2,981 passed, 0 failed, and 2
+skips; 3.11 reported 2,980 passed, 1 failed, and 2 skips; 3.12 reported 2,979
+passed, 3 failed, and 2 skips; 3.13 and 3.14 each reported 2,980 passed, 1
+failed, and 2 skips. The mismatches were fixed at `d5e37b34`, and targeted
+rechecks passed QueryParams string-subclass cases on all five Python versions
+and the two affected CPython 3.12 upload cases. The full matrix was not rerun
+after those focused fixes, so there is no post-fix full-matrix pass to claim.
+The skips were the host-incompatible POSIX surrogateescape filename cases.
 
-The clean committed @66 benchmark
-(`3e3c1fb0-af43-45ae-9a8c-f18a47e248ec`) remains historical evidence for its
-74 source/package workloads. It ran before the current grouped parity and
-coverage phases and does not satisfy their required ordering. See
-[benchmark evidence](BENCHMARKS.md).
+All six active coverage plans have run, and the current 74-workload
+source/package Router/GZip benchmark completed on clean revision `fd024b83`.
+The measured evidence and its limitations are recorded in the execution ledger
+and [benchmark report](BENCHMARKS.md). Rust-native is not comparable at those
+ASGI workload boundaries. The full parity and coverage jobs are available
+through the manually dispatched `.github/workflows/parity-coverage.yml`
+workflow, so routine pushes and pull requests do not rerun those full suites.
 
 The following @64 results are historical and do not add evidence for the active
 @66 input set. The @64 Ubuntu source-parity workflow

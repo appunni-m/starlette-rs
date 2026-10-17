@@ -10,21 +10,28 @@ across 452 parity files, two benchmark inputs, 156 compatibility operations,
 15 Rust-native operations, 1,467 parity requirements, and six target profiles.
 The active profile selection is 2,608 cases on CPython 3.10, 3.11, 3.13, and
 3.14; 2,611 on 3.12; and 378 Rust-native. Input generation, contract
-validation, source inventory, and the atlas pass. The previous local @66 run
-`3a615b88-4f92-434e-9b89-3b8ab3935ca2`, the local coverage artifacts, and the
-clean @66 benchmark used manifest SHA-256
-`474c5a1e8f413ab0a02cb0b6ca5e9c46b85a5e29f26bfde93d4cd3e735faf12f` and the
-former profile selection; they are historical evidence and do not verify the
-active matrix. The current-manifest full-case attempt selected only CPython
-3.10 and Rust-native and used stale target revisions `085f4dbb` and `db0e073e`;
-it reported 2,793 passed, 97 failed, 93 not run, and 91 infrastructure errors.
-It does not establish current-target parity. A clean grouped run across the
-active matrix, all six active coverage plans, and the post-parity,
-post-coverage benchmark run remain pending. Source inventory counts are
-generated in the atlas:
-867 source rows, 811 input mappings, 56 source-backed `not_applicable` rows,
-and zero fixture backlog. The pinned denominators remain 514 upstream test
-functions and 24 documented pages.
+validation, source inventory, and the atlas pass. The full active parity matrix
+ran once on pre-fix target snapshot `ee12d295`. It recorded: CPython 3.10,
+2,981 passed / 0 failed / 2 skipped; 3.11, 2,980 / 1 / 2; 3.12, 2,979 / 3 /
+2; 3.13, 2,980 / 1 / 2; and 3.14, 2,980 / 1 / 2. The mismatches were fixed
+at `d5e37b34`; targeted rechecks passed the affected QueryParams inputs on all
+five Python versions and the affected CPython 3.12 upload inputs. The full
+matrix was not rerun after those changes. Its two skips per profile were
+host-incompatible POSIX surrogateescape filename cases, so a post-fix full-
+matrix pass is still unverified.
+
+All six active coverage plans and the active benchmark phase have completed.
+The six coverage measurements and their source-attribution limitation are
+recorded in the [implementation ledger](IMPLEMENTATION_PLAN.md). The latest
+source/package benchmark measured all 74 Router/GZip workloads with zero
+failures or source/package not-run rows; 74 Rust-native rows were not comparable
+at this ASGI boundary. A separate direct-ASGI `/hello` measurement recorded a
+3.640× package slowdown. See [benchmark evidence](BENCHMARKS.md).
+
+Source inventory counts are generated in the atlas: 867 source rows, 811 input
+mappings, 56 source-backed `not_applicable` rows, and zero fixture backlog.
+Those counts describe source disposition, not verified behavioral parity. The
+pinned denominators remain 514 upstream test functions and 24 documented pages.
 
 All six @63 coverage profiles passed: 375 Rust-native cases, 274 each for
 CPython 3.10 and 3.11, 2,573 for 3.12, and 275 each for 3.13 and 3.14.
