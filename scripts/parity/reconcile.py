@@ -17,7 +17,7 @@ from .contract import (
 )
 from .runner import load_json_from_text
 
-RECONCILIATION_SCHEMA = "migration-parity/parity-reconciliation@1"
+RECONCILIATION_SCHEMA = "migration-parity/parity-reconciliation@2"
 _SHARED_TARGET_FIELDS = (
     "target_id",
     "target_profile",
@@ -118,6 +118,7 @@ def _validate_reconciliation_report(report: dict[str, Any]) -> None:
         "replacements",
         "unreplaced_skipped_rows",
         "non_reconcilable_not_run_rows",
+        "non_reconcilable_supplement_rows",
         "parity_matrix",
         "full_replacement",
     }
@@ -201,9 +202,15 @@ def _validate_reconciliation_report(report: dict[str, Any]) -> None:
         raise ContractError("parity reconciliation cannot prove the full Starlette replacement")
 
     row_identity_fields = {"profile", "case_id", "target_profile"}
-    for field in ("unreplaced_skipped_rows", "non_reconcilable_not_run_rows"):
+    unreplaced_skipped_keys: set[tuple[str, str, str]] = set()
+    non_reconcilable_supplement_keys: set[tuple[str, str, str]] = set()
+    for field in (
+        "unreplaced_skipped_rows",
+        "non_reconcilable_not_run_rows",
+        "non_reconcilable_supplement_rows",
+    ):
         expected_fields = row_identity_fields
-        if field == "non_reconcilable_not_run_rows":
+        if field != "unreplaced_skipped_rows":
             expected_fields = row_identity_fields | {"reason"}
         seen_rows: set[tuple[str, str, str]] = set()
         for row in report[field]:
@@ -215,10 +222,14 @@ def _validate_reconciliation_report(report: dict[str, Any]) -> None:
             seen_rows.add(key)
             if any(not isinstance(value, str) or not value for value in key):
                 raise ContractError(f"generated {field} has an empty identity field")
-            if field == "non_reconcilable_not_run_rows" and (
+            if field == "unreplaced_skipped_rows":
+                unreplaced_skipped_keys.add(key)
+            elif field == "non_reconcilable_supplement_rows":
+                non_reconcilable_supplement_keys.add(key)
+            if field != "unreplaced_skipped_rows" and (
                 not isinstance(row["reason"], str) or not row["reason"]
             ):
-                raise ContractError("generated non-reconcilable row has an empty reason")
+                raise ContractError(f"generated {field} row has an empty reason")
 
     replacement_keys: set[tuple[str, str, str]] = set()
     for replacement in report["replacements"]:
@@ -238,6 +249,10 @@ def _validate_reconciliation_report(report: dict[str, Any]) -> None:
                 character not in "0123456789abcdef" for character in evidence["sha256"]
             ):
                 raise ContractError("generated replacement evidence has an invalid digest")
+    if replacement_keys & non_reconcilable_supplement_keys:
+        raise ContractError("generated reconciliation both accepts and rejects one supplement row")
+    if not non_reconcilable_supplement_keys <= unreplaced_skipped_keys:
+        raise ContractError("non-reconcilable supplement rows must remain unreplaced baseline skips")
 
 
 def reconcile_parity_results(
@@ -408,6 +423,7 @@ def reconcile_parity_results(
                 )
 
     replacements: dict[tuple[str, str, str], dict[str, Any]] = {}
+    non_reconcilable_supplement_rows: dict[tuple[str, str, str], dict[str, str]] = {}
     supplements_by_profile: dict[str, list[dict[str, Any]]] = {
         key: [] for key in expected_python_ids
     }
@@ -480,6 +496,8 @@ def reconcile_parity_results(
                 f"supplement target identities do not match selected profiles: {record['path']}"
             )
         baseline_targets = _target_map(baseline_artifact, f"baseline for {profile_id}")
+        matching_target_profiles: set[str] = set()
+        target_identity_reasons: dict[str, str] = {}
         for target_profile in (native_profile_id, profile_id):
             if target_profile not in supplement_targets or target_profile not in baseline_targets:
                 raise ContractError(
@@ -487,21 +505,29 @@ def reconcile_parity_results(
                 )
             baseline_target = baseline_targets[target_profile]
             supplement_target = supplement_targets[target_profile]
+            mismatch_reasons: list[str] = []
             if supplement_target["dirty"]:
-                raise ContractError(f"supplement target is dirty: {record['path']}")
+                mismatch_reasons.append("supplement target is dirty")
             if target_profile == profile_id and not _matches_python_profile(
                 supplement_target["runtime"], python_version
             ):
-                raise ContractError(
-                    f"supplement target runtime does not match {profile_id}: {record['path']}"
+                mismatch_reasons.append(
+                    f"supplement target runtime does not match {profile_id}"
                 )
-            if any(
-                supplement_target.get(field) != baseline_target.get(field)
+            differing_fields = [
+                field
                 for field in _SHARED_TARGET_FIELDS
-            ):
-                raise ContractError(
-                    f"supplement target code/package identity differs for {target_profile}: {record['path']}"
+                if supplement_target.get(field) != baseline_target.get(field)
+            ]
+            if differing_fields:
+                mismatch_reasons.append(
+                    "supplement target code/package identity differs in "
+                    + ", ".join(differing_fields)
                 )
+            if mismatch_reasons:
+                target_identity_reasons[target_profile] = "; ".join(mismatch_reasons)
+            else:
+                matching_target_profiles.add(target_profile)
         supplements_by_profile[profile_id].append(record)
 
         for row in artifact["comparisons"]:
@@ -517,6 +543,14 @@ def reconcile_parity_results(
                 raise ContractError(
                     f"supplement does not correspond to a full-run skipped row: {key}"
                 )
+            if row["target_profile"] not in matching_target_profiles:
+                non_reconcilable_supplement_rows[key] = {
+                    "profile": profile_id,
+                    "case_id": row["case_id"],
+                    "target_profile": row["target_profile"],
+                    "reason": target_identity_reasons[row["target_profile"]],
+                }
+                continue
             if row["requirements"] != baseline_row["row"]["requirements"]:
                 raise ContractError(
                     f"supplement requirement mapping differs from baseline row: {key}"
@@ -568,9 +602,16 @@ def reconcile_parity_results(
         for profile_id, case_id, target_profile in sorted(skipped_rows)
         if (profile_id, case_id, target_profile) not in replacements
     ]
+    unreconciled_supplement_rows = [
+        non_reconcilable_supplement_rows[key]
+        for key in sorted(non_reconcilable_supplement_rows)
+        if key not in replacements
+    ]
     if unreplaced or non_reconcilable_rows:
         if "one or more parity or fault-contract comparisons remain not_run" not in reasons:
             reasons.append("one or more parity or fault-contract comparisons remain not_run")
+    if unreconciled_supplement_rows:
+        reasons.append("one or more focused target identities did not match their full baseline rows")
 
     report = {
         "schema": RECONCILIATION_SCHEMA,
@@ -588,6 +629,7 @@ def reconcile_parity_results(
         "replacements": [replacements[key] for key in sorted(replacements)],
         "unreplaced_skipped_rows": unreplaced,
         "non_reconcilable_not_run_rows": non_reconcilable_rows,
+        "non_reconcilable_supplement_rows": unreconciled_supplement_rows,
         "parity_matrix": {
             "status": "passed" if not reasons else "not_proven",
             "reason": "all baseline rows passed or were replaced by compatible focused evidence"

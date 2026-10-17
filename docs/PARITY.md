@@ -57,10 +57,13 @@ not be inserted into the macOS result artifacts. The repository command
 `build/parity/`. It accepts one all-cases baseline per CPython profile plus
 focused artifacts for skipped rows, and replaces only rows that were skipped
 by both source and target under matching manifest, oracle, and clean target
-code/package identities. Focused rows do not enlarge the baseline denominator;
-the report keeps the overall Starlette replacement status `not_proven`. No
-StaticFiles supplement has been produced yet, so this command has not generated
-a passing reconciliation report.
+code/package identities. Target identities are checked per profile: compatible
+rows can be replaced independently, while incompatible rows are listed under
+`non_reconcilable_supplement_rows` and remain unreconciled. Focused rows do not
+enlarge the baseline denominator; the report keeps the overall Starlette
+replacement status `not_proven`. The complete five-profile Linux StaticFiles
+supplement has not been produced yet, so the full skipped-row set remains
+unreconciled.
 
 All six active coverage plans have completed. Coverage MCP marks their source
 attribution unverified and tests unknown; the line counts and LCOV caveats are
