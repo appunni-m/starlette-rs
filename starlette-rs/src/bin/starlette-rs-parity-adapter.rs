@@ -442,6 +442,48 @@ fn string_field<'a>(
         .ok_or_else(|| format!("{context}.{field} must be a string"))
 }
 
+fn is_cpython_package_profile(profile: &str) -> bool {
+    profile
+        .strip_prefix("python-package-cpython")
+        .is_some_and(|version| {
+            !version.is_empty() && version.bytes().all(|byte| byte.is_ascii_digit())
+        })
+}
+
+fn validate_native_package_target_profiles(
+    case: &Map<String, Value>,
+    context: &str,
+) -> Result<(), String> {
+    let profiles = case
+        .get("target_profiles")
+        .and_then(Value::as_array)
+        .filter(|profiles| profiles.len() >= 2)
+        .ok_or_else(|| {
+            format!(
+                "{context} target_profiles must contain rust-native-local followed by CPython package profiles"
+            )
+        })?;
+    if profiles.first().and_then(Value::as_str) != Some("rust-native-local") {
+        return Err(format!(
+            "{context} target_profiles must begin with rust-native-local"
+        ));
+    }
+
+    let mut seen = HashSet::new();
+    let profiles_are_valid = profiles.iter().all(|profile| {
+        profile.as_str().is_some_and(|profile| {
+            seen.insert(profile)
+                && (profile == "rust-native-local" || is_cpython_package_profile(profile))
+        })
+    });
+    if !profiles_are_valid {
+        return Err(format!(
+            "{context} target_profiles must contain unique CPython package profiles after rust-native-local"
+        ));
+    }
+    Ok(())
+}
+
 fn optional_string_field(
     object: &Map<String, Value>,
     field: &str,
@@ -10174,13 +10216,9 @@ fn run_websocket_state_case(case: &Value) -> Result<Value, String> {
             "case ID or operation is outside the WebSocket state sequence",
         ));
     }
-    if case.get("target_profiles")
-        != Some(&json!(["rust-native-local", "python-package-cpython312"]))
-        || case.get("assets") != Some(&json!([]))
-    {
-        return Err(String::from(
-            "WebSocket state cases must select both profiles and no assets",
-        ));
+    validate_native_package_target_profiles(case, "WebSocket state case")?;
+    if case.get("assets") != Some(&json!([])) {
+        return Err(String::from("WebSocket state cases must select no assets"));
     }
     let covers = case
         .get("covers")
@@ -10463,12 +10501,10 @@ fn run_websocket_protocol_case(case: &Value) -> Result<Value, String> {
             "case ID or operation is outside the WebSocket protocol sequence",
         ));
     }
-    if case.get("target_profiles")
-        != Some(&json!(["rust-native-local", "python-package-cpython312"]))
-        || case.get("assets") != Some(&json!([]))
-    {
+    validate_native_package_target_profiles(case, "WebSocket protocol case")?;
+    if case.get("assets") != Some(&json!([])) {
         return Err(String::from(
-            "WebSocket protocol cases must select both profiles and no assets",
+            "WebSocket protocol cases must select no assets",
         ));
     }
     let covers = case
@@ -11753,14 +11789,13 @@ fn run_request_case(case: &Value) -> Result<Value, String> {
             "request-dispatch case covers must contain only strings",
         ));
     }
-    if case.get("target_profiles")
-        != Some(&json!(["rust-native-local", "python-package-cpython312"]))
-        || case.get("assets") != Some(&json!([]))
+    validate_native_package_target_profiles(case, "request-dispatch case")?;
+    if case.get("assets") != Some(&json!([]))
         || case.get("observations") != Some(&json!(["dispatch"]))
         || case.get("execution_schedule") != Some(&json!(["dispatch"]))
     {
         return Err(String::from(
-            "request-dispatch case must select both targets, no assets, and dispatch only",
+            "request-dispatch case must select no assets and dispatch only",
         ));
     }
     let steps = case

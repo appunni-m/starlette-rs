@@ -937,6 +937,25 @@ def _exact_object(value: Any, keys: set[str], context: str) -> dict[str, Any]:
     return value
 
 
+def _is_cpython_package_profile(profile: Any) -> bool:
+    prefix = "python-package-cpython"
+    return (
+        isinstance(profile, str)
+        and profile.startswith(prefix)
+        and profile[len(prefix) :].isascii()
+        and profile[len(prefix) :].isdecimal()
+    )
+
+
+def _has_unique_cpython_package_profiles(profiles: Any) -> bool:
+    return (
+        isinstance(profiles, list)
+        and bool(profiles)
+        and all(_is_cpython_package_profile(profile) for profile in profiles)
+        and len(profiles) == len(set(profiles))
+    )
+
+
 def _strict_json(raw: bytes) -> Any:
     def object_pairs(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
         result: dict[str, Any] = {}
@@ -15042,9 +15061,9 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("workflow is outside the BaseHTTPMiddleware base-http-workflow operation")
     if not isinstance(case["case_id"], str):
         raise ValueError("BaseHTTPMiddleware case_id must be a string")
-    if case["target_profiles"] != ["python-package-cpython312"] or case["assets"] != []:
+    if not _has_unique_cpython_package_profiles(case["target_profiles"]) or case["assets"] != []:
         raise ValueError(
-            "BaseHTTPMiddleware workflow selects only the Python-package profile and no assets"
+            "BaseHTTPMiddleware workflow selects one or more Python-package profiles and no assets"
         )
     if case["observations"] != [BASE_HTTP_WORKFLOW_OPERATION]:
         raise ValueError("BaseHTTPMiddleware observations must select base-http-workflow")

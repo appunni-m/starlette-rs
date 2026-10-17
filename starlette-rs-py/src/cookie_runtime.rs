@@ -1,8 +1,8 @@
 //! Conversion of Python cookie attributes into Rust-owned response options.
 
-use pyo3::exceptions::{PyAssertionError, PyTypeError, PyValueError};
+use pyo3::exceptions::{PyAssertionError, PyValueError};
 use pyo3::prelude::*;
-use pyo3::types::{PyByteArray, PyBytes, PyDict, PyInt, PyList, PyMemoryView, PyString, PyTuple};
+use pyo3::types::{PyBytes, PyDict, PyInt, PyList, PyString, PyTuple};
 use starlette_rs::{CookieOptions, ResponseError};
 
 use crate::datastructure_runtime::{codepoints_to_python_string, python_string_to_codepoints};
@@ -102,7 +102,11 @@ pub(crate) fn header_from_arguments<'py>(
             format!("Attempt to set a reserved key {}", key.repr()?),
         )?);
     }
-    if !legal_token(&string_codepoints(&key)?) {
+    let legal_key = py
+        .import("http.cookies")?
+        .getattr("_is_legal_key")?
+        .call1((&key,))?;
+    if !legal_key.is_truthy()? {
         return Err(cookie_error(py, format!("Illegal key {}", key.repr()?))?);
     }
     // Starlette quotes the value before Morsel.set checks both the raw and
@@ -327,10 +331,10 @@ fn format_pair(
     key: &Bound<'_, PyAny>,
     value: &Bound<'_, PyAny>,
 ) -> PyResult<Vec<u32>> {
-    // CPython compiles the source's literal %s pairs as FORMAT_VALUE with str
-    // conversion, followed by Python's format protocol. A string subclass can
-    // run __str__ again there. Preserve that representation boundary directly.
-    let text = PyString::new(py, "{0!s}={1!s}").call_method1("format", (key, value))?;
+    // Morsel.OutputString uses the literal `%s=%s` operator. String subclasses
+    // observe a different number and order of __str__ calls under `format`.
+    let values = PyTuple::new(py, [key.clone(), value.clone()])?;
+    let text = PyString::new(py, "%s=%s").call_method1("__mod__", (values,))?;
     python_string_to_codepoints(&text)
 }
 
@@ -350,24 +354,6 @@ fn legal_token(text: &[u32]) -> bool {
                 character.is_ascii_alphanumeric() || "!#$%&'*+-.^_`|~:".contains(character)
             })
         })
-}
-
-fn string_codepoints(value: &Bound<'_, PyAny>) -> PyResult<Vec<u32>> {
-    if value.is_instance_of::<PyString>() {
-        return python_string_to_codepoints(value);
-    }
-    if value.is_instance_of::<PyBytes>()
-        || value.is_instance_of::<PyByteArray>()
-        || value.is_instance_of::<PyMemoryView>()
-    {
-        return Err(PyTypeError::new_err(
-            "cannot use a string pattern on a bytes-like object",
-        ));
-    }
-    Err(PyTypeError::new_err(format!(
-        "expected string or bytes-like object, got '{}'",
-        value.get_type().name()?
-    )))
 }
 
 fn cookie_error(py: Python<'_>, message: String) -> PyResult<PyErr> {

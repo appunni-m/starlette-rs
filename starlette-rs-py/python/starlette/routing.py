@@ -64,6 +64,16 @@ def _apply_middleware(
     return _core.apply_route_middleware(app, middleware, max_body_size)
 
 
+async def _await_lifespan_exit(awaitable: Awaitable[Any], _owner: Any) -> Any:
+    """Forward native lifespan exit while retaining its Python generator on errors.
+
+    Upstream contextlib's `__exit__` traceback retains its context manager, and
+    therefore the generator, when an extra yield raises. This boundary coroutine
+    preserves that lifetime while Rust owns the generator protocol and error.
+    """
+    return await awaitable
+
+
 class _DefaultLifespan:
     def __init__(self, router: Router) -> None:
         self._router = router

@@ -327,6 +327,11 @@ impl ServerErrorCall {
             return Err(error);
         }
         let original = error.value(py).clone().into_any().unbind();
+        // PyErr stores its traceback separately from the exception value. The
+        // public traceback formatting boundary reads `exception.__traceback__`.
+        if let Some(traceback) = error.traceback(py) {
+            original.bind(py).setattr("__traceback__", traceback)?;
+        }
         self.original_exception = Some(original.clone_ref(py));
         self.handle_exception(py, original.bind(py))
             .map_err(|handling_error| chain_error(py, handling_error, &original))
