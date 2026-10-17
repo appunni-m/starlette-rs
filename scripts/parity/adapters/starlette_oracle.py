@@ -4389,10 +4389,7 @@ def _run_server_error_middleware_case(case: dict[str, Any]) -> dict[str, Any]:
         )
         if handler_property["kind"] != "read-sequence":
             raise ValueError("unsupported ServerErrorMiddleware handler property kind")
-        if (
-            not isinstance(handler_property["values"], list)
-            or len(handler_property["values"]) != 3
-        ):
+        if not isinstance(handler_property["values"], list) or len(handler_property["values"]) != 3:
             raise ValueError("handler property read-sequence must define exactly three values")
         handler_values = [materialize_handler(spec) for spec in handler_property["values"]]
 
@@ -4406,17 +4403,13 @@ def _run_server_error_middleware_case(case: dict[str, Any]) -> dict[str, Any]:
             def handler(self) -> Any:
                 index = self._parity_handler_property_reads
                 self._parity_handler_property_reads = index + 1
-                return self._parity_handler_values[
-                    min(index, len(self._parity_handler_values) - 1)
-                ]
+                return self._parity_handler_values[min(index, len(self._parity_handler_values) - 1)]
 
             @handler.setter
             def handler(self, value: Any) -> None:
                 self._parity_initial_handler = value
 
-        middleware = InputServerErrorMiddleware(
-            app, handler=handler, debug=constructor["debug"]
-        )
+        middleware = InputServerErrorMiddleware(app, handler=handler, debug=constructor["debug"])
     if case["operation"] == "__init__":
         value = {
             "instance_class": f"{type(middleware).__module__}.{type(middleware).__qualname__}",

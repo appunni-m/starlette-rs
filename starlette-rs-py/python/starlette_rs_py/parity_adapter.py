@@ -4239,17 +4239,13 @@ def _run_server_error_middleware_case(case: dict[str, Any]) -> dict[str, Any]:
             def handler(self) -> Any:
                 index = self._parity_handler_property_reads
                 self._parity_handler_property_reads = index + 1
-                return self._parity_handler_values[
-                    min(index, len(self._parity_handler_values) - 1)
-                ]
+                return self._parity_handler_values[min(index, len(self._parity_handler_values) - 1)]
 
             @handler.setter
             def handler(self, value: Any) -> None:
                 self._parity_initial_handler = value
 
-        middleware = InputServerErrorMiddleware(
-            app, handler=handler, debug=constructor["debug"]
-        )
+        middleware = InputServerErrorMiddleware(app, handler=handler, debug=constructor["debug"])
     if case["operation"] == "__init__":
         value = {
             "instance_class": f"{type(middleware).__module__}.{type(middleware).__qualname__}",
@@ -12050,9 +12046,7 @@ def _build_reverse_route_middleware(specs: list[dict[str, Any]]) -> list[Any]:
                                 f"{stored}|{phantom}".encode("latin-1"),
                             )
 
-                        async def __call__(
-                            self, scope: Any, receive: Any, send: Any
-                        ) -> None:
+                        async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
                             async def modified_send(message: Any) -> None:
                                 if message["type"] == "http.response.start":
                                     message["headers"].append(self.response_header)
@@ -12062,9 +12056,7 @@ def _build_reverse_route_middleware(specs: list[dict[str, Any]]) -> list[Any]:
 
                     return InputDictSubclassKwargsMiddleware
 
-                input_kwargs_type = make_input_middleware_kwargs_type(
-                    keys_result, getitem_result
-                )
+                input_kwargs_type = make_input_middleware_kwargs_type(keys_result, getitem_result)
                 middleware_factory = make_input_dict_subclass_kwargs_middleware(
                     header_name, defaults
                 )
@@ -13205,11 +13197,7 @@ def _run_routing_constructor_case(case: dict[str, Any]) -> dict[str, Any]:
                 )
             elif case["surface"] == MOUNT_SURFACE:
                 app_spec = constructor["app"]
-                app = (
-                    None
-                    if app_spec is None
-                    else _materialize_asgi_sequence_app(app_spec)
-                )
+                app = None if app_spec is None else _materialize_asgi_sequence_app(app_spec)
                 route_specs = constructor["routes"]
                 routes = (
                     None

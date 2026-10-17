@@ -11270,9 +11270,7 @@ def _validate_static_files_configuration_check_case(case: dict[str, Any]) -> Non
                 or "\\" in statics_dir
                 or "\x00" in statics_dir
             ):
-                raise ContractError(
-                    f"{context}.statics_dir must be a relative normalized path"
-                )
+                raise ContractError(f"{context}.statics_dir must be a relative normalized path")
             spec_kind = package_root["spec_kind"]
             if spec_kind == "missing":
                 package_root_requirements.add(
@@ -11289,9 +11287,7 @@ def _validate_static_files_configuration_check_case(case: dict[str, Any]) -> Non
                     ]
                 )
             else:
-                raise ContractError(
-                    f"{context}.spec_kind must be missing, namespace, or regular"
-                )
+                raise ContractError(f"{context}.spec_kind must be missing, namespace, or regular")
 
     files = case["files"]
     if not isinstance(files, list):
@@ -20160,8 +20156,10 @@ def _validate_testclient_portal_exit_environment(case: dict[str, Any]) -> dict[s
     if "environment" not in case:
         return None
     environment = case["environment"]
-    if not isinstance(environment, dict) or not environment or not set(environment).issubset(
-        {"portal_exit_error", "lifespan_stream_close_errors"}
+    if (
+        not isinstance(environment, dict)
+        or not environment
+        or not set(environment).issubset({"portal_exit_error", "lifespan_stream_close_errors"})
     ):
         raise ContractError("TestClient environment has unsupported input fields")
     error = None
@@ -20184,9 +20182,7 @@ def _validate_testclient_portal_exit_environment(case: dict[str, Any]) -> dict[s
         app = case.get("asgi_app")
         if (
             not isinstance(client_actions, list)
-            or [
-                action.get("operation") for action in client_actions if isinstance(action, dict)
-            ]
+            or [action.get("operation") for action in client_actions if isinstance(action, dict)]
             != ["enter", "exit"]
             or not isinstance(app, dict)
             or app.get("kind") != "starlette-lifespan"
@@ -20218,11 +20214,11 @@ def _validate_testclient_portal_exit_environment(case: dict[str, Any]) -> dict[s
                 raise ContractError("lifespan stream close errors must select unique endpoints")
             observed_endpoints.add(endpoint_key)
         if observed_endpoints != {
-            (pair_index, endpoint)
-            for pair_index in (1, 2)
-            for endpoint in ("send", "receive")
+            (pair_index, endpoint) for pair_index in (1, 2) for endpoint in ("send", "receive")
         }:
-            raise ContractError("lifespan stream close errors must cover both endpoints of both pairs")
+            raise ContractError(
+                "lifespan stream close errors must cover both endpoints of both pairs"
+            )
     return error
 
 
@@ -22487,7 +22483,6 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
 
 def _validate_testclient_lifespan_case(case: dict[str, Any]) -> None:
     portal_exit_error = _validate_testclient_portal_exit_environment(case)
-    stream_close_errors = _testclient_lifespan_stream_close_errors(case)
     settings = _exact(
         case["testclient"],
         {
@@ -25366,8 +25361,7 @@ def _validate_case_payload(
     )
     is_routing_constructor_error = (
         isinstance(case, dict)
-        and (case.get("surface"), case.get("operation"))
-        in ROUTING_CONSTRUCTOR_OPERATION_KEYS
+        and (case.get("surface"), case.get("operation")) in ROUTING_CONSTRUCTOR_OPERATION_KEYS
         and "attempts" in case
     )
     is_router = (
@@ -41761,9 +41755,7 @@ def _validate_route_constructor_error_case(case: dict[str, Any]) -> None:
                 counts[name] = counts.get(name, 0) + 1
             duplicate_names = [name for name, count in counts.items() if count > 1]
             if not duplicate_names:
-                raise ContractError(
-                    f"{context} must derive a declared error from its route path"
-                )
+                raise ContractError(f"{context} must derive a declared error from its route path")
             duplicate_kind = "single" if len(duplicate_names) == 1 else "multiple"
             exercised.add(ROUTE_CONSTRUCTOR_ERROR_REQUIREMENTS[duplicate_kind])
         elif surface == WEBSOCKET_ROUTE_SURFACE:
@@ -41806,7 +41798,9 @@ def _validate_route_constructor_error_case(case: dict[str, Any]) -> None:
             else:
                 raise ContractError(f"{context} must derive a declared Host error")
     if set(case["covers"]) != exercised:
-        raise ContractError("routing constructor-error coverage must derive from constructor inputs")
+        raise ContractError(
+            "routing constructor-error coverage must derive from constructor inputs"
+        )
 
 
 def _validate_route_value_spec(spec: Any, context: str) -> str:

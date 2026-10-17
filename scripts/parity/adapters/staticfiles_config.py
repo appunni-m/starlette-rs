@@ -232,9 +232,7 @@ def _materialize_package_roots(
         )
         spec_kind = package_root["spec_kind"]
         if spec_kind not in {"missing", "namespace", "regular"}:
-            raise ValueError(
-                f"{context}.spec_kind must be missing, namespace, or regular"
-            )
+            raise ValueError(f"{context}.spec_kind must be missing, namespace, or regular")
 
         if spec_kind == "missing":
             # Keep any dotted parent importable so find_spec() returns None for
