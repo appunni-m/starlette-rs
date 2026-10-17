@@ -29,13 +29,14 @@ The active full-scope `parity-input@66` contract covers Starlette 1.6.0 with
 operations, 15 Rust-native operations, and 1,467 parity requirements. Its
 manifest SHA-256 is
 `474c5a1e8f413ab0a02cb0b6ca5e9c46b85a5e29f26bfde93d4cd3e735faf12f`. Input
-generation, contract validation, and source inventory pass. The three newest
-comparisons cover TestClient lifespan stream cleanup, ServerErrorMiddleware
-property rereads, and route middleware dict-subclass keyword expansion; they
-remain unexecuted alongside the ten @65 additions. Grouped parity, coverage,
-and benchmark phases are pending for @66. The latest completed
-behavioral evidence belongs to @64 and does not cover the active manifest. The
-generated source atlas has 867 rows: 811 input mappings, 56 source-backed
+generation, contract validation, and source inventory pass. Grouped local
+run `3a615b88-4f92-434e-9b89-3b8ab3935ca2` passed 2,982/2,982 completed
+comparisons with zero mismatches or infrastructure errors; all five fault
+contracts passed. Two rows were not run because the macOS filesystem cannot
+create the surrogateescape filename. Local Rust-native and CPython 3.12
+coverage reports are measured but not ingested; MCP marks their sources
+unverified and tests unknown. Remaining CPython coverage profiles and the
+clean @66 benchmark are pending. The generated source atlas has 867 rows: 811 input mappings, 56 source-backed
 `not_applicable` rows, and zero fixture backlog. All 999 API candidate rows are
 dispositioned as 564 supported, 435 private/internal, and zero uncertain. The
 local @63 grouped run selected 2,941 comparisons on CPython

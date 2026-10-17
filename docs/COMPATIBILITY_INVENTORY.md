@@ -8,15 +8,19 @@ Starlette 1.6.0 revision
 `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. It declares 2,628 input-only cases
 across 452 parity files, two benchmark inputs, 156 compatibility operations,
 15 Rust-native operations, 1,467 parity requirements, and six target profiles.
-Input generation, contract validation, and source inventory pass. The three
-latest TestClient stream-cleanup, ServerErrorMiddleware property, and route
-middleware dict-subclass comparisons, along with ten @65 additions, remain
-unexecuted. Grouped parity, coverage, and benchmarks are pending for @66. The
-latest completed behavioral evidence is the
-prior @64 run; its results do not cover the active manifest. Source inventory
-counts are generated in the atlas: 867 source rows, 811 input mappings, 56
-source-backed `not_applicable` rows, and zero fixture backlog. The pinned
-denominators remain 514 upstream test functions and 24 documented pages.
+Input generation, contract validation, and source inventory pass. The grouped
+local @66 run `3a615b88-4f92-434e-9b89-3b8ab3935ca2` executed 2,982 comparisons
+with zero mismatches or infrastructure errors, and all five fault contracts
+passed. Two rows for the POSIX surrogateescape filename were source-skipped
+because the macOS temporary filesystem cannot create it; full parity remains
+unproven until Linux CI covers that input and the remaining CPython profiles.
+Local coverage runs were collected for Rust-native and CPython 3.12, but both
+plans are `not_ingested` due to that skip; Coverage MCP reports source identity
+unverified and tests unknown. The other four coverage profiles and the clean
+@66 benchmark are pending. Source inventory counts are generated in the atlas:
+867 source rows, 811 input mappings, 56 source-backed `not_applicable` rows,
+and zero fixture backlog. The pinned denominators remain 514 upstream test
+functions and 24 documented pages.
 
 All six @63 coverage profiles passed: 375 Rust-native cases, 274 each for
 CPython 3.10 and 3.11, 2,573 for 3.12, and 275 each for 3.13 and 3.14.
@@ -1180,10 +1184,11 @@ and do not establish parity for every deprecation path.
   `doc.templates.async-context-processor-constraint`.
 
 These source-backed caveats and targeted inputs do not create fixture backlog.
-The active @66 manifest has not undergone grouped parity, coverage, or
-benchmark execution. The previous @64 parity run had no executable-row
-mismatches but source-skipped two rows on macOS; those results are historical
-and do not establish behavior for @66.
+The active @66 grouped parity run had no executable-row mismatches but two
+target rows were source-skipped on macOS. Local coverage artifacts and their
+limitations are recorded above; full multi-profile coverage remains pending.
+The @66 benchmark awaits a clean committed parity gate. Previous @64 results
+are historical and do not establish behavior for @66.
 
 The macOS arm64 Python package qualification is complete, and its SBOM
 metadata normalization is verified for direct and sdist-based CPython 3.12

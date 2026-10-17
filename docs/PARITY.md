@@ -6,10 +6,14 @@ The active `parity-input@66` manifest has 2,628 cases across 452 parity
 inputs, 1,467 requirements, and SHA-256
 `474c5a1e8f413ab0a02cb0b6ca5e9c46b85a5e29f26bfde93d4cd3e735faf12f`. Input
 generation, contract validation, and source inventory pass for this manifest.
-The three newest comparisons cover TestClient lifespan stream cleanup,
-ServerErrorMiddleware handler-property rereads, and route middleware dict
-subclass keyword expansion; these and the ten @65 additions remain unexecuted
-pending the grouped parity phase.
+Grouped local run `3a615b88-4f92-434e-9b89-3b8ab3935ca2` executed the active
+matrix for `rust-native-local` and `python-package-cpython312`: 2,982/2,982
+completed comparisons passed, with zero mismatches or infrastructure errors;
+all five fault contracts passed. The only two `not_run` rows are the two target
+profiles for `StaticFiles.lookup-path.surrogateescape-posix-matched-filename`.
+The pinned source skipped the case because macOS cannot create that filename,
+so the runner exits nonzero and full parity remains unproven pending the Linux
+CI matrix and remaining CPython profiles.
 
 The latest completed five-profile source-parity workflow used the previous @64
 input set. Workflow
@@ -30,8 +34,12 @@ status `unknown` because matching source/build receipts were not ingested, so
 these line counts are not Starlette-wide coverage. The complete @64 benchmark
 measured all 74 declared Router/GZip source/package workloads; its run details
 and two macOS preflight skips are recorded in [benchmark evidence](BENCHMARKS.md).
-Coverage and benchmark execution for @66 remain pending until the grouped @66
-parity phase completes.
+Local @66 coverage runs passed 377 Rust-native and 2,610 CPython 3.12 package
+cases, each with the same source-skipped filename case. Coverage MCP measured
+14,605/19,606 Rust-native lines (74.5%) and 23,493/33,905 package lines
+(69.3%), but the plans are `not_ingested`; MCP marks source identity
+unverified and tests unknown. The other four CPython coverage profiles remain
+pending. The @66 benchmark phase awaits a clean committed parity gate.
 
 The latest input-only comparisons cover Config subclass property/cast dispatch
 and empty-format-spec error messages, optimized Request, WebSocket, and

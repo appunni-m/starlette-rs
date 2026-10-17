@@ -17,5 +17,6 @@ into user-defined methods.
 Input-only cases cover a subclass whose public properties return values
 different from its internal Config state, and verify `_perform_cast` dispatch.
 They also cover Python's empty-format-spec behavior for string subclasses in
-Config and Environ errors. These cases are contract-validated in
-`parity-input@66` and remain unexecuted until the grouped parity phase.
+Config and Environ errors. These input-only comparisons are included in the
+grouped `parity-input@66` result; see [`PARITY.md`](PARITY.md) for the local
+matrix scope and the remaining macOS filesystem skip.

@@ -13,13 +13,15 @@ inputs and two benchmark inputs, 156 Starlette compatibility operations, 15
 Rust-native operations, 1,467 parity requirements, and six target profiles. Its
 manifest SHA-256 is
 `474c5a1e8f413ab0a02cb0b6ca5e9c46b85a5e29f26bfde93d4cd3e735faf12f`. Input
-generation, contract validation, and source inventory pass. The three latest
-input-only comparisons cover TestClient stream cleanup, ServerErrorMiddleware
-handler-property rereads, and route middleware dict-subclass expansion; these
-and the ten @65 additions remain unexecuted. Grouped parity, coverage, and
-benchmark phases are pending for @66. The latest completed
-behavioral evidence is for @64 and does not apply to the active manifest. The
-atlas has 867 source rows: 811 input mappings, 56 source-backed
+generation, contract validation, and source inventory pass. Grouped local
+run `3a615b88-4f92-434e-9b89-3b8ab3935ca2` passed all 2,982 completed
+comparisons with zero mismatches or infrastructure errors; all five fault
+contracts passed. Two target rows were not run because the macOS filesystem
+cannot create the source case's surrogateescape filename, so full parity is
+not yet proven. Coverage MCP measured the local Rust-native and CPython 3.12
+reports but marked source unverified and tests unknown because their plans
+were not ingested. Other CPython coverage profiles and the clean @66 benchmark
+remain pending. The atlas has 867 source rows: 811 input mappings, 56 source-backed
 `not_applicable` rows, and zero fixture backlog. All 999 API candidate rows
 have dispositions. The pinned denominators remain 514 upstream test functions
 and 24 documented pages.

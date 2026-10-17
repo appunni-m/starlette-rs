@@ -2,9 +2,13 @@
 
 The active `parity-input@66` manifest declares 2,628 cases across 452 parity
 inputs, 1,467 requirements, and SHA-256
-`474c5a1e8f413ab0a02cb0b6ca5e9c46b85a5e29f26bfde93d4cd3e735faf12f`. The @66
-benchmark phase is pending until grouped parity and coverage complete. The
-latest completed benchmark used @64: it measured all 74 declared
+`474c5a1e8f413ab0a02cb0b6ca5e9c46b85a5e29f26bfde93d4cd3e735faf12f`. The
+grouped @66 local parity run passed every executable comparison but left the
+two macOS surrogateescape filename rows not run; full parity is not yet proven.
+Local coverage runs produced Rust-native and CPython 3.12 reports, but Coverage
+MCP marks them source-unverified and test-unknown because the plans were not
+ingested. The @66 74-workload benchmark awaits a clean committed parity gate.
+The latest completed benchmark used @64: it measured all 74 declared
 source/package workloads (six Router and 68 GZip); all 74 Rust-native rows are
 `not_run` because the native API has no equivalent ASGI workload boundary.
 Coverage MCP marked the imported @64 reports' source identity unverified and

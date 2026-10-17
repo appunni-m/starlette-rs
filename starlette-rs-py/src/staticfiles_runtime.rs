@@ -941,7 +941,7 @@ fn resolve_directories(
                 {
                     let statics_repr = PyString::new(py, &statics_dir).repr()?.to_str()?.to_owned();
                     return Err(PyAssertionError::new_err(format!(
-                        "Directory {statics_repr} in package {package_repr} could not be found."
+                        "Directory '{statics_repr}' in package {package_repr} could not be found."
                     )));
                 }
                 package_paths.push(path_from_python(py, &package_directory)?);
