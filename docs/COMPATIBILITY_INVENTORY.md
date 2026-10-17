@@ -3,23 +3,21 @@
 ## Current verification status
 
 The active full-scope manifest is `parity-input@66`, SHA-256
-`474c5a1e8f413ab0a02cb0b6ca5e9c46b85a5e29f26bfde93d4cd3e735faf12f`, against
+`215edd43b34093604329c095e5b216e11c937225e8d316143e8c2ccf9776eb12`, against
 Starlette 1.6.0 revision
 `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. It declares 2,628 input-only cases
 across 452 parity files, two benchmark inputs, 156 compatibility operations,
 15 Rust-native operations, 1,467 parity requirements, and six target profiles.
-Input generation, contract validation, and source inventory pass. The grouped
-local @66 run `3a615b88-4f92-434e-9b89-3b8ab3935ca2` executed 2,982 comparisons
-with zero mismatches or infrastructure errors, and all five fault contracts
-passed. Two rows for the POSIX surrogateescape filename were source-skipped
-because the macOS temporary filesystem cannot create it; full parity remains
-unproven until Linux CI covers that input and the remaining CPython profiles.
-Local coverage runs were collected for Rust-native and CPython 3.12, but both
-plans are `not_ingested` due to that skip; Coverage MCP reports source identity
-unverified and tests unknown. The other four coverage profiles remain pending.
-The clean @66 benchmark measured all 74 source/package workloads with no
-failures or source/package not-run rows; Rust-native rows are not comparable at
-this ASGI boundary. Source inventory counts are generated in the atlas:
+The active profile selection is 2,608 cases on CPython 3.10, 3.11, 3.13, and
+3.14; 2,611 on 3.12; and 378 Rust-native. Input generation, contract
+validation, source inventory, and the atlas pass. The previous local @66 run
+`3a615b88-4f92-434e-9b89-3b8ab3935ca2`, the local coverage artifacts, and the
+clean @66 benchmark used manifest SHA-256
+`474c5a1e8f413ab0a02cb0b6ca5e9c46b85a5e29f26bfde93d4cd3e735faf12f` and the
+former profile selection; they are historical evidence and do not verify the
+active matrix. No grouped parity run has been executed for the active manifest.
+The six active coverage plans and the post-parity, post-coverage benchmark run
+remain pending. Source inventory counts are generated in the atlas:
 867 source rows, 811 input mappings, 56 source-backed `not_applicable` rows,
 and zero fixture backlog. The pinned denominators remain 514 upstream test
 functions and 24 documented pages.

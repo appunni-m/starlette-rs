@@ -2,16 +2,17 @@
 
 The active `parity-input@66` manifest declares 2,628 cases across 452 parity
 inputs, 1,467 requirements, and SHA-256
-`474c5a1e8f413ab0a02cb0b6ca5e9c46b85a5e29f26bfde93d4cd3e735faf12f`. The
-grouped @66 local parity run passed every executable comparison but left the
-two macOS surrogateescape filename rows not run; full parity is not yet proven.
-Local coverage runs produced Rust-native and CPython 3.12 reports, but Coverage
-MCP marks them source-unverified and test-unknown because the plans were not
-ingested. The clean committed @66 run measured all 74 source/package workloads
+and active SHA-256 `215edd43b34093604329c095e5b216e11c937225e8d316143e8c2ccf9776eb12`.
+The previous grouped @66 parity and benchmark runs used the former profile
+selection and manifest SHA-256
+`474c5a1e8f413ab0a02cb0b6ca5e9c46b85a5e29f26bfde93d4cd3e735faf12f`; they are
+historical evidence. The current grouped parity matrix has not run, and all
+six current coverage plans remain pending. Rerun this benchmark workload after
+those phases complete. The prior run measured all 74 source/package workloads
 (six Router and 68 GZip) with zero failures or source/package not-run rows. All
 74 Rust-native rows are `not_run` because the native API has no equivalent ASGI
 workload boundary. The benchmark does not prove full Starlette replacement
-parity; the other four CPython coverage profiles also remain pending.
+parity.
 
 The pinned Starlette 1.6.0 benchmark suite has six Router workloads and 68
 GZip workloads. The dedicated runner measures all 74 against both pinned
