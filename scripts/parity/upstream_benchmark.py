@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any
 
 from .contract import (
+    BENCHMARK_INPUT_SCHEMA,
     ORACLE_COMMIT,
     ContractError,
     load_manifest,
@@ -705,6 +706,15 @@ def run_upstream_benchmark(
         )
     document = indexed_catalogs[input_path]
     input_sha256 = sha256_file(input_path)
+    direct_benchmark_documents = [
+        row for _path, row in benchmark_inputs if row.get("schema") == BENCHMARK_INPUT_SCHEMA
+    ]
+    if (
+        len(direct_benchmark_documents) != 1
+        or len(direct_benchmark_documents[0].get("workloads", [])) != 1
+    ):
+        raise ContractError("the active manifest must contain one direct-ASGI benchmark gate")
+    parity_gate_case_id = direct_benchmark_documents[0]["workloads"][0]["input"]["case_id"]
     if sha256_file(manifest_path) != manifest_sha256:
         raise ContractError("active manifest changed while preparing the upstream benchmark run")
     if sha256_file(input_path) != input_sha256:
@@ -723,7 +733,7 @@ def run_upstream_benchmark(
         raise ContractError("the pinned upstream benchmark workload requires CPython 3.12")
     started_at = _timestamp()
     gate_path = root / GATE_RESULT_RELATIVE
-    gate = run_parity(root, "parity", gate_path, manifest_path)
+    gate = run_parity(root, "parity", gate_path, manifest_path, [parity_gate_case_id])
     gate_identity = gate.get("identity") if isinstance(gate.get("identity"), dict) else {}
     target_identity = next(
         (
@@ -733,13 +743,8 @@ def run_upstream_benchmark(
         ),
         None,
     )
-    package_case_ids = [
-        case["case_id"]
-        for case in parity_cases
-        if "fault_contract" not in case and "python-package-cpython312" in case["target_profiles"]
-    ]
     package_gate_ready = _profile_parity_gate_passes(
-        gate, "python-package-cpython312", package_case_ids
+        gate, "python-package-cpython312", [parity_gate_case_id]
     )
     native_identity = next(
         (

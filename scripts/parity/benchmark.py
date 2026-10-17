@@ -73,19 +73,13 @@ def _parity_gate(
     workload: dict[str, Any],
 ) -> dict[str, Any]:
     gate_path = root / GATE_RESULT_RELATIVE
-    result = run_parity(root, "parity", gate_path, manifest_path)
     case_id = workload["input"]["case_id"]
+    result = run_parity(root, "parity", gate_path, manifest_path, [case_id])
     target_profiles = {
         subject["id"] for subject in workload["subjects"] if subject["kind"] == "target_profile"
     }
-    comparisons = [
-        row
-        for row in result["comparisons"]
-        if row["case_id"] == case_id and row["target_profile"] in target_profiles
-    ]
-    # Gate this workload on its declared input/profile comparisons. The full
-    # parity artifact also retains unrelated failures and unsupported rows;
-    # those remain visible without invalidating an independently passing gate.
+    comparisons = [row for row in result["comparisons"] if row["target_profile"] in target_profiles]
+    # The benchmark correctness gate executes only its declared input and target profiles.
     passed = _smoke_parity_gate_passed(result["status"], comparisons, sorted(target_profiles))
     return {
         "status": "pass" if passed else "failed",
