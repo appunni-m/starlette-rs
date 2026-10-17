@@ -20,6 +20,7 @@ from typing import Any
 PARITY_INPUT_SCHEMA = "migration-parity/parity-input@66"
 REQUEST_SCHEMA = "starlette-rs-benchmark-worker-request@1"
 RESULT_SCHEMA = "starlette-rs-benchmark-worker-result@1"
+SOURCE_VERSION = "1.6.0"
 
 
 def _strict_object(value: Any, keys: set[str], context: str) -> dict[str, Any]:
@@ -147,7 +148,7 @@ def _resolve_modules(subject_id: str) -> tuple[Any, dict[str, Any]]:
         wheel_sha256 = os.environ.get("STARLETTE_BENCHMARK_WHEEL_SHA256")
         source_revision = None
 
-    expected_module_version = "1.6.0" if subject_id == "starlette-python" else package_version
+    expected_module_version = SOURCE_VERSION
     if starlette.__version__ != expected_module_version:
         raise RuntimeError(
             f"expected Starlette module version {expected_module_version!r}, "
