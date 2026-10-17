@@ -1151,9 +1151,16 @@ and do not establish parity for every deprecation path.
   through Rust, with exact input coverage for exclusion normalization and
   direct compression without negotiation. Its remaining internal attributes
   and methods stay outside the documented public compatibility surface.
-- The docs say async Jinja2 context processors are unsupported without
-  specifying whether use errors, is ignored, or is awaited; see
-  `doc.templates.async-context-processor-constraint`.
+- The docs label async Jinja2 context processors unsupported. The pinned
+  implementation calls processors synchronously and passes their return value
+  to `context.update` (pinned `starlette/templating.py:145-146`). An async
+  processor therefore yields a coroutine that is not awaited, raises
+  `TypeError` during the merge, and produces a 500 response through TestClient.
+  The input-only case
+  `starlette.templating.Jinja2Templates.template-public-workflow.docs-async-context-processor-unsupported`
+  records that outcome and passed against the source and package on CPython
+  3.10–3.14 in the active @66 matrix. The matrix predates the later isolated
+  await-boundary optimization; see [parity status](PARITY.md).
 
 These source-backed caveats and targeted inputs do not create fixture backlog.
 The post-fix active @66 matrix had no mismatches or infrastructure errors; its
