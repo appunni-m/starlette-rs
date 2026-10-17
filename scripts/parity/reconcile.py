@@ -200,15 +200,25 @@ def _validate_reconciliation_report(report: dict[str, Any]) -> None:
     ):
         raise ContractError("parity reconciliation cannot prove the full Starlette replacement")
 
+    row_identity_fields = {"profile", "case_id", "target_profile"}
     for field in ("unreplaced_skipped_rows", "non_reconcilable_not_run_rows"):
+        expected_fields = row_identity_fields
+        if field == "non_reconcilable_not_run_rows":
+            expected_fields = row_identity_fields | {"reason"}
         seen_rows: set[tuple[str, str, str]] = set()
         for row in report[field]:
-            if set(row) != {"profile", "case_id", "target_profile"}:
+            if set(row) != expected_fields:
                 raise ContractError(f"generated {field} row has an invalid field set")
             key = (row["profile"], row["case_id"], row["target_profile"])
             if key in seen_rows:
                 raise ContractError(f"generated {field} repeats a row")
             seen_rows.add(key)
+            if any(not isinstance(value, str) or not value for value in key):
+                raise ContractError(f"generated {field} has an empty identity field")
+            if field == "non_reconcilable_not_run_rows" and (
+                not isinstance(row["reason"], str) or not row["reason"]
+            ):
+                raise ContractError("generated non-reconcilable row has an empty reason")
 
     replacement_keys: set[tuple[str, str, str]] = set()
     for replacement in report["replacements"]:
