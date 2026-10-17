@@ -8,50 +8,27 @@ incomplete.
 
 ## Current execution snapshot
 
-The active `parity-input@66` contract contains 2,628 cases across 452 parity
+The active parity-input@66 contract contains 2,628 cases across 452 parity
 inputs and two benchmark inputs, 156 Starlette compatibility operations, 15
 Rust-native operations, 1,467 parity requirements, and six target profiles. Its
 manifest SHA-256 is
-`474c5a1e8f413ab0a02cb0b6ca5e9c46b85a5e29f26bfde93d4cd3e735faf12f`. Input
-generation, contract validation, and source inventory pass. Grouped local
-run `3a615b88-4f92-434e-9b89-3b8ab3935ca2` passed all 2,982 completed
-comparisons with zero mismatches or infrastructure errors; all five fault
-contracts passed. Two target rows were not run because the macOS filesystem
-cannot create the source case's surrogateescape filename, so full parity is
-not yet proven. Coverage MCP measured the local Rust-native and CPython 3.12
-reports but marked source unverified and tests unknown because their plans
-were not ingested. The clean committed @66 benchmark measured all 74
-source/package workloads without failure or skipped rows; Rust-native outcomes
-remain boundary-specific not-run. Other CPython coverage profiles remain
-pending. The atlas has 867 source rows: 811 input mappings, 56 source-backed
-`not_applicable` rows, and zero fixture backlog. All 999 API candidate rows
-have dispositions. The pinned denominators remain 514 upstream test functions
-and 24 documented pages.
+215edd43b34093604329c095e5b216e11c937225e8d316143e8c2ccf9776eb12. Input
+generation, contract validation, and source inventory pass.
 
-For the prior `@58` manifest, workflow
-[`38850605133`](https://github.com/appunni-m/starlette-rs/actions/runs/38850605133)
-passed all five CPython parity profiles and 17 selected fault-contract cases.
-All six expanded coverage profiles passed, and Coverage MCP verified their
-source and test receipts. The 74-workload benchmark measured every declared
-source/package workload with zero failures or observation mismatches; no
-equivalent Rust-native ASGI benchmark boundary is available. Full run details
-and limits are recorded in [the implementation plan](../IMPLEMENTATION_PLAN.md)
-and [benchmark evidence](../BENCHMARKS.md).
+The post-fix five-profile parity matrix had zero mismatches and infrastructure
+errors, and all 17 selected fault contracts passed. The aggregate remains
+not_proven because macOS source-skipped one POSIX-surrogateescape filename
+case, leaving two target rows not run in each profile artifact. All six active
+coverage plans and the 74-workload source/package benchmark completed. Coverage
+MCP marks source attribution unverified and tests unknown; the line counts and
+limits are in the implementation ledger and benchmark report. The direct-ASGI
+smoke measurement recorded a 3.640x package slowdown.
 
-The full replacement remains incomplete. macOS arm64 package qualification
-passed for CPython 3.10–3.14 at source snapshot `fe229a998` plus the README
-runtime-dependency wording correction: five isolated installs, `pip check`,
-import smoke, and 20 input-derived Mypy source/package comparisons passed.
-Wheel, sdist, and crate inspection confirmed package namespace, `py.typed`,
-runtime metadata, notices, and provenance. The SBOM local-path issue was fixed
-and verified in commit `31ba6ba6`; the two Windows StaticFiles invalid-name
-cases have since passed in workflow
-[`38892560877`](https://github.com/appunni-m/starlette-rs/actions/runs/38892560877).
-Broader Windows filesystem behavior remains unproven. If further implementation
-changes add or alter runtime behavior,
-finish that implementation batch first, then rerun grouped parity and repairs,
-full coverage, and all benchmarks in that order. Do not infer complete
-compatibility from the active matrix alone.
+The atlas has 867 source rows: 811 input mappings, 56 source-backed
+not_applicable rows, and zero fixture backlog. All 999 API candidate rows are
+dispositioned. The pinned denominators remain 514 upstream test functions and
+24 documented pages. The full replacement remains incomplete; the active
+matrix does not prove compatibility beyond its declared inputs.
 
 ## Historical parity, coverage, and feature notes
 

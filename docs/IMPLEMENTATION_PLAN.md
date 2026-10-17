@@ -26,23 +26,27 @@ catalog, and the compatibility atlas pass. The atlas has 867 source rows,
 backlog. The pinned denominators remain 514 upstream test functions and 24
 documented pages.
 
-The full active @66 parity matrix ran once on target snapshot `ee12d295`, before
-the grouped mismatch fixes. CPython 3.10 reported 2,981 passed, 0 failed, and 2
-skips; 3.11 reported 2,980 passed, 1 failed, and 2 skips; 3.12 reported 2,979
-passed, 3 failed, and 2 skips; 3.13 and 3.14 each reported 2,980 passed, 1
-failed, and 2 skips. The mismatches were fixed at `d5e37b34`, and targeted
-rechecks passed QueryParams string-subclass cases on all five Python versions
-and the two affected CPython 3.12 upload cases. The full matrix was not rerun
-after those focused fixes, so there is no post-fix full-matrix pass to claim.
-The skips were the host-incompatible POSIX surrogateescape filename cases.
+The post-fix active @66 matrix ran on clean package target revision
+e48552230b8b8e0f9504c8930931c9a297b34145. CPython 3.10, 3.11, 3.13, and
+3.14 each passed 2,981 comparisons; 3.12 passed 2,982. There were zero
+mismatches and zero infrastructure errors. All 17 selected fault contracts
+passed. The five artifact totals include repeated Rust-native comparisons; run IDs are
+recorded in the execution ledger.
+
+The aggregate remains not_proven because the macOS filesystem cannot create
+the POSIX-surrogateescape filename case, leaving two target rows not run in
+each profile artifact. Those 10 rows are the Rust-native and Python-package
+comparisons whose source workflow skipped. A host capable of creating that
+filename is needed to prove this case across the matrix.
 
 All six active coverage plans have run, and the current 74-workload
-source/package Router/GZip benchmark completed on clean revision `fd024b83`.
-The measured evidence and its limitations are recorded in the execution ledger
-and [benchmark report](BENCHMARKS.md). Rust-native is not comparable at those
-ASGI workload boundaries. The full parity and coverage jobs are available
-through the manually dispatched `.github/workflows/parity-coverage.yml`
-workflow, so routine pushes and pull requests do not rerun those full suites.
+source/package Router/GZip benchmark completed on clean revision fd024b83.
+Coverage MCP marks source attribution unverified and tests unknown. Benchmark
+evidence and limitations are recorded in the execution ledger and
+benchmark report. Rust-native is not comparable at those ASGI workload
+boundaries. The full parity and coverage jobs are available through the
+manually dispatched parity-coverage workflow, so routine pushes and pull
+requests do not rerun those full suites.
 
 The following @64 results are historical and do not add evidence for the active
 @66 input set. The @64 Ubuntu source-parity workflow
@@ -681,7 +685,7 @@ representation, and dynamic `FormData.close()` dispatch remain Rust-backed.
 | Phase | State | Evidence |
 | --- | --- | --- |
 | Implementation | The active @66 implementation batch is integrated across the affected feature families. | Three new comparisons and ten @65 additions were included in the grouped run; source inventory reports zero fixture backlog. |
-| Full parity and grouped repairs | Full matrix run once against `ee12d295`; the mismatches found were fixed at `d5e37b34` and their affected inputs were rechecked. No post-fix full matrix rerun was made. | CPython 3.10: 2,981 passed, 0 failed, 2 skipped; 3.11: 2,980 passed, 1 failed, 2 skipped; 3.12: 2,979 passed, 3 failed, 2 skipped; 3.13 and 3.14: each 2,980 passed, 1 failed, 2 skipped. Focused post-fix checks passed QueryParams on 3.10–3.14 and the affected upload cases on 3.12. The only matrix skips were host-incompatible POSIX surrogateescape filenames. |
+| Full parity and grouped repairs | The post-fix five-profile matrix completed with no mismatches or infrastructure errors; aggregate status remains not_proven because one source case was skipped on the macOS filesystem. | CPython 3.10: 2,981/2,983 passed; 3.11: 2,981/2,983; 3.12: 2,982/2,984; 3.13 and 3.14: each 2,981/2,983. Two target rows per profile were not run after the POSIX-surrogateescape source case skipped. All 17 selected fault contracts passed. Runs: 017d744a-9445-48c4-819d-970688edacd6, 1c6dd6a3-413f-43c3-9e8e-0537501a73ca, 699a0ce2-bd29-4f6d-a250-d844c238717a, e6b188f0-cc4e-4596-9032-65f7561da191, and 46dfb16b-0e03-4d33-8a13-55ecc3ed40be. |
 | Full coverage and source reconciliation | Measured once for the active manifest across Rust-native and all five CPython profiles. | Coverage MCP line counts (covered/total): Rust-native 14,631/19,638; CPython 3.10 23,545/33,960; 3.11 23,510/33,960; 3.12 23,514/33,960; 3.13 23,498/33,960; 3.14 23,507/33,960. Each plan passed its selected inputs except the one host-incompatible surrogateescape filename. CPython 3.10's LLVM report rejected two malformed profile files; its workspace-only LCOV was aggregated from the remaining valid profiles without rerunning inputs. Coverage MCP marks every report's source unverified and tests unknown, so these measurements do not establish verified coverage attribution. The generated coverage matrix has 867 rows (812 supported, 28 n/a, 27 private/internal); the generated fixture backlog has no rows. |
 | All benchmarks | Measured after the grouped parity and coverage phases. | On clean target `fd024b83`, upstream run `9ff02cf1-57cd-44af-a1d2-2e4339974f05` measured all 74 active Router/GZip workloads (6 Router, 68 GZip), with 0 failures and 0 source/package not-run rows. The correctness preflight passed its 2 selected profile comparisons. All 74 Rust-native rows remain `not_run` because the native API does not expose an equivalent ASGI workload boundary. The separate direct-ASGI `/hello` smoke run measured 30×100 dispatches: source median 15.329 µs and package median 55.799 µs, so the package was 3.640× slower at that boundary. Its result status remains `not_proven` because the smoke lane declares only one workload while the source catalog contains 74. These measurements expose an optimization target and do not establish full Starlette parity. |
 | Packaging and interpreter qualification | Historical local macOS arm64 qualification; current changes are not qualified by it. | Five CPython 3.10–3.14 wheels, an sdist, and the Rust crate were inspected in the earlier qualification. Other platform builds remain unqualified. |
@@ -696,11 +700,11 @@ counts from the generated [`coverage matrix`](atlas/coverage-matrix.csv) and
 a parity score. The full-replacement goal remains active.
 
 The latest upstream workload result and separate direct-ASGI smoke result are
-recorded in [`BENCHMARKS.md`](BENCHMARKS.md). The upstream evidence covers the
-declared 74 Router/GZip workloads; the smoke result covers one direct dispatch.
-Neither establishes full Starlette parity. The full parity matrix has not been
-rerun after its targeted fixes, and the direct-ASGI slowdown remains an
-optimization follow-up.
+recorded in the benchmark report. The upstream evidence covers 74 Router/GZip
+workloads; the smoke result covers one direct dispatch. The post-fix active
+matrix now has no mismatches, but its aggregate remains not_proven because the
+macOS filesystem skipped one POSIX-surrogateescape filename case. The direct-
+ASGI slowdown remains an optimization follow-up.
 
 Boundary details: [Request and HTTPConnection lookups](REQUEST_CONNECTION_LOOKUP_BOUNDARY.md),
 [response protocols](RESPONSE_RENDER_BOUNDARY.md),
@@ -753,24 +757,26 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The active parity contract uses `parity-input@66` with full scope
-(`starlette-1.6.0-full`): 2,628 input cases across 452 parity files, two
+The active parity contract uses parity-input@66 with full scope
+(starlette-1.6.0-full): 2,628 input cases across 452 parity files, two
 benchmark files, 156 Starlette compatibility operations, 15 Rust-native
 operations, 1,467 parity requirements, and six target profiles. Its manifest
-SHA-256 is `474c5a1e8f413ab0a02cb0b6ca5e9c46b85a5e29f26bfde93d4cd3e735faf12f`.
+SHA-256 is 215edd43b34093604329c095e5b216e11c937225e8d316143e8c2ccf9776eb12.
 The active inputs pass contract validation and source-inventory generation.
-The grouped @66 parity matrix has run locally with two documented macOS source
-skips. Full parity and coverage reconciliation remain open as described in the
-current execution ledger; the 74-workload source/package benchmark completed
-locally. Historical evidence above applies to earlier manifest revisions. The generated
-source-row, mapping, `not_applicable`, and backlog totals live in
-[`coverage-matrix.csv`](atlas/coverage-matrix.csv) and
-[`fixture-backlog.csv`](atlas/fixture-backlog.csv); regenerate them after
-changing fixture dispositions. The implementation history below records how
-the input set grew; its checkpoint language is historical, while current gate
-states are in the execution ledger above. The results do not establish
-universal compatibility beyond the declared contract; keep the fixed 514
-upstream test-function and 24 documented-page denominators visible.
+The post-fix five-profile parity matrix had no mismatches or infrastructure
+errors, with all 17 selected fault contracts passing. Its aggregate remains
+not_proven because the macOS filesystem skipped one POSIX-surrogateescape
+source case, leaving two target rows not run in each profile. All six coverage
+plans and the 74-workload source/package benchmark completed; Coverage MCP
+marks source attribution unverified and tests unknown. Historical evidence
+above applies to earlier manifest revisions. The generated source-row,
+mapping, not_applicable, and backlog totals live in the coverage matrix and
+fixture backlog; regenerate them after changing fixture dispositions. The
+implementation history below records how the input set grew; its checkpoint
+language is historical, while current gate states are in the execution ledger
+above. The results do not establish universal compatibility beyond the
+declared contract; keep the fixed 514 upstream test-function and 24
+documented-page denominators visible.
 The preceding @44 working-tree matrix and instrumented coverage run passed with four
 unsupported native cases retained. Clean commit `553a06a` also passed the full
 parity gate and all 74 source/package benchmarks; native benchmark interfaces

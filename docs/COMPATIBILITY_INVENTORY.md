@@ -2,78 +2,39 @@
 
 ## Current verification status
 
-The active full-scope manifest is `parity-input@66`, SHA-256
-`215edd43b34093604329c095e5b216e11c937225e8d316143e8c2ccf9776eb12`, against
+The active full-scope manifest is parity-input@66, SHA-256
+215edd43b34093604329c095e5b216e11c937225e8d316143e8c2ccf9776eb12, against
 Starlette 1.6.0 revision
-`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. It declares 2,628 input-only cases
+4f250d6b814587e20c5365f0a5f0c4d42bcb929f. It declares 2,628 input-only cases
 across 452 parity files, two benchmark inputs, 156 compatibility operations,
 15 Rust-native operations, 1,467 parity requirements, and six target profiles.
-The active profile selection is 2,608 cases on CPython 3.10, 3.11, 3.13, and
-3.14; 2,611 on 3.12; and 378 Rust-native. Input generation, contract
-validation, source inventory, and the atlas pass. The full active parity matrix
-ran once on pre-fix target snapshot `ee12d295`. It recorded: CPython 3.10,
-2,981 passed / 0 failed / 2 skipped; 3.11, 2,980 / 1 / 2; 3.12, 2,979 / 3 /
-2; 3.13, 2,980 / 1 / 2; and 3.14, 2,980 / 1 / 2. The mismatches were fixed
-at `d5e37b34`; targeted rechecks passed the affected QueryParams inputs on all
-five Python versions and the affected CPython 3.12 upload inputs. The full
-matrix was not rerun after those changes. Its two skips per profile were
-host-incompatible POSIX surrogateescape filename cases, so a post-fix full-
-matrix pass is still unverified.
+The post-fix five-profile matrix ran against package target revision
+e48552230b8b8e0f9504c8930931c9a297b34145. Per-artifact totals include the
+repeated Rust-native comparisons: 3.10, 3.11, 3.13, and 3.14 each passed
+2,981 rows; 3.12 passed 2,982. There were zero
+mismatches and zero infrastructure errors; all 17 selected fault contracts
+passed.
+
+The aggregate remains not_proven because the macOS filesystem cannot create
+the POSIX-surrogateescape filename in
+starlette.staticfiles.StaticFiles.lookup-path.surrogateescape-posix-matched-filename.
+Its source workflow skipped, leaving two target rows not run per profile: the
+Rust-native row and the selected Python-package row. The five result run IDs
+and per-profile counts are recorded in the implementation ledger and parity
+report.
 
 All six active coverage plans and the active benchmark phase have completed.
-The six coverage measurements and their source-attribution limitation are
-recorded in the [implementation ledger](IMPLEMENTATION_PLAN.md). The latest
-source/package benchmark measured all 74 Router/GZip workloads with zero
-failures or source/package not-run rows; 74 Rust-native rows were not comparable
-at this ASGI boundary. A separate direct-ASGI `/hello` measurement recorded a
-3.640× package slowdown. See [benchmark evidence](BENCHMARKS.md).
+Coverage MCP marks source attribution unverified and tests unknown; the line
+counts and other limits are in the implementation ledger. The source/package
+benchmark measured all 74 Router/GZip workloads with zero failures or
+source/package not-run rows; 74 Rust-native rows were not comparable at this
+ASGI boundary. A separate direct-ASGI /hello measurement recorded a 3.640x
+package slowdown. See benchmark evidence.
 
 Source inventory counts are generated in the atlas: 867 source rows, 811 input
-mappings, 56 source-backed `not_applicable` rows, and zero fixture backlog.
+mappings, 56 source-backed not_applicable rows, and zero fixture backlog.
 Those counts describe source disposition, not verified behavioral parity. The
 pinned denominators remain 514 upstream test functions and 24 documented pages.
-
-All six @63 coverage profiles passed: 375 Rust-native cases, 274 each for
-CPython 3.10 and 3.11, 2,573 for 3.12, and 275 each for 3.13 and 3.14.
-Coverage MCP read all six LCOV reports and surfaced uncovered locations, but
-marked the imported CI reports `source=unverified` and `tests=unknown` because
-matching source/build receipts were not ingested. Selected-component line
-counts are recorded in the [implementation
-ledger](IMPLEMENTATION_PLAN.md); they do not claim full source-line or
-Starlette behavioral coverage.
-
-The @63 benchmark run
-[`005660ff-d624-43a0-aff3-fc86fcb9b2f0`](BENCHMARKS.md) measured all 74
-declared source/package workloads (six Router and 68 GZip), with zero failures,
-skips, or source/package `not_run` rows and matching normalized observations
-for all 74. Its correctness preflight passed 2,941 comparisons, with zero
-failures or infrastructure errors and two expected macOS
-POSIX-surrogateescape skips. All 74 Rust-native rows are `not_run` because no
-equivalent ASGI workload boundary is available. The atlas contains 867 rows:
-811 input mappings, 56 source-backed `not_applicable` rows, and zero backlog;
-all 999 API candidate rows are dispositioned as 564 `supported`, 435
-`private/internal`, and zero `uncertain`.
-
-The full Starlette replacement remains incomplete; these measurements do not
-establish universal or drop-in compatibility. macOS arm64 package qualification
-passed for CPython 3.10–3.14 at source snapshot `fe229a998` plus the README
-runtime-dependency wording correction. Five isolated installs, `pip check`,
-import smoke, and 20 input-derived Mypy source/package comparisons passed;
-wheel, sdist, and crate contents, dependencies, `py.typed`, and notices were
-verified. The CycloneDX SBOM now uses stable Cargo PURLs and preserves its Rust
-dependency graph. A targeted CPython 3.12 wheel built from the checkout and
-another from its sdist each carried 75 components, 76 dependency records, and
-134 dependency edges without local filesystem references; see
-[SBOM packaging notes](SBOM.md). The five-version qualification matrix remains
-scoped to its recorded source snapshot. The two Windows StaticFiles invalid-name
-cases passed in workflow
-[`38892560877`](https://github.com/appunni-m/starlette-rs/actions/runs/38892560877);
-broader Windows filesystem behavior remains unproven. Keep the pinned
-denominators visible: 514 upstream test functions and 24 documented pages.
-
-The implementation-batch notes below preserve per-feature detail as it was
-recorded. Their `unexecuted` and `deferred` wording is historical; the current
-working manifest status is stated above.
 
 ## Historical implementation-batch notes
 
@@ -1195,11 +1156,11 @@ and do not establish parity for every deprecation path.
   `doc.templates.async-context-processor-constraint`.
 
 These source-backed caveats and targeted inputs do not create fixture backlog.
-The active @66 grouped parity run had no executable-row mismatches but two
-target rows were source-skipped on macOS. Local coverage artifacts and their
-limitations are recorded above; full multi-profile coverage remains pending.
-The @66 benchmark measured 74 source/package workloads; see
-[`BENCHMARKS.md`](BENCHMARKS.md) for its scope and results. Previous @64
+The post-fix active @66 matrix had no mismatches or infrastructure errors; its
+aggregate remains not_proven because macOS source-skipped one surrogateescape
+filename case, leaving two target rows not run in each profile. All six active
+coverage plans and the 74 source/package benchmark workloads completed. Their
+limits are recorded above and in the implementation ledger. Previous @64
 results are historical and do not establish behavior for @66.
 
 The macOS arm64 Python package qualification is complete, and its SBOM

@@ -24,53 +24,28 @@ with no conventional Python or Rust unit-test suite.
 
 ## Current implementation status
 
-The active full-scope `parity-input@66` contract covers Starlette 1.6.0 with
+The active full-scope parity-input@66 contract covers Starlette 1.6.0 with
 2,628 cases across 452 parity inputs and two benchmark inputs, 156 compatibility
 operations, 15 Rust-native operations, and 1,467 parity requirements. Its
 manifest SHA-256 is
-`474c5a1e8f413ab0a02cb0b6ca5e9c46b85a5e29f26bfde93d4cd3e735faf12f`. Input
-generation, contract validation, and source inventory pass. Grouped local
-run `3a615b88-4f92-434e-9b89-3b8ab3935ca2` passed 2,982/2,982 completed
-comparisons with zero mismatches or infrastructure errors; all five fault
-contracts passed. Two rows were not run because the macOS filesystem cannot
-create the surrogateescape filename. Local Rust-native and CPython 3.12
-coverage reports are measured but not ingested; MCP marks their sources
-unverified and tests unknown. The other four CPython coverage profiles remain
-pending. The clean committed @66 benchmark measured 74/74 source/package
-workloads without failures or skipped source/package rows; Rust-native rows are
-not comparable at this ASGI boundary. The generated source atlas has 867 rows: 811 input mappings, 56 source-backed
-`not_applicable` rows, and zero fixture backlog. All 999 API candidate rows are
+215edd43b34093604329c095e5b216e11c937225e8d316143e8c2ccf9776eb12. Input
+generation, contract validation, and source inventory pass.
+
+The post-fix five-profile parity matrix has zero mismatches and infrastructure
+errors; all 17 selected fault contracts passed. The aggregate remains
+not_proven because macOS source-skipped the POSIX-surrogateescape filename
+case. This leaves two target rows not run in each profile artifact. Run IDs
+and exact counts are in the implementation ledger and parity report. All six
+coverage plans and the 74-workload source/package benchmark completed; the
+coverage source attribution remains unverified and tests unknown. A separate
+direct-ASGI /hello measurement recorded a 3.640x package slowdown.
+
+The generated source atlas has 867 rows: 811 input mappings, 56 source-backed
+not_applicable rows, and zero fixture backlog. All 999 API candidate rows are
 dispositioned as 564 supported, 435 private/internal, and zero uncertain. The
-local @63 grouped run selected 2,941 comparisons on CPython
-3.12 and Rust-native: 2,937 passed, zero differed, and two had WebSocket
-target-adapter crashes. The four local `not_run` rows were those two crash
-outcomes and two runs of a surrogateescape filesystem case. The adapter crashes
-were fixed and both cases passed in a focused rerun. CI workflow
-[`38895661384`](https://github.com/appunni-m/starlette-rs/actions/runs/38895661384)
-passed all five CPython 3.10–3.14 parity jobs on clean target revision
-`4742d075a748fbe182ac121e8b37dd25f5f2d56c`.
-
-All six @62 coverage profiles passed: Rust-native 375 cases, CPython 3.10 and 3.11
-274 each, CPython 3.12 2,571, and CPython 3.13 and 3.14 275 each. Coverage MCP
-read the reports and surfaced gaps, but marked the imported CI reports
-`source=unverified` and `tests=unknown` because their receipts were not
-ingested. The CI result artifacts record zero failed cases. The selected
-component line counts and the benchmark preflight results are recorded in the
-[implementation plan](../IMPLEMENTATION_PLAN.md).
-
-Previous @62 benchmark run `5242b8e5-4c5e-4c45-af60-0b83a6ba8b33` measured all 74
-Router/GZip source/package workloads, with zero failures, skips, or
-source/package `not_run` rows and matching normalized observations for all 74.
-All 74 Rust-native benchmark entries remain `not_run` because the native API has
-no equivalent workload boundary. The top-level replacement status remains
-`not_proven`. Run identities are in the [parity report](../PARITY.md) and
-[benchmark report](../BENCHMARKS.md).
-
-Fixed source denominators are 514 upstream test functions and 24 documentation
-pages. The complete replacement remains unproven; these inventory counts and
-the measured contract do not establish universal or drop-in compatibility.
-The execution order and remaining platform/packaging qualification are tracked
-in the implementation plan.
+fixed denominators remain 514 upstream test functions and 24 documented pages.
+The full replacement remains incomplete; this matrix does not prove universal
+compatibility or behavior beyond the active inputs.
 
 ## Historical atlas checkpoints
 

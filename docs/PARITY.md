@@ -2,55 +2,48 @@
 
 ## Current verification status
 
-The active `parity-input@66` manifest has 2,628 cases across 452 parity
+The active parity-input@66 manifest contains 2,628 cases across 452 parity
 inputs, 1,467 requirements, and SHA-256
-`215edd43b34093604329c095e5b216e11c937225e8d316143e8c2ccf9776eb12`. Input
-generation, contract validation, and source inventory pass. Case scope now
-selects 2,608 inputs on CPython 3.10 and 3.11, 2,611 on 3.12, and 2,608 on
-3.13 and 3.14; Rust-native selects 378. The `inspect.markcoroutinefunction`
-input is scoped to 3.12–3.14, the legacy `asyncio` coroutine marker input to
-3.10–3.12, and package fault contracts to their declared CPython 3.12 target.
+215edd43b34093604329c095e5b216e11c937225e8d316143e8c2ccf9776eb12. Input
+generation, contract validation, and source inventory pass. The profile
+selections are 2,608 cases on CPython 3.10 and 3.11, 2,611 on 3.12, 2,608 on
+3.13 and 3.14, and 378 Rust-native.
 
-The grouped local run `3a615b88-4f92-434e-9b89-3b8ab3935ca2` and the previous
-local coverage results used the earlier @66 profile selection and manifest
-SHA-256 `474c5a1e8f413ab0a02cb0b6ca5e9c46b85a5e29f26bfde93d4cd3e735faf12f`.
-They are historical and do not verify the active selection. A separate
-full-case attempt is bound to the active manifest but selects only CPython
-3.10 and Rust-native and uses stale target revisions `085f4dbb` and
-`db0e073e`; it reports 2,793 passed, 97 failed, 93 not run, and 91
-infrastructure errors. Those results do not assess the current target
-checkout. The grouped parity matrix, six coverage plans, and post-gate
-benchmark remain pending. CI runs full parity and coverage only from the
-manually dispatched `.github/workflows/parity-coverage.yml` workflow.
+The post-fix five-profile matrix ran against clean package target revision
+e48552230b8b8e0f9504c8930931c9a297b34145. All executed comparisons and all
+17 selected fault contracts passed, with zero mismatches and zero
+infrastructure errors. Each artifact total below includes its repeated
+Rust-native comparisons:
 
-The latest completed five-profile source-parity workflow used the previous @64
-input set. Workflow
-[`38966623985`](https://github.com/appunni-m/starlette-rs/actions/runs/38966623985)
-reported zero mismatches, failed comparisons, `not_run` rows, or infrastructure
-errors: CPython 3.10 and 3.11 each passed 664/664 profile rows, 3.13 and 3.14
-each passed 665/665, and the CPython 3.12 full matrix passed 2,971/2,971.
-Those results do not cover @66. The Windows invalid-name probe
-[`38966623892`](https://github.com/appunni-m/starlette-rs/actions/runs/38966623892)
-also belongs to @64 and passed all four comparisons. A local macOS @64 run
-source-skipped two StaticFiles rows because its filesystem cannot create the
-invalid-byte filename; the Linux matrix exercised them successfully.
+| Profile | Run ID | Passed / selected rows | Fault contracts |
+| --- | --- | ---: | ---: |
+| CPython 3.10 | 017d744a-9445-48c4-819d-970688edacd6 | 2,981 / 2,983 | 3 / 3 |
+| CPython 3.11 | 1c6dd6a3-413f-43c3-9e8e-0537501a73ca | 2,981 / 2,983 | 3 / 3 |
+| CPython 3.12 | 699a0ce2-bd29-4f6d-a250-d844c238717a | 2,982 / 2,984 | 5 / 5 |
+| CPython 3.13 | e6b188f0-cc4e-4596-9032-65f7561da191 | 2,981 / 2,983 | 3 / 3 |
+| CPython 3.14 | 46dfb16b-0e03-4d33-8a13-55ecc3ed40be | 2,981 / 2,983 | 3 / 3 |
 
-The six @64 coverage plans executed with zero failed selected cases: 289 for
-CPython 3.10, 289 for 3.11, 2,598 for 3.12, 290 for 3.13, 290 for 3.14, and
-378 for Rust-native. Coverage MCP marks source identity `unverified` and test
-status `unknown` because matching source/build receipts were not ingested, so
-these line counts are not Starlette-wide coverage. The complete @64 benchmark
-measured all 74 declared Router/GZip source/package workloads; its run details
-and two macOS preflight skips are recorded in [benchmark evidence](BENCHMARKS.md).
-The earlier local @66 coverage runs passed 377 Rust-native and 2,610 CPython 3.12 package
-cases, each with the same source-skipped filename case. Coverage MCP measured
-14,605/19,606 Rust-native lines (74.5%) and 23,493/33,905 package lines
-(69.3%), but the plans are `not_ingested`; MCP marks source identity
-unverified and tests unknown. The other four CPython coverage profiles remain
-pending. The clean committed @66 benchmark
-`3e3c1fb0-af43-45ae-9a8c-f18a47e248ec` measured all 74 source/package workloads
-with zero failures or source/package not-run rows; Rust-native rows remain
-boundary-specific not-run. See [benchmark evidence](BENCHMARKS.md).
+The aggregate remains not_proven because the macOS filesystem cannot create
+the POSIX-surrogateescape filename in
+starlette.staticfiles.StaticFiles.lookup-path.surrogateescape-posix-matched-filename.
+That source skip leaves two target rows not run in each profile artifact
+(Rust-native and the selected Python package), 10 rows total. The profile
+artifacts and aggregate status report are local ignored files under
+build/parity/.
+
+All six active coverage plans have completed. Coverage MCP marks their source
+attribution unverified and tests unknown; the line counts and LCOV caveats are
+in the implementation ledger. The active source/package benchmark measured all
+74 Router/GZip workloads with zero failures and zero source/package not-run
+rows. The direct-ASGI smoke measurement recorded a 3.640x package slowdown;
+see benchmark evidence and the implementation ledger. Rust-native timing is
+not comparable at those ASGI boundaries.
+
+The source atlas has 867 rows: 811 input mappings, 56 source-backed
+not_applicable rows, and zero fixture backlog. The pinned denominators remain
+514 upstream test functions and 24 documented pages. The full replacement
+remains unproven; this matrix does not prove behavior outside the active
+contract or on filesystems that can exercise the skipped case.
 
 The latest input-only comparisons cover Config subclass property/cast dispatch
 and empty-format-spec error messages, optimized Request, WebSocket, and
