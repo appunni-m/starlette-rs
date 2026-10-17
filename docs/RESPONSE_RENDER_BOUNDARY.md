@@ -51,13 +51,20 @@ The Rust boundary must preserve Python `str`, equality, truth testing, user
 string translation, formatting and `lower` protocols in source order. CPython
 compiles literal `%s` pairs into string conversion followed by its format
 protocol; a string subclass can run its original conversion again there.
-These callbacks preserve the required Python value representation contract.
-Rust owns attribute selection, validation, ordering, quoting and header
-construction. Python facades only forward the unchanged original arguments.
-Python datetime/date formatting uses the active interpreter's representation
-functions. No upstream Starlette module is imported at runtime. Arbitrary
-cookie key objects, supplied Morsel values, Python versions beyond the pinned
-interpreter, and complete cookie behavior remain separate open requirements.
+Calling `str.__mod__` from Rust does not reproduce the bytecode `%` conversion:
+the pinned CPython 3.12 source calls a returned string subclass's `__str__`
+twice for a literal `%s=%s` expression, while the direct dunder call calls it
+once. The private `_format_cookie_pair` facade helper contains that single,
+branch-free representation conversion. It does not choose fields, validate
+attributes, order them, quote values, or assemble the header; Rust owns those
+decisions and the final header. Existing input-only cases in
+`response-cookie-ownership.yaml` and `response-cookie-protocols.yaml` compare
+these subclass conversions, callback order, exceptions, and finalizer effects
+against the pinned oracle. Python datetime/date formatting uses the active
+interpreter's representation functions. No upstream Starlette module is
+imported at runtime. Arbitrary cookie key objects, supplied Morsel values,
+Python versions beyond the pinned interpreter, and complete cookie behavior
+remain separate open requirements.
 
 Python must invoke a user subclass's `render` method on the constructor's
 thread. Its values, attribute changes, and original exceptions belong to the

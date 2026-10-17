@@ -942,6 +942,7 @@ fn stream_operation(
             state,
             protocol,
             command,
+            warn_unawaited: py.version_info() >= (3, 13),
             pending_receive: false,
         },
         reuse_error,
@@ -1314,12 +1315,33 @@ struct StreamMachine {
     state: Arc<Mutex<RequestStreamState>>,
     protocol: SharedStreamProtocol,
     command: StreamCommand,
+    warn_unawaited: bool,
     pending_receive: bool,
 }
 
 impl AwaitableStateMachine for StreamMachine {
     fn finalize_on_drop(&self) -> bool {
         true
+    }
+
+    fn unawaited_warning(&self) -> Option<&'static std::ffi::CStr> {
+        if !self.warn_unawaited {
+            return None;
+        }
+        // CPython 3.13 warns when an async-generator operation is discarded
+        // before it starts. Request.stream() exposes the same public methods
+        // through this Rust-owned awaitable, so preserve their native warning.
+        Some(match &self.command {
+            StreamCommand::Advance(_) => {
+                c"coroutine method 'asend' of 'Request.stream' was never awaited"
+            }
+            StreamCommand::Throw(_) => {
+                c"coroutine method 'athrow' of 'Request.stream' was never awaited"
+            }
+            StreamCommand::Close => {
+                c"coroutine method 'aclose' of 'Request.stream' was never awaited"
+            }
+        })
     }
 
     fn traverse(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {

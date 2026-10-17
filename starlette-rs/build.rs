@@ -60,6 +60,9 @@ fn emit_identity() -> Result<(), String> {
     for path in &source_files {
         println!("cargo:rerun-if-changed={}", path.display());
     }
+    for path in git_identity_watch_paths(identity_root) {
+        println!("cargo:rerun-if-changed={}", path.display());
+    }
     println!("cargo:rerun-if-env-changed=RUSTC");
 
     let head = git_output(identity_root, &["rev-parse", "--verify", "HEAD"]);
@@ -109,6 +112,39 @@ fn emit_identity() -> Result<(), String> {
         "cargo:rustc-env=STARLETTE_PARITY_BUILD_DEPENDENCY_LOCK_SHA256={dependency_lock_sha256}"
     );
     Ok(())
+}
+
+/// Returns the Git files whose changes can alter the embedded revision.
+///
+/// Cargo does not otherwise know that `HEAD` or its referenced branch moved,
+/// so a clean checkout could keep an adapter binary with an obsolete identity.
+fn git_identity_watch_paths(root: &Path) -> Vec<PathBuf> {
+    let mut paths = Vec::new();
+    if let Some(head) = git_output(root, &["rev-parse", "--git-path", "HEAD"]) {
+        paths.push(resolve_git_path(root, &head));
+    }
+    if let Some(reference) = git_output(root, &["symbolic-ref", "--quiet", "HEAD"]) {
+        if let Some(path) = git_output(root, &["rev-parse", "--git-path", &reference]) {
+            paths.push(resolve_git_path(root, &path));
+        }
+    }
+    if let Some(common_dir) = git_output(root, &["rev-parse", "--git-common-dir"]) {
+        let common_dir = resolve_git_path(root, &common_dir);
+        paths.push(common_dir.join("refs").join("heads"));
+        paths.push(common_dir.join("packed-refs"));
+    }
+    paths.sort();
+    paths.dedup();
+    paths
+}
+
+fn resolve_git_path(root: &Path, path: &str) -> PathBuf {
+    let path = PathBuf::from(path);
+    if path.is_absolute() {
+        path
+    } else {
+        root.join(path)
+    }
 }
 
 fn required_cargo_env(name: &str) -> Result<String, String> {

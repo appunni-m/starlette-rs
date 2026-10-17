@@ -5076,6 +5076,11 @@ def _materialize_websocket_message(spec: dict[str, Any]) -> dict[str, Any]:
                 for pair in value
             ]
         elif name == "type" and isinstance(value, dict) and "str_subclass" in value:
+            # Keep this generated type's qualname aligned with the oracle's
+            # function-local InputStringSubclass for matching Python errors.
+            class InputStringSubclass(_InputStringSubclass):
+                pass
+
             _exact_object(value, {"str_subclass"}, "WebSocket message type descriptor")
             subclass_spec = value["str_subclass"]
             if not isinstance(subclass_spec, dict):
@@ -5091,7 +5096,7 @@ def _materialize_websocket_message(spec: dict[str, Any]) -> dict[str, Any]:
                 )
                 if not isinstance(subclass_spec["not_equal_result"], bool):
                     raise ValueError("WebSocket message not_equal_result must be a boolean")
-                message[name] = _InputStringSubclass(
+                message[name] = InputStringSubclass(
                     subclass_value,
                     not_equal_result=subclass_spec["not_equal_result"],
                 )
@@ -5103,7 +5108,7 @@ def _materialize_websocket_message(spec: dict[str, Any]) -> dict[str, Any]:
                 )
                 if not isinstance(subclass_spec["hash_error"], str):
                     raise ValueError("WebSocket message hash_error must be a string")
-                message[name] = _InputStringSubclass(
+                message[name] = InputStringSubclass(
                     subclass_value, hash_error=subclass_spec["hash_error"]
                 )
         else:

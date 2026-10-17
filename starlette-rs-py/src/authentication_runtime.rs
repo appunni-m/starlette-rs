@@ -869,7 +869,7 @@ impl AuthenticationMiddlewareCall {
 /// so require two yielded values and probe once for an extra value.
 fn unpack_authentication_result(result: &Bound<'_, PyAny>) -> PyResult<(Py<PyAny>, Py<PyAny>)> {
     let result_type = result.get_type();
-    let mut result = match result.try_iter() {
+    let mut iterator = match result.try_iter() {
         Ok(iterator) => iterator,
         Err(error)
             if error.is_instance_of::<PyTypeError>(result.py())
@@ -883,18 +883,35 @@ fn unpack_authentication_result(result: &Bound<'_, PyAny>) -> PyResult<(Py<PyAny
         }
         Err(error) => return Err(error),
     };
-    let credentials = result
+    let credentials = iterator
         .next()
         .transpose()?
         .ok_or_else(|| PyValueError::new_err("not enough values to unpack (expected 2, got 0)"))?;
-    let user = result
+    let user = iterator
         .next()
         .transpose()?
         .ok_or_else(|| PyValueError::new_err("not enough values to unpack (expected 2, got 1)"))?;
-    if result.next().transpose()?.is_some() {
-        return Err(PyValueError::new_err(
-            "too many values to unpack (expected 2)",
-        ));
+    if iterator.next().transpose()?.is_some() {
+        // CPython 3.14 reports the known length for exact built-in sequences;
+        // earlier versions and arbitrary iterators use the count-free message.
+        let message = if result.py().version_info() >= (3, 14) {
+            if result.is_exact_instance_of::<PyList>() {
+                format!(
+                    "too many values to unpack (expected 2, got {})",
+                    result.cast::<PyList>()?.len()
+                )
+            } else if result.is_exact_instance_of::<PyTuple>() {
+                format!(
+                    "too many values to unpack (expected 2, got {})",
+                    result.cast::<PyTuple>()?.len()
+                )
+            } else {
+                "too many values to unpack (expected 2)".to_owned()
+            }
+        } else {
+            "too many values to unpack (expected 2)".to_owned()
+        };
+        return Err(PyValueError::new_err(message));
     }
     Ok((credentials.unbind(), user.unbind()))
 }

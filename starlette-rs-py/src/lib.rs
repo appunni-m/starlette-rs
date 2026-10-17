@@ -568,6 +568,13 @@ impl PyQueryParams {
 }
 
 fn query_params_from_python(value: &Bound<'_, PyAny>) -> PyResult<Vec<(String, String)>> {
+    // ImmutableMultiDict checks truthiness before dispatching by type, and
+    // urllib.parse.parse_qsl repeats that check for string and bytes inputs.
+    // Keep Python subclass __bool__ behavior observable before extracting its
+    // underlying Unicode or byte payload.
+    if !value.is_truthy()? {
+        return Ok(Vec::new());
+    }
     if value.is_instance_of::<PyString>() {
         return Ok(NativeQueryParams::parse_str(&value.extract::<String>()?)
             .multi_items()
@@ -577,9 +584,6 @@ fn query_params_from_python(value: &Bound<'_, PyAny>) -> PyResult<Vec<(String, S
         return Ok(NativeQueryParams::parse(bytes.as_bytes())
             .multi_items()
             .to_vec());
-    }
-    if !value.is_truthy()? {
-        return Ok(Vec::new());
     }
     if value.hasattr("multi_items")? {
         return query_params_from_iterable(&value.call_method0("multi_items")?);

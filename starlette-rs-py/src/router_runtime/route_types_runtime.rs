@@ -315,8 +315,13 @@ impl AwaitableStateMachine for SyncGeneratorExit {
                 if self.exception_type.bind(py).is_none() {
                     match self.generator.bind(py).call_method0("__next__") {
                         Ok(_) => {
-                            // contextlib leaves a generator that yielded again
-                            // alive when it reports this protocol error.
+                            // CPython 3.11 added the close() call in
+                            // contextlib._GeneratorContextManager.__exit__.
+                            // Keep the 3.10 lifetime behavior while matching
+                            // the later runtime's cleanup before raising.
+                            if py.version_info() >= (3, 11) {
+                                self.generator.bind(py).call_method0("close")?;
+                            }
                             Err(PyRuntimeError::new_err("generator didn't stop"))
                         }
                         Err(error) if error.is_instance_of::<PyStopIteration>(py) => {
@@ -358,8 +363,9 @@ enum AsyncGeneratorExitMode {
 }
 
 enum AsyncGeneratorExitPending {
-    NormalStep,
-    ExceptionalStep {
+    NormalAdvance,
+    NormalClose,
+    ExceptionalThrow {
         exception: Py<PyAny>,
         traceback: Py<PyAny>,
     },
@@ -423,7 +429,7 @@ impl AwaitableStateMachine for AsyncGeneratorExit {
             visit.call(exception)?;
             visit.call(traceback)?;
         }
-        if let Some(AsyncGeneratorExitPending::ExceptionalStep {
+        if let Some(AsyncGeneratorExitPending::ExceptionalThrow {
             exception,
             traceback,
         }) = &self.pending
@@ -458,7 +464,7 @@ impl AsyncGeneratorExit {
         match &self.mode {
             AsyncGeneratorExitMode::Normal => {
                 let next = self.generator.bind(py).call_method0("__anext__")?;
-                self.pending = Some(AsyncGeneratorExitPending::NormalStep);
+                self.pending = Some(AsyncGeneratorExitPending::NormalAdvance);
                 Ok(MachineAction::Await(next.unbind()))
             }
             AsyncGeneratorExitMode::Exceptional {
@@ -469,7 +475,7 @@ impl AsyncGeneratorExit {
                     .generator
                     .bind(py)
                     .call_method1("athrow", (exception.bind(py),))?;
-                self.pending = Some(AsyncGeneratorExitPending::ExceptionalStep {
+                self.pending = Some(AsyncGeneratorExitPending::ExceptionalThrow {
                     exception: exception.clone_ref(py),
                     traceback: traceback.clone_ref(py),
                 });
@@ -478,13 +484,21 @@ impl AsyncGeneratorExit {
         }
     }
 
-    fn resume_value(&mut self, _py: Python<'_>, _value: Py<PyAny>) -> PyResult<MachineAction> {
-        // contextlib reports an extra yield without closing the generator.
+    fn resume_value(&mut self, py: Python<'_>, _value: Py<PyAny>) -> PyResult<MachineAction> {
         match self.take_pending()? {
-            AsyncGeneratorExitPending::NormalStep => {
+            AsyncGeneratorExitPending::NormalAdvance => {
+                if py.version_info() >= (3, 11) {
+                    let close = self.generator.bind(py).call_method0("aclose")?;
+                    self.pending = Some(AsyncGeneratorExitPending::NormalClose);
+                    Ok(MachineAction::Await(close.unbind()))
+                } else {
+                    Err(PyRuntimeError::new_err("generator didn't stop"))
+                }
+            }
+            AsyncGeneratorExitPending::NormalClose => {
                 Err(PyRuntimeError::new_err("generator didn't stop"))
             }
-            AsyncGeneratorExitPending::ExceptionalStep { .. } => Err(PyRuntimeError::new_err(
+            AsyncGeneratorExitPending::ExceptionalThrow { .. } => Err(PyRuntimeError::new_err(
                 "generator didn't stop after athrow()",
             )),
         }
@@ -496,10 +510,11 @@ impl AsyncGeneratorExit {
         error: PyErr,
     ) -> PyResult<MachineAction> {
         match self.take_pending()? {
-            AsyncGeneratorExitPending::NormalStep => {
+            AsyncGeneratorExitPending::NormalAdvance => {
                 Ok(MachineAction::Complete(python_bool(py, false)))
             }
-            AsyncGeneratorExitPending::ExceptionalStep { exception, .. } => Ok(
+            AsyncGeneratorExitPending::NormalClose => Err(error),
+            AsyncGeneratorExitPending::ExceptionalThrow { exception, .. } => Ok(
                 MachineAction::Complete(python_bool(py, !error.value(py).is(exception.bind(py)))),
             ),
         }
@@ -507,11 +522,13 @@ impl AsyncGeneratorExit {
 
     fn resume_error(&mut self, py: Python<'_>, error: PyErr) -> PyResult<MachineAction> {
         match self.take_pending()? {
-            AsyncGeneratorExitPending::ExceptionalStep {
+            AsyncGeneratorExitPending::ExceptionalThrow {
                 exception,
                 traceback,
             } => generator_throw_error(py, error, &exception, &traceback, false),
-            AsyncGeneratorExitPending::NormalStep => Err(error),
+            AsyncGeneratorExitPending::NormalAdvance | AsyncGeneratorExitPending::NormalClose => {
+                Err(error)
+            }
         }
     }
 
@@ -738,22 +755,20 @@ impl AwaitableStateMachine for RouterLifespanMachine {
         visit.call(&self.scope)?;
         visit.call(&self.receive)?;
         visit.call(&self.send)?;
-        if let Some(pending) = &self.pending {
-            match pending {
-                RouterLifespanPending::ErrorExit {
-                    original,
-                    traceback,
-                    ..
-                }
-                | RouterLifespanPending::FailureSend {
-                    original,
-                    traceback,
-                } => {
-                    visit.call(original)?;
-                    visit.call(traceback)?;
-                }
-                _ => {}
+        if let Some(
+            RouterLifespanPending::ErrorExit {
+                original,
+                traceback,
+                ..
             }
+            | RouterLifespanPending::FailureSend {
+                original,
+                traceback,
+            },
+        ) = &self.pending
+        {
+            visit.call(original)?;
+            visit.call(traceback)?;
         }
         Ok(())
     }

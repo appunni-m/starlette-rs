@@ -19,10 +19,16 @@ AsyncContentStream = AsyncIterable[Content]
 ContentStream = AsyncContentStream | SyncContentStream
 
 
+def _format_cookie_pair(key: Any, value: Any) -> str:
+    """Apply CPython's literal cookie ``%s=%s`` conversion at the boundary."""
+    # Keep the bytecode formatting expression: f-strings and str.__mod__ change
+    # observable str-subclass callback counts and order.
+    return "%s=%s" % (key, value)  # noqa: UP031
+
+
 class Response:
     """Wrap a Rust response and await ASGI ``send`` on the caller's loop."""
 
-    __slots__ = ("__dict__", "__weakref__", "_inner")
     raw_headers: list[tuple[bytes, bytes]]
     media_type = None
     charset = "utf-8"
