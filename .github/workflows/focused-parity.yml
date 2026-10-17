@@ -1,0 +1,77 @@
+name: Focused Starlette parity
+
+on:
+  workflow_dispatch:
+    inputs:
+      case_id:
+        description: Active parity case ID to run
+        required: true
+        type: string
+        default: starlette.applications.Starlette.__call__.get-hello
+      target_ref:
+        description: Target repository ref to compare
+        required: true
+        type: string
+        default: main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: focused-parity-${{ inputs.target_ref }}-${{ inputs.case_id }}
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: "1"
+  RUSTC_WRAPPER: ""
+  CARGO_NET_RETRY: "3"
+
+jobs:
+  parity:
+    name: ${{ inputs.case_id }} (CPython ${{ matrix.python-version }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+    defaults:
+      run:
+        working-directory: target
+    env:
+      STARLETTE_ORACLE_ROOT: ${{ github.workspace }}/starlette
+      STARLETTE_PARITY_CASE_ID: ${{ inputs.case_id }}
+      PYO3_PYTHON: python
+      RUSTUP_TOOLCHAIN: 1.96.1
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.target_ref }}
+          path: target
+          persist-credentials: false
+      - name: Checkout pinned Starlette oracle
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: Kludex/starlette
+          ref: 4f250d6b814587e20c5365f0a5f0c4d42bcb929f
+          path: starlette
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install 1.96.1 --profile minimal
+      - name: Run the selected parity case
+        run: >-
+          make test PARITY_PYTHON=python
+          PARITY_CASE_IDS="$STARLETTE_PARITY_CASE_ID"
+          PARITY_RUN_OUTPUT=build/parity/focused-parity-result.json
+      - name: Upload selected parity evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: focused-parity-${{ matrix.python-version }}-${{ github.run_id }}
+          path: target/build/parity/focused-parity-result.json
+          if-no-files-found: warn
+          retention-days: 30

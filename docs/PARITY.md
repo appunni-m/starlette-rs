@@ -31,6 +31,25 @@ That source skip leaves two target rows not run in each profile artifact
 artifacts and aggregate status report are local ignored files under
 build/parity/.
 
+The full matrix above predates commit `39a2efa9`, which adds an exact built-in
+coroutine fast path to the Python await boundary. Its release build,
+`cargo fmt --all --check`, and `git diff --check` passed. A selected parity run
+for `starlette.applications.Starlette.__call__.get-hello` did not execute: the
+local prepared environments were stale or absent, and refreshing them could
+not fetch the pinned Maturin build dependency because PyPI DNS was unavailable.
+That failed artifact is not parity evidence, and no speedup has been measured.
+
+The manually dispatched `Focused Starlette parity` workflow runs one supplied
+case across CPython 3.10–3.14 on Ubuntu and uploads one result artifact per
+profile. It does not run the full parity matrix, coverage, or benchmarks. To
+exercise the macOS-skipped StaticFiles case against the existing full-matrix
+target revision, dispatch it with target ref
+`e48552230b8b8e0f9504c8930931c9a297b34145` and case ID
+`starlette.staticfiles.StaticFiles.lookup-path.surrogateescape-posix-matched-filename`.
+Those Linux results must remain supplemental evidence until a strict
+reconciliation report validates and links them to the skipped rows; they must
+not be inserted into the macOS result artifacts.
+
 All six active coverage plans have completed. Coverage MCP marks their source
 attribution unverified and tests unknown; the line counts and LCOV caveats are
 in the implementation ledger. The active source/package benchmark measured all
