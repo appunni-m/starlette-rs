@@ -569,10 +569,13 @@ impl PyQueryParams {
 
 fn query_params_from_python(value: &Bound<'_, PyAny>) -> PyResult<Vec<(String, String)>> {
     // QueryParams dispatches strings and bytes before ImmutableMultiDict's
-    // generic truthiness check. Parsing normalizes these subclasses before
-    // checking emptiness, so a falsey __bool__ override must not discard a
-    // nonempty query string.
+    // generic truthiness check. CPython 3.10's parse_qsl normalizes str
+    // subclasses before checking emptiness, while 3.11+ checks their truth
+    // value directly; preserve that stdlib boundary behavior here.
     if value.is_instance_of::<PyString>() {
+        if value.py().version_info() >= (3, 11) && !value.is_truthy()? {
+            return Ok(Vec::new());
+        }
         return Ok(NativeQueryParams::parse_str(&value.extract::<String>()?)
             .multi_items()
             .to_vec());
