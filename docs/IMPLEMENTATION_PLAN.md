@@ -686,7 +686,7 @@ representation, and dynamic `FormData.close()` dispatch remain Rust-backed.
 | Implementation | The active @66 implementation batch is integrated across the affected feature families. | Three new comparisons and ten @65 additions were included in the grouped run; source inventory reports zero fixture backlog. |
 | Full parity and grouped repairs | Full matrix run once against `ee12d295`; the mismatches found were fixed at `d5e37b34` and their affected inputs were rechecked. No post-fix full matrix rerun was made. | CPython 3.10: 2,981 passed, 0 failed, 2 skipped; 3.11: 2,980 passed, 1 failed, 2 skipped; 3.12: 2,979 passed, 3 failed, 2 skipped; 3.13 and 3.14: each 2,980 passed, 1 failed, 2 skipped. Focused post-fix checks passed QueryParams on 3.10–3.14 and the affected upload cases on 3.12. The only matrix skips were host-incompatible POSIX surrogateescape filenames. |
 | Full coverage and source reconciliation | Measured once for the active manifest across Rust-native and all five CPython profiles. | Coverage MCP line counts (covered/total): Rust-native 14,631/19,638; CPython 3.10 23,545/33,960; 3.11 23,510/33,960; 3.12 23,514/33,960; 3.13 23,498/33,960; 3.14 23,507/33,960. Each plan passed its selected inputs except the one host-incompatible surrogateescape filename. CPython 3.10's LLVM report rejected two malformed profile files; its workspace-only LCOV was aggregated from the remaining valid profiles without rerunning inputs. Coverage MCP marks every report's source unverified and tests unknown, so these measurements do not establish verified coverage attribution. The generated coverage matrix has 867 rows (812 supported, 28 n/a, 27 private/internal); the generated fixture backlog has no rows. |
-| All benchmarks | Next phase after coverage and source reconciliation. | Historical run `3e3c1fb0-af43-45ae-9a8c-f18a47e248ec` measured 74/74 source/package workloads on clean revision `5069022b`, with 74 Rust-native rows not comparable at this ASGI boundary. It used a former manifest and is not evidence for the active target. |
+| All benchmarks | Measured after the grouped parity and coverage phases. | On clean target `fd024b83`, upstream run `9ff02cf1-57cd-44af-a1d2-2e4339974f05` measured all 74 active Router/GZip workloads (6 Router, 68 GZip), with 0 failures and 0 source/package not-run rows. The correctness preflight passed its 2 selected profile comparisons. All 74 Rust-native rows remain `not_run` because the native API does not expose an equivalent ASGI workload boundary. The separate direct-ASGI `/hello` smoke run measured 30×100 dispatches: source median 15.329 µs and package median 55.799 µs, so the package was 3.640× slower at that boundary. Its result status remains `not_proven` because the smoke lane declares only one workload while the source catalog contains 74. These measurements expose an optimization target and do not establish full Starlette parity. |
 | Packaging and interpreter qualification | Historical local macOS arm64 qualification; current changes are not qualified by it. | Five CPython 3.10–3.14 wheels, an sdist, and the Rust crate were inspected in the earlier qualification. Other platform builds remain unqualified. |
 
 Parity, coverage, and benchmark result artifacts are local generated output
@@ -698,9 +698,12 @@ counts from the generated [`coverage matrix`](atlas/coverage-matrix.csv) and
 [`fixture backlog`](atlas/fixture-backlog.csv). Coverage is a measurement, not
 a parity score. The full-replacement goal remains active.
 
-The latest benchmark result and generated evidence block are recorded in
-[`BENCHMARKS.md`](BENCHMARKS.md). The evidence is limited to the declared
-Router/GZip workloads and does not establish full Starlette parity.
+The latest upstream workload result and separate direct-ASGI smoke result are
+recorded in [`BENCHMARKS.md`](BENCHMARKS.md). The upstream evidence covers the
+declared 74 Router/GZip workloads; the smoke result covers one direct dispatch.
+Neither establishes full Starlette parity. The full parity matrix has not been
+rerun after its targeted fixes, and the direct-ASGI slowdown remains an
+optimization follow-up.
 
 Boundary details: [Request and HTTPConnection lookups](REQUEST_CONNECTION_LOOKUP_BOUNDARY.md),
 [response protocols](RESPONSE_RENDER_BOUNDARY.md),

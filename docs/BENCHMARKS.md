@@ -1,18 +1,15 @@
 # Benchmark mapping
 
 The active `parity-input@66` manifest declares 2,628 cases across 452 parity
-inputs, 1,467 requirements, and SHA-256
-and active SHA-256 `215edd43b34093604329c095e5b216e11c937225e8d316143e8c2ccf9776eb12`.
-The previous grouped @66 parity and benchmark runs used the former profile
-selection and manifest SHA-256
-`474c5a1e8f413ab0a02cb0b6ca5e9c46b85a5e29f26bfde93d4cd3e735faf12f`; they are
-historical evidence. The current grouped parity matrix has not run, and all
-six current coverage plans remain pending. Rerun this benchmark workload after
-those phases complete. The prior run measured all 74 source/package workloads
-(six Router and 68 GZip) with zero failures or source/package not-run rows. All
-74 Rust-native rows are `not_run` because the native API has no equivalent ASGI
-workload boundary. The benchmark does not prove full Starlette replacement
-parity.
+inputs, 1,467 requirements, and two benchmark inputs. Its SHA-256 is
+`215edd43b34093604329c095e5b216e11c937225e8d316143e8c2ccf9776eb12`. The full
+parity matrix ran against target revision `ee12d295`; the mismatches found were
+fixed at `d5e37b34` and affected inputs were rechecked. The full matrix was not
+rerun after those fixes. All six coverage plans have since run; the execution
+ledger in [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md) records their
+results and limits. The latest benchmark below measured all 74 source/package
+Router and GZip workloads. This evidence does not establish full Starlette
+replacement parity.
 
 The pinned Starlette 1.6.0 benchmark suite has six Router workloads and 68
 GZip workloads. The dedicated runner measures all 74 against both pinned
@@ -37,23 +34,37 @@ It verifies that this identity remains unchanged during the run.
 
 ## Latest paired benchmark run
 
-Run `3e3c1fb0-af43-45ae-9a8c-f18a47e248ec` completed from `2026-10-17T00:40:42.153Z` through `2026-10-17T00:52:25.958Z`.
+Run `9ff02cf1-57cd-44af-a1d2-2e4339974f05` completed from `2026-10-17T09:16:52.433Z` through `2026-10-17T09:18:40.250Z`.
 
-The source oracle is Starlette 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The target checkout is clean revision `5069022beccdc65211dd807ec04b7f78e296ff6b` with working-tree SHA-256 `38c262a04b5b0c9797c6b592bd9d0f0414ee7bb83681cf5d820c3c2864feae3f`.
+The source oracle is Starlette 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The target checkout is clean revision `fd024b83a3ecc15b75a4f6e09abf8c4c8dacbb12` with working-tree SHA-256 `474494853fab0dd197b48f323d906ff0602ec14cd0057c8a7cf1f52e868a2c49`.
 
 The runner measured 74/74 source/package workloads: 6 Router and 68 GZip. It reported 0 failures, 0 source/package not-run rows, and 74 Rust-native not-run workload rows because the native API does not expose these equivalent ASGI workload boundaries.
 
-The correctness preflight `92e170d0-c5b4-4f81-90fa-0343085cd778` selected 2984 profile comparisons, with 2982 passed, 0 failed, 0 infrastructure errors, and 2 not-run rows.
+The correctness preflight `26644791-ce4f-4ec5-a1fb-6fb4bf5acc72` selected 2 profile comparisons, with 2 passed, 0 failed, 0 infrastructure errors, and 0 not-run rows.
 
-The preflight passed 2608/2609 Python-package comparisons and 374/375 Rust-native comparisons; 1 Python-package and 1 Rust-native rows were `not_run`.
+The preflight passed 1/1 Python-package comparisons and 1/1 Rust-native comparisons; 0 Python-package and 0 Rust-native rows were `not_run`.
 
-The median source/package latency ratio was 0.275 for Router and 0.970 for GZip. Source latency was lower in 6/6 Router and 52/68 GZip workloads. Normalized observation hashes matched for 74/74 measured workloads.
+The median source/package latency ratio was 0.300 for Router and 0.971 for GZip. Source latency was lower in 6/6 Router and 51/68 GZip workloads. Normalized observation hashes matched for 74/74 measured workloads.
 
-Manifest SHA-256: `474c5a1e8f413ab0a02cb0b6ca5e9c46b85a5e29f26bfde93d4cd3e735faf12f`. Benchmark input SHA-256: `adafb558a4fadd4fe8c1a956dd03eced2039711440ac7cce2861f1124cc00ed2`. Installed wheel SHA-256: `fb83bb93a36f86d29cd479e78ef7fd3f730bb39e41c7ac88b0f9994cd7d8d11d`. Result artifact SHA-256: `500d06ebcb99ef6c586b7f15a9878df4a10cf4d46903ba2b4ff63d3e4e46a24a`.
+Manifest SHA-256: `215edd43b34093604329c095e5b216e11c937225e8d316143e8c2ccf9776eb12`. Benchmark input SHA-256: `adafb558a4fadd4fe8c1a956dd03eced2039711440ac7cce2861f1124cc00ed2`. Installed wheel SHA-256: `e8893420559c5d9c7d2377c5faa5012253f6e893951d04c1d2c36384c23898fa`. Result artifact SHA-256: `be7dcdda664512e0045f3c5c10efbe1c3ccb16957aa50f7cc14b1364bf879a82`.
 
 These are workload-specific local timings, not a general performance claim, CodSpeed measurements, or evidence of full Starlette parity.
 
 <!-- generated-upstream-benchmark:end -->
+
+## Direct ASGI smoke measurement
+
+Run `ea7a4051-a3b0-45f0-9508-ac3b4bd0280c` measured the declared direct-ASGI
+`GET /hello` dispatch on clean target revision `fd024b83a3ecc15b75a4f6e09abf8c4c8dacbb12`.
+Across 30 samples of 100 dispatches, the source median was 15,328.935 ns per
+dispatch and the installed package median was 55,798.96 ns. The package measured
+3.640 times slower at this boundary. Rust-native was not comparable because its
+public API does not expose this ASGI call boundary. The result artifact SHA-256
+is `1041938751cbc618131cb4c081861dfd72c6d2debcfa9ff31e1c71f3e919bb96`.
+
+This one-workload smoke result is separate from the completed 74-workload
+Router/GZip result above. It records a performance regression requiring
+follow-up optimization; neither benchmark demonstrates full Starlette parity.
 
 Earlier invocation results are not retained by the runner, which overwrites
 the ignored local result artifact. Only the generated latest-run evidence
