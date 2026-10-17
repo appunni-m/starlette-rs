@@ -14,10 +14,14 @@ input is scoped to 3.12–3.14, the legacy `asyncio` coroutine marker input to
 The grouped local run `3a615b88-4f92-434e-9b89-3b8ab3935ca2` and the previous
 local coverage results used the earlier @66 profile selection and manifest
 SHA-256 `474c5a1e8f413ab0a02cb0b6ca5e9c46b85a5e29f26bfde93d4cd3e735faf12f`.
-They are historical and do not verify the active selection. No grouped parity
-run has been executed for the current manifest; the grouped parity, coverage,
-and benchmark phases remain pending. CI runs full parity and coverage only from
-the manually dispatched `.github/workflows/parity-coverage.yml` workflow.
+They are historical and do not verify the active selection. A separate
+full-case attempt is bound to the active manifest but selects only CPython
+3.10 and Rust-native and uses stale target revisions `085f4dbb` and
+`db0e073e`; it reports 2,793 passed, 97 failed, 93 not run, and 91
+infrastructure errors. Those results do not assess the current target
+checkout. The grouped parity matrix, six coverage plans, and post-gate
+benchmark remain pending. CI runs full parity and coverage only from the
+manually dispatched `.github/workflows/parity-coverage.yml` workflow.
 
 The latest completed five-profile source-parity workflow used the previous @64
 input set. Workflow

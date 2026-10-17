@@ -15,9 +15,13 @@ validation, source inventory, and the atlas pass. The previous local @66 run
 clean @66 benchmark used manifest SHA-256
 `474c5a1e8f413ab0a02cb0b6ca5e9c46b85a5e29f26bfde93d4cd3e735faf12f` and the
 former profile selection; they are historical evidence and do not verify the
-active matrix. No grouped parity run has been executed for the active manifest.
-The six active coverage plans and the post-parity, post-coverage benchmark run
-remain pending. Source inventory counts are generated in the atlas:
+active matrix. The current-manifest full-case attempt selected only CPython
+3.10 and Rust-native and used stale target revisions `085f4dbb` and `db0e073e`;
+it reported 2,793 passed, 97 failed, 93 not run, and 91 infrastructure errors.
+It does not establish current-target parity. A clean grouped run across the
+active matrix, all six active coverage plans, and the post-parity,
+post-coverage benchmark run remain pending. Source inventory counts are
+generated in the atlas:
 867 source rows, 811 input mappings, 56 source-backed `not_applicable` rows,
 and zero fixture backlog. The pinned denominators remain 514 upstream test
 functions and 24 documented pages.

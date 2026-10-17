@@ -30,9 +30,13 @@ The previous grouped local @66 run
 (`3a615b88-4f92-434e-9b89-3b8ab3935ca2`) and local coverage results used the
 former profile selections and manifest SHA-256
 `474c5a1e8f413ab0a02cb0b6ca5e9c46b85a5e29f26bfde93d4cd3e735faf12f`. They do
-not verify this profile matrix. No full parity run has been executed for the
-current manifest. The grouped parity matrix and six coverage plans remain
-pending; after those finish, run the complete benchmark workload. The full
+not verify this profile matrix. A separate full-case attempt is bound to the
+active manifest hash, but selected only CPython 3.10 and Rust-native and used
+stale target revisions `085f4dbb` and `db0e073e`. It reports 2,793 passed, 97
+failed, 93 not run, and 91 infrastructure errors; those results do not assess
+the current target checkout. No clean grouped run verifies the current target
+across the active matrix. The grouped parity matrix and six coverage plans
+remain pending; after those finish, run the complete benchmark workload. The full
 parity and coverage jobs are available through the manually dispatched
 `.github/workflows/parity-coverage.yml` workflow, so routine pushes and pull
 requests do not rerun those full suites.
@@ -680,7 +684,7 @@ representation, and dynamic `FormData.close()` dispatch remain Rust-backed.
 | Phase | State | Evidence |
 | --- | --- | --- |
 | Implementation | The active @66 implementation batch is integrated across the affected feature families. | Three new comparisons and ten @65 additions were included in the grouped run; source inventory reports zero fixture backlog. |
-| Full parity and grouped repairs | Pending for the active manifest and all six profiles. | The local run `3a615b88-4f92-434e-9b89-3b8ab3935ca2` used the former @66 profile selection and manifest SHA-256 `474c5a1e8f413ab0a02cb0b6ca5e9c46b85a5e29f26bfde93d4cd3e735faf12f`; it is historical, not current-manifest evidence. |
+| Full parity and grouped repairs | Pending for the current target and all six active profiles. | The local run `3a615b88-4f92-434e-9b89-3b8ab3935ca2` used the former @66 selection and manifest SHA-256 `474c5a1e8f413ab0a02cb0b6ca5e9c46b85a5e29f26bfde93d4cd3e735faf12f`. A later active-manifest full-case attempt selected only CPython 3.10 and Rust-native, but used stale target revisions `085f4dbb` and `db0e073e` (2,793 passed, 97 failed, 93 not run, 91 infrastructure errors); neither artifact verifies the current target. |
 | Full coverage and source reconciliation | Pending for the active manifest and all six profiles. | Earlier local plans for the former profile selection were `not_ingested`; Coverage MCP marked source identity unverified and tests unknown. Those measurements do not satisfy the active coverage phase. |
 | All benchmarks | Deferred until active-manifest parity and coverage complete. | Run `3e3c1fb0-af43-45ae-9a8c-f18a47e248ec` measured 74/74 source/package workloads on clean revision `5069022b`, with 74 Rust-native rows not comparable at this ASGI boundary. It used the former manifest SHA-256 and is historical evidence. |
 | Packaging and interpreter qualification | Historical local macOS arm64 qualification; current changes are not qualified by it. | Five CPython 3.10–3.14 wheels, an sdist, and the Rust crate were inspected in the earlier qualification. Other platform builds remain unqualified. |
