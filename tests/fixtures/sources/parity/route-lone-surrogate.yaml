@@ -10,7 +10,11 @@
         "starlette.routing.Route.endpoint-name.function"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "path": "/\uD800/{item_id:int}",
@@ -36,7 +40,11 @@
         "starlette.routing.Route.__repr__.lone-surrogate-path"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "route": {
@@ -61,7 +69,11 @@
         "starlette.routing.Route.url_path_for.lone-surrogate-path"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "route_graph": {
@@ -94,7 +106,11 @@
         "starlette.routing.Router.route-dispatch.lone-surrogate-path"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "routes": [
@@ -157,7 +173,11 @@
         "starlette.routing.Router.route-dispatch.root-path-match"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "routes": [
@@ -220,7 +240,11 @@
         "starlette.routing.Router.route-dispatch.custom-converter-override"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "routes": [
@@ -289,7 +313,11 @@
         "starlette.routing.Router.route-dispatch.surrogate-redirect-encoding-error"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "routes": [
@@ -352,7 +380,11 @@
         "starlette.routing.Router.route-dispatch.opposite-scope-match-error"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "routes": [

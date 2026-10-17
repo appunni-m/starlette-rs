@@ -9,7 +9,11 @@
         "starlette.routing.Router.route-dispatch.live-route-path-mutation-keeps-compiled-pattern"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "custom_convertors": [],
@@ -161,7 +165,11 @@
         "starlette.routing.Router.route-dispatch.lone-surrogate-path"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "custom_convertors": [],
@@ -311,7 +319,11 @@
         "starlette.routing.Router.route-dispatch.live-websocket-route-path-mutation-keeps-compiled-pattern"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "custom_convertors": [],
@@ -468,7 +480,11 @@
         "starlette.routing.Router.route-dispatch.live-mount-path-mutation-keeps-compiled-pattern"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "custom_convertors": [],

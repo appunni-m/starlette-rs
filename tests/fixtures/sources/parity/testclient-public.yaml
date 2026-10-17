@@ -5,7 +5,11 @@
       "surface": "starlette.testclient.TestClient",
       "operation": "public-client-workflow",
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "observations": [
@@ -63,7 +67,11 @@
       "surface": "starlette.testclient.TestClient",
       "operation": "public-client-workflow",
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "observations": [
@@ -93,7 +101,11 @@
       "surface": "starlette.testclient.TestClient",
       "operation": "public-client-workflow",
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "observations": [
@@ -123,7 +135,11 @@
       "surface": "starlette.testclient.TestClient",
       "operation": "public-client-workflow",
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "observations": [
@@ -155,7 +171,11 @@
       "surface": "starlette.testclient.TestClient",
       "operation": "public-client-workflow",
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "observations": [

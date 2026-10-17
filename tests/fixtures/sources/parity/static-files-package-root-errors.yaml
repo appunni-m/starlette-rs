@@ -9,7 +9,11 @@
         "starlette.staticfiles.StaticFiles.configuration-check.package-roots.missing-package-spec"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "directory_path": "build/parity/static-files-config/package-root-missing-spec",
@@ -39,7 +43,11 @@
         "starlette.staticfiles.StaticFiles.configuration-check.package-roots.package-without-origin"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "directory_path": "build/parity/static-files-config/package-root-no-origin",
@@ -69,7 +77,11 @@
         "starlette.staticfiles.StaticFiles.configuration-check.package-roots.missing-static-directory"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "directory_path": "build/parity/static-files-config/package-root-missing-static-dir",

@@ -10,7 +10,11 @@
         "starlette.staticfiles.StaticFiles.asgi-call.package-static-assets"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "directory": "public",
@@ -112,7 +116,11 @@
         "starlette.staticfiles.StaticFiles.configuration-check.repeated-call-state-and-asgi-events"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "directory_path": "build/parity/static-files-config/check-dir-false-valid",

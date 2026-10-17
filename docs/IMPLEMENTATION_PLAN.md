@@ -8,40 +8,40 @@ Pydantic are outside this project's scope.
 ## Execution order and current status
 
 Active implementation checkpoint (2026-10-17; `parity-input@66`; manifest
-SHA-256 `474c5a1e8f413ab0a02cb0b6ca5e9c46b85a5e29f26bfde93d4cd3e735faf12f`):
+SHA-256 `215edd43b34093604329c095e5b216e11c937225e8d316143e8c2ccf9776eb12`):
 
 The active manifest declares full Starlette 1.6.0 scope with 2,628 cases across
 452 parity inputs, two benchmark inputs, 156 compatibility operations, 15
 Rust-native operations, 1,467 parity requirements, and six target profiles.
-This checkpoint adds three input-only comparisons for TestClient lifespan
-stream cleanup order and error precedence, direct ServerErrorMiddleware
-handler-property rereads, and dict-subclass route middleware keyword
-expansion. The grouped local @66 run (`3a615b88-4f92-434e-9b89-3b8ab3935ca2`)
-completed 2,982/2,982 executable comparisons across `rust-native-local` and
-`python-package-cpython312`, with zero mismatches or infrastructure errors;
-all five fault contracts passed. Two selected rows were not run because the
-macOS temporary filesystem cannot create the POSIX surrogateescape filename.
-The runner therefore returned exit code 2 and does not prove full parity;
-Linux CI must exercise that case and the remaining CPython profiles.
+This checkpoint widens general input-only cases across supported CPython
+profiles and preserves the input-driven version boundaries for
+`inspect.markcoroutinefunction` (3.12–3.14) and the legacy `asyncio` coroutine
+marker (3.10–3.12). Package fault contracts remain on their declared CPython
+3.12 target. The profile counts are 2,608 cases on 3.10 and 3.11, 2,611 on
+3.12, 2,608 on 3.13 and 3.14, and 378 Rust-native.
 
-Coverage was collected for both locally available profiles. Rust-native run
-`390ae1eb-7b45-4458-9ab3-4a6db15e0cff` passed 377 cases and skipped the same
-source case; CPython package run
-`62d5f6ae-b137-40a2-8030-453f72893b08` passed 2,610 and skipped it. Coverage
-MCP measured 14,605/19,606 Rust-native lines (74.5%) and 23,493/33,905 package
-lines (69.3%), but both plans are `not_ingested` and MCP marks source identity
-unverified and test status unknown. These are scoped observations, not a
-verified full-coverage result. Coverage for CPython 3.10, 3.11, 3.13, and 3.14
-remains pending. The clean committed @66 benchmark
-(`3e3c1fb0-af43-45ae-9a8c-f18a47e248ec`) measured 74/74 source/package
-workloads with zero failures and zero source/package not-run rows. All 74
-Rust-native workload rows are intentionally not run because the native API has
-no equivalent ASGI boundary. Source latency was lower in all six Router
-workloads and 52 of 68 GZip workloads. These are local, workload-specific
-timings, not a general performance claim. The generated atlas has 867 source
-rows: 811 input mappings,
-56 source-backed `not_applicable` rows, and zero fixture backlog. The pinned
-denominators remain 514 upstream test functions and 24 documented pages.
+Input generation, offline contract validation, the metadata-derived API
+catalog, and the compatibility atlas pass. The atlas has 867 source rows,
+811 input mappings, 56 source-backed `not_applicable` rows, and zero fixture
+backlog. The pinned denominators remain 514 upstream test functions and 24
+documented pages.
+
+The previous grouped local @66 run
+(`3a615b88-4f92-434e-9b89-3b8ab3935ca2`) and local coverage results used the
+former profile selections and manifest SHA-256
+`474c5a1e8f413ab0a02cb0b6ca5e9c46b85a5e29f26bfde93d4cd3e735faf12f`. They do
+not verify this profile matrix. No full parity run has been executed for the
+current manifest. The grouped parity matrix and six coverage plans remain
+pending; after those finish, run the complete benchmark workload. The full
+parity and coverage jobs are available through the manually dispatched
+`.github/workflows/parity-coverage.yml` workflow, so routine pushes and pull
+requests do not rerun those full suites.
+
+The clean committed @66 benchmark
+(`3e3c1fb0-af43-45ae-9a8c-f18a47e248ec`) remains historical evidence for its
+74 source/package workloads. It ran before the current grouped parity and
+coverage phases and does not satisfy their required ordering. See
+[benchmark evidence](BENCHMARKS.md).
 
 The following @64 results are historical and do not add evidence for the active
 @66 input set. The @64 Ubuntu source-parity workflow

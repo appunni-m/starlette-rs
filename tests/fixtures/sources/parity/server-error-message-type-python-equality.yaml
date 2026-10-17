@@ -9,7 +9,11 @@
         "starlette.middleware.errors.ServerErrorMiddleware.asgi-send.message-type-python-equality"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "constructor": {

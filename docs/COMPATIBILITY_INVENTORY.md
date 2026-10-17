@@ -1218,8 +1218,9 @@ The command rejects an unexpected upstream commit. The generated catalog is a
 review aid, not a claim that every non-private source declaration is public.
 Check for catalog drift without writing it by adding `--check`. The
 `make source-inventory-check` target runs that check, then validates the full
-fixture/documentation atlas against the same pinned checkout; source-parity CI
-runs the target before behavioral comparisons.
+fixture/documentation atlas against the same pinned checkout. The manually
+dispatched `.github/workflows/parity-coverage.yml` workflow runs `make test`,
+which checks the atlas before behavioral comparisons.
 
 ### Unresolved TestClient implementation-state candidate
 

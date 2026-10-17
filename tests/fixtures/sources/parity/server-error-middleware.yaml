@@ -9,7 +9,11 @@
         "starlette.middleware.errors.ServerErrorMiddleware.construct"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "constructor": {
@@ -44,7 +48,11 @@
         "starlette.middleware.errors.ServerErrorMiddleware.direct-call"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "constructor": {
@@ -112,7 +120,11 @@
         "starlette.middleware.errors.ServerErrorMiddleware.default-response"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "constructor": {
@@ -172,7 +184,11 @@
         "starlette.middleware.errors.ServerErrorMiddleware.debug-html"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "constructor": {
@@ -237,7 +253,11 @@
         "starlette.middleware.errors.ServerErrorMiddleware.debug-after-response-sent"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "constructor": {
@@ -308,7 +328,11 @@
         "starlette.middleware.errors.ServerErrorMiddleware.non-http-passthrough"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "constructor": {
@@ -366,7 +390,11 @@
         "starlette.middleware.errors.ServerErrorMiddleware.mutable-app"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "constructor": {
@@ -454,7 +482,11 @@
         "starlette.middleware.errors.ServerErrorMiddleware.mutable-handler"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "constructor": {
@@ -527,7 +559,11 @@
         "starlette.middleware.errors.ServerErrorMiddleware.mutable-debug"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "constructor": {

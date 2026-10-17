@@ -13,7 +13,11 @@
         "starlette.middleware.wsgi.build-environ.input-stream"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "scope": {
@@ -150,7 +154,11 @@
         "starlette.middleware.wsgi.build-environ.client-omission"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "scope": {
@@ -217,7 +225,11 @@
         "starlette.middleware.wsgi.build-environ.scope-projection"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "scope": {
@@ -271,7 +283,11 @@
         "starlette.middleware.wsgi.module-import-warning.deprecation-warning"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "module_name": "starlette.middleware.wsgi",

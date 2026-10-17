@@ -10,7 +10,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "routes": [
@@ -72,7 +76,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "routes": [
@@ -134,7 +142,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "routes": [
@@ -196,7 +208,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "routes": [
@@ -258,7 +274,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "routes": [
@@ -320,7 +340,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "routes": [
@@ -382,7 +406,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "routes": [
@@ -444,7 +472,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "routes": [
@@ -506,7 +538,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "routes": [
@@ -568,7 +604,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "routes": [
@@ -630,7 +670,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "routes": [
@@ -691,7 +735,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "routes": [
@@ -753,7 +801,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "routes": [
@@ -815,7 +867,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "routes": [
@@ -876,7 +932,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "routes": [
@@ -937,7 +997,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "routes": [
@@ -1012,7 +1076,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "routes": [
@@ -1087,7 +1155,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "routes": [
@@ -1148,7 +1220,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "routes": [
@@ -1208,7 +1284,11 @@
         "starlette.routing.Router.route-dispatch.custom-converter-override"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "custom_convertors": [
@@ -1273,7 +1353,11 @@
         "starlette.routing.Router.route-dispatch.custom-converter-override"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "custom_convertors": [
@@ -1339,7 +1423,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "routes": [
@@ -1403,7 +1491,11 @@
         "starlette.routing.Router.route-dispatch.mount-prefix-boundary-miss"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "custom_convertors": [],
@@ -1587,7 +1679,11 @@
         "starlette.routing.Router.route-dispatch.mount-route-dispatch"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "custom_convertors": [],
@@ -1656,7 +1752,11 @@
         "starlette.routing.Router.route-dispatch.mount-route-dispatch"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "custom_convertors": [],
@@ -1879,7 +1979,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "routes": [
@@ -1940,7 +2044,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "routes": [
@@ -2001,7 +2109,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "routes": [
@@ -2062,7 +2174,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "routes": [
@@ -2136,7 +2252,11 @@
         "starlette.routing.Router.route-dispatch.datetime-converter"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "routes": [
@@ -2204,7 +2324,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "routes": [
@@ -2266,7 +2390,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "routes": [
@@ -2327,7 +2455,11 @@
         "starlette.routing.Router.route-dispatch.max-body-size"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "routes": [
@@ -2395,7 +2527,11 @@
         "starlette.routing.Mount.route-dispatch.max-body-size-override"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "routes": [
@@ -2470,7 +2606,11 @@
         "starlette.routing.Router.route-dispatch.int-converter-match"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "routes": [
@@ -2531,7 +2671,11 @@
         "starlette.routing.Router.route-dispatch.int-converter-match"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "routes": [
@@ -2592,7 +2736,11 @@
         "starlette.routing.Router.route-dispatch.float-converter-match"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "routes": [
@@ -2653,7 +2801,11 @@
         "starlette.routing.Router.route-dispatch.path-converter-match"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "routes": [
@@ -2714,7 +2866,11 @@
         "starlette.routing.Router.route-dispatch.uuid-converter-match"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "routes": [
@@ -2776,7 +2932,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "routes": [

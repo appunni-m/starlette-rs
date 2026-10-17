@@ -10,7 +10,11 @@
         "starlette.templating.Jinja2Templates.template-public-workflow.missing-configuration"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "observations": [
@@ -36,7 +40,11 @@
         "starlette.templating.Jinja2Templates.template-public-workflow.conflicting-configuration"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "observations": [
@@ -77,7 +85,11 @@
         "starlette.templating.Jinja2Templates.template-public-workflow.direct-render"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "observations": [
@@ -126,7 +138,11 @@
         "starlette.templating.Jinja2Templates.template-public-workflow.default-autoescape"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "observations": [
@@ -177,7 +193,11 @@
         "starlette.templating.Jinja2Templates.template-public-workflow.default-autoescape"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "observations": [
@@ -228,7 +248,11 @@
         "starlette.templating.Jinja2Templates.template-public-workflow.default-autoescape"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "observations": [
@@ -279,7 +303,11 @@
         "starlette.templating.Jinja2Templates.template-public-workflow.url-for"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "observations": [
@@ -338,7 +366,11 @@
         "starlette.templating.Jinja2Templates.template-public-workflow.context-processors"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "observations": [
@@ -401,7 +433,11 @@
         "starlette.templating.Jinja2Templates.template-public-workflow.context-processors"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "observations": [
@@ -480,7 +516,11 @@
         "starlette.templating.Jinja2Templates.template-public-workflow.processor-exception-before-template-lookup"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "observations": [
@@ -560,7 +600,11 @@
         "starlette.templating.Jinja2Templates.template-public-workflow.async-context-processors-unsupported"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "observations": [
@@ -641,7 +685,11 @@
         "starlette.templating.Jinja2Templates.template-public-workflow.base-http-middleware"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "observations": [
@@ -705,7 +753,11 @@
         "starlette.templating.Jinja2Templates.template-public-workflow.url-for"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "observations": [
@@ -764,7 +816,11 @@
         "starlette.templating.Jinja2Templates.template-public-workflow.direct-render"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "observations": [
@@ -816,7 +872,11 @@
         "starlette.templating.Jinja2Templates.template-public-workflow.directory-sequence"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "observations": [

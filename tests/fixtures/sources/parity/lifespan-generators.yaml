@@ -9,7 +9,11 @@
         "starlette.asgi.lifespan.sync-generator.success"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "execution_schedule": [
@@ -138,7 +142,11 @@
         "starlette.asgi.lifespan.sync-generator.startup-failure"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "execution_schedule": [
@@ -267,7 +275,11 @@
         "starlette.asgi.lifespan.sync-generator.shutdown-failure"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "execution_schedule": [
@@ -396,7 +408,11 @@
         "starlette.asgi.lifespan.async-generator.success"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "execution_schedule": [
@@ -525,7 +541,11 @@
         "starlette.asgi.lifespan.async-generator.startup-failure"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "execution_schedule": [
@@ -654,7 +674,11 @@
         "starlette.asgi.lifespan.async-generator.shutdown-failure"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "execution_schedule": [
@@ -783,7 +807,11 @@
         "starlette.asgi.lifespan.startup-send-call-error"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "execution_schedule": [
@@ -915,7 +943,11 @@
         "starlette.asgi.lifespan.shutdown-receive-call-error"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "execution_schedule": [
@@ -1043,7 +1075,11 @@
         "starlette.asgi.lifespan.async-context-manager-special-method-lookup"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "execution_schedule": [
@@ -1170,7 +1206,11 @@
         "starlette.asgi.lifespan.sync-generator.extra-yield"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "execution_schedule": [
@@ -1299,7 +1339,11 @@
         "starlette.asgi.lifespan.async-generator.extra-yield"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "execution_schedule": [
@@ -1428,7 +1472,11 @@
         "starlette.asgi.lifespan.sync-generator.shutdown-error-suppressed"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "execution_schedule": [
@@ -1556,7 +1604,11 @@
         "starlette.asgi.lifespan.async-generator.shutdown-error-suppressed"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "execution_schedule": [
@@ -1684,7 +1736,11 @@
         "starlette.asgi.lifespan.sync-generator.no-yield"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "execution_schedule": [
@@ -1813,7 +1869,11 @@
         "starlette.asgi.lifespan.async-generator.no-yield"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "execution_schedule": [
@@ -1942,7 +2002,11 @@
         "starlette.asgi.lifespan.scope-state-merge"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "execution_schedule": [
@@ -2079,7 +2143,11 @@
         "starlette.asgi.lifespan.scope-state-required"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "execution_schedule": [
@@ -2211,7 +2279,11 @@
         "starlette.asgi.lifespan.cancel-during-entry"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "execution_schedule": [
@@ -2341,7 +2413,11 @@
         "starlette.asgi.lifespan.cancel-during-shutdown-receive"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "execution_schedule": [
@@ -2469,7 +2545,11 @@
         "starlette.asgi.lifespan.cancel-during-exit"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "execution_schedule": [
@@ -2599,7 +2679,11 @@
         "starlette.asgi.lifespan.failure-event-send-error-context"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "execution_schedule": [
@@ -2732,7 +2816,11 @@
         "starlette.asgi.lifespan.failure-event-send-error-context"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "execution_schedule": [

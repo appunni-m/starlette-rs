@@ -10,7 +10,11 @@
         "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.return-replacement-response"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "application": {
@@ -106,7 +110,11 @@
         "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.async-context-manager-cleanup-completes"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "application": {

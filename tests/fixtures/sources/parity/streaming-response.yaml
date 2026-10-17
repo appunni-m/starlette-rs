@@ -10,7 +10,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "content": {
@@ -70,7 +74,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "content": {
@@ -136,7 +144,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "content": {
@@ -249,7 +261,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "content": {
@@ -304,7 +320,11 @@
         "starlette.responses.StreamingResponse.asgi-call.async-iterator"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "content": {
@@ -375,7 +395,11 @@
         "starlette.responses.StreamingResponse.asgi-call.async-generator-background"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "content": {
@@ -474,7 +498,11 @@
         "starlette.responses.StreamingResponse.asgi-call.pre-asgi24-stream-completes-first"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "content": {
@@ -577,7 +605,11 @@
         "starlette.responses.StreamingResponse.asgi-call.pre-asgi24-disconnect-cancellation"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "content": {
@@ -648,7 +680,11 @@
         "starlette.responses.StreamingResponse.asgi-call.pre-asgi24-disconnect-cancellation"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "content": {
@@ -699,7 +735,11 @@
         "starlette.responses.StreamingResponse.asgi-call.client-disconnect-oserror"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "content": {
@@ -765,7 +805,11 @@
         "starlette.responses.StreamingResponse.asgi-call.client-disconnect-start-send-oserror"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "content": {
@@ -831,7 +875,11 @@
         "starlette.responses.StreamingResponse.asgi-call.memoryview-chunks"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "content": {
@@ -890,7 +938,11 @@
         "starlette.responses.StreamingResponse.asgi-call.custom-async-iterable"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "content": {
@@ -961,7 +1013,11 @@
         "starlette.responses.StreamingResponse.asgi-call.file-like-iterator"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "content": {
@@ -1011,7 +1067,11 @@
         "starlette.responses.StreamingResponse.asgi-call.websocket-scope-background"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "content": {
@@ -1078,7 +1138,11 @@
         "starlette.responses.StreamingResponse.asgi-call.mutable-status-code"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "content": {
@@ -1168,7 +1232,11 @@
         "starlette.responses.StreamingResponse.asgi-call.async-iterator-await-factory-stop"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "content": {
@@ -1218,7 +1286,11 @@
         "starlette.responses.StreamingResponse.asgi-call.background-oserror-propagation"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "content": {

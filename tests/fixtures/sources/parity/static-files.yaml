@@ -10,7 +10,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "directory": "public",
@@ -68,7 +72,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "directory": "public",
@@ -126,7 +134,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "directory": "public",
@@ -184,7 +196,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "directory": "public",
@@ -249,7 +265,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "directory": "public",
@@ -353,7 +373,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "directory": "public",
@@ -493,7 +517,11 @@
         "starlette.staticfiles.StaticFiles.asgi-call.package-static-assets"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "directory": "public",
@@ -556,7 +584,11 @@
         "starlette.staticfiles.StaticFiles.asgi-call.package-static-assets"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "directory": "public",
@@ -620,7 +652,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "directory": "public",
@@ -678,7 +714,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "directory": "public",
@@ -737,7 +777,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "directory": "public",
@@ -865,7 +909,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "directory": "public",
@@ -987,7 +1035,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "directory": "public",
@@ -1078,7 +1130,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "directory": "public",
@@ -1141,7 +1197,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "directory": "public",
@@ -1209,7 +1269,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "directory": "public",
@@ -1305,7 +1369,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "directory": "public",
@@ -1368,7 +1436,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "directory": "public",
@@ -1561,7 +1633,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "directory": "public",
@@ -1620,7 +1696,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "directory": "public",
@@ -1678,7 +1758,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "directory": "public",
@@ -1736,7 +1820,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "directory": "public",
@@ -1805,7 +1893,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "directory": "public",
@@ -1874,7 +1966,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "directory": "public",
@@ -1935,7 +2031,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "directory": "public",
@@ -1996,7 +2096,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "directory": "public",
@@ -2049,7 +2153,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "directory": "public",
@@ -2108,7 +2216,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "directory": "public",
@@ -2166,7 +2278,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "directory": "static",
@@ -2229,7 +2345,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "directory": "static",
@@ -2297,7 +2417,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "directory": "static",
@@ -2360,7 +2484,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "directory": "statics",
@@ -2425,7 +2553,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "directory": "public",
@@ -2482,7 +2614,11 @@
         "starlette.staticfiles.StaticFiles.asgi-call.get-response-subclass-override"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "directory": "public",
@@ -2545,7 +2681,11 @@
         "starlette.staticfiles.StaticFiles.asgi-call.file-response-subclass-override"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "directory": "public",
@@ -2608,7 +2748,11 @@
         "starlette.staticfiles.StaticFiles.asgi-call.is-not-modified-subclass-override"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "directory": "public",
@@ -2671,7 +2815,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "directory": "public",
@@ -2734,7 +2882,11 @@
         "starlette.staticfiles.StaticFiles.asgi-call.mutable-scope-mapping"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "directory": "public",
@@ -2800,7 +2952,11 @@
         "starlette.staticfiles.StaticFiles.get-response.method-before-scope-path"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "directory": "public",

@@ -12,7 +12,11 @@
         "starlette.testclient.TestClient.request-response.scope-projection"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "testclient": {
@@ -73,7 +77,11 @@
         "starlette.testclient.TestClient.request-response.authentication-option"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "testclient": {
@@ -132,7 +140,11 @@
         "starlette.testclient.TestClient.request-response.multipart-file-upload"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "testclient": {

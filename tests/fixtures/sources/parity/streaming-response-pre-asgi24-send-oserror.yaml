@@ -8,7 +8,13 @@
       "covers": [
         "starlette.responses.StreamingResponse.asgi-call.pre-asgi24-send-oserror-propagation"
       ],
-      "target_profiles": ["python-package-cpython312"],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
       "assets": [],
       "content": {
         "kind": "chunks",

@@ -10,7 +10,11 @@
         "starlette.websockets.WebSocket.scope-mapping.object-identity"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "scope": {
@@ -36,7 +40,11 @@
         "starlette.websockets.WebSocket.scope-property.subclass-override-inherited-properties"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "scope": {
@@ -108,7 +116,11 @@
         "starlette.websockets.WebSocket.headers.case-insensitive-multidict"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "scope": {
@@ -152,7 +164,11 @@
         "starlette.websockets.WebSocket.constructor.required-callables"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "scope": {
@@ -188,7 +204,11 @@
         "starlette.websockets.WebSocket.constructor.scope-type-validation"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "scope": {

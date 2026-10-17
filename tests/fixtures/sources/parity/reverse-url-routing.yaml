@@ -9,7 +9,11 @@
         "starlette.routing.Route.url_path_for.static-path"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "route_graph": {
@@ -39,7 +43,11 @@
         "starlette.routing.Route.url_path_for.str-converter"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "route_graph": {
@@ -71,7 +79,11 @@
         "starlette.routing.Route.url_path_for.int-converter"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "route_graph": {
@@ -103,7 +115,11 @@
         "starlette.routing.Route.url_path_for.float-converter"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "route_graph": {
@@ -135,7 +151,11 @@
         "starlette.routing.Route.url_path_for.path-converter"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "route_graph": {
@@ -167,7 +187,11 @@
         "starlette.routing.Route.url_path_for.uuid-converter"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "route_graph": {
@@ -199,7 +223,11 @@
         "starlette.routing.Route.url_path_for.parameter-mismatch"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "route_graph": {
@@ -229,7 +257,11 @@
         "starlette.routing.Route.url_path_for.converter-error"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "route_graph": {
@@ -261,7 +293,11 @@
         "starlette.routing.Route.url_path_for.custom-converter-override"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "route_graph": {
@@ -300,7 +336,11 @@
         "starlette.routing.WebSocketRoute.url_path_for.protocol"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "route_graph": {
@@ -330,7 +370,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "route_graph": {
@@ -377,7 +421,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "route_graph": {
@@ -413,7 +461,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "route_graph": {
@@ -449,7 +501,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "route_graph": {
@@ -487,7 +543,11 @@
         "starlette.routing.Router.url_path_for.converter-error-propagation"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "route_graph": {
@@ -531,7 +591,11 @@
         "starlette.routing.Router.url_path_for.converter-error-propagation"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "route_graph": {
@@ -575,7 +639,11 @@
         "starlette.routing.Mount.url_path_for.direct-path"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "route_graph": {
@@ -604,7 +672,11 @@
         "starlette.routing.Mount.url_path_for.nested-route"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "route_graph": {
@@ -644,7 +716,11 @@
         "starlette.routing.Mount.url_path_for.none-routes-app"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "route_graph": {
@@ -674,7 +750,11 @@
         "starlette.routing.Mount.url_path_for.nested-route"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "route_graph": {
@@ -714,7 +794,11 @@
         "starlette.routing.Mount.url_path_for.double-mount"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "route_graph": {
@@ -760,7 +844,11 @@
         "starlette.routing.Mount.url_path_for.mismatch"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "route_graph": {
@@ -787,7 +875,11 @@
         "starlette.routing.Mount.url_path_for.mismatch"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "route_graph": {
@@ -817,7 +909,11 @@
         "starlette.requests.Request.url_for.mount-app-root-path"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "route_graph": {
@@ -882,7 +978,11 @@
         "starlette.requests.Request.url_for.router-provider"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "route_graph": {
@@ -930,7 +1030,11 @@
         "starlette.requests.Request.url_for.str-subclass-forwarding"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "route_graph": {
@@ -990,7 +1094,11 @@
         "starlette.requests.Request.url_for.base-url-property-override"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "route_graph": {
@@ -1040,7 +1148,11 @@
         "starlette.requests.Request.url_for.app-provider"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "route_graph": {
@@ -1087,7 +1199,11 @@
         "starlette.requests.Request.url_for.missing-context"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "route_graph": null,
@@ -1121,7 +1237,11 @@
         "starlette.applications.Starlette.url_path_for.forwarder"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "route_graph": {
@@ -1157,7 +1277,11 @@
         "starlette.applications.Starlette.url_path_for.mount-routes-with-middleware"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "route_graph": {
@@ -1220,7 +1344,11 @@
         "starlette.applications.Starlette.url_path_for.mount-asgi-app-route-with-middleware-no-match"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "route_graph": {
@@ -1281,7 +1409,11 @@
         "starlette.applications.Starlette.url_path_for.double-mount"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "route_graph": {
@@ -1324,7 +1456,11 @@
         "starlette.routing.Route.url_path_for.datetime-converter"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "route_graph": {
@@ -1373,7 +1509,11 @@
         "starlette.routing.Router.url_path_for.mount-lookup-success"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "route_graph": {
@@ -1409,7 +1549,11 @@
         "starlette.routing.Router.url_path_for.mount-lookup-success"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "route_graph": {
@@ -1454,7 +1598,11 @@
         "starlette.routing.Router.url_path_for.mount-lookup-success"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "route_graph": {
@@ -1499,7 +1647,11 @@
         "starlette.routing.Router.url_path_for.mismatch"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "route_graph": {
@@ -1586,7 +1738,11 @@
         "starlette.routing.Router.url_path_for.mount-lookup-success"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "route_graph": {
@@ -1647,7 +1803,11 @@
         "starlette.routing.Router.url_path_for.mount-lookup-success"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "route_graph": {
@@ -1683,7 +1843,11 @@
         "starlette.routing.Router.url_path_for.first-success"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "route_graph": {
@@ -1765,7 +1929,11 @@
         "starlette.routing.Router.url_path_for.first-success"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "route_graph": {
@@ -1847,7 +2015,11 @@
         "starlette.routing.Router.url_path_for.first-success"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "route_graph": {
@@ -1929,7 +2101,11 @@
         "starlette.routing.Router.url_path_for.first-success"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "route_graph": {
@@ -2014,7 +2190,11 @@
         "starlette.routing.Router.url_path_for.first-success"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "route_graph": {
@@ -2098,7 +2278,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "route_graph": {
@@ -2151,7 +2335,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "route_graph": {
@@ -2201,7 +2389,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "route_graph": {
@@ -2246,7 +2438,11 @@
         "starlette.routing.Router.url_path_for.prefix-formatting-error-stops-fallback"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "route_graph": {
@@ -2301,7 +2497,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "route_graph": {

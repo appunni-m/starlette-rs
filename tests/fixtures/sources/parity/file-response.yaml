@@ -11,7 +11,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "file": {
@@ -88,7 +92,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "file": {
@@ -140,7 +148,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "file": {
@@ -197,7 +209,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "file": {
@@ -257,7 +273,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "file": {
@@ -318,7 +338,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "file": {
@@ -379,7 +403,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "file": {
@@ -436,7 +464,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "file": {
@@ -493,7 +525,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "file": {
@@ -545,7 +581,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "file": {
@@ -603,7 +643,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "file": {
@@ -660,7 +704,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "file": {
@@ -717,7 +765,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "file": {
@@ -774,7 +826,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "file": {
@@ -831,7 +887,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "file": {
@@ -888,7 +948,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "file": {
@@ -945,7 +1009,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "file": {
@@ -1002,7 +1070,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "file": {
@@ -1059,7 +1131,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "file": {
@@ -1116,7 +1192,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "file": {
@@ -1173,7 +1253,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "file": {
@@ -1230,7 +1314,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "file": {
@@ -1287,7 +1375,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "file": {
@@ -1344,7 +1436,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "file": {
@@ -1401,7 +1497,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "file": {
@@ -1459,7 +1559,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "file": {
@@ -1517,7 +1621,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "file": {
@@ -1574,7 +1682,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "file": {
@@ -1631,7 +1743,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "file": {
@@ -1688,7 +1804,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "file": {
@@ -1745,7 +1865,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "file": {
@@ -1802,7 +1926,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "file": {
@@ -1857,7 +1985,11 @@
         "starlette.responses.FileResponse.asgi-call.single-range-header-view-isolation"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "file": {
@@ -1917,7 +2049,11 @@
         "starlette.responses.FileResponse.asgi-call.multiple-range-header-view-isolation"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "file": {
@@ -1977,7 +2113,11 @@
         "starlette.responses.FileResponse.asgi-call.async-file-open-scheduling"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "file": {
@@ -2042,7 +2182,11 @@
         "starlette.responses.FileResponse.asgi-call.mutable-status-code"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "file": {
@@ -2096,7 +2240,11 @@
         "starlette.responses.FileResponse.asgi-call.mutable-path"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "file": {
@@ -2154,7 +2302,11 @@
         "starlette.responses.FileResponse.asgi-call.mutable-stat-result"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "file": {
@@ -2218,7 +2370,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "file": {
@@ -2271,7 +2427,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "file": {
@@ -2323,7 +2483,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "file": {
@@ -2413,7 +2577,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "file": {
@@ -2465,7 +2633,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "file": {
@@ -2517,7 +2689,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "file": {
@@ -2570,7 +2746,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "file": {
@@ -2621,7 +2801,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "file": {
@@ -2673,7 +2857,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "file": {
@@ -2731,7 +2919,11 @@
       ],
       "target_profiles": [
         "rust-native-local",
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "file": {
@@ -2785,7 +2977,11 @@
         "starlette.responses.FileResponse.asgi-call.method-upper-str-subclass"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "file": {

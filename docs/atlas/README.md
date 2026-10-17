@@ -295,8 +295,9 @@ python3 scripts/merge_compatibility_atlas.py \
 
 Use `make source-inventory-check STARLETTE_ORACLE_ROOT=/path/to/starlette` to
 check the metadata-derived candidate catalog and atlas without rewriting the
-checked-in CSV files. The source-parity CI job runs this check against the
-pinned checkout.
+checked-in CSV files. The manually dispatched
+`.github/workflows/parity-coverage.yml` workflow runs `make test`, which checks
+the atlas against the pinned checkout before behavioral comparisons.
 
 The command checks exact upstream identity, one-to-one catalog-row disposition,
 evidence paths, all AST-discovered test functions (including parameter-family

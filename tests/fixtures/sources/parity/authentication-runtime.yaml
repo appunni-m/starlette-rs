@@ -14,7 +14,11 @@
         "starlette.authentication.BaseUser.custom-subclass-properties"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "actions": [
@@ -71,7 +75,11 @@
         "starlette.authentication.has_required_scope.missing-scope"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "checks": [
@@ -133,7 +141,11 @@
         "starlette.authentication.requires.connection-type-validation"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "scenarios": [
@@ -455,7 +467,11 @@
         "starlette.middleware.authentication.AuthenticationMiddleware.non-http-bypass"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "scenarios": [
@@ -547,7 +563,11 @@
         "starlette.middleware.authentication.AuthenticationMiddleware.backend-result-iteration-error"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "scenarios": [
@@ -673,7 +693,11 @@
         "starlette.middleware.authentication.AuthenticationMiddleware.backend-result-non-iterable-error"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "scenarios": [
@@ -699,7 +723,11 @@
         "starlette.middleware.authentication.AuthenticationMiddleware.backend-result-arity-error"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "scenarios": [
@@ -731,7 +759,11 @@
         "starlette.middleware.authentication.AuthenticationMiddleware.dispatch.mutable-scope-mapping"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "scenarios": [
@@ -829,7 +861,11 @@
         "starlette.authentication.requires.signature-index-keyword-connection-binding"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "scenarios": [
@@ -869,7 +905,11 @@
       "surface": "starlette.middleware.authentication.AuthenticationMiddleware",
       "operation": "dispatch",
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "observations": [
@@ -906,7 +946,11 @@
       "surface": "starlette.middleware.authentication.AuthenticationMiddleware",
       "operation": "dispatch",
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "observations": [
@@ -952,7 +996,11 @@
       "surface": "starlette.middleware.authentication.AuthenticationMiddleware",
       "operation": "dispatch",
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "observations": [

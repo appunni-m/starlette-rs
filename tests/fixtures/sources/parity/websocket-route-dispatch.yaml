@@ -9,7 +9,11 @@
         "starlette.routing.WebSocketRoute.route-dispatch.matched-root-path"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "dispatch": "application",
@@ -81,7 +85,11 @@
         "starlette.routing.WebSocketRoute.route-dispatch.router-miss-close"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "dispatch": "application",
@@ -130,7 +138,11 @@
         "starlette.routing.WebSocketRoute.route-dispatch.http-scope-404"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "dispatch": "standalone-route",
@@ -179,7 +191,11 @@
         "starlette.routing.WebSocketRoute.route-dispatch.middleware-accept-header"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "dispatch": "application",
@@ -256,7 +272,11 @@
         "starlette.routing.WebSocketRoute.route-dispatch.standalone-match"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "dispatch": "standalone-route",
@@ -324,7 +344,11 @@
         "starlette.routing.WebSocketRoute.route-dispatch.standalone-miss-close"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "dispatch": "standalone-route",
@@ -373,7 +397,11 @@
         "starlette.routing.WebSocketRoute.route-dispatch.lone-surrogate-path"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "dispatch": "application",
@@ -435,7 +463,11 @@
         "starlette.routing.WebSocketRoute.route-dispatch.scope-type-python-equality"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "dispatch": "standalone-route",
@@ -502,7 +534,11 @@
         "starlette.routing.WebSocketRoute.route-dispatch.scope-type-lookup-error-propagation"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "dispatch": "standalone-route",

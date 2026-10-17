@@ -9,7 +9,11 @@
         "starlette.routing.Route.__init__.invalid-leading-slash"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "attempts": [
@@ -36,7 +40,11 @@
         "starlette.routing.Route.__init__.unknown-converter"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "attempts": [
@@ -63,7 +71,11 @@
         "starlette.routing.WebSocketRoute.__init__.invalid-leading-slash"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "attempts": [
@@ -89,7 +101,11 @@
         "starlette.routing.Mount.__init__.invalid-leading-slash"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "attempts": [
@@ -126,7 +142,11 @@
         "starlette.routing.Mount.__init__.missing-app-and-routes"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "attempts": [
@@ -149,7 +169,11 @@
         "starlette.routing.Host.__init__.leading-slash"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "attempts": [

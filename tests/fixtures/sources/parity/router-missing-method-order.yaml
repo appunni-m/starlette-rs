@@ -9,7 +9,11 @@
         "starlette.routing.Router.route-dispatch.scope-type-python-membership"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "routes": [
@@ -76,7 +80,11 @@
         "starlette.routing.Router.route-dispatch.missing-method-after-path-miss"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "routes": [
@@ -136,7 +144,11 @@
         "starlette.routing.Router.route-dispatch.missing-method-after-path-match"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "routes": [

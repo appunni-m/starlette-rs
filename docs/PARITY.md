@@ -4,16 +4,20 @@
 
 The active `parity-input@66` manifest has 2,628 cases across 452 parity
 inputs, 1,467 requirements, and SHA-256
-`474c5a1e8f413ab0a02cb0b6ca5e9c46b85a5e29f26bfde93d4cd3e735faf12f`. Input
-generation, contract validation, and source inventory pass for this manifest.
-Grouped local run `3a615b88-4f92-434e-9b89-3b8ab3935ca2` executed the active
-matrix for `rust-native-local` and `python-package-cpython312`: 2,982/2,982
-completed comparisons passed, with zero mismatches or infrastructure errors;
-all five fault contracts passed. The only two `not_run` rows are the two target
-profiles for `StaticFiles.lookup-path.surrogateescape-posix-matched-filename`.
-The pinned source skipped the case because macOS cannot create that filename,
-so the runner exits nonzero and full parity remains unproven pending the Linux
-CI matrix and remaining CPython profiles.
+`215edd43b34093604329c095e5b216e11c937225e8d316143e8c2ccf9776eb12`. Input
+generation, contract validation, and source inventory pass. Case scope now
+selects 2,608 inputs on CPython 3.10 and 3.11, 2,611 on 3.12, and 2,608 on
+3.13 and 3.14; Rust-native selects 378. The `inspect.markcoroutinefunction`
+input is scoped to 3.12–3.14, the legacy `asyncio` coroutine marker input to
+3.10–3.12, and package fault contracts to their declared CPython 3.12 target.
+
+The grouped local run `3a615b88-4f92-434e-9b89-3b8ab3935ca2` and the previous
+local coverage results used the earlier @66 profile selection and manifest
+SHA-256 `474c5a1e8f413ab0a02cb0b6ca5e9c46b85a5e29f26bfde93d4cd3e735faf12f`.
+They are historical and do not verify the active selection. No grouped parity
+run has been executed for the current manifest; the grouped parity, coverage,
+and benchmark phases remain pending. CI runs full parity and coverage only from
+the manually dispatched `.github/workflows/parity-coverage.yml` workflow.
 
 The latest completed five-profile source-parity workflow used the previous @64
 input set. Workflow
@@ -34,7 +38,7 @@ status `unknown` because matching source/build receipts were not ingested, so
 these line counts are not Starlette-wide coverage. The complete @64 benchmark
 measured all 74 declared Router/GZip source/package workloads; its run details
 and two macOS preflight skips are recorded in [benchmark evidence](BENCHMARKS.md).
-Local @66 coverage runs passed 377 Rust-native and 2,610 CPython 3.12 package
+The earlier local @66 coverage runs passed 377 Rust-native and 2,610 CPython 3.12 package
 cases, each with the same source-skipped filename case. Coverage MCP measured
 14,605/19,606 Rust-native lines (74.5%) and 23,493/33,905 package lines
 (69.3%), but the plans are `not_ingested`; MCP marks source identity
@@ -220,7 +224,16 @@ without rewriting inputs.
 
 ## Supported CPython profiles and version-scoped parity inputs
 
-The manifest declares one interpreter-independent Rust-native profile and Python-package profiles for CPython 3.10, 3.11, 3.12, 3.13, and 3.14. The source-parity CI job runs one interpreter per matrix job. Each run builds a separate source-oracle and installed-wheel environment for that interpreter from the shared hash-locked Python closure, selects the matching profile, and records the active profile IDs and environment IDs in `parity-result@9`. The generated result retains unsupported or unexecuted rows and the input-declared upstream-test applicability for each comparison.
+The manifest declares one interpreter-independent Rust-native profile and
+Python-package profiles for CPython 3.10, 3.11, 3.12, 3.13, and 3.14. The
+manually dispatched parity/coverage workflow runs one interpreter per matrix
+job. Each run builds a separate source-oracle and installed-wheel environment
+for that interpreter from the shared hash-locked Python closure, selects the
+matching profile, and records the active profile IDs and environment IDs in
+`parity-result@9`. The generated result retains unsupported or unexecuted rows
+and input-declared upstream-test applicability for each comparison. Ordinary
+push and pull-request checks do not execute the full live parity or coverage
+matrix.
 
 The @48 corpus maps representative behavior for 18 public operations across CPython 3.10–3.14, including typing, cookies, managed TestClient lifespan, synchronous worker/context propagation, Request body/form/disconnect/client behavior, URL scope/query handling, Config environment and warning behavior, exception formatting, middleware, FormData, UploadFile, and lifespan scope state. A static profile audit found no mapped all-profile requirement without an all-profile input. The existing ExceptionGroup adapter uses the pinned `exceptiongroup` backport on Python 3.10, declared in both isolated environment locks. Typing-consumer inputs use the same pinned Mypy version and lock across the five runtime interpreters. These are infrastructure declarations; this schema update has not run the complete same-input profile matrix. The most recent full matrix remains the earlier @47 run on CPython 3.12, and separate installed-wheel smoke checks on CPython 3.10–3.14 do not establish @48 parity.
 

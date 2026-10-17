@@ -9,7 +9,11 @@
         "starlette.middleware.wsgi.WSGIMiddleware.sender-protocols.sender-task-context"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "observations": [
@@ -66,7 +70,11 @@
         "starlette.middleware.wsgi.WSGIMiddleware.sender-protocols.send-error-propagation"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "observations": [
@@ -126,7 +134,11 @@
         "starlette.middleware.wsgi.WSGIMiddleware.sender-protocols.dispatch-cancellation"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "observations": [
@@ -183,7 +195,11 @@
         "starlette.middleware.wsgi.WSGIMiddleware.sender-protocols.callback-lifetime"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "observations": [

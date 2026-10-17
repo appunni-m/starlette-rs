@@ -9,7 +9,11 @@
         "starlette.applications.Starlette.__call__.route-middleware-response-header"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "steps": [
@@ -203,7 +207,11 @@
         "starlette.applications.Starlette.__call__.mount-routes-middleware-response-header"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "steps": [
@@ -404,7 +412,11 @@
         "starlette.applications.Starlette.__call__.mount-app-middleware-response-header"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "steps": [
@@ -603,7 +615,11 @@
         "starlette.applications.Starlette.__call__.mount-middleware-http-exception-response"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "steps": [
@@ -931,7 +947,11 @@
         "starlette.applications.Starlette.__call__.mounted-app-exception-propagation"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "steps": [

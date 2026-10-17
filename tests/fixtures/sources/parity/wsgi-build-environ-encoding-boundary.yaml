@@ -9,7 +9,11 @@
         "starlette.middleware.wsgi.build-environ.query-string-ascii-decoding"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "scope": {
@@ -39,7 +43,11 @@
         "starlette.middleware.wsgi.build-environ.header-projection"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "scope": {

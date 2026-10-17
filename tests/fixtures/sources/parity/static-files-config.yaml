@@ -9,7 +9,11 @@
         "starlette.staticfiles.StaticFiles.configuration-check.constructor-missing-directory"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "directory_path": "build/parity/static-files-config/constructor-missing",
@@ -32,7 +36,11 @@
         "starlette.staticfiles.StaticFiles.configuration-check.constructor-not-directory"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "directory_path": "build/parity/static-files-config/constructor-file-root",
@@ -55,7 +63,11 @@
         "starlette.staticfiles.StaticFiles.configuration-check.lazy-missing-directory"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "directory_path": "build/parity/static-files-config/no_such_directory",
@@ -108,7 +120,11 @@
         "starlette.staticfiles.StaticFiles.configuration-check.lazy-missing-directory"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "directory_path": "build/parity/static-files-config/lazy-pathlike-missing",
@@ -164,7 +180,11 @@
         "starlette.staticfiles.StaticFiles.configuration-check.lazy-not-directory"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "directory_path": "build/parity/static-files-config/lazy-file-root",
@@ -217,7 +237,11 @@
         "starlette.staticfiles.StaticFiles.configuration-check.lazy-not-directory"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "directory_path": "build/parity/static-files-config/lazy-pathlike-file-root",
@@ -273,7 +297,11 @@
         "starlette.staticfiles.StaticFiles.configuration-check.repeated-call-state-and-asgi-events"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "directory_path": "build/parity/static-files-config/repeated-root",

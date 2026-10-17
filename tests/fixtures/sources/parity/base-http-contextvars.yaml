@@ -12,7 +12,11 @@
         "starlette.middleware.base.BaseHTTPMiddleware.contextvars-propagation.observe-asgi-response-events"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "middleware_kind": "base-http",
@@ -95,7 +99,11 @@
         "starlette.middleware.base.BaseHTTPMiddleware.contextvars-propagation.observe-asgi-response-events"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "middleware_kind": "pure-asgi",

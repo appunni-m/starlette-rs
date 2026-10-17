@@ -10,7 +10,11 @@
         "starlette.endpoints.WebSocketEndpoint.dispatch.on-connect-subprotocols"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "endpoint": {
@@ -89,7 +93,11 @@
         "starlette.endpoints.WebSocketEndpoint.dispatch.decode-text-rejects-bytes"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "endpoint": {
@@ -205,7 +213,11 @@
         "starlette.endpoints.WebSocketEndpoint.dispatch.decode-bytes-rejects-text"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "endpoint": {
@@ -321,7 +333,11 @@
         "starlette.endpoints.WebSocketEndpoint.dispatch.decode-json-malformed"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "endpoint": {
@@ -437,7 +453,11 @@
         "starlette.endpoints.WebSocketEndpoint.dispatch.decode-json-malformed"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "endpoint": {
@@ -507,7 +527,11 @@
         "starlette.endpoints.WebSocketEndpoint.dispatch.decode-json-binary"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "endpoint": {
@@ -583,7 +607,11 @@
         "starlette.endpoints.WebSocketEndpoint.dispatch.on-disconnect-close-code"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "endpoint": {
@@ -653,7 +681,11 @@
         "starlette.endpoints.WebSocketEndpoint.dispatch.on-disconnect-close-code"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "endpoint": {
@@ -723,7 +755,11 @@
         "starlette.endpoints.WebSocketEndpoint.dispatch.decode-default-text"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "endpoint": {
@@ -798,7 +834,11 @@
         "starlette.endpoints.WebSocketEndpoint.dispatch.decode-default-empty-text-failure"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "endpoint": {
@@ -868,7 +908,11 @@
         "starlette.endpoints.WebSocketEndpoint.dispatch.decode-default-bytes"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "endpoint": {
@@ -944,7 +988,11 @@
         "starlette.endpoints.WebSocketEndpoint.dispatch.callback-error-propagation"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "endpoint": {
@@ -1016,7 +1064,11 @@
         "starlette.endpoints.WebSocketEndpoint.dispatch.callback-error-propagation"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "endpoint": {
@@ -1087,7 +1139,11 @@
         "starlette.endpoints.WebSocketEndpoint.dispatch.invalid-encoding"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "endpoint": {
@@ -1157,7 +1213,11 @@
         "starlette.endpoints.WebSocketEndpoint.dispatch.invalid-encoding"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "endpoint": {
@@ -1231,7 +1291,11 @@
         "starlette.endpoints.WebSocketEndpoint.dispatch.cancellation-finalization"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "endpoint": {
@@ -1297,7 +1361,11 @@
         "starlette.endpoints.WebSocketEndpoint.dispatch.on-connect-error-skips-disconnect"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "endpoint": {
@@ -1370,7 +1438,11 @@
         "starlette.endpoints.WebSocketEndpoint.dispatch.on-disconnect-error-context"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "endpoint": {
@@ -1449,7 +1521,11 @@
         "starlette.endpoints.WebSocketEndpoint.dispatch.on-disconnect-error-context"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "endpoint": {
@@ -1528,7 +1604,11 @@
         "starlette.endpoints.WebSocketEndpoint.dispatch.cancellation-finalizer-error-context"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "endpoint": {
@@ -1601,7 +1681,11 @@
         "starlette.endpoints.WebSocketEndpoint.dispatch.on-connect-error-skips-disconnect"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "endpoint": {
@@ -1667,7 +1751,11 @@
         "starlette.endpoints.WebSocketEndpoint.dispatch.decode-json-malformed"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "endpoint": {
@@ -1744,7 +1832,11 @@
         "starlette.endpoints.WebSocketEndpoint.dispatch.on-disconnect-active-exception"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "endpoint": {
@@ -1816,7 +1908,11 @@
         "starlette.endpoints.WebSocketEndpoint.dispatch.on-disconnect-close-code"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "endpoint": {

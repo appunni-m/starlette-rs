@@ -78,6 +78,16 @@ SUPPORTED_PYTHON_VERSIONS = ("3.10", "3.11", "3.12", "3.13", "3.14")
 PYTHON_PROFILE_IDS = tuple(
     f"python-package-cpython{version.replace('.', '')}" for version in SUPPORTED_PYTHON_VERSIONS
 )
+_CPYTHON_312_PLUS_PROFILE_IDS = frozenset(
+    profile_id
+    for profile_id, version in zip(PYTHON_PROFILE_IDS, SUPPORTED_PYTHON_VERSIONS, strict=True)
+    if version >= "3.12"
+)
+_PRE_CPYTHON_313_PROFILE_IDS = frozenset(
+    profile_id
+    for profile_id, version in zip(PYTHON_PROFILE_IDS, SUPPORTED_PYTHON_VERSIONS, strict=True)
+    if version < "3.13"
+)
 PYTHON_ENVIRONMENT_VERSIONS = {
     environment_id: version
     for version in SUPPORTED_PYTHON_VERSIONS
@@ -89,6 +99,42 @@ PYTHON_ENVIRONMENT_VERSIONS = {
 DEFAULT_TARGET_PROFILE_IDS = frozenset({"rust-native-local", "python-package-cpython312"})
 GENERATED_INPUT_ROOT = Path("build/parity/inputs")
 _BODY_LIMIT_MISSING = object()
+
+
+def _python_target_profiles_for_input(value: Any) -> list[str]:
+    """Select supported CPython profiles from version-specific input requirements."""
+    marked_callable_input = False
+    legacy_asyncio_marker_input = False
+    pending = [value]
+    while pending:
+        current = pending.pop()
+        if isinstance(current, dict):
+            marked_callable_input = marked_callable_input or current.get("callable_kind") == (
+                "marked_function"
+            )
+            legacy_asyncio_marker_input = legacy_asyncio_marker_input or current.get("kind") == (
+                "asgi3-asyncio-marked"
+            )
+            pending.extend(current.values())
+        elif isinstance(current, list):
+            pending.extend(current)
+    if legacy_asyncio_marker_input:
+        return [
+            profile_id
+            for profile_id in PYTHON_PROFILE_IDS
+            if profile_id in _PRE_CPYTHON_313_PROFILE_IDS
+        ]
+    if marked_callable_input:
+        return [
+            profile_id
+            for profile_id in PYTHON_PROFILE_IDS
+            if profile_id in _CPYTHON_312_PLUS_PROFILE_IDS
+        ]
+    return list(PYTHON_PROFILE_IDS)
+
+
+def _native_and_python_target_profiles_for_input(value: Any) -> list[str]:
+    return ["rust-native-local", *_python_target_profiles_for_input(value)]
 
 
 def _python_int_max_str_digits() -> int:
@@ -3980,9 +4026,8 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                             else python_profile_ids
                         )
                     elif operation_key in STATIC_FILES_PROFILE_MATRIX_OPERATIONS:
-                        # StaticFiles keeps its ordinary native + CPython 3.12
-                        # slice while selected representative requirements add
-                        # additional package profiles to the operation scope.
+                        # StaticFiles operation scope follows its parity
+                        # requirements; input cases keep narrower version scopes.
                         expected_parity_profiles = {
                             profile_id
                             for requirement in requirements
@@ -4029,95 +4074,12 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                             for profile_id in requirement["target_profiles"]
                         }
                     else:
-                        package_only_operation = (
-                            operation_key
-                            in {
-                                HTTP_ROUTE_CALL_OPERATION_KEY,
-                                (WEBSOCKET_ROUTE_SURFACE, WEBSOCKET_ROUTE_OPERATION),
-                                (WEBSOCKET_SURFACE, WEBSOCKET_CONVENIENCE_OPERATION),
-                                (WEBSOCKET_CLOSE_SURFACE, WEBSOCKET_CLOSE_OPERATION),
-                                WEBSOCKET_ENDPOINT_OPERATION_KEY,
-                                HTTP_ENDPOINT_OPERATION_KEY,
-                                SESSION_WORKFLOW_OPERATION_KEY,
-                                BASE_HTTP_WORKFLOW_OPERATION_KEY,
-                                BASE_HTTP_CONTEXTVARS_OPERATION_KEY,
-                                TESTCLIENT_WEBSOCKET_OPERATION_KEY,
-                                TESTCLIENT_LIFESPAN_OPERATION_KEY,
-                                RUN_UNTIL_FIRST_COMPLETE_OPERATION_KEY,
-                                THREADPOOL_OPERATION_KEY,
-                                ITERATE_THREADPOOL_OPERATION_KEY,
-                                ROUTER_REGISTRATION_OPERATION_KEY,
-                                STARLETTE_ADD_ROUTE_OPERATION_KEY,
-                                STARLETTE_ADD_MIDDLEWARE_OPERATION_KEY,
-                                STARLETTE_ADD_EXCEPTION_HANDLER_OPERATION_KEY,
-                                STARLETTE_ROUTES_OPERATION_KEY,
-                                *ROUTING_CONSTRUCTOR_OPERATION_KEYS,
-                            }
-                            or (
-                                (surface["id"], operation["id"]) in REVERSE_URL_OPERATIONS
-                                and (surface["id"], operation["id"])
-                                not in {
-                                    HTTP_ROUTE_URL_PATH_FOR_OPERATION_KEY,
-                                    (HOST_SURFACE, HOST_REVERSE_OPERATION),
-                                    ROUTER_URL_PATH_FOR_OPERATION_KEY,
-                                }
-                            )
-                            or operation_key
-                            in {
-                                (STREAMING_RESPONSE_SURFACE, STREAMING_RESPONSE_TRACE_OPERATION),
-                                (STATIC_FILES_SURFACE, STATIC_FILES_ASYNC_BOUNDARY_OPERATION),
-                                STATIC_FILES_CONFIGURATION_CHECK_OPERATION_KEY,
-                                STATIC_FILES_GET_RESPONSE_OPERATION_KEY,
-                            }
-                            or surface["id"] == BODY_LIMIT_SURFACE
-                            or surface["id"]
-                            in {
-                                CORS_SURFACE,
-                                HTTPS_REDIRECT_SURFACE,
-                                TRUSTED_HOST_SURFACE,
-                                SERVER_ERROR_MIDDLEWARE_SURFACE,
-                                GZIP_RESPONDER_SURFACE,
-                                WSGI_SURFACE,
-                            }
-                            or operation_key in VALUE_FORMATTING_OPERATIONS
-                            or operation_key in RUST_OWNED_PYTHON_OPERATIONS
-                            or operation_key in AUTHENTICATION_OPERATIONS
-                            or operation_key
-                            in {
-                                REQUEST_DEFAULT_RECEIVE_OPERATION,
-                                REQUEST_CLIENT_OPERATION,
-                                REQUEST_BASE_URL_OPERATION,
-                                REQUEST_CONNECTION_PROPERTIES_OPERATION,
-                                REQUEST_HEADER_CACHE_SEQUENCE_OPERATION,
-                                REQUEST_COOKIE_CACHE_SEQUENCE_OPERATION,
-                                REQUEST_SCOPE_MAPPING_OPERATION,
-                                REQUEST_IDENTITY_HASH_SEQUENCE_OPERATION,
-                                WEBSOCKET_IDENTITY_HASH_SEQUENCE_OPERATION,
-                                REQUEST_STATE_READBACK_OPERATION,
-                                REQUEST_CONSTRUCTOR_OPERATION,
-                                WEBSOCKET_SCOPE_MAPPING_OPERATION,
-                                WEBSOCKET_CONSTRUCTOR_OPERATION,
-                                REQUEST_SEND_PUSH_PROMISE_OPERATION,
-                                REQUEST_IS_DISCONNECTED_OPERATION,
-                                REQUEST_FORM_OPERATION,
-                                REQUEST_BODY_STREAM_JSON_OPERATION,
-                                REQUEST_LIFETIME_OPERATION,
-                                FORM_DATA_MULTIDICT_LOOKUPS_OPERATION,
-                                FORM_DATA_CLOSE_OPERATION,
-                                EXCEPTION_MIDDLEWARE_TYPING_OPERATION,
-                                EXCEPTION_MIDDLEWARE_LIVE_APP_OPERATION,
-                                PUBLIC_API_INSPECTION_OPERATION,
-                                UPLOAD_FILE_OPERATION,
-                                STATUS_OPERATION,
-                            }
-                            or operation_key in RESPONSE_CONSUMER_OPERATIONS
-                            or operation_key in VALUE_LIFETIME_OPERATIONS
-                        )
-                        expected_parity_profiles = (
-                            {"python-package-cpython312"}
-                            if package_only_operation
-                            else default_profile_ids
-                        )
+                        expected_parity_profiles = {
+                            profile_id
+                            for requirement in requirements
+                            if "parity" in requirement["lanes"]
+                            for profile_id in requirement["target_profiles"]
+                        }
                     if set(policy["target_profiles"]) != expected_parity_profiles:
                         raise ContractError(
                             f"{context}.parity target profiles differ from the declared operation scope"
@@ -4536,8 +4498,10 @@ def _validate_websocket_endpoint_case_stimulus(case: dict[str, Any]) -> None:
         raise ContractError("WebSocketEndpoint cases must use the declared dispatch operation")
     if case["observations"] != [WEBSOCKET_ENDPOINT_OPERATION]:
         raise ContractError("WebSocketEndpoint cases must observe the dispatch workflow")
-    if case["target_profiles"] != ["python-package-cpython312"]:
-        raise ContractError("WebSocketEndpoint dispatch selects only the Python-package profile")
+    if case["target_profiles"] != _python_target_profiles_for_input(case):
+        raise ContractError(
+            "WebSocketEndpoint dispatch selects the supported Python-package profiles"
+        )
 
     endpoint_fields = {"encoding", "on_connect", "on_receive", "on_disconnect"}
     if isinstance(case["endpoint"], dict) and "json_decoder_lookup" in case["endpoint"]:
@@ -5211,9 +5175,9 @@ def _validate_websocket_case_stimulus(case: dict[str, Any]) -> None:
         )
     )
     expected_profiles = (
-        ["python-package-cpython312"]
+        _python_target_profiles_for_input(case)
         if has_python_string_subclass_send or has_python_unhashable_send or has_raw_state_assignment
-        else ["rust-native-local", "python-package-cpython312"]
+        else _native_and_python_target_profiles_for_input(case)
     )
     if case["target_profiles"] != expected_profiles:
         raise ContractError(
@@ -5801,9 +5765,9 @@ def _validate_websocket_convenience_case_stimulus(case: dict[str, Any]) -> None:
         exercised.add("starlette.websocket.api.scope.mutable-mapping")
     for field in ("constructor_thread", "iterator_thread"):
         if field in case:
-            if case[field] not in {"caller", "worker"} or case["target_profiles"] != [
-                "python-package-cpython312"
-            ]:
+            if case[field] not in {"caller", "worker"} or case["target_profiles"] != (
+                _python_target_profiles_for_input(case)
+            ):
                 raise ContractError("WebSocket thread consumers select a Python constructor owner")
             if field == "iterator_thread" and not any(
                 action.get("method")
@@ -6358,8 +6322,8 @@ def _validate_http_endpoint_case_stimulus(case: dict[str, Any]) -> None:
         raise ContractError("HTTPEndpoint cases must use the declared dispatch operation")
     if case["observations"] != [HTTP_ENDPOINT_OPERATION]:
         raise ContractError("HTTPEndpoint cases must observe the dispatch result")
-    if case["target_profiles"] != ["python-package-cpython312"]:
-        raise ContractError("HTTPEndpoint dispatch selects only the Python-package profile")
+    if case["target_profiles"] != _python_target_profiles_for_input(case):
+        raise ContractError("HTTPEndpoint dispatch selects the supported Python-package profiles")
 
     endpoint_input = case["endpoint"]
     if not isinstance(endpoint_input, dict):
@@ -6621,7 +6585,7 @@ def _validate_websocket_route_case_stimulus(case: dict[str, Any]) -> None:
     _validate_websocket_route_scope(raw_scope, allow_missing_type=scope_type_missing)
     if "scope_container" in case and (
         case["scope_container"] != "user-dict"
-        or case["target_profiles"] != ["python-package-cpython312"]
+        or case["target_profiles"] != _python_target_profiles_for_input(case)
     ):
         raise ContractError("WebSocketRoute UserDict scopes require the Python-package profile")
     if scope_type_missing and "scope_container" not in case:
@@ -6665,7 +6629,7 @@ def _validate_websocket_route_case_stimulus(case: dict[str, Any]) -> None:
     coverage: set[str] = set()
     if (
         scope_type_probe
-        and case["target_profiles"] == ["python-package-cpython312"]
+        and case["target_profiles"] == _python_target_profiles_for_input(case)
         and case["dispatch"] == "standalone-route"
         and scope_type == "websocket"
         and expected_route == scope["path"]
@@ -6673,7 +6637,7 @@ def _validate_websocket_route_case_stimulus(case: dict[str, Any]) -> None:
         coverage.add(WEBSOCKET_ROUTE_SCOPE_TYPE_EQUALITY_REQUIREMENT)
     if (
         scope_type_missing
-        and case["target_profiles"] == ["python-package-cpython312"]
+        and case["target_profiles"] == _python_target_profiles_for_input(case)
         and case.get("scope_container") == "user-dict"
         and case["dispatch"] == "standalone-route"
         and expected_route == scope["path"]
@@ -6810,7 +6774,7 @@ def _validate_http_route_call_case_stimulus(case: dict[str, Any]) -> None:
     if has_scope_type_subclass:
         if (
             scope_type != "http"
-            or case["target_profiles"] != ["python-package-cpython312"]
+            or case["target_profiles"] != _python_target_profiles_for_input(case)
             or case.get("observe_dispatch_error") is not True
             or path != scope["path"]
             or scope["method"] != "GET"
@@ -7793,7 +7757,7 @@ def _validate_cookie_actions(case: dict[str, Any]) -> None:
                         raise ContractError(f"{context}.expires.value must be ISO-8601") from exc
                     if parsed.tzinfo is None or parsed.utcoffset() is None:
                         raise ContractError(f"{context}.expires.value must include a timezone")
-                    if case["target_profiles"] != ["python-package-cpython312"]:
+                    if case["target_profiles"] != _python_target_profiles_for_input(case):
                         raise ContractError("Python datetime cookie expiry is Python-package-only")
                 elif kind == "integer-offset":
                     expires = _exact(expires, {"kind", "value", "time_now"}, f"{context}.expires")
@@ -7806,7 +7770,7 @@ def _validate_cookie_actions(case: dict[str, Any]) -> None:
                         raise ContractError(f"{context}.expires.time_now must be ISO-8601") from exc
                     if parsed.tzinfo is None or parsed.utcoffset() is None:
                         raise ContractError(f"{context}.expires.time_now must include a timezone")
-                    if case["target_profiles"] != ["python-package-cpython312"]:
+                    if case["target_profiles"] != _python_target_profiles_for_input(case):
                         raise ContractError("Integer-offset cookie expiry is Python-package-only")
                 else:
                     raise ContractError(f"{context}.expires kind is unsupported")
@@ -7868,7 +7832,7 @@ def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
             raise ContractError(
                 "Response background cancellation requires a Response background task"
             )
-        if case["target_profiles"] != ["python-package-cpython312"]:
+        if case["target_profiles"] != _python_target_profiles_for_input(case):
             raise ContractError("Response background cancellation is Python-package-only")
     if type(case["status_code"]) is not int or case["status_code"] not in {
         200,
@@ -7922,9 +7886,9 @@ def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
             {"read_count", "raw_append_base64_pairs"},
             "Response header_view_probe",
         )
-        if case["surface"] != RESPONSE_SURFACE or case["target_profiles"] != [
-            "python-package-cpython312"
-        ]:
+        if case["surface"] != RESPONSE_SURFACE or case["target_profiles"] != (
+            _python_target_profiles_for_input(case)
+        ):
             raise ContractError("Response header_view_probe is a Python-package Response input")
         read_count = probe["read_count"]
         if type(read_count) is not int or not 2 <= read_count <= 8:
@@ -7981,9 +7945,9 @@ def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
                 raise ContractError(
                     "Response bytes, status_code, and media_type combination is unsupported"
                 )
-            if content_kind == "memoryview-base64" and case["target_profiles"] != [
-                "python-package-cpython312"
-            ]:
+            if content_kind == "memoryview-base64" and case["target_profiles"] != (
+                _python_target_profiles_for_input(case)
+            ):
                 raise ContractError("Response memoryview input is Python-package-only")
         elif content_kind == "none":
             if content["value"] is not None:
@@ -8002,7 +7966,7 @@ def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
             )
 
         if "render_override" in case:
-            if case["target_profiles"] != ["python-package-cpython312"]:
+            if case["target_profiles"] != _python_target_profiles_for_input(case):
                 raise ContractError("Response.render override is Python-package-only")
             override = _exact(
                 case["render_override"], {"kind", "prefix"}, "Response.render override"
@@ -8354,7 +8318,7 @@ def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
 
             if kind == "single-task-subclass-properties":
                 if (
-                    set(case["target_profiles"]) != {"python-package-cpython312"}
+                    set(case["target_profiles"]) != set(_python_target_profiles_for_input(case))
                     or background_control is not None
                     or tasks[0]["mode"] != "sync"
                     or tasks[0]["args"] == []
@@ -8695,7 +8659,7 @@ def _validate_file_response_case_stimulus(case: dict[str, Any]) -> None:
             raise ContractError(
                 "FileResponse error paths do not combine with call sequences or probes"
             )
-        if case["target_profiles"] != ["rust-native-local", "python-package-cpython312"]:
+        if case["target_profiles"] != _native_and_python_target_profiles_for_input(case):
             raise ContractError("FileResponse error paths select both public target profiles")
         if case["covers"] != [FILE_RESPONSE_ERROR_REQUIREMENTS[error_path_kind]]:
             raise ContractError("FileResponse error path must map its matching requirement")
@@ -8810,7 +8774,7 @@ def _validate_file_response_case_stimulus(case: dict[str, Any]) -> None:
             )
             or case["filename"] is not None
             or case["media_type"] is None
-            or case["target_profiles"] != ["python-package-cpython312"]
+            or case["target_profiles"] != _python_target_profiles_for_input(case)
             or case["covers"] != [FILE_RESPONSE_STATEFUL_PATHLIKE_REQUIREMENT]
         ):
             raise ContractError(
@@ -8930,7 +8894,7 @@ def _validate_file_response_case_stimulus(case: dict[str, Any]) -> None:
                 raise ContractError(
                     "FileResponse call-time stat_result.mtime_seconds must be finite"
                 )
-        if case["target_profiles"] != ["python-package-cpython312"]:
+        if case["target_profiles"] != _python_target_profiles_for_input(case):
             raise ContractError(
                 "FileResponse call-time field assignments select the Python package target"
             )
@@ -8959,7 +8923,7 @@ def _validate_file_response_case_stimulus(case: dict[str, Any]) -> None:
             or call_sequence
             or optional_keys
             or case["covers"] != [FILE_RESPONSE_SCOPE_TYPE_EQUALITY_REQUIREMENT]
-            or case["target_profiles"] != ["python-package-cpython312"]
+            or case["target_profiles"] != _python_target_profiles_for_input(case)
         ):
             raise ContractError(
                 "FileResponse scope.type str-subclass input requires its false-equality package-only case"
@@ -9005,7 +8969,7 @@ def _validate_file_response_case_stimulus(case: dict[str, Any]) -> None:
             call_sequence
             or optional_keys
             or case["covers"] != [FILE_RESPONSE_METHOD_UPPER_OVERRIDE_REQUIREMENT]
-            or case["target_profiles"] != ["python-package-cpython312"]
+            or case["target_profiles"] != _python_target_profiles_for_input(case)
         ):
             raise ContractError(
                 "FileResponse method str-subclass input is limited to its direct package-only case"
@@ -9039,11 +9003,10 @@ def _validate_file_response_case_stimulus(case: dict[str, Any]) -> None:
             raise ContractError(
                 "FileResponse WebSocket scope must map its denial-response requirement"
             )
-        if set(case["target_profiles"]) != {
-            "rust-native-local",
-            "python-package-cpython312",
-        }:
-            raise ContractError("FileResponse WebSocket scope requires both target profiles")
+        if set(case["target_profiles"]) != set(_native_and_python_target_profiles_for_input(case)):
+            raise ContractError(
+                "FileResponse WebSocket scope requires Rust-native and Python-package targets"
+            )
     elif scope_type == "http":
         if FILE_RESPONSE_WEBSOCKET_DENIAL_REQUIREMENT in case["covers"]:
             raise ContractError(
@@ -9139,7 +9102,7 @@ def _validate_file_response_case_stimulus(case: dict[str, Any]) -> None:
     if FILE_RESPONSE_ZERO_CHUNK_SIZE_REQUIREMENT in case["covers"]:
         if (
             case["covers"] != [FILE_RESPONSE_ZERO_CHUNK_SIZE_REQUIREMENT]
-            or case["target_profiles"] != ["rust-native-local", "python-package-cpython312"]
+            or case["target_profiles"] != _native_and_python_target_profiles_for_input(case)
             or case.get("chunk_size") != 0
             or send_error is None
             or error_path_kind is not None
@@ -9188,7 +9151,7 @@ def _validate_file_response_case_stimulus(case: dict[str, Any]) -> None:
                     "scheduling",
                 )
             )
-            or case["target_profiles"] != ["rust-native-local", "python-package-cpython312"]
+            or case["target_profiles"] != _native_and_python_target_profiles_for_input(case)
             or scope_type != "http"
             or scope_spec["method"].upper() != "GET"
             or has_pathsend_extension
@@ -9228,7 +9191,7 @@ def _validate_file_response_case_stimulus(case: dict[str, Any]) -> None:
                     "scheduling",
                 )
             )
-            or case["target_profiles"] != ["rust-native-local", "python-package-cpython312"]
+            or case["target_profiles"] != _native_and_python_target_profiles_for_input(case)
             or case["covers"] != [FILE_RESPONSE_MULTIPART_SHORT_READ_REQUIREMENT]
         ):
             raise ContractError(
@@ -9320,7 +9283,7 @@ def _validate_file_response_case_stimulus(case: dict[str, Any]) -> None:
             raise ContractError(
                 "FileResponse scheduling.cleanup_timeout_seconds must cover writer timeout"
             )
-        if case["target_profiles"] != ["python-package-cpython312"]:
+        if case["target_profiles"] != _python_target_profiles_for_input(case):
             raise ContractError("FileResponse scheduling probe selects the Python package target")
         if (
             scope_type != "http"
@@ -9363,9 +9326,9 @@ def _validate_file_response_case_stimulus(case: dict[str, Any]) -> None:
             {"observe_cached_headers_across_call"},
             "FileResponse header_view_probe",
         )
-        if probe["observe_cached_headers_across_call"] is not True or case["target_profiles"] != [
-            "python-package-cpython312"
-        ]:
+        if probe["observe_cached_headers_across_call"] is not True or case[
+            "target_profiles"
+        ] != _python_target_profiles_for_input(case):
             raise ContractError("FileResponse header_view_probe selects the Python package target")
         range_headers = []
         for pair in scope_spec["headers_base64_pairs"]:
@@ -9435,11 +9398,10 @@ def _validate_file_response_case_stimulus(case: dict[str, Any]) -> None:
         requirement = f"{FILE_RESPONSE_SURFACE}.{RESPONSE_OPERATION}.multiple-calls"
         if case["covers"] != [requirement]:
             raise ContractError("FileResponse calls must map their repeated-call requirement")
-        if set(case["target_profiles"]) != {
-            "rust-native-local",
-            "python-package-cpython312",
-        }:
-            raise ContractError("FileResponse repeated calls require both target profiles")
+        if set(case["target_profiles"]) != set(_native_and_python_target_profiles_for_input(case)):
+            raise ContractError(
+                "FileResponse repeated calls require Rust-native and Python-package targets"
+            )
 
 
 def _decode_static_files_filesystem_scope_path(value: Any, context: str) -> tuple[str, bytes]:
@@ -9958,7 +9920,7 @@ def _validate_static_files_case_stimulus(
     non_string_scope_type = not isinstance(scope["type"], str)
     if scope["type"] != "http" and not non_string_scope_type:
         raise ContractError("StaticFiles asgi-call requires an HTTP scope")
-    if non_string_scope_type and case["target_profiles"] != ["python-package-cpython312"]:
+    if non_string_scope_type and case["target_profiles"] != _python_target_profiles_for_input(case):
         raise ContractError(
             "StaticFiles non-string scope.type input requires the Python package profile"
         )
@@ -10068,7 +10030,7 @@ def _validate_static_files_case_stimulus(
             or scope["root_path"]
             or scope["query_string_base64"]
             or scope["headers_base64_pairs"]
-            or set(case["target_profiles"]) != {"python-package-cpython312"}
+            or set(case["target_profiles"]) != set(_python_target_profiles_for_input(case))
         ):
             raise ContractError(
                 "StaticFiles package tuple subclass requires one direct package-root GET with no other behavior selectors"
@@ -10096,7 +10058,7 @@ def _validate_static_files_case_stimulus(
             or subclass_hook_name is not None
             or scope["method"] != "GET"
             or root_path
-            or set(case["target_profiles"]) != {"python-package-cpython312"}
+            or set(case["target_profiles"]) != set(_python_target_profiles_for_input(case))
         ):
             raise ContractError(
                 "StaticFiles falsey package sequence requires one package asset, a plain package-profile GET, and no other roots or hooks"
@@ -10192,7 +10154,7 @@ def _validate_static_files_case_stimulus(
                 "index.html" if normalized_path == "." else f"{normalized_path}/index.html"
             )
             if (
-                case["target_profiles"] != ["python-package-cpython312"]
+                case["target_profiles"] != _python_target_profiles_for_input(case)
                 or scope["method"] != "GET"
                 or not case["html"]
                 or case["packages"]
@@ -10209,7 +10171,7 @@ def _validate_static_files_case_stimulus(
                     "StaticFiles lookup_path hook requires a Python-package HTML directory index lookup"
                 )
         elif (
-            case["target_profiles"] != ["python-package-cpython312"]
+            case["target_profiles"] != _python_target_profiles_for_input(case)
             or scope["method"] != "GET"
             or case["html"]
             or (case["packages"] and not package_directories_first)
@@ -10288,7 +10250,7 @@ def _validate_static_files_case_stimulus(
             or "python-package-cpython312" not in case["target_profiles"]
         ):
             raise ContractError(
-                "StaticFiles path_limit_stress requires GET, one later package asset, both profiles, and no direct-root files"
+                "StaticFiles path_limit_stress requires GET, one later package asset, Rust-native and Python-package targets, and no direct-root files"
             )
         if len(normalized_path.encode("utf-8")) <= path_limit_stress["overflow_bytes"]:
             raise ContractError(
@@ -10304,11 +10266,12 @@ def _validate_static_files_case_stimulus(
             or len(files) != 1
             or packages
             or normalized_path not in direct_paths
-            or set(case["target_profiles"]) != {"rust-native-local", "python-package-cpython312"}
+            or set(case["target_profiles"])
+            != set(_native_and_python_target_profiles_for_input(case))
             or scope["headers_base64_pairs"]
         ):
             raise ContractError(
-                "StaticFiles permission_denial_stress requires a direct GET asset, checked root, both profiles, and no packages or request headers"
+                "StaticFiles permission_denial_stress requires a direct GET asset, checked root, Rust-native and Python-package targets, and no packages or request headers"
             )
     if method == "POST":
         derived.add("method-not-allowed-post")
@@ -11039,7 +11002,7 @@ def _validate_static_files_async_boundary_case(case: dict[str, Any]) -> None:
         raise ContractError("case is outside the declared StaticFiles async-boundary operation")
     if case["observations"] != [STATIC_FILES_ASYNC_BOUNDARY_OPERATION]:
         raise ContractError("StaticFiles async-boundary observations must select the operation")
-    if case["target_profiles"] != ["python-package-cpython312"]:
+    if case["target_profiles"] != _python_target_profiles_for_input(case):
         raise ContractError(
             "StaticFiles async-boundary cases apply only to the Python package profile"
         )
@@ -11173,7 +11136,7 @@ def _validate_static_files_configuration_check_case(case: dict[str, Any]) -> Non
         raise ContractError(
             "StaticFiles configuration-check observations must select the operation"
         )
-    if case["target_profiles"] != ["python-package-cpython312"]:
+    if case["target_profiles"] != _python_target_profiles_for_input(case):
         raise ContractError(
             "StaticFiles configuration-check cases apply only to the Python-package profile"
         )
@@ -11397,8 +11360,10 @@ def _validate_static_files_get_response_case(case: dict[str, Any]) -> None:
         raise ContractError("case is outside the declared StaticFiles get-response operation")
     if case["observations"] != [STATIC_FILES_GET_RESPONSE_OPERATION]:
         raise ContractError("StaticFiles get-response observations must select the operation")
-    if case["target_profiles"] != ["python-package-cpython312"]:
-        raise ContractError("StaticFiles get-response cases use only the Python-package profile")
+    if case["target_profiles"] != _python_target_profiles_for_input(case):
+        raise ContractError(
+            "StaticFiles get-response cases use the supported Python-package profiles"
+        )
     if case["assets"] != []:
         raise ContractError("StaticFiles get-response cases use no package assets")
 
@@ -11531,7 +11496,7 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
             raise ContractError(
                 "StreamingResponse call-time status_code must be a distinct valid HTTP status"
             )
-        if case["target_profiles"] != ["python-package-cpython312"]:
+        if case["target_profiles"] != _python_target_profiles_for_input(case):
             raise ContractError(
                 "StreamingResponse mutable status_code input is limited to the Python-package profile"
             )
@@ -11818,7 +11783,7 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
             or stream_lifecycle is not None
             or receive_behavior is not None
             or case["operation"] != STREAMING_RESPONSE_TRACE_OPERATION
-            or case["target_profiles"] != ["python-package-cpython312"]
+            or case["target_profiles"] != _python_target_profiles_for_input(case)
             or set(case["covers"]) != {websocket_requirement}
         ):
             raise ContractError(
@@ -11834,7 +11799,7 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
             or receive_behavior is not None
             or (
                 any(kind == "memoryview-base64" for kind, _value in chunks)
-                and case["target_profiles"] != ["python-package-cpython312"]
+                and case["target_profiles"] != _python_target_profiles_for_input(case)
             )
             or (
                 call_time_field_assignments is not None
@@ -11874,7 +11839,7 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
             or background is not None
             or stream_lifecycle is not None
             or receive_behavior is not None
-            or case["target_profiles"] != ["python-package-cpython312"]
+            or case["target_profiles"] != _python_target_profiles_for_input(case)
         ):
             raise ContractError(
                 "StreamingResponse file-like iterator input is limited to the Python-package profile"
@@ -11892,7 +11857,7 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
             or background is not None
             or stream_lifecycle is not None
             or receive_behavior is not None
-            or case["target_profiles"] != ["python-package-cpython312"]
+            or case["target_profiles"] != _python_target_profiles_for_input(case)
         ):
             raise ContractError(
                 "StreamingResponse async iterator/iterable input is limited to its declared Python-package case"
@@ -11906,7 +11871,7 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
             or stream_lifecycle is not None
             or receive_behavior is not None
             or case["operation"] != STREAMING_RESPONSE_OPERATION
-            or case["target_profiles"] != ["python-package-cpython312"]
+            or case["target_profiles"] != _python_target_profiles_for_input(case)
             or case["covers"] != [STREAMING_RESPONSE_AWAIT_FACTORY_STOP_REQUIREMENT]
         ):
             raise ContractError(
@@ -11916,7 +11881,7 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
         if (
             websocket_scope
             or case["operation"] != STREAMING_RESPONSE_OPERATION
-            or case["target_profiles"] != ["python-package-cpython312"]
+            or case["target_profiles"] != _python_target_profiles_for_input(case)
             or len(chunks) != 2
             or any(kind != "text" for kind, _value in chunks)
             or repeating_chunks
@@ -11952,7 +11917,7 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
             or (receive_behavior is not None and not blocked_receive_cancellation)
             or background is None
             or background.get("kind") != "async-values-recorder"
-            or case["target_profiles"] != ["python-package-cpython312"]
+            or case["target_profiles"] != _python_target_profiles_for_input(case)
             or type(cancelled_send["event_index"]) is not int
             or cancelled_send["event_index"] != 1
             or case["covers"]
@@ -12003,7 +11968,7 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
             or stream_lifecycle["kind"] != "finally-recorder"
             or receive_behavior is not None
             or background is not None
-            or case["target_profiles"] != ["python-package-cpython312"]
+            or case["target_profiles"] != _python_target_profiles_for_input(case)
             or type(gated_send["event_index"]) is not int
             or gated_send["event_index"] != 1
             or type(gated_send["release_after_checkpoints"]) is not int
@@ -12035,7 +12000,7 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
             case["operation"] != STREAMING_RESPONSE_TRACE_OPERATION
             or stream_lifecycle is None
             or receive_behavior is None
-            or case["target_profiles"] != ["python-package-cpython312"]
+            or case["target_profiles"] != _python_target_profiles_for_input(case)
         ):
             raise ContractError(
                 "repeating StreamingResponse generators require lifecycle and gated-disconnect inputs"
@@ -12072,7 +12037,7 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
         or background is None
         or stream_lifecycle is not None
         or case["operation"] != STREAMING_RESPONSE_TRACE_OPERATION
-        or case["target_profiles"] != ["python-package-cpython312"]
+        or case["target_profiles"] != _python_target_profiles_for_input(case)
     ):
         raise ContractError(
             "StreamingResponse async-generator/background input is limited to its declared Python-package case"
@@ -12139,7 +12104,7 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
             or not isinstance(send["message"], str)
         ):
             raise ContractError("StreamingResponse failing send must select an in-range OSError")
-        if case["target_profiles"] != ["python-package-cpython312"]:
+        if case["target_profiles"] != _python_target_profiles_for_input(case):
             raise ContractError(
                 "StreamingResponse OSError mapping is limited to the Python package profile"
             )
@@ -12212,7 +12177,7 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
             or stream_lifecycle is not None
             or receive_behavior is not None
             or case["operation"] != STREAMING_RESPONSE_TRACE_OPERATION
-            or case["target_profiles"] != ["python-package-cpython312"]
+            or case["target_profiles"] != _python_target_profiles_for_input(case)
             or send != {"kind": "capture-asgi-send"}
             or spec_version < (2, 4)
             or case["covers"] != [STREAMING_RESPONSE_BACKGROUND_OSERROR_REQUIREMENT]
@@ -12361,7 +12326,7 @@ def _validate_router_cache_gc_case(case: dict[str, Any], routes: list[dict[str, 
     ):
         raise ContractError("Router GC requires explicit collection settings")
     if (
-        case["target_profiles"] != ["python-package-cpython312"]
+        case["target_profiles"] != _python_target_profiles_for_input(case)
         or case["assets"] != []
         or case["custom_convertors"] != []
         or len(routes) != 1
@@ -12530,7 +12495,7 @@ def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
     if has_scope_type_subclass:
         if (
             scope_type != "http"
-            or case["target_profiles"] != ["python-package-cpython312"]
+            or case["target_profiles"] != _python_target_profiles_for_input(case)
             or case.get("observe_dispatch_error") is not True
             or len(routes) != 1
             or routes[0]["kind"] != "http-route"
@@ -12548,7 +12513,7 @@ def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
         return
     if not websocket_dispatch and missing_method:
         if (
-            case["target_profiles"] != ["python-package-cpython312"]
+            case["target_profiles"] != _python_target_profiles_for_input(case)
             or len(routes) != 1
             or routes[0]["kind"] != "http-route"
             or routes[0]["methods"] != ["GET"]
@@ -12577,7 +12542,7 @@ def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
     if path_startswith_result is not None:
         if (
             path_startswith_result is not False
-            or case["target_profiles"] != ["python-package-cpython312"]
+            or case["target_profiles"] != _python_target_profiles_for_input(case)
             or has_scope_type_subclass
             or websocket_dispatch
             or len(routes) != 1
@@ -12918,7 +12883,7 @@ def _validate_router_body_limit_case(case: dict[str, Any]) -> None:
     router_requirement = "starlette.routing.Router.route-dispatch.max-body-size"
     mount_requirement = "starlette.routing.Mount.route-dispatch.max-body-size-override"
     if (
-        case["target_profiles"] != ["python-package-cpython312"]
+        case["target_profiles"] != _python_target_profiles_for_input(case)
         or case["assets"] != []
         or case["custom_convertors"] != []
         or case["redirect_slashes"] is not True
@@ -13310,7 +13275,7 @@ def _validate_mount_case_stimulus(case: dict[str, Any]) -> None:
             derived.add(MOUNT_EMPTY_ROOT_PATH_REQUIREMENT)
     if has_slice_override:
         if (
-            case["target_profiles"] != ["python-package-cpython312"]
+            case["target_profiles"] != _python_target_profiles_for_input(case)
             or root_path != ""
             or path_startswith_result is not False
             or not mount_matches
@@ -19077,11 +19042,11 @@ def _validate_testclient_case(
             raise ContractError(
                 "TestClient ASGI app kind must be asgi2, asgi3, or asgi3-asyncio-marked"
             )
-        if asgi_app["kind"] == "asgi3-asyncio-marked" and case["target_profiles"] != [
-            "python-package-cpython312"
-        ]:
+        if asgi_app["kind"] == "asgi3-asyncio-marked" and case["target_profiles"] != (
+            _python_target_profiles_for_input(case)
+        ):
             raise ContractError(
-                "asyncio-marked ASGI3 inputs select the pre-3.13 CPython 3.12 profile"
+                "asyncio-marked ASGI3 inputs select their declared supported Python profiles"
             )
         messages = asgi_app["messages"]
         exception_spec = asgi_app.get("exception")
@@ -23874,8 +23839,8 @@ def _validate_public_api_inspection_case(
         raise ContractError("public API inspection case ID must bind to its operation")
     if case["assets"] != []:
         raise ContractError("public API inspection does not use assets")
-    if case["target_profiles"] != ["python-package-cpython312"]:
-        raise ContractError("public API inspection selects only the Python-package profile")
+    if case["target_profiles"] != _python_target_profiles_for_input(case):
+        raise ContractError("public API inspection selects the supported Python-package profiles")
     if case["observations"] != [PUBLIC_API_INSPECTION_OBSERVATION]:
         raise ContractError("public API inspection selects its single declared observation")
 
@@ -23963,7 +23928,7 @@ def _validate_application_subclass_builder_case(
     manifest: dict[str, Any],
 ) -> None:
     if (
-        case["target_profiles"] != ["python-package-cpython312"]
+        case["target_profiles"] != _python_target_profiles_for_input(case)
         or case["assets"] != []
         or case["execution_schedule"] != ["dispatch"]
         or case["observations"] != ["dispatch"]
@@ -25772,7 +25737,7 @@ def _validate_case_payload(
         and "scope_mapping" in case
     ):
         expected_case_keys = expected_case_keys | {"scope_mapping"}
-        if case["target_profiles"] != ["python-package-cpython312"]:
+        if case["target_profiles"] != _python_target_profiles_for_input(case):
             raise ContractError(
                 "TrustedHostMiddleware stateful scope mappings require the Python-package profile"
             )
@@ -25934,12 +25899,10 @@ def _validate_case_payload(
         raw_testclient_settings = case.get("testclient")
         if not isinstance(raw_testclient_settings, dict):
             raise ContractError("TestClient settings must be an object")
-        _, root_path_subclass = _validate_testclient_root_path(
+        _validate_testclient_root_path(
             raw_testclient_settings.get("root_path"), "TestClient.root_path"
         )
-        expected_profiles = (
-            list(PYTHON_PROFILE_IDS) if root_path_subclass else ["python-package-cpython312"]
-        )
+        expected_profiles = _python_target_profiles_for_input(case)
         if case["target_profiles"] != expected_profiles:
             raise ContractError(
                 "TestClient WebSocket cases select the profiles required by their input contract"
@@ -26304,9 +26267,9 @@ def _validate_case_payload(
         elif scope_container not in {"dict", "user-dict"}:
             raise ContractError("ASGI scope_container must be dict or user-dict fault input")
         container_kind = scope_container["kind"] if fault_container else scope_container
-        if container_kind in {"user-dict", "user-dict-fault"} and case["target_profiles"] != [
-            "python-package-cpython312"
-        ]:
+        if container_kind in {"user-dict", "user-dict-fault"} and case[
+            "target_profiles"
+        ] != _python_target_profiles_for_input(case):
             raise ContractError("mutable ASGI scope mappings require the Python-package profile")
         if container_kind in {"user-dict", "user-dict-fault"}:
             if "scope_observation" not in case:
@@ -26374,7 +26337,7 @@ def _validate_case_payload(
                 )
             container_kind = scope_container
         if container_kind in {"user-dict", "user-dict-fault"}:
-            if case["target_profiles"] != ["python-package-cpython312"]:
+            if case["target_profiles"] != _python_target_profiles_for_input(case):
                 raise ContractError(
                     "mutable Starlette scope mappings require the Python-package profile"
                 )
@@ -26662,38 +26625,27 @@ def _validate_case_payload(
             operations[(surface["id"], operation["id"])] = operation
             for requirement in operation["requirements"]:
                 requirements[requirement["id"]] = requirement
-    if is_websocket_endpoint and selected_profiles != ["python-package-cpython312"]:
-        raise ContractError("WebSocketEndpoint dispatch selects only the Python-package profile")
-    if is_gzip_responder and selected_profiles != ["python-package-cpython312"]:
+    if is_websocket_endpoint and selected_profiles != _python_target_profiles_for_input(case):
         raise ContractError(
-            "GZipResponder compatibility cases select only the Python-package profile"
+            "WebSocketEndpoint dispatch selects the supported Python-package profiles"
         )
-    if is_http_endpoint and selected_profiles != ["python-package-cpython312"]:
-        raise ContractError("HTTPEndpoint dispatch selects only the Python-package profile")
-    if is_session_workflow and selected_profiles != ["python-package-cpython312"]:
-        raise ContractError("SessionMiddleware cases select only the Python-package profile")
-    if is_base_http_contextvars and selected_profiles != ["python-package-cpython312"]:
+    if is_gzip_responder and selected_profiles != _python_target_profiles_for_input(case):
         raise ContractError(
-            "BaseHTTPMiddleware ContextVar cases select only the Python-package profile"
+            "GZipResponder compatibility cases select the supported Python-package profiles"
         )
-    if is_base_http_workflow and selected_profiles != ["python-package-cpython312"]:
-        raise ContractError("BaseHTTPMiddleware cases select only the Python-package profile")
+    if is_http_endpoint and selected_profiles != _python_target_profiles_for_input(case):
+        raise ContractError("HTTPEndpoint dispatch selects the supported Python-package profiles")
+    if is_session_workflow and selected_profiles != _python_target_profiles_for_input(case):
+        raise ContractError("SessionMiddleware cases select the supported Python-package profiles")
+    if is_base_http_contextvars and selected_profiles != _python_target_profiles_for_input(case):
+        raise ContractError(
+            "BaseHTTPMiddleware ContextVar cases select the supported Python-package profiles"
+        )
+    if is_base_http_workflow and selected_profiles != _python_target_profiles_for_input(case):
+        raise ContractError("BaseHTTPMiddleware cases select the supported Python-package profiles")
     if is_testclient:
-        app = case.get("asgi_app")
-        cookie_domain_matrix_case = (
-            isinstance(app, dict)
-            and app.get("kind") == "request-cookie-round-trip"
-            and "cookie_domain" in app
-            and TESTCLIENT_REQUIREMENTS["cookie_domain_matching"] in case["covers"]
-        )
-        _, root_path_subclass = _validate_testclient_root_path(
-            case["testclient"]["root_path"], "TestClient.root_path"
-        )
-        expected_testclient_profiles = (
-            list(PYTHON_PROFILE_IDS)
-            if cookie_domain_matrix_case or root_path_subclass
-            else ["python-package-cpython312"]
-        )
+        _validate_testclient_root_path(case["testclient"]["root_path"], "TestClient.root_path")
+        expected_testclient_profiles = _python_target_profiles_for_input(case)
         if selected_profiles != expected_testclient_profiles:
             raise ContractError("TestClient profiles differ from the input-defined version scope")
     if is_testclient_lifespan and selected_profiles != list(PYTHON_PROFILE_IDS):
@@ -26703,9 +26655,7 @@ def _validate_case_payload(
     if is_upload_file and selected_profiles != list(PYTHON_PROFILE_IDS):
         raise ContractError("UploadFile cases select all supported Python profiles")
     if is_formdata:
-        expected_formdata_profiles = (
-            ["python-package-cpython312"] if "typing_contract" in case else list(PYTHON_PROFILE_IDS)
-        )
+        expected_formdata_profiles = _python_target_profiles_for_input(case)
         if selected_profiles != expected_formdata_profiles:
             raise ContractError(
                 "FormData cases select the profiles declared by their input contract"
@@ -26729,11 +26679,12 @@ def _validate_case_payload(
             raise ContractError(
                 "concurrency case profiles must match covered requirement applicability"
             )
-    if is_starlette_add_exception_handler_workflow and selected_profiles != [
-        "python-package-cpython312"
-    ]:
+    if (
+        is_starlette_add_exception_handler_workflow
+        and selected_profiles != _python_target_profiles_for_input(case)
+    ):
         raise ContractError(
-            "Starlette.add_exception_handler cases select only the Python-package profile"
+            "Starlette.add_exception_handler cases select the supported Python-package profiles"
         )
     if is_session_workflow:
         session_operation = operations.get(SESSION_WORKFLOW_OPERATION_KEY)
@@ -27339,13 +27290,13 @@ def _validate_case_payload(
             assignments = case["assignments"]
             if (
                 not is_gzip
-                or case["target_profiles"] != ["python-package-cpython312"]
+                or case["target_profiles"] != _python_target_profiles_for_input(case)
                 or len(case["steps"]) != 2
                 or not isinstance(assignments, list)
                 or len(assignments) != 1
             ):
                 raise ContractError(
-                    "live GZip app replacement requires one GZipMiddleware app assignment on CPython 3.12"
+                    "live GZip app replacement requires one GZipMiddleware app assignment on supported CPython profiles"
                 )
             assignment = _exact(assignments[0], {"field", "value"}, "GZipMiddleware app assignment")
             if assignment["field"] != "app":
@@ -27355,7 +27306,7 @@ def _validate_case_payload(
                 raise ContractError("GZipMiddleware app assignment must change the ASGI app")
         start_type = app_args["app"]["messages"][0]["type"]
         if isinstance(start_type, dict) and (
-            is_gzip_responder or case["target_profiles"] != ["python-package-cpython312"]
+            is_gzip_responder or case["target_profiles"] != _python_target_profiles_for_input(case)
         ):
             raise ContractError(
                 "GZip response-start string-subclass equality cases require the Python package profile"
@@ -27501,27 +27452,27 @@ def _validate_case_payload(
     )
     dispatch_args = {key: descriptor["value"] for key, descriptor in dispatch["arguments"].items()}
     if _is_authentication_user_interface_application(app_args):
-        if case["target_profiles"] != ["python-package-cpython312"]:
+        if case["target_profiles"] != _python_target_profiles_for_input(case):
             raise ContractError(
-                "authentication user-interface dispatch selects only the Python-package profile"
+                "authentication user-interface dispatch selects the supported Python-package profiles"
             )
         _validate_authentication_user_interface_dispatch(dispatch_args)
     if _is_authentication_login_next_application(app_args):
-        if case["target_profiles"] != ["python-package-cpython312"]:
+        if case["target_profiles"] != _python_target_profiles_for_input(case):
             raise ContractError(
-                "authentication login redirect dispatch selects only the Python-package profile"
+                "authentication login redirect dispatch selects the supported Python-package profiles"
             )
         _validate_authentication_login_next_dispatch(dispatch_args)
     if _is_authentication_required_route_application(app_args):
-        if case["target_profiles"] != ["python-package-cpython312"]:
+        if case["target_profiles"] != _python_target_profiles_for_input(case):
             raise ContractError(
-                "authentication-required dispatch selects only the Python-package profile"
+                "authentication-required dispatch selects the supported Python-package profiles"
             )
         _validate_authentication_required_route_dispatch(dispatch_args, app_args["routes"][0])
     if _is_authentication_required_websocket_application(app_args):
-        if case["target_profiles"] != ["python-package-cpython312"]:
+        if case["target_profiles"] != _python_target_profiles_for_input(case):
             raise ContractError(
-                "authentication-required WebSocket dispatch selects only the Python-package profile"
+                "authentication-required WebSocket dispatch selects the supported Python-package profiles"
             )
         _validate_authentication_required_websocket_dispatch(dispatch_args, app_args)
     routes = app_args.get("routes") if isinstance(app_args, dict) else None
@@ -27535,9 +27486,9 @@ def _validate_case_payload(
         and cookie_endpoint.get("kind") == "request-cookies-observer"
     ):
         _validate_request_cookies_observer_dispatch(cookie_endpoint, dispatch_args)
-        if cookie_endpoint["probe"]["kind"] == "mapping-actions" and case["target_profiles"] != [
-            "python-package-cpython312"
-        ]:
+        if cookie_endpoint["probe"]["kind"] == "mapping-actions" and case[
+            "target_profiles"
+        ] != _python_target_profiles_for_input(case):
             raise ContractError(
                 "request cookies mapping-actions probe is specific to the Python package profile"
             )
@@ -28177,7 +28128,7 @@ def _validate_background_attributes_case(case: dict[str, Any]) -> None:
         raise ContractError("BackgroundTask case ID must bind to attribute-operations")
     if case["assets"] != []:
         raise ContractError("BackgroundTask attribute workflows do not use assets")
-    if case["target_profiles"] != ["python-package-cpython312"]:
+    if case["target_profiles"] != _python_target_profiles_for_input(case):
         raise ContractError("BackgroundTask attribute workflows select the Python-package profile")
     if case["observations"] != [BACKGROUND_ATTRIBUTES_OBSERVATION]:
         raise ContractError("BackgroundTask cases must select background-task-attributes")
@@ -28274,7 +28225,7 @@ def _validate_convertor_case_envelope(
         raise ContractError("convertor case ID must identify the public convertors module")
     if case["assets"] != []:
         raise ContractError("convertor cases do not use assets")
-    if case["target_profiles"] != ["python-package-cpython312"]:
+    if case["target_profiles"] != _python_target_profiles_for_input(case):
         raise ContractError("convertor cases select the Python-package profile")
     if case["covers"] != [requirement]:
         raise ContractError("convertor case must cover its operation requirement")
@@ -29147,7 +29098,7 @@ def _validate_server_error_middleware_case(
     _string(case["case_id"], "ServerErrorMiddleware case.case_id")
     if not case["case_id"].startswith(f"{SERVER_ERROR_MIDDLEWARE_SURFACE}.{operation_id}."):
         raise ContractError("ServerErrorMiddleware case ID must identify its public operation")
-    if case["assets"] != [] or case["target_profiles"] != ["python-package-cpython312"]:
+    if case["assets"] != [] or case["target_profiles"] != _python_target_profiles_for_input(case):
         raise ContractError(
             "direct ServerErrorMiddleware inputs select only the package profile and no assets"
         )
@@ -29404,7 +29355,7 @@ def _validate_exception_middleware_case(
     _string(case["case_id"], "ExceptionMiddleware case.case_id")
     if not case["case_id"].startswith(f"{surface_id}.__call__."):
         raise ContractError("ExceptionMiddleware case ID must identify its public __call__")
-    if case["assets"] != [] or case["target_profiles"] != ["python-package-cpython312"]:
+    if case["assets"] != [] or case["target_profiles"] != _python_target_profiles_for_input(case):
         raise ContractError(
             "direct ExceptionMiddleware inputs select only the package profile and no assets"
         )
@@ -29798,8 +29749,8 @@ def _has_lifespan_scope_state_membership_index_fault(
 
 def _validate_lifespan_only_case(case: dict[str, Any], app_args: dict[str, Any]) -> None:
     if case["operation"] != "__call__" or case["target_profiles"] not in (
-        ["python-package-cpython312"],
-        ["rust-native-local", "python-package-cpython312"],
+        _python_target_profiles_for_input(case),
+        _native_and_python_target_profiles_for_input(case),
     ):
         raise ContractError(
             "lifespan-only cases must select the package profile, optionally with Rust-native"
@@ -31654,8 +31605,10 @@ def _validate_starlette_add_route_registration(
 
 
 def _validate_starlette_add_route_workflow(case: dict[str, Any]) -> None:
-    if case["target_profiles"] != ["python-package-cpython312"]:
-        raise ContractError("Starlette.add_route workflow selects only the Python-package profile")
+    if case["target_profiles"] != _python_target_profiles_for_input(case):
+        raise ContractError(
+            "Starlette.add_route workflow selects the supported Python-package profiles"
+        )
     if case["observations"] != ["dispatch-get", "dispatch-wrong-method"]:
         raise ContractError("Starlette.add_route workflow must observe both dispatch outcomes")
     if case["execution_schedule"] != [
@@ -31841,7 +31794,7 @@ def _validate_starlette_add_middleware_workflow(case: dict[str, Any]) -> None:
     steps = case["steps"]
     operations = [step.get("operation") for step in steps]
     if (
-        case["target_profiles"] != ["python-package-cpython312"]
+        case["target_profiles"] != _python_target_profiles_for_input(case)
         or len(steps) < 4
         or operations[0] != "__init__"
         or operations.count("add_middleware") < 1
@@ -32000,7 +31953,7 @@ def _validate_starlette_add_exception_handler_workflow(case: dict[str, Any]) -> 
     )
     key_kind = "exception-class" if late_registration else "status-code"
     if (
-        case["target_profiles"] != ["python-package-cpython312"]
+        case["target_profiles"] != _python_target_profiles_for_input(case)
         or operations != expected_operations
         or [step["step_id"] for step in steps] != expected_ids
         or any(step["surface"] != "starlette.applications.Starlette" for step in steps)
@@ -32334,7 +32287,7 @@ def _route_body_limit_requirement_from_input(case: dict[str, Any]) -> str | None
 
 def _validate_route_body_limit_workflow(case: dict[str, Any]) -> None:
     if (
-        case["target_profiles"] != ["python-package-cpython312"]
+        case["target_profiles"] != _python_target_profiles_for_input(case)
         or case["observations"] != ["dispatch"]
         or case["execution_schedule"] != ["dispatch"]
     ):
@@ -33334,7 +33287,7 @@ def _validate_body_limit_action_sequence(value: Any, context: str, depth: int = 
 
 
 def _validate_default_receive_case(case: dict[str, Any]) -> None:
-    if case["target_profiles"] != ["python-package-cpython312"]:
+    if case["target_profiles"] != _python_target_profiles_for_input(case):
         raise ContractError("default receive parity currently targets the Python package profile")
     if case["assets"] != [] or case["observations"] != ["receive"]:
         raise ContractError("default receive cases must select receive without external assets")
@@ -33722,8 +33675,10 @@ def _validate_request_header_cache_sequence_case(case: dict[str, Any]) -> None:
 
 
 def _validate_request_cookie_cache_sequence_case(case: dict[str, Any]) -> None:
-    if case["target_profiles"] != ["python-package-cpython312"]:
-        raise ContractError("Request cookie-cache sequence parity targets CPython 3.12")
+    if case["target_profiles"] != _python_target_profiles_for_input(case):
+        raise ContractError(
+            "Request cookie-cache sequence parity targets supported CPython profiles"
+        )
     if case["assets"] != [] or case["observations"] != ["cookie-cache-sequence"]:
         raise ContractError("Request cookie-cache sequence selects one observation without assets")
     if not case["case_id"].startswith("starlette.requests.Request.cookie-cache-sequence."):
@@ -34303,7 +34258,7 @@ def _validate_request_state_readback_case(case: dict[str, Any]) -> None:
 
 
 def _validate_request_constructor_case(case: dict[str, Any]) -> None:
-    if case["target_profiles"] != ["python-package-cpython312"]:
+    if case["target_profiles"] != _python_target_profiles_for_input(case):
         raise ContractError("Request constructor parity targets the Python package profile")
     if case["assets"] != [] or case["observations"] != ["constructor-contract"]:
         raise ContractError("Request constructor cases select constructor-contract without assets")
@@ -34343,7 +34298,7 @@ def _validate_request_constructor_case(case: dict[str, Any]) -> None:
 
 
 def _validate_websocket_scope_mapping_case(case: dict[str, Any]) -> None:
-    if case["target_profiles"] != ["python-package-cpython312"]:
+    if case["target_profiles"] != _python_target_profiles_for_input(case):
         raise ContractError("WebSocket scope mapping parity targets the Python package profile")
     if case["assets"] != [] or case["observations"] != ["scope-mapping"]:
         raise ContractError("WebSocket scope-mapping cases select scope-mapping without assets")
@@ -34436,7 +34391,7 @@ def _validate_websocket_scope_mapping_case(case: dict[str, Any]) -> None:
 
 
 def _validate_websocket_constructor_case(case: dict[str, Any]) -> None:
-    if case["target_profiles"] != ["python-package-cpython312"]:
+    if case["target_profiles"] != _python_target_profiles_for_input(case):
         raise ContractError("WebSocket constructor parity targets the Python package profile")
     if case["assets"] != [] or case["observations"] != ["constructor-contract"]:
         raise ContractError(
@@ -34488,7 +34443,7 @@ def _validate_websocket_constructor_case(case: dict[str, Any]) -> None:
 
 
 def _validate_send_push_promise_case(case: dict[str, Any]) -> None:
-    if case["target_profiles"] != ["python-package-cpython312"]:
+    if case["target_profiles"] != _python_target_profiles_for_input(case):
         raise ContractError("push-promise parity currently targets the Python package profile")
     if case["assets"] != [] or case["observations"] != ["send-push-promise"]:
         raise ContractError("push-promise cases must select one observation without assets")
@@ -36293,7 +36248,7 @@ def _validate_request_form_case(case: dict[str, Any]) -> None:
 
 
 def _validate_status_symbols_case(case: dict[str, Any]) -> None:
-    if case["target_profiles"] != ["python-package-cpython312"]:
+    if case["target_profiles"] != _python_target_profiles_for_input(case):
         raise ContractError("status module parity currently targets the Python package profile")
     if case["assets"] != []:
         raise ContractError("status module parity does not use external assets")
@@ -36498,7 +36453,7 @@ def _validate_wsgi_scope(scope_input: Any, body_base64: Any) -> dict[str, Any]:
 
 
 def _validate_wsgi_boundary_case(case: dict[str, Any]) -> None:
-    if case["target_profiles"] != ["python-package-cpython312"]:
+    if case["target_profiles"] != _python_target_profiles_for_input(case):
         raise ContractError("WSGI helper and import parity cases select the Python package profile")
     if case["assets"] != []:
         raise ContractError("WSGI helper and import parity cases do not use external assets")
@@ -36544,8 +36499,10 @@ def _validate_wsgi_boundary_case(case: dict[str, Any]) -> None:
 
 
 def _validate_wsgi_protocol_case(case: dict[str, Any]) -> None:
-    if case["target_profiles"] != ["python-package-cpython312"] or case["assets"] != []:
-        raise ContractError("WSGI sender protocol comparisons select CPython 3.12 without assets")
+    if case["target_profiles"] != _python_target_profiles_for_input(case) or case["assets"] != []:
+        raise ContractError(
+            "WSGI sender protocol comparisons select supported CPython profiles without assets"
+        )
     if case["observations"] != ["protocol-results"]:
         raise ContractError("WSGI sender protocol comparisons must select protocol-results")
     scope = _validate_wsgi_scope(case["scope"], "")
@@ -36658,11 +36615,7 @@ def _validate_wsgi_protocol_case(case: dict[str, Any]) -> None:
 
 def _validate_config_case(case: dict[str, Any]) -> None:
     operation = (case["surface"], case["operation"])
-    expected_profiles = (
-        list(PYTHON_PROFILE_IDS)
-        if operation in PYTHON_VERSION_MATRIX_OPERATIONS
-        else ["python-package-cpython312"]
-    )
+    expected_profiles = _python_target_profiles_for_input(case)
     if case["target_profiles"] != expected_profiles:
         raise ContractError("configuration parity targets its declared Python package profiles")
     if case["assets"] != []:
@@ -37336,8 +37289,8 @@ def _validate_application_route_input(route: Any, context: str) -> None:
 def _validate_application_routes_property_case(case: dict[str, Any]) -> None:
     if case["observations"] != ["route-inventory"]:
         raise ContractError("Starlette.routes cases must select route-inventory")
-    if case["target_profiles"] != ["python-package-cpython312"]:
-        raise ContractError("Starlette.routes cases select only the Python-package profile")
+    if case["target_profiles"] != _python_target_profiles_for_input(case):
+        raise ContractError("Starlette.routes cases select the supported Python-package profiles")
     if not isinstance(case["routes"], list) or not case["routes"]:
         raise ContractError("Starlette.routes cases require a non-empty input route list")
     for index, route in enumerate(case["routes"]):
@@ -37345,7 +37298,7 @@ def _validate_application_routes_property_case(case: dict[str, Any]) -> None:
 
 
 def _validate_schema_case(case: dict[str, Any]) -> None:
-    if case["target_profiles"] != ["python-package-cpython312"]:
+    if case["target_profiles"] != _python_target_profiles_for_input(case):
         raise ContractError("schema parity currently targets the Python package profile")
     if case["assets"] != []:
         raise ContractError("schema parity does not use external assets")
@@ -38065,7 +38018,7 @@ def _validate_testclient_public_case(
 
 
 def _validate_templating_public_case(case: dict[str, Any]) -> None:
-    if case["target_profiles"] != ["python-package-cpython312"]:
+    if case["target_profiles"] != _python_target_profiles_for_input(case):
         raise ContractError("Template public workflows select the Python-package consumer")
     if case["assets"] != [] or case["observations"] != [TEMPLATING_PUBLIC_OPERATION[1]]:
         raise ContractError("Template public workflows use authored files and one observation")
@@ -38391,7 +38344,7 @@ def _validate_templating_public_case(case: dict[str, Any]) -> None:
 
 
 def _validate_templating_case(case: dict[str, Any]) -> None:
-    if case["target_profiles"] != ["python-package-cpython312"]:
+    if case["target_profiles"] != _python_target_profiles_for_input(case):
         raise ContractError("Jinja2Templates parity currently targets the Python package profile")
     if case["assets"] != [] or case["observations"] != ["template-response"]:
         raise ContractError(
@@ -38845,7 +38798,7 @@ def _validate_router_registration_case(case: dict[str, Any]) -> None:
     _exact(case, base_keys, "Router registration case")
     if (case["surface"], case["operation"]) != ROUTER_REGISTRATION_OPERATION_KEY:
         raise ContractError("case is outside the declared Router registration operation")
-    if case["target_profiles"] != ["python-package-cpython312"]:
+    if case["target_profiles"] != _python_target_profiles_for_input(case):
         raise ContractError("Router registration parity currently targets the Python package")
     if case["assets"] != [] or case["observations"] != [
         "registration-state",
@@ -38927,7 +38880,7 @@ def _validate_router_registration_case(case: dict[str, Any]) -> None:
 
 
 def _validate_urlpath_constructor_case(case: dict[str, Any]) -> None:
-    if case["target_profiles"] != ["python-package-cpython312"]:
+    if case["target_profiles"] != _python_target_profiles_for_input(case):
         raise ContractError("URLPath constructor parity currently targets the Python package")
     if case["assets"] != [] or case["observations"] != ["constructor-results"]:
         raise ContractError("URLPath constructor cases select constructor-results")
@@ -38960,7 +38913,7 @@ def _validate_urlpath_constructor_case(case: dict[str, Any]) -> None:
 
 
 def _validate_urlpath_absolute_case(case: dict[str, Any]) -> None:
-    if case["target_profiles"] != ["python-package-cpython312"]:
+    if case["target_profiles"] != _python_target_profiles_for_input(case):
         raise ContractError("URLPath absolute-URL parity currently targets the Python package")
     if case["assets"] != [] or case["observations"] != ["absolute-url-results"]:
         raise ContractError(
@@ -39182,7 +39135,7 @@ def _validate_header_argument(value: Any, instance_ids: set[str], context: str) 
 
 
 def _validate_state_case(case: dict[str, Any]) -> None:
-    if case["target_profiles"] != ["python-package-cpython312"]:
+    if case["target_profiles"] != _python_target_profiles_for_input(case):
         raise ContractError("State consumer-sequence parity targets the Python package profile")
     if case["assets"] != []:
         raise ContractError("State consumer-sequence cases do not use external assets")
@@ -39709,8 +39662,8 @@ def _validate_upload_file_case(case: dict[str, Any]) -> None:
 
 def _validate_headers_case(case: dict[str, Any]) -> None:
     mutable = case["surface"] == MUTABLE_HEADERS_SURFACE
-    package_profile = ["python-package-cpython312"]
-    native_and_package_profiles = ["rust-native-local", "python-package-cpython312"]
+    package_profile = _python_target_profiles_for_input(case)
+    native_and_package_profiles = _native_and_python_target_profiles_for_input(case)
     if case["target_profiles"] not in (package_profile, native_and_package_profiles):
         raise ContractError(
             "Headers parity selects the Python package profile and optional native slice"
@@ -40196,7 +40149,9 @@ def _validate_query_params_case(case: dict[str, Any]) -> None:
         raise ContractError("QueryParams cases use no assets and select the snapshot")
     source = _validate_query_params_source(case["source"], "QueryParams source")
     has_string_subclass_source = source["kind"] == "string-subclass"
-    if has_string_subclass_source and case["target_profiles"] != ["python-package-cpython312"]:
+    if has_string_subclass_source and case["target_profiles"] != _python_target_profiles_for_input(
+        case
+    ):
         raise ContractError(
             "QueryParams string-subclass sources require the Python package profile"
         )
@@ -40244,7 +40199,9 @@ def _validate_query_params_case(case: dict[str, Any]) -> None:
         if any(not isinstance(probe[field], str) for field in string_fields):
             raise ContractError(f"{context} fields must be strings")
         has_str_subclass_probe = True
-    if has_str_subclass_probe and case["target_profiles"] != ["python-package-cpython312"]:
+    if has_str_subclass_probe and case["target_profiles"] != _python_target_profiles_for_input(
+        case
+    ):
         raise ContractError("QueryParams string-subclass probes require the Python package profile")
     comparison = case["comparison"]
     literal_comparison = isinstance(comparison, dict) and comparison.get("kind") == "literal"
@@ -40256,16 +40213,16 @@ def _validate_query_params_case(case: dict[str, Any]) -> None:
         )
         if not isinstance(comparison["value"], str):
             raise ContractError("QueryParams literal comparison value must be a string")
-        if case["target_profiles"] != ["python-package-cpython312"]:
+        if case["target_profiles"] != _python_target_profiles_for_input(case):
             raise ContractError(
                 "QueryParams comparisons against non-QueryParams values select the Python package"
             )
     else:
         python_only_string_probe = (has_str_subclass_probe or has_string_subclass_source) and (
-            case["target_profiles"] == ["python-package-cpython312"]
+            case["target_profiles"] == _python_target_profiles_for_input(case)
         )
         if (
-            case["target_profiles"] != ["rust-native-local", "python-package-cpython312"]
+            case["target_profiles"] != _native_and_python_target_profiles_for_input(case)
             and not python_only_string_probe
         ):
             raise ContractError("QueryParams parity requires both declared targets")
@@ -40379,7 +40336,7 @@ def _validate_exception_middleware_typing_case(
         "starlette.middleware.exceptions.ExceptionMiddleware.__init__."
     ):
         raise ContractError("ExceptionMiddleware typing case ID must bind to its constructor")
-    if case["target_profiles"] != ["python-package-cpython312"]:
+    if case["target_profiles"] != _python_target_profiles_for_input(case):
         raise ContractError("ExceptionMiddleware typing cases select the Python package profile")
     if case["assets"] != [] or case["observations"] != ["typing_contract"]:
         raise ContractError(
@@ -40478,14 +40435,14 @@ def _validate_multidict_case(case: dict[str, Any]) -> None:
     has_custom_key = _contains_multidict_key_subclass(case)
     if typing_contract is None:
         required_profiles = (
-            ["python-package-cpython312"]
+            _python_target_profiles_for_input(case)
             if has_list_subclass or has_custom_key
-            else ["rust-native-local", "python-package-cpython312"]
+            else _native_and_python_target_profiles_for_input(case)
         )
         if case["target_profiles"] != required_profiles:
             raise ContractError("MultiDict behavior cases require their declared target profiles")
-    elif case["target_profiles"] != ["python-package-cpython312"]:
-        raise ContractError("MultiDict typing cases select only the Python-package profile")
+    elif case["target_profiles"] != _python_target_profiles_for_input(case):
+        raise ContractError("MultiDict typing cases select the supported Python-package profiles")
     if case["assets"] != [] or case["observations"] != ["mutation-sequence"]:
         raise ContractError("MultiDict cases use no assets and select mutation-sequence")
     if not case["case_id"].startswith("starlette.datastructures.MultiDict.mutation-sequence."):
@@ -40786,9 +40743,9 @@ def _validate_comma_separated_strings_case(case: dict[str, Any]) -> None:
     if case["assets"] != [] or case["observations"] != ["snapshot"]:
         raise ContractError("CommaSeparatedStrings cases use no assets and select snapshot")
     expected_profiles = (
-        ["python-package-cpython312"]
+        _python_target_profiles_for_input(case)
         if has_sequence_subclass or has_python_error_boundary or has_lone_surrogate
-        else ["rust-native-local", "python-package-cpython312"]
+        else _native_and_python_target_profiles_for_input(case)
     )
     if case["target_profiles"] != expected_profiles:
         raise ContractError("CommaSeparatedStrings target profiles must match its input boundary")
@@ -40891,10 +40848,10 @@ def _validate_formdata_case(case: dict[str, Any]) -> None:
     typing_contract = case.get("typing_contract")
     if typing_contract is None and case["target_profiles"] != list(PYTHON_PROFILE_IDS):
         raise ContractError("FormData constructor parity selects all supported Python profiles")
-    if typing_contract is not None and case["target_profiles"] != ["python-package-cpython312"]:
-        raise ContractError(
-            "FormData typing cases select only the Python-package CPython 3.12 profile"
-        )
+    if typing_contract is not None and case["target_profiles"] != _python_target_profiles_for_input(
+        case
+    ):
+        raise ContractError("FormData typing cases select supported Python-package profiles")
 
     constructor = _exact(case["constructor"], {"args", "kwargs"}, "FormData constructor")
     args = constructor["args"]
@@ -41049,7 +41006,7 @@ def _validate_authentication_application_response(response: Any, context: str) -
 
 
 def _validate_authentication_case(case: dict[str, Any]) -> None:
-    if case["target_profiles"] != ["python-package-cpython312"]:
+    if case["target_profiles"] != _python_target_profiles_for_input(case):
         raise ContractError("authentication parity currently targets the Python package profile")
     if case["assets"] != []:
         raise ContractError("authentication cases do not use external assets")
@@ -41667,7 +41624,7 @@ def _validate_route_name_case(case: dict[str, Any]) -> None:
         },
         "Route endpoint-name case",
     )
-    if case["target_profiles"] != ["python-package-cpython312"] or case["assets"] != []:
+    if case["target_profiles"] != _python_target_profiles_for_input(case) or case["assets"] != []:
         raise ContractError("Route endpoint-name parity targets only the Python package profile")
     if case["observations"] != ["constructor_results"]:
         raise ContractError("Route endpoint-name cases select constructor results")
@@ -41712,7 +41669,7 @@ def _validate_route_constructor_error_case(case: dict[str, Any]) -> None:
         },
         "Route constructor-error case",
     )
-    if case["target_profiles"] != ["python-package-cpython312"] or case["assets"] != []:
+    if case["target_profiles"] != _python_target_profiles_for_input(case) or case["assets"] != []:
         raise ContractError("Route constructor-error parity targets only the Python package")
     if case["observations"] != ["constructor_results"]:
         raise ContractError("Route constructor-error cases select their declared observation")
@@ -41844,7 +41801,7 @@ def _validate_route_repr_case(case: dict[str, Any]) -> None:
         },
         "routing representation case",
     )
-    if case["target_profiles"] != ["python-package-cpython312"] or case["assets"] != []:
+    if case["target_profiles"] != _python_target_profiles_for_input(case) or case["assets"] != []:
         raise ContractError("routing representation parity targets only the Python package profile")
     if case["observations"] != ["representation"]:
         raise ContractError("routing representation cases select their declared observation")
@@ -41949,7 +41906,7 @@ def _websocket_disconnect_fixture_truthiness(value: Any) -> bool | None:
 
 
 def _validate_websocket_disconnect_constructor_case(case: dict[str, Any]) -> None:
-    if case["target_profiles"] != ["python-package-cpython312"]:
+    if case["target_profiles"] != _python_target_profiles_for_input(case):
         raise ContractError(
             "WebSocketDisconnect constructor parity targets the Python package profile"
         )
@@ -42026,17 +41983,7 @@ def _validate_websocket_disconnect_constructor_case(case: dict[str, Any]) -> Non
 
 
 def _validate_value_formatting_case(case: dict[str, Any]) -> None:
-    is_exception_case = case.get("surface") == EXCEPTION_VALUES_SURFACE
-    is_pure_asgi_case = (
-        case.get("surface") == MIDDLEWARE_CONFIG_SURFACE
-        and isinstance(case.get("asgi_workflow"), dict)
-        and case["asgi_workflow"].get("kind") == "pure-asgi"
-    )
-    expected_profiles = (
-        list(PYTHON_PROFILE_IDS)
-        if is_pure_asgi_case or is_exception_case
-        else ["python-package-cpython312"]
-    )
+    expected_profiles = _python_target_profiles_for_input(case)
     if case["target_profiles"] != expected_profiles:
         raise ContractError("value-formatting parity targets its declared Python package profiles")
     if case["assets"] != []:
@@ -42689,7 +42636,7 @@ def _middleware_mock_header_value(headers: Any, context: str) -> bytes | None:
 
 
 def _validate_body_limit_case_stimulus(case: dict[str, Any]) -> None:
-    if case["target_profiles"] != ["python-package-cpython312"]:
+    if case["target_profiles"] != _python_target_profiles_for_input(case):
         raise ContractError("body-limit parity currently targets the Python package profile")
     if case["assets"] != [] or case["observations"] != ["dispatch"]:
         raise ContractError("body-limit cases must observe dispatch without external assets")
@@ -44444,7 +44391,7 @@ def _semantic_coverage(case: dict[str, Any]) -> set[str]:
             return set()
         endpoint = route["endpoint"]
         if endpoint["kind"] == "authentication-required-websocket":
-            if case["target_profiles"] != ["python-package-cpython312"]:
+            if case["target_profiles"] != _python_target_profiles_for_input(case):
                 return set()
             outcome = _authentication_middleware_outcome(scope)
             access = {
@@ -44485,7 +44432,7 @@ def _semantic_coverage(case: dict[str, Any]) -> set[str]:
     middleware_input = app_arguments["middleware"]
     if (
         case["operation"] == "__call__"
-        and case["target_profiles"] == ["python-package-cpython312"]
+        and case["target_profiles"] == _python_target_profiles_for_input(case)
         and route["kind"] == "http-route"
         and endpoint["kind"] in {"plain-text-response", "json-response"}
         and path_matches
@@ -44497,7 +44444,7 @@ def _semantic_coverage(case: dict[str, Any]) -> set[str]:
     if (
         "application_subclass" in case
         and case["operation"] == "__call__"
-        and case["target_profiles"] == ["python-package-cpython312"]
+        and case["target_profiles"] == _python_target_profiles_for_input(case)
         and route["kind"] == "http-route"
         and endpoint["kind"] in {"plain-text-response", "json-response", "streaming-response"}
         and path_matches
@@ -44525,7 +44472,7 @@ def _semantic_coverage(case: dict[str, Any]) -> set[str]:
     if endpoint["kind"] == "authentication-login-next-redirect":
         if (
             case["operation"] == "__call__"
-            and case["target_profiles"] == ["python-package-cpython312"]
+            and case["target_profiles"] == _python_target_profiles_for_input(case)
             and route["kind"] == "http-route"
             and path_matches
             and method_matches
@@ -44561,7 +44508,7 @@ def _semantic_coverage(case: dict[str, Any]) -> set[str]:
     if endpoint["kind"] == "authentication-required-route":
         if (
             case["operation"] != "__call__"
-            or case["target_profiles"] != ["python-package-cpython312"]
+            or case["target_profiles"] != _python_target_profiles_for_input(case)
             or route["kind"] != "http-route"
             or not path_matches
             or not method_matches
@@ -44576,7 +44523,7 @@ def _semantic_coverage(case: dict[str, Any]) -> set[str]:
         return {AUTHENTICATION_REQUIRED_ROUTE_REQUIREMENTS[f"{form}-{access}"]}
     if (
         case["operation"] == "__call__"
-        and case["target_profiles"] == ["python-package-cpython312"]
+        and case["target_profiles"] == _python_target_profiles_for_input(case)
         and route["kind"] == "http-route"
         and endpoint["kind"] in {"plain-text-response", "json-response", "streaming-response"}
         and path_matches
@@ -44594,7 +44541,7 @@ def _semantic_coverage(case: dict[str, Any]) -> set[str]:
             coverage.add("starlette.applications.Starlette.__call__.async-route-return-response")
     if (
         case["operation"] == "__call__"
-        and case["target_profiles"] == ["python-package-cpython312"]
+        and case["target_profiles"] == _python_target_profiles_for_input(case)
         and route["kind"] == "http-route"
         and endpoint["kind"] == "sync-plain-text-response"
         and route["methods"] is None
@@ -49750,7 +49697,7 @@ def validate_result_artifact(
 
 
 def _validate_request_lifetime_case(case: dict[str, Any]) -> None:
-    if case["target_profiles"] != ["python-package-cpython312"] or case["assets"] != []:
+    if case["target_profiles"] != _python_target_profiles_for_input(case) or case["assets"] != []:
         raise ContractError(
             "Request lifetime cases use the installed Python package without assets"
         )
@@ -49848,7 +49795,7 @@ def _validate_request_lifetime_case(case: dict[str, Any]) -> None:
 
 
 def _validate_value_lifetime_case(case: dict[str, Any]) -> None:
-    if case["target_profiles"] != ["python-package-cpython312"] or case["assets"] != []:
+    if case["target_profiles"] != _python_target_profiles_for_input(case) or case["assets"] != []:
         raise ContractError(
             "Public value lifetime targets the installed Python package without assets"
         )
@@ -50315,9 +50262,20 @@ def _validate_response_consumer_case(case: dict[str, Any]) -> None:
         cookie_values = [
             spec for action in case["cookie_protocol"] for spec in action["arguments"].values()
         ]
-        if case["target_profiles"] == ["python-package-cpython312"] or any(
-            spec.get("kind") != "literal" for spec in cookie_values
-        ):
+        # Map only cookie arguments that exercise nontrivial Python value behavior.
+        cookie_argument_boundary = any(
+            not isinstance(spec, dict)
+            or spec.get("kind") != "literal"
+            or not isinstance(spec.get("value"), str)
+            or any(
+                ord(character) < 0x20
+                or ord(character) == 0x7F
+                or 0xD800 <= ord(character) <= 0xDFFF
+                for character in spec["value"]
+            )
+            for spec in cookie_values
+        )
+        if cookie_argument_boundary:
             expected_requirements.append(
                 case["surface"] + ".consumer-construction.cookie-argument-protocols"
             )
@@ -50837,7 +50795,7 @@ def _validate_optional_import_case(case: dict[str, Any]) -> None:
             )
     if (
         case["assets"]
-        or case["target_profiles"] != ["python-package-cpython312"]
+        or case["target_profiles"] != _python_target_profiles_for_input(case)
         or case["observations"] != ["import-policy"]
         or case["covers"]
         != [case["surface"] + ".module-import-policy.dependency-errors-and-selection"]

@@ -1,0 +1,139 @@
+name: Full Starlette parity and coverage verification
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: starlette-parity-coverage-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: "1"
+  RUSTC_WRAPPER: ""
+  CARGO_NET_RETRY: "3"
+
+jobs:
+  source-parity:
+    name: Pinned Starlette source parity (CPython ${{ matrix.python-version }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+    defaults:
+      run:
+        working-directory: target
+    env:
+      STARLETTE_ORACLE_ROOT: ${{ github.workspace }}/starlette
+      PYO3_PYTHON: python
+      RUSTUP_TOOLCHAIN: 1.96.1
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: target
+          persist-credentials: false
+      - name: Checkout pinned Starlette oracle
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: Kludex/starlette
+          ref: 4f250d6b814587e20c5365f0a5f0c4d42bcb929f
+          path: starlette
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install 1.96.1 --profile minimal
+      - name: Run source-to-target parity comparisons
+        run: make test PARITY_PYTHON=python
+      - name: Upload source parity evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: starlette-source-parity-${{ matrix.python-version }}-${{ github.run_id }}
+          path: target/build/parity/parity-result.json
+          if-no-files-found: warn
+          retention-days: 30
+
+  source-parity-coverage:
+    name: Coverage (${{ matrix.profile_id }})
+    needs: source-parity
+    if: needs.source-parity.result == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - profile_id: rust-native-local
+            python-version: "3.12"
+            prepare-environment: true
+          - profile_id: python-package-cpython310
+            python-version: "3.10"
+            prepare-environment: true
+          - profile_id: python-package-cpython311
+            python-version: "3.11"
+            prepare-environment: true
+          - profile_id: python-package-cpython312
+            python-version: "3.12"
+            prepare-environment: true
+          - profile_id: python-package-cpython313
+            python-version: "3.13"
+            prepare-environment: true
+          - profile_id: python-package-cpython314
+            python-version: "3.14"
+            prepare-environment: true
+    defaults:
+      run:
+        working-directory: target
+    env:
+      STARLETTE_ORACLE_ROOT: ${{ github.workspace }}/starlette
+      PYO3_PYTHON: python
+      RUSTUP_TOOLCHAIN: 1.96.1
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: target
+          persist-credentials: false
+      - name: Checkout pinned Starlette oracle
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: Kludex/starlette
+          ref: 4f250d6b814587e20c5365f0a5f0c4d42bcb929f
+          path: starlette
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install Rust and its LLVM coverage component
+        run: rustup toolchain install 1.96.1 --profile minimal --component llvm-tools-preview
+      - name: Verify coverage profile interpreter
+        run: python --version
+      - name: Prepare the selected Python package parity environment
+        if: matrix.prepare-environment
+        run: make parity-env PARITY_PYTHON=python
+      - name: Install and verify pinned cargo-llvm-cov
+        run: make coverage-tools
+      - name: Report coverage collector and LLVM tool versions
+        run: |
+          cargo llvm-cov --version
+          rustc --version --verbose
+          rustc_host="$(rustc -vV | sed -n 's/^host: //p')"
+          llvm_bin="$(rustc --print sysroot)/lib/rustlib/${rustc_host}/bin"
+          "${llvm_bin}/llvm-cov" --version
+          "${llvm_bin}/llvm-profdata" --version
+      - name: Measure the selected target profile
+        run: make coverage PARITY_PYTHON=python COVERAGE_TARGET_PROFILE="${{ matrix.profile_id }}"
+      - name: Upload selected profile coverage evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: starlette-coverage-${{ matrix.profile_id }}-${{ github.run_id }}
+          path: target/build/parity/coverage/${{ matrix.profile_id }}/
+          if-no-files-found: warn
+          retention-days: 30

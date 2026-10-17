@@ -10,7 +10,11 @@
         "starlette.routing.Router.route-dispatch.http-endpoint-async-handler"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "routes": [
@@ -78,7 +82,11 @@
         "starlette.routing.Router.route-dispatch.http-endpoint-path-parameter"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "routes": [
@@ -147,7 +155,11 @@
         "starlette.routing.Router.route-dispatch.http-endpoint-method-not-allowed"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "routes": [
@@ -215,7 +227,11 @@
         "starlette.routing.Router.route-dispatch.http-endpoint-non-verb-helper-rejected"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "routes": [
@@ -292,7 +308,11 @@
         "starlette.routing.Router.route-dispatch.http-endpoint-sync-handler"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "routes": [
@@ -360,7 +380,11 @@
         "starlette.routing.Router.route-dispatch.http-endpoint-head-get-fallback"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "routes": [
@@ -427,7 +451,11 @@
         "starlette.routing.Router.route-dispatch.http-endpoint-method-handler"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "routes": [

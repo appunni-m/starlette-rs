@@ -14,7 +14,11 @@
         "starlette.datastructures.Headers.representation"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "instances": [
@@ -240,7 +244,11 @@
         "starlette.datastructures.Headers.constructor.scope-container-conversion"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "instances": [
@@ -273,7 +281,11 @@
         "starlette.datastructures.Headers.mutablecopy-retains-pair-tuple-identities"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "instances": [
@@ -339,7 +351,11 @@
         "starlette.datastructures.MutableHeaders.append-preserves-duplicates-and-order"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "instances": [
@@ -456,7 +472,11 @@
         "starlette.datastructures.MutableHeaders.inplace-union.mapping-and-header-operands"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "instances": [
@@ -587,7 +607,11 @@
         "starlette.datastructures.MutableHeaders.union-and-inplace-union-nonmapping-error"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "instances": [
@@ -641,7 +665,11 @@
         "starlette.datastructures.MutableHeaders.append-preserves-duplicates-and-order"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "instances": [
@@ -701,7 +729,11 @@
         "starlette.datastructures.Headers.raw-list-input-alias-and-copy-view"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "instances": [
@@ -780,7 +812,11 @@
         "starlette.datastructures.MutableHeaders.raw-list-input-and-view-aliasing"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "instances": [
@@ -862,7 +898,11 @@
         "starlette.datastructures.MutableHeaders.no-op-mutation-preserves-raw-pair-identities"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "instances": [

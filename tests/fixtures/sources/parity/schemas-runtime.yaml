@@ -13,7 +13,11 @@
         "starlette.schemas.BaseSchemaGenerator.parse_docstring.delimited-section"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "base_schema": {
@@ -141,7 +145,11 @@
         "starlette.schemas.BaseSchemaGenerator.parse_docstring.non-mapping-filter"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "docstrings": [
@@ -165,7 +173,11 @@
         "starlette.schemas.BaseSchemaGenerator.parse_docstring.malformed-yaml"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "docstrings": [
@@ -185,7 +197,11 @@
         "starlette.schemas.BaseSchemaGenerator.OpenAPIResponse"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "content": {
@@ -223,7 +239,11 @@
         "starlette.schemas.BaseSchemaGenerator.parse_docstring.delimited-section"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "base_schema": {
@@ -372,7 +392,11 @@
         "starlette.schemas.OpenAPIResponse.asgi-response-call"
       ],
       "target_profiles": [
-        "python-package-cpython312"
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
       ],
       "assets": [],
       "base_schema": {
