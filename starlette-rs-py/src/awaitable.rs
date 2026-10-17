@@ -487,6 +487,7 @@ fn await_iterator(py: Python<'_>, awaitable: Py<PyAny>) -> PyResult<Py<PyAny>> {
 fn is_exact_coroutine(awaitable: &Bound<'_, PyAny>) -> bool {
     // SAFETY: `Bound` guarantees a live Python object, and callers hold the
     // GIL. PyCoro_CheckExact only inspects that object's type.
+    // LINT EXCEPTION: PyO3 exposes this exact-type predicate only through unsafe FFI; the live Bound and held GIL satisfy its pointer preconditions.
     #[allow(unsafe_code)]
     unsafe {
         pyo3::ffi::PyCoro_CheckExact(awaitable.as_ptr()) != 0
