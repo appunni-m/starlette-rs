@@ -47258,6 +47258,7 @@ def _validate_benchmark_result_artifact(
                 "dependency_lock_sha256",
                 "installed_lock_sha256",
                 "artifact_sha256",
+                "build_artifacts",
                 "environment_sha256",
             },
             f"benchmark result.identity.prepared_environments[{index}]",
@@ -47288,6 +47289,12 @@ def _validate_benchmark_result_artifact(
         if environment["artifact_sha256"] is not None:
             _validate_sha256(
                 environment["artifact_sha256"], "benchmark environment.artifact_sha256"
+            )
+        if not isinstance(environment["build_artifacts"], list):
+            raise ContractError(f"benchmark environment[{index}].build_artifacts must be an array")
+        if environment["build_artifacts"]:
+            raise ContractError(
+                f"benchmark environment[{index}].build_artifacts must be empty for CPython 3.12"
             )
 
     machine = _exact(

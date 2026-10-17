@@ -327,6 +327,7 @@
               "dependency_lock_sha256",
               "installed_lock_sha256",
               "artifact_sha256",
+              "build_artifacts",
               "environment_sha256"
             ],
             "properties": {
@@ -366,6 +367,10 @@
                     "type": "null"
                   }
                 ]
+              },
+              "build_artifacts": {
+                "type": "array",
+                "maxItems": 0
               },
               "environment_sha256": {
                 "$ref": "#/$defs/sha256"
