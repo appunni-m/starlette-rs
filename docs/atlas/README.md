@@ -35,8 +35,10 @@ comparisons with zero mismatches or infrastructure errors; all five fault
 contracts passed. Two rows were not run because the macOS filesystem cannot
 create the surrogateescape filename. Local Rust-native and CPython 3.12
 coverage reports are measured but not ingested; MCP marks their sources
-unverified and tests unknown. Remaining CPython coverage profiles and the
-clean @66 benchmark are pending. The generated source atlas has 867 rows: 811 input mappings, 56 source-backed
+unverified and tests unknown. The other four CPython coverage profiles remain
+pending. The clean committed @66 benchmark measured 74/74 source/package
+workloads without failures or skipped source/package rows; Rust-native rows are
+not comparable at this ASGI boundary. The generated source atlas has 867 rows: 811 input mappings, 56 source-backed
 `not_applicable` rows, and zero fixture backlog. All 999 API candidate rows are
 dispositioned as 564 supported, 435 private/internal, and zero uncertain. The
 local @63 grouped run selected 2,941 comparisons on CPython

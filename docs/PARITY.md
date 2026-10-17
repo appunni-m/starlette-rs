@@ -39,7 +39,10 @@ cases, each with the same source-skipped filename case. Coverage MCP measured
 14,605/19,606 Rust-native lines (74.5%) and 23,493/33,905 package lines
 (69.3%), but the plans are `not_ingested`; MCP marks source identity
 unverified and tests unknown. The other four CPython coverage profiles remain
-pending. The @66 benchmark phase awaits a clean committed parity gate.
+pending. The clean committed @66 benchmark
+`3e3c1fb0-af43-45ae-9a8c-f18a47e248ec` measured all 74 source/package workloads
+with zero failures or source/package not-run rows; Rust-native rows remain
+boundary-specific not-run. See [benchmark evidence](BENCHMARKS.md).
 
 The latest input-only comparisons cover Config subclass property/cast dispatch
 and empty-format-spec error messages, optimized Request, WebSocket, and

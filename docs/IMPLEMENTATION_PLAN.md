@@ -32,7 +32,14 @@ MCP measured 14,605/19,606 Rust-native lines (74.5%) and 23,493/33,905 package
 lines (69.3%), but both plans are `not_ingested` and MCP marks source identity
 unverified and test status unknown. These are scoped observations, not a
 verified full-coverage result. Coverage for CPython 3.10, 3.11, 3.13, and 3.14
-remains pending. The generated atlas has 867 source rows: 811 input mappings,
+remains pending. The clean committed @66 benchmark
+(`3e3c1fb0-af43-45ae-9a8c-f18a47e248ec`) measured 74/74 source/package
+workloads with zero failures and zero source/package not-run rows. All 74
+Rust-native workload rows are intentionally not run because the native API has
+no equivalent ASGI boundary. Source latency was lower in all six Router
+workloads and 52 of 68 GZip workloads. These are local, workload-specific
+timings, not a general performance claim. The generated atlas has 867 source
+rows: 811 input mappings,
 56 source-backed `not_applicable` rows, and zero fixture backlog. The pinned
 denominators remain 514 upstream test functions and 24 documented pages.
 
@@ -675,7 +682,7 @@ representation, and dynamic `FormData.close()` dispatch remain Rust-backed.
 | Implementation | The active @66 implementation batch is integrated across the affected feature families. | Three new comparisons and ten @65 additions were included in the grouped run; source inventory reports zero fixture backlog. |
 | Full parity and grouped repairs | Locally executed; full parity remains unproven until Linux CI covers the macOS-skipped filename and remaining CPython profiles. | Run `3a615b88-4f92-434e-9b89-3b8ab3935ca2`: 2,982 passed, zero failed, zero infrastructure errors, two not-run; five fault contracts passed. |
 | Full coverage and source reconciliation | Local measurements collected for Rust-native and CPython 3.12; full six-profile coverage remains pending. | Both local plans were `not_ingested` because the same source case skipped. Coverage MCP reports source unverified and tests unknown; see the run IDs and scoped counts above. |
-| All benchmarks | Pending until a clean committed parity gate is available. | A pre-commit attempt collected no timings because the benchmark runner requires a clean target checkout. |
+| All benchmarks | Local @66 workload complete; results are scoped to the declared source/package lane. | Run `3e3c1fb0-af43-45ae-9a8c-f18a47e248ec` measured 74/74 source/package workloads with zero failures or not-run rows. It used clean revision `5069022b`; 74 Rust-native rows are boundary-specific not-run. |
 | Packaging and interpreter qualification | Historical local macOS arm64 qualification; current changes are not qualified by it. | Five CPython 3.10–3.14 wheels, an sdist, and the Rust crate were inspected in the earlier qualification. Other platform builds remain unqualified. |
 
 Parity, coverage, and benchmark result artifacts are local generated output
@@ -749,9 +756,9 @@ operations, 1,467 parity requirements, and six target profiles. Its manifest
 SHA-256 is `474c5a1e8f413ab0a02cb0b6ca5e9c46b85a5e29f26bfde93d4cd3e735faf12f`.
 The active inputs pass contract validation and source-inventory generation.
 The grouped @66 parity matrix has run locally with two documented macOS source
-skips; the full parity, coverage-reconciliation, and benchmark gates remain
-open as described in the current execution ledger. Historical evidence above
-applies to earlier manifest revisions. The generated
+skips. Full parity and coverage reconciliation remain open as described in the
+current execution ledger; the 74-workload source/package benchmark completed
+locally. Historical evidence above applies to earlier manifest revisions. The generated
 source-row, mapping, `not_applicable`, and backlog totals live in
 [`coverage-matrix.csv`](atlas/coverage-matrix.csv) and
 [`fixture-backlog.csv`](atlas/fixture-backlog.csv); regenerate them after

@@ -20,8 +20,10 @@ contracts passed. Two target rows were not run because the macOS filesystem
 cannot create the source case's surrogateescape filename, so full parity is
 not yet proven. Coverage MCP measured the local Rust-native and CPython 3.12
 reports but marked source unverified and tests unknown because their plans
-were not ingested. Other CPython coverage profiles and the clean @66 benchmark
-remain pending. The atlas has 867 source rows: 811 input mappings, 56 source-backed
+were not ingested. The clean committed @66 benchmark measured all 74
+source/package workloads without failure or skipped rows; Rust-native outcomes
+remain boundary-specific not-run. Other CPython coverage profiles remain
+pending. The atlas has 867 source rows: 811 input mappings, 56 source-backed
 `not_applicable` rows, and zero fixture backlog. All 999 API candidate rows
 have dispositions. The pinned denominators remain 514 upstream test functions
 and 24 documented pages.

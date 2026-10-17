@@ -16,8 +16,10 @@ because the macOS temporary filesystem cannot create it; full parity remains
 unproven until Linux CI covers that input and the remaining CPython profiles.
 Local coverage runs were collected for Rust-native and CPython 3.12, but both
 plans are `not_ingested` due to that skip; Coverage MCP reports source identity
-unverified and tests unknown. The other four coverage profiles and the clean
-@66 benchmark are pending. Source inventory counts are generated in the atlas:
+unverified and tests unknown. The other four coverage profiles remain pending.
+The clean @66 benchmark measured all 74 source/package workloads with no
+failures or source/package not-run rows; Rust-native rows are not comparable at
+this ASGI boundary. Source inventory counts are generated in the atlas:
 867 source rows, 811 input mappings, 56 source-backed `not_applicable` rows,
 and zero fixture backlog. The pinned denominators remain 514 upstream test
 functions and 24 documented pages.
@@ -1187,8 +1189,9 @@ These source-backed caveats and targeted inputs do not create fixture backlog.
 The active @66 grouped parity run had no executable-row mismatches but two
 target rows were source-skipped on macOS. Local coverage artifacts and their
 limitations are recorded above; full multi-profile coverage remains pending.
-The @66 benchmark awaits a clean committed parity gate. Previous @64 results
-are historical and do not establish behavior for @66.
+The @66 benchmark measured 74 source/package workloads; see
+[`BENCHMARKS.md`](BENCHMARKS.md) for its scope and results. Previous @64
+results are historical and do not establish behavior for @66.
 
 The macOS arm64 Python package qualification is complete, and its SBOM
 metadata normalization is verified for direct and sdist-based CPython 3.12
