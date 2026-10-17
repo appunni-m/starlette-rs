@@ -428,6 +428,17 @@ impl SendablePythonAwaitable {
 
 fn await_iterator(py: Python<'_>, awaitable: Py<PyAny>) -> PyResult<Py<PyAny>> {
     let awaitable = awaitable.bind(py);
+    if is_exact_coroutine(awaitable) {
+        // Exact coroutine objects use the built-in await protocol and cannot
+        // override this special method. Keep custom awaitables on the generic
+        // path below so their Python protocol and error behavior stay intact.
+        let iterator = awaitable.call_method0("__await__")?;
+        if !iterator.is_instance_of::<PyIterator>() {
+            return Err(PyTypeError::new_err("__await__() returned a non-iterator"));
+        }
+        return Ok(iterator.unbind());
+    }
+
     let inspect = py.import("inspect")?;
     let is_awaitable = inspect
         .getattr("isawaitable")?
@@ -471,6 +482,15 @@ fn await_iterator(py: Python<'_>, awaitable: Py<PyAny>) -> PyResult<Py<PyAny>> {
         return Err(PyTypeError::new_err("__await__() returned a non-iterator"));
     }
     Ok(iterator.unbind())
+}
+
+fn is_exact_coroutine(awaitable: &Bound<'_, PyAny>) -> bool {
+    // SAFETY: `Bound` guarantees a live Python object, and callers hold the
+    // GIL. PyCoro_CheckExact only inspects that object's type.
+    #[allow(unsafe_code)]
+    unsafe {
+        pyo3::ffi::PyCoro_CheckExact(awaitable.as_ptr()) != 0
+    }
 }
 
 /// Resolve `__await__` from the object's type, as CPython's `await` protocol
