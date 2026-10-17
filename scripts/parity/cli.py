@@ -40,6 +40,7 @@ from .envs import (
     validate_oracle_runtime_lock,
     validate_runtime_lock,
 )
+from .reconcile import reconcile_parity_results
 from .runner import ROOT, load_json_from_text, run_parity
 from .scope_completeness import validate_full_scope_completeness
 from .upstream_benchmark import UPSTREAM_RESULT_RELATIVE, run_upstream_benchmark
@@ -145,6 +146,16 @@ def _parser() -> argparse.ArgumentParser:
     aggregate.add_argument("--root", type=Path, default=ROOT)
     aggregate.add_argument("--manifest", type=Path, default=None)
     aggregate.add_argument("--output", type=Path, default=None)
+
+    reconcile = subparsers.add_parser(
+        "reconcile",
+        help="reconcile focused passing evidence with source-skipped rows in full parity artifacts",
+    )
+    reconcile.add_argument("--baseline", action="append", required=True, type=Path)
+    reconcile.add_argument("--supplement", action="append", required=True, type=Path)
+    reconcile.add_argument("--root", type=Path, default=ROOT)
+    reconcile.add_argument("--manifest", type=Path, default=None)
+    reconcile.add_argument("--output", type=Path, default=None)
     return parser
 
 
@@ -873,6 +884,37 @@ def main(argv: list[str] | None = None) -> int:
             )
             print(json.dumps(report, indent=2, sort_keys=True, allow_nan=False))
             return 0 if report["parity_matrix"]["status"] == "proven" else 2
+        if args.command == "reconcile":
+            active_root = args.root.resolve()
+            active_manifest = _manifest_path(active_root, args.manifest)
+            output_path = args.output or active_root / "build/parity/reconciled-parity-report.json"
+            if not output_path.is_absolute():
+                output_path = active_root / output_path
+            output_path = output_path.resolve()
+            try:
+                output_path.relative_to((active_root / "build/parity").resolve())
+            except ValueError as exc:
+                raise ContractError(
+                    "reconciliation output must be inside ignored build/parity"
+                ) from exc
+            input_paths = {path.resolve() for path in (*args.baseline, *args.supplement)}
+            if output_path in input_paths:
+                raise ContractError(
+                    "reconciliation output cannot overwrite a supplied result artifact"
+                )
+            report = reconcile_parity_results(
+                active_root,
+                active_manifest,
+                args.baseline,
+                args.supplement,
+            )
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            output_path.write_text(
+                json.dumps(report, indent=2, sort_keys=True, allow_nan=False) + "\n",
+                encoding="utf-8",
+            )
+            print(json.dumps(report, indent=2, sort_keys=True, allow_nan=False))
+            return 0 if report["parity_matrix"]["status"] == "passed" else 2
         raise ContractError(f"unsupported command: {args.command}")
     except (ContractError, OSError, ValueError) as exc:
         print(f"parity contract error: {exc}", file=sys.stderr)

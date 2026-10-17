@@ -33,11 +33,14 @@ build/parity/.
 
 The full matrix above predates commit `39a2efa9`, which adds an exact built-in
 coroutine fast path to the Python await boundary. Its release build,
-`cargo fmt --all --check`, and `git diff --check` passed. A selected parity run
-for `starlette.applications.Starlette.__call__.get-hello` did not execute: the
-local prepared environments were stale or absent, and refreshing them could
-not fetch the pinned Maturin build dependency because PyPI DNS was unavailable.
-That failed artifact is not parity evidence, and no speedup has been measured.
+`cargo fmt --all --check`, and `git diff --check` passed. The earlier local
+selected run for `starlette.applications.Starlette.__call__.get-hello` did not
+execute because the prepared environments were stale or absent and PyPI DNS
+could not resolve the pinned Maturin build dependency. That failed artifact is
+not parity evidence. The focused GitHub run
+[`39028488863`](https://github.com/appunni-m/starlette-rs/actions/runs/39028488863)
+subsequently passed this one input on Ubuntu with CPython 3.10–3.14. This is
+targeted evidence for that input only; no speedup has been measured.
 
 The `Focused Starlette parity` workflow runs one case across CPython 3.10–3.14
 on Ubuntu and uploads one result artifact per profile. A push to `main` that
@@ -49,7 +52,15 @@ against the existing full-matrix target revision, dispatch it with target ref
 `starlette.staticfiles.StaticFiles.lookup-path.surrogateescape-posix-matched-filename`.
 Those Linux results must remain supplemental evidence until a strict
 reconciliation report validates and links them to the skipped rows; they must
-not be inserted into the macOS result artifacts.
+not be inserted into the macOS result artifacts. The repository command
+`python -m scripts.parity.cli reconcile` writes a separate report under
+`build/parity/`. It accepts one all-cases baseline per CPython profile plus
+focused artifacts for skipped rows, and replaces only rows that were skipped
+by both source and target under matching manifest, oracle, and clean target
+code/package identities. Focused rows do not enlarge the baseline denominator;
+the report keeps the overall Starlette replacement status `not_proven`. No
+StaticFiles supplement has been produced yet, so this command has not generated
+a passing reconciliation report.
 
 All six active coverage plans have completed. Coverage MCP marks their source
 attribution unverified and tests unknown; the line counts and LCOV caveats are
