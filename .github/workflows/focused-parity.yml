@@ -1,6 +1,12 @@
 name: Focused Starlette parity
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/focused-parity.yml"
+      - "starlette-rs-py/src/awaitable.rs"
   workflow_dispatch:
     inputs:
       case_id:
@@ -18,7 +24,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: focused-parity-${{ inputs.target_ref }}-${{ inputs.case_id }}
+  group: focused-parity-${{ inputs.target_ref || github.sha }}-${{ inputs.case_id || 'starlette.applications.Starlette.__call__.get-hello' }}
   cancel-in-progress: false
 
 env:
@@ -29,7 +35,7 @@ env:
 
 jobs:
   parity:
-    name: ${{ inputs.case_id }} (CPython ${{ matrix.python-version }})
+    name: ${{ inputs.case_id || 'starlette.applications.Starlette.__call__.get-hello' }} (CPython ${{ matrix.python-version }})
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     strategy:
@@ -41,13 +47,13 @@ jobs:
         working-directory: target
     env:
       STARLETTE_ORACLE_ROOT: ${{ github.workspace }}/starlette
-      STARLETTE_PARITY_CASE_ID: ${{ inputs.case_id }}
+      STARLETTE_PARITY_CASE_ID: ${{ inputs.case_id || 'starlette.applications.Starlette.__call__.get-hello' }}
       PYO3_PYTHON: python
       RUSTUP_TOOLCHAIN: 1.96.1
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.target_ref }}
+          ref: ${{ inputs.target_ref || github.sha }}
           path: target
           persist-credentials: false
       - name: Checkout pinned Starlette oracle

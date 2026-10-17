@@ -39,11 +39,12 @@ local prepared environments were stale or absent, and refreshing them could
 not fetch the pinned Maturin build dependency because PyPI DNS was unavailable.
 That failed artifact is not parity evidence, and no speedup has been measured.
 
-The manually dispatched `Focused Starlette parity` workflow runs one supplied
-case across CPython 3.10–3.14 on Ubuntu and uploads one result artifact per
-profile. It does not run the full parity matrix, coverage, or benchmarks. To
-exercise the macOS-skipped StaticFiles case against the existing full-matrix
-target revision, dispatch it with target ref
+The `Focused Starlette parity` workflow runs one case across CPython 3.10–3.14
+on Ubuntu and uploads one result artifact per profile. A push to `main` that
+changes the await boundary runs the default `get-hello` case; manual dispatch
+accepts a case ID and target ref. Neither path runs the full parity matrix,
+coverage, or benchmarks. To exercise the macOS-skipped StaticFiles case
+against the existing full-matrix target revision, dispatch it with target ref
 `e48552230b8b8e0f9504c8930931c9a297b34145` and case ID
 `starlette.staticfiles.StaticFiles.lookup-path.surrogateescape-posix-matched-filename`.
 Those Linux results must remain supplemental evidence until a strict
