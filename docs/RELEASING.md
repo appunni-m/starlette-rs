@@ -7,6 +7,36 @@ package upload, tag, GitHub Release, or change to registry credentials.
 
 ## Latest preparation status (2026-10-18)
 
+Release preparation remains non-publishing under Kata parent `n5d2` and its
+Cargo (`z74v`), PyPI (`2pan`), and documentation (`c4cy`) children. The
+runtime and parity-tested source revision is
+`main@8fd6ec4a97f068c79114425b6e0cf4ee1158d825`; `make lint` passes on it.
+Full parity workflow `39147316493` (#12) is running on that exact commit. All
+five CPython 3.10–3.14 jobs have entered the source-to-target comparison step;
+no result artifacts are available yet.
+Coverage is gated on all five parity profiles passing, and the complete
+74-workload benchmark follows the current eligible coverage union.
+
+Commit `8fd6ec4` repairs the adapter failures found in run `39143538850`:
+oracle and Rust-target adapters now accept omitted optional `probe_default`
+fields, the Rust-target fault-contract adapter permits empty `covers` for a
+fault contract, and FileResponse parity preserves the original cached header
+view when the input rebinds `raw_headers`. These changes have lint evidence
+but no full-parity result yet. Do not treat older parity, coverage, benchmark,
+Cargo archive, or wheel receipts as candidate evidence for this revision.
+
+The implementation and grouped-repair Kata tasks (`asyj`, `fgc1`) are closed;
+the full proof (`9vck`) is active, coverage tasks (`z70n`, `0j5y`, `rjha`) wait
+on parity, and benchmark task (`29z7`) waits on coverage. No package upload,
+tag, GitHub Release, registry-credential change, or documentation deployment
+has occurred. The release lanes remain readiness work only.
+
+## Historical preparation snapshot before main@8fd6ec4 (superseded)
+
+The following release audit and package evidence was collected for older
+commits. It remains useful background, but must be revalidated on a reviewed
+candidate after parity, coverage, and benchmark gates pass.
+
 Release preparation is active under Kata parent `n5d2` and its Cargo (`z74v`),
 PyPI (`2pan`), and documentation (`c4cy`) children. The last pushed
 implementation and input checkpoint is `main@c368e740b4976cbdda66c81433f56f399430cdfa`;
