@@ -5,21 +5,35 @@ Python distribution, and their documentation. A published crate version is
 permanent, and Python uploads are public releases. Nothing here authorizes a
 package upload, tag, GitHub Release, or change to registry credentials.
 
-## Latest preparation status (2026-10-18 21:17 UTC)
+## Latest preparation status (2026-10-18 21:49 UTC)
 
 Release preparation is tracked under Kata parent `n5d2` and its Cargo (`z74v`),
 PyPI (`2pan`), and documentation (`c4cy`) children. This remains
-non-publishing work. Final package validation is gated on the current full
-parity proof, the eligible six-profile coverage union, and the complete
-74-workload benchmark.
+non-publishing work. Current full parity has passed; final package validation
+is gated on the eligible six-profile coverage union and complete 74-workload
+benchmark.
 
 Full verification workflow
 [`39166146776`](https://github.com/appunni-m/starlette-rs/actions/runs/39166146776)
-(#15) is running on `main@df5e784609f436f8ff80164896201de88548e4cd`, against
-the pinned Starlette 1.6.0 source. At the latest GitHub API snapshot, all five
-CPython 3.10–3.14 jobs are executing source-to-target comparisons. No parity
-artifacts are available yet. The six coverage profiles run only if all five
-parity jobs pass; no current coverage receipts or union are available.
+(#15) passed all five CPython 3.10–3.14 profiles on runtime target
+`df5e784609f436f8ff80164896201de88548e4cd`, against pinned Starlette 1.6.0 at
+`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. Artifacts `12151187634` (3.10),
+`12151127831` (3.11), `12152280180` (3.12), `12151652314` (3.13), and
+`12151877120` (3.14) all identify the active manifest SHA-256
+`6e60640f9f8a7919ea500398aaace0942f5edf707fb92e6659307eb0dd561984` and the
+same 461 indexed inputs. Aggregate results are 15,726/15,726 exact comparisons
+and 22/22 fault contracts passed, with zero failures, `not_run`, or
+infrastructure errors. The 3.12 receipt contains 3,146 comparisons and six
+fault contracts; each other profile contains 3,145 comparisons and four fault
+contracts.
+
+The same workflow is measuring all six coverage profiles (Rust-native and
+Python-package CPython 3.10–3.14). At the latest API snapshot, all six jobs are
+in the measurement step and no coverage receipts or union artifact are
+available. The 100% eligible-line threshold remains unproven, so the complete
+74-workload benchmark remains gated. Documentation and project metadata are
+pushed in docs-only commit `2b279fe4`; this status refresh is documentation-only,
+and the parity receipts remain bound to runtime target `df5e784`.
 
 Previous workflow #14
 ([`39154601847`](https://github.com/appunni-m/starlette-rs/actions/runs/39154601847))
@@ -56,7 +70,7 @@ dependencies on AnyIO and typing-extensions. Its PyPI `Documentation` project
 URL now points to the repository's documentation tree. Prior local sdist and
 wheel receipts are historical, not evidence for this candidate or a complete
 OS/architecture matrix. Rebuild and inspect clean release artifacts, then
-verify consumers after the parity, coverage, and benchmark gates pass.
+verify consumers after the current coverage and benchmark gates pass.
 
 The root README remains the Cargo README and PyPI long description; it must
 describe the unpublished state during preparation. Before preparing first
