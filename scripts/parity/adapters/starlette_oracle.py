@@ -1546,7 +1546,7 @@ def _sync_request_cancellation_response(
     with state["lock"]:
         state["worker_thread_id"] = threading.get_ident()
         state["invocation_count"] += 1
-        state["event_trace"].append("worker-entered")
+        state["worker_event_trace"].append("worker-entered")
     state["worker_entered"].set()
     state["event_loop"].call_soon_threadsafe(state["worker_entered_async"].set)
     try:
@@ -1560,9 +1560,9 @@ def _sync_request_cancellation_response(
     finally:
         with state["lock"]:
             state["worker_finalizer_ran"] = True
-            state["event_trace"].append("worker-finalizer-ran")
+            state["worker_event_trace"].append("worker-finalizer-ran")
             state["worker_completed"].set()
-            state["event_trace"].append("worker-completed")
+            state["worker_event_trace"].append("worker-completed")
         state["event_loop"].call_soon_threadsafe(state["worker_completed_async"].set)
 
 
@@ -3325,7 +3325,10 @@ def _materialize_application(
                 "worker_completed_async": None,
                 "worker_finalizer_ran": False,
                 "response_constructed": False,
-                "event_trace": [],
+                # Keep event-loop and worker-thread order separate; their
+                # unsynchronized cross-thread interleaving is not a contract.
+                "request_event_trace": [],
+                "worker_event_trace": [],
             }
             sync_endpoint_states.append(sync_state)
 
@@ -3550,6 +3553,8 @@ async def _invoke(
     capture_dispatch_error: bool = False,
     capture_dispatch_error_as_observation: bool = False,
     cancel_after_endpoint_entry: bool = False,
+    cancellation_checkpoint: bool = False,
+    release_worker_after_cancel: bool = False,
     allow_missing_response_start: bool = False,
     scope_container: str | dict[str, Any] = "dict",
     scope_observation: dict[str, Any] | None = None,
@@ -3683,26 +3688,29 @@ async def _invoke(
                     await asyncio.wait_for(state["worker_entered_async"].wait(), timeout=15)
                     cancel_requested = server_task.cancel()
                     with state["lock"]:
-                        state["event_trace"].append("request-cancel-requested")
+                        state["request_event_trace"].append("request-cancel-requested")
+                    if cancellation_checkpoint:
+                        await asyncio.sleep(0)
                     request_task_done_before_worker_release = server_task.done()
-                    with state["lock"]:
-                        state["event_trace"].append("worker-released")
+                    if release_worker_after_cancel:
+                        with state["lock"]:
+                            state["request_event_trace"].append("worker-released")
                         state["worker_release"].set()
                     try:
                         await asyncio.wait_for(server_task, timeout=15)
                     except asyncio.CancelledError as exc:
                         captured_exception = exc
                         with state["lock"]:
-                            state["event_trace"].append("request-task-cancelled")
+                            state["request_event_trace"].append("request-task-cancelled")
                     except Exception as exc:
                         if not capture_dispatch_error:
                             raise
                         captured_exception = exc
                         with state["lock"]:
-                            state["event_trace"].append("request-task-raised")
+                            state["request_event_trace"].append("request-task-raised")
                     else:
                         with state["lock"]:
-                            state["event_trace"].append("request-task-completed")
+                            state["request_event_trace"].append("request-task-completed")
                     await asyncio.wait_for(state["worker_completed_async"].wait(), timeout=15)
                 finally:
                     state["worker_release"].set()
@@ -3731,7 +3739,8 @@ async def _invoke(
                             if captured_exception is not None
                             else None
                         ),
-                        "event_trace": list(state["event_trace"]),
+                        "request_event_trace": list(state["request_event_trace"]),
+                        "worker_event_trace": list(state["worker_event_trace"]),
                     }
             else:
                 raise RuntimeError("cancellation schedule requires a declared endpoint observer")
@@ -18661,15 +18670,20 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
     if is_request_dispatch:
         request_routes = steps[0]["arguments"]["routes"]["value"]
         endpoint_spec = request_routes[0]["endpoint"] if request_routes else None
-        expected_schedule = (
-            ["dispatch", "cancel-server-task"]
-            if endpoint_spec == {"kind": "async-call-boundary-observer"}
-            or (
-                isinstance(endpoint_spec, dict)
-                and endpoint_spec.get("kind") == "sync-request-cancellation-observer"
-            )
-            else ["dispatch"]
-        )
+        if endpoint_spec == {"kind": "async-call-boundary-observer"}:
+            expected_schedule = ["dispatch", "cancel-server-task"]
+        elif (
+            isinstance(endpoint_spec, dict)
+            and endpoint_spec.get("kind") == "sync-request-cancellation-observer"
+        ):
+            expected_schedule = [
+                "dispatch",
+                "cancel-server-task",
+                "event-loop-checkpoint",
+                "release-worker",
+            ]
+        else:
+            expected_schedule = ["dispatch"]
         if (
             step_ids != ["application", "dispatch"]
             or steps[-1].get("operation") != "request-dispatch"
@@ -18810,9 +18824,9 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
                 capture_dispatch_error_as_observation=(
                     _has_mounted_app_exception_route(route_specs)
                 ),
-                cancel_after_endpoint_entry=(
-                    case["execution_schedule"] == ["dispatch", "cancel-server-task"]
-                ),
+                cancel_after_endpoint_entry=("cancel-server-task" in case["execution_schedule"]),
+                cancellation_checkpoint=("event-loop-checkpoint" in case["execution_schedule"]),
+                release_worker_after_cancel=("release-worker" in case["execution_schedule"]),
                 scope_container=case.get("scope_container", "dict"),
                 scope_observation=case.get("scope_observation"),
             )

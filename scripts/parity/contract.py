@@ -27584,13 +27584,22 @@ def _validate_case_payload(
                 "GET/HEAD route workflow requires a synchronous endpoint with default methods"
             )
         expected_schedule = ["dispatch-get", "dispatch-head"]
-    elif app_args["routes"][0]["endpoint"] == ASYNC_CALL_BOUNDARY_ENDPOINT or (
+    elif app_args["routes"][0]["endpoint"] == ASYNC_CALL_BOUNDARY_ENDPOINT:
+        if step_ids != ["application", "dispatch"]:
+            raise ContractError("endpoint cancellation uses one direct request dispatch")
+        expected_schedule = ["dispatch", "cancel-server-task"]
+    elif (
         isinstance(app_args["routes"][0]["endpoint"], dict)
         and app_args["routes"][0]["endpoint"].get("kind") == "sync-request-cancellation-observer"
     ):
         if step_ids != ["application", "dispatch"]:
             raise ContractError("endpoint cancellation uses one direct request dispatch")
-        expected_schedule = ["dispatch", "cancel-server-task"]
+        expected_schedule = [
+            "dispatch",
+            "cancel-server-task",
+            "event-loop-checkpoint",
+            "release-worker",
+        ]
     else:
         expected_scope = (
             "websocket" if app_args["routes"][0]["kind"] == "websocket-route" else "http"

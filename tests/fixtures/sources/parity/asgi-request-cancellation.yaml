@@ -12,7 +12,9 @@
       ],
       "execution_schedule": [
         "dispatch",
-        "cancel-server-task"
+        "cancel-server-task",
+        "event-loop-checkpoint",
+        "release-worker"
       ],
       "target_profiles": [
         "python-package-cpython310",

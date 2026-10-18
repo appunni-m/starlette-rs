@@ -4513,7 +4513,7 @@
             {
               "id": "starlette.routing.sync-endpoint-worker-cancellation",
               "dimension": "boundary",
-              "description": "Cancel the host ASGI request task after a synchronous Request endpoint enters AnyIO's worker pool, then release the endpoint and observe worker completion, finalization, request cancellation, and ASGI events. Upstream: starlette/routing.py::request_response; starlette/concurrency.py::run_in_threadpool; AnyIO 4.14.2.",
+              "description": "Cancel the host ASGI request task after a synchronous Request endpoint enters AnyIO's worker pool, yield one event-loop checkpoint before releasing the worker, and compare the pre-release cancellation state plus separate event-loop and worker-thread traces. This preserves each thread's order without treating unsynchronized cross-thread interleaving as a Starlette contract. Observe worker completion, finalization, request cancellation, and ASGI events. Upstream: starlette/routing.py::request_response; starlette/concurrency.py::run_in_threadpool; AnyIO 4.14.2.",
               "lanes": [
                 "parity",
                 "coverage"
