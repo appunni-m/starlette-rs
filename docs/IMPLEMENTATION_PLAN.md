@@ -39,12 +39,13 @@ passed 3,143/3,143 comparisons and 4/4 fault contracts; CPython 3.12 passed
 3,144/3,144 and 6/6. The baseline total is 15,716/15,716 comparisons and
 22/22 fault contracts, with zero failures, `not_run` rows, or infrastructure
 errors. Artifacts: `12143649402` (3.10), `12144547735` (3.11), `12144691803`
-(3.12), `12144313030` (3.13), and `12144464667` (3.14). The workflow has also
-started its six coverage jobs on that same baseline source; those measurements
-cannot establish coverage for the current tree. Fresh full parity workflow
-`39150888285` (#13) is queued on post-hardening candidate
-`8c43888f92b0f8088996e3fa5a54dd1b48ca83ca`; coverage will follow only if its
-five parity profiles pass.
+(3.12), `12144313030` (3.13), and `12144464667` (3.14). Its six old-source
+coverage jobs had started but none completed; run #12 was canceled before
+those baseline measurements could be mistaken for current-source evidence.
+Fresh full parity workflow `39150888285` (#13) is in progress on post-hardening
+candidate `8c43888f92b0f8088996e3fa5a54dd1b48ca83ca`; its five CPython jobs
+have started, with results still pending. Coverage will follow only if parity
+passes.
 
 The current-source coverage union remains unverified. After the fresh five-
 profile parity matrix passes, run the six-profile Rust/PyO3 coverage phase and
@@ -696,9 +697,9 @@ representation, and dynamic `FormData.close()` dispatch remain Rust-backed.
 | Phase | State | Evidence |
 | --- | --- | --- |
 | Implementation | Arithmetic-side-effect hardening and grouped adapter changes are closed in Kata (`9tnt`, `d50v`, `y532`, `7q68`). | Current working tree passes `make lint`, `make contract-check`, and `make source-inventory-check`; inventory is 2,729 cases, 461 parity inputs, 1,485 mapped source requirements, 867 source rows, and zero fixture backlog. |
-| Full parity and grouped repairs | Baseline workflow `39147316493` passed all five CPython profiles on pre-hardening source `8fd6ec4`; fresh workflow `39150888285` (#13) is queued on `8c43888` and tracked in Kata `9vck`. | Baseline: 15,716/15,716 comparisons and 22/22 fault contracts passed with zero failures, `not_run` rows, or infrastructure errors. It does not validate the current manifest/source. |
+| Full parity and grouped repairs | Baseline workflow `39147316493` passed all five CPython profiles on pre-hardening source `8fd6ec4`; fresh workflow `39150888285` (#13) is running on `8c43888` and tracked in Kata `9vck`. | Baseline: 15,716/15,716 comparisons and 22/22 fault contracts passed with zero failures, `not_run` rows, or infrastructure errors. It does not validate the current manifest/source. |
 | Post-matrix await optimization | Historical focused comparison only; no current performance claim. | Workflow `39028488863` passed the `/hello` application case across CPython 3.10–3.14 on an earlier commit. No benchmark established its performance effect. |
-| Full coverage and source reconciliation | Current-source coverage is gated on fresh post-hardening parity in `39150888285`. | Workflow `39147316493` has started six baseline coverage jobs on `8fd6ec4`; they do not qualify the current tree. No current 100% union is proven. |
+| Full coverage and source reconciliation | Current-source coverage is gated on fresh post-hardening parity in `39150888285`. | The six baseline coverage jobs in `39147316493` were canceled before completing; they do not qualify the current tree. No current 100% union is proven. |
 | All benchmarks | The final current-revision workload has not run. | Historical upstream run `9ff02cf1-57cd-44af-a1d2-2e4339974f05` measured 74 Router/GZip workloads on `fd024b83`. Rerun all 74 after current parity and coverage pass. |
 | Packaging and interpreter qualification | Historical local macOS arm64 qualification; current release qualification remains open. | Earlier wheels, sdist, and crate inspections do not qualify the current source or other platforms. Release preparation is tracked under Kata `n5d2`. |
 
@@ -771,8 +772,9 @@ requirements, and six target profiles. The manifest SHA-256 is
 Input generation, contract validation, the metadata-derived API catalog, and
 the compatibility atlas pass. Full parity workflow `39147316493` passed all
 five profiles on the pre-hardening source `8fd6ec4`; its coverage jobs are
-running against that same baseline. Fresh full parity workflow `39150888285`
-is queued on post-hardening commit `8c43888`; current-source coverage can begin
+running against that same baseline, but it was canceled before any profile
+completed. Fresh full parity workflow `39150888285` is running on post-hardening
+commit `8c43888`; current-source coverage can begin
 only after those five profiles pass, followed by the final 74-workload benchmark.
 The full-replacement goal remains active, and the fixed upstream denominators
 are 514 test functions and 24 documented pages.
