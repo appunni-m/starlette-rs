@@ -9,13 +9,14 @@
   implementation carry no backward-compatibility guarantee and may be
   redesigned freely. Keep Rust-native APIs distinct from the compatibility
   surface. Do not absorb FastAPI or Pydantic work.
-- Complete the remaining implementation across feature families first, then
-  run the full parity matrix and fix mismatches together, then measure full
-  coverage, then run the complete benchmark workload. Do not repeat these
-  phases for each individual feature. Author input-only comparisons alongside
-  implementation, but defer their execution to the full parity phase. Build
-  and static quality checks may run during implementation. Keep unfinished
-  implementation and unexecuted comparisons explicit in progress reports.
+- Complete the remaining implementation across feature families first. For
+  the current completion workstream, follow the user-directed order: run the
+  complete benchmark workload, then the full parity matrix and fix mismatches
+  together, then measure full coverage. Do not repeat these phases for each
+  individual feature. Author input-only comparisons alongside implementation,
+  but defer their execution to the full parity phase. Build and static quality
+  checks may run during implementation. Keep unfinished implementation and
+  unexecuted comparisons explicit in progress reports.
 - Keep Python the thinnest compatibility layer possible. Put routing,
   response construction, middleware decisions, protocol state, and other
   Starlette semantics in Rust. Python may provide the required `starlette.*`
