@@ -7,7 +7,9 @@ Pydantic are outside this project's scope.
 
 ## Execution order and current status
 
-Active implementation checkpoint (2026-10-18; commit `a9c857b0`; `parity-input@68`; manifest SHA-256 `c627feeef5d21757821aad03db1436c9e2fce1e978e764c69daebc692de914a9`):
+Active implementation checkpoint (2026-10-18; runtime checkpoint `a9c857b0`,
+latest input/docs checkpoint `10f0ebb7`; `parity-input@68`; manifest SHA-256
+`c627feeef5d21757821aad03db1436c9e2fce1e978e764c69daebc692de914a9`):
 
 The compatibility authority is Starlette 1.6.0 at commit
 `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The active manifest declares
@@ -36,11 +38,21 @@ reported 2,703 cases and six profiles with zero parity passes claimed. These
 checks validate the input contract, inventories, code quality, and build; they
 do not execute the oracle-versus-package parity matrix.
 
+Checkpoint `10f0ebb7` adds the paired TestClient input for a handled exception
+after a complete response when `raise_server_exceptions=False`, with atlas and
+all five Python coverage selectors updated. On that checkpoint, contract
+generation and pinned-source inventory pass at 2,704 cases across 457 parity
+inputs; the atlas has 867 rows, 811 input mappings, 56 source-backed
+`not_applicable` rows, and zero fixture backlog. `make project-policy-check`,
+`make docs-check`, and `git diff --check` pass. The Rust runtime was unchanged
+from `a9c857b0`; no Rust build was repeated for this input/docs-only checkpoint.
+The new comparison remains unexecuted until the grouped full parity phase.
+
 **Current phase order:** finish implementation across feature families, run
 the full exact parity matrix and repair mismatches together, measure the
 six-profile eligible Rust/PyO3 coverage union, then run the full benchmark
 workload. The complete parity matrix, current-source coverage, and final
-benchmark have not run on `a9c857b0`.
+benchmark have not run on `10f0ebb7`.
 
 The historical full parity run `39111029407` passed 15,026/15,026 comparisons
 and 17/17 fault contracts on commit `284f3138`. Its following coverage phase
