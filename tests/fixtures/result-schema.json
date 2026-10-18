@@ -120,7 +120,7 @@
                 "minLength": 1
               },
               "schema": {
-                "const": "migration-parity/parity-input@67"
+                "const": "migration-parity/parity-input@68"
               },
               "sha256": {
                 "$ref": "#/$defs/sha256"
@@ -1114,7 +1114,9 @@
                     "pattern": "^starlette-oracle-cpython314$"
                   }
                 },
-                "required": ["id"]
+                "required": [
+                  "id"
+                ]
               },
               "then": {
                 "properties": {
@@ -1208,7 +1210,9 @@
                     "pattern": "^starlette-rs-py-cpython314$"
                   }
                 },
-                "required": ["id"]
+                "required": [
+                  "id"
+                ]
               },
               "then": {
                 "properties": {

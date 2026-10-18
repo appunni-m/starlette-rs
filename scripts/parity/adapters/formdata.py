@@ -167,6 +167,49 @@ def run_formdata_case(
     return result
 
 
+def run_native_formdata_case(case: dict[str, Any], form_data_type: type[Any]) -> dict[str, Any]:
+    """Compare the text-pair projection of native FormData with Starlette."""
+    inputs = case["input"]
+    form = form_data_type(inputs["entries"])
+    comparisons = [
+        {
+            "comparison_id": comparison["comparison_id"],
+            "equal": form == form_data_type(comparison["entries"]),
+        }
+        for comparison in inputs["comparisons"]
+    ]
+    workflow = {
+        "multi_items": [[key, value] for key, value in form.multi_items()],
+        "keys": list(form.keys()),
+        "values": list(form.values()),
+        "items": [[key, value] for key, value in form.items()],
+        "iteration": list(form),
+        "length": len(form),
+        "is_empty": len(form) == 0,
+        "lookups": [
+            {
+                "key": key,
+                "contains": key in form,
+                "get": form.get(key),
+                "get_list": form.getlist(key),
+            }
+            for key in inputs["probe_keys"]
+        ],
+        "comparisons": comparisons,
+    }
+    return {
+        "case_id": case["case_id"],
+        "status": "completed",
+        "observations": [
+            {
+                "step_id": "workflow",
+                "status": "ok",
+                "value": {"workflow": workflow},
+            }
+        ],
+    }
+
+
 def run_formdata_close_case(
     case: dict[str, Any],
     form_data_type: type[Any],

@@ -1,0 +1,74 @@
+{
+  "schema": "migration-parity/parity-input@68",
+  "cases": [
+    {
+      "case_id": "starlette-rs.FormData.from-pairs-and-lookups.duplicate-order-and-views",
+      "surface": "starlette-rs.FormData",
+      "operation": "from-pairs-and-lookups",
+      "covers": [
+        "starlette-rs.FormData.from-pairs-and-lookups.duplicate-pair-order",
+        "starlette-rs.FormData.from-pairs-and-lookups.final-value-views",
+        "starlette-rs.FormData.from-pairs-and-lookups.unordered-multiset-equality"
+      ],
+      "target_profiles": [
+        "rust-native-local"
+      ],
+      "assets": [],
+      "input": {
+        "entries": [
+          ["tag", "first"],
+          ["empty", ""],
+          ["tag", "second"],
+          ["λ", "値"],
+          ["tag", "first"]
+        ],
+        "probe_keys": ["tag", "empty", "missing", "λ"],
+        "comparisons": [
+          {
+            "comparison_id": "same-multiset-reordered",
+            "entries": [
+              ["tag", "second"],
+              ["λ", "値"],
+              ["tag", "first"],
+              ["tag", "first"],
+              ["empty", ""]
+            ]
+          },
+          {
+            "comparison_id": "different-duplicate-count",
+            "entries": [
+              ["tag", "first"],
+              ["empty", ""],
+              ["tag", "second"],
+              ["λ", "値"]
+            ]
+          }
+        ]
+      },
+      "observations": ["workflow"]
+    },
+    {
+      "case_id": "starlette-rs.FormData.from-pairs-and-lookups.empty-state",
+      "surface": "starlette-rs.FormData",
+      "operation": "from-pairs-and-lookups",
+      "covers": [
+        "starlette-rs.FormData.from-pairs-and-lookups.empty-state"
+      ],
+      "target_profiles": [
+        "rust-native-local"
+      ],
+      "assets": [],
+      "input": {
+        "entries": [],
+        "probe_keys": ["missing"],
+        "comparisons": [
+          {
+            "comparison_id": "empty-equals-empty",
+            "entries": []
+          }
+        ]
+      },
+      "observations": ["workflow"]
+    }
+  ]
+}

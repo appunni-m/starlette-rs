@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@67",
+  "schema": "migration-parity/parity-input@68",
   "cases": [
     {
       "case_id": "starlette-rs.RouteTable.custom-converter-match.string-normalization",
@@ -152,6 +152,252 @@
         "path_params": {
           "slug": "alice"
         }
+      },
+      "observations": [
+        "workflow"
+      ]
+    },
+    {
+      "case_id": "starlette-rs.RouteTable.custom-converter-match.builtin-str-capture",
+      "surface": "starlette-rs.RouteTable",
+      "operation": "custom-converter-match",
+      "covers": [
+        "starlette-rs.RouteTable.custom-converter-match.converted-capture"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "converters": [
+        {
+          "name": "slug",
+          "regex": "[A-Za-z]+(?:-[A-Za-z]+)*",
+          "convert": "lowercase",
+          "to_string": "lowercase"
+        }
+      ],
+      "routes": [
+        {
+          "path": "/users/{username:str}/{slug:slug}",
+          "methods": [
+            "GET"
+          ]
+        }
+      ],
+      "match": {
+        "path": "/users/ada/MiXeD-Slug",
+        "method": "GET"
+      },
+      "observations": [
+        "workflow"
+      ]
+    },
+    {
+      "case_id": "starlette-rs.RouteTable.custom-converter-match.builtin-int-zero-capture",
+      "surface": "starlette-rs.RouteTable",
+      "operation": "custom-converter-match",
+      "covers": [
+        "starlette-rs.RouteTable.custom-converter-match.converted-capture"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "converters": [
+        {
+          "name": "slug",
+          "regex": "[A-Za-z]+(?:-[A-Za-z]+)*",
+          "convert": "lowercase",
+          "to_string": "lowercase"
+        }
+      ],
+      "routes": [
+        {
+          "path": "/items/{item_id:int}/{slug:slug}",
+          "methods": [
+            "GET"
+          ]
+        }
+      ],
+      "match": {
+        "path": "/items/0000/MiXeD-Slug",
+        "method": "GET"
+      },
+      "observations": [
+        "workflow"
+      ]
+    },
+    {
+      "case_id": "starlette-rs.RouteTable.custom-converter-match.builtin-float-capture",
+      "surface": "starlette-rs.RouteTable",
+      "operation": "custom-converter-match",
+      "covers": [
+        "starlette-rs.RouteTable.custom-converter-match.converted-capture"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "converters": [
+        {
+          "name": "slug",
+          "regex": "[A-Za-z]+(?:-[A-Za-z]+)*",
+          "convert": "lowercase",
+          "to_string": "lowercase"
+        }
+      ],
+      "routes": [
+        {
+          "path": "/prices/{amount:float}/{slug:slug}",
+          "methods": [
+            "GET"
+          ]
+        }
+      ],
+      "match": {
+        "path": "/prices/0.25/MiXeD-Slug",
+        "method": "GET"
+      },
+      "observations": [
+        "workflow"
+      ]
+    },
+    {
+      "case_id": "starlette-rs.RouteTable.custom-converter-match.builtin-uuid-capture",
+      "surface": "starlette-rs.RouteTable",
+      "operation": "custom-converter-match",
+      "covers": [
+        "starlette-rs.RouteTable.custom-converter-match.converted-capture"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "converters": [
+        {
+          "name": "slug",
+          "regex": "[A-Za-z]+(?:-[A-Za-z]+)*",
+          "convert": "lowercase",
+          "to_string": "lowercase"
+        }
+      ],
+      "routes": [
+        {
+          "path": "/objects/{object_id:uuid}/{slug:slug}",
+          "methods": [
+            "GET"
+          ]
+        }
+      ],
+      "match": {
+        "path": "/objects/ec38df32-ceda-4cfa-9b4a-1aeb94ad551a/MiXeD-Slug",
+        "method": "GET"
+      },
+      "observations": [
+        "workflow"
+      ]
+    },
+    {
+      "case_id": "starlette-rs.RouteTable.custom-converter-match.builtin-path-capture",
+      "surface": "starlette-rs.RouteTable",
+      "operation": "custom-converter-match",
+      "covers": [
+        "starlette-rs.RouteTable.custom-converter-match.converted-capture"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "converters": [
+        {
+          "name": "slug",
+          "regex": "[A-Za-z]+(?:-[A-Za-z]+)*",
+          "convert": "lowercase",
+          "to_string": "lowercase"
+        }
+      ],
+      "routes": [
+        {
+          "path": "/files/{file_path:path}/{slug:slug}",
+          "methods": [
+            "GET"
+          ]
+        }
+      ],
+      "match": {
+        "path": "/files/css/base.css/MiXeD-Slug",
+        "method": "GET"
+      },
+      "observations": [
+        "workflow"
+      ]
+    },
+    {
+      "case_id": "starlette-rs.RouteTable.custom-converter-match.builtin-float-no-digit-falls-through",
+      "surface": "starlette-rs.RouteTable",
+      "operation": "custom-converter-match",
+      "covers": [
+        "starlette-rs.RouteTable.custom-converter-match.converted-capture"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "converters": [
+        {
+          "name": "slug",
+          "regex": "[A-Za-z]+(?:-[A-Za-z]+)*",
+          "convert": "lowercase",
+          "to_string": "lowercase"
+        }
+      ],
+      "routes": [
+        {
+          "path": "/prices/{amount:float}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "path": "/prices/{slug:slug}",
+          "methods": [
+            "GET"
+          ]
+        }
+      ],
+      "match": {
+        "path": "/prices/NaN",
+        "method": "GET"
       },
       "observations": [
         "workflow"

@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@67",
+  "schema": "migration-parity/parity-input@68",
   "cases": [
     {
       "case_id": "starlette.applications.Starlette.request-dispatch.async-get-items-0007",
@@ -1211,6 +1211,163 @@
                 {
                   "type": "http.request",
                   "body_base64": "",
+                  "more_body": false
+                }
+              ]
+            },
+            "send": {
+              "kind": "literal",
+              "value": {
+                "kind": "capture-asgi-send"
+              }
+            }
+          }
+        }
+      ],
+      "observations": [
+        "dispatch"
+      ]
+    },
+    {
+      "case_id": "starlette.applications.Starlette.request-dispatch.async-get-items-malformed-percent-query",
+      "surface": "starlette.applications.Starlette",
+      "operation": "request-dispatch",
+      "covers": [
+        "starlette.request.path-param-int",
+        "starlette.request.query-params-getlist-scalar",
+        "starlette.request.headers-case-insensitive",
+        "starlette.request.cookies",
+        "starlette.request.json-chunked-body",
+        "starlette.routing.request-scope-values",
+        "starlette.asgi.request-dispatch-events"
+      ],
+      "execution_schedule": [
+        "dispatch"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "steps": [
+        {
+          "step_id": "application",
+          "surface": "starlette.applications.Starlette",
+          "operation": "__init__",
+          "receiver": null,
+          "arguments": {
+            "debug": {
+              "kind": "literal",
+              "value": false
+            },
+            "routes": {
+              "kind": "literal",
+              "value": [
+                {
+                  "kind": "http-route",
+                  "path": "/items/{item_id:int}",
+                  "methods": [
+                    "GET"
+                  ],
+                  "endpoint": {
+                    "kind": "request-observer",
+                    "path_parameter": "item_id",
+                    "query_parameter": "tag",
+                    "header_primary_case": "X-MiXeD",
+                    "header_alternate_case": "x-mixed",
+                    "cookie_name": "session",
+                    "response_content": "request-observed",
+                    "status_code": 200,
+                    "media_type": "text/plain"
+                  }
+                }
+              ]
+            },
+            "middleware": {
+              "kind": "literal",
+              "value": []
+            },
+            "exception_handlers": {
+              "kind": "literal",
+              "value": []
+            },
+            "lifespan": {
+              "kind": "literal",
+              "value": {
+                "kind": "async-context-manager",
+                "record_entry": true,
+                "record_exit": true
+              }
+            },
+            "max_body_size": {
+              "kind": "literal",
+              "value": null
+            }
+          }
+        },
+        {
+          "step_id": "dispatch",
+          "surface": "starlette.applications.Starlette",
+          "operation": "request-dispatch",
+          "receiver": {
+            "kind": "binding",
+            "step_id": "application"
+          },
+          "arguments": {
+            "scope": {
+              "kind": "literal",
+              "value": {
+                "type": "http",
+                "asgi": {
+                  "version": "3.0",
+                  "spec_version": "2.4"
+                },
+                "http_version": "1.1",
+                "method": "GET",
+                "scheme": "http",
+                "path": "/items/0007",
+                "raw_path_base64": "L2l0ZW1zLzAwMDc=",
+                "query_string_base64": "dGFnPSUmdGFnPSU0ZyZ0YWc9JWFmJnRhZz1hK2I=",
+                "root_path": "",
+                "headers_base64_pairs": [
+                  [
+                    "eC1taXhlZA==",
+                    "cmVxdWVzdC10b2tlbg=="
+                  ],
+                  [
+                    "Y29va2ll",
+                    "c2Vzc2lvbj1hYmMxMjM="
+                  ],
+                  [
+                    "Y29udGVudC10eXBl",
+                    "YXBwbGljYXRpb24vanNvbg=="
+                  ]
+                ],
+                "client": [
+                  "127.0.0.1",
+                  12345
+                ],
+                "server": [
+                  "testserver",
+                  80
+                ]
+              }
+            },
+            "receive": {
+              "kind": "literal",
+              "value": [
+                {
+                  "type": "http.request",
+                  "body_base64": "eyJjaHVua2VkIjo=",
+                  "more_body": true
+                },
+                {
+                  "type": "http.request",
+                  "body_base64": "dHJ1ZSwiY291bnQiOjJ9",
                   "more_body": false
                 }
               ]

@@ -82,6 +82,8 @@ NATIVE_STREAMING_RESPONSE_SURFACE = "starlette-rs.StreamingResponse"
 NATIVE_LAZY_SOURCE_OPERATION = "lazy-source-call"
 NATIVE_RESPONSE_SURFACE = "starlette-rs.Response"
 NATIVE_HTTP_EXCEPTION_OPERATION = "http-exception"
+NATIVE_EXCEPTION_HANDLER_TABLE_SURFACE = "starlette-rs.ExceptionHandlerTable"
+NATIVE_EXCEPTION_HANDLER_TABLE_OPERATION = "select"
 NATIVE_ROUTE_TABLE_SURFACE = "starlette-rs.RouteTable"
 NATIVE_CUSTOM_CONVERTER_MATCH_OPERATION = "custom-converter-match"
 NATIVE_NAMED_ROUTE_SURFACE = "starlette-rs.NamedRoute"
@@ -16805,7 +16807,18 @@ def _run_query_params_case(case: dict[str, Any]) -> dict[str, Any]:
     )
     from starlette.datastructures import QueryParams
 
-    params = _query_params_from_input(QueryParams, case["source"])
+    try:
+        params = _query_params_from_input(QueryParams, case["source"])
+    except Exception as exc:
+        return {
+            "case_id": case["case_id"],
+            "status": "completed",
+            "observations": [
+                _workflow_observation(
+                    "snapshot", _CapturedDispatchError(_dispatch_error(exc), {})
+                )
+            ],
+        }
     comparison_input = case["comparison"]
     if comparison_input is None:
         comparison = None
@@ -17970,6 +17983,11 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         NATIVE_HTTP_EXCEPTION_OPERATION,
     ):
         return _run_native_http_exception_case(case)
+    if (case.get("surface"), case.get("operation")) == (
+        NATIVE_EXCEPTION_HANDLER_TABLE_SURFACE,
+        NATIVE_EXCEPTION_HANDLER_TABLE_OPERATION,
+    ):
+        return _run_native_exception_handler_table_case(case)
     if (case.get("surface"), case.get("operation")) in {
         (NATIVE_ROUTE_TABLE_SURFACE, NATIVE_CUSTOM_CONVERTER_MATCH_OPERATION),
         (NATIVE_NAMED_ROUTE_SURFACE, NATIVE_CUSTOM_CONVERTER_URL_OPERATION),
@@ -18342,6 +18360,15 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         from scripts.parity.adapters.formdata import run_formdata_case
 
         return run_formdata_case(case, FormData, UploadFile)
+    if isinstance(case, dict) and (case.get("surface"), case.get("operation")) == (
+        "starlette-rs.FormData",
+        "from-pairs-and-lookups",
+    ):
+        from starlette.datastructures import FormData
+
+        from scripts.parity.adapters.formdata import run_native_formdata_case
+
+        return run_native_formdata_case(case, FormData)
     if isinstance(case, dict) and (case.get("surface"), case.get("operation")) == (
         "starlette.datastructures.UploadFile",
         "file-operations",
@@ -18964,6 +18991,147 @@ def _run_native_http_exception_case(case: dict[str, Any]) -> dict[str, Any]:
         return records
 
     return _native_workflow_result(case, {"responses": asyncio.run(run())})
+
+
+def _run_native_exception_handler_table_case(case: dict[str, Any]) -> dict[str, Any]:
+    _validate_native_workflow_case(
+        case,
+        surface=NATIVE_EXCEPTION_HANDLER_TABLE_SURFACE,
+        operation=NATIVE_EXCEPTION_HANDLER_TABLE_OPERATION,
+        fields={"input", "observations"},
+        context="ExceptionHandlerTable selection workflow",
+    )
+    input_spec = _strict_object(
+        case["input"], {"registrations", "exception"}, "ExceptionHandlerTable input"
+    )
+    registrations = input_spec["registrations"]
+    if not isinstance(registrations, list):
+        raise ValueError("ExceptionHandlerTable registrations must be an array")
+
+    exception_spec = _strict_object(
+        input_spec["exception"], {"mro", "status_code"}, "ExceptionHandlerTable exception"
+    )
+    exception_mro = exception_spec["mro"]
+    if (
+        not isinstance(exception_mro, list)
+        or not exception_mro
+        or any(not isinstance(class_key, str) or not class_key for class_key in exception_mro)
+        or len(exception_mro) != len(set(exception_mro))
+        or exception_mro[-1] not in {"Exception", "HTTPException"}
+        or any(class_key in {"Exception", "HTTPException"} for class_key in exception_mro[:-1])
+    ):
+        raise ValueError(
+            "ExceptionHandlerTable exception.mro must end in Exception or HTTPException"
+        )
+
+    from starlette.exceptions import HTTPException
+    from starlette.middleware.exceptions import ExceptionMiddleware
+    from starlette.responses import Response
+
+    terminal_class = Exception if exception_mro[-1] == "Exception" else HTTPException
+    class_types: dict[str, type[Exception]] = {
+        "Exception": Exception,
+        "HTTPException": HTTPException,
+    }
+    parent_class = terminal_class
+    for index in reversed(range(len(exception_mro) - 1)):
+        class_key = exception_mro[index]
+        class_type = type(f"ParityException{index}", (parent_class,), {})
+        class_types[class_key] = class_type
+        parent_class = class_type
+    exception_type = class_types[exception_mro[0]]
+
+    status_code_value = exception_spec["status_code"]
+    if exception_mro[-1] == "HTTPException":
+        if not isinstance(status_code_value, str):
+            raise ValueError("HTTPException status_code must be a decimal string")
+        status_code = int(status_code_value)
+        exception = exception_type(
+            status_code=status_code,
+            detail="input-defined ExceptionHandlerTable dispatch",
+        )
+    else:
+        if status_code_value is not None:
+            raise ValueError("Exception status_code must be null")
+        exception = exception_type("input-defined ExceptionHandlerTable dispatch")
+
+    selected_handler_indexes: list[int] = []
+
+    def make_handler(handler_index: int) -> Any:
+        async def handler(_connection: Any, _exception: Exception) -> Response:
+            selected_handler_indexes.append(handler_index)
+            return Response(content=b"", status_code=200)
+
+        return handler
+
+    handler_map: dict[Any, Any] = {}
+    for index, registration_value in enumerate(registrations):
+        context = f"ExceptionHandlerTable registrations[{index}]"
+        if not isinstance(registration_value, dict):
+            raise ValueError(f"{context} must be an object")
+        kind = registration_value.get("kind")
+        if kind == "status":
+            registration = _strict_object(
+                registration_value, {"kind", "status_code"}, context
+            )
+            status_key = registration["status_code"]
+            if not isinstance(status_key, str) or str(int(status_key)) != status_key:
+                raise ValueError(f"{context}.status_code must be a canonical decimal integer")
+            handler_key = int(status_key)
+        elif kind == "exception":
+            registration = _strict_object(registration_value, {"kind", "class_key"}, context)
+            class_key = registration["class_key"]
+            if not isinstance(class_key, str) or not class_key:
+                raise ValueError(f"{context}.class_key must be a non-empty string")
+            if class_key not in class_types:
+                class_types[class_key] = type(f"ParityRegisteredException{index}", (Exception,), {})
+            handler_key = class_types[class_key]
+        else:
+            raise ValueError(f"{context}.kind must be status or exception")
+        handler_map[handler_key] = make_handler(index)
+
+    status_code = exception_spec["status_code"]
+    if status_code is not None and (
+        exception_mro[-1] != "HTTPException"
+        or not isinstance(status_code, str)
+        or str(int(status_code)) != status_code
+    ):
+        raise ValueError("ExceptionHandlerTable exception status_code is incompatible with its MRO")
+
+    async def app(_scope: dict[str, Any], _receive: Any, _send: Any) -> None:
+        raise exception
+
+    middleware = ExceptionMiddleware(app, handlers=handler_map)
+    scope = {
+        "type": "http",
+        "asgi": {"version": "3.0", "spec_version": "2.4"},
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/",
+        "raw_path": b"/",
+        "query_string": b"",
+        "root_path": "",
+        "headers": [],
+        "client": ("127.0.0.1", 12345),
+        "server": ("testserver", 80),
+    }
+
+    async def receive() -> dict[str, Any]:
+        return {"type": "http.request", "body": b"", "more_body": False}
+
+    async def send(_message: dict[str, Any]) -> None:
+        return None
+
+    try:
+        asyncio.run(middleware(scope, receive, send))
+    except Exception as propagated:
+        # An unmatched exception is the public middleware outcome for this projection.
+        if propagated is not exception:
+            raise
+
+    selected = selected_handler_indexes[0] if selected_handler_indexes else None
+    return _native_workflow_result(case, {"selected_handler_index": selected})
 
 
 def _run_timestamp_unsign_case(case: dict[str, Any]) -> dict[str, Any]:

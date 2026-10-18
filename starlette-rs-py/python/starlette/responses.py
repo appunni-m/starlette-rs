@@ -95,6 +95,9 @@ class Response:
             (key, value, max_age, expires, path, domain, secure, httponly, samesite, partitioned)
         )
         cookie.apply(self)
+        # Keep the call state live in an exception traceback, as Starlette's
+        # Python SimpleCookie frame does when attribute conversion fails.
+        del cookie
 
     def delete_cookie(
         self,

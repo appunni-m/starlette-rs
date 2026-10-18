@@ -59,8 +59,9 @@ INPUT_SCHEMA_V63 = "migration-parity/parity-input@63"
 INPUT_SCHEMA_V64 = "migration-parity/parity-input@64"
 INPUT_SCHEMA_V65 = "migration-parity/parity-input@65"
 INPUT_SCHEMA_V66 = "migration-parity/parity-input@66"
+INPUT_SCHEMA_V67 = "migration-parity/parity-input@67"
 PREVIOUS_INPUT_SCHEMA = INPUT_SCHEMA_V50
-INPUT_SCHEMA = "migration-parity/parity-input@67"
+INPUT_SCHEMA = "migration-parity/parity-input@68"
 BENCHMARK_INPUT_SCHEMA = "migration-parity/benchmark-input@1"
 RESULT_SCHEMA = "migration-parity/parity-result@9"
 BENCHMARK_RESULT_SCHEMA = "migration-parity/benchmark-result@1"
@@ -376,6 +377,10 @@ NATIVE_NAMED_ROUTE_SURFACE = "starlette-rs.NamedRoute"
 NATIVE_CUSTOM_CONVERTER_URL_OPERATION = "custom-converter-url-path-for"
 NATIVE_WEBSOCKET_SURFACE = "starlette-rs.NativeWebSocket"
 NATIVE_WEBSOCKET_OPERATION = "native-session-sequence"
+NATIVE_EXCEPTION_HANDLER_TABLE_SURFACE = "starlette-rs.ExceptionHandlerTable"
+NATIVE_EXCEPTION_HANDLER_TABLE_OPERATION = "select"
+NATIVE_FORM_DATA_SURFACE = "starlette-rs.FormData"
+NATIVE_FORM_DATA_OPERATION = "from-pairs-and-lookups"
 NATIVE_LIFESPAN_OPERATION = "native-lifespan"
 NATIVE_LIFESPAN_SURFACE = "starlette-rs.NativeLifespan"
 NATIVE_TIMESTAMP_UNSIGN_SURFACE = "starlette_rs.timestamp_unsign"
@@ -3854,6 +3859,8 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                     NATIVE_ROUTE_TABLE_SURFACE,
                     NATIVE_NAMED_ROUTE_SURFACE,
                     NATIVE_WEBSOCKET_SURFACE,
+                    NATIVE_EXCEPTION_HANDLER_TABLE_SURFACE,
+                    NATIVE_FORM_DATA_SURFACE,
                     NATIVE_LIFESPAN_SURFACE,
                     NATIVE_TIMESTAMP_UNSIGN_SURFACE,
                 }
@@ -24303,6 +24310,11 @@ def _validate_native_api_case(
         },
         (NATIVE_SERVICE_SURFACE, NATIVE_SERVICE_MIDDLEWARE_OPERATION): {"inputs"},
         (NATIVE_WEBSOCKET_SURFACE, NATIVE_WEBSOCKET_OPERATION): {"input"},
+        (
+            NATIVE_EXCEPTION_HANDLER_TABLE_SURFACE,
+            NATIVE_EXCEPTION_HANDLER_TABLE_OPERATION,
+        ): {"input"},
+        (NATIVE_FORM_DATA_SURFACE, NATIVE_FORM_DATA_OPERATION): {"input"},
         (NATIVE_TIMESTAMP_UNSIGN_SURFACE, NATIVE_TIMESTAMP_UNSIGN_OPERATION): {"input"},
         (NATIVE_LIFESPAN_SURFACE, NATIVE_LIFESPAN_OPERATION): {"inputs"},
         (NATIVE_LIFESPAN_SURFACE, "start"): {"inputs"},
@@ -24343,6 +24355,11 @@ def _validate_native_api_case(
     rust_only_operation = operation_key in {
         (NATIVE_SERVICE_SURFACE, NATIVE_SERVICE_CUSTOM_CONVERTER_OPERATION),
         (NATIVE_RESPONSE_SURFACE, NATIVE_HTTP_EXCEPTION_OPERATION),
+        (
+            NATIVE_EXCEPTION_HANDLER_TABLE_SURFACE,
+            NATIVE_EXCEPTION_HANDLER_TABLE_OPERATION,
+        ),
+        (NATIVE_FORM_DATA_SURFACE, NATIVE_FORM_DATA_OPERATION),
         (NATIVE_TIMESTAMP_UNSIGN_SURFACE, NATIVE_TIMESTAMP_UNSIGN_OPERATION),
         (NATIVE_LIFESPAN_SURFACE, "start"),
         (NATIVE_LIFESPAN_SURFACE, "shutdown"),
@@ -24409,11 +24426,107 @@ def _validate_native_api_case(
         _validate_native_service_middleware_input(case["inputs"])
     elif operation_key == (NATIVE_WEBSOCKET_SURFACE, NATIVE_WEBSOCKET_OPERATION):
         _validate_native_websocket_input(case["input"])
+    elif operation_key == (
+        NATIVE_EXCEPTION_HANDLER_TABLE_SURFACE,
+        NATIVE_EXCEPTION_HANDLER_TABLE_OPERATION,
+    ):
+        _validate_native_exception_handler_table_input(case["input"])
+    elif operation_key == (NATIVE_FORM_DATA_SURFACE, NATIVE_FORM_DATA_OPERATION):
+        _validate_native_form_data_input(case["input"])
     elif operation_key == (NATIVE_TIMESTAMP_UNSIGN_SURFACE, NATIVE_TIMESTAMP_UNSIGN_OPERATION):
         _validate_native_timestamp_unsign_input(case["input"])
     else:
         _validate_native_lifespan_input(case["inputs"])
     return case
+
+
+def _is_canonical_decimal_integer(value: Any) -> bool:
+    if not isinstance(value, str) or not value:
+        return False
+    digits = value[1:] if value.startswith("-") else value
+    return (
+        bool(digits)
+        and digits.isascii()
+        and digits.isdecimal()
+        and (len(digits) == 1 or digits[0] != "0")
+        and value != "-0"
+    )
+
+
+def _validate_native_exception_handler_table_input(value: Any) -> None:
+    input_spec = _exact(value, {"registrations", "exception"}, "native exception handler table")
+    registrations = input_spec["registrations"]
+    if not isinstance(registrations, list):
+        raise ContractError("native exception handler registrations must be an array")
+    for index, registration_value in enumerate(registrations):
+        context = f"native exception handler registrations[{index}]"
+        if not isinstance(registration_value, dict):
+            raise ContractError(f"{context} must be an object")
+        kind = registration_value.get("kind")
+        if kind == "status":
+            registration = _exact(registration_value, {"kind", "status_code"}, context)
+            if not _is_canonical_decimal_integer(registration["status_code"]):
+                raise ContractError(f"{context}.status_code must be a canonical decimal integer")
+        elif kind == "exception":
+            registration = _exact(registration_value, {"kind", "class_key"}, context)
+            class_key = _string(registration["class_key"], f"{context}.class_key")
+            if not class_key:
+                raise ContractError(f"{context}.class_key must be non-empty")
+        else:
+            raise ContractError(f"{context}.kind must be status or exception")
+
+    exception = _exact(input_spec["exception"], {"mro", "status_code"}, "native exception")
+    mro = exception["mro"]
+    if (
+        not isinstance(mro, list)
+        or not mro
+        or any(not isinstance(class_key, str) or not class_key for class_key in mro)
+        or len(mro) != len(set(mro))
+        or mro[-1] not in {"Exception", "HTTPException"}
+        or any(class_key in {"Exception", "HTTPException"} for class_key in mro[:-1])
+    ):
+        raise ContractError(
+            "native exception mro must be unique class keys ending in Exception or HTTPException"
+        )
+    status_code = exception["status_code"]
+    if mro[-1] == "HTTPException":
+        if not _is_canonical_decimal_integer(status_code):
+            raise ContractError(
+                "native HTTPException status_code must be a canonical decimal integer"
+            )
+    elif status_code is not None:
+        raise ContractError("native Exception status_code must be null")
+
+
+def _validate_native_form_data_input(value: Any) -> None:
+    input_spec = _exact(value, {"entries", "probe_keys", "comparisons"}, "native FormData input")
+
+    def validate_pairs(pairs_value: Any, context: str) -> None:
+        if not isinstance(pairs_value, list):
+            raise ContractError(f"{context} must be an array")
+        for index, pair_value in enumerate(pairs_value):
+            pair_context = f"{context}[{index}]"
+            if not isinstance(pair_value, list) or len(pair_value) != 2:
+                raise ContractError(f"{pair_context} must be a two-item string pair")
+            if not isinstance(pair_value[0], str) or not isinstance(pair_value[1], str):
+                raise ContractError(f"{pair_context} must contain only strings")
+
+    validate_pairs(input_spec["entries"], "native FormData entries")
+    probe_keys = input_spec["probe_keys"]
+    if not isinstance(probe_keys, list) or any(not isinstance(key, str) for key in probe_keys):
+        raise ContractError("native FormData probe_keys must be a string array")
+    comparisons = input_spec["comparisons"]
+    if not isinstance(comparisons, list):
+        raise ContractError("native FormData comparisons must be an array")
+    comparison_ids: set[str] = set()
+    for index, comparison_value in enumerate(comparisons):
+        context = f"native FormData comparisons[{index}]"
+        comparison = _exact(comparison_value, {"comparison_id", "entries"}, context)
+        comparison_id = _string(comparison["comparison_id"], f"{context}.comparison_id")
+        if comparison_id in comparison_ids:
+            raise ContractError("native FormData comparison IDs must be unique")
+        comparison_ids.add(comparison_id)
+        validate_pairs(comparison["entries"], f"{context}.entries")
 
 
 def _validate_native_timestamp_unsign_input(value: Any) -> None:
@@ -25284,6 +25397,8 @@ def _validate_case_payload(
                 NATIVE_ROUTE_TABLE_SURFACE,
                 NATIVE_NAMED_ROUTE_SURFACE,
                 NATIVE_WEBSOCKET_SURFACE,
+                NATIVE_EXCEPTION_HANDLER_TABLE_SURFACE,
+                NATIVE_FORM_DATA_SURFACE,
                 NATIVE_LIFESPAN_SURFACE,
                 NATIVE_TIMESTAMP_UNSIGN_SURFACE,
             }
@@ -40218,7 +40333,9 @@ def _validate_url_scope_case(case: dict[str, Any]) -> None:
         raise ContractError("URL scope coverage must be derived from the supplied scope")
 
 
-def _validate_query_params_source(value: Any, context: str) -> dict[str, Any]:
+def _validate_query_params_source(
+    value: Any, context: str, *, allow_malformed_pairs: bool = False
+) -> dict[str, Any]:
     if not isinstance(value, dict) or not isinstance(value.get("kind"), str):
         raise ContractError(f"{context} must select a QueryParams constructor input")
     kind = value["kind"]
@@ -40256,8 +40373,17 @@ def _validate_query_params_source(value: Any, context: str) -> dict[str, Any]:
             raise ContractError(f"{context}.items must be an array")
         seen: set[str] = set()
         for index, pair in enumerate(items):
-            if not isinstance(pair, list) or len(pair) != 2:
+            if not isinstance(pair, list) or (kind != "pairs" and len(pair) != 2):
                 raise ContractError(f"{context}.items[{index}] must be a two-item array")
+            if kind == "pairs" and len(pair) != 2 and not allow_malformed_pairs:
+                raise ContractError(f"{context}.items[{index}] must be a two-item array")
+            if kind == "pairs" and any(
+                not isinstance(item, (str, int, float, bool)) and item is not None
+                for item in pair
+            ):
+                raise ContractError(f"{context}.items[{index}] values must be scalar")
+            if kind == "pairs" and len(pair) != 2:
+                continue
             key, item = pair
             if kind == "mapping":
                 if not isinstance(key, str):
@@ -40292,7 +40418,12 @@ def _validate_query_params_source(value: Any, context: str) -> dict[str, Any]:
 def _validate_query_params_case(case: dict[str, Any]) -> None:
     if case["assets"] != [] or case["observations"] != ["snapshot"]:
         raise ContractError("QueryParams cases use no assets and select the snapshot")
-    source = _validate_query_params_source(case["source"], "QueryParams source")
+    source = _validate_query_params_source(
+        case["source"], "QueryParams source", allow_malformed_pairs=True
+    )
+    malformed_pair_input = source["kind"] == "pairs" and any(
+        len(pair) != 2 for pair in source["items"]
+    )
     has_string_subclass_source = source["kind"] == "string-subclass"
     if has_string_subclass_source and case["target_profiles"] != _python_target_profiles_for_input(
         case
@@ -40350,7 +40481,20 @@ def _validate_query_params_case(case: dict[str, Any]) -> None:
         raise ContractError("QueryParams string-subclass probes require the Python package profile")
     comparison = case["comparison"]
     literal_comparison = isinstance(comparison, dict) and comparison.get("kind") == "literal"
-    if literal_comparison:
+    if malformed_pair_input:
+        constructor_requirement = (
+            "starlette.datastructures.QueryParams.constructor-mapping-pairs-copy-and-keyword-merging"
+        )
+        if (
+            case["target_profiles"] != _python_target_profiles_for_input(case)
+            or probe_keys
+            or comparison is not None
+            or case["covers"] != [constructor_requirement]
+        ):
+            raise ContractError(
+                "malformed QueryParams pair inputs compare only constructor exceptions on Python profiles"
+            )
+    elif literal_comparison:
         comparison = _exact(
             comparison,
             {"kind", "value"},
@@ -45134,6 +45278,47 @@ def validate_input_document(
     return cases
 
 
+def migrate_input_document_v67(document: Any) -> dict[str, Any]:
+    """Advance @67 inputs to @68, adding malformed QueryParams pair inputs."""
+    _exact(document, {"schema", "cases"}, "parity input")
+    if document["schema"] != INPUT_SCHEMA_V67:
+        raise ContractError(f"unsupported @67 parity input schema: {document['schema']!r}")
+    if not isinstance(document["cases"], list) or not document["cases"]:
+        raise ContractError("parity input must select at least one case")
+    migrated = dict(document)
+    migrated["schema"] = INPUT_SCHEMA
+    return migrated
+
+
+def validate_input_document_v67(
+    document: Any,
+    manifest: dict[str, Any],
+    *,
+    public_modules: frozenset[str] | None = None,
+) -> list[dict[str, Any]]:
+    """Validate @67 inputs before the @68 QueryParams malformed-pair extension."""
+    if not isinstance(document, dict) or not isinstance(document.get("cases"), list):
+        raise ContractError("@67 parity input must contain a cases array")
+    for case in document["cases"]:
+        if not isinstance(case, dict) or (case.get("surface"), case.get("operation")) != (
+            "starlette.datastructures.QueryParams",
+            "construction-and-mapping-sequence",
+        ):
+            continue
+        for field in ("source", "comparison"):
+            value = case.get(field)
+            if not isinstance(value, dict) or value.get("kind") != "pairs":
+                continue
+            items = value.get("items")
+            if isinstance(items, list) and any(
+                not isinstance(pair, list) or len(pair) != 2 for pair in items
+            ):
+                raise ContractError(f"@67 QueryParams {field} requires only two-item pairs")
+    return validate_input_document(
+        migrate_input_document_v67(document), manifest, public_modules=public_modules
+    )
+
+
 def _contains_testclient_v47_input(case: Any) -> bool:
     if not isinstance(case, dict):
         return False
@@ -45828,7 +46013,7 @@ def migrate_input_document_v66(document: Any) -> dict[str, Any]:
         raise ContractError("parity-input@66 does not allow @67 input descriptors")
 
     migrated = dict(document)
-    migrated["schema"] = INPUT_SCHEMA
+    migrated["schema"] = INPUT_SCHEMA_V67
     return migrated
 
 
@@ -45998,7 +46183,7 @@ def validate_input_document_v66(
 ) -> list[dict[str, Any]]:
     """Validate @66 inputs before their deterministic @67 schema migration."""
     migrated = migrate_input_document_v66(document)
-    return validate_input_document(migrated, manifest, public_modules=public_modules)
+    return validate_input_document_v67(migrated, manifest, public_modules=public_modules)
 
 
 def validate_input_document_v52(

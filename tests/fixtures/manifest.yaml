@@ -248,7 +248,7 @@
   ],
   "interfaces": {
     "parity": {
-      "input_schema": "migration-parity/parity-input@67",
+      "input_schema": "migration-parity/parity-input@68",
       "result_schema": "migration-parity/parity-result@9",
       "command_id": "parity"
     },
@@ -420,6 +420,7 @@
       "build/parity/inputs/parity/datastructures-state.json",
       "build/parity/inputs/parity/docs-core-examples.json",
       "build/parity/inputs/parity/exception-handler-mro-order.json",
+      "build/parity/inputs/parity/exception-handler-table.json",
       "build/parity/inputs/parity/exception-middleware-live-app.json",
       "build/parity/inputs/parity/exception-middleware-message-type-python-equality.json",
       "build/parity/inputs/parity/exception-middleware-scope-type-python-membership.json",
@@ -445,6 +446,7 @@
       "build/parity/inputs/parity/formdata-constructor.json",
       "build/parity/inputs/parity/formdata-generic-typing.json",
       "build/parity/inputs/parity/formdata-key-preservation.json",
+      "build/parity/inputs/parity/formdata-native.json",
       "build/parity/inputs/parity/gzip-docs-stateless-request-state.json",
       "build/parity/inputs/parity/gzip-docs-thresholds.json",
       "build/parity/inputs/parity/gzip-message-type-python-equality.json",
@@ -48646,6 +48648,318 @@
     ]
   },
   "native_surfaces": [
+    {
+      "id": "starlette-rs.ExceptionHandlerTable",
+      "kind": "type",
+      "source_path": "starlette-rs/src/exception_handlers.rs",
+      "storage_slug": "starlette-rs-ExceptionHandlerTable",
+      "operations": [
+        {
+          "id": "select",
+          "kind": "protocol_operation",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.middleware.exceptions.ExceptionMiddleware.__call__",
+            "signature": "Register the ordered input status and exception handlers, then dispatch the input-defined exception through pinned ExceptionMiddleware to observe which supplied handler is invoked.",
+            "parameters": [
+              {
+                "id": "input_case",
+                "style": "keyword",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "workflow",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": "starlette_rs::ExceptionHandlerTable",
+              "signature": "ExceptionHandlerTable::new, insert_status, insert_class, and select",
+              "support": {
+                "status": "supported"
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "out_of_scope",
+                "reason": "ExceptionHandlerTable is a Rust-native API and is not a documented starlette.* Python package surface.",
+                "authority": "AGENTS.md project binding rules: keep Rust-native APIs distinct from the compatibility surface."
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette-rs.ExceptionHandlerTable.select.status-handler-priority",
+              "dimension": "protocol_variant",
+              "description": "Prefer a matching HTTP status registration over a matching exception-class registration, following pinned starlette/_exception_handler.py:46-50.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "rust-native-local"
+              ]
+            },
+            {
+              "id": "starlette-rs.ExceptionHandlerTable.select.status-registration-overwrite",
+              "dimension": "protocol_variant",
+              "description": "Use the last input registration for a repeated status key, matching the assignment performed by pinned starlette/middleware/exceptions.py:41-42.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "rust-native-local"
+              ]
+            },
+            {
+              "id": "starlette-rs.ExceptionHandlerTable.select.exception-class-mro-order",
+              "dimension": "protocol_variant",
+              "description": "Choose the first matching class token in the exception MRO regardless of handler registration order, following pinned starlette/_exception_handler.py:16-20.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "rust-native-local"
+              ]
+            },
+            {
+              "id": "starlette-rs.ExceptionHandlerTable.select.status-miss-class-fallback",
+              "dimension": "protocol_variant",
+              "description": "Continue with ordered exception-class lookup after an HTTP status key misses, following pinned starlette/_exception_handler.py:46-50.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "rust-native-local"
+              ]
+            },
+            {
+              "id": "starlette-rs.ExceptionHandlerTable.select.unmatched-registration-no-match",
+              "dimension": "protocol_variant",
+              "description": "Return no supplied handler when registered exception-class keys do not occur in the input exception MRO, following pinned starlette/_exception_handler.py:16-20.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "rust-native-local"
+              ]
+            },
+            {
+              "id": "starlette-rs.ExceptionHandlerTable.select.class-registration-overwrite",
+              "dimension": "protocol_variant",
+              "description": "Use the last input registration for a repeated exception-class key, matching the assignment performed by pinned starlette/middleware/exceptions.py:43-45.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "rust-native-local"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "rust-native-local"
+            ]
+          },
+          "coverage": {
+            "applicability": "required",
+            "target_profiles": [
+              "rust-native-local"
+            ],
+            "component_ids": [
+              "rust-core-rust-native-local"
+            ]
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "This input-only API-contract slice does not declare a benchmark workload."
+          }
+        }
+      ]
+    },
+    {
+      "id": "starlette-rs.FormData",
+      "kind": "type",
+      "source_path": "starlette-rs/src/form_data.rs",
+      "storage_slug": "starlette-rs-FormData",
+      "operations": [
+        {
+          "id": "from-pairs-and-lookups",
+          "kind": "protocol_operation",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.datastructures.FormData.__init__ and ImmutableMultiDict public lookup methods",
+            "signature": "Construct FormData from the input-defined sequence of text pairs, then observe immutable multidict views, lookups, and equality.",
+            "parameters": [
+              {
+                "id": "input_case",
+                "style": "keyword",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "workflow",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": "starlette_rs::FormData",
+              "signature": "FormData::from_pairs, multi_items, keys, values, items, get, get_list, len, is_empty, and PartialEq",
+              "support": {
+                "status": "supported"
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "out_of_scope",
+                "reason": "This operation specifies the distinct Rust-native FormData API, not the documented starlette.* Python compatibility surface.",
+                "authority": "AGENTS.md project binding rules: keep Rust-native APIs distinct from the compatibility surface."
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette-rs.FormData.from-pairs-and-lookups.duplicate-pair-order",
+              "dimension": "input_family",
+              "description": "Preserve the input order and every duplicate string pair when constructing FormData, as pinned starlette.datastructures.ImmutableMultiDict retains its pair list.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "rust-native-local"
+              ]
+            },
+            {
+              "id": "starlette-rs.FormData.from-pairs-and-lookups.final-value-views",
+              "dimension": "success_path",
+              "description": "Expose keys, values, items, and iteration with pinned ImmutableMultiDict final-value mapping semantics while retaining duplicate pairs in multi_items and getlist.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "rust-native-local"
+              ]
+            },
+            {
+              "id": "starlette-rs.FormData.from-pairs-and-lookups.unordered-multiset-equality",
+              "dimension": "parameter_combination",
+              "description": "Compare FormData values by the unordered multiset of duplicate pairs, matching pinned ImmutableMultiDict equality.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "rust-native-local"
+              ]
+            },
+            {
+              "id": "starlette-rs.FormData.from-pairs-and-lookups.empty-state",
+              "dimension": "success_path",
+              "description": "Expose empty construction, missing-key lookups, zero length, and equality of empty FormData instances.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "rust-native-local"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "rust-native-local"
+            ]
+          },
+          "coverage": {
+            "applicability": "required",
+            "target_profiles": [
+              "rust-native-local"
+            ],
+            "component_ids": [
+              "rust-core-rust-native-local"
+            ]
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "The input-only native data-contract operation does not declare a benchmark workload."
+          }
+        }
+      ]
+    },
     {
       "id": "starlette-rs.NativeApplication",
       "kind": "type",

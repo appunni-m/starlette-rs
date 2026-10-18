@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@67",
+  "schema": "migration-parity/parity-input@68",
   "cases": [
     {
       "case_id": "starlette.requests.Request.base_url.app-root-path-str-subclass.endswith-override",

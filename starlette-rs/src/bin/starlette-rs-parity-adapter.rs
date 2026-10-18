@@ -49,18 +49,18 @@ use sha2 as _;
 use starlette_rs::{
     ActiveNativeLifespan, ApplicationRoute, AsgiScopeKind, CommaSeparatedStrings, CookieOptions,
     Cookies, CustomPathConverter, CustomPathConverterRegistry, DEFAULT_EXCLUDED_CONTENT_TYPES,
-    DetailedRouteMatch, FileMetadata, FileResponse as NativeFileResponse, FileResponseCallError,
-    FileResponseCallInput, FileResponseCallStep, FileResponseError, FileResponseEvent,
-    FileResponseOptions, GzipConfig, GzipHeader, GzipResponseStart, HostPattern, HttpScope,
-    LifespanAction, LifespanState, Mount as NativeMount, MountChild, MountScope,
-    MultiDict as NativeMultiDict, MutableHeaders as NativeMutableHeaders, NamedHost, NamedMount,
-    NamedRoute as NativeNamedRoute, NamedRouteError, NamedRouter, NamedRouterError,
-    NativeApplication as NativeServiceApplication, NativeApplicationChild, NativeApplicationError,
-    NativeHostApplication, NativeHostRoute, NativeLifespan, NativeLifespanError,
-    NativeLifespanState, NativeMount as NativeServiceMount, NativeRequest, NativeRequestScope,
-    NativeRoute, NativeWebSocketAcceptance, NativeWebSocketClose, NativeWebSocketDriver,
-    NativeWebSocketError, NativeWebSocketEvent, NativeWebSocketHandshake, NativeWebSocketMessage,
-    NativeWebSocketPeerClose, NativeWebSocketRoute, NativeWebSocketRouter,
+    DetailedRouteMatch, ExceptionHandlerTable, FileMetadata, FileResponse as NativeFileResponse,
+    FileResponseCallError, FileResponseCallInput, FileResponseCallStep, FileResponseError,
+    FileResponseEvent, FileResponseOptions, FormData as NativeFormData, GzipConfig, GzipHeader,
+    GzipResponseStart, HostPattern, HttpScope, LifespanAction, LifespanState, Mount as NativeMount,
+    MountChild, MountScope, MultiDict as NativeMultiDict, MutableHeaders as NativeMutableHeaders,
+    NamedHost, NamedMount, NamedRoute as NativeNamedRoute, NamedRouteError, NamedRouter,
+    NamedRouterError, NativeApplication as NativeServiceApplication, NativeApplicationChild,
+    NativeApplicationError, NativeHostApplication, NativeHostRoute, NativeLifespan,
+    NativeLifespanError, NativeLifespanState, NativeMount as NativeServiceMount, NativeRequest,
+    NativeRequestScope, NativeRoute, NativeWebSocketAcceptance, NativeWebSocketClose,
+    NativeWebSocketDriver, NativeWebSocketError, NativeWebSocketEvent, NativeWebSocketHandshake,
+    NativeWebSocketMessage, NativeWebSocketPeerClose, NativeWebSocketRoute, NativeWebSocketRouter,
     NativeWebSocketTransportError, PathConverter, PathParameterCapture, QueryParams,
     RequestBodyAccumulator, RequestHeaders, Response, ResponseEvent, RouteTable,
     Starlette as NativeApplication, StaticFiles as NativeStaticFiles, StaticFilesError,
@@ -82,6 +82,10 @@ const JSON_RESPONSE_SURFACE: &str = "starlette.responses.JSONResponse";
 const STREAMING_RESPONSE_SURFACE: &str = "starlette.responses.StreamingResponse";
 const NATIVE_RESPONSE_SURFACE: &str = "starlette-rs.Response";
 const NATIVE_HTTP_EXCEPTION_OPERATION: &str = "http-exception";
+const NATIVE_EXCEPTION_HANDLER_TABLE_SURFACE: &str = "starlette-rs.ExceptionHandlerTable";
+const NATIVE_EXCEPTION_HANDLER_TABLE_OPERATION: &str = "select";
+const NATIVE_FORM_DATA_SURFACE: &str = "starlette-rs.FormData";
+const NATIVE_FORM_DATA_OPERATION: &str = "from-pairs-and-lookups";
 const NATIVE_STREAMING_RESPONSE_SURFACE: &str = "starlette-rs.StreamingResponse";
 const FILE_RESPONSE_SURFACE: &str = "starlette.responses.FileResponse";
 const STATIC_FILES_SURFACE: &str = "starlette.staticfiles.StaticFiles";
@@ -528,6 +532,11 @@ fn identity() -> Result<Value, String> {
 }
 
 fn run_case(case: &Value) -> Result<Value, String> {
+    if case.get("surface").and_then(Value::as_str) == Some(NATIVE_FORM_DATA_SURFACE)
+        && case.get("operation").and_then(Value::as_str) == Some(NATIVE_FORM_DATA_OPERATION)
+    {
+        return run_native_form_data_case(case);
+    }
     if case.get("surface").and_then(Value::as_str) == Some(NATIVE_WEBSOCKET_SURFACE)
         && case.get("operation").and_then(Value::as_str) == Some(NATIVE_WEBSOCKET_OPERATION)
     {
@@ -570,6 +579,12 @@ fn run_case(case: &Value) -> Result<Value, String> {
         }
         (Some(NATIVE_RESPONSE_SURFACE), Some(NATIVE_HTTP_EXCEPTION_OPERATION)) => {
             return run_native_http_exception_case(case);
+        }
+        (
+            Some(NATIVE_EXCEPTION_HANDLER_TABLE_SURFACE),
+            Some(NATIVE_EXCEPTION_HANDLER_TABLE_OPERATION),
+        ) => {
+            return run_native_exception_handler_table_case(case);
         }
         (Some("starlette-rs.RouteTable"), Some(NATIVE_ROUTE_TABLE_CUSTOM_CONVERTER_OPERATION)) => {
             return run_native_custom_converter_match_case(case);
@@ -2514,6 +2529,279 @@ fn run_native_http_exception_case(case: &Value) -> Result<Value, String> {
     let mut values = Map::new();
     values.insert(String::from("responses"), Value::Array(responses));
     native_observation_result(case_id, case, values, "native HTTP exception")
+}
+
+fn run_native_exception_handler_table_case(case: &Value) -> Result<Value, String> {
+    let context = "native exception handler table case";
+    let case = exact_object(
+        case,
+        &[
+            "case_id",
+            "surface",
+            "operation",
+            "covers",
+            "target_profiles",
+            "assets",
+            "input",
+            "observations",
+        ],
+        context,
+    )?;
+    let case_id = string_field(case, "case_id", context)?;
+    if string_field(case, "surface", context)? != NATIVE_EXCEPTION_HANDLER_TABLE_SURFACE
+        || string_field(case, "operation", context)? != NATIVE_EXCEPTION_HANDLER_TABLE_OPERATION
+    {
+        return Err(String::from(
+            "case is outside ExceptionHandlerTable::select",
+        ));
+    }
+    let target_profiles = string_array_field(case, "target_profiles", context)?;
+    if target_profiles != [String::from("rust-native-local")]
+        || case.get("assets") != Some(&json!([]))
+    {
+        return Err(String::from(
+            "native exception handler table requires only rust-native-local and no assets",
+        ));
+    }
+
+    let input = exact_object(
+        case.get("input")
+            .ok_or_else(|| format!("{context} misses input"))?,
+        &["registrations", "exception"],
+        "native exception handler table input",
+    )?;
+    let registrations = input
+        .get("registrations")
+        .and_then(Value::as_array)
+        .ok_or_else(|| String::from("native exception handler registrations must be an array"))?;
+    let mut table = ExceptionHandlerTable::<String>::new();
+    for (index, registration_value) in registrations.iter().enumerate() {
+        let registration_context = format!("native exception handler registrations[{index}]");
+        let registration = registration_value
+            .as_object()
+            .ok_or_else(|| format!("{registration_context} must be an object"))?;
+        match string_field(registration, "kind", &registration_context)? {
+            "status" => {
+                let registration = exact_object(
+                    registration_value,
+                    &["kind", "status_code"],
+                    &registration_context,
+                )?;
+                let status_code = string_field(registration, "status_code", &registration_context)?;
+                if !is_canonical_decimal_integer(status_code) {
+                    return Err(format!(
+                        "{registration_context}.status_code must be a canonical decimal integer"
+                    ));
+                }
+                table.insert_status(status_code, index);
+            }
+            "exception" => {
+                let registration = exact_object(
+                    registration_value,
+                    &["kind", "class_key"],
+                    &registration_context,
+                )?;
+                let class_key = string_field(registration, "class_key", &registration_context)?;
+                if class_key.is_empty() {
+                    return Err(format!(
+                        "{registration_context}.class_key must be non-empty"
+                    ));
+                }
+                table.insert_class(class_key.to_owned(), index);
+            }
+            kind => {
+                return Err(format!(
+                    "{registration_context}.kind is unsupported: {kind:?}"
+                ));
+            }
+        }
+    }
+
+    let exception = exact_object(
+        input
+            .get("exception")
+            .ok_or_else(|| format!("{context} input misses exception"))?,
+        &["mro", "status_code"],
+        "native exception",
+    )?;
+    let exception_mro = string_array_field(exception, "mro", "native exception")?;
+    if exception_mro.is_empty() {
+        return Err(String::from("native exception mro must be non-empty"));
+    }
+    let terminal_class = exception_mro
+        .last()
+        .map(String::as_str)
+        .ok_or_else(|| String::from("native exception mro must be non-empty"))?;
+    let mut seen_class_keys = HashSet::with_capacity(exception_mro.len());
+    if !matches!(terminal_class, "Exception" | "HTTPException")
+        || exception_mro
+            .iter()
+            .any(|class_key| !seen_class_keys.insert(class_key.as_str()))
+        || exception_mro[..exception_mro.len() - 1]
+            .iter()
+            .any(|class_key| matches!(class_key.as_str(), "Exception" | "HTTPException"))
+    {
+        return Err(String::from(
+            "native exception mro must be unique and end in Exception or HTTPException",
+        ));
+    }
+    let status_code = optional_string_field(exception, "status_code", "native exception")?;
+    match (terminal_class, status_code.as_deref()) {
+        ("Exception", None) => {}
+        ("HTTPException", Some(status_code)) if is_canonical_decimal_integer(status_code) => {}
+        ("HTTPException", _) => {
+            return Err(String::from(
+                "native HTTPException status_code must be a canonical decimal integer",
+            ));
+        }
+        ("Exception", Some(_)) => {
+            return Err(String::from("native Exception status_code must be null"));
+        }
+        _ => {
+            return Err(String::from(
+                "native exception terminal class is unsupported",
+            ));
+        }
+    }
+
+    let selected_handler_index = table.select(status_code.as_deref(), &exception_mro);
+    let mut values = Map::new();
+    values.insert(
+        String::from("selected_handler_index"),
+        selected_handler_index.map_or(Value::Null, |index| json!(index)),
+    );
+    native_observation_result(case_id, case, values, context)
+}
+
+fn run_native_form_data_case(case: &Value) -> Result<Value, String> {
+    let context = "native FormData case";
+    let case = exact_object(
+        case,
+        &[
+            "case_id",
+            "surface",
+            "operation",
+            "covers",
+            "target_profiles",
+            "assets",
+            "input",
+            "observations",
+        ],
+        context,
+    )?;
+    let case_id = string_field(case, "case_id", context)?;
+    if string_field(case, "surface", context)? != NATIVE_FORM_DATA_SURFACE
+        || string_field(case, "operation", context)? != NATIVE_FORM_DATA_OPERATION
+    {
+        return Err(String::from(
+            "case is outside the native FormData lookup operation",
+        ));
+    }
+    let target_profiles = string_array_field(case, "target_profiles", context)?;
+    if target_profiles != [String::from("rust-native-local")]
+        || case.get("assets") != Some(&json!([]))
+    {
+        return Err(String::from(
+            "native FormData requires only rust-native-local and no assets",
+        ));
+    }
+
+    let input = exact_object(
+        case.get("input")
+            .ok_or_else(|| format!("{context} misses input"))?,
+        &["entries", "probe_keys", "comparisons"],
+        "native FormData input",
+    )?;
+    let entries = native_form_data_pairs(
+        input
+            .get("entries")
+            .ok_or_else(|| String::from("native FormData input misses entries"))?,
+        "native FormData input entries",
+    )?;
+    let form = NativeFormData::from_pairs(entries);
+    let probe_keys = string_array_field(input, "probe_keys", "native FormData input")?;
+    let lookups = probe_keys
+        .iter()
+        .map(|key| {
+            let value = form.get(key);
+            json!({
+                "key": key,
+                "contains": value.is_some(),
+                "get": value,
+                "get_list": form.get_list(key),
+            })
+        })
+        .collect::<Vec<_>>();
+    let comparisons = input
+        .get("comparisons")
+        .and_then(Value::as_array)
+        .ok_or_else(|| String::from("native FormData input comparisons must be an array"))?
+        .iter()
+        .enumerate()
+        .map(|(index, comparison_value)| {
+            let comparison_context = format!("native FormData comparisons[{index}]");
+            let comparison = exact_object(
+                comparison_value,
+                &["comparison_id", "entries"],
+                &comparison_context,
+            )?;
+            let comparison_id = string_field(comparison, "comparison_id", &comparison_context)?;
+            let pairs = native_form_data_pairs(
+                comparison
+                    .get("entries")
+                    .ok_or_else(|| format!("{comparison_context} misses entries"))?,
+                &format!("{comparison_context}.entries"),
+            )?;
+            let other = NativeFormData::from_pairs(pairs);
+            Ok(json!({"comparison_id": comparison_id, "equal": form == other}))
+        })
+        .collect::<Result<Vec<_>, String>>()?;
+    let items = form
+        .items()
+        .into_iter()
+        .map(|(key, value)| json!([key, value]))
+        .collect::<Vec<_>>();
+    let mut values = Map::new();
+    values.insert(String::from("multi_items"), json!(form.multi_items()));
+    values.insert(String::from("keys"), json!(form.keys()));
+    values.insert(String::from("values"), json!(form.values()));
+    values.insert(String::from("items"), json!(items));
+    values.insert(String::from("iteration"), json!(form.keys()));
+    values.insert(String::from("length"), json!(form.len()));
+    values.insert(String::from("is_empty"), json!(form.is_empty()));
+    values.insert(String::from("lookups"), json!(lookups));
+    values.insert(String::from("comparisons"), json!(comparisons));
+    native_observation_result(case_id, case, values, context)
+}
+
+fn native_form_data_pairs(value: &Value, context: &str) -> Result<Vec<(String, String)>, String> {
+    value
+        .as_array()
+        .ok_or_else(|| format!("{context} must be an array"))?
+        .iter()
+        .enumerate()
+        .map(|(index, pair_value)| {
+            let pair = pair_value
+                .as_array()
+                .filter(|pair| pair.len() == 2)
+                .ok_or_else(|| format!("{context}[{index}] must be a two-item array"))?;
+            let key = pair[0]
+                .as_str()
+                .ok_or_else(|| format!("{context}[{index}][0] must be a string"))?;
+            let value = pair[1]
+                .as_str()
+                .ok_or_else(|| format!("{context}[{index}][1] must be a string"))?;
+            Ok((key.to_owned(), value.to_owned()))
+        })
+        .collect()
+}
+
+fn is_canonical_decimal_integer(value: &str) -> bool {
+    let digits = value.strip_prefix('-').unwrap_or(value);
+    !digits.is_empty()
+        && digits.bytes().all(|byte| byte.is_ascii_digit())
+        && (digits.len() == 1 || !digits.starts_with('0'))
+        && value != "-0"
 }
 
 fn run_native_streaming_source_case(case: &Value) -> Result<Value, String> {

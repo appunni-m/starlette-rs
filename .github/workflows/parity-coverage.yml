@@ -137,3 +137,35 @@ jobs:
           path: target/build/parity/coverage/${{ matrix.profile_id }}/
           if-no-files-found: warn
           retention-days: 30
+
+  coverage-union:
+    name: Six-profile eligible line coverage union
+    needs: source-parity-coverage
+    if: needs.source-parity-coverage.result == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: target
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: target
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: starlette-coverage-*-${{ github.run_id }}
+          path: target/build/parity/coverage/profiles
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12.10"
+      - name: Generate active coverage inputs and verify the six-profile union
+        run: make coverage-union PARITY_PYTHON=python
+      - name: Upload coverage union result
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: starlette-coverage-union-${{ github.run_id }}
+          path: target/build/parity/coverage/coverage-union-result.json
+          if-no-files-found: warn
+          retention-days: 30

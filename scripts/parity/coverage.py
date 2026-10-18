@@ -25,6 +25,9 @@ from .contract import (
     validate_manifest,
 )
 from .envs import (
+    ORACLE_RUNTIME_LOCK_RELATIVE,
+    RUNTIME_LOCK_RELATIVE,
+    _target_source_identity,
     environment_ids,
     load_prepared_environments,
     python_version_from_runtime,
@@ -48,6 +51,8 @@ from .runner import (
 
 COVERAGE_RESULT_SCHEMA = "migration-parity/coverage-result@1"
 COVERAGE_RESULT_SCHEMA_PATH = Path("tests/fixtures/coverage-result-schema.json")
+COVERAGE_RECEIPT_SCHEMA = "migration-parity/coverage-receipt@1"
+COVERAGE_RECEIPT_SCHEMA_PATH = Path("tests/fixtures/coverage-receipt-schema.json")
 CARGO_LLVM_COV_VERSION = "0.8.7"
 COVERAGE_ROOT = Path("build/parity/coverage")
 _ASSIGNMENT = re.compile(r"^([A-Z_][A-Z0-9_]*)=(.*)$")
@@ -131,7 +136,7 @@ def _validate_schema_value(
     unsupported = schema.keys() - supported_keywords
     if unsupported:
         raise ContractError(
-            f"coverage result schema uses unsupported keywords: {sorted(unsupported)}"
+            f"{context} schema uses unsupported keywords: {sorted(unsupported)}"
         )
 
     reference = schema.get("$ref")
@@ -139,37 +144,37 @@ def _validate_schema_value(
         prefix = "#/$defs/"
         if not reference.startswith(prefix):
             raise ContractError(
-                f"coverage result schema uses an unsupported reference: {reference}"
+                f"{context} schema uses an unsupported reference: {reference}"
             )
         definition = reference[len(prefix) :]
         definitions = schema_root.get("$defs", {})
         if definition not in definitions:
-            raise ContractError(f"coverage result schema has an unknown definition: {definition}")
+            raise ContractError(f"{context} schema has an unknown definition: {definition}")
         _validate_schema_value(value, definitions[definition], schema_root, context)
         return
 
     if "const" in schema and (type(value) is not type(schema["const"]) or value != schema["const"]):
-        raise ContractError(f"coverage result {context} differs from its schema constant")
+        raise ContractError(f"{context} differs from its schema constant")
     if "enum" in schema and not any(
         type(value) is type(candidate) and value == candidate for candidate in schema["enum"]
     ):
-        raise ContractError(f"coverage result {context} is outside its schema enum")
+        raise ContractError(f"{context} is outside its schema enum")
 
     expected_type = schema.get("type")
     if expected_type is not None:
         accepted_types = expected_type if isinstance(expected_type, list) else [expected_type]
         if not any(_schema_type_matches(value, item) for item in accepted_types):
-            raise ContractError(f"coverage result {context} has the wrong JSON type")
+            raise ContractError(f"{context} has the wrong JSON type")
 
     if isinstance(value, dict):
         required = schema.get("required", [])
         missing = sorted(set(required) - value.keys())
         if missing:
-            raise ContractError(f"coverage result {context} is missing fields: {missing}")
+            raise ContractError(f"{context} is missing fields: {missing}")
         properties = schema.get("properties", {})
         extra = sorted(value.keys() - properties.keys())
         if schema.get("additionalProperties") is False and extra:
-            raise ContractError(f"coverage result {context} has unknown fields: {extra}")
+            raise ContractError(f"{context} has unknown fields: {extra}")
         additional_schema = schema.get("additionalProperties")
         for name, child in value.items():
             if name in properties:
@@ -179,17 +184,17 @@ def _validate_schema_value(
 
     if isinstance(value, list):
         if len(value) < schema.get("minItems", 0):
-            raise ContractError(f"coverage result {context} has too few items")
+            raise ContractError(f"{context} has too few items")
         max_items = schema.get("maxItems")
         if max_items is not None and len(value) > max_items:
-            raise ContractError(f"coverage result {context} has too many items")
+            raise ContractError(f"{context} has too many items")
         if schema.get("uniqueItems"):
             encoded_items = [
                 json.dumps(item, sort_keys=True, separators=(",", ":"), allow_nan=False)
                 for item in value
             ]
             if len(encoded_items) != len(set(encoded_items)):
-                raise ContractError(f"coverage result {context} contains duplicate items")
+                raise ContractError(f"{context} contains duplicate items")
         item_schema = schema.get("items")
         if isinstance(item_schema, dict):
             for index, item in enumerate(value):
@@ -197,23 +202,23 @@ def _validate_schema_value(
 
     if isinstance(value, str):
         if len(value) < schema.get("minLength", 0):
-            raise ContractError(f"coverage result {context} is shorter than its schema minimum")
+            raise ContractError(f"{context} is shorter than its schema minimum")
         pattern = schema.get("pattern")
         if pattern is not None and re.fullmatch(pattern, value) is None:
-            raise ContractError(f"coverage result {context} does not match its schema pattern")
+            raise ContractError(f"{context} does not match its schema pattern")
         if schema.get("format") == "date-time":
             try:
                 parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
             except ValueError as exc:
-                raise ContractError(f"coverage result {context} is not a date-time") from exc
+                raise ContractError(f"{context} is not a date-time") from exc
             if parsed.tzinfo is None:
-                raise ContractError(f"coverage result {context} must include a timezone")
+                raise ContractError(f"{context} must include a timezone")
 
     if type(value) in {int, float}:
         if value < schema.get("minimum", value):
-            raise ContractError(f"coverage result {context} is below its schema minimum")
+            raise ContractError(f"{context} is below its schema minimum")
         if value > schema.get("maximum", value):
-            raise ContractError(f"coverage result {context} is above its schema maximum")
+            raise ContractError(f"{context} is above its schema maximum")
 
 
 def _validate_coverage_result(
@@ -377,6 +382,443 @@ def _validate_coverage_result(
             raise ContractError(
                 f"active coverage input changed during collection: {input_identity['path']}"
             )
+
+
+def _write_json_artifact(path: Path, value: dict[str, Any]) -> str:
+    encoded = json.dumps(value, indent=2, sort_keys=True, allow_nan=False) + "\n"
+    path.write_text(encoded, encoding="utf-8")
+    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+
+def _repository_file_digest(root: Path, relative_path: str) -> str:
+    path = root / relative_path
+    try:
+        path.resolve().relative_to(root.resolve())
+    except ValueError as exc:
+        raise ContractError(f"coverage receipt repository path escapes the checkout: {relative_path}") from exc
+    if not path.is_file():
+        raise ContractError(f"coverage receipt source file is missing: {relative_path}")
+    return sha256_file(path)
+
+
+def _run_file_path(run_dir: Path, relative_path: str) -> Path:
+    path = run_dir / relative_path
+    try:
+        path.resolve().relative_to(run_dir.resolve())
+    except ValueError as exc:
+        raise ContractError(f"coverage receipt artifact path escapes its run: {relative_path}") from exc
+    if not path.is_file():
+        raise ContractError(f"coverage receipt artifact is missing: {relative_path}")
+    return path
+
+
+def _run_file_identity(path: Path, run_dir: Path) -> dict[str, Any]:
+    return {
+        "path": _relative_path(path, run_dir),
+        "sha256": sha256_file(path),
+    }
+
+
+def _preserve_raw_profiles(run_dir: Path, target_dir: Path) -> list[dict[str, Any]]:
+    candidates = sorted(
+        path
+        for base in (run_dir, target_dir)
+        for path in base.rglob("*.profraw")
+        if path.is_file() and "raw-profraw" not in path.parts
+    )
+    if not candidates:
+        return []
+    destination_dir = run_dir / "raw-profraw"
+    destination_dir.mkdir(parents=True, exist_ok=True)
+    identities: list[dict[str, Any]] = []
+    for index, source in enumerate(candidates, start=1):
+        destination = destination_dir / f"{index:05d}-{source.name}"
+        shutil.copy2(source, destination)
+        identities.append(
+            {
+                "path": _relative_path(destination, run_dir),
+                "sha256": sha256_file(destination),
+                "size_bytes": destination.stat().st_size,
+            }
+        )
+    return identities
+
+
+def _prepared_lock_identity(
+    root: Path, prepared: dict[str, dict[str, Any]], environment_id: str
+) -> dict[str, str]:
+    environment = prepared.get(environment_id)
+    if environment is None:
+        raise ContractError(f"coverage receipt requires prepared environment {environment_id}")
+    relative_path = environment.get("dependency_lock_path")
+    expected_digest = environment.get("dependency_lock_sha256")
+    if not isinstance(relative_path, str) or not isinstance(expected_digest, str):
+        raise ContractError(f"prepared environment {environment_id} has no dependency lock identity")
+    actual_digest = _repository_file_digest(root, relative_path)
+    if actual_digest != expected_digest:
+        raise ContractError(f"prepared environment {environment_id} dependency lock changed")
+    return {"path": relative_path, "sha256": actual_digest}
+
+
+def _dependency_lock_identities(
+    root: Path,
+    prepared: dict[str, dict[str, Any]],
+    oracle_environment_id: str,
+    target_environment_id: str | None,
+) -> list[dict[str, str]]:
+    cargo_path = "Cargo.lock"
+    cargo_digest = _repository_file_digest(root, cargo_path)
+    oracle_lock = _prepared_lock_identity(root, prepared, oracle_environment_id)
+    target_lock = (
+        _prepared_lock_identity(root, prepared, target_environment_id)
+        if target_environment_id is not None
+        else {"path": cargo_path, "sha256": cargo_digest}
+    )
+    return [
+        {"purpose": "build", "path": cargo_path, "sha256": cargo_digest},
+        {"purpose": "oracle", **oracle_lock},
+        {"purpose": "target", **target_lock},
+    ]
+
+
+def _write_coverage_configuration(
+    root: Path,
+    run_dir: Path,
+    *,
+    profile_id: str,
+    target_id: str,
+    plan_id: str,
+    selected_case_ids: list[str],
+    build_argv: list[str],
+    report_argv: list[str],
+    oracle_command: dict[str, Any],
+    target_command: dict[str, Any],
+    build_env: dict[str, str],
+    coverage_env: dict[str, str],
+    oracle_env: dict[str, str],
+    target_env: dict[str, str],
+    report_env: dict[str, str],
+    typechecker_configured: bool,
+) -> dict[str, str]:
+    path = run_dir / "coverage-config.json"
+    payload = {
+        "profile_id": profile_id,
+        "target_id": target_id,
+        "plan_id": plan_id,
+        "selected_case_ids": selected_case_ids,
+        "build_argv": build_argv,
+        "build_cwd": ".",
+        "report_argv": report_argv,
+        "report_cwd": ".",
+        "target_dir": _relative_path(Path(build_env["CARGO_TARGET_DIR"]), root),
+        "oracle_command": {
+            "argv": oracle_command["argv"],
+            "cwd": oracle_command["cwd"],
+            "timeout_seconds": oracle_command["timeout_seconds"],
+        },
+        "target_command": {
+            "argv": target_command["argv"],
+            "cwd": target_command["cwd"],
+            "timeout_seconds": target_command["timeout_seconds"],
+        },
+        "environment": {
+            "build": _coverage_environment_receipt(
+                build_env, include_typechecker=typechecker_configured
+            ),
+            "instrumented": _coverage_environment_receipt(coverage_env),
+            "oracle": _coverage_environment_receipt(
+                oracle_env, include_typechecker=typechecker_configured
+            ),
+            "target": _coverage_environment_receipt(
+                target_env, include_typechecker=typechecker_configured
+            ),
+            "report": _coverage_environment_receipt(report_env),
+        },
+    }
+    digest = _write_json_artifact(path, payload)
+    return {"path": _relative_path(path, run_dir), "sha256": digest}
+
+
+def _capture_toolchain(
+    root: Path,
+    run_dir: Path,
+    cargo: str,
+    env: dict[str, str],
+    collector_version: str,
+) -> tuple[dict[str, Any] | None, str | None]:
+    rustc = shutil.which("rustc")
+    if rustc is None:
+        return None, "rustc is not on PATH"
+    probes: dict[str, tuple[list[str], str]] = {
+        "cargo": ([cargo, "--version"], "cargo"),
+        "rustc": ([rustc, "--version", "--verbose"], "rustc"),
+        "rustc_sysroot": ([rustc, "--print", "sysroot"], "rustc sysroot"),
+    }
+    outputs: dict[str, str] = {}
+    for key, (argv, label) in probes.items():
+        process, error = _run_process(argv, cwd=root, env=env, timeout=30)
+        if error or process is None:
+            return None, f"cannot capture {label} toolchain receipt: {error or 'no output'}"
+        output = process.stdout.strip()
+        if not output:
+            return None, f"{label} toolchain receipt was empty"
+        outputs[key] = output
+
+    rustc_host = next(
+        (
+            line.partition(":")[2].strip()
+            for line in outputs["rustc"].splitlines()
+            if line.startswith("host:")
+        ),
+        None,
+    )
+    if not rustc_host:
+        return None, "rustc --version --verbose omitted its host triple"
+    llvm_dir = Path(outputs["rustc_sysroot"]) / "lib" / "rustlib" / rustc_host / "bin"
+    suffix = ".exe" if os.name == "nt" else ""
+    llvm_tools = {
+        "llvm_cov": llvm_dir / f"llvm-cov{suffix}",
+        "llvm_profdata": llvm_dir / f"llvm-profdata{suffix}",
+    }
+    for key, executable in llvm_tools.items():
+        process, error = _run_process([str(executable), "--version"], cwd=root, env=env, timeout=30)
+        if error or process is None:
+            return None, f"cannot capture {key.replace('_', '-')} toolchain receipt: {error or 'no output'}"
+        output = process.stdout.strip()
+        if not output:
+            return None, f"{key.replace('_', '-')} toolchain receipt was empty"
+        outputs[key] = output
+        outputs[f"{key}_executable"] = str(executable.resolve())
+
+    outputs["cargo_llvm_cov"] = f"cargo-llvm-cov {collector_version}"
+    toolchain_path = run_dir / "toolchain.json"
+    toolchain_file = {
+        "commands": {
+            "cargo": [cargo, "--version"],
+            "cargo_llvm_cov": [cargo, "llvm-cov", "--version"],
+            "rustc": [rustc, "--version", "--verbose"],
+            "llvm_cov": [str(llvm_tools["llvm_cov"]), "--version"],
+            "llvm_profdata": [str(llvm_tools["llvm_profdata"]), "--version"],
+        },
+        "outputs": outputs,
+    }
+    try:
+        digest = _write_json_artifact(toolchain_path, toolchain_file)
+    except OSError as exc:
+        return None, f"cannot save toolchain receipt: {exc}"
+    return (
+        {
+            "path": _relative_path(toolchain_path, run_dir),
+            "sha256": digest,
+            "cargo": outputs["cargo"],
+            "cargo_llvm_cov": outputs["cargo_llvm_cov"],
+            "rustc": outputs["rustc"],
+            "llvm_cov": outputs["llvm_cov"],
+            "llvm_profdata": outputs["llvm_profdata"],
+        },
+        None,
+    )
+
+
+def _coverage_environment_receipt(
+    env: dict[str, str], *, include_typechecker: bool = False
+) -> dict[str, str]:
+    names = {
+        "CARGO_ENCODED_RUSTFLAGS",
+        "CARGO_TARGET_DIR",
+        "LLVM_PROFILE_FILE",
+        "PYO3_PYTHON",
+        "PYTHONPATH",
+        "RUSTFLAGS",
+        "RUSTUP_TOOLCHAIN",
+        "STARLETTE_PARITY_DEPENDENCY_LOCK_SHA256",
+        "STARLETTE_PARITY_TARGET_SOURCE_DIRTY",
+        "STARLETTE_PARITY_TARGET_SOURCE_REVISION",
+        "STARLETTE_PARITY_TARGET_TREE_SHA256",
+        *_COVERAGE_FLAGS_ENV,
+    }
+    if include_typechecker:
+        names.add("STARLETTE_PARITY_TYPECHECKER")
+    return {name: env[name] for name in sorted(names) if name in env}
+
+
+def _coverage_receipt_schema(root: Path) -> dict[str, Any]:
+    schema = load_json(root / COVERAGE_RECEIPT_SCHEMA_PATH)
+    if (
+        not isinstance(schema, dict)
+        or schema.get("$schema") != "https://json-schema.org/draft/2020-12/schema"
+    ):
+        raise ContractError("coverage-receipt-schema.json must use JSON Schema 2020-12")
+    if schema.get("properties", {}).get("schema") != {"const": COVERAGE_RECEIPT_SCHEMA}:
+        raise ContractError("coverage-receipt-schema.json does not match the receipt contract")
+    if schema.get("additionalProperties") is not False:
+        raise ContractError("coverage-receipt-schema.json must reject unknown top-level fields")
+    return schema
+
+
+def _validate_coverage_receipt(root: Path, run_dir: Path, receipt: dict[str, Any]) -> None:
+    schema = _coverage_receipt_schema(root)
+    _validate_schema_value(receipt, schema, schema, "coverage receipt")
+
+    source_identity = _target_source_identity(root)
+    if receipt["target"] != {
+        "revision": source_identity["revision"],
+        "dirty": source_identity["dirty"],
+    } or receipt["source"]["tree_sha256"] != source_identity["working_tree_sha256"]:
+        raise ContractError("coverage receipt target source identity changed during collection")
+    if source_identity["dirty"]:
+        raise ContractError("coverage receipt requires a clean target source checkout")
+
+    manifest_identity = receipt["manifest"]
+    if _repository_file_digest(root, manifest_identity["path"]) != manifest_identity["sha256"]:
+        raise ContractError("coverage receipt manifest digest does not match its file")
+    for input_identity in receipt["inputs"]:
+        if _repository_file_digest(root, input_identity["path"]) != input_identity["sha256"]:
+            raise ContractError(
+                f"coverage receipt input digest does not match {input_identity['path']}"
+            )
+    for lock_identity in receipt["dependency_locks"]:
+        if _repository_file_digest(root, lock_identity["path"]) != lock_identity["sha256"]:
+            raise ContractError(
+                f"coverage receipt dependency lock digest does not match {lock_identity['path']}"
+            )
+    if {item["purpose"] for item in receipt["dependency_locks"]} != {
+        "build",
+        "oracle",
+        "target",
+    }:
+        raise ContractError("coverage receipt must bind build, oracle, and target dependency locks")
+    lock_paths = {item["purpose"]: item["path"] for item in receipt["dependency_locks"]}
+    if (
+        lock_paths["build"] != "Cargo.lock"
+        or lock_paths["oracle"] != ORACLE_RUNTIME_LOCK_RELATIVE.as_posix()
+    ):
+        raise ContractError("coverage receipt build or oracle lock path differs from the project lock")
+
+    target_artifact = _run_file_path(run_dir, receipt["target_artifact"]["path"])
+    if sha256_file(target_artifact) != receipt["target_artifact"]["sha256"]:
+        raise ContractError("coverage receipt target artifact digest does not match its file")
+    for log in receipt["collector"]["logs"].values():
+        if sha256_file(_run_file_path(run_dir, log["path"])) != log["sha256"]:
+            raise ContractError(f"coverage receipt collector log digest does not match {log['path']}")
+    for collector_file in (receipt["collector"]["configuration"], receipt["collector"]["toolchain"]):
+        if sha256_file(_run_file_path(run_dir, collector_file["path"])) != collector_file["sha256"]:
+            raise ContractError(
+                f"coverage receipt collector file digest does not match {collector_file['path']}"
+            )
+    for raw_profile in receipt["raw_profiles"]:
+        path = _run_file_path(run_dir, raw_profile["path"])
+        if path.stat().st_size != raw_profile["size_bytes"] or sha256_file(path) != raw_profile["sha256"]:
+            raise ContractError(f"coverage receipt raw profile digest does not match {raw_profile['path']}")
+
+    output_paths: dict[str, Path] = {}
+    for output in receipt["outputs"].values():
+        path = _run_file_path(run_dir, output["path"])
+        if sha256_file(path) != output["sha256"]:
+            raise ContractError(f"coverage receipt output digest does not match {output['path']}")
+        output_paths[output["path"]] = path
+    try:
+        result = json.loads(output_paths[receipt["outputs"]["coverage_result"]["path"]].read_text())
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ContractError(f"coverage receipt result artifact cannot be read: {exc}") from exc
+    if not isinstance(result, dict) or result.get("schema") != COVERAGE_RESULT_SCHEMA:
+        raise ContractError("coverage receipt does not bind a supported coverage result")
+    if result["status"] != "not_ingested" or result["infrastructure_errors"]:
+        raise ContractError("coverage receipt result has infrastructure errors or an invalid status")
+    if (
+        result["identity"]["manifest"] != manifest_identity
+        or result["identity"]["inputs"] != receipt["inputs"]
+        or result["identity"]["assets"] != receipt["assets"]
+    ):
+        raise ContractError("coverage receipt source identities differ from its result artifact")
+    plans = result["plans"]
+    if len(plans) != 1 or plans[0]["target_profile"] != receipt["profile_id"]:
+        raise ContractError("coverage receipt result does not contain its selected profile")
+    selected_case_ids = plans[0]["selected"]["parity_case_ids"]
+    execution = plans[0]["execution"]
+    if (
+        execution["status"] != "completed"
+        or execution["tests_passed"] != len(selected_case_ids)
+        or execution["tests_failed"] != 0
+        or result["summary"]["plans_selected"] != 1
+        or result["summary"]["plans_executed"] != 1
+        or result["summary"]["plans_not_run"] != 0
+        or result["summary"]["tests_passed"] != len(selected_case_ids)
+        or result["summary"]["tests_failed"] != 0
+    ):
+        raise ContractError("coverage receipt result has failed or unrun selected comparisons")
+    if [item["case_id"] for item in receipt["selected_outcomes"]] != selected_case_ids or any(
+        item["outcome"] != "pass" for item in receipt["selected_outcomes"]
+    ):
+        raise ContractError("coverage receipt outcomes differ from the selected parity cases")
+    target_rows = result["identity"]["targets"]
+    if (
+        len(target_rows) != 1
+        or target_rows[0]["target_profile"] != receipt["profile_id"]
+        or target_rows[0]["dirty"] is not False
+        or not target_rows[0]["revision"].startswith(receipt["target"]["revision"])
+    ):
+        raise ContractError("coverage receipt target identity differs from the clean checkout")
+    target_lock = next(item for item in receipt["dependency_locks"] if item["purpose"] == "target")
+    expected_target_lock_path = (
+        "Cargo.lock"
+        if target_rows[0]["target_id"] == "rust-native"
+        else RUNTIME_LOCK_RELATIVE.as_posix()
+        if target_rows[0]["target_id"] == "python-package"
+        else None
+    )
+    if target_lock["path"] != expected_target_lock_path:
+        raise ContractError("coverage receipt target dependency lock path differs from its target")
+    expected_artifact_kind = (
+        "rust-native-executable"
+        if target_rows[0]["target_id"] == "rust-native"
+        else "python-extension-module"
+        if target_rows[0]["target_id"] == "python-package"
+        else None
+    )
+    if receipt["target_artifact"]["kind"] != expected_artifact_kind:
+        raise ContractError("coverage receipt artifact kind differs from its target")
+    artifact_prefix = (
+        "target-artifact/"
+        if expected_artifact_kind == "rust-native-executable"
+        else "python-overlay/starlette_rs_py/"
+    )
+    if not receipt["target_artifact"]["path"].startswith(artifact_prefix):
+        raise ContractError("coverage receipt target artifact path differs from its artifact kind")
+    if (
+        receipt["collector"]["configuration"]["path"] != "coverage-config.json"
+        or receipt["collector"]["toolchain"]["path"] != "toolchain.json"
+        or receipt["collector"]["logs"]["build"]["path"] != "cargo-build.log"
+        or receipt["collector"]["logs"]["report"]["path"] != "cargo-report.log"
+        or receipt["collector"]["logs"]["show_env"]["path"]
+        != "cargo-llvm-cov-show-env.txt"
+        or receipt["outputs"]["lcov"]["path"] != "coverage.lcov"
+        or receipt["outputs"]["coverage_result"]["path"] != "coverage-result.json"
+        or any(
+            not profile["path"].startswith("raw-profraw/")
+            for profile in receipt["raw_profiles"]
+        )
+    ):
+        raise ContractError("coverage receipt artifact paths differ from the managed run layout")
+
+
+def _write_coverage_receipt(
+    root: Path,
+    run_dir: Path,
+    receipt: dict[str, Any],
+) -> Path:
+    _validate_coverage_receipt(root, run_dir, receipt)
+    receipt_path = run_dir / "coverage-receipt.json"
+    try:
+        _write_json_artifact(receipt_path, receipt)
+        saved = load_json(receipt_path)
+        if not isinstance(saved, dict):
+            raise ContractError("coverage receipt artifact must contain one JSON object")
+        _validate_coverage_receipt(root, run_dir, saved)
+    except (ContractError, OSError, KeyError, TypeError, ValueError):
+        receipt_path.unlink(missing_ok=True)
+        raise
+    return receipt_path
 
 
 def _run_process(
@@ -874,6 +1316,7 @@ def run_coverage(
         indexed_parity_inputs,
         plan["selectors"]["parity_case_ids"],
     )
+    source_identity_at_start = _target_source_identity(root)
     commands = _command_map(manifest)
     target = _target_bindings(manifest)[profile["target_id"]]
     oracle = manifest["oracles"][0]
@@ -907,6 +1350,21 @@ def run_coverage(
     plan_execution_status = "not_run"
     tests_passed = 0
     tests_failed = 0
+    selected_outcomes = {case["case_id"]: "not_run" for case in selected_cases}
+    target_artifact_path: Path | None = None
+    target_artifact_kind: str | None = None
+    oracle_command_for_receipt: dict[str, Any] | None = None
+    target_command_for_receipt: dict[str, Any] | None = None
+    oracle_environment_for_receipt: dict[str, str] | None = None
+    target_environment_for_receipt: dict[str, str] | None = None
+    toolchain_receipt: dict[str, Any] | None = None
+    coverage_environment: dict[str, str] | None = None
+    build_environment: dict[str, str] | None = None
+    build_argv: list[str] | None = None
+    report_argv: list[str] | None = None
+    report_environment: dict[str, str] | None = None
+    raw_profile_identities: list[dict[str, Any]] = []
+    coverage_configuration: dict[str, str] | None = None
     component_results = [
         {
             "component_id": component_id,
@@ -965,6 +1423,14 @@ def run_coverage(
                 )
             )
         else:
+            toolchain_receipt, toolchain_error = _capture_toolchain(
+                root, run_dir, cargo, build_env, cargo_version
+            )
+            if toolchain_error:
+                errors.append(
+                    _error("collector", "toolchain", "toolchain_receipt_failed", toolchain_error)
+                )
+        if not errors:
             coverage_env, show_env_error = _profile_coverage_environment(
                 cargo, root, target_dir, build_env
             )
@@ -995,6 +1461,7 @@ def run_coverage(
                 )
             else:
                 build_env = dict(coverage_env)
+                coverage_environment = dict(coverage_env)
                 build_env["CARGO_TARGET_DIR"] = str(target_dir)
                 build_env["LLVM_PROFILE_FILE"] = str(run_dir / "build-profraw" / "%p-%m.profraw")
                 Path(build_env["LLVM_PROFILE_FILE"]).parent.mkdir(parents=True, exist_ok=True)
@@ -1018,6 +1485,7 @@ def run_coverage(
                             "fault-contract,pyo3/extension-module",
                         ]
                     )
+                build_environment = dict(build_env)
                 process, build_error = _run_process(
                     build_argv, cwd=root, env=build_env, timeout=1800
                 )
@@ -1052,6 +1520,24 @@ def run_coverage(
                                     f"instrumented adapter is missing: {native_binary}",
                                 )
                             )
+                        else:
+                            try:
+                                target_artifact_dir = run_dir / "target-artifact"
+                                target_artifact_dir.mkdir(parents=True, exist_ok=True)
+                                preserved_binary = target_artifact_dir / native_binary.name
+                                shutil.copy2(native_binary, preserved_binary)
+                                native_binary = preserved_binary
+                                target_artifact_path = preserved_binary
+                                target_artifact_kind = "rust-native-executable"
+                            except OSError as exc:
+                                errors.append(
+                                    _error(
+                                        "collector",
+                                        target_profile,
+                                        "instrumented_adapter_preserve_failed",
+                                        str(exc),
+                                    )
+                                )
                     else:
                         try:
                             overlay_path = _install_instrumented_extension(
@@ -1061,6 +1547,13 @@ def run_coverage(
                                 prepared,
                                 profile["python_version"],
                             )
+                            extensions = sorted((overlay_path / "starlette_rs_py").glob("_core*"))
+                            if len(extensions) != 1:
+                                raise ContractError(
+                                    "instrumented Python overlay must contain one native extension"
+                                )
+                            target_artifact_path = extensions[0]
+                            target_artifact_kind = "python-extension-module"
                         except (ContractError, OSError) as exc:
                             errors.append(
                                 _error(
@@ -1186,6 +1679,10 @@ def run_coverage(
                             root,
                             target_environment_id,
                         )
+                        oracle_command_for_receipt = oracle_command
+                        target_command_for_receipt = target_command
+                        oracle_environment_for_receipt = dict(oracle_env)
+                        target_environment_for_receipt = dict(target_env)
                         operations = _operations(manifest)
                         observed_comparisons = 0
                         observed_not_run = 0
@@ -1253,6 +1750,7 @@ def run_coverage(
                                 ]
                                 if failed_assertions:
                                     tests_failed += 1
+                                    selected_outcomes[case_id] = "fail"
                                     errors.append(
                                         _error(
                                             "case_outcome",
@@ -1271,6 +1769,7 @@ def run_coverage(
                                     )
                                 else:
                                     tests_passed += 1
+                                    selected_outcomes[case_id] = "pass"
                                 observed_comparisons += 1
                                 continue
 
@@ -1332,8 +1831,10 @@ def run_coverage(
                             )
                             if outcome == "pass":
                                 tests_passed += 1
+                                selected_outcomes[case_id] = "pass"
                             elif outcome == "fail":
                                 tests_failed += 1
+                                selected_outcomes[case_id] = "fail"
                                 errors.append(
                                     _error(
                                         "case_outcome",
@@ -1359,6 +1860,17 @@ def run_coverage(
                             plan_execution_status = "completed"
 
                         report_path = run_dir / "coverage.lcov"
+                        try:
+                            raw_profile_identities = _preserve_raw_profiles(run_dir, target_dir)
+                        except OSError as exc:
+                            errors.append(
+                                _error(
+                                    "collector",
+                                    target_profile,
+                                    "raw_profile_preserve_failed",
+                                    str(exc),
+                                )
+                            )
                         report_env = dict(coverage_env)
                         report_argv = [
                             cargo,
@@ -1368,9 +1880,13 @@ def run_coverage(
                             "--output-path",
                             str(report_path),
                         ]
-                        process, report_error = _run_process(
-                            report_argv, cwd=root, env=report_env, timeout=900
-                        )
+                        report_environment = dict(report_env)
+                        try:
+                            process, report_error = _run_process(
+                                report_argv, cwd=root, env=report_env, timeout=900
+                            )
+                        except OSError as exc:
+                            process, report_error = None, str(exc)
                         (run_dir / "cargo-report.log").write_text(
                             (process.stdout if process else "")
                             + (
@@ -1421,6 +1937,92 @@ def run_coverage(
                                     )
                                 )
                                 plan_execution_status = "not_run"
+
+    try:
+        source_identity_at_finish = _target_source_identity(root)
+    except ContractError as exc:
+        source_identity_at_finish = None
+        errors.append(
+            _error("collector", "target-source", "source_identity_failed", str(exc))
+        )
+    if source_identity_at_start["dirty"]:
+        errors.append(
+            _error(
+                "collector",
+                "target-source",
+                "dirty_target_source",
+                "coverage receipts require a clean target source checkout",
+            )
+        )
+    if source_identity_at_finish is not None and source_identity_at_finish != source_identity_at_start:
+        errors.append(
+            _error(
+                "collector",
+                "target-source",
+                "target_source_changed",
+                "target source identity changed during coverage collection",
+            )
+        )
+    if target_identity_record is not None and target_identity_record["dirty"]:
+        errors.append(
+            _error(
+                "collector",
+                "target-source",
+                "dirty_target_artifact",
+                "coverage receipts require a target artifact built from clean source",
+            )
+        )
+
+    if (
+        build_argv is not None
+        and report_argv is not None
+        and build_environment is not None
+        and coverage_environment is not None
+        and oracle_command_for_receipt is not None
+        and target_command_for_receipt is not None
+        and oracle_environment_for_receipt is not None
+        and target_environment_for_receipt is not None
+        and report_environment is not None
+    ):
+        try:
+            coverage_configuration = _write_coverage_configuration(
+                root,
+                run_dir,
+                profile_id=profile["id"],
+                target_id=target["id"],
+                plan_id=plan["plan_id"],
+                selected_case_ids=plan["selectors"]["parity_case_ids"],
+                build_argv=build_argv,
+                report_argv=report_argv,
+                oracle_command=oracle_command_for_receipt,
+                target_command=target_command_for_receipt,
+                build_env=build_environment,
+                coverage_env=coverage_environment,
+                oracle_env=oracle_environment_for_receipt,
+                target_env=target_environment_for_receipt,
+                report_env=report_environment,
+                typechecker_configured=any(
+                    "typing_contract" in case for case in selected_cases
+                ),
+            )
+        except (ContractError, OSError, KeyError) as exc:
+            errors.append(
+                _error("collector", "coverage-config", "configuration_receipt_failed", str(exc))
+            )
+
+    if (
+        plan_execution_status == "completed"
+        and tests_failed == 0
+        and not raw_profile_identities
+    ):
+        errors.append(
+            _error(
+                "collector",
+                "cargo-llvm-cov",
+                "raw_profiles_missing",
+                "successful coverage execution produced no preserved raw profile files",
+            )
+        )
 
     finished_at = _now()
     target_rows = []
@@ -1519,10 +2121,103 @@ def run_coverage(
         profile=profile,
     )
     artifact_path = run_dir / "coverage-result.json"
-    artifact_path.write_text(
-        json.dumps(result, indent=2, sort_keys=True, allow_nan=False) + "\n",
-        encoding="utf-8",
+    _write_json_artifact(artifact_path, result)
+    receipt_path: Path | None = None
+    selected_outcome_rows = [
+        {"case_id": case["case_id"], "outcome": selected_outcomes[case["case_id"]]}
+        for case in selected_cases
+    ]
+    receipt_ready = (
+        result["status"] == "not_ingested"
+        and not result["infrastructure_errors"]
+        and plan_execution_status == "completed"
+        and tests_passed == len(selected_cases)
+        and tests_failed == 0
+        and all(item["outcome"] == "pass" for item in selected_outcome_rows)
+        and source_identity_at_finish == source_identity_at_start
+        and not source_identity_at_start["dirty"]
+        and target_identity_record is not None
+        and target_identity_record["dirty"] is False
+        and target_identity_record["revision"].startswith(source_identity_at_start["revision"])
+        and target_artifact_path is not None
+        and target_artifact_kind is not None
+        and toolchain_receipt is not None
+        and coverage_configuration is not None
+        and len(raw_profile_identities) > 0
+        and (run_dir / "coverage.lcov").is_file()
+        and (run_dir / "cargo-build.log").is_file()
+        and (run_dir / "cargo-report.log").is_file()
+        and (run_dir / "cargo-llvm-cov-show-env.txt").is_file()
     )
+    if receipt_ready:
+        try:
+            dependency_locks = _dependency_lock_identities(
+                root, prepared, oracle_environment_id, target_environment_id
+            )
+            configuration_path = _run_file_path(run_dir, coverage_configuration["path"])
+            toolchain_path = _run_file_path(run_dir, toolchain_receipt["path"])
+            receipt = {
+                "schema": COVERAGE_RECEIPT_SCHEMA,
+                "profile_id": profile["id"],
+                "target": {
+                    "revision": source_identity_at_start["revision"],
+                    "dirty": source_identity_at_start["dirty"],
+                },
+                "source": {"tree_sha256": source_identity_at_start["working_tree_sha256"]},
+                "manifest": manifest_identity,
+                "inputs": input_identities,
+                "assets": asset_identities,
+                "dependency_locks": dependency_locks,
+                "target_artifact": {
+                    "kind": target_artifact_kind,
+                    **_run_file_identity(target_artifact_path, run_dir),
+                },
+                "collector": {
+                    "name": "cargo-llvm-cov",
+                    "version": collector_version,
+                    "configuration": {
+                        "path": _relative_path(configuration_path, run_dir),
+                        "sha256": sha256_file(configuration_path),
+                    },
+                    "logs": {
+                        "build": _run_file_identity(run_dir / "cargo-build.log", run_dir),
+                        "report": _run_file_identity(run_dir / "cargo-report.log", run_dir),
+                        "show_env": _run_file_identity(
+                            run_dir / "cargo-llvm-cov-show-env.txt", run_dir
+                        ),
+                    },
+                    "toolchain": {
+                        "path": _relative_path(toolchain_path, run_dir),
+                        **{key: value for key, value in toolchain_receipt.items() if key != "path"},
+                    },
+                },
+                "raw_profiles": raw_profile_identities,
+                "outputs": {
+                    "lcov": _run_file_identity(run_dir / "coverage.lcov", run_dir),
+                    "coverage_result": _run_file_identity(artifact_path, run_dir),
+                },
+                "selected_outcomes": selected_outcome_rows,
+            }
+            receipt_path = _write_coverage_receipt(root, run_dir, receipt)
+        except (ContractError, OSError, KeyError, TypeError, ValueError) as exc:
+            errors.append(
+                _error("collector", "coverage-receipt", "receipt_validation_failed", str(exc))
+            )
+            result["status"] = "infrastructure_failed"
+            result["infrastructure_errors"] = errors
+            _validate_coverage_result(
+                root,
+                result,
+                manifest_identity=manifest_identity,
+                input_identities=input_identities,
+                asset_identities=asset_identities,
+                command=coverage_command,
+                plan=plan,
+                manifest=manifest,
+                profile=profile,
+            )
+            _write_json_artifact(artifact_path, result)
+
     # The artifact remains schema-exact; this path is return-only CLI metadata.
     result["artifact_path"] = _relative_path(artifact_path, root)
     result["run_directory"] = _relative_path(run_dir, root)
@@ -1530,6 +2225,9 @@ def run_coverage(
         _relative_path(run_dir / "coverage.lcov", root)
         if (run_dir / "coverage.lcov").is_file()
         else None
+    )
+    result["coverage_receipt_path"] = (
+        _relative_path(receipt_path, root) if receipt_path is not None else None
     )
     result["_identity_sha256"] = _canonical_sha256(result["identity"])
     return result

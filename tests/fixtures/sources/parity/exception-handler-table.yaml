@@ -1,0 +1,177 @@
+{
+  "schema": "migration-parity/parity-input@68",
+  "cases": [
+    {
+      "case_id": "starlette-rs.ExceptionHandlerTable.select.status-priority-and-status-overwrite",
+      "surface": "starlette-rs.ExceptionHandlerTable",
+      "operation": "select",
+      "covers": [
+        "starlette-rs.ExceptionHandlerTable.select.status-handler-priority",
+        "starlette-rs.ExceptionHandlerTable.select.status-registration-overwrite"
+      ],
+      "target_profiles": [
+        "rust-native-local"
+      ],
+      "assets": [],
+      "input": {
+        "registrations": [
+          {
+            "kind": "exception",
+            "class_key": "ResourceNotFound"
+          },
+          {
+            "kind": "status",
+            "status_code": "404"
+          },
+          {
+            "kind": "status",
+            "status_code": "404"
+          }
+        ],
+        "exception": {
+          "mro": [
+            "ResourceNotFound",
+            "HTTPException"
+          ],
+          "status_code": "404"
+        }
+      },
+      "observations": [
+        "workflow"
+      ]
+    },
+    {
+      "case_id": "starlette-rs.ExceptionHandlerTable.select.exception-class-mro-order",
+      "surface": "starlette-rs.ExceptionHandlerTable",
+      "operation": "select",
+      "covers": [
+        "starlette-rs.ExceptionHandlerTable.select.exception-class-mro-order"
+      ],
+      "target_profiles": [
+        "rust-native-local"
+      ],
+      "assets": [],
+      "input": {
+        "registrations": [
+          {
+            "kind": "exception",
+            "class_key": "DomainError"
+          },
+          {
+            "kind": "exception",
+            "class_key": "ResourceNotFound"
+          }
+        ],
+        "exception": {
+          "mro": [
+            "ResourceNotFound",
+            "DomainError",
+            "Exception"
+          ],
+          "status_code": null
+        }
+      },
+      "observations": [
+        "workflow"
+      ]
+    },
+    {
+      "case_id": "starlette-rs.ExceptionHandlerTable.select.status-miss-class-fallback",
+      "surface": "starlette-rs.ExceptionHandlerTable",
+      "operation": "select",
+      "covers": [
+        "starlette-rs.ExceptionHandlerTable.select.status-miss-class-fallback"
+      ],
+      "target_profiles": [
+        "rust-native-local"
+      ],
+      "assets": [],
+      "input": {
+        "registrations": [
+          {
+            "kind": "status",
+            "status_code": "404"
+          },
+          {
+            "kind": "exception",
+            "class_key": "HTTPException"
+          }
+        ],
+        "exception": {
+          "mro": [
+            "UpstreamFailure",
+            "HTTPException"
+          ],
+          "status_code": "451"
+        }
+      },
+      "observations": [
+        "workflow"
+      ]
+    },
+    {
+      "case_id": "starlette-rs.ExceptionHandlerTable.select.unmatched-class-registration",
+      "surface": "starlette-rs.ExceptionHandlerTable",
+      "operation": "select",
+      "covers": [
+        "starlette-rs.ExceptionHandlerTable.select.unmatched-registration-no-match"
+      ],
+      "target_profiles": [
+        "rust-native-local"
+      ],
+      "assets": [],
+      "input": {
+        "registrations": [
+          {
+            "kind": "exception",
+            "class_key": "UnrelatedFailure"
+          }
+        ],
+        "exception": {
+          "mro": [
+            "ApplicationFailure",
+            "Exception"
+          ],
+          "status_code": null
+        }
+      },
+      "observations": [
+        "workflow"
+      ]
+    },
+    {
+      "case_id": "starlette-rs.ExceptionHandlerTable.select.class-registration-overwrite",
+      "surface": "starlette-rs.ExceptionHandlerTable",
+      "operation": "select",
+      "covers": [
+        "starlette-rs.ExceptionHandlerTable.select.class-registration-overwrite"
+      ],
+      "target_profiles": [
+        "rust-native-local"
+      ],
+      "assets": [],
+      "input": {
+        "registrations": [
+          {
+            "kind": "exception",
+            "class_key": "ServiceFailure"
+          },
+          {
+            "kind": "exception",
+            "class_key": "ServiceFailure"
+          }
+        ],
+        "exception": {
+          "mro": [
+            "ServiceFailure",
+            "Exception"
+          ],
+          "status_code": null
+        }
+      },
+      "observations": [
+        "workflow"
+      ]
+    }
+  ]
+}
