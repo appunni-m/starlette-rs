@@ -8,48 +8,109 @@ package upload, tag, GitHub Release, or change to registry credentials.
 ## Latest preparation status (2026-10-18)
 
 Release preparation is active under Kata parent `n5d2` and its Cargo (`z74v`),
-PyPI (`2pan`), and documentation (`c4cy`) children. The source worktree is
-dirty at `main@3f0a864035cda33c751f2d9bf9f482ac32526e56` with implementation
-and input-only parity changes at the time of this snapshot. This is not a
-release candidate. The project gate remains implementation, full parity,
-coverage, then benchmark; no release artifact should be built from this
-intermediate state.
+PyPI (`2pan`), and documentation (`c4cy`) children. The last pushed
+implementation and input checkpoint is
+`main@c368e740b4976cbdda66c81433f56f399430cdfa`. Grouped corrections for its
+failed parity run are in the current local tree; they are not yet covered by a
+new full parity run. Neither checkpoint is a release candidate: the full
+project gate remains implementation, full parity, coverage, then benchmark.
 
-The current contract is `migration-parity/manifest@6`, parity inputs `@68`,
+The active contract is `migration-parity/manifest@6`, parity inputs `@68`,
 with manifest SHA-256
 `ce7494a2cd99e2fbea7c98da3d60667460df3cc9674bcbadba54746c6b6aff2a`:
-2,713 cases across 457 parity inputs and 1,479 requirements. The prior full
-Actions run `39126044018` has now failed all five CPython profiles on the older
-`e9d4e7de` runtime commit; both coverage jobs were skipped. It does not test
-the current changes and does not establish parity.
+2,713 cases across 457 parity inputs and 1,479 requirements. Full verification
+workflow `39130750285` ran all five CPython 3.10–3.14 source-to-target
+profiles on this exact commit. CPython 3.10, 3.11, 3.13, and 3.14 each
+completed with 3,113/3,116 comparisons passed, three comparison failures, two
+oracle-side adapter errors, four comparisons not run, and all three fault
+contracts passed. CPython 3.12 completed with 3,114/3,117 comparisons passed,
+the same three comparison failures, two oracle-side adapter errors, four
+comparisons not run, and all five fault contracts passed. Artifacts are 3.10 ID
+`12137569403` (SHA-256
+`5a1040572fb8a446d6ff11362285a08c81ca16a82efaed6483b06d935c922355`), 3.11
+ID `12138481785` (SHA-256
+`2487fca4aab485e2baa96c05acbe8a704641ddc5c06ce54ed086a297b1e885a9`), 3.12
+ID `12138981672` (SHA-256
+`e2a07113887feb8084cc19053300f803b9f553c6e5168cf458cb9569a647b5de`), and
+3.13 ID `12138451688` (SHA-256
+`afde69b60912c18e64f3ea1103087f8004ad95aaad3d21c66df7f0c144f3c827`). The
+3.14 artifact is ID `12138941262` (SHA-256
+`efcefda6b2b769af1d5c9401af18d2480056a971e99fb7bf7d7051acbac147f8`). The
+shared comparison failures are the Rust-native FileResponse pre-epoch ETag
+mismatch and two QueryParams cases where both sides return the same
+`ValueError` but the comparator expects a success snapshot. The year-range
+FileResponse cases also escape the oracle adapter as `ValueError`. In the
+CPython 3.14 malformed-pair-too-long case, the pinned source reports
+`too many values to unpack (expected 2, got 3)` while the target omits `got 3`;
+this is an additional runtime mismatch. All five profiles failed, so coverage
+was skipped. Current-source coverage and the final 74-workload benchmark have
+not run.
 
-On the current worktree, `make docs-check` passed the repository link check
-for 43 Markdown files. Its benchmark-freshness check skipped the ignored
-result for the older manifest. `make rustdoc-check` passed with warnings
-denied. `make lint`, including Rust API boundary, Python formatting/lint,
-project policy, and workflow checks, passed. `cargo metadata --locked
---no-deps --format-version 1` confirms
-`starlette-rs` is the only publishable workspace package. The extension crate
-and example packages are marked `publish = false`. These are preparation
-checks, not release-candidate evidence.
+The grouped local correction reuses Python-style float formatting for native
+FileResponse metadata, matches CPython 3.14's expanded tuple-unpack error text,
+compares error partial values exactly without requiring success-only selector
+fields, and captures FileResponse dispatch errors in the oracle observation.
+These changes still require the full five-profile parity rerun.
 
-The release audit reports a dirty-worktree error, no release workflow, and no
-workspace changelog. Its two `missing_readme` findings are path-resolution
-false positives: prior `cargo package --list` output included the README for
-both declared package paths. The documentation inventory also scans ignored
-`.venv-router` license metadata and reports its repository-relative links as
-missing files; those are not checked-in docs. Remaining documentation work
-includes a security-reporting route, a compatibility-inventory TODO, and
-evidence/scope review for the `guaranteed` claim in `docs/native-service.md`.
+Static checks on the current local repair tree pass: `make lint`,
+`cargo +1.85.0 check --workspace --all-targets --all-features --locked`, and
+`make contract-check PARITY_PYTHON=python3.12` (2,713 cases and 457 indexed
+parity inputs). `make docs-check` validates the release-document edits below.
+Warnings-denied rustdoc passed on the preceding pushed checkpoint.
+Warnings-denied core rustdoc also passes on the declared Rust 1.85.0 MSRV via
+`RUSTDOCFLAGS="-D warnings" cargo +1.85.0 doc --locked -p starlette-rs
+--no-deps`. These checks do not establish parity or release readiness.
 
-Registry ownership and version availability are still unverified. The
-previous crates.io request was unavailable and a PyPI 404 does not reserve a
-name. No `.crate`, sdist, or wheel was built from the current source; no
-package was uploaded, tag or GitHub Release created, or documentation site
-deployed. Recheck registry status immediately before any separately authorized
-publication.
+The core `starlette-rs` crate packages and verifies on both Rust 1.96.1 and
+1.85.0. Each archive has 40 files and is 230.5 KiB compressed. The 1.96.1
+archive SHA-256 is
+`5447c92766236281d87370174774b4d1feb1c282894708faf7f866141c9bb349`; the
+1.85.0 archive SHA-256 is
+`4c03bb4ae1b1272fa62b828392735b65c94f6aefbdc8930546ebb6ee18471dbb`. Both
+include the README, BSD license and third-party notices; both include the
+internal `starlette-rs-parity-adapter` binary and omit the top-level `docs/`
+tree. Decide whether that internal binary belongs in the published core crate
+before freezing a candidate. These are local package checks, not a published
+or consumer-verified artifact.
 
-## Current evidence snapshot
+Using the isolated build environment and Maturin 1.14.1 pinned by
+`pyproject.toml`, `uv build --python python3.12` produced an sdist and a
+CPython 3.12/macOS arm64 wheel built from that sdist. The 665,070-byte sdist
+has SHA-256
+`a94ec397ab723b19243d7e583ce3ae8aaa518d4546562fee2909492def27eb6a`; the
+2,150,048-byte wheel has SHA-256
+`9835c76af606464fb86ff5ee37afc5cdc4df824dde69487678f2f324f8e437d7`. Both
+contain the facades, `py.typed`, native extension, license/notice files and
+SBOM. Installing the wheel in a fresh CPython 3.12 environment outside the
+checkout, with separately installed Uvicorn 0.54.0, served the documented
+response (`HTTP 200`, `Hello from Starlette-RS`). This verifies one local
+macOS wheel only; the full interpreter/platform matrix and registry consumer
+install remain open.
+
+Fresh registry lookups on 2026-10-18 found no `starlette-rs` result in
+`cargo search`, no `starlette-rs@0.1.0` in the current crates.io index, and an
+HTTP 404 from PyPI's project JSON endpoint for `starlette-rs-py`. Recheck both
+registries immediately before any authorized first upload; these observations
+do not reserve either name. The release audit also finds no publishing
+workflow or workspace changelog. The audit's `missing_readme` finding is a
+path-resolution false positive: the verified Cargo archives include the
+declared root README.
+
+No package was uploaded, tag or GitHub Release created, production registry
+credential changed, or documentation site deployed. The repository still has
+no configured static documentation site; repository Markdown and generated
+Rust API docs are the current documentation surfaces.
+
+The compatibility inventory now distinguishes the pinned plural GZip export
+from an upstream proposed rename. The native-service documentation scopes its
+pull and drop guarantee to the `NativeApplication` and body-polling boundary.
+Root `SECURITY.md` asks reporters to use GitHub private reporting when the
+repository offers it, and otherwise request a private contact without
+technical details. Whether private reporting is enabled in repository
+settings has not been verified or changed. A release-note/changelog policy
+remains open.
+
+## Historical evidence snapshot (through e9d4e7de)
 
 Recorded on 2026-10-18 against clean, pushed
 `main@e9d4e7de3caebd076526ada77dbc494dd321e57b`.
@@ -141,8 +202,9 @@ readiness evidence, not a release candidate.
   after the full parity and coverage phases.
 - The worktree was clean at the recorded checkpoint, but release candidates
   are not built and implementation, parity, coverage, and benchmark gates are
-  not all complete. Workflow `39126044018` remains in progress at the latest
-  status read; wait for its terminal result before reporting phase advancement.
+  not all complete. Workflow `39126044018` later completed with all five
+  parity profiles failing; it is historical evidence and does not satisfy the
+  current phase.
 - The README has a Python installation and first-app path. Its documented
   `python -m pip install . uvicorn` command and app were exercised in the local
   CPython 3.12 environment described above, before `e9d4e7de`. Documentation
@@ -154,7 +216,9 @@ readiness evidence, not a release candidate.
 The evidence above is a dated snapshot. Recheck every item against the exact
 clean candidate commit before release.
 
-## Fresh release check (2026-10-18)
+## Historical release check before c368e740 (2026-10-18)
+
+This checkpoint is superseded by the latest preparation status above.
 
 The release-preparation worktree currently contains uncommitted parity
 implementation changes, so it is not a release candidate. The release audit
@@ -194,9 +258,9 @@ checks do not replace the candidate release gates.
 
 | Surface | Version and destination | Current state |
 | --- | --- | --- |
-| Rust core crate `starlette-rs` | Cargo workspace version; intended registry is crates.io | Planned public Cargo artifact at `0.1.0`; current registry state is unknown. Review whether the internal parity-adapter binary belongs in its archive. |
+| Rust core crate `starlette-rs` | Cargo workspace version; intended registry is crates.io | `0.1.0` package archives verify on Rust 1.85.0 and 1.96.1 (40 files; 230.5 KiB compressed). Both include the internal parity adapter and omit top-level docs. Exact `0.1.0` was absent from the current crates.io index; recheck before upload. No publication. |
 | PyO3 extension crate `starlette-rs-py` | Cargo workspace version; required to build the Python package | PyPI build component, not a standalone Cargo release. Its manifest sets `publish = false`, confirmed by current Cargo metadata. The crate depends on the local `starlette-rs` path crate. |
-| Python distribution `starlette-rs-py` | Maturin reads the Cargo package version; destination is PyPI | `0.1.0` declared. One earlier local CPython 3.12 macOS arm64 wheel was built and smoke-checked from source; sdist and other wheel targets remain unverified. The current JSON endpoint returned 404; this does not establish name availability. Trusted Publisher setup is unverified. Runtime dependencies declared in `pyproject.toml` are AnyIO and typing-extensions. |
+| Python distribution `starlette-rs-py` | Maturin reads the Cargo package version; destination is PyPI | `0.1.0` declared. Current sdist and one CPython 3.12/macOS arm64 wheel were built; the wheel was installed in a fresh environment and served the README app through separate Uvicorn. Other Python/platform wheel targets, Trusted Publisher setup, and registry consumer install remain unverified. PyPI JSON returned 404 at the latest check; recheck before upload. Runtime dependencies declared in `pyproject.toml` are AnyIO and typing-extensions. |
 | Documentation | Repository Markdown and Rust API docs | Markdown is currently hosted in the Git repository. There is no configured static documentation site. A hosted API-docs route and any separate website must be checked and chosen before promising them to users. |
 
 The planned release scope is the Rust-native `starlette-rs` crate on crates.io
@@ -272,8 +336,10 @@ credentials out of source, logs, build artifacts, and Kata.
 
 Before a first PyPI upload, revalidate the README installation and
 first-application path against clean release artifacts and all supported
-Python versions. Current evidence covers only one local CPython 3.12
-checkout-built wheel and is not a registry consumer check.
+Python versions. Current evidence covers one locally built sdist and one
+CPython 3.12/macOS arm64 wheel built from it, followed by a fresh local wheel
+install and ASGI smoke check. It is not a complete wheel matrix or registry
+consumer check.
 
 No Cargo/PyPI upload, release tag, GitHub Release, production registry
 credential change, or documentation deployment has been performed as part of

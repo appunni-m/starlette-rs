@@ -1309,8 +1309,18 @@ def compare_workflows(
                         "public error fields require exact equality",
                     )
                 )
-            left_value = left["partial_value"]
-            right_value = right["partial_value"]
+            if left["partial_value"] != right["partial_value"]:
+                differences.append(
+                    _diff(
+                        step_id,
+                        "partial_value",
+                        "public_partial_value_mismatch",
+                        left["partial_value"],
+                        right["partial_value"],
+                        "partial public values attached to an error require exact equality",
+                    )
+                )
+            continue
         elif left["status"] == "ok":
             left_value = left["value"]
             right_value = right["value"]

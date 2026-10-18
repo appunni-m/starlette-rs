@@ -8,6 +8,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use md5::{Digest, Md5};
 
+use crate::python_float::python_float_string;
 use crate::response::{
     CookieOptions, Response, ResponseError, append_response_header, delete_response_header,
     get_response_header, get_response_header_values, set_response_header,
@@ -1708,12 +1709,7 @@ fn unix_seconds(time: SystemTime) -> f64 {
 }
 
 fn python_float_text(value: f64) -> String {
-    let text = value.to_string();
-    if text.contains('.') || text.contains('e') || text.contains('E') {
-        text
-    } else {
-        format!("{text}.0")
-    }
+    python_float_string(value)
 }
 
 fn system_time_from_seconds(seconds: f64) -> Option<SystemTime> {

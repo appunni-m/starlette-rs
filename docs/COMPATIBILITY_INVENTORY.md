@@ -1128,9 +1128,10 @@ and do not establish parity for every deprecation path.
   this convenience helper is not part of the documented compatibility API.
 - Jinja2 has no declared minimum version although templating selects between
   context decorator names; see `optional.jinja2-version-compatibility`.
-- The GZip module has a TODO for a future `DEFAULT_EXCLUDED_CONTENT_TYPE`
-  rename while the pinned export is plural; see
-  `middleware.alias.gzip-exclusion-constant`.
+- The pinned GZip source has a comment proposing a future singular name, but
+  Starlette 1.6.0 exports and uses the plural
+  `DEFAULT_EXCLUDED_CONTENT_TYPES`. The compatibility facade preserves that
+  pinned public name; see `middleware.alias.gzip-exclusion-constant`.
 - `GZipResponder` is upstream-internal machinery with a direct upstream test
   import. The compatibility package now forwards construction and ASGI calls
   through Rust, with exact input coverage for exclusion normalization and

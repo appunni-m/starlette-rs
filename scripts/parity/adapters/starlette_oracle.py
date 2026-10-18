@@ -11569,8 +11569,6 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
 
                 asyncio.run(invoke_response())
             except Exception as exc:
-                if file_kind == "regular" and send_error_spec is None:
-                    raise
                 captured_dispatch_error = _dispatch_error(exc)
         else:
             start_marker_path = Path(directory) / "response-started"

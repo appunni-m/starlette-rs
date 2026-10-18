@@ -132,9 +132,10 @@ Starlette middleware catalog, server protocol negotiation, or a
 cross-repository FastAPI composition. Separate transport-neutral Rust APIs
 provide [WebSocket sessions](native-websocket.md) and
 [lifespan hooks](native-lifespan.md); they remain distinct from Starlette's
-Python and ASGI surfaces. The pulling and drop behavior above is guaranteed by
-this service boundary; an end-to-end transport's buffering and disconnect
-behavior still depends on its server adapter.
+Python and ASGI surfaces. At the `NativeApplication` and body-polling
+boundaries, the API guarantees the pull and drop behavior described above.
+An end-to-end transport may buffer data or handle disconnects according to
+its server adapter.
 
 ## Executable example
 

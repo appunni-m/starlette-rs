@@ -33,6 +33,7 @@ mod named_router;
 mod native_lifespan;
 mod native_service;
 mod native_websocket;
+mod python_float;
 mod request;
 mod response;
 mod route_table;
