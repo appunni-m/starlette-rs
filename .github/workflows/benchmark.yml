@@ -1,15 +1,20 @@
 name: Pinned Starlette source/package benchmark
 
 on:
-  workflow_dispatch:
-  schedule:
-    - cron: "17 3 * * 1"
+  workflow_run:
+    workflows:
+      - Full Starlette parity and coverage verification
+    types:
+      - completed
+    branches:
+      - main
 
 permissions:
+  actions: read
   contents: read
 
 concurrency:
-  group: upstream-benchmark-${{ github.ref }}
+  group: upstream-benchmark-${{ github.event.workflow_run.head_sha }}
   cancel-in-progress: false
 
 env:
@@ -24,6 +29,9 @@ env:
 jobs:
   benchmark:
     name: 74-workload Router/GZip benchmark
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'main'
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     defaults:
@@ -33,7 +41,19 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           path: target
+          ref: ${{ github.event.workflow_run.head_sha }}
           persist-credentials: false
+
+      - name: Download the six coverage profiles from the prerequisite run
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: starlette-coverage-*-${{ github.event.workflow_run.id }}
+          path: target/build/parity/coverage/profiles
+          github-token: ${{ github.token }}
+          run-id: ${{ github.event.workflow_run.id }}
+
+      - name: Revalidate the prerequisite six-profile coverage union
+        run: make coverage-union PARITY_PYTHON=python
 
       - name: Check out the pinned Starlette oracle
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
