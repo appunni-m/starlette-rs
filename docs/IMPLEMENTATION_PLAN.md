@@ -33,45 +33,30 @@ manifest and atlas. The inventory includes the input-only FileResponse HEAD
 multipart case for Content-Length values beyond u64. These checks validate the
 implementation structure and contract, not runtime parity.
 
-Workflow `39147316493` (#12) completed all five CPython profiles on baseline
-source `8fd6ec4a97f068c79114425b6e0cf4ee1158d825`, before the arithmetic
-hardening and new manifest input. CPython 3.10, 3.11, 3.13, and 3.14 each
-passed 3,143/3,143 comparisons and 4/4 fault contracts; CPython 3.12 passed
-3,144/3,144 and 6/6. The baseline total is 15,716/15,716 comparisons and
-22/22 fault contracts, with zero failures, `not_run` rows, or infrastructure
-errors. Artifacts: `12143649402` (3.10), `12144547735` (3.11), `12144691803`
-(3.12), `12144313030` (3.13), and `12144464667` (3.14). Its six old-source
-coverage jobs had started but none completed; run #12 was canceled before
-those baseline measurements could be mistaken for current-source evidence.
-Full parity workflow
-[`39150888285`](https://github.com/appunni-m/starlette-rs/actions/runs/39150888285)
-(#13) completed on post-hardening candidate
-`8c43888f92b0f8088996e3fa5a54dd1b48ca83ca`. All five CPython 3.10–3.14
-profiles report the same 83 failing case IDs. Profiles 3.10, 3.11, 3.13, and
-3.14 each passed 3,062/3,145 comparisons and 4/4 fault contracts; profile
-3.12 passed 3,063/3,146 and 6/6. All selected fault contracts passed, with
-zero infrastructure errors and zero `not_run` comparisons. The first
-divergence is the FileResponse `Last-Modified` header: timestamp 1700000000
-formats with day 8414 instead of 14 because the day-of-month calculation used
-`day_of_era` instead of `day_of_year`. The six-profile coverage stage was
-skipped because parity failed.
-
-The Rust date formatter was corrected in commit
-`cedbf0c69012edac5fbe898e4e01af2e4b0dc9ad`. Fresh full parity workflow
+The date formatter repair in `cedbf0c69012edac5fbe898e4e01af2e4b0dc9ad` has
+now passed the fresh full parity workflow
 [`39154601847`](https://github.com/appunni-m/starlette-rs/actions/runs/39154601847)
-(#14) is running on that exact candidate with all five CPython profiles in the
-source-to-target comparison step. Do not count its coverage stage unless all
-five parity profiles pass.
+(#14). Its five clean CPython 3.10–3.14 artifacts identify the pinned
+Starlette 1.6.0 source and the exact candidate commit. Together they report
+15,726/15,726 comparisons and 22/22 fault contracts, with zero failures,
+`not_run` comparisons, fault failures, or infrastructure errors. The profile
+artifacts are `12147143180` (3.10), `12147765132` (3.11), `12147131724`
+(3.12), `12147083823` (3.13), and `12147601300` (3.14). This closes full
+source-to-package parity for the active contract.
 
-The current-source coverage union remains unverified. After the fresh five-
-profile parity matrix passes, run the six-profile Rust/PyO3 coverage phase and
-reconcile it against the source atlas. Run all 74 correctness-gated Starlette
-source/package benchmark workloads on that same reviewed revision afterward.
-Historical parity, coverage, and benchmark results below do not establish the
-current revision's behavior or coverage.
+The six-profile current-source coverage phase in workflow #14 has started on
+the same candidate: Rust-native plus Python-package CPython 3.10–3.14. The
+latest job snapshot has these measurements in progress; no six-profile union
+receipt has been reconciled, so 100% eligible Rust/PyO3 line coverage is not
+yet proven. Keep the complete 74-workload benchmark behind that coverage gate.
+Historical parity, coverage, and benchmark results below do not establish
+current-source coverage or performance.
 
-The release-preparation checklist is tracked separately under Kata `n5d2` and
-remains non-publishing. No Cargo or PyPI package, tag, GitHub Release, or
+Release preparation is active under Kata `n5d2`, with Cargo (`z74v`), PyPI
+(`2pan`), and documentation (`c4cy`) children. It is non-publishing and may
+advance alongside coverage for metadata, archive-scope, and documentation
+readiness. Final release-candidate artifacts remain gated on the 100% coverage
+union and full benchmark. No Cargo or PyPI package, tag, GitHub Release, or
 documentation site has been published. Generated parity JSON remains under
 ignored `build/parity/inputs/`.
 

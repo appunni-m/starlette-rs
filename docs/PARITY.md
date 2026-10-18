@@ -2,13 +2,28 @@
 
 ## Current verification status
 
-The active full-scope parity-input@68 manifest contains 2,713 unique cases
-across 457 parity inputs, 1,479 requirements, and SHA-256
-`ce7494a2cd99e2fbea7c98da3d60667460df3cc9674bcbadba54746c6b6aff2a`. Input
-migration, generation, contract validation, and source inventory pass. Profile
-selectors contain 2,686 cases on CPython 3.10, 3.11, 3.13, and 3.14, 2,689 on
-3.12, and 437 Rust-native. The complete parity matrix has not run for the
-current working source; the matrix below records historical executions.
+The active `migration-parity/manifest@6` contains 2,729 unique cases across
+461 parity inputs, two benchmark inputs, and 1,485 requirements. Its SHA-256
+is `6e60640f9f8a7919ea500398aaace0942f5edf707fb92e6659307eb0dd561984`.
+Full verification workflow
+[`39154601847`](https://github.com/appunni-m/starlette-rs/actions/runs/39154601847)
+passed on runtime candidate `cedbf0c69012edac5fbe898e4e01af2e4b0dc9ad`:
+CPython 3.10, 3.11, 3.13, and 3.14 each passed 3,145/3,145 comparisons and
+4/4 fault contracts; CPython 3.12 passed 3,146/3,146 and 6/6. The five
+artifacts total 15,726/15,726 comparisons and 22/22 fault contracts, with zero
+failures, `not_run` rows, or infrastructure errors. Artifact IDs are
+`12147143180` (3.10), `12147765132` (3.11), `12147131724` (3.12),
+`12147083823` (3.13), and `12147601300` (3.14). This proves the active
+input-driven source/package comparison matrix; it does not close the separate
+coverage and benchmark phases or qualify a release.
+
+The six-profile current-source Rust/PyO3 coverage phase in workflow #14 is in
+progress. The 100% eligible source-line union is not yet verified. Run the
+complete 74-workload benchmark only after that coverage gate passes. Older
+matrices and benchmark receipts below are historical and do not replace this
+current run.
+
+### Historical matrix before the active @6 contract
 
 The post-fix five-profile matrix ran against clean package target revision
 e48552230b8b8e0f9504c8930931c9a297b34145. All executed comparisons and all

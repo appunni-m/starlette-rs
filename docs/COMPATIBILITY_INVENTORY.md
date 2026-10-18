@@ -2,18 +2,22 @@
 
 ## Current verification status
 
-The active full-scope manifest is parity-input@68, SHA-256
-`ce7494a2cd99e2fbea7c98da3d60667460df3cc9674bcbadba54746c6b6aff2a`, against
+The active contract is `migration-parity/manifest@6`, SHA-256
+`6e60640f9f8a7919ea500398aaace0942f5edf707fb92e6659307eb0dd561984`, against
 Starlette 1.6.0 revision
-`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. It declares 2,713 unique
-input-only cases across 457 parity files, two benchmark inputs, 156
-compatibility operations, 17 Rust-native operations, 1,479 parity requirements,
-and six target profiles. Profile selectors contain 2,686 cases on CPython
-3.10, 3.11, 3.13, and 3.14, 2,689 on 3.12, and 437 Rust-native cases;
-selectors overlap. Input migration, generation, contract validation,
-and source inventory pass. No full parity, current coverage, or final benchmark
-result is claimed for @68. Earlier execution results below are historical and
-do not verify the active inputs.
+`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. It declares 2,729 unique input-only
+cases across 461 parity inputs, two benchmark inputs, 156 compatibility
+operations, 17 Rust-native operations, 1,485 parity requirements, and six
+target profiles. Full verification workflow
+[`39154601847`](https://github.com/appunni-m/starlette-rs/actions/runs/39154601847)
+passed all five CPython 3.10–3.14 profiles on runtime candidate
+`cedbf0c69012edac5fbe898e4e01af2e4b0dc9ad`: 15,726/15,726 exact comparisons
+and 22/22 fault contracts, with zero failures, `not_run` rows, or
+infrastructure errors. This proves the active input matrix, not completion of
+the full replacement goal. Current-source six-profile Rust/PyO3 coverage is
+running; its eligible line union and the complete 74-workload benchmark remain
+pending. The remaining inventory counts below describe source disposition,
+not additional behavioral proof.
 
 Source inventory counts are generated in the atlas: 867 source rows, 811 input
 mappings, 56 source-backed not_applicable rows, and zero fixture backlog.
