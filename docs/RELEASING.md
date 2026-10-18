@@ -27,7 +27,8 @@ Cargo archive, or wheel receipts as candidate evidence for this revision.
 
 The implementation and grouped-repair Kata tasks (`asyj`, `fgc1`) are closed;
 the full proof (`9vck`) is active, coverage tasks (`z70n`, `0j5y`, `rjha`) wait
-on parity, and benchmark task (`29z7`) waits on coverage. No package upload,
+on parity, and benchmark task (`29z7`) waits on coverage. The documentation
+checks pass on this current documentation state. No package upload,
 tag, GitHub Release, registry-credential change, or documentation deployment
 has occurred. The release lanes remain readiness work only.
 
