@@ -41,6 +41,7 @@ testclient = ["httpx>=0.27.0,<0.29.0", "httpx2>=2.0.0"]
 
 [project.urls]
 Repository = "https://github.com/appunni-m/starlette-rs"
+Documentation = "https://github.com/appunni-m/starlette-rs/tree/main/docs"
 Upstream = "https://github.com/Kludex/starlette"
 
 [tool.maturin]

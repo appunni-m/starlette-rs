@@ -7,8 +7,8 @@ Pydantic are outside this project's scope.
 
 ## Execution order and current status
 
-Current verification checkpoint (2026-10-19; repaired candidate commit
-`cedbf0c69012edac5fbe898e4e01af2e4b0dc9ad`; manifest SHA-256
+Current verification checkpoint (2026-10-18 21:17 UTC; target commit
+`df5e784609f436f8ff80164896201de88548e4cd`; manifest SHA-256
 `6e60640f9f8a7919ea500398aaace0942f5edf707fb92e6659307eb0dd561984`):
 
 The compatibility authority is Starlette 1.6.0 at commit
@@ -33,32 +33,41 @@ manifest and atlas. The inventory includes the input-only FileResponse HEAD
 multipart case for Content-Length values beyond u64. These checks validate the
 implementation structure and contract, not runtime parity.
 
-The date formatter repair in `cedbf0c69012edac5fbe898e4e01af2e4b0dc9ad` has
-now passed the fresh full parity workflow
+The grouped formatter repair in `cedbf0c69012edac5fbe898e4e01af2e4b0dc9ad`
+passed all five CPython parity profiles in workflow
 [`39154601847`](https://github.com/appunni-m/starlette-rs/actions/runs/39154601847)
-(#14). Its five clean CPython 3.10–3.14 artifacts identify the pinned
-Starlette 1.6.0 source and the exact candidate commit. Together they report
-15,726/15,726 comparisons and 22/22 fault contracts, with zero failures,
-`not_run` comparisons, fault failures, or infrastructure errors. The profile
-artifacts are `12147143180` (3.10), `12147765132` (3.11), `12147131724`
-(3.12), `12147083823` (3.13), and `12147601300` (3.14). This closes full
-source-to-package parity for the active contract.
+(#14), with 15,726/15,726 comparisons and 22/22 fault contracts. However, the
+CPython 3.14.8 coverage profile failed four cookie callback-error comparisons,
+and the six-profile union was skipped. Those parity receipts do not prove the
+current target revision.
 
-The six-profile current-source coverage phase in workflow #14 has started on
-the same candidate: Rust-native plus Python-package CPython 3.10–3.14. The
-latest job snapshot has these measurements in progress; no six-profile union
-receipt has been reconciled, so 100% eligible Rust/PyO3 line coverage is not
-yet proven. Keep the complete 74-workload benchmark behind that coverage gate.
-Historical parity, coverage, and benchmark results below do not establish
-current-source coverage or performance.
+Commit `df5e784609f436f8ff80164896201de88548e4cd` fixes the cookie callback
+lifetime divergence. The four affected CPython 3.14.8 inputs pass ordinary
+parity and a coverage-instrumented diagnostic (4/4 in each run, zero
+infrastructure errors). The instrumented result is `not_ingested`; it is a
+selected-case diagnostic, not a full profile or union receipt.
 
-Release preparation is active under Kata `n5d2`, with Cargo (`z74v`), PyPI
-(`2pan`), and documentation (`c4cy`) children. It is non-publishing and may
-advance alongside coverage for metadata, archive-scope, and documentation
-readiness. Final release-candidate artifacts remain gated on the 100% coverage
-union and full benchmark. No Cargo or PyPI package, tag, GitHub Release, or
-documentation site has been published. Generated parity JSON remains under
-ignored `build/parity/inputs/`.
+Fresh full verification workflow
+[`39166146776`](https://github.com/appunni-m/starlette-rs/actions/runs/39166146776)
+(#15) is running on `main@df5e784609f436f8ff80164896201de88548e4cd`. At the
+latest API snapshot, all five CPython 3.10–3.14 jobs are executing the
+source-to-target comparison step and no results or artifacts are available.
+The six coverage profiles run only if all five parity jobs pass. The current
+six-profile eligible Rust/PyO3 line union is unverified, so the complete
+74-workload benchmark remains gated. Do not count the targeted diagnostics or
+the older #14 receipts as current full parity or coverage evidence.
+
+Release preparation remains active under Kata `n5d2`, with Cargo (`z74v`),
+PyPI (`2pan`), and documentation (`c4cy`) children. It is non-publishing.
+`pyproject.toml` now declares a Documentation project URL, and
+`docs/RELEASING.md` records workflow #15 and the current package inventory.
+Cargo package inspection confirms the README, license, notices, and Cargo.lock,
+and exposed an unresolved inclusion of the repository parity adapter. Release
+artifact builds and clean consumer checks remain open. The local working tree
+contains only those release-document and project-URL edits; no runtime source,
+parity input, or manifest change is included. The workflow remains bound to the
+clean `df5e784` commit. Generated parity JSON remains under ignored
+`build/parity/inputs/`.
 
 The following @64 results are historical and do not add evidence for the
 current full-contract input set. The @64 Ubuntu source-parity workflow
@@ -697,12 +706,12 @@ representation, and dynamic `FormData.close()` dispatch remain Rust-backed.
 
 | Phase | State | Evidence |
 | --- | --- | --- |
-| Implementation | Arithmetic-side-effect hardening and grouped adapter changes are closed in Kata (`9tnt`, `d50v`, `y532`, `7q68`). | Current working tree passes `make lint`, `make contract-check`, and `make source-inventory-check`; inventory is 2,729 cases, 461 parity inputs, 1,485 mapped source requirements, 867 source rows, and zero fixture backlog. |
-| Full parity and grouped repairs | Baseline workflow `39147316493` passed all five CPython profiles on pre-hardening source `8fd6ec4`; fresh workflow `39150888285` (#13) is running on `8c43888` and tracked in Kata `9vck`. | Baseline: 15,716/15,716 comparisons and 22/22 fault contracts passed with zero failures, `not_run` rows, or infrastructure errors. It does not validate the current manifest/source. |
+| Implementation | Cross-family implementation and source inventory are complete; the cookie lifetime fix is included in `df5e784`. | The active contract remains 2,729 cases, 461 parity inputs, 1,485 mapped source requirements, 867 atlas rows, and zero fixture backlog. The four affected CPython 3.14.8 cases pass ordinary and instrumented diagnostics. Static checks and focused diagnostics do not replace the full parity run. |
+| Full parity and grouped repairs | Workflow `39166146776` (#15) is running on `df5e784` and tracked in Kata `ad36`. | At the latest API snapshot, all five CPython 3.10–3.14 jobs execute source-to-target comparisons; no result artifacts are available. Workflow #14 (`39154601847`) passed parity on `cedbf0c` but is not the current target and later failed the CPython 3.14.8 coverage profile. |
 | Post-matrix await optimization | Historical focused comparison only; no current performance claim. | Workflow `39028488863` passed the `/hello` application case across CPython 3.10–3.14 on an earlier commit. No benchmark established its performance effect. |
-| Full coverage and source reconciliation | Current-source coverage is gated on fresh post-hardening parity in `39150888285`. | The six baseline coverage jobs in `39147316493` were canceled before completing; they do not qualify the current tree. No current 100% union is proven. |
-| All benchmarks | The final current-revision workload has not run. | Historical upstream run `9ff02cf1-57cd-44af-a1d2-2e4339974f05` measured 74 Router/GZip workloads on `fd024b83`. Rerun all 74 after current parity and coverage pass. |
-| Packaging and interpreter qualification | Historical local macOS arm64 qualification; current release qualification remains open. | Earlier wheels, sdist, and crate inspections do not qualify the current source or other platforms. Release preparation is tracked under Kata `n5d2`. |
+| Full coverage and source reconciliation | Current-source coverage in Kata `z70n` is blocked by full parity `ad36`; the coverage jobs in #15 start only if all five parity profiles pass. | Workflow #14's CPython 3.14.8 coverage profile failed four cookie callback-error comparisons and skipped the union. The `df5e784` instrumented four-case diagnostic passes but is `not_ingested`; no current 100% eligible-line union is proven. |
+| All benchmarks | The complete current-revision workload has not run; Kata `29z7` remains blocked by coverage `z70n`. | The historical upstream run `9ff02cf1-57cd-44af-a1d2-2e4339974f05` measured 74 Router/GZip workloads on `fd024b83`. Run all 74 only after current parity and coverage pass. |
+| Packaging and interpreter qualification | Release preparation remains open and non-publishing under Kata `n5d2`. | Earlier wheel, sdist, and crate inspections do not qualify the current source or other platforms. Current release documentation and the PyPI Documentation URL are updated locally; clean current artifacts and consumer checks remain outstanding. |
 
 Parity, coverage, and benchmark result artifacts live under ignored
 `build/parity/`. The active case and requirement counts do not replace the
