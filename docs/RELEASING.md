@@ -5,47 +5,63 @@ Python distribution, and their documentation. A published crate version is
 permanent, and Python uploads are public releases. Nothing here authorizes a
 package upload, tag, GitHub Release, or change to registry credentials.
 
-## Latest preparation status (2026-10-18)
+## Latest preparation status (2026-10-18 17:51 UTC)
 
 Release preparation remains non-publishing under Kata parent `n5d2` and its
-Cargo (`z74v`), PyPI (`2pan`), and documentation (`c4cy`) children. The
-runtime and parity-tested source revision is
-`main@8fd6ec4a97f068c79114425b6e0cf4ee1158d825`; `make lint` passes on it.
-Full parity workflow `39147316493` (#12) is running on that exact commit. All
-five CPython 3.10–3.14 jobs have entered the source-to-target comparison step;
-no result artifacts are available yet.
-Coverage is gated on all five parity profiles passing, and the complete
-74-workload benchmark follows the current eligible coverage union.
+Cargo (`z74v`), PyPI (`2pan`), and documentation (`c4cy`) children. The source
+candidate under full verification is
+`main@8c43888f92b0f8088996e3fa5a54dd1b48ca83ca`. Current `main` is
+`7a139be7161940c98f769e663f471f2f260bcaec`; the commits after the candidate
+only refresh implementation and release status documentation. They do not
+change the runtime or parity inputs.
 
-Read-only package metadata checks on the current checkout report the core
-`starlette-rs` 0.1.0 crate as publishable and the PyO3 extension and examples
-as non-publishable. `cargo package --list --locked -p starlette-rs` succeeds;
-its file list contains the README and BSD/third-party notices, omits top-level
-`docs/`, and includes `src/bin/starlette-rs-parity-adapter.rs`. Decide whether
-that internal parity adapter belongs in the final core archive before building
-a release candidate. Repository references show that the Make parity target,
-the parity and benchmark runners, the coverage runner, and the Windows parity
-workflow all build or invoke it from the core crate. Moving it to unpublished
-developer tooling would require updating those build paths; it is not part of
-the Starlette runtime API. The root `pyproject.toml` pins Maturin 1.14.1, takes
-its version from Cargo, declares Python 3.10+ with classifiers through 3.14,
-and lists AnyIO and typing-extensions as runtime dependencies. No release
-archive or wheel matrix has been rebuilt for a candidate.
+Full verification workflow
+[`39150888285`](https://github.com/appunni-m/starlette-rs/actions/runs/39150888285)
+(#13) targets the exact source candidate. At 2026-10-18 17:51 UTC, all five
+CPython 3.10–3.14 jobs are still in the source-to-target comparison step; no
+result artifacts or terminal conclusion are available. The previous complete
+parity result (#12) used pre-hardening source and is historical. Its automatic
+coverage jobs were canceled before any profile completed. Coverage must run on
+the current candidate after all parity profiles pass, followed by the complete
+74-workload benchmark.
 
-Commit `8fd6ec4` repairs the adapter failures found in run `39143538850`:
-oracle and Rust-target adapters now accept omitted optional `probe_default`
-fields, the Rust-target fault-contract adapter permits empty `covers` for a
-fault contract, and FileResponse parity preserves the original cached header
-view when the input rebinds `raw_headers`. These changes have lint evidence
-but no full-parity result yet. Do not treat older parity, coverage, benchmark,
-Cargo archive, or wheel receipts as candidate evidence for this revision.
+The active contract is `migration-parity/manifest@6`, with SHA-256
+`6e60640f9f8a7919ea500398aaace0942f5edf707fb92e6659307eb0dd561984`: 2,729
+cases across 461 parity inputs, two benchmark inputs, 1,485 mapped source
+requirements, 867 compatibility-atlas rows, and zero fixture backlog. The
+post-hardening implementation passes `make lint`, `make contract-check`, and
+`make source-inventory-check`; these static checks do not establish runtime
+parity.
 
-The implementation and grouped-repair Kata tasks (`asyj`, `fgc1`) are closed;
-the full proof (`9vck`) is active, coverage tasks (`z70n`, `0j5y`, `rjha`) wait
-on parity, and benchmark task (`29z7`) waits on coverage. The documentation
-checks pass on this current documentation state. No package upload,
-tag, GitHub Release, registry-credential change, or documentation deployment
-has occurred. The release lanes remain readiness work only.
+Read-only Cargo metadata on the clean current checkout reports
+`starlette-rs` 0.1.0 as the only publishable workspace crate; the PyO3
+extension and examples are `publish = false`. The package inventory includes
+the root README, BSD license, third-party notices, Cargo.lock, and
+`src/bin/starlette-rs-parity-adapter.rs`; it omits top-level `docs/`. The
+adapter is required by the current parity, coverage, benchmark, and Windows
+workflow build paths, although it is not part of the runtime API. Its archive
+scope remains to be resolved before a release archive is built. The package
+inventory is not an archive build or consumer check.
+
+The root `pyproject.toml` pins Maturin 1.14.1, takes its version from Cargo,
+declares Python 3.10+ with classifiers through 3.14, and lists AnyIO and
+typing-extensions as runtime dependencies. Existing sdist and wheel evidence
+is historical and does not qualify this candidate or the supported platform
+matrix. Rebuild and inspect release artifacts from the final clean, fully
+verified source, then run clean consumer checks. No crate archive or candidate
+wheel matrix has been built from this source.
+
+The latest code change hardens arithmetic overflow behavior across runtime and
+adapter code, adds an input-only FileResponse multipart content-length case
+above `u64`, and raises workspace Clippy policy to deny unchecked arithmetic
+side effects. These changes pass static checks and are awaiting the full
+parity run. Do not treat older parity, coverage, benchmark, Cargo archive, or
+wheel receipts as candidate evidence.
+
+The full proof (`9vck`) is active; coverage tasks (`z70n`, `0j5y`, `rjha`) wait
+on parity, and benchmark task (`29z7`) waits on coverage. Release readiness
+remains non-publishing. No package upload, tag, GitHub Release,
+registry-credential change, or documentation deployment has occurred.
 
 ## Historical preparation snapshot before main@8fd6ec4 (superseded)
 
