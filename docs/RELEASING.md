@@ -17,6 +17,17 @@ no result artifacts are available yet.
 Coverage is gated on all five parity profiles passing, and the complete
 74-workload benchmark follows the current eligible coverage union.
 
+Read-only package metadata checks on the current checkout report the core
+`starlette-rs` 0.1.0 crate as publishable and the PyO3 extension and examples
+as non-publishable. `cargo package --list --locked -p starlette-rs` succeeds;
+its file list contains the README and BSD/third-party notices, omits top-level
+`docs/`, and includes `src/bin/starlette-rs-parity-adapter.rs`. Decide whether
+that internal parity adapter belongs in the final core archive before building
+a release candidate. The root `pyproject.toml` pins Maturin 1.14.1, takes its
+version from Cargo, declares Python 3.10+ with classifiers through 3.14, and
+lists AnyIO and typing-extensions as runtime dependencies. No release archive
+or wheel matrix has been rebuilt for a candidate.
+
 Commit `8fd6ec4` repairs the adapter failures found in run `39143538850`:
 oracle and Rust-target adapters now accept omitted optional `probe_default`
 fields, the Rust-target fault-contract adapter permits empty `covers` for a
