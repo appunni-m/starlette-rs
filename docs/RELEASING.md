@@ -23,10 +23,14 @@ as non-publishable. `cargo package --list --locked -p starlette-rs` succeeds;
 its file list contains the README and BSD/third-party notices, omits top-level
 `docs/`, and includes `src/bin/starlette-rs-parity-adapter.rs`. Decide whether
 that internal parity adapter belongs in the final core archive before building
-a release candidate. The root `pyproject.toml` pins Maturin 1.14.1, takes its
-version from Cargo, declares Python 3.10+ with classifiers through 3.14, and
-lists AnyIO and typing-extensions as runtime dependencies. No release archive
-or wheel matrix has been rebuilt for a candidate.
+a release candidate. Repository references show that the Make parity target,
+the parity and benchmark runners, the coverage runner, and the Windows parity
+workflow all build or invoke it from the core crate. Moving it to unpublished
+developer tooling would require updating those build paths; it is not part of
+the Starlette runtime API. The root `pyproject.toml` pins Maturin 1.14.1, takes
+its version from Cargo, declares Python 3.10+ with classifiers through 3.14,
+and lists AnyIO and typing-extensions as runtime dependencies. No release
+archive or wheel matrix has been rebuilt for a candidate.
 
 Commit `8fd6ec4` repairs the adapter failures found in run `39143538850`:
 oracle and Rust-target adapters now accept omitted optional `probe_default`
