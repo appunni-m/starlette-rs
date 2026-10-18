@@ -21,7 +21,7 @@ preparation work, not a release candidate.
   These are metadata claims; the current release wheel matrix is unverified.
   The `Operating System :: OS Independent` classifier has been removed because
   the distribution includes a compiled extension.
-- The active @68 contract declares 2,703 cases across 457 parity inputs, 156
+- The active @68 contract now declares 2,704 cases across 457 parity inputs, 156
   compatibility operations, 17 Rust-native operations, and 1,479 requirements.
   Contract, source-inventory, project-policy, lint, formatting, compile, and
   Clippy checks passed on `a9c857b0`. The current full parity matrix, eligible

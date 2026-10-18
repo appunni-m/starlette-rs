@@ -5,11 +5,11 @@
 The active full-scope manifest is parity-input@68, SHA-256
 `c627feeef5d21757821aad03db1436c9e2fce1e978e764c69daebc692de914a9`, against
 Starlette 1.6.0 revision
-`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. It declares 2,703 unique
+`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. It declares 2,704 unique
 input-only cases across 457 parity files, two benchmark inputs, 156
 compatibility operations, 17 Rust-native operations, 1,479 parity requirements,
-and six target profiles. Profile selectors contain 2,676 cases on CPython
-3.10 and 3.11, 2,679 on 3.12, 2,676 on 3.13 and 3.14, and 431 Rust-native
+and six target profiles. Profile selectors contain 2,677 cases on CPython
+3.10 and 3.11, 2,680 on 3.12, 2,677 on 3.13 and 3.14, and 431 Rust-native
 cases; selectors overlap. Input migration, generation, contract validation,
 and source inventory pass. No full parity, current coverage, or final benchmark
 result is claimed for @68. Earlier execution results below are historical and
@@ -916,13 +916,14 @@ and
 Two newly authored `WebSocketRoute.route-dispatch` inputs cover Python equality
 for a `str` subclass and direct `scope["type"]` lookup error propagation; both
 remain unexecuted until the grouped parity phase.
-The five upstream HTTPException tests and
-the HTTPException documentation contract map to the two exception input files;
-`test_handled_exc_after_response` has a declared partial observation of its
-after-start behavior, while its `TestClient(raise_server_exceptions=False)`
-branch remains outside this slice. The remaining backlog rows are atlas mapping
-status, not proof that those behaviors are absent from active inputs or
-untested.
+The upstream HTTPException tests and documentation contract map to input-only
+exception workflows. `test_handled_exc_after_response` now has paired inputs:
+one preserves the RuntimeError and already-sent ASGI events under the default
+client policy, and one records the completed 200 response returned when
+`raise_server_exceptions=False`. Both inputs map to the pinned test function;
+the new suppressed-exception case is authored but awaits the grouped @68 parity
+phase. The remaining backlog rows are atlas mapping status, not proof that
+those behaviors are absent from active inputs or untested.
 The merger validates the pinned upstream commit, all 999 API rows, evidence
 paths, test identities, support modules, docs navigation paths, and
 input-only fixture files.

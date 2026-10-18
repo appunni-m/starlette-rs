@@ -11,10 +11,10 @@ Active implementation checkpoint (2026-10-18; commit `a9c857b0`; `parity-input@6
 
 The compatibility authority is Starlette 1.6.0 at commit
 `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The active manifest declares
-full scope with 2,703 unique cases across 457 parity inputs, two benchmark
+full scope with 2,704 unique cases across 457 parity inputs, two benchmark
 inputs, 156 Starlette compatibility operations, 17 Rust-native operations,
 1,479 parity requirements, and six target profiles. The profile selectors
-contain 2,676 cases on CPython 3.10 and 3.11, 2,679 on 3.12, 2,676 on 3.13
+contain 2,677 cases on CPython 3.10 and 3.11, 2,680 on 3.12, 2,677 on 3.13
 and 3.14, and 431 Rust-native cases. Cases may be selected in more than one
 profile. The pinned upstream denominator remains 514 test functions and 24
 documented pages.
@@ -24,8 +24,8 @@ The generated source atlas contains 867 rows: 811 have active input mappings,
 zero rows. This is source-to-input inventory evidence; it does not establish
 runtime parity.
 
-The implementation checkpoint is committed and pushed. Scoped validation on
-this tree passed `make contract-check PARITY_PYTHON=python3.12`,
+The runtime implementation checkpoint is committed and pushed. Scoped
+validation at `a9c857b0` passed `make contract-check PARITY_PYTHON=python3.12`,
 `make source-inventory-check PARITY_PYTHON=python3.12`,
 `make project-policy-check`, `make python-lint`,
 `cargo fmt --all -- --check`,
@@ -759,7 +759,7 @@ also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
 The active parity contract uses parity-input@68 with full scope
-(`starlette-1.6.0-full`): 2,703 unique cases across 457 parity inputs, two
+(`starlette-1.6.0-full`): 2,704 unique cases across 457 parity inputs, two
 benchmark inputs, 156 Starlette compatibility operations, 17 Rust-native
 operations, 1,479 parity requirements, and six target profiles. The manifest
 SHA-256 is `c627feeef5d21757821aad03db1436c9e2fce1e978e764c69daebc692de914a9`.
