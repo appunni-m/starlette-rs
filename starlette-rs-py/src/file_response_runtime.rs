@@ -1122,6 +1122,9 @@ fn file_response_error(error: FileResponseError) -> PyErr {
         FileResponseError::InvalidTimestamp => {
             PyValueError::new_err("invalid file modification timestamp")
         }
+        FileResponseError::TimestampYearOutOfRange(year) => {
+            PyValueError::new_err(format!("year {year} is out of range"))
+        }
         FileResponseError::RandomSource => {
             PyRuntimeError::new_err("could not generate multipart range boundary")
         }

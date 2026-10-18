@@ -3,14 +3,14 @@
 ## Current verification status
 
 The active full-scope manifest is parity-input@68, SHA-256
-`c627feeef5d21757821aad03db1436c9e2fce1e978e764c69daebc692de914a9`, against
+`ce7494a2cd99e2fbea7c98da3d60667460df3cc9674bcbadba54746c6b6aff2a`, against
 Starlette 1.6.0 revision
-`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. It declares 2,704 unique
+`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. It declares 2,713 unique
 input-only cases across 457 parity files, two benchmark inputs, 156
 compatibility operations, 17 Rust-native operations, 1,479 parity requirements,
-and six target profiles. Profile selectors contain 2,677 cases on CPython
-3.10 and 3.11, 2,680 on 3.12, 2,677 on 3.13 and 3.14, and 431 Rust-native
-cases; selectors overlap. Input migration, generation, contract validation,
+and six target profiles. Profile selectors contain 2,686 cases on CPython
+3.10, 3.11, 3.13, and 3.14, 2,689 on 3.12, and 437 Rust-native cases;
+selectors overlap. Input migration, generation, contract validation,
 and source inventory pass. No full parity, current coverage, or final benchmark
 result is claimed for @68. Earlier execution results below are historical and
 do not verify the active inputs.

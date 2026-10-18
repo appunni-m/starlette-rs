@@ -23,6 +23,7 @@ type RawHeaders = Vec<RawHeaderPair>;
 pub struct FileMetadata {
     size: u64,
     modified: SystemTime,
+    modified_seconds_bits: u64,
     modified_text: String,
     stat_result: Option<FileStat>,
 }
@@ -159,6 +160,7 @@ impl FileMetadata {
         Ok(Self {
             size,
             modified,
+            modified_seconds_bits: modified_seconds.to_bits(),
             modified_text: modified_text.into(),
             stat_result: None,
         })
@@ -170,6 +172,7 @@ impl FileMetadata {
         Ok(Self {
             size: metadata.len(),
             modified,
+            modified_seconds_bits: seconds.to_bits(),
             modified_text: python_float_text(seconds),
             stat_result: FileStat::from_metadata(metadata),
         })
@@ -184,7 +187,7 @@ impl FileMetadata {
     /// Returns the modification time as Unix seconds.
     #[must_use]
     pub fn modified_unix_seconds(&self) -> f64 {
-        unix_seconds(self.modified)
+        f64::from_bits(self.modified_seconds_bits)
     }
 
     /// Returns the full filesystem stat snapshot when the platform exposes it.
@@ -372,6 +375,8 @@ pub enum FileResponseError {
     },
     /// File modification time is invalid or outside the platform time range.
     InvalidTimestamp,
+    /// File modification time resolves to a year Python `datetime` cannot represent.
+    TimestampYearOutOfRange(i128),
     /// The path does not exist.
     MissingFile(String),
     /// The path exists but does not identify a regular file.
@@ -391,6 +396,7 @@ impl Display for FileResponseError {
                 formatter.write_str("header data cannot be encoded as Latin-1")
             }
             Self::InvalidTimestamp => formatter.write_str("invalid file modification timestamp"),
+            Self::TimestampYearOutOfRange(year) => write!(formatter, "year {year} is out of range"),
             Self::MissingFile(path) => write!(formatter, "File at path {path} does not exist."),
             Self::NotAFile(path) => write!(formatter, "File at path {path} is not a file."),
             Self::MissingContentType => formatter.write_str("content-type"),
@@ -1417,27 +1423,49 @@ fn set_stat_headers(
     set_default_header(
         headers,
         "last-modified",
-        &format_http_date(metadata.modified),
+        &format_http_date(metadata.modified_unix_seconds())?,
     )?;
     let input = format!("{}-{}", metadata.modified_text, metadata.size);
     set_default_header(headers, "etag", &FileResponse::stat_etag(input.as_bytes()))?;
     Ok(())
 }
 
-fn format_http_date(timestamp: SystemTime) -> String {
-    if timestamp >= UNIX_EPOCH {
-        return httpdate::fmt_http_date(timestamp);
+fn format_http_date(timestamp_seconds: f64) -> Result<String, FileResponseError> {
+    let mut whole_seconds = timestamp_seconds.trunc();
+    let fractional_microseconds = round_half_even(timestamp_seconds.fract() * 1_000_000.0);
+    if fractional_microseconds >= 1_000_000.0 {
+        whole_seconds += 1.0;
+    } else if fractional_microseconds < 0.0 {
+        whole_seconds -= 1.0;
     }
-
-    // httpdate 1.0.3 panics for times before the Unix epoch. Python's
-    // email.utils.formatdate handles those timestamps, so format that range
-    // directly while keeping the dependency formatter for ordinary files.
-    let duration = UNIX_EPOCH.duration_since(timestamp).unwrap_or_default();
-    let seconds = -i128::from(duration.as_secs()) - i128::from(duration.subsec_nanos() > 0);
-    format_unix_http_date(seconds)
+    if !whole_seconds.is_finite()
+        || whole_seconds < i128::MIN as f64
+        || whole_seconds >= -(i128::MIN as f64)
+    {
+        return Err(FileResponseError::InvalidTimestamp);
+    }
+    format_unix_http_date(truncated_seconds_to_i128(whole_seconds))
 }
 
-fn format_unix_http_date(timestamp_seconds: i128) -> String {
+// LINT EXCEPTION: the caller truncates and checks finite i128 bounds before this conversion.
+#[allow(clippy::cast_possible_truncation)]
+fn truncated_seconds_to_i128(value: f64) -> i128 {
+    value as i128
+}
+
+fn round_half_even(value: f64) -> f64 {
+    let lower = value.floor();
+    let fraction = value - lower;
+    if fraction < 0.5 {
+        lower
+    } else if fraction > 0.5 || lower.rem_euclid(2.0) != 0.0 {
+        lower + 1.0
+    } else {
+        lower
+    }
+}
+
+fn format_unix_http_date(timestamp_seconds: i128) -> Result<String, FileResponseError> {
     const SECONDS_PER_DAY: i128 = 86_400;
 
     let days = timestamp_seconds.div_euclid(SECONDS_PER_DAY);
@@ -1462,6 +1490,9 @@ fn format_unix_http_date(timestamp_seconds: i128) -> String {
     let month = month_prime + if month_prime < 10 { 3 } else { -9 };
     if month <= 2 {
         year += 1;
+    }
+    if !(1..=9_999).contains(&year) {
+        return Err(FileResponseError::TimestampYearOutOfRange(year));
     }
 
     let weekday = match (days + 4).rem_euclid(7) {
@@ -1488,7 +1519,9 @@ fn format_unix_http_date(timestamp_seconds: i128) -> String {
         _ => "Dec",
     };
 
-    format!("{weekday}, {day:02} {month_name} {year:04} {hour:02}:{minute:02}:{second:02} GMT")
+    Ok(format!(
+        "{weekday}, {day:02} {month_name} {year:04} {hour:02}:{minute:02}:{second:02} GMT"
+    ))
 }
 
 fn with_charset(media_type: &str) -> String {

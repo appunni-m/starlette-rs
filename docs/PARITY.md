@@ -2,13 +2,13 @@
 
 ## Current verification status
 
-The active full-scope parity-input@68 manifest contains 2,704 unique cases
+The active full-scope parity-input@68 manifest contains 2,713 unique cases
 across 457 parity inputs, 1,479 requirements, and SHA-256
-`c627feeef5d21757821aad03db1436c9e2fce1e978e764c69daebc692de914a9`. Input
+`ce7494a2cd99e2fbea7c98da3d60667460df3cc9674bcbadba54746c6b6aff2a`. Input
 migration, generation, contract validation, and source inventory pass. Profile
-selectors contain 2,677 cases on CPython 3.10 and 3.11, 2,680 on 3.12, 2,677
-on 3.13 and 3.14, and 431 Rust-native. The complete parity matrix has not run
-for this manifest; the matrix below records the historical @66 run.
+selectors contain 2,686 cases on CPython 3.10, 3.11, 3.13, and 3.14, 2,689 on
+3.12, and 437 Rust-native. The complete parity matrix has not run for the
+current working source; the matrix below records historical executions.
 
 The post-fix five-profile matrix ran against clean package target revision
 e48552230b8b8e0f9504c8930931c9a297b34145. All executed comparisons and all

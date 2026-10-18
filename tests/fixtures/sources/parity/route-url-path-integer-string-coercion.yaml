@@ -66,7 +66,81 @@
       "lookup": {
         "name": "item",
         "path_params": {
-          "item_id": "٠٧"
+          "item_id": "\u0660\u0667"
+        }
+      },
+      "request_scope": null,
+      "custom_convertors": [],
+      "observations": [
+        "reverse-url"
+      ]
+    },
+    {
+      "case_id": "starlette.routing.Route.url_path_for.int-converter-invalid-string-value-error",
+      "surface": "starlette.routing.Route",
+      "operation": "url_path_for",
+      "covers": [
+        "starlette.routing.Route.url_path_for.int-converter",
+        "starlette.routing.Route.url_path_for.converter-error"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "route_graph": {
+        "kind": "http-route",
+        "path": "/items/{item_id:int}",
+        "name": "item",
+        "methods": [
+          "GET"
+        ],
+        "observer": null
+      },
+      "lookup": {
+        "name": "item",
+        "path_params": {
+          "item_id": "not-an-integer"
+        }
+      },
+      "request_scope": null,
+      "custom_convertors": [],
+      "observations": [
+        "reverse-url"
+      ]
+    },
+    {
+      "case_id": "starlette.routing.Route.url_path_for.native.int-converter-bool-coercion",
+      "surface": "starlette.routing.Route",
+      "operation": "url_path_for",
+      "covers": [
+        "starlette.routing.Route.url_path_for.int-converter"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "route_graph": {
+        "kind": "http-route",
+        "path": "/items/{item_id:int}",
+        "name": "item",
+        "methods": [
+          "GET"
+        ],
+        "observer": null
+      },
+      "lookup": {
+        "name": "item",
+        "path_params": {
+          "item_id": true
         }
       },
       "request_scope": null,

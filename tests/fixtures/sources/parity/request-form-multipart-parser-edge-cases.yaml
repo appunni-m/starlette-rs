@@ -1054,6 +1054,82 @@
       ],
       "form_options": {},
       "form_app": "direct"
+    },
+    {
+      "case_id": "starlette.requests.Request.form.multipart-false-boundary-prefix-followed-by-valid-part",
+      "surface": "starlette.requests.Request",
+      "operation": "form",
+      "covers": [
+        "starlette.request.form.multipart-form-data",
+        "starlette.datastructures.FormData.multidict-lookups"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "POST",
+        "scheme": "http",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "Y29udGVudC10eXBl",
+            "bXVsdGlwYXJ0L2Zvcm0tZGF0YTsgYm91bmRhcnk9ZmFsc2UtYm91bmRhcnktaW5wdXQtZWRnZQ=="
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "receive": [
+        {
+          "type": "http.request",
+          "body_base64": "LS1mYWxzZS1ib3VuZGFyeS1pbnB1dC1lZGdlDQpDb250ZW50LURpc3Bvc2l0aW9uOiBmb3JtLWRhdGE7IG5hbWU9ImZpcnN0Ig0KDQphbHBoYQ0KLS1mYWxzZS1ib3VuZGFyeS1pbnB1dC1lZA==",
+          "more_body": true
+        },
+        {
+          "type": "http.request",
+          "body_base64": "Z2VY",
+          "more_body": true
+        },
+        {
+          "type": "http.request",
+          "body_base64": "b21lZ2ENCi0tZmFsc2UtYm91bmRhcnktaW5wdXQtZWRnZQ==",
+          "more_body": true
+        },
+        {
+          "type": "http.request",
+          "body_base64": "DQpDb250ZW50LURpc3Bvc2l0aW9uOiBmb3JtLWRhdGE7IG5hbWU9InNlY29uZCINCg0KYmV0YQ0KLS1mYWxzZS1ib3VuZGFyeS1pbnB1dC1lZGdlLS0NCg==",
+          "more_body": false
+        }
+      ],
+      "form_probe_keys": [
+        "first",
+        "second"
+      ],
+      "observations": [
+        "form"
+      ],
+      "form_options": {},
+      "form_app": "direct"
     }
   ]
 }

@@ -5,6 +5,50 @@ Python distribution, and their documentation. A published crate version is
 permanent, and Python uploads are public releases. Nothing here authorizes a
 package upload, tag, GitHub Release, or change to registry credentials.
 
+## Latest preparation status (2026-10-18)
+
+Release preparation is active under Kata parent `n5d2` and its Cargo (`z74v`),
+PyPI (`2pan`), and documentation (`c4cy`) children. The source worktree is
+dirty at `main@3f0a864035cda33c751f2d9bf9f482ac32526e56` with implementation
+and input-only parity changes at the time of this snapshot. This is not a
+release candidate. The project gate remains implementation, full parity,
+coverage, then benchmark; no release artifact should be built from this
+intermediate state.
+
+The current contract is `migration-parity/manifest@6`, parity inputs `@68`,
+with manifest SHA-256
+`ce7494a2cd99e2fbea7c98da3d60667460df3cc9674bcbadba54746c6b6aff2a`:
+2,713 cases across 457 parity inputs and 1,479 requirements. The prior full
+Actions run `39126044018` has now failed all five CPython profiles on the older
+`e9d4e7de` runtime commit; both coverage jobs were skipped. It does not test
+the current changes and does not establish parity.
+
+On the current worktree, `make docs-check` passed the repository link check
+for 43 Markdown files. Its benchmark-freshness check skipped the ignored
+result for the older manifest. `make rustdoc-check` passed with warnings
+denied. `make lint`, including Rust API boundary, Python formatting/lint,
+project policy, and workflow checks, passed. `cargo metadata --locked
+--no-deps --format-version 1` confirms
+`starlette-rs` is the only publishable workspace package. The extension crate
+and example packages are marked `publish = false`. These are preparation
+checks, not release-candidate evidence.
+
+The release audit reports a dirty-worktree error, no release workflow, and no
+workspace changelog. Its two `missing_readme` findings are path-resolution
+false positives: prior `cargo package --list` output included the README for
+both declared package paths. The documentation inventory also scans ignored
+`.venv-router` license metadata and reports its repository-relative links as
+missing files; those are not checked-in docs. Remaining documentation work
+includes a security-reporting route, a compatibility-inventory TODO, and
+evidence/scope review for the `guaranteed` claim in `docs/native-service.md`.
+
+Registry ownership and version availability are still unverified. The
+previous crates.io request was unavailable and a PyPI 404 does not reserve a
+name. No `.crate`, sdist, or wheel was built from the current source; no
+package was uploaded, tag or GitHub Release created, or documentation site
+deployed. Recheck registry status immediately before any separately authorized
+publication.
+
 ## Current evidence snapshot
 
 Recorded on 2026-10-18 against clean, pushed
@@ -19,13 +63,15 @@ readiness evidence, not a release candidate.
 
 - Workspace metadata declares both `starlette-rs` and `starlette-rs-py` as
   version `0.1.0`, Rust edition 2024, and MSRV 1.85. `rust-toolchain.toml`
-  pins Rust 1.96.1. Two example packages declare `publish = []`.
+  pins Rust 1.96.1. Two example packages and the internal PyO3 extension
+  package declare `publish = false`; only the Rust core is intended for
+  crates.io publication.
 - The Python project pins Maturin 1.14.1, reads its version from Cargo
   metadata, declares Python `>=3.10`, and lists CPython 3.10–3.14 classifiers.
   These are metadata claims; the current release wheel matrix is unverified.
   The `Operating System :: OS Independent` classifier has been removed because
   the distribution includes a compiled extension.
-- The active full-scope contract declares 2,704 cases across 457 parity inputs,
+- The active full-scope contract declares 2,713 cases across 457 parity inputs,
   156 compatibility operations, 17 Rust-native operations, and 1,479
   requirements. All 999 API-candidate rows are dispositioned. The source atlas
   has 867 rows: 811 input mappings, 56 source-backed `not_applicable` rows, and
@@ -33,10 +79,10 @@ readiness evidence, not a release candidate.
   `5053a4cc`; the grouped repair at `e9d4e7de` does not change inputs. On
   `e9d4e7de`, `cargo check --workspace --locked`, `make lint`, and
   `git diff --check` passed before push. Full parity is running as Actions
-  workflow `39126044018` on the exact commit. All five CPython 3.10–3.14 jobs
-  are still comparing, with no completed profile or result artifacts. Coverage
-  is gated on parity; current-source coverage and the final 74-workload
-  benchmark have not been measured.
+  workflow `39126044018` on the exact commit. Its latest status is recorded
+  below; the run is not a final proof because this worktree has since changed.
+  Coverage is gated on parity; current-source coverage and the final
+  74-workload benchmark have not been measured.
 - Historical Actions run `39122567844` on `5053a4cc` failed all five CPython
   profiles with 14 mismatches and four adapter/infrastructure errors per
   profile. The grouped repair is being checked by `39126044018`; no parity pass
@@ -95,8 +141,8 @@ readiness evidence, not a release candidate.
   after the full parity and coverage phases.
 - The worktree was clean at the recorded checkpoint, but release candidates
   are not built and implementation, parity, coverage, and benchmark gates are
-  not all complete. Workflow `39126044018` is in progress; wait for its terminal
-  result before reporting phase advancement.
+  not all complete. Workflow `39126044018` remains in progress at the latest
+  status read; wait for its terminal result before reporting phase advancement.
 - The README has a Python installation and first-app path. Its documented
   `python -m pip install . uvicorn` command and app were exercised in the local
   CPython 3.12 environment described above, before `e9d4e7de`. Documentation
@@ -108,21 +154,56 @@ readiness evidence, not a release candidate.
 The evidence above is a dated snapshot. Recheck every item against the exact
 clean candidate commit before release.
 
+## Fresh release check (2026-10-18)
+
+The release-preparation worktree currently contains uncommitted parity
+implementation changes, so it is not a release candidate. The release audit
+reports the dirty tree and two `missing_readme` findings. The latter are known
+audit-script path-resolution false positives: both manifests point to the root
+README, and the prior clean-checkpoint `cargo package --list` output included
+it. Current `cargo package --list --locked` attempts stopped on Cargo's dirty
+worktree guard; no `--allow-dirty` override was used and no package archive was
+built.
+
+Full parity workflow `39126044018` is running against the older runtime commit
+`e9d4e7de3caebd076526ada77dbc494dd321e57b`. All five CPython jobs have failed
+and the coverage jobs were skipped. The available artifacts belong to the
+failed parity jobs. This run cannot prove the current uncommitted implementation,
+and full parity remains a release prerequisite.
+
+The fresh documentation inventory also scanned the ignored `.venv-router`
+environment and reported three installed third-party-notice links as missing
+repository files. The repository-native Markdown check remains the relevant
+link gate and must be rerun on the clean candidate. The audit still flags the
+missing root `SECURITY.md`, a `TODO` in the compatibility inventory, and the
+scope of the `guaranteed` claim in `docs/native-service.md`; these remain
+documentation work. Registry state is still unverified: the crates.io API
+request was unavailable from this host, and a PyPI 404 does not reserve the
+name. No package, tag, GitHub Release, or documentation deployment has been
+created.
+
+As a preparation safeguard, `starlette-rs-py/Cargo.toml` now sets
+`publish = false`. `cargo metadata --locked --no-deps --format-version 1`
+confirms that only the core crate is publishable in Cargo metadata. The
+repository-native `make docs-check` passes its 43-file Markdown link check;
+its benchmark-freshness subcheck skips the ignored result for the old manifest,
+so that artifact remains historical. `git diff --check` also passes. These
+checks do not replace the candidate release gates.
+
 ## Distribution surfaces
 
 | Surface | Version and destination | Current state |
 | --- | --- | --- |
 | Rust core crate `starlette-rs` | Cargo workspace version; intended registry is crates.io | Planned public Cargo artifact at `0.1.0`; current registry state is unknown. Review whether the internal parity-adapter binary belongs in its archive. |
-| PyO3 extension crate `starlette-rs-py` | Cargo workspace version; required to build the Python package | Planned as a PyPI build component, not a standalone Cargo release. Add a manifest publication guard before the release candidate is frozen; the crate depends on the local `starlette-rs` path crate. |
+| PyO3 extension crate `starlette-rs-py` | Cargo workspace version; required to build the Python package | PyPI build component, not a standalone Cargo release. Its manifest sets `publish = false`, confirmed by current Cargo metadata. The crate depends on the local `starlette-rs` path crate. |
 | Python distribution `starlette-rs-py` | Maturin reads the Cargo package version; destination is PyPI | `0.1.0` declared. One earlier local CPython 3.12 macOS arm64 wheel was built and smoke-checked from source; sdist and other wheel targets remain unverified. The current JSON endpoint returned 404; this does not establish name availability. Trusted Publisher setup is unverified. Runtime dependencies declared in `pyproject.toml` are AnyIO and typing-extensions. |
 | Documentation | Repository Markdown and Rust API docs | Markdown is currently hosted in the Git repository. There is no configured static documentation site. A hosted API-docs route and any separate website must be checked and chosen before promising them to users. |
 
 The planned release scope is the Rust-native `starlette-rs` crate on crates.io
 and the `starlette-rs-py` distribution on PyPI. The PyO3 extension crate is a
 local build component for the Python distribution and is not planned as a
-separate Cargo release. Encode that boundary in its manifest before freezing a
-release candidate. Example workspace packages declare `publish = []` and are
-not release candidates.
+separate Cargo release. Its manifest sets `publish = false`. Example workspace
+packages are also not release candidates.
 
 ## Release gates
 

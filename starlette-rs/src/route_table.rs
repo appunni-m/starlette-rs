@@ -72,6 +72,8 @@ pub enum PathConverter {
 pub enum PathParameterValue {
     /// A Python string value.
     String(String),
+    /// A Python boolean value.
+    Boolean(bool),
     /// A Python integer represented by its decimal spelling.
     Integer(String),
     /// A Python floating-point value.
@@ -82,6 +84,7 @@ impl PathParameterValue {
     pub(crate) fn python_string(&self) -> String {
         match self {
             Self::String(value) => value.clone(),
+            Self::Boolean(value) => String::from(if *value { "True" } else { "False" }),
             Self::Integer(value) => canonical_integer_value(value),
             Self::Float(value) => python_float_string(*value),
         }
@@ -490,6 +493,10 @@ pub enum RouteError {
     InvalidPathParameter {
         /// Parameter name from the route pattern.
         name: String,
+        /// Built-in converter that failed to coerce the input value.
+        converter: PathConverter,
+        /// Python string representation of the input value.
+        value: String,
         /// Stable description of the rejected value.
         reason: &'static str,
     },
@@ -538,7 +545,7 @@ impl Display for RouteError {
                 formatter,
                 "route path parameters {expected:?} do not match supplied parameters {provided:?}"
             ),
-            Self::InvalidPathParameter { name, reason } => {
+            Self::InvalidPathParameter { name, reason, .. } => {
                 write!(formatter, "invalid path parameter '{name}': {reason}")
             }
             Self::ConverterAssertion { name, message } => {
@@ -1354,8 +1361,10 @@ fn format_path_parameter(
     value: &PathParameterValue,
     converter: &RoutePathConverter,
 ) -> Result<String, RouteError> {
-    let invalid = |reason| RouteError::InvalidPathParameter {
+    let invalid = |converter, reason| RouteError::InvalidPathParameter {
         name: String::from(name),
+        converter,
+        value: value.python_string(),
         reason,
     };
     let assertion = |message| RouteError::ConverterAssertion {
@@ -1375,9 +1384,13 @@ fn format_path_parameter(
             }
         }
         RoutePathConverter::Builtin(PathConverter::Integer) => match value {
+            PathParameterValue::Boolean(value) => Ok(String::from(if *value { "1" } else { "0" })),
             PathParameterValue::Float(number) => {
                 if !number.is_finite() {
-                    return Err(invalid("integer converter value is not finite"));
+                    return Err(invalid(
+                        PathConverter::Integer,
+                        "integer converter value is not finite",
+                    ));
                 }
                 let value = number.trunc();
                 if value < 0.0 {
@@ -1397,6 +1410,7 @@ fn format_path_parameter(
                     return Err(assertion("Negative integers are not supported"));
                 }
                 Err(invalid(
+                    PathConverter::Integer,
                     "integer converter values must be non-negative ASCII decimal integers",
                 ))
             }
@@ -1405,9 +1419,15 @@ fn format_path_parameter(
             let number = match value {
                 PathParameterValue::String(value) => parse_python_float(value),
                 PathParameterValue::Integer(value) => value.parse::<f64>().ok(),
+                PathParameterValue::Boolean(value) => Some(f64::from(u8::from(*value))),
                 PathParameterValue::Float(value) => Some(*value),
             }
-            .ok_or_else(|| invalid("float converter values must be numeric"))?;
+            .ok_or_else(|| {
+                invalid(
+                    PathConverter::Float,
+                    "float converter values must be numeric",
+                )
+            })?;
             if matches!(
                 number.partial_cmp(&0.0),
                 Some(std::cmp::Ordering::Less) | None

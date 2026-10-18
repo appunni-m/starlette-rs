@@ -33323,7 +33323,7 @@
             {
               "id": "starlette.routing.Route.url_path_for.converter-error",
               "dimension": "error_path",
-              "description": "A built-in string converter rejects slash-containing reverse values with AssertionError.",
+              "description": "Built-in reverse converters reject invalid values: string assertions, malformed integer or float coercion ValueErrors, negative values, and non-finite float values. Upstream: starlette/convertors.py; tests/test_routing.py::test_url_path_for.",
               "lanes": [
                 "parity",
                 "coverage"

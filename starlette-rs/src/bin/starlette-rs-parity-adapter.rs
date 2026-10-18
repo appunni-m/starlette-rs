@@ -6755,6 +6755,7 @@ fn run_route_reverse_url_case(case: &Value) -> Result<Value, String> {
         .map(|(key, value)| {
             let value = match value {
                 Value::String(value) => PathParameterValue::String(value.clone()),
+                Value::Bool(value) => PathParameterValue::Boolean(*value),
                 Value::Number(value) if value.is_f64() => PathParameterValue::Float(
                     value.as_f64().ok_or_else(|| {
                         format!("Rust-native Route URLPath parameter {key:?} is not a finite JSON number")
@@ -6803,6 +6804,32 @@ fn route_formatting_observation(error: &RouteError) -> Value {
             "error": {
                 "class": "AssertionError",
                 "message": message,
+            },
+        }),
+        RouteError::InvalidPathParameter {
+            converter: PathConverter::Integer,
+            value,
+            ..
+        } => json!({
+            "error": {
+                "class": "ValueError",
+                "message": format!(
+                    "invalid literal for int() with base 10: {}",
+                    python_string_repr(value),
+                ),
+            },
+        }),
+        RouteError::InvalidPathParameter {
+            converter: PathConverter::Float,
+            value,
+            ..
+        } => json!({
+            "error": {
+                "class": "ValueError",
+                "message": format!(
+                    "could not convert string to float: {}",
+                    python_string_repr(value),
+                ),
             },
         }),
         _ => json!({
@@ -8609,7 +8636,7 @@ fn run_file_response_case(case: &Value) -> Result<Value, String> {
             background_task.is_some(),
         ) {
             Ok(call) => call,
-            Err(error) if error_path_kind.is_some() => {
+            Err(error) => {
                 captured_dispatch_error = Some(file_response_dispatch_error(error)?);
                 responses.push(json!({
                     "response_status": null,
@@ -8623,7 +8650,6 @@ fn run_file_response_case(case: &Value) -> Result<Value, String> {
                 }));
                 break;
             }
-            Err(error) => return Err(error.to_string()),
         };
 
         let mut response_status = None;
@@ -8782,17 +8808,24 @@ fn run_file_response_case(case: &Value) -> Result<Value, String> {
 }
 
 fn file_response_dispatch_error(error: FileResponseError) -> Result<Value, String> {
-    let is_compatibility_runtime_error = matches!(
-        &error,
-        FileResponseError::MissingFile(_) | FileResponseError::NotAFile(_)
-    );
-    if !is_compatibility_runtime_error {
-        return Err(error.to_string());
-    }
+    let (class, message) = match error {
+        missing @ (FileResponseError::MissingFile(_) | FileResponseError::NotAFile(_)) => {
+            ("builtins.RuntimeError", missing.to_string())
+        }
+        FileResponseError::InvalidTimestamp => (
+            "builtins.ValueError",
+            String::from("invalid file modification timestamp"),
+        ),
+        FileResponseError::TimestampYearOutOfRange(year) => (
+            "builtins.ValueError",
+            format!("year {year} is out of range"),
+        ),
+        other => return Err(other.to_string()),
+    };
     Ok(json!({
-        "class": "builtins.RuntimeError",
+        "class": class,
         "kind": "exception",
-        "message": error.to_string(),
+        "message": message,
         "stage": "dispatch",
         "code": null,
         "cause": null,

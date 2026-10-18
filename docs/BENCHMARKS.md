@@ -1,8 +1,8 @@
 # Benchmark mapping
 
-The active `parity-input@68` manifest declares 2,704 unique cases across 457
+The active `parity-input@68` manifest declares 2,713 unique cases across 457
 parity inputs, 1,479 requirements, and two benchmark inputs. Its SHA-256 is
-`c627feeef5d21757821aad03db1436c9e2fce1e978e764c69daebc692de914a9`. The
+`ce7494a2cd99e2fbea7c98da3d60667460df3cc9674bcbadba54746c6b6aff2a`. The
 complete parity matrix and coverage phase have not run for this manifest. The
 recorded benchmark below predates @68 and the current source revision; rerun all
 74 workloads only after current parity and coverage pass. This evidence does

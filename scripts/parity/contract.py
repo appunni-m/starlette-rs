@@ -14065,11 +14065,23 @@ def _reverse_input_requirements(case: dict[str, Any]) -> set[str]:
                     else:
                         derived.add(rid("custom-converter-override"))
                 value = params[_name]
-                if (
-                    (converter == "str" and (not str(value) or "/" in str(value)))
-                    or (converter == "int" and int(value) < 0)
-                    or (converter == "float" and float(value) < 0)
-                ):
+                converter_rejects_value = converter == "str" and (
+                    not str(value) or "/" in str(value)
+                )
+                if converter == "int":
+                    try:
+                        converter_rejects_value = int(value) < 0
+                    except (OverflowError, TypeError, ValueError):
+                        converter_rejects_value = True
+                elif converter == "float":
+                    try:
+                        converted_float = float(value)
+                        converter_rejects_value = converted_float < 0 or not math.isfinite(
+                            converted_float
+                        )
+                    except (OverflowError, TypeError, ValueError):
+                        converter_rejects_value = True
+                if converter_rejects_value:
                     derived.add(rid("converter-error"))
         else:
             derived.add(rid("parameter-mismatch"))

@@ -1,6 +1,6 @@
 //! Rust-owned multipart/form-data parsing for the Python request boundary.
 
-use std::collections::VecDeque;
+use std::collections::{BTreeMap, VecDeque};
 use std::convert::Infallible;
 use std::pin::Pin;
 use std::task::{Context, Poll};
@@ -117,6 +117,7 @@ pub enum MultipartFormParseError {
 pub struct MultipartFormParser {
     sender: mpsc::UnboundedSender<Result<Bytes, Infallible>>,
     multipart: Multipart<'static>,
+    boundary_filter: MultipartBoundaryFilter,
     raw_header_capture: MultipartHeaderCapture,
     active_field: Option<Field<'static>>,
     active_part: Option<MultipartPartBuilder>,
@@ -400,6 +401,254 @@ impl MultipartHeaderCapture {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum MultipartBoundaryFilterState {
+    Preamble,
+    OpeningSuffix,
+    Headers,
+    Body,
+    PartSuffix,
+    Done,
+}
+
+enum BoundarySuffix {
+    Pending,
+    Invalid,
+    Valid { consumed: usize, closing: bool },
+}
+
+/// Shields Multer from boundary prefixes whose suffix is not a delimiter.
+///
+/// Multer scans for `\r\n--boundary` before validating its suffix. A false
+/// prefix is part data for Starlette's parser, so replace its leading CR while
+/// parsing, then restore that byte at the public part-data boundary.
+struct MultipartBoundaryFilter {
+    opening_marker: Vec<u8>,
+    part_marker: Vec<u8>,
+    state: MultipartBoundaryFilterState,
+    buffer: Vec<u8>,
+    candidate: Vec<u8>,
+    parts_started: usize,
+    current_part_index: usize,
+    part_data_offset: usize,
+    restore_offsets: BTreeMap<usize, VecDeque<usize>>,
+}
+
+impl MultipartBoundaryFilter {
+    fn new(boundary: &str) -> Self {
+        let mut opening_marker = b"--".to_vec();
+        opening_marker.extend_from_slice(boundary.as_bytes());
+        let mut part_marker = b"\r\n--".to_vec();
+        part_marker.extend_from_slice(boundary.as_bytes());
+        Self {
+            opening_marker,
+            part_marker,
+            state: MultipartBoundaryFilterState::Preamble,
+            buffer: Vec::new(),
+            candidate: Vec::new(),
+            parts_started: 0,
+            current_part_index: 0,
+            part_data_offset: 0,
+            restore_offsets: BTreeMap::new(),
+        }
+    }
+
+    fn push(&mut self, input: &[u8]) -> Vec<u8> {
+        self.buffer.extend_from_slice(input);
+        self.process()
+    }
+
+    fn finish(&mut self) -> Vec<u8> {
+        let mut output = self.process();
+        output.append(&mut self.candidate);
+        output.append(&mut self.buffer);
+        self.state = MultipartBoundaryFilterState::Done;
+        output
+    }
+
+    fn take_restore_offsets(
+        &mut self,
+        part_index: usize,
+        chunk_start: usize,
+        chunk_end: usize,
+    ) -> Vec<usize> {
+        let Some(offsets) = self.restore_offsets.get_mut(&part_index) else {
+            return Vec::new();
+        };
+        while offsets.front().is_some_and(|offset| *offset < chunk_start) {
+            offsets.pop_front();
+        }
+        let mut selected = Vec::new();
+        while offsets.front().is_some_and(|offset| *offset < chunk_end) {
+            if let Some(offset) = offsets.pop_front() {
+                selected.push(offset);
+            }
+        }
+        if offsets.is_empty() {
+            self.restore_offsets.remove(&part_index);
+        }
+        selected
+    }
+
+    fn process(&mut self) -> Vec<u8> {
+        let mut output = Vec::new();
+        loop {
+            match self.state {
+                MultipartBoundaryFilterState::Preamble => {
+                    if let Some(position) = find_subslice(&self.buffer, &self.opening_marker) {
+                        output.extend(self.buffer.drain(..position));
+                        self.candidate
+                            .extend(self.buffer.drain(..self.opening_marker.len()));
+                        self.state = MultipartBoundaryFilterState::OpeningSuffix;
+                    } else {
+                        let retained =
+                            trailing_marker_prefix_len(&self.buffer, &self.opening_marker);
+                        let safe = self.buffer.len().saturating_sub(retained);
+                        output.extend(self.buffer.drain(..safe));
+                        return output;
+                    }
+                }
+                MultipartBoundaryFilterState::OpeningSuffix => {
+                    match boundary_suffix(&self.buffer) {
+                        BoundarySuffix::Pending => return output,
+                        BoundarySuffix::Valid { consumed, closing } => {
+                            output.append(&mut self.candidate);
+                            output.extend(self.buffer.drain(..consumed));
+                            self.state = if closing {
+                                MultipartBoundaryFilterState::Done
+                            } else {
+                                MultipartBoundaryFilterState::Headers
+                            };
+                        }
+                        BoundarySuffix::Invalid => {
+                            if self.candidate.is_empty() {
+                                self.state = MultipartBoundaryFilterState::Preamble;
+                                continue;
+                            }
+                            output.push(0);
+                            let mut replay = self.candidate.drain(1..).collect::<Vec<_>>();
+                            replay.append(&mut self.buffer);
+                            self.buffer = replay;
+                            self.candidate.clear();
+                            self.state = MultipartBoundaryFilterState::Preamble;
+                        }
+                    }
+                }
+                MultipartBoundaryFilterState::Headers => {
+                    if let Some(position) = find_subslice(&self.buffer, b"\r\n\r\n") {
+                        let consumed = position + b"\r\n\r\n".len();
+                        output.extend(self.buffer.drain(..consumed));
+                        self.current_part_index = self.parts_started;
+                        self.parts_started = self.parts_started.saturating_add(1);
+                        self.part_data_offset = 0;
+                        self.state = MultipartBoundaryFilterState::Body;
+                    } else {
+                        let retained = trailing_marker_prefix_len(&self.buffer, b"\r\n\r\n");
+                        let safe = self.buffer.len().saturating_sub(retained);
+                        output.extend(self.buffer.drain(..safe));
+                        return output;
+                    }
+                }
+                MultipartBoundaryFilterState::Body => {
+                    if let Some(position) = find_subslice(&self.buffer, &self.part_marker) {
+                        output.extend(self.buffer.drain(..position));
+                        self.part_data_offset = self.part_data_offset.saturating_add(position);
+                        self.candidate
+                            .extend(self.buffer.drain(..self.part_marker.len()));
+                        self.state = MultipartBoundaryFilterState::PartSuffix;
+                    } else {
+                        let retained = trailing_marker_prefix_len(&self.buffer, &self.part_marker);
+                        let safe = self.buffer.len().saturating_sub(retained);
+                        output.extend(self.buffer.drain(..safe));
+                        self.part_data_offset = self.part_data_offset.saturating_add(safe);
+                        return output;
+                    }
+                }
+                MultipartBoundaryFilterState::PartSuffix => match boundary_suffix(&self.buffer) {
+                    BoundarySuffix::Pending => return output,
+                    BoundarySuffix::Valid { consumed, closing } => {
+                        output.append(&mut self.candidate);
+                        output.extend(self.buffer.drain(..consumed));
+                        self.state = if closing {
+                            MultipartBoundaryFilterState::Done
+                        } else {
+                            MultipartBoundaryFilterState::Headers
+                        };
+                    }
+                    BoundarySuffix::Invalid => {
+                        if self.candidate.is_empty() {
+                            self.state = MultipartBoundaryFilterState::Body;
+                            continue;
+                        }
+                        self.restore_offsets
+                            .entry(self.current_part_index)
+                            .or_default()
+                            .push_back(self.part_data_offset);
+                        self.part_data_offset = self.part_data_offset.saturating_add(1);
+                        output.push(0);
+                        let mut replay = self.candidate.drain(1..).collect::<Vec<_>>();
+                        replay.append(&mut self.buffer);
+                        self.buffer = replay;
+                        self.candidate.clear();
+                        self.state = MultipartBoundaryFilterState::Body;
+                    }
+                },
+                MultipartBoundaryFilterState::Done => {
+                    output.append(&mut self.buffer);
+                    return output;
+                }
+            }
+        }
+    }
+}
+
+fn boundary_suffix(input: &[u8]) -> BoundarySuffix {
+    let Some(first) = input.first().copied() else {
+        return BoundarySuffix::Pending;
+    };
+    match first {
+        b'-' if input.len() == 1 => BoundarySuffix::Pending,
+        b'-' if input.starts_with(b"--") => BoundarySuffix::Valid {
+            consumed: 2,
+            closing: true,
+        },
+        b'\r' if input.len() == 1 => BoundarySuffix::Pending,
+        b'\r' if input.starts_with(b"\r\n") => BoundarySuffix::Valid {
+            consumed: 2,
+            closing: false,
+        },
+        b' ' | b'\t' => {
+            let padding = input
+                .iter()
+                .take_while(|byte| matches!(byte, b' ' | b'\t'))
+                .count();
+            if padding == input.len() {
+                return BoundarySuffix::Pending;
+            }
+            let suffix = &input[padding..];
+            if suffix == b"\r" {
+                BoundarySuffix::Pending
+            } else if suffix.starts_with(b"\r\n") {
+                BoundarySuffix::Valid {
+                    consumed: padding + 2,
+                    closing: false,
+                }
+            } else {
+                BoundarySuffix::Invalid
+            }
+        }
+        _ => BoundarySuffix::Invalid,
+    }
+}
+
+fn trailing_marker_prefix_len(input: &[u8], marker: &[u8]) -> usize {
+    let maximum = input.len().min(marker.len().saturating_sub(1));
+    (1..=maximum)
+        .rev()
+        .find(|length| input[input.len() - length..] == marker[..*length])
+        .unwrap_or(0)
+}
+
 /// Finds a multipart delimiter across chunks while retaining only a possible
 /// delimiter prefix between calls.
 fn find_stream_marker(prefix: &mut Vec<u8>, input: &[u8], marker: &[u8]) -> Option<usize> {
@@ -480,6 +729,7 @@ struct MultipartPartBuilder {
     headers: Vec<(Vec<u8>, Vec<u8>)>,
     data: Vec<u8>,
     size: usize,
+    bytes_emitted: usize,
 }
 
 impl MultipartFormParseError {
@@ -606,6 +856,7 @@ impl MultipartFormParser {
         Ok(Self {
             sender,
             multipart: Multipart::new(receiver, boundary.clone()),
+            boundary_filter: MultipartBoundaryFilter::new(&boundary),
             raw_header_capture: MultipartHeaderCapture::new(&boundary),
             active_field: None,
             active_part: None,
@@ -628,7 +879,16 @@ impl MultipartFormParser {
         if self.complete || chunk.is_empty() {
             return Ok(());
         }
-        let capture_error = self.raw_header_capture.push(&chunk).err();
+        let filtered = self.boundary_filter.push(&chunk);
+        self.forward_filtered_chunk(&filtered)?;
+        self.process_available()
+    }
+
+    fn forward_filtered_chunk(&mut self, chunk: &[u8]) -> Result<(), MultipartFormParseError> {
+        if chunk.is_empty() {
+            return Ok(());
+        }
+        let capture_error = self.raw_header_capture.push(chunk).err();
         let forwarded_len = capture_error
             .as_ref()
             .map_or(chunk.len(), |(_, consumed)| *consumed);
@@ -638,7 +898,6 @@ impl MultipartFormParser {
                 .map_err(|_| MultipartFormParseError::Malformed {
                     message: "multipart parser input stream is closed".to_owned(),
                 })?;
-            self.process_available()?;
         }
         if let Some((error, _)) = capture_error {
             return Err(error);
@@ -654,6 +913,8 @@ impl MultipartFormParser {
 
     /// Finishes the request-body stream while retaining events for draining.
     pub fn finish_events(&mut self) -> Result<(), MultipartFormParseError> {
+        let filtered = self.boundary_filter.finish();
+        self.forward_filtered_chunk(&filtered)?;
         self.sender.close_channel();
         self.process_available()
     }
@@ -673,25 +934,58 @@ impl MultipartFormParser {
                 match Pin::new(field).poll_next(&mut context) {
                     Poll::Ready(Some(Ok(chunk))) if chunk.is_empty() => {}
                     Poll::Ready(Some(Ok(chunk))) => {
+                        let Some((part_index, chunk_start)) = self
+                            .active_part
+                            .as_ref()
+                            .map(|part| (part.part_index, part.bytes_emitted))
+                        else {
+                            return Err(MultipartFormParseError::Malformed {
+                                message: "multipart parser lost the active part".to_owned(),
+                            });
+                        };
+                        let chunk_end = chunk_start.saturating_add(chunk.len());
+                        let restore_offsets = self.boundary_filter.take_restore_offsets(
+                            part_index,
+                            chunk_start,
+                            chunk_end,
+                        );
+                        let restored_chunk = if restore_offsets.is_empty() {
+                            None
+                        } else {
+                            let mut data = chunk.to_vec();
+                            for offset in restore_offsets {
+                                if let Some(byte) = data.get_mut(offset.saturating_sub(chunk_start))
+                                {
+                                    *byte = b'\r';
+                                }
+                            }
+                            Some(data)
+                        };
+                        let chunk_data = restored_chunk.as_deref().unwrap_or(chunk.as_ref());
                         let Some(part) = self.active_part.as_mut() else {
                             return Err(MultipartFormParseError::Malformed {
                                 message: "multipart parser lost the active part".to_owned(),
                             });
                         };
+                        part.bytes_emitted = chunk_end;
                         if part.filename.is_none()
-                            && part_size_exceeded(part.data.len(), chunk.len(), self.max_part_size)
+                            && part_size_exceeded(
+                                part.data.len(),
+                                chunk_data.len(),
+                                self.max_part_size,
+                            )
                         {
                             return Err(MultipartFormParseError::PartTooLarge {
                                 max_part_size_kb: self.max_part_size / 1024,
                             });
                         }
                         if part.filename.is_none() {
-                            part.data.extend_from_slice(&chunk);
+                            part.data.extend_from_slice(chunk_data);
                         } else {
-                            part.size = part.size.saturating_add(chunk.len());
+                            part.size = part.size.saturating_add(chunk_data.len());
                             self.events.push_back(MultipartFormEvent::FileChunk {
                                 part_index: part.part_index,
-                                data: chunk.to_vec(),
+                                data: chunk_data.to_vec(),
                             });
                         }
                     }
@@ -830,6 +1124,7 @@ impl MultipartFormParser {
             headers,
             data: Vec::new(),
             size: 0,
+            bytes_emitted: 0,
         });
         if let Some(part) = self.active_part.as_ref() {
             if let Some(filename) = part.filename.as_ref() {
