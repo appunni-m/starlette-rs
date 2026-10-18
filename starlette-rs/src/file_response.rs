@@ -1572,7 +1572,7 @@ fn format_unix_http_date(timestamp_seconds: i128) -> Result<String, FileResponse
         checked_i128_div(checked_i128_add(checked_i128_mul(5, day_of_year)?, 2)?, 153)?;
     let prior_days =
         checked_i128_div(checked_i128_add(checked_i128_mul(153, month_prime)?, 2)?, 5)?;
-    let day = checked_i128_add(checked_i128_sub(day_of_era, prior_days)?, 1)?;
+    let day = checked_i128_add(checked_i128_sub(day_of_year, prior_days)?, 1)?;
     let month_adjustment = if month_prime < 10 { 3 } else { -9 };
     let month = checked_i128_add(month_prime, month_adjustment)?;
     if month <= 2 {
