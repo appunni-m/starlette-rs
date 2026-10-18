@@ -8449,7 +8449,6 @@ fn run_file_response_case(case: &Value) -> Result<Value, String> {
                 .and_then(Value::as_f64)
                 .filter(|value| value.is_finite())
                 .ok_or_else(|| String::from("FileResponse file.mtime_seconds must be finite"))?;
-            let mtime_text = python_float_text_for_input(mtime_number);
             let (temporary_directory, path) = create_file_response_input(file_name, &contents)?;
             let metadata = if let Some(stat_result) = case.get("stat_result") {
                 let stat_result = exact_object(
@@ -8470,16 +8469,11 @@ fn run_file_response_case(case: &Value) -> Result<Value, String> {
                     .ok_or_else(|| {
                         String::from("FileResponse stat_result.mtime_seconds must be finite")
                     })?;
-                FileMetadata::from_unix_seconds(
-                    size,
-                    modified_seconds,
-                    python_float_text_for_input(modified_seconds),
-                )
+                FileMetadata::from_unix_seconds(size, modified_seconds)
             } else {
                 FileMetadata::from_unix_seconds(
                     u64::try_from(contents.len()).map_err(|error| error.to_string())?,
                     mtime_number,
-                    mtime_text,
                 )
             }
             .map_err(|error| error.to_string())?;
@@ -8595,14 +8589,59 @@ fn run_file_response_case(case: &Value) -> Result<Value, String> {
             .and_then(|value| usize::try_from(value).ok())
             .ok_or_else(|| String::from("FileResponse max_ranges must fit an unsigned integer"))?;
     }
-    let mut response = NativeFileResponse::new(
+    let mut response = match NativeFileResponse::new(
         path.clone(),
         path.to_string_lossy().into_owned(),
         status_code,
         &header_pairs,
         options,
-    )
-    .map_err(|error| error.to_string())?;
+    ) {
+        Ok(response) => response,
+        Err(error) => {
+            let dispatch_error = file_response_dispatch_error(error)?;
+            let value = if request_sequence {
+                json!({
+                    "responses": [],
+                    "dispatch_error": dispatch_error,
+                })
+            } else {
+                let mut observation = json!({
+                    "response_status": null,
+                    "ordered_repeated_headers": [],
+                    "response_bytes": {
+                        "encoding": "base64",
+                        "data": "",
+                    },
+                    "asgi_event_order": [],
+                    "asgi_events": [],
+                    "dispatch_error": dispatch_error,
+                });
+                if background_task.is_some() {
+                    if let Some(observation) = observation.as_object_mut() {
+                        observation.insert(
+                            String::from("background_task"),
+                            json!({
+                                "initial_value": "",
+                                "value": "",
+                                "execution_trace": [],
+                            }),
+                        );
+                    }
+                }
+                observation
+            };
+            drop(temporary_directory);
+            return Ok(json!({
+                "case_id": case_id,
+                "status": "completed",
+                "observations": [{
+                    "step_id": RESPONSE_OPERATION,
+                    "status": "ok",
+                    "value": value,
+                }],
+            }));
+        }
+    };
     if let Some(actions) = case.get("cookie_actions") {
         apply_response_cookie_actions(&mut response, actions)?;
     }
@@ -8818,7 +8857,11 @@ fn file_response_dispatch_error(error: FileResponseError) -> Result<Value, Strin
         ),
         FileResponseError::TimestampYearOutOfRange(year) => (
             "builtins.ValueError",
-            format!("year {year} is out of range"),
+            if source_python_version_at_least_314() {
+                format!("year must be in 1..9999, not {year}")
+            } else {
+                format!("year {year} is out of range")
+            },
         ),
         other => return Err(other.to_string()),
     };
@@ -8831,6 +8874,16 @@ fn file_response_dispatch_error(error: FileResponseError) -> Result<Value, Strin
         "cause": null,
         "suppress_context": false,
     }))
+}
+
+fn source_python_version_at_least_314() -> bool {
+    env::var("STARLETTE_PARITY_SOURCE_PYTHON_VERSION")
+        .ok()
+        .and_then(|version| {
+            let (major, minor) = version.split_once('.')?;
+            Some((major.parse::<u8>().ok()?, minor.parse::<u8>().ok()?))
+        })
+        .is_some_and(|version| version >= (3, 14))
 }
 
 fn static_files_lookup_error_observation(error: &StaticFilesError) -> Value {
@@ -10506,14 +10559,6 @@ fn create_file_response_input(
     Err(String::from(
         "cannot allocate an isolated FileResponse input directory",
     ))
-}
-
-fn python_float_text_for_input(value: f64) -> String {
-    let mut text = value.to_string();
-    if !text.contains('.') && !text.contains('e') && !text.contains('E') {
-        text.push_str(".0");
-    }
-    text
 }
 
 fn run_websocket_state_case(case: &Value) -> Result<Value, String> {

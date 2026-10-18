@@ -146,9 +146,9 @@ impl PyStaticFiles {
                         "Directory '{display}' does not exist"
                     )));
                 }
-                return Err(static_files_error(error));
+                return Err(static_files_error(py, error));
             }
-            Err(error) => return Err(static_files_error(error)),
+            Err(error) => return Err(static_files_error(py, error)),
         };
         Ok(Self {
             inner,
@@ -253,7 +253,7 @@ impl PyStaticFiles {
                 inner.lookup_path_with_absolute_path_result(path.as_os_str(), is_absolute)
             })
         }
-        .map_err(static_files_error)?;
+        .map_err(|error| static_files_error(py, error))?;
         match lookup {
             Some(file) => Ok((
                 path_string(py, &file.path)?.unbind(),
@@ -342,10 +342,11 @@ impl PyStaticFiles {
                     Err(PyRuntimeError::new_err(message))
                 }
                 None => Err(static_files_error(
+                    py,
                     StaticFilesError::DirectoryConfiguration(message),
                 )),
             },
-            Err(error) => Err(static_files_error(error)),
+            Err(error) => Err(static_files_error(py, error)),
         }
     }
 
@@ -847,13 +848,8 @@ fn lookup_result_from_python(
     let size = stat_result.getattr("st_size")?.extract::<u64>()?;
     let modified_value = stat_result.getattr("st_mtime")?;
     let modified = modified_value.extract::<f64>()?;
-    let modified_text = py
-        .import("builtins")?
-        .getattr("str")?
-        .call1((modified_value,))?
-        .extract::<String>()?;
-    let metadata = FileMetadata::from_unix_seconds(size, modified, modified_text)
-        .map_err(|error| static_files_error(StaticFilesError::FileResponse(error)))?;
+    let metadata = FileMetadata::from_unix_seconds(size, modified)
+        .map_err(|error| static_files_error(py, StaticFilesError::FileResponse(error)))?;
     let file = StaticFile::from_path_and_metadata(path, metadata, mode);
     Ok((Some(file), Some(stat_result.unbind())))
 }
@@ -1097,7 +1093,7 @@ fn static_files_http_error(py: Python<'_>, error: StaticFilesError) -> PyErr {
         StaticFilesError::NotFound => http_exception(py, 404),
         StaticFilesError::PermissionDenied => http_exception(py, 401),
         StaticFilesError::InvalidPath => http_exception(py, 404),
-        error => static_files_error(error),
+        error => static_files_error(py, error),
     }
 }
 
@@ -1108,7 +1104,7 @@ fn http_exception(py: Python<'_>, status_code: u16) -> PyErr {
         .map_or_else(|error| error, PyErr::from_value)
 }
 
-fn static_files_error(error: StaticFilesError) -> PyErr {
+fn static_files_error(py: Python<'_>, error: StaticFilesError) -> PyErr {
     match error {
         StaticFilesError::DirectoryConfiguration(message) => PyRuntimeError::new_err(message),
         StaticFilesError::InvalidPath => PyValueError::new_err("embedded null byte"),
@@ -1120,7 +1116,9 @@ fn static_files_error(error: StaticFilesError) -> PyErr {
             Some(errno) => PyOSError::new_err((errno, error.to_string())),
             None => PyOSError::new_err(error.to_string()),
         },
-        StaticFilesError::FileResponse(error) => PyValueError::new_err(error.to_string()),
+        StaticFilesError::FileResponse(error) => {
+            crate::file_response_runtime::file_response_error(py, error)
+        }
         StaticFilesError::MethodNotAllowed | StaticFilesError::NotFound => {
             PyRuntimeError::new_err("static-file HTTP error was not mapped")
         }

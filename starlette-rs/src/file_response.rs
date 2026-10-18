@@ -145,24 +145,20 @@ impl FileStat {
 }
 
 impl FileMetadata {
-    /// Creates metadata from the same timestamp value used by Python's `str`.
+    /// Creates metadata from Unix seconds using Python-compatible float text.
     ///
     /// # Errors
     ///
     /// Returns [`FileResponseError::InvalidTimestamp`] if the timestamp is not
     /// finite or cannot be represented by [`SystemTime`].
-    pub fn from_unix_seconds(
-        size: u64,
-        modified_seconds: f64,
-        modified_text: impl Into<String>,
-    ) -> Result<Self, FileResponseError> {
+    pub fn from_unix_seconds(size: u64, modified_seconds: f64) -> Result<Self, FileResponseError> {
         let modified = system_time_from_seconds(modified_seconds)
             .ok_or(FileResponseError::InvalidTimestamp)?;
         Ok(Self {
             size,
             modified,
             modified_seconds_bits: modified_seconds.to_bits(),
-            modified_text: modified_text.into(),
+            modified_text: python_float_text(modified_seconds),
             stat_result: None,
         })
     }

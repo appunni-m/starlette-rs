@@ -9302,16 +9302,43 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
             if "max_ranges" in case
             else FileResponse
         )
-        response = response_class(
-            path,
-            status_code=case["status_code"],
-            headers=dict(header_pairs),
-            media_type=media_type,
-            background=background,
-            filename=filename,
-            stat_result=stat_result,
-            content_disposition_type=content_disposition_type,
-        )
+        try:
+            response = response_class(
+                path,
+                status_code=case["status_code"],
+                headers=dict(header_pairs),
+                media_type=media_type,
+                background=background,
+                filename=filename,
+                stat_result=stat_result,
+                content_disposition_type=content_disposition_type,
+            )
+        except Exception as exc:
+            dispatch_error = _dispatch_error(exc)
+            if request_sequence:
+                value = {"responses": [], "dispatch_error": dispatch_error}
+            else:
+                value = {
+                    "response_status": None,
+                    "ordered_repeated_headers": [],
+                    "response_bytes": {"encoding": "base64", "data": ""},
+                    "asgi_event_order": [],
+                    "asgi_events": [],
+                    "dispatch_error": dispatch_error,
+                }
+                if pathlike_spec is not None:
+                    value["pathlike_fspath_calls"] = pathlike_calls
+                if background_task_spec is not None:
+                    value["background_task"] = {
+                        "initial_value": "",
+                        "value": "",
+                        "execution_trace": [],
+                    }
+            return {
+                "case_id": case["case_id"],
+                "status": "completed",
+                "observations": [{"step_id": RESPONSE_OPERATION, "status": "ok", "value": value}],
+            }
         for field, value in field_assignments.items():
             setattr(response, field, value)
         if "chunk_size" in case:

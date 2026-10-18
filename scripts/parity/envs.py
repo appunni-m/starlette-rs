@@ -246,6 +246,9 @@ def base_environment() -> dict[str, str]:
     env["PYTHONNOUSERSITE"] = "1"
     env["PYTHONDONTWRITEBYTECODE"] = "1"
     env["PYTHONHASHSEED"] = "0"
+    env["STARLETTE_PARITY_SOURCE_PYTHON_VERSION"] = (
+        f"{sys.version_info.major}.{sys.version_info.minor}"
+    )
     env["PIP_NO_INPUT"] = "1"
     env["PIP_DISABLE_PIP_VERSION_CHECK"] = "1"
     return env

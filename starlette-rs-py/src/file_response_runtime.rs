@@ -173,7 +173,7 @@ impl PyFileResponse {
             &[],
             FileResponseOptions::default(),
         )
-        .map_err(file_response_error)?;
+        .map_err(|error| file_response_error(py, error))?;
         let object = py.get_type::<PyAny>();
         let raw_headers = PyList::empty(py).into_any().unbind();
         let headers_view = None;
@@ -224,7 +224,7 @@ impl PyFileResponse {
                 max_ranges,
             },
         )
-        .map_err(file_response_error)?;
+        .map_err(|error| file_response_error(py, error))?;
         let raw_headers = crate::response_headers_runtime::raw_pairs(py, inner.headers())?;
         let headers_view = crate::response_headers_runtime::view(py, raw_headers.bind(py))?;
         Ok(Self {
@@ -598,7 +598,7 @@ impl PyFileResponseCallDriver {
                     .map_err(|_| FileResponseWorkerError::LockPoisoned)?
                     .step()
             })
-            .map_err(file_response_worker_error)?;
+            .map_err(|error| file_response_worker_error(py, error))?;
 
         let (action, message) = match result.step {
             FileResponseCallStep::Send(event) => (
@@ -1004,12 +1004,12 @@ impl FileResponseMachine {
     }
 }
 
-fn file_response_worker_error(error: FileResponseWorkerError) -> PyErr {
+fn file_response_worker_error(py: Python<'_>, error: FileResponseWorkerError) -> PyErr {
     match error {
         FileResponseWorkerError::LockPoisoned => {
             PyRuntimeError::new_err("file response call state is poisoned")
         }
-        FileResponseWorkerError::Preparation(error) => file_response_error(error),
+        FileResponseWorkerError::Preparation(error) => file_response_error(py, error),
         FileResponseWorkerError::Io(error) => io_error(error),
     }
 }
@@ -1042,8 +1042,8 @@ fn stat_metadata(py: Python<'_>, value: Option<Py<PyAny>>) -> PyResult<Option<Fi
             let size = stat_result.getattr("st_size")?.extract::<u64>()?;
             let modified = stat_result.getattr("st_mtime")?;
             let seconds = modified.extract::<f64>()?;
-            let text = modified.str()?.to_str()?.to_owned();
-            FileMetadata::from_unix_seconds(size, seconds, text).map_err(file_response_error)
+            FileMetadata::from_unix_seconds(size, seconds)
+                .map_err(|error| file_response_error(py, error))
         })
         .transpose()
 }
@@ -1100,7 +1100,7 @@ fn event_name(name: &str, websocket: bool) -> String {
     }
 }
 
-fn file_response_error(error: FileResponseError) -> PyErr {
+pub(crate) fn file_response_error(py: Python<'_>, error: FileResponseError) -> PyErr {
     match error {
         FileResponseError::MissingFile(path) => {
             PyRuntimeError::new_err(format!("File at path {path} does not exist."))
@@ -1123,7 +1123,11 @@ fn file_response_error(error: FileResponseError) -> PyErr {
             PyValueError::new_err("invalid file modification timestamp")
         }
         FileResponseError::TimestampYearOutOfRange(year) => {
-            PyValueError::new_err(format!("year {year} is out of range"))
+            PyValueError::new_err(if py.version_info() >= (3, 14) {
+                format!("year must be in 1..9999, not {year}")
+            } else {
+                format!("year {year} is out of range")
+            })
         }
         FileResponseError::RandomSource => {
             PyRuntimeError::new_err("could not generate multipart range boundary")
